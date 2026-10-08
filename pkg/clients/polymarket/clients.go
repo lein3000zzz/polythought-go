@@ -1,6 +1,10 @@
 package polymarket
 
-import "context"
+import (
+	"context"
+
+	"github.com/shopspring/decimal"
+)
 
 // Page is one page of a cursor-paginated endpoint. NextCursor is empty on the last page.
 type Page[T any] struct {
@@ -24,8 +28,8 @@ type GammaClient interface {
 type ClobClient interface {
 	GetOrderBooks(ctx context.Context, tokenIDs ...string) ([]OrderBook, error)
 	GetPrices(ctx context.Context, reqs ...PriceRequest) (map[string]SidePrices, error)
-	GetMidpoints(ctx context.Context, tokenIDs ...string) (map[string]string, error)
-	GetSpreads(ctx context.Context, tokenIDs ...string) (map[string]string, error)
+	GetMidpoints(ctx context.Context, tokenIDs ...string) (map[string]decimal.Decimal, error)
+	GetSpreads(ctx context.Context, tokenIDs ...string) (map[string]decimal.Decimal, error)
 	GetLastTradePrices(ctx context.Context, tokenIDs ...string) ([]LastTrade, error)
 	GetMarketInfo(ctx context.Context, conditionID string) (MarketInfo, error)
 	ServerTime(ctx context.Context) (int64, error)

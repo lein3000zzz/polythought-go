@@ -22,7 +22,7 @@ import (
 	"golang.org/x/time/rate"
 )
 
-const tracerName = "polythought-go/pkg/clients/polymarket"
+const tracerName = "github.com/lein3000zzz/polythought-go/pkg/clients/polymarket"
 
 const (
 	maxResponseBytes = 32 << 20

@@ -15,7 +15,7 @@ import (
 	"github.com/lein3000zzz/the-watchers/pkg/observability/metrics/prommetrics"
 	"github.com/lein3000zzz/the-watchers/pkg/observability/tracing/oteltracing"
 
-	"polythought-go/pkg/clients/polymarket"
+	"github.com/lein3000zzz/polythought-go/pkg/clients/polymarket"
 )
 
 func main() {
@@ -206,7 +206,7 @@ func formatOutcomes(m polymarket.Market) string {
 	for i, outcome := range m.Outcomes {
 		price := "?"
 		if i < len(m.OutcomePrices) {
-			price = m.OutcomePrices[i]
+			price = m.OutcomePrices[i].String()
 		}
 
 		parts = append(parts, outcome+" "+price)

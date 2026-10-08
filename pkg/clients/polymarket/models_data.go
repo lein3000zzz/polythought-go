@@ -1,61 +1,61 @@
 package polymarket
 
-import "encoding/json"
+import "github.com/shopspring/decimal"
 
 // Data API v2 amounts are JSON numbers. Bare size fields are shares, _usdc fields are USD.
 
 type Position struct {
-	ProxyWallet     string      `json:"proxy_wallet"`
-	ConditionID     string      `json:"condition_id"`
-	TokenID         string      `json:"token_id"`
-	OppositeTokenID string      `json:"opposite_token_id"`
-	Outcome         string      `json:"outcome"`
-	OutcomeIndex    int         `json:"outcome_index"`
-	CurrentSize     json.Number `json:"current_size"`
-	AvgPrice        json.Number `json:"avg_price"`
-	EntryCostUSDC   json.Number `json:"entry_cost_usdc"`
-	EntryFeesUSDC   json.Number `json:"entry_fees_usdc"`
-	CurrentPrice    json.Number `json:"current_price"`
-	CurrentValue    json.Number `json:"current_value"`
-	RealizedPnl     json.Number `json:"realized_pnl"`
-	UnrealizedPnl   json.Number `json:"unrealized_pnl"`
-	TotalPnl        json.Number `json:"total_pnl"`
-	PercentPnl      json.Number `json:"percent_pnl"`
-	Status          string      `json:"status"`
-	Redeemable      bool        `json:"redeemable"`
-	Mergeable       bool        `json:"mergeable"`
-	NegativeRisk    bool        `json:"negative_risk"`
-	EventID         string      `json:"event_id"`
-	Slug            string      `json:"slug"`
-	Title           string      `json:"title"`
-	EndDate         string      `json:"end_date"`
-	FirstEntryAt    int64       `json:"first_entry_at"`
-	LastEventAt     int64       `json:"last_event_at"`
+	ProxyWallet     string          `json:"proxy_wallet"`
+	ConditionID     string          `json:"condition_id"`
+	TokenID         string          `json:"token_id"`
+	OppositeTokenID string          `json:"opposite_token_id"`
+	Outcome         string          `json:"outcome"`
+	OutcomeIndex    int             `json:"outcome_index"`
+	CurrentSize     decimal.Decimal `json:"current_size"`
+	AvgPrice        decimal.Decimal `json:"avg_price"`
+	EntryCostUSDC   decimal.Decimal `json:"entry_cost_usdc"`
+	EntryFeesUSDC   decimal.Decimal `json:"entry_fees_usdc"`
+	CurrentPrice    decimal.Decimal `json:"current_price"`
+	CurrentValue    decimal.Decimal `json:"current_value"`
+	RealizedPnl     decimal.Decimal `json:"realized_pnl"`
+	UnrealizedPnl   decimal.Decimal `json:"unrealized_pnl"`
+	TotalPnl        decimal.Decimal `json:"total_pnl"`
+	PercentPnl      decimal.Decimal `json:"percent_pnl"`
+	Status          string          `json:"status"`
+	Redeemable      bool            `json:"redeemable"`
+	Mergeable       bool            `json:"mergeable"`
+	NegativeRisk    bool            `json:"negative_risk"`
+	EventID         string          `json:"event_id"`
+	Slug            string          `json:"slug"`
+	Title           string          `json:"title"`
+	EndDate         string          `json:"end_date"`
+	FirstEntryAt    int64           `json:"first_entry_at"`
+	LastEventAt     int64           `json:"last_event_at"`
 }
 
 type Trade struct {
-	ProxyWallet     string      `json:"proxy_wallet"`
-	Side            Side        `json:"side"`
-	TokenID         string      `json:"token_id"`
-	ConditionID     string      `json:"condition_id"`
-	Size            json.Number `json:"size"`
-	Price           json.Number `json:"price"`
-	Timestamp       int64       `json:"timestamp"`
-	Title           string      `json:"title"`
-	Slug            string      `json:"slug"`
-	EventSlug       string      `json:"event_slug"`
-	Outcome         string      `json:"outcome"`
-	OutcomeIndex    int         `json:"outcome_index"`
-	Name            string      `json:"name"`
-	Pseudonym       string      `json:"pseudonym"`
-	TransactionHash string      `json:"transaction_hash"`
+	ProxyWallet     string          `json:"proxy_wallet"`
+	Side            Side            `json:"side"`
+	TokenID         string          `json:"token_id"`
+	ConditionID     string          `json:"condition_id"`
+	Size            decimal.Decimal `json:"size"`
+	Price           decimal.Decimal `json:"price"`
+	Timestamp       int64           `json:"timestamp"`
+	Title           string          `json:"title"`
+	Slug            string          `json:"slug"`
+	EventSlug       string          `json:"event_slug"`
+	Outcome         string          `json:"outcome"`
+	OutcomeIndex    int             `json:"outcome_index"`
+	Name            string          `json:"name"`
+	Pseudonym       string          `json:"pseudonym"`
+	TransactionHash string          `json:"transaction_hash"`
 }
 
 type Activity struct {
 	Trade
 
-	Type     string      `json:"type"`
-	USDCSize json.Number `json:"usdc_size"`
+	Type     string          `json:"type"`
+	USDCSize decimal.Decimal `json:"usdc_size"`
 }
 
 type TokenHolders struct {
@@ -64,23 +64,23 @@ type TokenHolders struct {
 }
 
 type Holder struct {
-	ProxyWallet  string      `json:"proxy_wallet"`
-	TokenID      string      `json:"token_id"`
-	Amount       json.Number `json:"amount"`
-	OutcomeIndex int         `json:"outcome_index"`
-	Name         string      `json:"name"`
-	Pseudonym    string      `json:"pseudonym"`
+	ProxyWallet  string          `json:"proxy_wallet"`
+	TokenID      string          `json:"token_id"`
+	Amount       decimal.Decimal `json:"amount"`
+	OutcomeIndex int             `json:"outcome_index"`
+	Name         string          `json:"name"`
+	Pseudonym    string          `json:"pseudonym"`
 }
 
 type OpenInterest struct {
-	ConditionID string      `json:"condition_id"`
-	Value       json.Number `json:"value"`
+	ConditionID string          `json:"condition_id"`
+	Value       decimal.Decimal `json:"value"`
 }
 
 type PricePoint struct {
-	Timestamp         int64       `json:"timestamp"`
-	Price             json.Number `json:"price"`
-	ResolutionSeconds int         `json:"resolution_seconds"`
+	Timestamp         int64           `json:"timestamp"`
+	Price             decimal.Decimal `json:"price"`
+	ResolutionSeconds int             `json:"resolution_seconds"`
 }
 
 // PositionsQuery maps to GET /v2/positions. User and/or Conditions is required.
@@ -126,7 +126,7 @@ type ActivityQuery struct {
 type HoldersQuery struct {
 	Conditions []string // required
 	Limit      int      // max 1000
-	MinBalance string
+	MinBalance decimal.Decimal
 }
 
 // PriceHistoryQuery maps to GET /v2/prices-history. Set Interval or Start+End, not both.

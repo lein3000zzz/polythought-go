@@ -4,6 +4,8 @@ import (
 	"net/url"
 	"strconv"
 	"strings"
+
+	"github.com/shopspring/decimal"
 )
 
 // Helpers that skip zero values, so unset query fields fall back to the API defaults.
@@ -23,6 +25,12 @@ func setInt(v url.Values, key string, value int) {
 func setInt64(v url.Values, key string, value int64) {
 	if value > 0 {
 		v.Set(key, strconv.FormatInt(value, 10))
+	}
+}
+
+func setDecimal(v url.Values, key string, value decimal.Decimal) {
+	if !value.IsZero() {
+		v.Set(key, value.String())
 	}
 }
 

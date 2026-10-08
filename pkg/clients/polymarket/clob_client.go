@@ -5,6 +5,7 @@ import (
 	"net/url"
 
 	"github.com/lein3000zzz/the-watchers/pkg/observability"
+	"github.com/shopspring/decimal"
 )
 
 var _ ClobClient = (*DefaultClobClient)(nil)
@@ -51,11 +52,11 @@ func (c *DefaultClobClient) GetPrices(ctx context.Context, reqs ...PriceRequest)
 	return prices, err
 }
 
-func (c *DefaultClobClient) GetMidpoints(ctx context.Context, tokenIDs ...string) (map[string]string, error) {
+func (c *DefaultClobClient) GetMidpoints(ctx context.Context, tokenIDs ...string) (map[string]decimal.Decimal, error) {
 	return c.postTokenMap(ctx, "get_midpoints", "/midpoints", tokenIDs)
 }
 
-func (c *DefaultClobClient) GetSpreads(ctx context.Context, tokenIDs ...string) (map[string]string, error) {
+func (c *DefaultClobClient) GetSpreads(ctx context.Context, tokenIDs ...string) (map[string]decimal.Decimal, error) {
 	return c.postTokenMap(ctx, "get_spreads", "/spreads", tokenIDs)
 }
 
@@ -85,12 +86,12 @@ func (c *DefaultClobClient) ServerTime(ctx context.Context) (int64, error) {
 	return ts, err
 }
 
-func (c *DefaultClobClient) postTokenMap(ctx context.Context, op, path string, tokenIDs []string) (map[string]string, error) {
+func (c *DefaultClobClient) postTokenMap(ctx context.Context, op, path string, tokenIDs []string) (map[string]decimal.Decimal, error) {
 	if len(tokenIDs) == 0 {
-		return map[string]string{}, nil
+		return map[string]decimal.Decimal{}, nil
 	}
 
-	var out map[string]string
+	var out map[string]decimal.Decimal
 	err := c.core.post(ctx, op, path, toTokenRequests(tokenIDs), &out)
 
 	return out, err

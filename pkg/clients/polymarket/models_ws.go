@@ -1,6 +1,10 @@
 package polymarket
 
-import "encoding/json"
+import (
+	"encoding/json"
+
+	"github.com/shopspring/decimal"
+)
 
 type MarketEventType string
 
@@ -19,14 +23,14 @@ type MarketEvent interface {
 }
 
 type BookEvent struct {
-	AssetID        string       `json:"asset_id"`
-	Market         string       `json:"market"`
-	Timestamp      string       `json:"timestamp"`
-	Hash           string       `json:"hash"`
-	Bids           []PriceLevel `json:"bids"`
-	Asks           []PriceLevel `json:"asks"`
-	TickSize       string       `json:"tick_size"`
-	LastTradePrice string       `json:"last_trade_price"`
+	AssetID        string          `json:"asset_id"`
+	Market         string          `json:"market"`
+	Timestamp      string          `json:"timestamp"`
+	Hash           string          `json:"hash"`
+	Bids           []PriceLevel    `json:"bids"`
+	Asks           []PriceLevel    `json:"asks"`
+	TickSize       decimal.Decimal `json:"tick_size"`
+	LastTradePrice OptDecimal      `json:"last_trade_price"`
 }
 
 type PriceChangeEvent struct {
@@ -35,43 +39,43 @@ type PriceChangeEvent struct {
 	Changes   []PriceChange `json:"price_changes"`
 }
 
-// PriceChange is one level update. Size "0" means the level was removed.
+// PriceChange is one level update. A zero Size means the level was removed.
 type PriceChange struct {
-	AssetID string `json:"asset_id"`
-	Price   string `json:"price"`
-	Size    string `json:"size"`
-	Side    Side   `json:"side"`
-	Hash    string `json:"hash"`
-	BestBid string `json:"best_bid"`
-	BestAsk string `json:"best_ask"`
+	AssetID string          `json:"asset_id"`
+	Price   decimal.Decimal `json:"price"`
+	Size    decimal.Decimal `json:"size"`
+	Side    Side            `json:"side"`
+	Hash    string          `json:"hash"`
+	BestBid decimal.Decimal `json:"best_bid"`
+	BestAsk decimal.Decimal `json:"best_ask"`
 }
 
 type LastTradePriceEvent struct {
-	AssetID         string      `json:"asset_id"`
-	Market          string      `json:"market"`
-	Price           string      `json:"price"`
-	Size            string      `json:"size"`
-	Side            Side        `json:"side"`
-	FeeRateBps      json.Number `json:"fee_rate_bps"`
-	Timestamp       string      `json:"timestamp"`
-	TransactionHash string      `json:"transaction_hash"`
+	AssetID         string          `json:"asset_id"`
+	Market          string          `json:"market"`
+	Price           decimal.Decimal `json:"price"`
+	Size            decimal.Decimal `json:"size"`
+	Side            Side            `json:"side"`
+	FeeRateBps      decimal.Decimal `json:"fee_rate_bps"`
+	Timestamp       string          `json:"timestamp"`
+	TransactionHash string          `json:"transaction_hash"`
 }
 
 type TickSizeChangeEvent struct {
-	AssetID     string `json:"asset_id"`
-	Market      string `json:"market"`
-	OldTickSize string `json:"old_tick_size"`
-	NewTickSize string `json:"new_tick_size"`
-	Timestamp   string `json:"timestamp"`
+	AssetID     string          `json:"asset_id"`
+	Market      string          `json:"market"`
+	OldTickSize decimal.Decimal `json:"old_tick_size"`
+	NewTickSize decimal.Decimal `json:"new_tick_size"`
+	Timestamp   string          `json:"timestamp"`
 }
 
 type BestBidAskEvent struct {
-	AssetID   string `json:"asset_id"`
-	Market    string `json:"market"`
-	BestBid   string `json:"best_bid"`
-	BestAsk   string `json:"best_ask"`
-	Spread    string `json:"spread"`
-	Timestamp string `json:"timestamp"`
+	AssetID   string          `json:"asset_id"`
+	Market    string          `json:"market"`
+	BestBid   decimal.Decimal `json:"best_bid"`
+	BestAsk   decimal.Decimal `json:"best_ask"`
+	Spread    decimal.Decimal `json:"spread"`
+	Timestamp string          `json:"timestamp"`
 }
 
 type MarketResolvedEvent struct {

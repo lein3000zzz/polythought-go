@@ -81,7 +81,7 @@ func (c *DefaultDataClient) Holders(ctx context.Context, q HoldersQuery) ([]Toke
 	params := url.Values{}
 	setCSV(params, "condition", q.Conditions)
 	setInt(params, "limit", q.Limit)
-	setString(params, "min_balance", q.MinBalance)
+	setDecimal(params, "min_balance", q.MinBalance)
 
 	var resp dataEnvelope[[]TokenHolders]
 	err := c.core.get(ctx, "holders", "/v2/holders", params, &resp)
