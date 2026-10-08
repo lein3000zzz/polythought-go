@@ -11,4 +11,8 @@ type (
 	TokenID string
 
 	WalletAddress string
+
+	WorkflowID  string
+	NodeID      string
+	ExecutionID string
 )

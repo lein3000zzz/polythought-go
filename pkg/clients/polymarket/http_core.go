@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -13,16 +12,13 @@ import (
 	"strings"
 	"time"
 
-	"github.com/lein3000zzz/the-watchers/pkg/observability"
 	"github.com/lein3000zzz/the-watchers/pkg/observability/logging"
-	"github.com/lein3000zzz/the-watchers/pkg/observability/metrics/redkit"
 	"github.com/lein3000zzz/the-watchers/pkg/observability/tracing"
 	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
+	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/trace"
 	"golang.org/x/time/rate"
 )
-
-const tracerName = "github.com/lein3000zzz/polythought-go/pkg/clients/polymarket"
 
 const (
 	maxResponseBytes = 32 << 20
@@ -31,30 +27,17 @@ const (
 	userAgent        = "polythought-go"
 )
 
-// httpCore is the transport shared by the REST clients: rate limiting, retries,
-// RED metrics, one span per operation and JSON decoding.
+// httpCore is the transport shared by the REST clients: rate limiting, retries and
+// JSON decoding. Metrics and spans belong to the client methods that call it.
 type httpCore struct {
 	baseURL    string
 	client     *http.Client
 	limiter    *rate.Limiter
 	maxRetries int
-	kit        *redkit.Kit
-	scope      tracing.Scope
 	log        logging.Logger
 }
 
-func newHTTPCore(util *observability.Utility, name string, cfg HTTPConfig) (*httpCore, error) {
-	kit, err := redkit.Register(redkit.Params{
-		Manager:   util.MetricsManager,
-		Logger:    util.Logger,
-		Subsystem: "polymarket_" + name,
-		Buckets:   redkit.MediumLongBuckets,
-		Component: "polymarket " + name,
-	})
-	if err != nil {
-		return nil, fmt.Errorf("polymarket: register %s metrics: %w", name, err)
-	}
-
+func newHTTPCore(log logging.Logger, cfg HTTPConfig) *httpCore {
 	return &httpCore{
 		baseURL: strings.TrimRight(cfg.BaseURL, "/"),
 		client: &http.Client{
@@ -63,69 +46,70 @@ func newHTTPCore(util *observability.Utility, name string, cfg HTTPConfig) (*htt
 		},
 		limiter:    rate.NewLimiter(rate.Limit(cfg.RPS), cfg.Burst),
 		maxRetries: cfg.MaxRetries,
-		kit:        kit,
-		scope:      tracing.Scope{Manager: util.TracerManager, TracerName: tracerName},
-		log:        util.Logger.With("component", "polymarket."+name),
-	}, nil
+		log:        log,
+	}
 }
 
-func (c *httpCore) get(ctx context.Context, op, path string, query url.Values, out any) error {
-	return c.do(ctx, op, http.MethodGet, path, query, nil, out)
+func (c *httpCore) get(ctx context.Context, path string, query url.Values, out any) error {
+	return c.do(ctx, http.MethodGet, path, query, nil, out)
 }
 
-func (c *httpCore) post(ctx context.Context, op, path string, body, out any) error {
-	return c.do(ctx, op, http.MethodPost, path, nil, body, out)
+func (c *httpCore) post(ctx context.Context, path string, body, out any) error {
+	return c.do(ctx, http.MethodPost, path, nil, body, out)
 }
 
 // do retries only on throttling and gateway errors. Every MVP endpoint is a read, so retries are safe.
-func (c *httpCore) do(ctx context.Context, op, method, path string, query url.Values, body, out any) (err error) {
-	done := c.kit.Start(ctx, op)
-	defer func() { done(err == nil || errors.Is(err, ErrNotFound)) }()
+// The attempt count and final status land on the caller's span.
+func (c *httpCore) do(ctx context.Context, method, path string, query url.Values, body, out any) error {
+	var payload []byte
+	if body != nil {
+		var err error
+		payload, err = json.Marshal(body)
+		if err != nil {
+			return fmt.Errorf("polymarket: encode %s: %w", path, err)
+		}
+	}
 
-	return c.scope.WithSpan(ctx, op, func(ctx context.Context, _ trace.Span) error {
-		var payload []byte
-		if body != nil {
-			var err error
-			payload, err = json.Marshal(body)
-			if err != nil {
-				return fmt.Errorf("polymarket: encode %s: %w", op, err)
-			}
+	target := c.baseURL + path
+	if len(query) > 0 {
+		target += "?" + query.Encode()
+	}
+
+	span := trace.SpanFromContext(ctx)
+
+	for attempt := 0; ; attempt++ {
+		if err := c.limiter.Wait(ctx); err != nil {
+			return err
 		}
 
-		target := c.baseURL + path
-		if len(query) > 0 {
-			target += "?" + query.Encode()
+		status, header, respBody, err := c.send(ctx, method, target, payload)
+		if err != nil {
+			return fmt.Errorf("polymarket: %s %s: %w", method, path, err)
 		}
 
-		for attempt := 0; ; attempt++ {
-			if err := c.limiter.Wait(ctx); err != nil {
+		if isRetryable(status) && attempt < c.maxRetries {
+			wait := retryDelay(header, attempt)
+			c.log.Warn(ctx, "Retrying polymarket request",
+				"path", path,
+				"status", status,
+				"attempt", attempt+1,
+				"wait", wait,
+			)
+
+			if err := sleep(ctx, wait); err != nil {
 				return err
 			}
 
-			status, header, respBody, err := c.send(ctx, method, target, payload)
-			if err != nil {
-				return fmt.Errorf("polymarket: %s: %w", op, err)
-			}
-
-			if isRetryable(status) && attempt < c.maxRetries {
-				wait := retryDelay(header, attempt)
-				c.log.Warn(ctx, "Retrying polymarket request",
-					"operation", op,
-					"status", status,
-					"attempt", attempt+1,
-					"wait", wait,
-				)
-
-				if err := sleep(ctx, wait); err != nil {
-					return err
-				}
-
-				continue
-			}
-
-			return decodeResponse(op, status, respBody, out)
+			continue
 		}
-	})
+
+		span.SetAttributes(
+			attribute.Int(attrAttempts, attempt+1),
+			attribute.Int(attrStatusCode, status),
+		)
+
+		return decodeResponse(path, status, respBody, out)
+	}
 }
 
 func (c *httpCore) send(ctx context.Context, method, target string, payload []byte) (int, http.Header, []byte, error) {
@@ -159,10 +143,10 @@ func (c *httpCore) send(ctx context.Context, method, target string, payload []by
 	return resp.StatusCode, resp.Header, respBody, nil
 }
 
-func decodeResponse(op string, status int, body []byte, out any) error {
+func decodeResponse(path string, status int, body []byte, out any) error {
 	switch {
 	case status == http.StatusNotFound:
-		return tracing.Expected(ErrNotFound, op)
+		return tracing.Expected(ErrNotFound, path)
 	case status < 200 || status > 299:
 		return &APIError{StatusCode: status, Body: truncate(body, maxErrorBodyLen)}
 	}
@@ -172,7 +156,7 @@ func decodeResponse(op string, status int, body []byte, out any) error {
 	}
 
 	if err := json.Unmarshal(body, out); err != nil {
-		return fmt.Errorf("polymarket: decode %s: %w", op, err)
+		return fmt.Errorf("polymarket: decode %s: %w", path, err)
 	}
 
 	return nil

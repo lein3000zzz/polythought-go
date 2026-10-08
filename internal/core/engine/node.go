@@ -1,0 +1,102 @@
+package engine
+
+import (
+	"context"
+
+	"github.com/lein3000zzz/polythought-go/internal/core/domain"
+)
+
+const (
+	DefaultPort = "main"
+
+	// ErrorPort receives items that failed. The engine routes it like any other port
+	// when the node continues on failure, and fails the execution otherwise.
+	ErrorPort = "error"
+)
+
+// ItemRef points at the input item an output item was derived from (n8n pairedItem).
+type ItemRef struct {
+	Port  string
+	Index int
+}
+
+// Item is one record flowing between nodes.
+type Item struct {
+	JSON   map[string]any
+	Source []ItemRef
+	Err    error // set only on items emitted on ErrorPort
+}
+
+// Ports maps a port name to its items. Branching nodes (if, switch) emit on several
+// output ports; merge-style nodes read several input ports.
+type Ports map[string][]Item
+
+func (p Ports) Add(port string, items ...Item) {
+	p[port] = append(p[port], items...)
+}
+
+// Fail emits the input item on ErrorPort, keeping its data so an error branch can use it.
+func (p Ports) Fail(in Item, src ItemRef, err error) {
+	p.Add(ErrorPort, Item{JSON: in.JSON, Source: []ItemRef{src}, Err: err})
+}
+
+type Params map[string]any
+
+// ParamResolver evaluates a node's parameter expressions against one input item.
+type ParamResolver interface {
+	Resolve(src ItemRef) (Params, error)
+}
+
+type RunContext struct {
+	ExecutionID domain.ExecutionID
+	WorkflowID  domain.WorkflowID
+	NodeID      domain.NodeID
+	Params      ParamResolver
+}
+
+type TriggerContext struct {
+	WorkflowID domain.WorkflowID
+	NodeID     domain.NodeID
+	Params     Params // resolved once, there is no input item
+}
+
+type ParamKind string
+
+const (
+	ParamString  ParamKind = "string"
+	ParamNumber  ParamKind = "number"
+	ParamDecimal ParamKind = "decimal"
+	ParamBool    ParamKind = "bool"
+	ParamList    ParamKind = "list"
+)
+
+type ParamSpec struct {
+	Name     string
+	Kind     ParamKind
+	Required bool
+	Default  any
+}
+
+// NodeType describes a kind of node for the registry, the editor and workflow validation.
+type NodeType struct {
+	Name    string // "polymarket.orderbook", "logic.if"
+	Inputs  []string
+	Outputs []string
+	Params  []ParamSpec
+}
+
+// Node is a step that transforms items. Per-item failures go to ErrorPort via Ports.Fail;
+// a returned error fails the whole node (bad config, cancelled context).
+type Node interface {
+	Type() NodeType
+	Run(ctx context.Context, rc RunContext, in Ports) (Ports, error)
+}
+
+// Emit starts one execution with the trigger's output.
+type Emit func(ctx context.Context, out Ports) error
+
+// Trigger starts executions: schedules, market streams, webhooks. Start blocks until ctx is done.
+type Trigger interface {
+	Type() NodeType
+	Start(ctx context.Context, tc TriggerContext, emit Emit) error
+}

@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"maps"
 	"math/rand/v2"
+	"net/http"
 	"slices"
 	"sync"
 	"sync/atomic"
@@ -16,6 +17,11 @@ import (
 	"github.com/lein3000zzz/the-watchers/pkg/observability"
 	"github.com/lein3000zzz/the-watchers/pkg/observability/logging"
 	"github.com/lein3000zzz/the-watchers/pkg/observability/metrics"
+	"github.com/lein3000zzz/the-watchers/pkg/observability/metrics/redkit"
+	"github.com/lein3000zzz/the-watchers/pkg/observability/tracing"
+	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/trace"
 )
 
 var _ MarketStreamClient = (*DefaultMarketStreamClient)(nil)
@@ -28,6 +34,12 @@ const (
 	streamSubsystem  = "polymarket_stream"
 )
 
+const (
+	opStreamConnect     = "stream_connect"
+	opStreamSubscribe   = "stream_subscribe"
+	opStreamUnsubscribe = "stream_unsubscribe"
+)
+
 // DefaultMarketStreamClient keeps one market channel connection alive and fans its
 // events into a buffered channel. When the buffer is full the newest event is dropped
 // and counted, so a slow consumer never stalls the socket.
@@ -36,7 +48,10 @@ type DefaultMarketStreamClient struct {
 	events     chan MarketEvent
 	dropped    metrics.Counter
 	reconnects metrics.Counter
+	kit        *redkit.Kit
+	scope      tracing.Scope
 	log        logging.Logger
+	dialer     *http.Client
 	started    atomic.Bool
 
 	// mu guards assets and conn, and serialises subscription writes so the
@@ -56,6 +71,18 @@ type subscribeMessage struct {
 
 func NewMarketStreamClient(util *observability.Utility, cfg StreamConfig) (*DefaultMarketStreamClient, error) {
 	cfg = cfg.withDefaults()
+	log := util.Logger.With("component", "polymarket.stream")
+
+	kit, err := redkit.Register(redkit.Params{
+		Manager:   util.MetricsManager,
+		Logger:    log,
+		Subsystem: streamSubsystem,
+		Buckets:   redkit.MediumBuckets,
+		Component: "polymarket stream",
+	})
+	if err != nil {
+		return nil, fmt.Errorf("polymarket: register stream metrics: %w", err)
+	}
 
 	dropped, err := util.MetricsManager.RegisterCounter(metrics.CounterDefinition{
 		Definition: metrics.Definition{
@@ -87,7 +114,10 @@ func NewMarketStreamClient(util *observability.Utility, cfg StreamConfig) (*Defa
 		events:     make(chan MarketEvent, cfg.BufferSize),
 		dropped:    dropped,
 		reconnects: reconnects,
-		log:        util.Logger.With("component", "polymarket.stream"),
+		kit:        kit,
+		scope:      tracing.Scope{Manager: util.TracerManager, TracerName: tracerName},
+		log:        log,
+		dialer:     &http.Client{Transport: otelhttp.NewTransport(http.DefaultTransport)},
 		assets:     make(map[string]struct{}),
 	}, nil
 }
@@ -108,7 +138,7 @@ func (c *DefaultMarketStreamClient) Run(ctx context.Context) error {
 	backoff := c.cfg.ReconnectMin
 
 	for {
-		received, err := c.session(ctx)
+		received := c.session(ctx)
 		if ctx.Err() != nil {
 			return nil
 		}
@@ -118,7 +148,7 @@ func (c *DefaultMarketStreamClient) Run(ctx context.Context) error {
 		}
 
 		wait := backoff/2 + rand.N(backoff/2+1)
-		c.log.Warn(ctx, "Market stream disconnected", "wait", wait, logging.Err(err))
+		c.log.Info(ctx, "Reconnecting market stream", "wait", wait)
 
 		if err := sleep(ctx, wait); err != nil {
 			return nil
@@ -131,54 +161,70 @@ func (c *DefaultMarketStreamClient) Run(ctx context.Context) error {
 
 // Subscribe adds assets. They are sent now if connected and on every reconnect.
 func (c *DefaultMarketStreamClient) Subscribe(ctx context.Context, assetIDs ...string) error {
-	return c.update(ctx, "subscribe", assetIDs, func(id string) { c.assets[id] = struct{}{} })
+	return c.update(ctx, opStreamSubscribe, "subscribe", assetIDs, func(id string) { c.assets[id] = struct{}{} })
 }
 
 func (c *DefaultMarketStreamClient) Unsubscribe(ctx context.Context, assetIDs ...string) error {
-	return c.update(ctx, "unsubscribe", assetIDs, func(id string) { delete(c.assets, id) })
+	return c.update(ctx, opStreamUnsubscribe, "unsubscribe", assetIDs, func(id string) { delete(c.assets, id) })
 }
 
-func (c *DefaultMarketStreamClient) update(ctx context.Context, op string, assetIDs []string, apply func(string)) error {
+func (c *DefaultMarketStreamClient) update(
+	ctx context.Context,
+	op, operation string,
+	assetIDs []string,
+	apply func(string),
+) (err error) {
 	if len(assetIDs) == 0 {
 		return nil
 	}
 
-	c.mu.Lock()
-	defer c.mu.Unlock()
+	done := c.kit.Start(ctx, op)
+	defer func() { done(err == nil) }()
 
-	for _, id := range assetIDs {
-		apply(id)
-	}
+	return c.scope.WithSpan(ctx, op, func(ctx context.Context, span trace.Span) error {
+		span.SetAttributes(tokenAttrs(assetIDs)...)
 
-	if c.conn == nil {
+		c.mu.Lock()
+		defer c.mu.Unlock()
+
+		for _, id := range assetIDs {
+			apply(id)
+		}
+
+		connected := c.conn != nil
+		span.SetAttributes(attribute.Int(attrAssets, len(c.assets)), attribute.Bool("polymarket.connected", connected))
+
+		if !connected {
+			c.log.Debug(ctx, "Stream assets updated while disconnected", "operation", operation, "assets", len(assetIDs))
+			return nil
+		}
+
+		if err := c.writeJSON(ctx, c.conn, subscribeMessage{
+			Operation:      operation,
+			AssetIDs:       assetIDs,
+			InitialDump:    operation == "subscribe",
+			CustomFeatures: c.cfg.CustomFeatures,
+		}); err != nil {
+			return failed(ctx, c.log, op, fmt.Errorf("polymarket: %s: %w", operation, err))
+		}
+
+		c.log.Debug(ctx, "Stream assets updated", "operation", operation, "assets", len(assetIDs))
+
 		return nil
-	}
-
-	return c.writeJSON(ctx, c.conn, subscribeMessage{
-		Operation:      op,
-		AssetIDs:       assetIDs,
-		InitialDump:    op == "subscribe",
-		CustomFeatures: c.cfg.CustomFeatures,
 	})
 }
 
-// session runs one connection until it fails. received reports whether any message arrived,
-// which resets the reconnect backoff.
-func (c *DefaultMarketStreamClient) session(ctx context.Context) (received bool, err error) {
+// session runs one connection until it fails, logging why. received reports whether any
+// message arrived, which resets the reconnect backoff.
+func (c *DefaultMarketStreamClient) session(ctx context.Context) (received bool) {
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 
-	conn, _, err := websocket.Dial(ctx, c.cfg.URL, nil)
+	conn, err := c.connect(ctx)
 	if err != nil {
-		return false, fmt.Errorf("dial: %w", err)
+		return false
 	}
 	defer conn.CloseNow()
-
-	conn.SetReadLimit(streamReadLimit)
-
-	if err := c.attach(ctx, conn); err != nil {
-		return false, err
-	}
 	defer c.detach()
 
 	go c.keepAlive(ctx, conn)
@@ -191,9 +237,12 @@ func (c *DefaultMarketStreamClient) session(ctx context.Context) (received bool,
 		if err != nil {
 			if ctx.Err() != nil {
 				_ = conn.Close(websocket.StatusNormalClosure, "")
+				return received
 			}
 
-			return received, fmt.Errorf("read: %w", err)
+			c.log.Warn(ctx, "Market stream disconnected", logging.Err(err))
+
+			return received
 		}
 
 		received = true
@@ -206,8 +255,35 @@ func (c *DefaultMarketStreamClient) session(ctx context.Context) (received bool,
 	}
 }
 
+// connect dials and subscribes. The session itself is not a span: it can live for hours.
+func (c *DefaultMarketStreamClient) connect(ctx context.Context) (_ *websocket.Conn, err error) {
+	done := c.kit.Start(ctx, opStreamConnect)
+	defer func() { done(err == nil) }()
+
+	return tracing.InScope(ctx, c.scope, opStreamConnect, func(ctx context.Context, span trace.Span) (*websocket.Conn, error) {
+		span.SetAttributes(attribute.String(attrURL, c.cfg.URL))
+
+		conn, _, err := websocket.Dial(ctx, c.cfg.URL, &websocket.DialOptions{HTTPClient: c.dialer})
+		if err != nil {
+			return nil, failed(ctx, c.log, opStreamConnect, fmt.Errorf("polymarket: dial: %w", err))
+		}
+
+		conn.SetReadLimit(streamReadLimit)
+
+		assets, err := c.attach(ctx, conn)
+		if err != nil {
+			_ = conn.CloseNow()
+			return nil, failed(ctx, c.log, opStreamConnect, err)
+		}
+
+		span.SetAttributes(attribute.Int(attrAssets, assets))
+
+		return conn, nil
+	})
+}
+
 // attach publishes the connection and sends the current asset set as one atomic step.
-func (c *DefaultMarketStreamClient) attach(ctx context.Context, conn *websocket.Conn) error {
+func (c *DefaultMarketStreamClient) attach(ctx context.Context, conn *websocket.Conn) (int, error) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
@@ -220,13 +296,13 @@ func (c *DefaultMarketStreamClient) attach(ctx context.Context, conn *websocket.
 		CustomFeatures: c.cfg.CustomFeatures,
 	})
 	if err != nil {
-		return fmt.Errorf("subscribe: %w", err)
+		return 0, fmt.Errorf("polymarket: subscribe: %w", err)
 	}
 
 	c.conn = conn
-	c.log.Info(ctx, "Market stream connected", "assets", len(c.assets))
+	c.log.Info(ctx, "Market stream connected", "assets", len(assetIDs))
 
-	return nil
+	return len(assetIDs), nil
 }
 
 func (c *DefaultMarketStreamClient) detach() {
