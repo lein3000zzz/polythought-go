@@ -1,0 +1,52 @@
+{
+ "data": [
+  {
+   "bio": "",
+   "condition_id": "0xa467b14d51f01b957109d9cbb1d6c124fab2a089d52ed8f471d23c2812e743b7",
+   "event_slug": "xi-jinping-out-before-2027",
+   "icon": "https://polymarket-upload.s3.us-east-2.amazonaws.com/xi-jinping-out-in-2025-EjF4SM20eaa3.jpg",
+   "name": "",
+   "outcome": "Yes",
+   "outcome_index": 0,
+   "price": 0.027,
+   "profile_image": "",
+   "profile_image_optimized": "",
+   "proxy_wallet": "0x07dd93729632bef8b3a522f8079efd483990ae34",
+   "pseudonym": "",
+   "side": "BUY",
+   "size": 14.51,
+   "slug": "xi-jinping-out-before-2027",
+   "timestamp": 1791466221,
+   "title": "Xi Jinping out before 2027?",
+   "token_id": "32338220190071351435772801779725302244575775216413325951443816017994629993401",
+   "transaction_hash": "0x58741513b1a74935635aec330ee536da08b54cc7a947c7a0b5b64938b6c326a2"
+  },
+  {
+   "bio": "",
+   "condition_id": "0xa467b14d51f01b957109d9cbb1d6c124fab2a089d52ed8f471d23c2812e743b7",
+   "event_slug": "xi-jinping-out-before-2027",
+   "icon": "https://polymarket-upload.s3.us-east-2.amazonaws.com/xi-jinping-out-in-2025-EjF4SM20eaa3.jpg",
+   "name": "0xc8C97fFDB0f3a1620E67e2C48A6239c97666a94a-1783373255059",
+   "outcome": "No",
+   "outcome_index": 1,
+   "price": 0.974,
+   "profile_image": "",
+   "profile_image_optimized": "",
+   "proxy_wallet": "0xc8c97ffdb0f3a1620e67e2c48a6239c97666a94a",
+   "pseudonym": "Light-Constraint-Pita",
+   "side": "BUY",
+   "size": 300.0,
+   "slug": "xi-jinping-out-before-2027",
+   "timestamp": 1791463587,
+   "title": "Xi Jinping out before 2027?",
+   "token_id": "25659310674993675562345759665114759892400026242514633218387667107987341231962",
+   "transaction_hash": "0xcd5559dcce2cc1420bf1f81e20e36f2ef565eb9777cbc14d75cff18a36ad2251"
+  }
+ ],
+ "pagination": {
+  "has_more": true,
+  "limit": 2,
+  "next_cursor": "eyJkYXRhIjp7InR5cGUiOiJ0cmFkZXMiLCJwYXJhbXMiOnsibCI6MiwidHMiOjE3OTE0NjM1ODcsInNxIjoiOTUxNzIyNTQwMDA0NDA1MDYwIiwiZCI6Mn19LCJzaWciOiIzNGVhNmMwODM4MTU1N2FmNmY5ZDBlYWFjNTIxYjQ0ZSJ9",
+  "offset": 0
+ }
+}

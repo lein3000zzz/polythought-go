@@ -171,7 +171,7 @@ func printActivity(ctx context.Context, data polymarket.DataClient, conditionID 
 // printBook prints the best levels first. The API sorts each side worst to best.
 func printBook(book polymarket.OrderBook, depth int) {
 	w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', tabwriter.AlignRight)
-	defer w.Flush()
+	defer func() { _ = w.Flush() }()
 
 	_, _ = fmt.Fprintln(w, "BID SIZE\tBID\tASK\tASK SIZE\t")
 
@@ -191,7 +191,7 @@ func printBook(book polymarket.OrderBook, depth int) {
 
 func printMarkets(markets []polymarket.Market) {
 	w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
-	defer w.Flush()
+	defer func() { _ = w.Flush() }()
 
 	_, _ = fmt.Fprintln(w, "QUESTION\tOUTCOMES\tBID\tASK\tVOL 24H")
 

@@ -133,7 +133,7 @@ func (c *httpCore) send(ctx context.Context, method, target string, payload []by
 	if err != nil {
 		return 0, nil, nil, err
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	respBody, err := io.ReadAll(io.LimitReader(resp.Body, maxResponseBytes))
 	if err != nil {

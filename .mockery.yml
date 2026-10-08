@@ -1,0 +1,18 @@
+# Regenerate with `make mocks`.
+all: false
+formatter: goimports
+force-file-write: true
+log-level: warn
+template: testify
+structname: '{{.Mock}}{{.InterfaceName}}'
+filename: 'mock_{{.InterfaceName | snakecase}}.go'
+packages:
+  github.com/lein3000zzz/the-watchers/pkg/observability/metrics:
+    config:
+      dir: internal/mocks/metrics
+      pkgname: metricsmocks
+    interfaces:
+      Manager: {}
+      Counter: {}
+      Gauge: {}
+      Histogram: {}

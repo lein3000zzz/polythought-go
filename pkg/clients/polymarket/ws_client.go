@@ -224,7 +224,7 @@ func (c *DefaultMarketStreamClient) session(ctx context.Context) (received bool)
 	if err != nil {
 		return false
 	}
-	defer conn.CloseNow()
+	defer func() { _ = conn.CloseNow() }()
 	defer c.detach()
 
 	go c.keepAlive(ctx, conn)
