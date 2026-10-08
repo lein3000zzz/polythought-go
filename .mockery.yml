@@ -38,3 +38,16 @@ packages:
     interfaces:
       MarketReader: {}
       OrderBookReader: {}
+      UserRepository: {}
+      SessionRepository: {}
+      APITokenRepository: {}
+      InviteRepository: {}
+      Transactor: {}
+      RateLimiter: {}
+      PasswordHasher: {}
+  github.com/lein3000zzz/polythought-go/internal/adapters/httpapi:
+    config:
+      dir: internal/mocks/httpapi
+      pkgname: httpapimocks
+    interfaces:
+      AuthService: {}

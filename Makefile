@@ -20,8 +20,12 @@ build: ## Compile every package
 	$(GO) build ./...
 
 .PHONY: run
-run: ## Run the demo against live Polymarket
-	$(GO) run ./cmd
+run: ## Run the API server (needs POLYTHOUGHT_* env, see internal/config)
+	$(GO) run ./cmd serve
+
+.PHONY: demo
+demo: ## Run the spread-watch demo workflow against live Polymarket
+	$(GO) run ./cmd demo
 
 ## Static checks
 

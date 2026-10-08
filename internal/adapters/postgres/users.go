@@ -1,0 +1,208 @@
+package postgres
+
+import (
+	"context"
+	"strings"
+	"time"
+
+	jet "github.com/go-jet/jet/v2/postgres"
+	"github.com/google/uuid"
+
+	"github.com/lein3000zzz/polythought-go/internal/adapters/postgres/gen/public/model"
+	"github.com/lein3000zzz/polythought-go/internal/adapters/postgres/gen/public/table"
+	"github.com/lein3000zzz/polythought-go/internal/core/domain"
+	"github.com/lein3000zzz/polythought-go/internal/core/ports"
+)
+
+var _ ports.UserRepository = (*Users)(nil)
+
+const (
+	defaultPageSize = 50
+	maxPageSize     = 200
+)
+
+type Users struct {
+	db *DB
+}
+
+func NewUsers(db *DB) *Users {
+	return &Users{db: db}
+}
+
+func normalizedEmail(email string) string {
+	return strings.ToLower(strings.TrimSpace(email))
+}
+
+func (r *Users) Create(ctx context.Context, u domain.User, passwordHash string) error {
+	id, err := uuid.Parse(string(u.ID))
+	if err != nil {
+		return err
+	}
+
+	m := model.Users{
+		ID:              id,
+		Email:           u.Email,
+		EmailNormalized: normalizedEmail(u.Email),
+		PasswordHash:    passwordHash,
+		Role:            string(u.Role),
+		EmailVerifiedAt: timePtr(u.EmailVerifiedAt),
+		DisabledAt:      timePtr(u.DisabledAt),
+		CreatedAt:       u.CreatedAt,
+		UpdatedAt:       u.UpdatedAt,
+	}
+
+	_, err = table.Users.INSERT(table.Users.AllColumns).MODEL(m).ExecContext(ctx, r.db.conn(ctx))
+	if isUniqueViolation(err, "users_email_normalized_key") {
+		return domain.ErrEmailTaken
+	}
+
+	return err
+}
+
+func (r *Users) ByID(ctx context.Context, id domain.UserID) (domain.User, error) {
+	uid, err := parseID(id)
+	if err != nil {
+		return domain.User{}, err
+	}
+
+	return r.one(ctx, table.Users.ID.EQ(jet.UUID(uid)))
+}
+
+func (r *Users) ByEmail(ctx context.Context, email string) (domain.User, string, error) {
+	var m model.Users
+
+	err := jet.SELECT(table.Users.AllColumns).
+		FROM(table.Users).
+		WHERE(table.Users.EmailNormalized.EQ(jet.String(normalizedEmail(email)))).
+		QueryContext(ctx, r.db.conn(ctx), &m)
+	if err != nil {
+		return domain.User{}, "", notFound(err)
+	}
+
+	return toUser(m), m.PasswordHash, nil
+}
+
+func (r *Users) PasswordHash(ctx context.Context, id domain.UserID) (string, error) {
+	uid, err := parseID(id)
+	if err != nil {
+		return "", err
+	}
+
+	var m model.Users
+
+	err = jet.SELECT(table.Users.PasswordHash).
+		FROM(table.Users).
+		WHERE(table.Users.ID.EQ(jet.UUID(uid))).
+		QueryContext(ctx, r.db.conn(ctx), &m)
+	if err != nil {
+		return "", notFound(err)
+	}
+
+	return m.PasswordHash, nil
+}
+
+func (r *Users) SetPasswordHash(ctx context.Context, id domain.UserID, hash string, at time.Time) error {
+	uid, err := parseID(id)
+	if err != nil {
+		return err
+	}
+
+	return affectedOne(table.Users.
+		UPDATE(table.Users.PasswordHash, table.Users.UpdatedAt).
+		SET(hash, at).
+		WHERE(table.Users.ID.EQ(jet.UUID(uid))).
+		ExecContext(ctx, r.db.conn(ctx)))
+}
+
+func (r *Users) Update(ctx context.Context, u domain.User) error {
+	uid, err := parseID(u.ID)
+	if err != nil {
+		return err
+	}
+
+	return affectedOne(table.Users.
+		UPDATE(table.Users.Role, table.Users.DisabledAt, table.Users.UpdatedAt).
+		SET(string(u.Role), timePtr(u.DisabledAt), u.UpdatedAt).
+		WHERE(table.Users.ID.EQ(jet.UUID(uid))).
+		ExecContext(ctx, r.db.conn(ctx)))
+}
+
+// List pages by ID; UUIDv7 IDs sort by creation time.
+func (r *Users) List(ctx context.Context, f ports.UserFilter) (ports.Page[domain.User], error) {
+	limit := f.Limit
+	if limit <= 0 {
+		limit = defaultPageSize
+	}
+
+	limit = min(limit, maxPageSize)
+
+	where := jet.Bool(true)
+
+	if f.Cursor != "" {
+		after, err := uuid.Parse(f.Cursor)
+		if err != nil {
+			return ports.Page[domain.User]{}, domain.ErrInvalidInput
+		}
+
+		where = table.Users.ID.GT(jet.UUID(after))
+	}
+
+	var rows []model.Users
+
+	err := jet.SELECT(table.Users.AllColumns).
+		FROM(table.Users).
+		WHERE(where).
+		ORDER_BY(table.Users.ID.ASC()).
+		LIMIT(int64(limit)).
+		QueryContext(ctx, r.db.conn(ctx), &rows)
+	if err != nil {
+		return ports.Page[domain.User]{}, err
+	}
+
+	page := ports.Page[domain.User]{Items: make([]domain.User, len(rows))}
+	for i, m := range rows {
+		page.Items[i] = toUser(m)
+	}
+
+	if len(rows) == limit {
+		page.NextCursor = rows[len(rows)-1].ID.String()
+	}
+
+	return page, nil
+}
+
+func (r *Users) CountActiveAdmins(ctx context.Context) (int, error) {
+	var out struct {
+		Count int64
+	}
+
+	err := jet.SELECT(jet.COUNT(jet.STAR).AS("count")).
+		FROM(table.Users).
+		WHERE(table.Users.Role.EQ(jet.String(string(domain.RoleAdmin))).AND(table.Users.DisabledAt.IS_NULL())).
+		QueryContext(ctx, r.db.conn(ctx), &out)
+
+	return int(out.Count), err
+}
+
+func (r *Users) one(ctx context.Context, where jet.BoolExpression) (domain.User, error) {
+	var m model.Users
+
+	err := jet.SELECT(table.Users.AllColumns).FROM(table.Users).WHERE(where).QueryContext(ctx, r.db.conn(ctx), &m)
+	if err != nil {
+		return domain.User{}, notFound(err)
+	}
+
+	return toUser(m), nil
+}
+
+func toUser(m model.Users) domain.User {
+	return domain.User{
+		ID:              domain.UserID(m.ID.String()),
+		Email:           m.Email,
+		Role:            domain.Role(m.Role),
+		EmailVerifiedAt: timeOf(m.EmailVerifiedAt),
+		DisabledAt:      timeOf(m.DisabledAt),
+		CreatedAt:       m.CreatedAt.UTC(),
+		UpdatedAt:       m.UpdatedAt.UTC(),
+	}
+}
