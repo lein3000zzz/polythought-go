@@ -3,7 +3,9 @@ GOLANGCI_LINT ?= $(GO) run github.com/golangci/golangci-lint/v2/cmd/golangci-lin
 MOCKERY       ?= $(GO) run github.com/vektra/mockery/v3@v3.8.0
 
 INTEGRATION_TAG := integration
+DB_TAG          := db
 COVER_PROFILE   := coverage.out
+COMPOSE         := docker compose -f deploy/docker-compose.yml
 
 .DEFAULT_GOAL := help
 
@@ -32,13 +34,14 @@ fmt-check: ## Fail if any file needs formatting
 	@out="$$(gofmt -l .)"; if [ -n "$$out" ]; then echo "needs gofmt:"; echo "$$out"; exit 1; fi
 
 .PHONY: vet
-vet: ## Vet unit and integration code
+vet: ## Vet unit, integration and database test code
 	$(GO) vet ./...
 	$(GO) vet -tags $(INTEGRATION_TAG) ./...
+	$(GO) vet -tags $(DB_TAG) ./...
 
 .PHONY: lint
-lint: ## Run golangci-lint (unit and integration code)
-	$(GOLANGCI_LINT) run --build-tags $(INTEGRATION_TAG) ./...
+lint: ## Run golangci-lint (unit, integration and database test code)
+	$(GOLANGCI_LINT) run --build-tags $(INTEGRATION_TAG),$(DB_TAG) ./...
 
 ## Tests
 
@@ -50,8 +53,12 @@ test: ## Unit tests with the race detector, no network
 test-integration: ## Live tests against the public Polymarket APIs (network)
 	$(GO) test -race -count=1 -tags $(INTEGRATION_TAG) -run Live ./...
 
+.PHONY: test-db
+test-db: ## Repository tests against a throwaway Postgres (Docker)
+	$(GO) test -race -count=1 -tags $(DB_TAG) ./internal/adapters/postgres/...
+
 .PHONY: test-all
-test-all: test test-integration ## Unit and live tests
+test-all: test test-db test-integration ## Unit, database and live tests
 
 .PHONY: test-flaky
 test-flaky: ## Repeat unit tests 20 times to catch timing flakes
@@ -61,6 +68,20 @@ test-flaky: ## Repeat unit tests 20 times to catch timing flakes
 cover: ## Unit test coverage summary (writes coverage.out)
 	$(GO) test -count=1 -coverprofile=$(COVER_PROFILE) ./...
 	$(GO) tool cover -func=$(COVER_PROFILE) | tail -1
+
+## Database
+
+.PHONY: db-up
+db-up: ## Start the local Postgres from deploy/docker-compose.yml
+	$(COMPOSE) up -d --wait
+
+.PHONY: db-down
+db-down: ## Stop the local Postgres (data is kept in a volume)
+	$(COMPOSE) down
+
+.PHONY: db-gen
+db-gen: ## Regenerate go-jet code from the migrations (Docker)
+	$(GO) run ./internal/tools/dbgen
 
 ## Generated code and fixtures
 
