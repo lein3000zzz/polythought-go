@@ -36,7 +36,7 @@ func serve(ctx context.Context) error {
 		Addr:           a.cfg.HTTPAddr,
 		PublicURL:      a.cfg.PublicURL,
 		TrustedProxies: a.cfg.TrustedProxies,
-	}, a.util, a.auth)
+	}, a.util, httpapi.Services{Auth: a.auth, Wallets: a.wallets})
 	if err != nil {
 		return err
 	}

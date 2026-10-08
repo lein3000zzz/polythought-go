@@ -5,15 +5,20 @@ package postgres_test
 import (
 	"context"
 	"errors"
+	"sync"
 	"testing"
 	"time"
 
+	"github.com/lein3000zzz/the-watchers/pkg/observability/logging"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/lein3000zzz/polythought-go/internal/adapters/crypto"
 	"github.com/lein3000zzz/polythought-go/internal/adapters/postgres"
+	"github.com/lein3000zzz/polythought-go/internal/adapters/ratelimit"
 	"github.com/lein3000zzz/polythought-go/internal/core/domain"
 	"github.com/lein3000zzz/polythought-go/internal/core/ports"
+	"github.com/lein3000zzz/polythought-go/internal/core/services/auth"
 )
 
 func TestUsers(t *testing.T) {
@@ -344,5 +349,64 @@ func TestWithinTx(t *testing.T) {
 			require.NoError(t, err)
 			assert.Len(t, page.Items, tt.wantUsers)
 		})
+	}
+}
+
+// TestLastAdminRace demotes the only two admins at the same moment, many times over.
+// Without the row lock both demotions can pass the "another admin remains" check and
+// leave no admin; with it exactly one wins each round.
+func TestLastAdminRace(t *testing.T) {
+	ctx := context.Background()
+
+	for round := range 25 {
+		db := fresh(t)
+
+		svc, err := auth.New(auth.DefaultConfig(), auth.Repositories{
+			Users:    postgres.NewUsers(db),
+			Sessions: postgres.NewSessions(db),
+			Tokens:   postgres.NewAPITokens(db),
+			Invites:  postgres.NewInvites(db),
+			Tx:       db,
+		}, crypto.NewArgon2id(crypto.Argon2Params{Memory: 64, Iterations: 1, Parallelism: 1, SaltLength: 16, KeyLength: 32}),
+			ratelimit.NewMemory(time.Second, 100), logging.Noop())
+		require.NoError(t, err)
+
+		a := seedUser(t, db, "a@x.io", domain.RoleAdmin)
+		b := seedUser(t, db, "b@x.io", domain.RoleAdmin)
+
+		demote := domain.RoleUser
+		errs := make(chan error, 2)
+
+		var start sync.WaitGroup
+		start.Add(1)
+
+		for _, pair := range [][2]domain.User{{a, b}, {b, a}} {
+			go func() {
+				start.Wait()
+				_, err := svc.UpdateUser(ctx, auth.Principal{User: pair[0], SessionID: "s"}, pair[1].ID, auth.UserUpdate{Role: &demote})
+				errs <- err
+			}()
+		}
+
+		start.Done()
+
+		var ok, lastAdmin int
+		for range 2 {
+			switch err := <-errs; {
+			case err == nil:
+				ok++
+			case errors.Is(err, domain.ErrLastAdmin):
+				lastAdmin++
+			default:
+				require.NoError(t, err, "round %d", round)
+			}
+		}
+
+		require.Equal(t, 1, ok, "round %d: exactly one demotion wins", round)
+		require.Equal(t, 1, lastAdmin, "round %d", round)
+
+		n, err := postgres.NewUsers(db).CountActiveAdmins(ctx)
+		require.NoError(t, err)
+		require.Equal(t, 1, n, "round %d: an admin always remains", round)
 	}
 }

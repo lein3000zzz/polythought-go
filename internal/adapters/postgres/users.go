@@ -184,6 +184,21 @@ func (r *Users) CountActiveAdmins(ctx context.Context) (int, error) {
 	return int(out.Count), err
 }
 
+// LockActiveAdmins uses SELECT ... FOR UPDATE: a concurrent transaction changing an admin
+// waits, then sees this one's result, so two demotions cannot both pass a "not the last
+// admin" check.
+func (r *Users) LockActiveAdmins(ctx context.Context) (int, error) {
+	var rows []model.Users
+
+	err := jet.SELECT(table.Users.ID).
+		FROM(table.Users).
+		WHERE(table.Users.Role.EQ(jet.String(string(domain.RoleAdmin))).AND(table.Users.DisabledAt.IS_NULL())).
+		FOR(jet.UPDATE()).
+		QueryContext(ctx, r.db.conn(ctx), &rows)
+
+	return len(rows), err
+}
+
 func (r *Users) one(ctx context.Context, where jet.BoolExpression) (domain.User, error) {
 	var m model.Users
 

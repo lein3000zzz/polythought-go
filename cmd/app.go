@@ -17,6 +17,7 @@ import (
 	"github.com/lein3000zzz/polythought-go/internal/adapters/ratelimit"
 	"github.com/lein3000zzz/polythought-go/internal/config"
 	"github.com/lein3000zzz/polythought-go/internal/core/services/auth"
+	"github.com/lein3000zzz/polythought-go/internal/core/services/wallets"
 )
 
 var logLevels = map[string]logging.Level{
@@ -63,10 +64,11 @@ func shutdown(util *observability.Utility) {
 
 // app is everything the server and the operator tools share.
 type app struct {
-	cfg  config.Config
-	util *observability.Utility
-	db   *postgres.DB
-	auth *auth.Service
+	cfg     config.Config
+	util    *observability.Utility
+	db      *postgres.DB
+	auth    *auth.Service
+	wallets *wallets.Service
 }
 
 func newApp(ctx context.Context) (*app, error) {
@@ -110,10 +112,12 @@ func (a *app) init(ctx context.Context) error {
 		}
 	}
 
-	// Parsed now so a bad key fails at start; secrets storage arrives with wallets.
-	if _, err := crypto.ParseStaticKeys(a.cfg.SecretKeys); err != nil {
+	keys, err := crypto.ParseStaticKeys(a.cfg.SecretKeys)
+	if err != nil {
 		return err
 	}
+
+	a.wallets = wallets.New(postgres.NewWallets(db), crypto.NewEnvelope(keys), a.util.Logger)
 
 	authCfg := auth.DefaultConfig()
 	authCfg.Registration = a.cfg.Registration

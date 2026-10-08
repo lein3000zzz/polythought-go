@@ -31,6 +31,9 @@ type UserRepository interface {
 	Update(ctx context.Context, u domain.User) error
 	List(ctx context.Context, f UserFilter) (Page[domain.User], error)
 	CountActiveAdmins(ctx context.Context) (int, error)
+	// LockActiveAdmins locks the active admins' rows until the surrounding transaction
+	// ends and returns how many there are. It must run inside Transactor.WithinTx.
+	LockActiveAdmins(ctx context.Context) (int, error)
 }
 
 // SessionRepository looks sessions up by the SHA-256 of their token.

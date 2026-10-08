@@ -125,6 +125,7 @@ func TestUpdateUser(t *testing.T) {
 		actor   auth.Principal
 		id      domain.UserID
 		upd     auth.UserUpdate
+		admins  int // active admins when the update starts
 		setup   func(d deps)
 		wantErr error
 		check   func(t *testing.T, u domain.User)
@@ -157,10 +158,9 @@ func TestUpdateUser(t *testing.T) {
 			check: func(t *testing.T, u domain.User) { assert.False(t, u.Disabled()) },
 		},
 		{
-			name: "demote an admin while another remains", actor: sessionPrincipal(admin), id: otherAdmin.ID, upd: auth.UserUpdate{Role: role(domain.RoleUser)},
+			name: "demote an admin while another remains", actor: sessionPrincipal(admin), id: otherAdmin.ID, upd: auth.UserUpdate{Role: role(domain.RoleUser)}, admins: 2,
 			setup: func(d deps) {
 				d.users.EXPECT().ByID(mock.Anything, otherAdmin.ID).Return(otherAdmin, nil)
-				d.users.EXPECT().CountActiveAdmins(mock.Anything).Return(2, nil)
 				d.users.EXPECT().Update(mock.Anything, mock.Anything).Return(nil)
 			},
 			check: func(t *testing.T, u domain.User) { assert.False(t, u.IsAdmin()) },
@@ -169,7 +169,6 @@ func TestUpdateUser(t *testing.T) {
 			name: "the last admin cannot be demoted", actor: sessionPrincipal(admin), id: admin.ID, upd: auth.UserUpdate{Role: role(domain.RoleUser)},
 			setup: func(d deps) {
 				d.users.EXPECT().ByID(mock.Anything, admin.ID).Return(admin, nil)
-				d.users.EXPECT().CountActiveAdmins(mock.Anything).Return(1, nil)
 			},
 			wantErr: domain.ErrLastAdmin,
 		},
@@ -177,7 +176,6 @@ func TestUpdateUser(t *testing.T) {
 			name: "the last admin cannot be disabled", actor: sessionPrincipal(admin), id: admin.ID, upd: auth.UserUpdate{Disabled: flag(true)},
 			setup: func(d deps) {
 				d.users.EXPECT().ByID(mock.Anything, admin.ID).Return(admin, nil)
-				d.users.EXPECT().CountActiveAdmins(mock.Anything).Return(1, nil)
 			},
 			wantErr: domain.ErrLastAdmin,
 		},
@@ -195,6 +193,8 @@ func TestUpdateUser(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			d := newDeps(t)
+			// The last-admin cases fail unless this count reaches the check, so Maybe is safe.
+			d.users.EXPECT().LockActiveAdmins(mock.Anything).Return(max(tt.admins, 1), nil).Maybe()
 			tt.setup(d)
 
 			got, err := newService(t, d, config(domain.RegistrationOpen)).UpdateUser(context.Background(), tt.actor, tt.id, tt.upd)

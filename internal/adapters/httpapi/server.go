@@ -20,6 +20,7 @@ import (
 	"github.com/lein3000zzz/polythought-go/internal/core/domain"
 	"github.com/lein3000zzz/polythought-go/internal/core/ports"
 	"github.com/lein3000zzz/polythought-go/internal/core/services/auth"
+	"github.com/lein3000zzz/polythought-go/internal/core/services/wallets"
 )
 
 const tracerName = "github.com/lein3000zzz/polythought-go/internal/adapters/httpapi"
@@ -45,6 +46,22 @@ type AuthService interface {
 	ListInvites(ctx context.Context, actor auth.Principal) ([]domain.Invite, error)
 }
 
+// WalletService is what the handlers need from the wallet service.
+type WalletService interface {
+	Link(ctx context.Context, p auth.Principal, address, label string) (domain.Wallet, error)
+	List(ctx context.Context, p auth.Principal) ([]domain.Wallet, error)
+	Unlink(ctx context.Context, p auth.Principal, id domain.WalletID) error
+	SetCredentials(ctx context.Context, p auth.Principal, id domain.WalletID, in wallets.CredentialsInput) (domain.CredentialsInfo, error)
+	CredentialsInfo(ctx context.Context, p auth.Principal, id domain.WalletID) (domain.CredentialsInfo, error)
+	RemoveCredentials(ctx context.Context, p auth.Principal, id domain.WalletID) error
+}
+
+// Services are the application services behind the API.
+type Services struct {
+	Auth    AuthService
+	Wallets WalletService
+}
+
 type Config struct {
 	Addr string
 
@@ -61,16 +78,17 @@ type Config struct {
 }
 
 type Server struct {
-	hertz  *server.Hertz
-	auth   AuthService
-	log    logging.Logger
-	kit    *redkit.Kit
-	scope  tracing.Scope
-	origin string
-	secure bool
+	hertz   *server.Hertz
+	auth    AuthService
+	wallets WalletService
+	log     logging.Logger
+	kit     *redkit.Kit
+	scope   tracing.Scope
+	origin  string
+	secure  bool
 }
 
-func New(cfg Config, util *observability.Utility, authService AuthService) (*Server, error) {
+func New(cfg Config, util *observability.Utility, services Services) (*Server, error) {
 	public, err := url.Parse(cfg.PublicURL)
 	if err != nil || public.Scheme == "" || public.Host == "" {
 		return nil, fmt.Errorf("httpapi: public url %q must be absolute", cfg.PublicURL)
@@ -111,13 +129,14 @@ func New(cfg Config, util *observability.Utility, authService AuthService) (*Ser
 	}))
 
 	s := &Server{
-		hertz:  h,
-		auth:   authService,
-		log:    log,
-		kit:    kit,
-		scope:  tracing.Scope{Manager: util.TracerManager, TracerName: tracerName},
-		origin: public.Scheme + "://" + public.Host,
-		secure: public.Scheme == "https",
+		hertz:   h,
+		auth:    services.Auth,
+		wallets: services.Wallets,
+		log:     log,
+		kit:     kit,
+		scope:   tracing.Scope{Manager: util.TracerManager, TracerName: tracerName},
+		origin:  public.Scheme + "://" + public.Host,
+		secure:  public.Scheme == "https",
 	}
 
 	s.routes()
@@ -157,6 +176,14 @@ func (s *Server) routes() {
 	v1.GET("/tokens", s.requireAuth, s.listTokens)
 	v1.POST("/tokens", s.requireAuth, s.createToken)
 	v1.DELETE("/tokens/:id", s.requireAuth, s.revokeToken)
+
+	w := v1.Group("/wallets", s.requireAuth)
+	w.GET("", s.listWallets)
+	w.POST("", s.linkWallet)
+	w.DELETE("/:id", s.unlinkWallet)
+	w.GET("/:id/credentials", s.credentialsInfo)
+	w.PUT("/:id/credentials", s.setCredentials)
+	w.DELETE("/:id/credentials", s.removeCredentials)
 
 	admin := v1.Group("/admin", s.requireAuth)
 	admin.GET("/users", s.listUsers)

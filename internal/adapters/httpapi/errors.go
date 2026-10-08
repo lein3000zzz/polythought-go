@@ -32,6 +32,7 @@ var errorMapping = []struct {
 }{
 	{domain.ErrInvalidInput, http.StatusBadRequest, "invalid_input"},
 	{domain.ErrInvalidEmail, http.StatusBadRequest, "invalid_email"},
+	{domain.ErrInvalidAddress, http.StatusBadRequest, "invalid_address"},
 	{domain.ErrWeakPassword, http.StatusBadRequest, "weak_password"},
 	{domain.ErrInvalidInvite, http.StatusBadRequest, "invalid_invite"},
 	{domain.ErrInvalidCredentials, http.StatusUnauthorized, "invalid_credentials"},
@@ -41,6 +42,7 @@ var errorMapping = []struct {
 	{domain.ErrForbidden, http.StatusForbidden, "forbidden"},
 	{domain.ErrNotFound, http.StatusNotFound, "not_found"},
 	{domain.ErrEmailTaken, http.StatusConflict, "email_taken"},
+	{domain.ErrWalletExists, http.StatusConflict, "wallet_exists"},
 	{domain.ErrLastAdmin, http.StatusConflict, "last_admin"},
 	{domain.ErrRateLimited, http.StatusTooManyRequests, "rate_limited"},
 }

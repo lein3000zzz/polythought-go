@@ -60,7 +60,7 @@ func (r request) do(t *testing.T, srv *httpapi.Server) *ut.ResponseRecorder {
 func newServer(t *testing.T, svc *httpapimocks.MockAuthService, proxies ...*net.IPNet) *httpapi.Server {
 	t.Helper()
 
-	srv, err := httpapi.New(httpapi.Config{Addr: "127.0.0.1:0", PublicURL: publicURL, TrustedProxies: proxies}, observability.NoopUtility(), svc)
+	srv, err := httpapi.New(httpapi.Config{Addr: "127.0.0.1:0", PublicURL: publicURL, TrustedProxies: proxies}, observability.NoopUtility(), httpapi.Services{Auth: svc})
 	require.NoError(t, err)
 
 	return srv
@@ -410,7 +410,7 @@ func TestClientIP(t *testing.T) {
 			addr := freeAddr(t)
 			client := &http.Client{Transport: &http.Transport{DisableKeepAlives: true}} // lets Shutdown return at once
 
-			srv, err := httpapi.New(httpapi.Config{Addr: addr, PublicURL: publicURL, TrustedProxies: tt.proxies}, observability.NoopUtility(), svc)
+			srv, err := httpapi.New(httpapi.Config{Addr: addr, PublicURL: publicURL, TrustedProxies: tt.proxies}, observability.NoopUtility(), httpapi.Services{Auth: svc})
 			require.NoError(t, err)
 
 			go func() { _ = srv.Run() }()
@@ -453,6 +453,6 @@ func freeAddr(t *testing.T) string {
 }
 
 func TestNewRejectsRelativePublicURL(t *testing.T) {
-	_, err := httpapi.New(httpapi.Config{PublicURL: "app.example"}, observability.NoopUtility(), httpapimocks.NewMockAuthService(t))
+	_, err := httpapi.New(httpapi.Config{PublicURL: "app.example"}, observability.NoopUtility(), httpapi.Services{})
 	require.Error(t, err)
 }

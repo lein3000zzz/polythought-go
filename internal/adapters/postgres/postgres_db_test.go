@@ -30,7 +30,7 @@ func TestMigrate(t *testing.T) {
 		name        string
 		wantApplied []int64
 	}{
-		{name: "fresh database gets every migration", wantApplied: []int64{1}},
+		{name: "fresh database gets every migration", wantApplied: []int64{1, 2}},
 		{name: "second run is a no-op", wantApplied: []int64{}},
 	}
 
@@ -55,7 +55,9 @@ func TestMigrate(t *testing.T) {
 		}
 
 		require.NoError(t, rows.Err())
-		assert.Equal(t, []string{"api_tokens", "goose_db_version", "invites", "sessions", "users"}, tables)
+		assert.Equal(t, []string{
+			"api_tokens", "goose_db_version", "invites", "polymarket_credentials", "sessions", "users", "wallets",
+		}, tables)
 	})
 
 	t.Run("open rejects a bad dsn", func(t *testing.T) {

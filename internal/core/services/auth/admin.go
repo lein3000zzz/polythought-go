@@ -99,6 +99,13 @@ func (s *Service) UpdateUser(ctx context.Context, actor Principal, id domain.Use
 	var updated domain.User
 
 	err := s.repos.Tx.WithinTx(ctx, func(ctx context.Context) error {
+		// Lock first, then read the user: concurrent updates are serialised and each one
+		// sees the admins as the previous one left them.
+		admins, err := s.repos.Users.LockActiveAdmins(ctx)
+		if err != nil {
+			return err
+		}
+
 		user, err := s.repos.Users.ByID(ctx, id)
 		if err != nil {
 			return err
@@ -120,15 +127,8 @@ func (s *Service) UpdateUser(ctx context.Context, actor Principal, id domain.Use
 			}
 		}
 
-		if wasActiveAdmin && (!user.IsAdmin() || user.Disabled()) {
-			admins, err := s.repos.Users.CountActiveAdmins(ctx)
-			if err != nil {
-				return err
-			}
-
-			if admins <= 1 {
-				return domain.ErrLastAdmin
-			}
+		if wasActiveAdmin && (!user.IsAdmin() || user.Disabled()) && admins <= 1 {
+			return domain.ErrLastAdmin
 		}
 
 		user.UpdatedAt = now
