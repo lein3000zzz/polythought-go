@@ -20,6 +20,8 @@ type Market struct {
 	EnableOrderBook       bool                         `json:"enableOrderBook"`
 	AcceptingOrders       bool                         `json:"acceptingOrders"`
 	NegRisk               bool                         `json:"negRisk"`
+	UMAResolutionStatus   string                       `json:"umaResolutionStatus"` // v1: "resolved" once settled
+	ResolutionStatus      string                       `json:"resolutionStatus"`    // v2: inactive, active, resolved
 	StartDate             string                       `json:"startDate"`
 	EndDate               string                       `json:"endDate"`
 	Volume                decimal.Decimal              `json:"volume"`

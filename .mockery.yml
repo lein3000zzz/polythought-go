@@ -16,3 +16,12 @@ packages:
       Counter: {}
       Gauge: {}
       Histogram: {}
+  github.com/lein3000zzz/polythought-go/pkg/clients/polymarket:
+    config:
+      dir: internal/mocks/polymarket
+      pkgname: polymarketmocks
+    interfaces:
+      GammaClient: {}
+      ClobClient: {}
+      DataClient: {}
+      MarketStreamClient: {}
