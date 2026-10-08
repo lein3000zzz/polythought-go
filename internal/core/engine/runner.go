@@ -1,0 +1,82 @@
+package engine
+
+import (
+	"context"
+	"errors"
+	"fmt"
+	"sync"
+
+	"github.com/lein3000zzz/the-watchers/pkg/observability"
+	"github.com/lein3000zzz/the-watchers/pkg/observability/logging"
+
+	"github.com/lein3000zzz/polythought-go/internal/core/domain"
+)
+
+// Runner keeps a workflow live: it starts every trigger node and turns each emit into
+// an execution.
+type Runner struct {
+	registry *Registry
+	executor *Executor
+	log      logging.Logger
+}
+
+func NewRunner(util *observability.Utility, registry *Registry, executor *Executor) *Runner {
+	return &Runner{registry: registry, executor: executor, log: util.Logger.With("component", "runner")}
+}
+
+// Run starts the triggers of w and blocks until ctx is done or every trigger has stopped.
+// It does not look at w.Active; deciding what to run is the caller's job. Executions from
+// one trigger never overlap: emit returns once its execution finishes.
+func (r *Runner) Run(ctx context.Context, w domain.Workflow) error {
+	if err := r.registry.Validate(w); err != nil {
+		return err
+	}
+
+	var (
+		wg   sync.WaitGroup
+		mu   sync.Mutex
+		errs []error
+	)
+
+	for _, spec := range w.Nodes {
+		trigger, ok := r.registry.Trigger(spec.Type)
+		if !ok {
+			continue
+		}
+
+		tc := TriggerContext{
+			WorkflowID: w.ID,
+			NodeID:     spec.ID,
+			Params:     newLiteralResolver(trigger.Type(), spec.Params).params,
+		}
+
+		wg.Go(func() {
+			r.log.Info(ctx, "Trigger started", "workflow_id", w.ID, "node_id", spec.ID, "type", spec.Type)
+
+			if err := trigger.Start(ctx, tc, r.emit(w, spec.ID)); err != nil {
+				r.log.Error(ctx, "Trigger stopped", "workflow_id", w.ID, "node_id", spec.ID, logging.Err(err))
+
+				mu.Lock()
+				errs = append(errs, fmt.Errorf("trigger %q: %w", spec.ID, err))
+				mu.Unlock()
+			}
+		})
+	}
+
+	wg.Wait()
+
+	return errors.Join(errs...)
+}
+
+// emit runs one execution. Its error only covers executions that could not start;
+// failures while running are logged by the executor and kept in the execution record.
+func (r *Runner) emit(w domain.Workflow, trigger domain.NodeID) Emit {
+	return func(ctx context.Context, out Ports) error {
+		_, err := r.executor.Execute(ctx, w, trigger, out)
+		if err != nil {
+			r.log.Error(ctx, "Execution did not start", "workflow_id", w.ID, "node_id", trigger, logging.Err(err))
+		}
+
+		return err
+	}
+}

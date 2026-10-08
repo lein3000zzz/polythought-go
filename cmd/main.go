@@ -2,24 +2,35 @@ package main
 
 import (
 	"context"
-	"fmt"
+	"flag"
 	"os"
 	"os/signal"
-	"strings"
-	"text/tabwriter"
+	"syscall"
 	"time"
 
+	"github.com/lein3000zzz/polythought-go/internal/core/nodes"
+	"github.com/lein3000zzz/polythought-go/internal/core/nodes/logic"
+	markets2 "github.com/lein3000zzz/polythought-go/internal/core/nodes/markets"
+	"github.com/lein3000zzz/polythought-go/internal/core/nodes/output"
+	"github.com/lein3000zzz/polythought-go/internal/core/nodes/triggers"
 	"github.com/lein3000zzz/the-watchers/pkg/observability"
 	"github.com/lein3000zzz/the-watchers/pkg/observability/logging"
 	"github.com/lein3000zzz/the-watchers/pkg/observability/logging/slogging"
 	"github.com/lein3000zzz/the-watchers/pkg/observability/metrics/prommetrics"
 	"github.com/lein3000zzz/the-watchers/pkg/observability/tracing/oteltracing"
 
-	"github.com/lein3000zzz/polythought-go/pkg/clients/polymarket"
+	pmadapter "github.com/lein3000zzz/polythought-go/internal/adapters/polymarket"
+	"github.com/lein3000zzz/polythought-go/internal/core/domain"
+	"github.com/lein3000zzz/polythought-go/internal/core/engine"
+	pm "github.com/lein3000zzz/polythought-go/pkg/clients/polymarket"
 )
 
 func main() {
-	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt)
+	interval := flag.Duration("interval", 30*time.Second, "how often the demo workflow runs")
+	once := flag.Bool("once", false, "run the demo workflow once from its manual trigger and exit")
+	flag.Parse()
+
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 
 	log, err := slogging.NewSlogLoggerWithConfig(slogging.Config{
@@ -45,181 +56,72 @@ func main() {
 		_ = util.Shutdown(shutdownCtx)
 	}()
 
-	if err := run(ctx, util); err != nil {
+	if err := run(ctx, util, demoWorkflow(*interval), *once); err != nil {
 		log.Error(ctx, "Run failed", logging.Err(err))
 	}
 }
 
-func run(ctx context.Context, util *observability.Utility) error {
-	gamma, err := polymarket.NewGammaClient(util, polymarket.HTTPConfig{})
+func run(ctx context.Context, util *observability.Utility, wf domain.Workflow, once bool) error {
+	gamma, err := pm.NewGammaClient(util, pm.HTTPConfig{})
 	if err != nil {
 		return err
 	}
 
-	closed := false
-	page, err := gamma.ListMarkets(ctx, polymarket.MarketsQuery{Limit: 10, Closed: &closed})
+	clob, err := pm.NewClobClient(util, pm.HTTPConfig{})
 	if err != nil {
 		return err
 	}
 
-	fmt.Println("Open markets:")
-	printMarkets(page.Items)
-
-	if len(page.Items) == 0 {
-		return nil
-	}
-
-	market, err := gamma.GetMarketBySlug(ctx, page.Items[0].Slug)
+	data, err := pm.NewDataClient(util, pm.HTTPConfig{})
 	if err != nil {
 		return err
 	}
 
-	fmt.Printf("\nMarket %q\n  condition: %s\n  version:   %s\n  tokens:    %s\n",
-		market.Question, market.ConditionID, market.Version, strings.Join(market.TokenIDs(), "\n             "))
+	reader := pmadapter.NewReader(gamma, clob, data)
 
-	clob, err := polymarket.NewClobClient(util, polymarket.HTTPConfig{})
+	registry := engine.NewRegistry()
+	if err := nodes.Register(registry, nodes.Deps{Markets: reader, OrderBooks: reader, Logger: util.Logger}); err != nil {
+		return err
+	}
+
+	executor, err := engine.NewExecutor(util, registry)
 	if err != nil {
 		return err
 	}
 
-	tokenIDs := market.TokenIDs()
-
-	mids, err := clob.GetMidpoints(ctx, tokenIDs...)
-	if err != nil {
+	if once {
+		_, err := executor.Execute(ctx, wf, "manual", triggers.ManualOutput())
 		return err
 	}
 
-	books, err := clob.GetOrderBooks(ctx, tokenIDs...)
-	if err != nil {
-		return err
-	}
-
-	for i, id := range tokenIDs {
-		outcome := id
-		if i < len(market.Outcomes) {
-			outcome = market.Outcomes[i]
-		}
-
-		fmt.Printf("\n%s  mid %s\n", outcome, mids[id])
-
-		for _, book := range books {
-			if book.AssetID == id {
-				printBook(book, 5)
-			}
-		}
-	}
-
-	data, err := polymarket.NewDataClient(util, polymarket.HTTPConfig{})
-	if err != nil {
-		return err
-	}
-
-	return printActivity(ctx, data, market.ConditionID)
+	return engine.NewRunner(util, registry, executor).Run(ctx, wf)
 }
 
-func printActivity(ctx context.Context, data polymarket.DataClient, conditionID string) error {
-	oi, err := data.OpenInterest(ctx, conditionID)
-	if err != nil {
-		return err
+// demoWorkflow fetches open markets, summarises their order books and logs tight and
+// wide spreads separately. It has a schedule for live runs and a manual trigger for -once.
+func demoWorkflow(interval time.Duration) domain.Workflow {
+	main := engine.DefaultPort
+
+	return domain.Workflow{
+		ID:     "demo",
+		Name:   "Spread watch",
+		Active: true,
+		Nodes: []domain.NodeSpec{
+			{ID: "every", Type: triggers.ScheduleType, Params: map[string]any{"interval": interval.String()}},
+			{ID: "manual", Type: triggers.ManualType},
+			{ID: "markets", Type: markets2.MarketsType, Params: map[string]any{"limit": 5}},
+			{ID: "books", Type: markets2.OrderBooksType, Params: map[string]any{"depth": 5}},
+			{ID: "tight", Type: logic.IfType, Params: map[string]any{"field": "spread", "operator": "lte", "value": "0.02"}},
+			{ID: "logTight", Type: output.LogType, Params: map[string]any{"message": "Tight spread"}},
+			{ID: "logWide", Type: output.LogType, Params: map[string]any{"message": "Wide spread"}},
+		},
+		Connections: []domain.Connection{
+			{From: "every", FromPort: main, To: "markets", ToPort: main},
+			{From: "manual", FromPort: main, To: "markets", ToPort: main},
+			{From: "markets", FromPort: main, To: "books", ToPort: main},
+			{From: "books", FromPort: main, To: "tight", ToPort: main},
+			{From: "tight", FromPort: logic.PortTrue, To: "logTight", ToPort: main},
+			{From: "tight", FromPort: logic.PortFalse, To: "logWide", ToPort: main},
+		},
 	}
-
-	for _, row := range oi {
-		fmt.Printf("\nOpen interest: %s USD\n", row.Value)
-	}
-
-	trades, err := data.Trades(ctx, polymarket.TradesQuery{Conditions: []string{conditionID}, Limit: 5})
-	if err != nil {
-		return err
-	}
-
-	fmt.Println("\nLatest trades:")
-
-	w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
-	_, _ = fmt.Fprintln(w, "TIME\tSIDE\tOUTCOME\tPRICE\tSIZE")
-
-	for _, t := range trades.Items {
-		_, _ = fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\n",
-			time.Unix(t.Timestamp, 0).Format(time.TimeOnly), t.Side, t.Outcome, t.Price, t.Size)
-	}
-
-	_ = w.Flush()
-
-	holders, err := data.Holders(ctx, polymarket.HoldersQuery{Conditions: []string{conditionID}, Limit: 3})
-	if err != nil {
-		return err
-	}
-
-	fmt.Println("\nTop holders:")
-
-	w = tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
-	_, _ = fmt.Fprintln(w, "OUTCOME\tNAME\tWALLET\tSHARES")
-
-	for _, token := range holders {
-		for _, h := range token.Holders {
-			name := h.Name
-			if name == "" {
-				name = h.Pseudonym
-			}
-
-			_, _ = fmt.Fprintf(w, "%d\t%s\t%s\t%s\n", h.OutcomeIndex, name, h.ProxyWallet, h.Amount)
-		}
-	}
-
-	return w.Flush()
-}
-
-// printBook prints the best levels first. The API sorts each side worst to best.
-func printBook(book polymarket.OrderBook, depth int) {
-	w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', tabwriter.AlignRight)
-	defer func() { _ = w.Flush() }()
-
-	_, _ = fmt.Fprintln(w, "BID SIZE\tBID\tASK\tASK SIZE\t")
-
-	for i := range depth {
-		var bid, ask polymarket.PriceLevel
-		if i < len(book.Bids) {
-			bid = book.Bids[len(book.Bids)-1-i]
-		}
-
-		if i < len(book.Asks) {
-			ask = book.Asks[len(book.Asks)-1-i]
-		}
-
-		_, _ = fmt.Fprintf(w, "%s\t%s\t%s\t%s\t\n", bid.Size, bid.Price, ask.Price, ask.Size)
-	}
-}
-
-func printMarkets(markets []polymarket.Market) {
-	w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
-	defer func() { _ = w.Flush() }()
-
-	_, _ = fmt.Fprintln(w, "QUESTION\tOUTCOMES\tBID\tASK\tVOL 24H")
-
-	for _, m := range markets {
-		_, _ = fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\n",
-			truncate(m.Question, 60), formatOutcomes(m), m.BestBid, m.BestAsk, m.Volume24hr)
-	}
-}
-
-func formatOutcomes(m polymarket.Market) string {
-	parts := make([]string, 0, len(m.Outcomes))
-	for i, outcome := range m.Outcomes {
-		price := "?"
-		if i < len(m.OutcomePrices) {
-			price = m.OutcomePrices[i].String()
-		}
-
-		parts = append(parts, outcome+" "+price)
-	}
-
-	return strings.Join(parts, " / ")
-}
-
-func truncate(s string, n int) string {
-	r := []rune(s)
-	if len(r) <= n {
-		return s
-	}
-
-	return string(r[:n-1]) + "…"
 }

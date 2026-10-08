@@ -20,7 +20,8 @@ type ItemRef struct {
 	Index int
 }
 
-// Item is one record flowing between nodes.
+// Item is one record flowing between nodes. Fan-out hands the same item to every
+// connected node, so nodes must treat input items, JSON included, as read-only.
 type Item struct {
 	JSON   map[string]any
 	Source []ItemRef
@@ -33,6 +34,26 @@ type Ports map[string][]Item
 
 func (p Ports) Add(port string, items ...Item) {
 	p[port] = append(p[port], items...)
+}
+
+// Counts returns the number of items per port.
+func (p Ports) Counts() map[string]int {
+	counts := make(map[string]int, len(p))
+	for port, items := range p {
+		counts[port] = len(items)
+	}
+
+	return counts
+}
+
+// Len is the number of items across all ports.
+func (p Ports) Len() int {
+	n := 0
+	for _, items := range p {
+		n += len(items)
+	}
+
+	return n
 }
 
 // Fail emits the input item on ErrorPort, keeping its data so an error branch can use it.

@@ -25,3 +25,16 @@ packages:
       ClobClient: {}
       DataClient: {}
       MarketStreamClient: {}
+  github.com/lein3000zzz/the-watchers/pkg/observability/logging:
+    config:
+      dir: internal/mocks/logging
+      pkgname: loggingmocks
+    interfaces:
+      Logger: {}
+  github.com/lein3000zzz/polythought-go/internal/core/ports:
+    config:
+      dir: internal/mocks/ports
+      pkgname: portsmocks
+    interfaces:
+      MarketReader: {}
+      OrderBookReader: {}
