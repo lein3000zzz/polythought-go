@@ -31,7 +31,12 @@ func checkParam(spec ParamSpec, value any) string {
 			return fmt.Sprintf("%q is not a positive duration like 30s", s)
 		}
 
-	case ParamNumber, ParamDecimal:
+	case ParamNumber:
+		if _, err := p.Int(spec.Name); err != nil {
+			return "must be a whole number"
+		}
+
+	case ParamDecimal:
 		if _, err := p.Decimal(spec.Name); err != nil {
 			return "must be a number"
 		}

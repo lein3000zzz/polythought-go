@@ -1,3 +1,4 @@
+import { Plus } from 'lucide-react'
 import { Link } from 'react-router'
 
 import { useWorkflows } from '@/api/workflows'
@@ -22,7 +23,15 @@ export function WorkflowsPage() {
 
   return (
     <div className="mx-auto flex max-w-5xl flex-col gap-6 p-6">
-      <h1 className="font-heading text-xl font-semibold">Workflows</h1>
+      <div className="flex items-center justify-between">
+        <h1 className="font-heading text-xl font-semibold">Workflows</h1>
+        <Button asChild>
+          <Link to="/workflows/new">
+            <Plus />
+            New workflow
+          </Link>
+        </Button>
+      </div>
 
       {workflows.isPending && (
         <div className="flex flex-col gap-2">

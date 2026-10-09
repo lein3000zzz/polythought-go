@@ -87,7 +87,7 @@ type ParamKind string
 
 const (
 	ParamString   ParamKind = "string"
-	ParamNumber   ParamKind = "number"
+	ParamNumber   ParamKind = "number" // a whole number
 	ParamDecimal  ParamKind = "decimal"
 	ParamBool     ParamKind = "bool"
 	ParamList     ParamKind = "list"     // of strings

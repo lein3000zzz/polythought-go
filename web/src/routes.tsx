@@ -8,6 +8,19 @@ import { NotFoundPage } from '@/pages/NotFoundPage'
 import { RegisterPage } from '@/pages/RegisterPage'
 import { WorkflowsPage } from '@/pages/WorkflowsPage'
 
+// The editor and its canvas library are most of the bundle; only these pages need them.
+const editor: RouteObject = {
+  lazy: async () => ({
+    Component: (await import('@/pages/WorkflowEditorPage')).WorkflowEditorPage,
+  }),
+  // Shown inside the shell while the page loads on a fresh visit.
+  hydrateFallbackElement: (
+    <div className="p-6">
+      <Skeleton className="h-96" />
+    </div>
+  ),
+}
+
 export const routes: RouteObject[] = [
   { path: '/login', element: <LoginPage /> },
   { path: '/register', element: <RegisterPage /> },
@@ -19,17 +32,8 @@ export const routes: RouteObject[] = [
         children: [
           { index: true, element: <Navigate to="/workflows" replace /> },
           { path: 'workflows', element: <WorkflowsPage /> },
-          {
-            path: 'workflows/:id',
-            // The canvas library is most of the bundle; only this page needs it.
-            lazy: async () => ({ Component: (await import('@/pages/WorkflowPage')).WorkflowPage }),
-            // Shown inside the shell while the page loads on a fresh visit.
-            hydrateFallbackElement: (
-              <div className="p-6">
-                <Skeleton className="h-96" />
-              </div>
-            ),
-          },
+          { path: 'workflows/new', ...editor },
+          { path: 'workflows/:id', ...editor },
         ],
       },
     ],

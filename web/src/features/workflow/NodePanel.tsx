@@ -1,0 +1,164 @@
+import { CircleAlert, Trash2, X } from 'lucide-react'
+
+import type { Problem } from '@/api/client'
+import { Alert, AlertDescription } from '@/components/ui/alert'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { Switch } from '@/components/ui/switch'
+
+import type { FlowNode, NodeSpec } from './graph'
+import { ParamField } from './ParamField'
+import { useNodeProblems } from './problems'
+
+type Props = {
+  node: FlowNode
+  onChange: (patch: Partial<Pick<NodeSpec, 'name' | 'continueOnFail'>>) => void
+  onParam: (name: string, value: unknown) => void
+  onDelete: () => void
+}
+
+/** Settings of the selected node. Changes apply as they are made. */
+export function NodePanel({ node, onChange, onParam, onDelete }: Props) {
+  const { spec, type } = node.data
+  const problems = useNodeProblems(node.id)
+  const declared = type?.params ?? []
+  const params = spec.params ?? {}
+  const unknown = Object.keys(params).filter((name) => !declared.some((p) => p.name === name))
+  const nodeProblems = problems.filter((p) => !p.param || unknown.includes(p.param))
+
+  return (
+    <div className="flex flex-col gap-5 p-4">
+      <div className="flex items-start justify-between gap-2">
+        <div className="min-w-0">
+          <h2 className="truncate font-medium">{type?.label || spec.type}</h2>
+          <p className="text-xs text-muted-foreground">
+            {spec.type} · ID {spec.id}
+          </p>
+        </div>
+        <Button variant="ghost" size="icon-sm" aria-label="Delete node" onClick={onDelete}>
+          <Trash2 />
+        </Button>
+      </div>
+
+      {type?.description && <p className="text-sm text-muted-foreground">{type.description}</p>}
+
+      {!type && (
+        <Alert variant="destructive">
+          <CircleAlert />
+          <AlertDescription>
+            This server has no node type “{spec.type}”. Delete the node or replace it.
+          </AlertDescription>
+        </Alert>
+      )}
+
+      {nodeProblems.length > 0 && (
+        <Alert variant="destructive">
+          <CircleAlert />
+          <AlertDescription>
+            <ul>
+              {nodeProblems.map((p) => (
+                <li key={p.message}>{fieldMessage(p)}</li>
+              ))}
+            </ul>
+          </AlertDescription>
+        </Alert>
+      )}
+
+      <div className="flex flex-col gap-2">
+        <Label htmlFor="node-name">Name</Label>
+        <Input
+          id="node-name"
+          value={spec.name ?? ''}
+          placeholder={type?.label || spec.type}
+          onChange={(e) => onChange({ name: e.target.value })}
+        />
+      </div>
+
+      {declared.map((p) => (
+        <ParamField
+          key={p.name}
+          spec={p}
+          value={params[p.name]}
+          onChange={(value) => onParam(p.name, value)}
+          problem={problems
+            .filter((pr) => pr.param === p.name)
+            .map(fieldMessage)
+            .join(' ')}
+        />
+      ))}
+
+      {unknown.map((name) => (
+        <div key={name} className="flex items-center justify-between gap-2 text-sm">
+          <span>
+            <span className="font-medium">{name}</span>
+            <span className="text-muted-foreground"> is not a setting of this node</span>
+          </span>
+          <Button
+            variant="ghost"
+            size="icon-sm"
+            aria-label={`Remove ${name}`}
+            onClick={() => onParam(name, undefined)}
+          >
+            <X />
+          </Button>
+        </div>
+      ))}
+
+      {type && !type.trigger && (
+        <div className="flex flex-col gap-1">
+          <div className="flex items-center justify-between gap-2">
+            <Label htmlFor="node-continue">Continue on failure</Label>
+            <Switch
+              id="node-continue"
+              checked={spec.continueOnFail ?? false}
+              onCheckedChange={(on) => onChange({ continueOnFail: on })}
+            />
+          </div>
+          <p className="text-xs text-muted-foreground">
+            Send items that fail to an error port instead of stopping the run.
+          </p>
+        </div>
+      )}
+    </div>
+  )
+}
+
+type WorkflowPanelProps = {
+  problems: readonly Problem[]
+}
+
+/** Shown when no single node is selected: how to edit, and problems not about a node. */
+export function WorkflowPanel({ problems }: WorkflowPanelProps) {
+  const general = problems.filter((p) => !p.nodeId)
+
+  return (
+    <div className="flex flex-col gap-4 p-4 text-sm text-muted-foreground">
+      {general.length > 0 && (
+        <Alert variant="destructive">
+          <CircleAlert />
+          <AlertDescription>
+            <ul>
+              {general.map((p) => (
+                <li key={p.message}>{fieldMessage(p)}</li>
+              ))}
+            </ul>
+          </AlertDescription>
+        </Alert>
+      )}
+      <p>Add nodes from the left, by clicking or dragging them onto the canvas.</p>
+      <p>Drag from an output port to an input port to connect two nodes.</p>
+      <p>
+        Select a node to change its settings. Select a node or connection and press Delete to remove
+        it.
+      </p>
+    </div>
+  )
+}
+
+// fieldMessage drops the "node "x": param "y"" prefix the server puts on problems, which
+// the panel already makes plain.
+function fieldMessage(p: Problem): string {
+  const message = p.message.replace(/^node "[^"]*":\s*(param "[^"]*"\s*)?/, '')
+  return message.charAt(0).toUpperCase() + message.slice(1)
+}

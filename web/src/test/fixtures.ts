@@ -41,3 +41,65 @@ export const signedOut = http.get('/api/v1/me', () =>
 export function registration(mode: Schemas['AuthConfig']['registration']) {
   return http.get('/api/v1/auth/config', () => HttpResponse.json({ registration: mode }))
 }
+
+/** Node types as the server describes them, a representative few. */
+export const nodeTypes: Schemas['NodeType'][] = [
+  {
+    name: 'trigger.manual',
+    label: 'Manual',
+    trigger: true,
+    inputs: [],
+    outputs: ['main'],
+    params: [],
+  },
+  {
+    name: 'logic.if',
+    label: 'If',
+    description: 'Compares a numeric field of each item with a value.',
+    trigger: false,
+    inputs: ['main'],
+    outputs: ['true', 'false'],
+    params: [
+      { name: 'field', label: 'Field', kind: 'string', required: true },
+      {
+        name: 'operator',
+        label: 'Operator',
+        kind: 'string',
+        required: false,
+        default: 'gt',
+        options: ['gt', 'lt'],
+      },
+      { name: 'value', label: 'Value', kind: 'decimal', required: true },
+    ],
+  },
+  {
+    name: 'output.log',
+    label: 'Log',
+    trigger: false,
+    inputs: ['main'],
+    outputs: ['main'],
+    params: [{ name: 'message', label: 'Message', kind: 'string', required: false }],
+  },
+]
+
+/** manual -> tight (an If node) -> log, saved as version 3. */
+export function branching(overrides: Partial<Schemas['Workflow']> = {}): Schemas['Workflow'] {
+  return workflow({
+    version: 3,
+    nodes: [
+      { id: 'manual', type: 'trigger.manual', position: { x: 0, y: 0 } },
+      {
+        id: 'tight',
+        type: 'logic.if',
+        params: { field: 'spread', value: '0.02' },
+        position: { x: 300, y: 0 },
+      },
+      { id: 'log', type: 'output.log', position: { x: 600, y: 0 } },
+    ],
+    connections: [
+      { from: 'manual', fromPort: 'main', to: 'tight', toPort: 'main' },
+      { from: 'tight', fromPort: 'true', to: 'log', toPort: 'main' },
+    ],
+    ...overrides,
+  })
+}

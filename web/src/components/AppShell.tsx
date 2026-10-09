@@ -5,6 +5,7 @@ import { cn } from 'cn'
 import { useLogout, useMe } from '@/api/auth'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
+import { Toaster } from '@/components/ui/sonner'
 
 export function AppShell() {
   const { data: user } = useMe()
@@ -46,6 +47,8 @@ export function AppShell() {
       <main className="min-h-0 flex-1 overflow-auto">
         <Outlet />
       </main>
+
+      <Toaster position="bottom-right" />
     </div>
   )
 }
