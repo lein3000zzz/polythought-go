@@ -253,12 +253,40 @@ func (r *Workflows) Count(ctx context.Context, owner domain.UserID) (total, acti
 	return int(out.Total), int(out.Active), err
 }
 
+func (r *Workflows) DeactivateAll(ctx context.Context, owner domain.UserID, at time.Time) ([]domain.WorkflowID, error) {
+	uid, err := parseID(owner)
+	if err != nil {
+		return nil, err
+	}
+
+	var rows []model.Workflows
+
+	err = table.Workflows.
+		UPDATE(table.Workflows.Active, table.Workflows.UpdatedAt).
+		SET(false, at).
+		WHERE(table.Workflows.OwnerID.EQ(jet.UUID(uid)).AND(table.Workflows.Active.IS_TRUE())).
+		RETURNING(table.Workflows.ID).
+		QueryContext(ctx, r.db.conn(ctx), &rows)
+	if err != nil {
+		return nil, err
+	}
+
+	ids := make([]domain.WorkflowID, len(rows))
+	for i, m := range rows {
+		ids[i] = domain.WorkflowID(m.ID.String())
+	}
+
+	return ids, nil
+}
+
+// ListActive leaves out workflows of disabled users, should any still be marked active:
+// disabling a user deactivates them, but this way a failure there cannot restart them.
 func (r *Workflows) ListActive(ctx context.Context) ([]domain.Workflow, error) {
 	var rows []model.Workflows
 
 	err := jet.SELECT(table.Workflows.AllColumns).
-		FROM(table.Workflows).
-		WHERE(table.Workflows.Active.IS_TRUE()).
+		FROM(table.Workflows.INNER_JOIN(table.Users, table.Users.ID.EQ(table.Workflows.OwnerID))).
+		WHERE(table.Workflows.Active.IS_TRUE().AND(table.Users.DisabledAt.IS_NULL())).
 		ORDER_BY(table.Workflows.ID.ASC()).
 		QueryContext(ctx, r.db.conn(ctx), &rows)
 	if err != nil {

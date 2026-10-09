@@ -246,6 +246,25 @@ func (s *Service) Deactivate(ctx context.Context, p auth.Principal, id domain.Wo
 	return w, nil
 }
 
+// StopAll deactivates every workflow of owner and stops the running ones. It is for
+// disabling a user: their workflows stay off when they are enabled again.
+func (s *Service) StopAll(ctx context.Context, owner domain.UserID) error {
+	ids, err := s.repo.DeactivateAll(ctx, owner, s.now())
+	if err != nil {
+		return err
+	}
+
+	for _, id := range ids {
+		s.supervisor.Stop(id)
+	}
+
+	if len(ids) > 0 {
+		s.log.Info(ctx, "Workflows of a disabled user stopped", "owner_id", owner, "count", len(ids))
+	}
+
+	return nil
+}
+
 // Run executes the workflow once from a manual trigger: the one named, or the
 // workflow's only trigger.manual node. It waits for the execution to finish, which keeps
 // samples of each node's output for inspection.

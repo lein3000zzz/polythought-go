@@ -23,7 +23,10 @@ type WorkflowRepository interface {
 	SetActive(ctx context.Context, owner domain.UserID, id domain.WorkflowID, active bool, at time.Time) error
 	Delete(ctx context.Context, owner domain.UserID, id domain.WorkflowID) error
 	Count(ctx context.Context, owner domain.UserID) (total, active int, err error)
-	// ListActive returns every active workflow of every user, for starting them on boot.
+	// DeactivateAll turns off every active workflow of owner and returns their IDs.
+	DeactivateAll(ctx context.Context, owner domain.UserID, at time.Time) ([]domain.WorkflowID, error)
+	// ListActive returns the active workflows of every enabled user, for starting them
+	// on boot.
 	ListActive(ctx context.Context) ([]domain.Workflow, error)
 }
 

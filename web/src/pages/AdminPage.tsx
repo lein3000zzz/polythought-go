@@ -62,10 +62,15 @@ function UsersSection({ me }: { me: User }) {
     if (patch.disabled) {
       return [
         'Disable',
-        `${user.email} is signed out, their API tokens stop working, and they cannot sign in.`,
+        `${user.email} is signed out, their API tokens stop working and they cannot sign in. Their active workflows are turned off and stay off if you enable them again.`,
       ]
     }
-    if (patch.disabled === false) return ['Enable', `${user.email} can sign in again.`]
+    if (patch.disabled === false) {
+      return [
+        'Enable',
+        `${user.email} can sign in again. Their workflows stay off until they turn them on.`,
+      ]
+    }
     if (patch.role === 'admin') return ['Make admin', `${user.email} can manage every account.`]
 
     return ['Make user', `${user.email} loses access to this page.`]

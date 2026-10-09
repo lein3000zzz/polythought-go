@@ -153,6 +153,15 @@ func (s *Service) UpdateUser(ctx context.Context, actor Principal, id domain.Use
 
 	s.log.Info(ctx, "User updated", "actor_id", actor.User.ID, "user_id", id, "role", updated.Role, "disabled", updated.Disabled())
 
+	// After the commit, so a running workflow never outlives a disable that went through.
+	// Asking to disable an already disabled user stops them again, which repairs a stop
+	// that failed the first time.
+	if upd.Disabled != nil && *upd.Disabled && s.workflows != nil {
+		if err := s.workflows.StopAll(ctx, id); err != nil {
+			return domain.User{}, fmt.Errorf("user disabled, but stopping their workflows failed: %w", err)
+		}
+	}
+
 	return updated, nil
 }
 

@@ -1,0 +1,13 @@
+# Overrides for `make e2e`: a throwaway stack that can run beside a development one. Its
+# database is not published and the UI is on port 3100.
+services:
+  postgres:
+    ports: !reset []
+
+  api:
+    environment:
+      POLYTHOUGHT_PUBLIC_URL: http://localhost:3100
+
+  web:
+    ports: !override
+      - "3100:80"

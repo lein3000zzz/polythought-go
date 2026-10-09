@@ -155,6 +155,7 @@ func (a *app) init(ctx context.Context) error {
 		crypto.NewArgon2id(crypto.DefaultArgon2Params),
 		ratelimit.NewMemory(30*time.Second, 10), // 10 attempts, then one every 30 s per key
 		a.util.Logger,
+		auth.WithWorkflowStopper(a.workflows),
 	)
 
 	return err

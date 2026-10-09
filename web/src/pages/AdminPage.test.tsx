@@ -65,7 +65,7 @@ describe('admin page', () => {
 
     await user.click(within(userRow('alice@example.com')).getByRole('button', { name: 'Disable' }))
     const dialog = within(await screen.findByRole('alertdialog'))
-    expect(dialog.getByText(/their API tokens stop working/)).toBeInTheDocument()
+    expect(dialog.getByText(/workflows are turned off and stay off/)).toBeInTheDocument()
     await user.click(dialog.getByRole('button', { name: 'Disable' }))
 
     await waitFor(() => expect(sent).toHaveLength(2))

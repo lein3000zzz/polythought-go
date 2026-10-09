@@ -9,6 +9,7 @@ INTEGRATION_TAG := integration
 DB_TAG          := db
 COVER_PROFILE   := coverage.out
 COMPOSE         := docker compose -f deploy/docker-compose.yml
+E2E_COMPOSE     := docker compose -p polythought-e2e -f deploy/docker-compose.yml -f deploy/docker-compose.e2e.yml --profile app
 API_SPEC        := api/openapi.json
 
 # swag writes swagger.json into a directory; the targets move it to API_SPEC.
@@ -148,6 +149,18 @@ web-check: ## UI typecheck, lint, format, API types up to date, tests
 .PHONY: web-build
 web-build: ## Build the UI into web/dist
 	$(PNPM) --dir web build
+
+.PHONY: e2e
+e2e: ## Browser tests against a throwaway stack in Docker (UI on :3100, removed afterwards)
+	$(PNPM) --dir web exec playwright install --only-shell chromium
+	@set -e; \
+	export POLYTHOUGHT_SECRET_KEYS="e2e:$$(openssl rand -base64 32)" \
+		POLYTHOUGHT_ADMIN_EMAIL=admin@e2e.test POLYTHOUGHT_ADMIN_PASSWORD=e2e-admin-password \
+		POLYTHOUGHT_REGISTRATION=invite; \
+	trap '$(E2E_COMPOSE) down -v --remove-orphans >/dev/null 2>&1' EXIT; \
+	$(E2E_COMPOSE) up -d --build --wait; \
+	E2E_ADMIN_EMAIL=$$POLYTHOUGHT_ADMIN_EMAIL E2E_ADMIN_PASSWORD=$$POLYTHOUGHT_ADMIN_PASSWORD \
+		$(PNPM) --dir web exec playwright test
 
 ## Aggregates
 

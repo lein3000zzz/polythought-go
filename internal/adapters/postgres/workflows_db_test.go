@@ -97,6 +97,51 @@ func TestWorkflows(t *testing.T) {
 			require.NoError(t, err)
 			assert.ElementsMatch(t, []domain.WorkflowID{b.ID, other.ID}, []domain.WorkflowID{all[0].ID, all[1].ID})
 		}},
+		{"deactivating everything a user runs", func(t *testing.T, db *postgres.DB, repo *postgres.Workflows, owner domain.User) {
+			a, b, idle := newWorkflow(owner.ID, "a"), newWorkflow(owner.ID, "b"), newWorkflow(owner.ID, "idle")
+			a.Active, b.Active = true, true
+
+			other := newWorkflow(seedUser(t, db, "eve@x.io", domain.RoleUser).ID, "other")
+			other.Active = true
+
+			for _, w := range []domain.Workflow{a, b, idle, other} {
+				require.NoError(t, repo.Create(ctx, w))
+			}
+
+			ids, err := repo.DeactivateAll(ctx, owner.ID, at.Add(time.Hour))
+			require.NoError(t, err)
+			assert.ElementsMatch(t, []domain.WorkflowID{a.ID, b.ID}, ids)
+
+			_, active, err := repo.Count(ctx, owner.ID)
+			require.NoError(t, err)
+			assert.Zero(t, active)
+
+			got, err := repo.Get(ctx, owner.ID, a.ID)
+			require.NoError(t, err)
+			assert.Equal(t, at.Add(time.Hour), got.UpdatedAt)
+			assert.Equal(t, 1, got.Version, "deactivating is not an edit")
+
+			again, err := repo.DeactivateAll(ctx, owner.ID, at)
+			require.NoError(t, err)
+			assert.Empty(t, again)
+
+			all, err := repo.ListActive(ctx)
+			require.NoError(t, err)
+			require.Len(t, all, 1)
+			assert.Equal(t, other.ID, all[0].ID, "other users' workflows keep running")
+		}},
+		{"boot leaves out disabled users", func(t *testing.T, db *postgres.DB, repo *postgres.Workflows, owner domain.User) {
+			w := newWorkflow(owner.ID, "still marked active")
+			w.Active = true
+			require.NoError(t, repo.Create(ctx, w))
+
+			owner.DisabledAt = at
+			require.NoError(t, postgres.NewUsers(db).Update(ctx, owner))
+
+			all, err := repo.ListActive(ctx)
+			require.NoError(t, err)
+			assert.Empty(t, all)
+		}},
 		{"list pages by owner", func(t *testing.T, _ *postgres.DB, repo *postgres.Workflows, owner domain.User) {
 			for _, n := range []string{"a", "b", "c"} {
 				require.NoError(t, repo.Create(ctx, newWorkflow(owner.ID, n)))

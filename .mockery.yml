@@ -56,6 +56,12 @@ packages:
       AccountReader: {}
       WalletDirectory: {}
       PositionReader: {}
+  github.com/lein3000zzz/polythought-go/internal/core/services/auth:
+    config:
+      dir: internal/mocks/auth
+      pkgname: authmocks
+    interfaces:
+      WorkflowStopper: {}
   github.com/lein3000zzz/polythought-go/internal/core/services/workflows:
     config:
       dir: internal/mocks/workflows

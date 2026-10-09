@@ -3,6 +3,7 @@
 package auth
 
 import (
+	"context"
 	"crypto/rand"
 	"crypto/sha256"
 	"encoding/base64"
@@ -65,12 +66,24 @@ type Service struct {
 	log     logging.Logger
 	now     func() time.Time
 
+	workflows WorkflowStopper // optional; commands without the engine have none
+
 	// dummyHash is verified against when an email is unknown, so a miss takes as long
 	// as a wrong password and response times do not reveal which emails exist.
 	dummyHash string
 }
 
 type Option func(*Service)
+
+// WorkflowStopper stops a user's workflows. Disabling a user calls it.
+type WorkflowStopper interface {
+	StopAll(ctx context.Context, owner domain.UserID) error
+}
+
+// WithWorkflowStopper stops a user's workflows when an admin disables them.
+func WithWorkflowStopper(w WorkflowStopper) Option {
+	return func(s *Service) { s.workflows = w }
+}
 
 // WithClock replaces time.Now, for tests.
 func WithClock(now func() time.Time) Option {

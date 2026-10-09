@@ -18,6 +18,7 @@ export default defineConfig({
     proxy: { '/api': api },
   },
   test: {
+    include: ['src/**/*.test.{ts,tsx}'], // e2e/ is Playwright's
     environment: 'jsdom',
     setupFiles: ['src/test/setup.ts'],
     restoreMocks: true,

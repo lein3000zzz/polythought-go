@@ -12,6 +12,7 @@ import (
 
 	"github.com/lein3000zzz/polythought-go/internal/core/domain"
 	"github.com/lein3000zzz/polythought-go/internal/core/services/auth"
+	authmocks "github.com/lein3000zzz/polythought-go/internal/mocks/auth"
 	portsmocks "github.com/lein3000zzz/polythought-go/internal/mocks/ports"
 )
 
@@ -31,6 +32,8 @@ type deps struct {
 	tx       *portsmocks.MockTransactor
 	hasher   *portsmocks.MockPasswordHasher
 	limiter  *portsmocks.MockRateLimiter
+
+	workflows *authmocks.MockWorkflowStopper
 }
 
 func newDeps(t *testing.T) deps {
@@ -44,6 +47,8 @@ func newDeps(t *testing.T) deps {
 		tx:       portsmocks.NewMockTransactor(t),
 		hasher:   portsmocks.NewMockPasswordHasher(t),
 		limiter:  portsmocks.NewMockRateLimiter(t),
+
+		workflows: authmocks.NewMockWorkflowStopper(t),
 	}
 
 	d.tx.EXPECT().WithinTx(mock.Anything, mock.Anything).
@@ -65,7 +70,10 @@ func newService(t *testing.T, d deps, cfg auth.Config) *auth.Service {
 
 	s, err := auth.New(cfg, auth.Repositories{
 		Users: d.users, Sessions: d.sessions, Tokens: d.tokens, Invites: d.invites, Tx: d.tx,
-	}, d.hasher, d.limiter, logging.Noop(), auth.WithClock(func() time.Time { return now }))
+	}, d.hasher, d.limiter, logging.Noop(),
+		auth.WithClock(func() time.Time { return now }),
+		auth.WithWorkflowStopper(d.workflows),
+	)
 	require.NoError(t, err)
 
 	return s

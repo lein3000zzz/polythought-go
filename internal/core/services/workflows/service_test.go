@@ -373,3 +373,42 @@ func TestStartActive(t *testing.T) {
 
 	require.NoError(t, svc.StartActive(context.Background()))
 }
+
+func TestStopAll(t *testing.T) {
+	tests := []struct {
+		name    string
+		setup   func(d deps)
+		wantErr error
+	}{
+		{
+			name: "deactivates and stops every running workflow",
+			setup: func(d deps) {
+				d.repo.EXPECT().DeactivateAll(mock.Anything, alice.User.ID, now).Return([]domain.WorkflowID{"wf-1", "wf-2"}, nil)
+				d.supervisor.EXPECT().Stop(domain.WorkflowID("wf-1")).Once()
+				d.supervisor.EXPECT().Stop(domain.WorkflowID("wf-2")).Once()
+			},
+		},
+		{
+			name: "nothing to stop",
+			setup: func(d deps) {
+				d.repo.EXPECT().DeactivateAll(mock.Anything, alice.User.ID, now).Return(nil, nil)
+			},
+		},
+		{
+			name: "nothing is stopped when the database refuses",
+			setup: func(d deps) {
+				d.repo.EXPECT().DeactivateAll(mock.Anything, alice.User.ID, now).Return(nil, domain.ErrUnavailable)
+			},
+			wantErr: domain.ErrUnavailable,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			svc, d := newService(t, workflows.DefaultLimits())
+			tt.setup(d)
+
+			require.ErrorIs(t, svc.StopAll(context.Background(), alice.User.ID), tt.wantErr)
+		})
+	}
+}

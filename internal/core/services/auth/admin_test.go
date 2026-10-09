@@ -139,15 +139,41 @@ func TestUpdateUser(t *testing.T) {
 			check: func(t *testing.T, u domain.User) { assert.True(t, u.IsAdmin()) },
 		},
 		{
-			name: "disabling signs the user out", actor: sessionPrincipal(admin), id: target.ID, upd: auth.UserUpdate{Disabled: flag(true)},
+			name: "disabling signs the user out and stops their workflows", actor: sessionPrincipal(admin), id: target.ID, upd: auth.UserUpdate{Disabled: flag(true)},
 			setup: func(d deps) {
 				d.users.EXPECT().ByID(mock.Anything, target.ID).Return(target, nil)
 				d.users.EXPECT().Update(mock.Anything, mock.Anything).Return(nil)
 				d.sessions.EXPECT().DeleteForUser(mock.Anything, target.ID, domain.SessionID("")).Return(nil)
+				d.workflows.EXPECT().StopAll(mock.Anything, target.ID).Return(nil).Once()
 			},
 			check: func(t *testing.T, u domain.User) { assert.Equal(t, now, u.DisabledAt) },
 		},
 		{
+			name: "disabling again stops them again, repairing a failed stop", actor: sessionPrincipal(admin), id: target.ID, upd: auth.UserUpdate{Disabled: flag(true)},
+			setup: func(d deps) {
+				disabled := target
+				disabled.DisabledAt = now.Add(-time.Hour)
+				d.users.EXPECT().ByID(mock.Anything, target.ID).Return(disabled, nil)
+				d.users.EXPECT().Update(mock.Anything, mock.Anything).Return(nil)
+				d.sessions.EXPECT().DeleteForUser(mock.Anything, target.ID, domain.SessionID("")).Return(nil)
+				d.workflows.EXPECT().StopAll(mock.Anything, target.ID).Return(nil).Once()
+			},
+			check: func(t *testing.T, u domain.User) {
+				assert.Equal(t, now.Add(-time.Hour), u.DisabledAt, "the first disable time stays")
+			},
+		},
+		{
+			name: "a failed stop is reported", actor: sessionPrincipal(admin), id: target.ID, upd: auth.UserUpdate{Disabled: flag(true)},
+			setup: func(d deps) {
+				d.users.EXPECT().ByID(mock.Anything, target.ID).Return(target, nil)
+				d.users.EXPECT().Update(mock.Anything, mock.Anything).Return(nil)
+				d.sessions.EXPECT().DeleteForUser(mock.Anything, target.ID, domain.SessionID("")).Return(nil)
+				d.workflows.EXPECT().StopAll(mock.Anything, target.ID).Return(domain.ErrUnavailable)
+			},
+			wantErr: domain.ErrUnavailable,
+		},
+		{
+			// The mock fails the test if StopAll is called: enabling does not restart anything.
 			name: "re-enable", actor: sessionPrincipal(admin), id: target.ID, upd: auth.UserUpdate{Disabled: flag(false)},
 			setup: func(d deps) {
 				disabled := target
