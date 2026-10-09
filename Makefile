@@ -2,6 +2,8 @@ GO            ?= go
 GOLANGCI_LINT ?= $(GO) run github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.14.0
 MOCKERY       ?= $(GO) run github.com/vektra/mockery/v3@v3.8.0
 SWAG          ?= $(GO) run github.com/swaggo/swag/v2/cmd/swag@v2.0.0-rc6
+# The pnpm version is pinned in web/package.json; corepack (bundled with Node) fetches it.
+PNPM          ?= COREPACK_ENABLE_DOWNLOAD_PROMPT=0 corepack pnpm
 
 INTEGRATION_TAG := integration
 DB_TAG          := db
@@ -110,7 +112,9 @@ mocks-check: ## Fail if the mocks on disk are stale
 api-spec: ## Regenerate api/openapi.json from the handler annotations
 	@tmp="$$(mktemp -d)"; \
 	$(SWAG_INIT) "$$tmp" && mkdir -p $(dir $(API_SPEC)) && mv "$$tmp/swagger.json" $(API_SPEC); \
-	status=$$?; rm -rf "$$tmp"; exit $$status
+	status=$$?; rm -rf "$$tmp"; \
+	if [ $$status -eq 0 ]; then echo "updated $(API_SPEC); run make web-api to update the UI's types"; fi; \
+	exit $$status
 
 .PHONY: api-check
 api-check: ## Fail if api/openapi.json is stale
@@ -123,6 +127,28 @@ api-check: ## Fail if api/openapi.json is stale
 fixtures: ## Refresh client test fixtures from live Polymarket (network)
 	$(GO) run ./internal/tools/fixtures
 
+## Web UI (web/, needs Node 22)
+
+.PHONY: web-install
+web-install: ## Install the UI's dependencies
+	$(PNPM) --dir web install --frozen-lockfile
+
+.PHONY: web-dev
+web-dev: ## Run the UI on :5173, proxying /api to :8080 (start the API with POLYTHOUGHT_PUBLIC_URL=http://localhost:5173)
+	$(PNPM) --dir web dev
+
+.PHONY: web-api
+web-api: ## Regenerate the UI's API types from api/openapi.json
+	$(PNPM) --dir web gen:api
+
+.PHONY: web-check
+web-check: ## UI typecheck, lint, format, API types up to date, tests
+	$(PNPM) --dir web check
+
+.PHONY: web-build
+web-build: ## Build the UI into web/dist
+	$(PNPM) --dir web build
+
 ## Aggregates
 
 .PHONY: check
@@ -131,3 +157,4 @@ check: fmt-check vet lint test ## Everything that runs offline: format, vet, lin
 .PHONY: clean
 clean: ## Remove build and coverage artefacts
 	rm -f $(COVER_PROFILE)
+	rm -rf web/dist

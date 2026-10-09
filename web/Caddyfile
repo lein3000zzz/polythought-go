@@ -1,0 +1,36 @@
+# Serves the web UI and proxies the API on the same origin, so the session cookie and the
+# API's origin check need no CORS. Put TLS in front, or give Caddy a domain and let it
+# manage certificates itself.
+{
+	admin off
+}
+
+:80 {
+	encode zstd gzip
+
+	header {
+		X-Content-Type-Options nosniff
+		X-Frame-Options DENY
+		Referrer-Policy strict-origin-when-cross-origin
+	}
+
+	handle /api/* {
+		reverse_proxy {$API_UPSTREAM:api:8080}
+	}
+
+	handle {
+		root * /srv
+
+		# File names under /assets carry a content hash, so they never change.
+		@hashed path /assets/*
+		header @hashed Cache-Control "public, max-age=31536000, immutable"
+
+		# Every other path is a page of the app: serve index.html and let the router
+		# handle it, uncached so a deploy is picked up at once.
+		@page not path /assets/*
+		header @page Cache-Control no-cache
+
+		try_files {path} /index.html
+		file_server
+	}
+}
