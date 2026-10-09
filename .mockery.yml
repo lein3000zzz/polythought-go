@@ -25,6 +25,7 @@ packages:
       ClobClient: {}
       DataClient: {}
       MarketStreamClient: {}
+      ClobAccountClient: {}
   github.com/lein3000zzz/the-watchers/pkg/observability/logging:
     config:
       dir: internal/mocks/logging
@@ -47,6 +48,21 @@ packages:
       PasswordHasher: {}
       WalletRepository: {}
       SecretBox: {}
+      WorkflowRepository: {}
+      ExecutionRepository: {}
+      ExecutionRecorder: {}
+      CredentialsVerifier: {}
+      AccountReader: {}
+      WalletDirectory: {}
+      PositionReader: {}
+  github.com/lein3000zzz/polythought-go/internal/core/services/workflows:
+    config:
+      dir: internal/mocks/workflows
+      pkgname: workflowsmocks
+    interfaces:
+      Validator: {}
+      Executor: {}
+      Supervisor: {}
   github.com/lein3000zzz/polythought-go/internal/adapters/httpapi:
     config:
       dir: internal/mocks/httpapi
@@ -54,3 +70,5 @@ packages:
     interfaces:
       AuthService: {}
       WalletService: {}
+      WorkflowService: {}
+      NodeTypes: {}

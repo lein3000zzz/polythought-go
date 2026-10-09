@@ -35,6 +35,7 @@ type httpCore struct {
 	limiter    *rate.Limiter
 	maxRetries int
 	log        logging.Logger
+	now        func() time.Time
 }
 
 func newHTTPCore(log logging.Logger, cfg HTTPConfig) *httpCore {
@@ -47,20 +48,26 @@ func newHTTPCore(log logging.Logger, cfg HTTPConfig) *httpCore {
 		limiter:    rate.NewLimiter(rate.Limit(cfg.RPS), cfg.Burst),
 		maxRetries: cfg.MaxRetries,
 		log:        log,
+		now:        time.Now,
 	}
 }
 
 func (c *httpCore) get(ctx context.Context, path string, query url.Values, out any) error {
-	return c.do(ctx, http.MethodGet, path, query, nil, out)
+	return c.do(ctx, http.MethodGet, path, query, nil, nil, out)
 }
 
 func (c *httpCore) post(ctx context.Context, path string, body, out any) error {
-	return c.do(ctx, http.MethodPost, path, nil, body, out)
+	return c.do(ctx, http.MethodPost, path, nil, body, nil, out)
+}
+
+// getL2 sends an authenticated GET signed with creds.
+func (c *httpCore) getL2(ctx context.Context, path string, query url.Values, creds L2Credentials, out any) error {
+	return c.do(ctx, http.MethodGet, path, query, nil, &creds, out)
 }
 
 // do retries only on throttling and gateway errors. Every MVP endpoint is a read, so retries are safe.
 // The attempt count and final status land on the caller's span.
-func (c *httpCore) do(ctx context.Context, method, path string, query url.Values, body, out any) error {
+func (c *httpCore) do(ctx context.Context, method, path string, query url.Values, body any, creds *L2Credentials, out any) error {
 	var payload []byte
 	if body != nil {
 		var err error
@@ -82,7 +89,17 @@ func (c *httpCore) do(ctx context.Context, method, path string, query url.Values
 			return err
 		}
 
-		status, header, respBody, err := c.send(ctx, method, target, payload)
+		var err error
+
+		// Signed per attempt: a retry needs a fresh timestamp.
+		var auth http.Header
+		if creds != nil {
+			if auth, err = creds.headers(c.now(), method, path, payload); err != nil {
+				return err
+			}
+		}
+
+		status, header, respBody, err := c.send(ctx, method, target, payload, auth)
 		if err != nil {
 			return fmt.Errorf("polymarket: %s %s: %w", method, path, err)
 		}
@@ -112,7 +129,7 @@ func (c *httpCore) do(ctx context.Context, method, path string, query url.Values
 	}
 }
 
-func (c *httpCore) send(ctx context.Context, method, target string, payload []byte) (int, http.Header, []byte, error) {
+func (c *httpCore) send(ctx context.Context, method, target string, payload []byte, auth http.Header) (int, http.Header, []byte, error) {
 	var reader io.Reader
 	if payload != nil {
 		reader = bytes.NewReader(payload)
@@ -127,6 +144,10 @@ func (c *httpCore) send(ctx context.Context, method, target string, payload []by
 	req.Header.Set("User-Agent", userAgent)
 	if payload != nil {
 		req.Header.Set("Content-Type", "application/json")
+	}
+
+	for k, v := range auth {
+		req.Header[k] = v // L2 header names are not canonical HTTP case; keep them as is
 	}
 
 	resp, err := c.client.Do(req)
@@ -147,6 +168,8 @@ func decodeResponse(path string, status int, body []byte, out any) error {
 	switch {
 	case status == http.StatusNotFound:
 		return tracing.Expected(ErrNotFound, path)
+	case status == http.StatusUnauthorized:
+		return tracing.Expected(fmt.Errorf("%w: %s", ErrUnauthorized, truncate(body, maxErrorBodyLen)), path)
 	case status < 200 || status > 299:
 		return &APIError{StatusCode: status, Body: truncate(body, maxErrorBodyLen)}
 	}

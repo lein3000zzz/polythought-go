@@ -31,14 +31,15 @@ const (
 
 // Execution is one run of a workflow, started by a trigger.
 type Execution struct {
-	ID          ExecutionID
-	WorkflowID  WorkflowID
-	TriggeredBy NodeID
-	Status      ExecutionStatus
-	StartedAt   time.Time
-	FinishedAt  time.Time
-	Runs        []NodeRun
-	Error       string
+	ID              ExecutionID
+	WorkflowID      WorkflowID
+	WorkflowVersion int // the definition that ran
+	TriggeredBy     NodeID
+	Status          ExecutionStatus
+	StartedAt       time.Time
+	FinishedAt      time.Time
+	Runs            []NodeRun
+	Error           string
 }
 
 // NodeRun records one node's part in an execution. Item counts are per port; the items

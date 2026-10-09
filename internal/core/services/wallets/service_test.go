@@ -59,12 +59,23 @@ func fakeBox(t *testing.T) *portsmocks.MockSecretBox {
 	return box
 }
 
+// newService verifies every credential successfully; tests about verification use
+// newServiceWithVerifier.
 func newService(t *testing.T) (*wallets.Service, *portsmocks.MockWalletRepository) {
+	t.Helper()
+
+	verifier := portsmocks.NewMockCredentialsVerifier(t)
+	verifier.EXPECT().VerifyCredentials(mock.Anything, mock.Anything).Return(nil).Maybe()
+
+	return newServiceWithVerifier(t, verifier)
+}
+
+func newServiceWithVerifier(t *testing.T, verifier *portsmocks.MockCredentialsVerifier) (*wallets.Service, *portsmocks.MockWalletRepository) {
 	t.Helper()
 
 	repo := portsmocks.NewMockWalletRepository(t)
 
-	return wallets.New(repo, fakeBox(t), logging.Noop(), wallets.WithClock(func() time.Time { return now })), repo
+	return wallets.New(repo, fakeBox(t), verifier, logging.Noop(), wallets.WithClock(func() time.Time { return now })), repo
 }
 
 func TestLink(t *testing.T) {
@@ -372,4 +383,47 @@ func TestScopedOperations(t *testing.T) {
 			require.ErrorIs(t, tt.call(svc), tt.wantErr)
 		})
 	}
+}
+
+func TestSetCredentialsVerifiesFirst(t *testing.T) {
+	valid := wallets.CredentialsInput{APIKey: apiKey, Secret: secret, Passphrase: passphrase, SignatureType: domain.SignatureEOA}
+
+	tests := []struct {
+		name      string
+		verifyErr error
+		wantErr   error
+	}{
+		{name: "accepted credentials are stored"},
+		{name: "rejected credentials are not stored", verifyErr: domain.ErrCredentialsRejected, wantErr: domain.ErrCredentialsRejected},
+		{name: "unverifiable credentials are not stored", verifyErr: domain.ErrUnavailable, wantErr: domain.ErrUnavailable},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			verifier := portsmocks.NewMockCredentialsVerifier(t)
+			verifier.EXPECT().VerifyCredentials(mock.Anything, domain.PolymarketCredentials{
+				APIKey: apiKey, Secret: secret, Passphrase: passphrase, Signer: walletAddr, SignatureType: domain.SignatureEOA,
+			}).Return(tt.verifyErr).Once()
+
+			svc, repo := newServiceWithVerifier(t, verifier)
+			repo.EXPECT().Get(mock.Anything, owner.ID, wallet.ID).Return(wallet, nil)
+
+			if tt.wantErr == nil {
+				repo.EXPECT().Credentials(mock.Anything, wallet.ID).Return(ports.SealedCredentials{}, domain.ErrNotFound)
+				repo.EXPECT().SaveCredentials(mock.Anything, mock.Anything).Return(nil).Once()
+			}
+
+			_, err := svc.SetCredentials(context.Background(), session, wallet.ID, valid)
+			require.ErrorIs(t, err, tt.wantErr)
+		})
+	}
+}
+
+func TestWalletLookupIsScoped(t *testing.T) {
+	svc, repo := newService(t)
+	repo.EXPECT().Get(mock.Anything, owner.ID, wallet.ID).Return(wallet, nil)
+
+	got, err := svc.Wallet(context.Background(), owner.ID, wallet.ID)
+	require.NoError(t, err)
+	assert.Equal(t, wallet, got)
 }

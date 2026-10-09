@@ -18,9 +18,11 @@ import (
 	"github.com/lein3000zzz/the-watchers/pkg/observability/tracing"
 
 	"github.com/lein3000zzz/polythought-go/internal/core/domain"
+	"github.com/lein3000zzz/polythought-go/internal/core/engine"
 	"github.com/lein3000zzz/polythought-go/internal/core/ports"
 	"github.com/lein3000zzz/polythought-go/internal/core/services/auth"
 	"github.com/lein3000zzz/polythought-go/internal/core/services/wallets"
+	"github.com/lein3000zzz/polythought-go/internal/core/services/workflows"
 )
 
 const tracerName = "github.com/lein3000zzz/polythought-go/internal/adapters/httpapi"
@@ -40,7 +42,7 @@ type AuthService interface {
 	RevokeAPIToken(ctx context.Context, p auth.Principal, id domain.APITokenID) error
 
 	CreateUser(ctx context.Context, actor auth.Principal, email, password string, role domain.Role) (domain.User, error)
-	ListUsers(ctx context.Context, actor auth.Principal, f ports.UserFilter) (ports.Page[domain.User], error)
+	ListUsers(ctx context.Context, actor auth.Principal, f ports.PageFilter) (ports.Page[domain.User], error)
 	UpdateUser(ctx context.Context, actor auth.Principal, id domain.UserID, upd auth.UserUpdate) (domain.User, error)
 	CreateInvite(ctx context.Context, actor auth.Principal) (string, domain.Invite, error)
 	ListInvites(ctx context.Context, actor auth.Principal) ([]domain.Invite, error)
@@ -56,10 +58,31 @@ type WalletService interface {
 	RemoveCredentials(ctx context.Context, p auth.Principal, id domain.WalletID) error
 }
 
+// WorkflowService is what the handlers need from the workflow service.
+type WorkflowService interface {
+	Create(ctx context.Context, p auth.Principal, def workflows.Definition) (domain.Workflow, error)
+	Get(ctx context.Context, p auth.Principal, id domain.WorkflowID) (domain.Workflow, error)
+	List(ctx context.Context, p auth.Principal, f ports.PageFilter) (ports.Page[domain.Workflow], error)
+	Update(ctx context.Context, p auth.Principal, id domain.WorkflowID, version int, def workflows.Definition) (domain.Workflow, error)
+	Delete(ctx context.Context, p auth.Principal, id domain.WorkflowID) error
+	Activate(ctx context.Context, p auth.Principal, id domain.WorkflowID) (domain.Workflow, error)
+	Deactivate(ctx context.Context, p auth.Principal, id domain.WorkflowID) (domain.Workflow, error)
+	Run(ctx context.Context, p auth.Principal, id domain.WorkflowID, trigger domain.NodeID) (domain.Execution, error)
+	Executions(ctx context.Context, p auth.Principal, id domain.WorkflowID, f ports.PageFilter) (ports.Page[domain.Execution], error)
+	Execution(ctx context.Context, p auth.Principal, id domain.WorkflowID, execID domain.ExecutionID) (domain.Execution, error)
+}
+
+// NodeTypes lists what the editor can place in a workflow.
+type NodeTypes interface {
+	Types() []engine.TypeInfo
+}
+
 // Services are the application services behind the API.
 type Services struct {
-	Auth    AuthService
-	Wallets WalletService
+	Auth      AuthService
+	Wallets   WalletService
+	Workflows WorkflowService
+	NodeTypes NodeTypes
 }
 
 type Config struct {
@@ -78,14 +101,16 @@ type Config struct {
 }
 
 type Server struct {
-	hertz   *server.Hertz
-	auth    AuthService
-	wallets WalletService
-	log     logging.Logger
-	kit     *redkit.Kit
-	scope   tracing.Scope
-	origin  string
-	secure  bool
+	hertz     *server.Hertz
+	auth      AuthService
+	wallets   WalletService
+	workflows WorkflowService
+	nodeTypes NodeTypes
+	log       logging.Logger
+	kit       *redkit.Kit
+	scope     tracing.Scope
+	origin    string
+	secure    bool
 }
 
 func New(cfg Config, util *observability.Utility, services Services) (*Server, error) {
@@ -129,14 +154,16 @@ func New(cfg Config, util *observability.Utility, services Services) (*Server, e
 	}))
 
 	s := &Server{
-		hertz:   h,
-		auth:    services.Auth,
-		wallets: services.Wallets,
-		log:     log,
-		kit:     kit,
-		scope:   tracing.Scope{Manager: util.TracerManager, TracerName: tracerName},
-		origin:  public.Scheme + "://" + public.Host,
-		secure:  public.Scheme == "https",
+		hertz:     h,
+		auth:      services.Auth,
+		wallets:   services.Wallets,
+		workflows: services.Workflows,
+		nodeTypes: services.NodeTypes,
+		log:       log,
+		kit:       kit,
+		scope:     tracing.Scope{Manager: util.TracerManager, TracerName: tracerName},
+		origin:    public.Scheme + "://" + public.Host,
+		secure:    public.Scheme == "https",
 	}
 
 	s.routes()
@@ -184,6 +211,20 @@ func (s *Server) routes() {
 	w.GET("/:id/credentials", s.credentialsInfo)
 	w.PUT("/:id/credentials", s.setCredentials)
 	w.DELETE("/:id/credentials", s.removeCredentials)
+
+	v1.GET("/node-types", s.requireAuth, s.listNodeTypes)
+
+	wf := v1.Group("/workflows", s.requireAuth)
+	wf.GET("", s.listWorkflows)
+	wf.POST("", s.createWorkflow)
+	wf.GET("/:id", s.getWorkflow)
+	wf.PUT("/:id", s.updateWorkflow)
+	wf.DELETE("/:id", s.deleteWorkflow)
+	wf.POST("/:id/activate", s.activateWorkflow)
+	wf.POST("/:id/deactivate", s.deactivateWorkflow)
+	wf.POST("/:id/run", s.runWorkflow)
+	wf.GET("/:id/executions", s.listExecutions)
+	wf.GET("/:id/executions/:eid", s.getExecution)
 
 	admin := v1.Group("/admin", s.requireAuth)
 	admin.GET("/users", s.listUsers)

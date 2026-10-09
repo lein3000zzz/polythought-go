@@ -53,7 +53,7 @@ func run(m *testing.M) int {
 func fresh(t *testing.T) *postgres.DB {
 	t.Helper()
 
-	_, err := testDB.Pool.Exec(context.Background(), `TRUNCATE users, sessions, api_tokens, invites, wallets, polymarket_credentials CASCADE`)
+	_, err := testDB.Pool.Exec(context.Background(), `TRUNCATE users, sessions, api_tokens, invites, wallets, polymarket_credentials, workflows, executions CASCADE`)
 	require.NoError(t, err)
 
 	return testDB

@@ -628,7 +628,7 @@ func (_c *MockAuthService_ListInvites_Call) RunAndReturn(run func(ctx context.Co
 }
 
 // ListUsers provides a mock function for the type MockAuthService
-func (_mock *MockAuthService) ListUsers(ctx context.Context, actor auth.Principal, f ports.UserFilter) (ports.Page[domain.User], error) {
+func (_mock *MockAuthService) ListUsers(ctx context.Context, actor auth.Principal, f ports.PageFilter) (ports.Page[domain.User], error) {
 	ret := _mock.Called(ctx, actor, f)
 
 	if len(ret) == 0 {
@@ -637,15 +637,15 @@ func (_mock *MockAuthService) ListUsers(ctx context.Context, actor auth.Principa
 
 	var r0 ports.Page[domain.User]
 	var r1 error
-	if returnFunc, ok := ret.Get(0).(func(context.Context, auth.Principal, ports.UserFilter) (ports.Page[domain.User], error)); ok {
+	if returnFunc, ok := ret.Get(0).(func(context.Context, auth.Principal, ports.PageFilter) (ports.Page[domain.User], error)); ok {
 		return returnFunc(ctx, actor, f)
 	}
-	if returnFunc, ok := ret.Get(0).(func(context.Context, auth.Principal, ports.UserFilter) ports.Page[domain.User]); ok {
+	if returnFunc, ok := ret.Get(0).(func(context.Context, auth.Principal, ports.PageFilter) ports.Page[domain.User]); ok {
 		r0 = returnFunc(ctx, actor, f)
 	} else {
 		r0 = ret.Get(0).(ports.Page[domain.User])
 	}
-	if returnFunc, ok := ret.Get(1).(func(context.Context, auth.Principal, ports.UserFilter) error); ok {
+	if returnFunc, ok := ret.Get(1).(func(context.Context, auth.Principal, ports.PageFilter) error); ok {
 		r1 = returnFunc(ctx, actor, f)
 	} else {
 		r1 = ret.Error(1)
@@ -661,12 +661,12 @@ type MockAuthService_ListUsers_Call struct {
 // ListUsers is a helper method to define mock.On call
 //   - ctx context.Context
 //   - actor auth.Principal
-//   - f ports.UserFilter
+//   - f ports.PageFilter
 func (_e *MockAuthService_Expecter) ListUsers(ctx any, actor any, f any) *MockAuthService_ListUsers_Call {
 	return &MockAuthService_ListUsers_Call{Call: _e.mock.On("ListUsers", ctx, actor, f)}
 }
 
-func (_c *MockAuthService_ListUsers_Call) Run(run func(ctx context.Context, actor auth.Principal, f ports.UserFilter)) *MockAuthService_ListUsers_Call {
+func (_c *MockAuthService_ListUsers_Call) Run(run func(ctx context.Context, actor auth.Principal, f ports.PageFilter)) *MockAuthService_ListUsers_Call {
 	_c.Call.Run(func(args mock.Arguments) {
 		var arg0 context.Context
 		if args[0] != nil {
@@ -676,9 +676,9 @@ func (_c *MockAuthService_ListUsers_Call) Run(run func(ctx context.Context, acto
 		if args[1] != nil {
 			arg1 = args[1].(auth.Principal)
 		}
-		var arg2 ports.UserFilter
+		var arg2 ports.PageFilter
 		if args[2] != nil {
-			arg2 = args[2].(ports.UserFilter)
+			arg2 = args[2].(ports.PageFilter)
 		}
 		run(
 			arg0,
@@ -694,7 +694,7 @@ func (_c *MockAuthService_ListUsers_Call) Return(page ports.Page[domain.User], e
 	return _c
 }
 
-func (_c *MockAuthService_ListUsers_Call) RunAndReturn(run func(ctx context.Context, actor auth.Principal, f ports.UserFilter) (ports.Page[domain.User], error)) *MockAuthService_ListUsers_Call {
+func (_c *MockAuthService_ListUsers_Call) RunAndReturn(run func(ctx context.Context, actor auth.Principal, f ports.PageFilter) (ports.Page[domain.User], error)) *MockAuthService_ListUsers_Call {
 	_c.Call.Return(run)
 	return _c
 }

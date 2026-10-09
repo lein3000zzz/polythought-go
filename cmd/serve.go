@@ -36,12 +36,17 @@ func serve(ctx context.Context) error {
 		Addr:           a.cfg.HTTPAddr,
 		PublicURL:      a.cfg.PublicURL,
 		TrustedProxies: a.cfg.TrustedProxies,
-	}, a.util, httpapi.Services{Auth: a.auth, Wallets: a.wallets})
+	}, a.util, httpapi.Services{Auth: a.auth, Wallets: a.wallets, Workflows: a.workflows, NodeTypes: a.registry})
 	if err != nil {
 		return err
 	}
 
+	if err := a.workflows.StartActive(ctx); err != nil {
+		return err
+	}
+
 	go pruneSessions(ctx, a, log)
+	go pruneExecutions(ctx, a, log)
 
 	errc := make(chan error, 1)
 	go func() { errc <- srv.Run() }()
@@ -80,6 +85,34 @@ func pruneSessions(ctx context.Context, a *app, log logging.Logger) {
 			}
 
 			log.Debug(ctx, "Expired sessions pruned", "count", n)
+		}
+	}
+}
+
+const executionPruneInterval = 24 * time.Hour
+
+func pruneExecutions(ctx context.Context, a *app, log logging.Logger) {
+	prune := func() {
+		n, err := a.workflows.PruneExecutions(ctx, a.cfg.ExecutionRetention)
+		if err != nil {
+			log.Warn(ctx, "Execution pruning failed", logging.Err(err))
+			return
+		}
+
+		log.Info(ctx, "Old executions pruned", "count", n, "retention", a.cfg.ExecutionRetention)
+	}
+
+	prune()
+
+	ticker := time.NewTicker(executionPruneInterval)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+			prune()
 		}
 	}
 }

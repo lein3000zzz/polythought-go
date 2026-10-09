@@ -65,3 +65,54 @@ type MarketInfoFees struct {
 	Exponent  decimal.Decimal `json:"e"`
 	TakerOnly bool            `json:"to"`
 }
+
+// Cursors of the CLOB's paginated endpoints.
+const (
+	clobFirstCursor = "MA=="
+	clobEndCursor   = "LTE="
+)
+
+type AssetType string
+
+const (
+	AssetCollateral  AssetType = "COLLATERAL"
+	AssetConditional AssetType = "CONDITIONAL"
+)
+
+// OpenOrder is one of the account's orders. Sizes are shares, already normalized.
+type OpenOrder struct {
+	ID              string          `json:"id"`
+	Status          string          `json:"status"` // LIVE, MATCHED, CANCELED, CANCELED_MARKET_RESOLVED, INVALID
+	Market          string          `json:"market"`
+	AssetID         string          `json:"asset_id"`
+	Side            Side            `json:"side"`
+	OriginalSize    decimal.Decimal `json:"original_size"`
+	SizeMatched     decimal.Decimal `json:"size_matched"`
+	Price           decimal.Decimal `json:"price"`
+	Outcome         string          `json:"outcome"`
+	OrderType       string          `json:"order_type"`
+	MakerAddress    string          `json:"maker_address"`
+	CreatedAt       int64           `json:"created_at"`
+	Expiration      string          `json:"expiration"` // unix seconds, "0" for none
+	AssociateTrades []string        `json:"associate_trades"`
+}
+
+type OpenOrdersQuery struct {
+	ID      string
+	Market  string // condition ID
+	AssetID string // token ID
+	Cursor  string
+}
+
+type BalanceQuery struct {
+	AssetType     AssetType
+	TokenID       string // for CONDITIONAL
+	SignatureType int
+}
+
+// BalanceAllowance amounts are fixed-point integers with 6 decimals, as the CLOB sends
+// them: 1500000 is 1.5 USD.
+type BalanceAllowance struct {
+	Balance    decimal.Decimal            `json:"balance"`
+	Allowances map[string]decimal.Decimal `json:"allowances"`
+}

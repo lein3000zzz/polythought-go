@@ -35,6 +35,15 @@ type ClobClient interface {
 	ServerTime(ctx context.Context) (int64, error)
 }
 
+// ClobAccountClient reads an account's own CLOB data with L2 credentials. Credentials
+// are passed per call, so one client serves many accounts.
+type ClobAccountClient interface {
+	// APIKeys lists the keys of the credentials' account; a 401 is ErrUnauthorized.
+	APIKeys(ctx context.Context, creds L2Credentials) ([]string, error)
+	OpenOrders(ctx context.Context, creds L2Credentials, q OpenOrdersQuery) (Page[OpenOrder], error)
+	BalanceAllowance(ctx context.Context, creds L2Credentials, q BalanceQuery) (BalanceAllowance, error)
+}
+
 // DataClient reads positions, trades and analytics from data-api.polymarket.com/v2.
 type DataClient interface {
 	Positions(ctx context.Context, q PositionsQuery) (Page[Position], error)

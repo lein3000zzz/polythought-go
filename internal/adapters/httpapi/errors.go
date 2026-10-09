@@ -35,6 +35,8 @@ var errorMapping = []struct {
 	{domain.ErrInvalidAddress, http.StatusBadRequest, "invalid_address"},
 	{domain.ErrWeakPassword, http.StatusBadRequest, "weak_password"},
 	{domain.ErrInvalidInvite, http.StatusBadRequest, "invalid_invite"},
+	{domain.ErrInvalidWorkflow, http.StatusBadRequest, "invalid_workflow"},
+	{domain.ErrCredentialsRejected, http.StatusBadRequest, "credentials_rejected"},
 	{domain.ErrInvalidCredentials, http.StatusUnauthorized, "invalid_credentials"},
 	{domain.ErrUnauthenticated, http.StatusUnauthorized, "unauthenticated"},
 	{domain.ErrUserDisabled, http.StatusForbidden, "user_disabled"},
@@ -44,7 +46,9 @@ var errorMapping = []struct {
 	{domain.ErrEmailTaken, http.StatusConflict, "email_taken"},
 	{domain.ErrWalletExists, http.StatusConflict, "wallet_exists"},
 	{domain.ErrLastAdmin, http.StatusConflict, "last_admin"},
+	{domain.ErrConflict, http.StatusConflict, "conflict"},
 	{domain.ErrRateLimited, http.StatusTooManyRequests, "rate_limited"},
+	{domain.ErrUnavailable, http.StatusServiceUnavailable, "upstream_unavailable"},
 }
 
 // fail writes err as a JSON error response. Unexpected errors are logged with the

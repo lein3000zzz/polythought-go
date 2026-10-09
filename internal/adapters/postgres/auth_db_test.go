@@ -100,19 +100,19 @@ func TestUsers(t *testing.T) {
 				ids = append(ids, seedUser(t, db, e, domain.RoleUser).ID)
 			}
 
-			first, err := users.List(ctx, ports.UserFilter{Limit: 2})
+			first, err := users.List(ctx, ports.PageFilter{Limit: 2})
 			require.NoError(t, err)
 			require.Len(t, first.Items, 2)
 			assert.Equal(t, ids[:2], []domain.UserID{first.Items[0].ID, first.Items[1].ID})
 			require.NotEmpty(t, first.NextCursor)
 
-			second, err := users.List(ctx, ports.UserFilter{Limit: 2, Cursor: first.NextCursor})
+			second, err := users.List(ctx, ports.PageFilter{Limit: 2, Cursor: first.NextCursor})
 			require.NoError(t, err)
 			require.Len(t, second.Items, 1)
 			assert.Equal(t, ids[2], second.Items[0].ID)
 			assert.Empty(t, second.NextCursor)
 
-			_, err = users.List(ctx, ports.UserFilter{Cursor: "garbage"})
+			_, err = users.List(ctx, ports.PageFilter{Cursor: "garbage"})
 			assert.ErrorIs(t, err, domain.ErrInvalidInput)
 		}},
 	}
@@ -345,7 +345,7 @@ func TestWithinTx(t *testing.T) {
 			err := db.WithinTx(ctx, func(ctx context.Context) error { return tt.fn(ctx, db) })
 			require.ErrorIs(t, err, tt.wantErr)
 
-			page, err := postgres.NewUsers(db).List(ctx, ports.UserFilter{})
+			page, err := postgres.NewUsers(db).List(ctx, ports.PageFilter{})
 			require.NoError(t, err)
 			assert.Len(t, page.Items, tt.wantUsers)
 		})

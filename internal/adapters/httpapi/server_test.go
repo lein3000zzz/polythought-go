@@ -298,7 +298,7 @@ func TestRoutes(t *testing.T) {
 			req:  request{method: "GET", path: "/api/v1/admin/users?limit=5&cursor=abc", headers: bearer},
 			setup: func(svc *httpapimocks.MockAuthService) {
 				withToken(svc, root)
-				svc.EXPECT().ListUsers(mock.Anything, mock.Anything, ports.UserFilter{Limit: 5, Cursor: "abc"}).
+				svc.EXPECT().ListUsers(mock.Anything, mock.Anything, ports.PageFilter{Limit: 5, Cursor: "abc"}).
 					Return(ports.Page[domain.User]{Items: []domain.User{alice}, NextCursor: "u-1"}, nil)
 			},
 			wantStatus: http.StatusOK,

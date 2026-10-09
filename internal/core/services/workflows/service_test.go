@@ -1,0 +1,374 @@
+package workflows_test
+
+import (
+	"context"
+	"testing"
+	"time"
+
+	"github.com/lein3000zzz/the-watchers/pkg/observability/logging"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
+	"github.com/stretchr/testify/require"
+
+	"github.com/lein3000zzz/polythought-go/internal/core/domain"
+	"github.com/lein3000zzz/polythought-go/internal/core/engine"
+	"github.com/lein3000zzz/polythought-go/internal/core/ports"
+	"github.com/lein3000zzz/polythought-go/internal/core/services/auth"
+	"github.com/lein3000zzz/polythought-go/internal/core/services/workflows"
+	portsmocks "github.com/lein3000zzz/polythought-go/internal/mocks/ports"
+	workflowsmocks "github.com/lein3000zzz/polythought-go/internal/mocks/workflows"
+)
+
+var (
+	now   = time.Date(2026, 10, 8, 12, 0, 0, 0, time.UTC)
+	alice = auth.Principal{User: domain.User{ID: "u-1"}, SessionID: "s-1"}
+	def   = workflows.Definition{
+		Name:  " Spread watch ",
+		Nodes: []domain.NodeSpec{{ID: "manual", Type: "trigger.manual"}, {ID: "log", Type: "output.log"}},
+		Connections: []domain.Connection{
+			{From: "manual", FromPort: "main", To: "log", ToPort: "main"},
+		},
+	}
+	stored = domain.Workflow{
+		ID: "wf-1", OwnerID: "u-1", Name: "Spread watch", Nodes: def.Nodes, Connections: def.Connections,
+		Version: 3, CreatedAt: now.Add(-time.Hour), UpdatedAt: now.Add(-time.Hour),
+	}
+)
+
+type deps struct {
+	repo       *portsmocks.MockWorkflowRepository
+	executions *portsmocks.MockExecutionRepository
+	validator  *workflowsmocks.MockValidator
+	executor   *workflowsmocks.MockExecutor
+	supervisor *workflowsmocks.MockSupervisor
+}
+
+func newService(t *testing.T, limits workflows.Limits) (*workflows.Service, deps) {
+	t.Helper()
+
+	d := deps{
+		repo:       portsmocks.NewMockWorkflowRepository(t),
+		executions: portsmocks.NewMockExecutionRepository(t),
+		validator:  workflowsmocks.NewMockValidator(t),
+		executor:   workflowsmocks.NewMockExecutor(t),
+		supervisor: workflowsmocks.NewMockSupervisor(t),
+	}
+
+	svc := workflows.New(d.repo, d.executions, d.validator, d.executor, d.supervisor, logging.Noop(),
+		workflows.WithClock(func() time.Time { return now }), workflows.WithLimits(limits))
+
+	return svc, d
+}
+
+func active(w domain.Workflow) domain.Workflow {
+	w.Active = true
+	return w
+}
+
+func TestCreate(t *testing.T) {
+	tests := []struct {
+		name    string
+		def     workflows.Definition
+		limits  workflows.Limits
+		setup   func(d deps)
+		wantErr error
+	}{
+		{
+			name: "valid and inactive", def: def, limits: workflows.DefaultLimits(),
+			setup: func(d deps) {
+				d.repo.EXPECT().Count(mock.Anything, domain.UserID("u-1")).Return(0, 0, nil)
+				d.validator.EXPECT().Validate(mock.MatchedBy(func(w domain.Workflow) bool { return w.Name == "Spread watch" })).Return(nil)
+				d.repo.EXPECT().Create(mock.Anything, mock.MatchedBy(func(w domain.Workflow) bool {
+					return !w.Active && w.Version == 1 && w.OwnerID == "u-1" && w.CreatedAt.Equal(now) && w.ID != ""
+				})).Return(nil)
+			},
+		},
+		{
+			name: "invalid graph", def: def, limits: workflows.DefaultLimits(),
+			setup: func(d deps) {
+				d.repo.EXPECT().Count(mock.Anything, mock.Anything).Return(0, 0, nil)
+				d.validator.EXPECT().Validate(mock.Anything).Return(domain.ErrInvalidWorkflow)
+			},
+			wantErr: domain.ErrInvalidWorkflow,
+		},
+		{
+			name: "blank name", def: workflows.Definition{Name: "  ", Nodes: def.Nodes}, limits: workflows.DefaultLimits(),
+			setup: func(d deps) {
+				d.repo.EXPECT().Count(mock.Anything, mock.Anything).Return(0, 0, nil)
+			},
+			wantErr: domain.ErrInvalidInput,
+		},
+		{
+			name: "too many nodes", def: def, limits: workflows.Limits{Workflows: 10, ActiveWorkflows: 10, NodesPerFlow: 1},
+			setup: func(d deps) {
+				d.repo.EXPECT().Count(mock.Anything, mock.Anything).Return(0, 0, nil)
+			},
+			wantErr: domain.ErrInvalidInput,
+		},
+		{
+			name: "per-user workflow limit", def: def, limits: workflows.Limits{Workflows: 2, ActiveWorkflows: 1, NodesPerFlow: 10},
+			setup: func(d deps) {
+				d.repo.EXPECT().Count(mock.Anything, mock.Anything).Return(2, 0, nil)
+			},
+			wantErr: domain.ErrInvalidInput,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			svc, d := newService(t, tt.limits)
+			tt.setup(d)
+
+			w, err := svc.Create(context.Background(), alice, tt.def)
+
+			if tt.wantErr != nil {
+				require.ErrorIs(t, err, tt.wantErr)
+				return
+			}
+
+			require.NoError(t, err)
+			assert.Equal(t, "Spread watch", w.Name)
+		})
+	}
+}
+
+func TestUpdate(t *testing.T) {
+	tests := []struct {
+		name    string
+		current domain.Workflow
+		version int
+		setup   func(d deps)
+		wantErr error
+		check   func(t *testing.T, w domain.Workflow)
+	}{
+		{
+			name: "saves the next version", current: stored, version: 3,
+			setup: func(d deps) {
+				d.validator.EXPECT().Validate(mock.Anything).Return(nil)
+				d.repo.EXPECT().Update(mock.Anything, mock.MatchedBy(func(w domain.Workflow) bool {
+					return w.Version == 4 && w.UpdatedAt.Equal(now)
+				}), 3).Return(nil)
+			},
+			check: func(t *testing.T, w domain.Workflow) { assert.Equal(t, 4, w.Version) },
+		},
+		{
+			name: "an active workflow restarts with the new definition", current: active(stored), version: 3,
+			setup: func(d deps) {
+				d.validator.EXPECT().Validate(mock.Anything).Return(nil)
+				d.repo.EXPECT().Update(mock.Anything, mock.Anything, 3).Return(nil)
+				d.supervisor.EXPECT().Start(mock.MatchedBy(func(w domain.Workflow) bool { return w.Version == 4 })).Once()
+			},
+		},
+		{
+			name: "stale version is a conflict", current: stored, version: 2,
+			setup:   func(deps) {},
+			wantErr: domain.ErrConflict,
+		},
+		{
+			name: "losing a race at the database is a conflict", current: stored, version: 3,
+			setup: func(d deps) {
+				d.validator.EXPECT().Validate(mock.Anything).Return(nil)
+				d.repo.EXPECT().Update(mock.Anything, mock.Anything, 3).Return(domain.ErrConflict)
+			},
+			wantErr: domain.ErrConflict,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			svc, d := newService(t, workflows.DefaultLimits())
+			d.repo.EXPECT().Get(mock.Anything, domain.UserID("u-1"), domain.WorkflowID("wf-1")).Return(tt.current, nil)
+			tt.setup(d)
+
+			w, err := svc.Update(context.Background(), alice, "wf-1", tt.version, def)
+
+			if tt.wantErr != nil {
+				require.ErrorIs(t, err, tt.wantErr)
+				return
+			}
+
+			require.NoError(t, err)
+
+			if tt.check != nil {
+				tt.check(t, w)
+			}
+		})
+	}
+}
+
+func TestLifecycle(t *testing.T) {
+	limits := workflows.Limits{Workflows: 10, ActiveWorkflows: 2, NodesPerFlow: 10}
+
+	tests := []struct {
+		name    string
+		setup   func(d deps)
+		call    func(s *workflows.Service) error
+		wantErr error
+	}{
+		{
+			name: "activate validates, persists and starts",
+			setup: func(d deps) {
+				d.repo.EXPECT().Get(mock.Anything, mock.Anything, domain.WorkflowID("wf-1")).Return(stored, nil)
+				d.repo.EXPECT().Count(mock.Anything, mock.Anything).Return(3, 1, nil)
+				d.validator.EXPECT().Validate(stored).Return(nil)
+				d.repo.EXPECT().SetActive(mock.Anything, domain.UserID("u-1"), domain.WorkflowID("wf-1"), true, now).Return(nil)
+				d.supervisor.EXPECT().Start(active(stored)).Once()
+			},
+			call: func(s *workflows.Service) error {
+				_, err := s.Activate(context.Background(), alice, "wf-1")
+				return err
+			},
+		},
+		{
+			name: "activation limit",
+			setup: func(d deps) {
+				d.repo.EXPECT().Get(mock.Anything, mock.Anything, mock.Anything).Return(stored, nil)
+				d.repo.EXPECT().Count(mock.Anything, mock.Anything).Return(3, 2, nil)
+			},
+			call: func(s *workflows.Service) error {
+				_, err := s.Activate(context.Background(), alice, "wf-1")
+				return err
+			},
+			wantErr: domain.ErrInvalidInput,
+		},
+		{
+			name: "re-activating an active workflow skips the limit",
+			setup: func(d deps) {
+				d.repo.EXPECT().Get(mock.Anything, mock.Anything, mock.Anything).Return(active(stored), nil)
+				d.validator.EXPECT().Validate(mock.Anything).Return(nil)
+				d.repo.EXPECT().SetActive(mock.Anything, mock.Anything, mock.Anything, true, now).Return(nil)
+				d.supervisor.EXPECT().Start(mock.Anything).Once()
+			},
+			call: func(s *workflows.Service) error {
+				_, err := s.Activate(context.Background(), alice, "wf-1")
+				return err
+			},
+		},
+		{
+			name: "deactivate persists and stops",
+			setup: func(d deps) {
+				d.repo.EXPECT().Get(mock.Anything, mock.Anything, mock.Anything).Return(active(stored), nil)
+				d.repo.EXPECT().SetActive(mock.Anything, domain.UserID("u-1"), domain.WorkflowID("wf-1"), false, now).Return(nil)
+				d.supervisor.EXPECT().Stop(domain.WorkflowID("wf-1")).Once()
+			},
+			call: func(s *workflows.Service) error {
+				_, err := s.Deactivate(context.Background(), alice, "wf-1")
+				return err
+			},
+		},
+		{
+			name: "delete stops first",
+			setup: func(d deps) {
+				d.repo.EXPECT().Get(mock.Anything, mock.Anything, mock.Anything).Return(active(stored), nil)
+				d.supervisor.EXPECT().Stop(domain.WorkflowID("wf-1")).Once()
+				d.repo.EXPECT().Delete(mock.Anything, domain.UserID("u-1"), domain.WorkflowID("wf-1")).Return(nil)
+			},
+			call: func(s *workflows.Service) error { return s.Delete(context.Background(), alice, "wf-1") },
+		},
+		{
+			name: "someone else's workflow is not found",
+			setup: func(d deps) {
+				d.repo.EXPECT().Get(mock.Anything, mock.Anything, mock.Anything).Return(domain.Workflow{}, domain.ErrNotFound)
+			},
+			call:    func(s *workflows.Service) error { return s.Delete(context.Background(), alice, "wf-1") },
+			wantErr: domain.ErrNotFound,
+		},
+		{
+			name: "executions check ownership first",
+			setup: func(d deps) {
+				d.repo.EXPECT().Get(mock.Anything, mock.Anything, mock.Anything).Return(domain.Workflow{}, domain.ErrNotFound)
+			},
+			call: func(s *workflows.Service) error {
+				_, err := s.Executions(context.Background(), alice, "wf-1", ports.PageFilter{})
+				return err
+			},
+			wantErr: domain.ErrNotFound,
+		},
+		{
+			name: "executions of an owned workflow",
+			setup: func(d deps) {
+				d.repo.EXPECT().Get(mock.Anything, mock.Anything, mock.Anything).Return(stored, nil)
+				d.executions.EXPECT().List(mock.Anything, domain.WorkflowID("wf-1"), ports.PageFilter{Limit: 5}).Return(ports.Page[domain.Execution]{}, nil)
+			},
+			call: func(s *workflows.Service) error {
+				_, err := s.Executions(context.Background(), alice, "wf-1", ports.PageFilter{Limit: 5})
+				return err
+			},
+		},
+		{
+			name: "prune uses the retention window",
+			setup: func(d deps) {
+				d.executions.EXPECT().DeleteFinishedBefore(mock.Anything, now.Add(-30*24*time.Hour)).Return(7, nil)
+			},
+			call: func(s *workflows.Service) error {
+				_, err := s.PruneExecutions(context.Background(), 30*24*time.Hour)
+				return err
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			svc, d := newService(t, limits)
+			tt.setup(d)
+
+			require.ErrorIs(t, tt.call(svc), tt.wantErr)
+		})
+	}
+}
+
+func TestRun(t *testing.T) {
+	twoManual := stored
+	twoManual.Nodes = []domain.NodeSpec{{ID: "m1", Type: "trigger.manual"}, {ID: "m2", Type: "trigger.manual"}}
+
+	noManual := stored
+	noManual.Nodes = []domain.NodeSpec{{ID: "every", Type: "trigger.schedule"}}
+
+	tests := []struct {
+		name        string
+		workflow    domain.Workflow
+		trigger     domain.NodeID
+		wantTrigger domain.NodeID
+		wantErr     error
+	}{
+		{name: "the only manual trigger", workflow: stored, wantTrigger: "manual"},
+		{name: "a named trigger", workflow: twoManual, trigger: "m2", wantTrigger: "m2"},
+		{name: "several manual triggers need a name", workflow: twoManual, wantErr: domain.ErrInvalidInput},
+		{name: "no manual trigger", workflow: noManual, wantErr: domain.ErrInvalidInput},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			svc, d := newService(t, workflows.DefaultLimits())
+			d.repo.EXPECT().Get(mock.Anything, mock.Anything, mock.Anything).Return(tt.workflow, nil)
+
+			if tt.wantErr == nil {
+				d.executor.EXPECT().Execute(mock.Anything, tt.workflow, tt.wantTrigger, mock.Anything).
+					Return(engine.Result{Execution: domain.Execution{ID: "ex-1", Status: domain.ExecutionSucceeded}}, nil)
+			}
+
+			exec, err := svc.Run(context.Background(), alice, "wf-1", tt.trigger)
+
+			if tt.wantErr != nil {
+				require.ErrorIs(t, err, tt.wantErr)
+				return
+			}
+
+			require.NoError(t, err)
+			assert.Equal(t, domain.ExecutionID("ex-1"), exec.ID)
+		})
+	}
+}
+
+func TestStartActive(t *testing.T) {
+	valid, broken := active(stored), active(stored)
+	broken.ID = "wf-broken"
+
+	svc, d := newService(t, workflows.DefaultLimits())
+	d.repo.EXPECT().ListActive(mock.Anything).Return([]domain.Workflow{valid, broken}, nil)
+	d.validator.EXPECT().Validate(valid).Return(nil)
+	d.validator.EXPECT().Validate(broken).Return(domain.ErrInvalidWorkflow)
+	d.supervisor.EXPECT().Start(valid).Once()
+
+	require.NoError(t, svc.StartActive(context.Background()))
+}

@@ -38,6 +38,7 @@ func TestLoadDefaults(t *testing.T) {
 		Registration:       domain.RegistrationInvite,
 		SessionIdleTTL:     7 * 24 * time.Hour,
 		SessionAbsoluteTTL: 30 * 24 * time.Hour,
+		ExecutionRetention: 30 * 24 * time.Hour,
 		LogLevel:           "info",
 		LogFormat:          "text",
 	}, cfg)

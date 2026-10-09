@@ -121,6 +121,26 @@ func TestWalletRoutes(t *testing.T) {
 			wantStatus: http.StatusNoContent,
 		},
 		{
+			name: "credentials polymarket refuses",
+			req: request{method: "PUT", path: "/api/v1/wallets/w-1/credentials", headers: cookie,
+				body: `{"apiKey":"` + apiKey + `","secret":"` + secret + `","passphrase":"pp","signatureType":0}`},
+			setup: func(w *httpapimocks.MockWalletService) {
+				w.EXPECT().SetCredentials(mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(domain.CredentialsInfo{}, domain.ErrCredentialsRejected)
+			},
+			wantStatus: http.StatusBadRequest,
+			wantBody:   []string{`"code":"credentials_rejected"`},
+		},
+		{
+			name: "polymarket unreachable while verifying",
+			req: request{method: "PUT", path: "/api/v1/wallets/w-1/credentials", headers: cookie,
+				body: `{"apiKey":"` + apiKey + `","secret":"` + secret + `","passphrase":"pp","signatureType":0}`},
+			setup: func(w *httpapimocks.MockWalletService) {
+				w.EXPECT().SetCredentials(mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(domain.CredentialsInfo{}, domain.ErrUnavailable)
+			},
+			wantStatus: http.StatusServiceUnavailable,
+			wantBody:   []string{`"code":"upstream_unavailable"`},
+		},
+		{
 			name:       "unknown credential fields are rejected",
 			req:        request{method: "PUT", path: "/api/v1/wallets/w-1/credentials", body: `{"privateKey":"0x..."}`, headers: cookie},
 			setup:      func(*httpapimocks.MockWalletService) {},

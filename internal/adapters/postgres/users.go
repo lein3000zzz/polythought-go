@@ -128,7 +128,7 @@ func (r *Users) Update(ctx context.Context, u domain.User) error {
 }
 
 // List pages by ID; UUIDv7 IDs sort by creation time.
-func (r *Users) List(ctx context.Context, f ports.UserFilter) (ports.Page[domain.User], error) {
+func (r *Users) List(ctx context.Context, f ports.PageFilter) (ports.Page[domain.User], error) {
 	limit := f.Limit
 	if limit <= 0 {
 		limit = defaultPageSize

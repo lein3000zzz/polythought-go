@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"slices"
+	"strings"
 	"sync"
 
 	"github.com/lein3000zzz/polythought-go/internal/core/domain"
@@ -140,4 +141,30 @@ func (r *Registry) Validate(w domain.Workflow) error {
 	}
 
 	return errors.Join(problems...)
+}
+
+// TypeInfo describes a registered type for clients such as the editor.
+type TypeInfo struct {
+	NodeType
+
+	Trigger bool
+}
+
+// Types lists every registered node and trigger type, sorted by name.
+func (r *Registry) Types() []TypeInfo {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+
+	out := make([]TypeInfo, 0, len(r.nodes)+len(r.triggers))
+	for _, n := range r.nodes {
+		out = append(out, TypeInfo{NodeType: n.Type()})
+	}
+
+	for _, t := range r.triggers {
+		out = append(out, TypeInfo{NodeType: t.Type(), Trigger: true})
+	}
+
+	slices.SortFunc(out, func(a, b TypeInfo) int { return strings.Compare(a.Name, b.Name) })
+
+	return out
 }

@@ -175,3 +175,19 @@ func TestLiveAdapterStream(t *testing.T) {
 
 	require.FailNow(t, "no book snapshot")
 }
+
+func TestLiveAccountRejectsUnknownCredentials(t *testing.T) {
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	clob, err := pm.NewClobClient(observability.NoopUtility(), pm.HTTPConfig{})
+	require.NoError(t, err)
+
+	err = NewAccount(clob).VerifyCredentials(ctx, domain.PolymarketCredentials{
+		APIKey:     "4f6d3b52-9a3e-4c8e-8f0a-2b7c1d5e9f01",
+		Secret:     "c2VjcmV0LWJ5dGVzLXNlY3JldC1ieXRlcy1zZWNyZXQ=",
+		Passphrase: "not-a-real-passphrase",
+		Signer:     "0x5aAeb6053F3E94C9b9A09f33669435E7Ef1BeAed",
+	})
+	require.ErrorIs(t, err, domain.ErrCredentialsRejected, "a well-formed request with an unknown key is refused, not malformed")
+}

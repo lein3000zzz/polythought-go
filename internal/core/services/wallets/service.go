@@ -23,9 +23,12 @@ const (
 	defaultMaxWallets = 20
 )
 
+var _ ports.WalletDirectory = (*Service)(nil)
+
 type Service struct {
 	repo       ports.WalletRepository
 	box        ports.SecretBox
+	verifier   ports.CredentialsVerifier
 	log        logging.Logger
 	now        func() time.Time
 	maxWallets int
@@ -38,10 +41,11 @@ func WithClock(now func() time.Time) Option {
 	return func(s *Service) { s.now = now }
 }
 
-func New(repo ports.WalletRepository, box ports.SecretBox, log logging.Logger, opts ...Option) *Service {
+func New(repo ports.WalletRepository, box ports.SecretBox, verifier ports.CredentialsVerifier, log logging.Logger, opts ...Option) *Service {
 	s := &Service{
 		repo:       repo,
 		box:        box,
+		verifier:   verifier,
 		log:        log.With("component", "wallets"),
 		now:        func() time.Time { return time.Now().UTC().Truncate(time.Microsecond) },
 		maxWallets: defaultMaxWallets,
@@ -119,8 +123,9 @@ type CredentialsInput struct {
 	SignatureType domain.SignatureType
 }
 
-// SetCredentials stores a wallet's L2 API credentials, replacing any previous ones.
-// Like API tokens, this is only allowed from a browser session.
+// SetCredentials checks a wallet's L2 API credentials with Polymarket, then stores them,
+// replacing any previous ones. Like API tokens, this is only allowed from a browser session.
+// Credentials Polymarket refuses, or cannot be asked about, are not stored.
 func (s *Service) SetCredentials(ctx context.Context, p auth.Principal, id domain.WalletID, in CredentialsInput) (domain.CredentialsInfo, error) {
 	if !p.ViaSession() {
 		return domain.CredentialsInfo{}, domain.ErrForbidden
@@ -133,6 +138,11 @@ func (s *Service) SetCredentials(ctx context.Context, p auth.Principal, id domai
 
 	creds, err := validateCredentials(w, in)
 	if err != nil {
+		return domain.CredentialsInfo{}, err
+	}
+
+	if err := s.verifier.VerifyCredentials(ctx, creds); err != nil {
+		s.log.Info(ctx, "Polymarket credentials not accepted", "user_id", p.User.ID, "wallet_id", w.ID, logging.Err(err))
 		return domain.CredentialsInfo{}, err
 	}
 
@@ -206,6 +216,11 @@ func (s *Service) RemoveCredentials(ctx context.Context, p auth.Principal, id do
 	s.log.Info(ctx, "Polymarket credentials removed", "user_id", p.User.ID, "wallet_id", w.ID)
 
 	return nil
+}
+
+// Wallet looks up one of owner's wallets, for the engine.
+func (s *Service) Wallet(ctx context.Context, owner domain.UserID, id domain.WalletID) (domain.Wallet, error) {
+	return s.repo.Get(ctx, owner, id)
 }
 
 // Credentials decrypts a wallet's credentials for signing requests on the owner's

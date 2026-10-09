@@ -13,11 +13,6 @@ type Transactor interface {
 	WithinTx(ctx context.Context, fn func(ctx context.Context) error) error
 }
 
-type UserFilter struct {
-	Limit  int
-	Cursor string // ID of the last user on the previous page
-}
-
 // UserRepository returns domain.ErrNotFound for unknown users and domain.ErrEmailTaken
 // when an email is registered twice. Emails are matched case-insensitively.
 type UserRepository interface {
@@ -29,7 +24,7 @@ type UserRepository interface {
 	SetPasswordHash(ctx context.Context, id domain.UserID, hash string, at time.Time) error
 	// Update writes Role and DisabledAt.
 	Update(ctx context.Context, u domain.User) error
-	List(ctx context.Context, f UserFilter) (Page[domain.User], error)
+	List(ctx context.Context, f PageFilter) (Page[domain.User], error)
 	CountActiveAdmins(ctx context.Context) (int, error)
 	// LockActiveAdmins locks the active admins' rows until the surrounding transaction
 	// ends and returns how many there are. It must run inside Transactor.WithinTx.

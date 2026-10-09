@@ -13,11 +13,16 @@ import (
 	"github.com/lein3000zzz/the-watchers/pkg/observability/tracing/oteltracing"
 
 	"github.com/lein3000zzz/polythought-go/internal/adapters/crypto"
+	pmadapter "github.com/lein3000zzz/polythought-go/internal/adapters/polymarket"
 	"github.com/lein3000zzz/polythought-go/internal/adapters/postgres"
 	"github.com/lein3000zzz/polythought-go/internal/adapters/ratelimit"
 	"github.com/lein3000zzz/polythought-go/internal/config"
+	"github.com/lein3000zzz/polythought-go/internal/core/engine"
+	"github.com/lein3000zzz/polythought-go/internal/core/nodes"
 	"github.com/lein3000zzz/polythought-go/internal/core/services/auth"
 	"github.com/lein3000zzz/polythought-go/internal/core/services/wallets"
+	"github.com/lein3000zzz/polythought-go/internal/core/services/workflows"
+	pm "github.com/lein3000zzz/polythought-go/pkg/clients/polymarket"
 )
 
 var logLevels = map[string]logging.Level{
@@ -64,11 +69,14 @@ func shutdown(util *observability.Utility) {
 
 // app is everything the server and the operator tools share.
 type app struct {
-	cfg     config.Config
-	util    *observability.Utility
-	db      *postgres.DB
-	auth    *auth.Service
-	wallets *wallets.Service
+	cfg        config.Config
+	util       *observability.Utility
+	db         *postgres.DB
+	auth       *auth.Service
+	wallets    *wallets.Service
+	workflows  *workflows.Service
+	registry   *engine.Registry
+	supervisor *engine.Supervisor
 }
 
 func newApp(ctx context.Context) (*app, error) {
@@ -117,7 +125,16 @@ func (a *app) init(ctx context.Context) error {
 		return err
 	}
 
-	a.wallets = wallets.New(postgres.NewWallets(db), crypto.NewEnvelope(keys), a.util.Logger)
+	pmc, err := newPolymarket(a)
+	if err != nil {
+		return err
+	}
+
+	a.wallets = wallets.New(postgres.NewWallets(db), crypto.NewEnvelope(keys), pmc.account, a.util.Logger)
+
+	if err := a.initEngine(ctx, pmc); err != nil {
+		return err
+	}
 
 	authCfg := auth.DefaultConfig()
 	authCfg.Registration = a.cfg.Registration
@@ -137,4 +154,61 @@ func (a *app) init(ctx context.Context) error {
 	)
 
 	return err
+}
+
+// polymarket holds the adapters over the Polymarket clients.
+type polymarket struct {
+	reader  *pmadapter.Reader
+	account *pmadapter.Account
+}
+
+func newPolymarket(a *app) (polymarket, error) {
+	gamma, err := pm.NewGammaClient(a.util, pm.HTTPConfig{})
+	if err != nil {
+		return polymarket{}, err
+	}
+
+	clob, err := pm.NewClobClient(a.util, pm.HTTPConfig{})
+	if err != nil {
+		return polymarket{}, err
+	}
+
+	data, err := pm.NewDataClient(a.util, pm.HTTPConfig{})
+	if err != nil {
+		return polymarket{}, err
+	}
+
+	return polymarket{reader: pmadapter.NewReader(gamma, clob, data), account: pmadapter.NewAccount(clob)}, nil
+}
+
+// initEngine builds the workflow engine. Workflows run under ctx: cancelling it stops
+// them, and the supervisor is also stopped on shutdown, before the database closes.
+func (a *app) initEngine(ctx context.Context, pmc polymarket) error {
+	a.registry = engine.NewRegistry()
+
+	err := nodes.Register(a.registry, nodes.Deps{
+		Markets:    pmc.reader,
+		OrderBooks: pmc.reader,
+		Positions:  pmc.reader,
+		Account:    pmc.account,
+		Wallets:    a.wallets,
+		Logger:     a.util.Logger,
+	})
+	if err != nil {
+		return err
+	}
+
+	executions := postgres.NewExecutions(a.db)
+
+	executor, err := engine.NewExecutor(a.util, a.registry, engine.WithRecorder(executions))
+	if err != nil {
+		return err
+	}
+
+	a.supervisor = engine.NewSupervisor(ctx, engine.NewRunner(a.util, a.registry, executor), a.util.Logger)
+	a.util.OnShutdown(a.supervisor.Shutdown)
+
+	a.workflows = workflows.New(postgres.NewWorkflows(a.db), executions, a.registry, executor, a.supervisor, a.util.Logger)
+
+	return nil
 }

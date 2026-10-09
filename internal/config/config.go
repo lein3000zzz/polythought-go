@@ -38,6 +38,9 @@ type Config struct {
 	SessionIdleTTL     time.Duration
 	SessionAbsoluteTTL time.Duration
 
+	// ExecutionRetention is how long finished executions are kept.
+	ExecutionRetention time.Duration
+
 	// AdminEmail and AdminPassword create the first admin on start when no admin exists.
 	AdminEmail    string
 	AdminPassword string
@@ -133,6 +136,7 @@ func Load(getenv func(string) string) (Config, error) {
 
 	cfg.SessionIdleTTL = duration("SESSION_IDLE_TTL", 7*24*time.Hour)
 	cfg.SessionAbsoluteTTL = duration("SESSION_ABSOLUTE_TTL", 30*24*time.Hour)
+	cfg.ExecutionRetention = duration("EXECUTION_RETENTION", 30*24*time.Hour)
 
 	cfg.AdminEmail = env("ADMIN_EMAIL")
 	cfg.AdminPassword = getenv(prefix + "ADMIN_PASSWORD") // not trimmed: spaces may be part of it

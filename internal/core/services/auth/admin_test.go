@@ -247,10 +247,10 @@ func TestInvitesAndUserList(t *testing.T) {
 		{
 			name: "list users passes the filter",
 			setup: func(d deps) {
-				d.users.EXPECT().List(mock.Anything, ports.UserFilter{Limit: 5, Cursor: "c"}).Return(ports.Page[domain.User]{}, nil)
+				d.users.EXPECT().List(mock.Anything, ports.PageFilter{Limit: 5, Cursor: "c"}).Return(ports.Page[domain.User]{}, nil)
 			},
 			call: func(s *auth.Service) error {
-				_, err := s.ListUsers(context.Background(), admin, ports.UserFilter{Limit: 5, Cursor: "c"})
+				_, err := s.ListUsers(context.Background(), admin, ports.PageFilter{Limit: 5, Cursor: "c"})
 				return err
 			},
 		},
@@ -276,7 +276,7 @@ func TestInvitesAndUserList(t *testing.T) {
 			name:  "regular users cannot list users",
 			setup: func(deps) {},
 			call: func(s *auth.Service) error {
-				_, err := s.ListUsers(context.Background(), regular, ports.UserFilter{})
+				_, err := s.ListUsers(context.Background(), regular, ports.PageFilter{})
 				return err
 			},
 			wantErr: domain.ErrForbidden,

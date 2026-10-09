@@ -4,6 +4,7 @@ package nodes
 import (
 	"errors"
 
+	"github.com/lein3000zzz/polythought-go/internal/core/nodes/account"
 	"github.com/lein3000zzz/polythought-go/internal/core/nodes/logic"
 	markets2 "github.com/lein3000zzz/polythought-go/internal/core/nodes/markets"
 	"github.com/lein3000zzz/polythought-go/internal/core/nodes/output"
@@ -18,6 +19,9 @@ import (
 type Deps struct {
 	Markets    ports.MarketReader
 	OrderBooks ports.OrderBookReader
+	Positions  ports.PositionReader
+	Account    ports.AccountReader
+	Wallets    ports.WalletDirectory
 	Logger     logging.Logger
 }
 
@@ -29,5 +33,8 @@ func Register(r *engine.Registry, d Deps) error {
 		r.RegisterNode(markets2.NewOrderBooks(d.OrderBooks)),
 		r.RegisterNode(logic.If{}),
 		r.RegisterNode(output.NewLog(d.Logger)),
+		r.RegisterNode(account.NewPositions(d.Wallets, d.Positions)),
+		r.RegisterNode(account.NewOrders(d.Wallets, d.Account)),
+		r.RegisterNode(account.NewBalance(d.Wallets, d.Account)),
 	)
 }

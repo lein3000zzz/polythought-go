@@ -50,7 +50,8 @@ func demo(ctx context.Context, args []string) error {
 	reader := pmadapter.NewReader(gamma, clob, data)
 
 	registry := engine.NewRegistry()
-	if err := nodes.Register(registry, nodes.Deps{Markets: reader, OrderBooks: reader, Logger: util.Logger}); err != nil {
+	// The demo has no database, so no wallets: account nodes are registered but unused.
+	if err := nodes.Register(registry, nodes.Deps{Markets: reader, OrderBooks: reader, Positions: reader, Logger: util.Logger}); err != nil {
 		return err
 	}
 

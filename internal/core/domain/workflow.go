@@ -4,18 +4,29 @@ import (
 	"errors"
 	"fmt"
 	"slices"
+	"time"
 )
 
 // ErrInvalidWorkflow is matched by every problem Validate reports.
 var ErrInvalidWorkflow = errors.New("invalid workflow")
 
+// ErrConflict means the workflow changed since the caller read it.
+var ErrConflict = errors.New("changed by someone else, reload and retry")
+
 // Workflow is the graph a user builds: nodes and the connections between their ports.
 type Workflow struct {
 	ID          WorkflowID
+	OwnerID     UserID
 	Name        string
 	Active      bool
 	Nodes       []NodeSpec
 	Connections []Connection
+
+	// Version increases with every saved change; updates name the version they edited,
+	// so concurrent edits cannot silently overwrite each other.
+	Version   int
+	CreatedAt time.Time
+	UpdatedAt time.Time
 }
 
 // NodeSpec is a node as configured in the editor. Type selects the implementation.

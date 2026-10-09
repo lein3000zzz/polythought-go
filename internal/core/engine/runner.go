@@ -46,6 +46,7 @@ func (r *Runner) Run(ctx context.Context, w domain.Workflow) error {
 
 		tc := TriggerContext{
 			WorkflowID: w.ID,
+			OwnerID:    w.OwnerID,
 			NodeID:     spec.ID,
 			Params:     newLiteralResolver(trigger.Type(), spec.Params).params,
 		}

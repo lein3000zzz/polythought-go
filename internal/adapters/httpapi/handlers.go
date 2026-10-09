@@ -89,10 +89,12 @@ func optionalTime(t time.Time) *time.Time {
 }
 
 // decodeJSON reads the body strictly: unknown fields are an error, so typos in field
-// names fail loudly instead of being ignored.
+// names fail loudly instead of being ignored. Free-form values (node params) keep their
+// numbers as json.Number, so 0.02 is not turned into a float.
 func decodeJSON(c *app.RequestContext, dst any) error {
 	dec := json.NewDecoder(bytes.NewReader(c.Request.Body()))
 	dec.DisallowUnknownFields()
+	dec.UseNumber()
 
 	if err := dec.Decode(dst); err != nil {
 		return fmt.Errorf("%w: %s", domain.ErrInvalidInput, err.Error())
@@ -253,21 +255,32 @@ func (s *Server) revokeToken(ctx context.Context, c *app.RequestContext) {
 	c.Status(http.StatusNoContent)
 }
 
-func (s *Server) listUsers(ctx context.Context, c *app.RequestContext) {
-	limit := 0
+// pageFilter reads ?limit=&cursor= query parameters.
+func pageFilter(c *app.RequestContext) (ports.PageFilter, error) {
+	f := ports.PageFilter{Cursor: c.Query("cursor")}
+
 	if raw := c.Query("limit"); raw != "" {
 		n, err := strconv.Atoi(raw)
 		if err != nil || n < 1 {
-			s.fail(ctx, c, fmt.Errorf("%w: limit must be a positive integer", domain.ErrInvalidInput))
-			return
+			return ports.PageFilter{}, fmt.Errorf("%w: limit must be a positive integer", domain.ErrInvalidInput)
 		}
 
-		limit = n
+		f.Limit = n
+	}
+
+	return f, nil
+}
+
+func (s *Server) listUsers(ctx context.Context, c *app.RequestContext) {
+	f, err := pageFilter(c)
+	if err != nil {
+		s.fail(ctx, c, err)
+		return
 	}
 
 	p, _ := principal(c)
 
-	page, err := s.auth.ListUsers(ctx, p, ports.UserFilter{Limit: limit, Cursor: c.Query("cursor")})
+	page, err := s.auth.ListUsers(ctx, p, f)
 	if err != nil {
 		s.fail(ctx, c, err)
 		return

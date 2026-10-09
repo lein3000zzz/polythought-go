@@ -71,12 +71,14 @@ type ParamResolver interface {
 type RunContext struct {
 	ExecutionID domain.ExecutionID
 	WorkflowID  domain.WorkflowID
+	OwnerID     domain.UserID // nodes act on this user's behalf, e.g. with their wallets
 	NodeID      domain.NodeID
 	Params      ParamResolver
 }
 
 type TriggerContext struct {
 	WorkflowID domain.WorkflowID
+	OwnerID    domain.UserID
 	NodeID     domain.NodeID
 	Params     Params // resolved once, there is no input item
 }

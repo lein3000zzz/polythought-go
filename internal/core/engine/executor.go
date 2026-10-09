@@ -2,12 +2,12 @@ package engine
 
 import (
 	"context"
-	"crypto/rand"
 	"errors"
 	"fmt"
 	"runtime/debug"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/lein3000zzz/the-watchers/pkg/observability"
 	"github.com/lein3000zzz/the-watchers/pkg/observability/logging"
 	"github.com/lein3000zzz/the-watchers/pkg/observability/metrics/redkit"
@@ -16,6 +16,7 @@ import (
 	"go.opentelemetry.io/otel/trace"
 
 	"github.com/lein3000zzz/polythought-go/internal/core/domain"
+	"github.com/lein3000zzz/polythought-go/internal/core/ports"
 )
 
 const tracerName = "github.com/lein3000zzz/polythought-go/internal/core/engine"
@@ -49,6 +50,7 @@ type Executor struct {
 	log       logging.Logger
 	now       func() time.Time
 	newExecID func() domain.ExecutionID
+	recorder  ports.ExecutionRecorder
 }
 
 type ExecutorOption func(*Executor)
@@ -56,6 +58,11 @@ type ExecutorOption func(*Executor)
 // WithClock replaces time.Now, for tests.
 func WithClock(now func() time.Time) ExecutorOption {
 	return func(e *Executor) { e.now = now }
+}
+
+// WithRecorder stores every finished execution.
+func WithRecorder(r ports.ExecutionRecorder) ExecutorOption {
+	return func(e *Executor) { e.recorder = r }
 }
 
 // WithExecutionIDs replaces the random execution ID generator, for tests.
@@ -95,7 +102,7 @@ func NewExecutor(util *observability.Utility, registry *Registry, opts ...Execut
 		scope:     tracing.Scope{Manager: util.TracerManager, TracerName: tracerName},
 		log:       log,
 		now:       time.Now,
-		newExecID: func() domain.ExecutionID { return domain.ExecutionID(rand.Text()) },
+		newExecID: func() domain.ExecutionID { return domain.ExecutionID(uuid.Must(uuid.NewV7()).String()) },
 	}
 
 	for _, opt := range opts {
@@ -126,6 +133,7 @@ func (e *Executor) Execute(ctx context.Context, w domain.Workflow, trigger domai
 	}
 
 	exec := domain.NewExecution(e.newExecID(), w.ID, trigger, e.now())
+	exec.WorkflowVersion = w.Version
 
 	done := e.execKit.Start(ctx, opExecute)
 
@@ -150,7 +158,24 @@ func (e *Executor) Execute(ctx context.Context, w domain.Workflow, trigger domai
 
 	done(exec.Status == domain.ExecutionSucceeded)
 
+	e.record(ctx, exec)
+
 	return result, nil
+}
+
+// record saves the execution even when ctx was cancelled: a cancelled run is worth
+// keeping too. A failed save is logged; the execution itself already happened.
+func (e *Executor) record(ctx context.Context, exec domain.Execution) {
+	if e.recorder == nil {
+		return
+	}
+
+	saveCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 10*time.Second)
+	defer cancel()
+
+	if err := e.recorder.Save(saveCtx, exec); err != nil {
+		e.log.Error(ctx, "Execution not recorded", "workflow_id", exec.WorkflowID, "execution_id", exec.ID, logging.Err(err))
+	}
 }
 
 func statusOf(ctx context.Context, cause error) domain.ExecutionStatus {
@@ -248,6 +273,7 @@ func (x *execution) runNode(ctx context.Context, id domain.NodeID, in Ports) (er
 		out, err := x.safeRun(ctx, node, RunContext{
 			ExecutionID: x.exec.ID,
 			WorkflowID:  x.workflow.ID,
+			OwnerID:     x.workflow.OwnerID,
 			NodeID:      id,
 			Params:      newLiteralResolver(typ, spec.Params),
 		}, in)

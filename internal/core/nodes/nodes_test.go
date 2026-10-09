@@ -30,6 +30,9 @@ func TestRegister(t *testing.T) {
 		{name: "order books", typ: "polymarket.orderbook"},
 		{name: "if", typ: "logic.if"},
 		{name: "log", typ: "output.log"},
+		{name: "positions", typ: "polymarket.positions"},
+		{name: "orders", typ: "polymarket.orders"},
+		{name: "balance", typ: "polymarket.balance"},
 	}
 
 	registry := engine.NewRegistry()

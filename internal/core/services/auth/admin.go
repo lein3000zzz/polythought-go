@@ -70,7 +70,7 @@ func (s *Service) RevokeAPIToken(ctx context.Context, p Principal, id domain.API
 	return nil
 }
 
-func (s *Service) ListUsers(ctx context.Context, actor Principal, f ports.UserFilter) (ports.Page[domain.User], error) {
+func (s *Service) ListUsers(ctx context.Context, actor Principal, f ports.PageFilter) (ports.Page[domain.User], error) {
 	if !actor.User.IsAdmin() {
 		return ports.Page[domain.User]{}, domain.ErrForbidden
 	}

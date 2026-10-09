@@ -311,7 +311,7 @@ func (_c *MockUserRepository_Create_Call) RunAndReturn(run func(ctx context.Cont
 }
 
 // List provides a mock function for the type MockUserRepository
-func (_mock *MockUserRepository) List(ctx context.Context, f ports.UserFilter) (ports.Page[domain.User], error) {
+func (_mock *MockUserRepository) List(ctx context.Context, f ports.PageFilter) (ports.Page[domain.User], error) {
 	ret := _mock.Called(ctx, f)
 
 	if len(ret) == 0 {
@@ -320,15 +320,15 @@ func (_mock *MockUserRepository) List(ctx context.Context, f ports.UserFilter) (
 
 	var r0 ports.Page[domain.User]
 	var r1 error
-	if returnFunc, ok := ret.Get(0).(func(context.Context, ports.UserFilter) (ports.Page[domain.User], error)); ok {
+	if returnFunc, ok := ret.Get(0).(func(context.Context, ports.PageFilter) (ports.Page[domain.User], error)); ok {
 		return returnFunc(ctx, f)
 	}
-	if returnFunc, ok := ret.Get(0).(func(context.Context, ports.UserFilter) ports.Page[domain.User]); ok {
+	if returnFunc, ok := ret.Get(0).(func(context.Context, ports.PageFilter) ports.Page[domain.User]); ok {
 		r0 = returnFunc(ctx, f)
 	} else {
 		r0 = ret.Get(0).(ports.Page[domain.User])
 	}
-	if returnFunc, ok := ret.Get(1).(func(context.Context, ports.UserFilter) error); ok {
+	if returnFunc, ok := ret.Get(1).(func(context.Context, ports.PageFilter) error); ok {
 		r1 = returnFunc(ctx, f)
 	} else {
 		r1 = ret.Error(1)
@@ -343,20 +343,20 @@ type MockUserRepository_List_Call struct {
 
 // List is a helper method to define mock.On call
 //   - ctx context.Context
-//   - f ports.UserFilter
+//   - f ports.PageFilter
 func (_e *MockUserRepository_Expecter) List(ctx any, f any) *MockUserRepository_List_Call {
 	return &MockUserRepository_List_Call{Call: _e.mock.On("List", ctx, f)}
 }
 
-func (_c *MockUserRepository_List_Call) Run(run func(ctx context.Context, f ports.UserFilter)) *MockUserRepository_List_Call {
+func (_c *MockUserRepository_List_Call) Run(run func(ctx context.Context, f ports.PageFilter)) *MockUserRepository_List_Call {
 	_c.Call.Run(func(args mock.Arguments) {
 		var arg0 context.Context
 		if args[0] != nil {
 			arg0 = args[0].(context.Context)
 		}
-		var arg1 ports.UserFilter
+		var arg1 ports.PageFilter
 		if args[1] != nil {
-			arg1 = args[1].(ports.UserFilter)
+			arg1 = args[1].(ports.PageFilter)
 		}
 		run(
 			arg0,
@@ -371,7 +371,7 @@ func (_c *MockUserRepository_List_Call) Return(page ports.Page[domain.User], err
 	return _c
 }
 
-func (_c *MockUserRepository_List_Call) RunAndReturn(run func(ctx context.Context, f ports.UserFilter) (ports.Page[domain.User], error)) *MockUserRepository_List_Call {
+func (_c *MockUserRepository_List_Call) RunAndReturn(run func(ctx context.Context, f ports.PageFilter) (ports.Page[domain.User], error)) *MockUserRepository_List_Call {
 	_c.Call.Return(run)
 	return _c
 }
