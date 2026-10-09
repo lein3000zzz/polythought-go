@@ -4,6 +4,7 @@ import { AppShell } from '@/components/AppShell'
 import { RequireAuth } from '@/components/RequireAuth'
 import { Skeleton } from '@/components/ui/skeleton'
 import { AdminPage } from '@/pages/AdminPage'
+import { LibraryPage } from '@/pages/LibraryPage'
 import { LoginPage } from '@/pages/LoginPage'
 import { NotFoundPage } from '@/pages/NotFoundPage'
 import { RegisterPage } from '@/pages/RegisterPage'
@@ -37,6 +38,12 @@ export const routes: RouteObject[] = [
           { path: 'workflows', element: <WorkflowsPage /> },
           { path: 'workflows/new', ...editor },
           { path: 'workflows/:id', ...editor },
+          { path: 'library', element: <LibraryPage /> },
+          {
+            path: 'library/:id',
+            lazy: async () => ({ Component: (await import('@/pages/TemplatePage')).TemplatePage }),
+            hydrateFallbackElement: editor.hydrateFallbackElement,
+          },
           { path: 'wallets', element: <WalletsPage /> },
           { path: 'settings', element: <SettingsPage /> },
           { path: 'admin', element: <AdminPage /> },

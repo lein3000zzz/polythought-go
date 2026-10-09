@@ -19,7 +19,9 @@ var _ ports.ExecutionNotifier = (*Hub)(nil)
 const (
 	defaultBuffer = 64
 
-	// MaxStreams bounds the live connections one user holds, a few per browser tab.
+	// MaxStreams bounds the live connections one user holds. Opening one more closes the
+	// oldest: a tab closed a moment ago may not have been noticed yet, and a fresh one
+	// should always work.
 	MaxStreams = 8
 )
 
@@ -39,6 +41,7 @@ type Hub struct {
 
 	mu   sync.Mutex
 	subs map[domain.UserID]map[*Subscription]struct{}
+	seq  uint64 // orders subscriptions, oldest first
 }
 
 func NewHub(util *observability.Utility) (*Hub, error) {
@@ -66,6 +69,7 @@ func NewHub(util *observability.Utility) (*Hub, error) {
 type Subscription struct {
 	hub    *Hub
 	user   domain.UserID
+	seq    uint64
 	events chan Event
 	once   sync.Once
 }
@@ -76,10 +80,15 @@ func (s *Subscription) Events() <-chan Event {
 
 // Close stops delivery and closes Events. It is safe to call more than once.
 func (s *Subscription) Close() {
-	s.once.Do(func() {
-		s.hub.mu.Lock()
-		defer s.hub.mu.Unlock()
+	s.hub.mu.Lock()
+	defer s.hub.mu.Unlock()
 
+	s.closeLocked()
+}
+
+// closeLocked is Close for callers holding the hub's lock.
+func (s *Subscription) closeLocked() {
+	s.once.Do(func() {
 		delete(s.hub.subs[s.user], s)
 		if len(s.hub.subs[s.user]) == 0 {
 			delete(s.hub.subs, s.user)
@@ -89,16 +98,25 @@ func (s *Subscription) Close() {
 	})
 }
 
-// Subscribe starts delivering user's events. A user may hold MaxStreams at once.
+// Subscribe starts delivering user's events. Past MaxStreams, the user's oldest
+// subscription is closed to make room.
 func (h *Hub) Subscribe(user domain.UserID) (*Subscription, error) {
 	h.mu.Lock()
 	defer h.mu.Unlock()
 
 	if len(h.subs[user]) >= MaxStreams {
-		return nil, fmt.Errorf("%w: at most %d live connections per user", domain.ErrRateLimited, MaxStreams)
+		var oldest *Subscription
+		for s := range h.subs[user] {
+			if oldest == nil || s.seq < oldest.seq {
+				oldest = s
+			}
+		}
+
+		oldest.closeLocked()
 	}
 
-	s := &Subscription{hub: h, user: user, events: make(chan Event, h.buffer)}
+	h.seq++
+	s := &Subscription{hub: h, user: user, seq: h.seq, events: make(chan Event, h.buffer)}
 
 	if h.subs[user] == nil {
 		h.subs[user] = make(map[*Subscription]struct{})

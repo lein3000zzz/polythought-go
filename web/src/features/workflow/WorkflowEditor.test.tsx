@@ -459,3 +459,93 @@ describe('following live runs', () => {
     expect(screen.getByLabelText('Show new runs as they finish')).not.toBeChecked()
   })
 })
+
+describe('notes and sharing', () => {
+  it('saves notes with the node and shows them on the canvas', async () => {
+    const saves = editing(branching())
+    const { user } = renderApp('/workflows/wf-1')
+
+    await selectNode('tight')
+    await user.type(settings().getByLabelText('Notes'), 'Two cents is tight')
+    expect(within(canvasNode('tight')).getByText('Two cents is tight')).toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: 'Save' }))
+    await screen.findByText('Version 4')
+    expect(saves[0].nodes[1].notes).toBe('Two cents is tight')
+  })
+
+  it('shares the saved workflow to the library', async () => {
+    let shared: unknown
+    editing(branching())
+    server.use(
+      http.get('/api/v1/workflows/wf-1/share', () => apiError(404, 'not_found', 'not found')),
+      http.put('/api/v1/workflows/wf-1/share', async ({ request }) => {
+        shared = await request.json()
+        return HttpResponse.json({
+          id: 'tpl-1',
+          name: 'Spread watch',
+          summary: 'Short',
+          description: 'Long',
+          builtIn: false,
+          mine: true,
+          nodeTypes: [],
+          inputs: [],
+          updatedAt: '2026-10-09T12:00:00Z',
+        })
+      }),
+    )
+    const { user } = renderApp('/workflows/wf-1')
+
+    await user.click(await screen.findByRole('button', { name: 'More actions' }))
+    await user.click(await screen.findByRole('menuitem', { name: /Share to library/ }))
+
+    const dialog = within(await screen.findByRole('dialog'))
+    expect(dialog.getByText('Share to the library')).toBeInTheDocument()
+    expect(dialog.getByText(/Wallets and webhook URLs are left out/)).toBeInTheDocument()
+
+    await user.type(dialog.getByLabelText('Summary'), 'Short')
+    await user.type(dialog.getByLabelText('Description'), 'Long')
+    await user.click(dialog.getByRole('button', { name: 'Share' }))
+
+    expect(await screen.findByText('Shared to the library')).toBeInTheDocument()
+    expect(shared).toEqual({ summary: 'Short', description: 'Long' })
+  })
+
+  it('updates or removes a copy shared before, warning about unsaved changes', async () => {
+    let removed = false
+    editing(branching())
+    server.use(
+      http.get('/api/v1/workflows/wf-1/share', () =>
+        HttpResponse.json({
+          id: 'tpl-1',
+          name: 'Spread watch',
+          summary: 'Was shared',
+          description: 'Before',
+          builtIn: false,
+          mine: true,
+          nodeTypes: [],
+          inputs: [],
+          updatedAt: '2026-10-09T12:00:00Z',
+        }),
+      ),
+      http.delete('/api/v1/library/tpl-1', () => {
+        removed = true
+        return new HttpResponse(null, { status: 204 })
+      }),
+    )
+    const { user } = renderApp('/workflows/wf-1')
+
+    await user.type(await screen.findByLabelText('Workflow name'), '!') // unsaved change
+    await user.click(screen.getByRole('button', { name: 'More actions' }))
+    await user.click(await screen.findByRole('menuitem', { name: /Share to library/ }))
+
+    const dialog = within(await screen.findByRole('dialog'))
+    expect(await dialog.findByText('Update the shared copy')).toBeInTheDocument()
+    expect(dialog.getByLabelText('Summary')).toHaveValue('Was shared')
+    expect(dialog.getByText(/shares the last saved version/)).toBeInTheDocument()
+
+    await user.click(dialog.getByRole('button', { name: 'Remove from library' }))
+    expect(await screen.findByText('Removed from the library')).toBeInTheDocument()
+    expect(removed).toBe(true)
+  })
+})

@@ -1,0 +1,50 @@
+{
+  "id": "low-balance",
+  "name": "Low balance warning",
+  "summary": "Every hour, check a wallet's cash and flag it when it drops below $50.",
+  "description": "Reading a wallet's balance needs its Polymarket API credentials, which you add on the Wallets page. Polymarket checks them before they are stored, encrypted.\n\nEvery hour this workflow reads the wallet's USDC balance, the cash it can trade with, and passes it on only when it is under $50, at most once a day.\n\n- Change the Value in Under $50 to your own floor.\n- The Log node records the warning in the run's output. Swap it for a Webhook to get a message instead.",
+  "nodes": [
+    {
+      "id": "hourly",
+      "type": "trigger.schedule",
+      "params": { "interval": "1h", "runOnStart": true },
+      "notes": "Runs every hour while the workflow is active.",
+      "position": { "x": 0, "y": 0 }
+    },
+    {
+      "id": "balance",
+      "type": "polymarket.balance",
+      "notes": "Reads the wallet's USDC balance. Needs the wallet's API credentials.",
+      "position": { "x": 300, "y": 0 }
+    },
+    {
+      "id": "low",
+      "type": "logic.filter",
+      "name": "Under $50",
+      "params": { "field": "balance", "operator": "lt", "value": "50" },
+      "notes": "Passes the balance on only when it is below 50.",
+      "position": { "x": 600, "y": 0 }
+    },
+    {
+      "id": "new",
+      "type": "logic.dedupe",
+      "params": { "field": "walletId", "forget": "24h" },
+      "notes": "Warns once a day at most.",
+      "position": { "x": 900, "y": 0 }
+    },
+    {
+      "id": "log",
+      "type": "output.log",
+      "name": "Warning",
+      "params": { "message": "Balance of {{signer}} is down to {{balance}} USDC" },
+      "notes": "Records the warning. Its Output shows the balance.",
+      "position": { "x": 1200, "y": 0 }
+    }
+  ],
+  "connections": [
+    { "from": "hourly", "fromPort": "main", "to": "balance", "toPort": "main" },
+    { "from": "balance", "fromPort": "main", "to": "low", "toPort": "main" },
+    { "from": "low", "fromPort": "main", "to": "new", "toPort": "main" },
+    { "from": "new", "fromPort": "main", "to": "log", "toPort": "main" }
+  ]
+}

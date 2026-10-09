@@ -45,9 +45,16 @@ export function WorkflowsPage() {
       )}
 
       {workflows.isSuccess && items.length === 0 && (
-        <p className="rounded-lg border border-dashed p-8 text-center text-sm text-muted-foreground">
-          No workflows yet.
-        </p>
+        <div className="flex flex-col items-center gap-3 rounded-lg border border-dashed p-8 text-center text-sm">
+          <p className="font-medium">No workflows yet.</p>
+          <p className="max-w-md text-muted-foreground">
+            New here? The Library has ready-made scenarios that show what workflows do, step by
+            step. Make one your own, then change it.
+          </p>
+          <Button asChild variant="outline">
+            <Link to="/library">Browse the library</Link>
+          </Button>
+        </div>
       )}
 
       {items.length > 0 && (

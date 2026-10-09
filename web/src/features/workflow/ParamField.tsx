@@ -17,6 +17,7 @@ type Props = {
   value: unknown
   onChange: (value: unknown) => void
   problem?: string // from the server's last look at the workflow
+  scope?: string // keeps input IDs apart when several nodes' fields share a form
 }
 
 /** The input for one node param, chosen by its kind. */
@@ -38,11 +39,18 @@ const placeholders: Partial<Record<ParamSpec['kind'], string>> = {
   list: 'One per line',
 }
 
-function TextField({ spec, value, onChange, problem, multiline }: Props & { multiline?: boolean }) {
+function TextField({
+  spec,
+  value,
+  onChange,
+  problem,
+  scope,
+  multiline,
+}: Props & { multiline?: boolean }) {
   // The text is kept as typed: a value that does not parse yet still shows.
   const [text, setText] = useState(() => textOf(value))
   const parsed = parseText(spec, text)
-  const id = fieldId(spec)
+  const id = fieldId(spec, scope)
 
   const inputProps = {
     id,
@@ -58,7 +66,7 @@ function TextField({ spec, value, onChange, problem, multiline }: Props & { mult
   }
 
   return (
-    <Field spec={spec} problem={parsed.problem ?? problem}>
+    <Field spec={spec} scope={scope} problem={parsed.problem ?? problem}>
       {multiline ? (
         <Textarea rows={3} className="font-mono text-xs" {...inputProps} />
       ) : (
@@ -73,13 +81,13 @@ function TextField({ spec, value, onChange, problem, multiline }: Props & { mult
   )
 }
 
-function SelectField({ spec, value, onChange, problem }: Props) {
+function SelectField({ spec, value, onChange, problem, scope }: Props) {
   const current = typeof value === 'string' ? value : ''
 
   return (
-    <Field spec={spec} problem={problem}>
+    <Field spec={spec} scope={scope} problem={problem}>
       <NativeSelect
-        id={fieldId(spec)}
+        id={fieldId(spec, scope)}
         className="w-full"
         value={current}
         aria-invalid={Boolean(problem) || undefined}
@@ -101,7 +109,7 @@ function SelectField({ spec, value, onChange, problem }: Props) {
   )
 }
 
-function ChecklistField({ spec, value, onChange, problem }: Props) {
+function ChecklistField({ spec, value, onChange, problem, scope }: Props) {
   const selected = chosen(spec, value)
 
   const toggle = (option: string, on: boolean) => {
@@ -112,10 +120,10 @@ function ChecklistField({ spec, value, onChange, problem }: Props) {
   }
 
   return (
-    <Field spec={spec} problem={problem} group>
+    <Field spec={spec} scope={scope} problem={problem} group>
       <div className="flex flex-wrap gap-x-4 gap-y-2">
         {spec.options?.map((o) => {
-          const id = `${fieldId(spec)}-${o}`
+          const id = `${fieldId(spec, scope)}-${o}`
           return (
             <div key={o} className="flex items-center gap-1.5">
               <Checkbox
@@ -134,17 +142,17 @@ function ChecklistField({ spec, value, onChange, problem }: Props) {
   )
 }
 
-function BoolField({ spec, value, onChange, problem }: Props) {
+function BoolField({ spec, value, onChange, problem, scope }: Props) {
   const checked = typeof value === 'boolean' ? value : spec.default === true
 
   return (
-    <Field spec={spec} problem={problem} inline>
-      <Switch id={fieldId(spec)} checked={checked} onCheckedChange={onChange} />
+    <Field spec={spec} scope={scope} problem={problem} inline>
+      <Switch id={fieldId(spec, scope)} checked={checked} onCheckedChange={onChange} />
     </Field>
   )
 }
 
-function WalletField({ spec, value, onChange, problem }: Props) {
+function WalletField({ spec, value, onChange, problem, scope }: Props) {
   const wallets = useWallets()
   const current = typeof value === 'string' ? value : ''
   const known = wallets.data?.some((w) => w.id === current)
@@ -156,7 +164,7 @@ function WalletField({ spec, value, onChange, problem }: Props) {
       hint={wallets.data?.length === 0 ? 'No wallets linked yet.' : undefined}
     >
       <NativeSelect
-        id={fieldId(spec)}
+        id={fieldId(spec, scope)}
         className="w-full"
         value={current}
         disabled={wallets.isPending}
@@ -179,12 +187,13 @@ function WalletField({ spec, value, onChange, problem }: Props) {
   )
 }
 
-function fieldId(spec: ParamSpec) {
-  return `param-${spec.name}`
+function fieldId(spec: ParamSpec, scope?: string) {
+  return scope ? `${scope}-param-${spec.name}` : `param-${spec.name}`
 }
 
 type FieldProps = {
   spec: ParamSpec
+  scope?: string
   problem?: string
   hint?: string
   inline?: boolean // label and control on one line, for switches
@@ -192,8 +201,8 @@ type FieldProps = {
   children: ReactNode
 }
 
-function Field({ spec, problem, hint, inline, group, children }: FieldProps) {
-  const id = fieldId(spec)
+function Field({ spec, scope, problem, hint, inline, group, children }: FieldProps) {
+  const id = fieldId(spec, scope)
   const label = (
     <span className="text-sm font-medium">
       {spec.label || spec.name}
@@ -202,6 +211,7 @@ function Field({ spec, problem, hint, inline, group, children }: FieldProps) {
   )
   const notes = (
     <div id={`${id}-hint`} className="flex flex-col gap-1 text-xs">
+      {spec.sensitive && <p className="text-muted-foreground">Private: sharing leaves it out.</p>}
       {(spec.description || hint) && (
         <p className="text-muted-foreground">
           {[spec.description, hint].filter(Boolean).join(' ')}

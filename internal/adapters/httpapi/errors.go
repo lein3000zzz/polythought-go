@@ -14,6 +14,9 @@ import (
 
 const protocolLax = protocol.CookieSameSiteLaxMode
 
+// statusClientClosedRequest is nginx's status for a request its client abandoned.
+const statusClientClosedRequest = 499
+
 type errorBody struct {
 	Error errorDetail `json:"error"`
 } // @name Error
@@ -80,6 +83,13 @@ var errorMapping = []struct {
 // fail writes err as a JSON error response. Unexpected errors are logged with the
 // request's trace and answered with a generic message.
 func (s *Server) fail(ctx context.Context, c *app.RequestContext, err error) {
+	// The client went away mid-request, so its work was cancelled: nobody is waiting for
+	// an answer, and it is not the server's fault.
+	if ctx.Err() != nil && errors.Is(err, context.Canceled) {
+		c.SetStatusCode(statusClientClosedRequest)
+		return
+	}
+
 	for _, m := range errorMapping {
 		if errors.Is(err, m.err) {
 			c.JSON(m.status, errorBody{Error: errorDetail{Code: m.code, Message: err.Error(), Problems: toProblemDTOs(err)}})

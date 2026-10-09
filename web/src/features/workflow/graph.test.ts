@@ -105,6 +105,7 @@ describe('toDefinition', () => {
           id: 'if',
           type: 'logic.if',
           name: 'Tight?',
+          notes: 'Under two cents',
           params: { field: 'spread', value: 0.02 },
           continueOnFail: true,
           position: { x: 300, y: 40 },

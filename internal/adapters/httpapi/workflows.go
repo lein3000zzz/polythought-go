@@ -27,19 +27,21 @@ type nodeDTO struct {
 	ContinueOnFail bool           `json:"continueOnFail,omitempty" validate:"optional"`
 	// Position is where the editor draws the node; it never affects execution.
 	Position positionDTO `json:"position" validate:"optional"`
+	// Notes explain the node to whoever reads the workflow; they never affect execution.
+	Notes string `json:"notes,omitempty" validate:"optional"`
 } // @name Node
 
 func toNodeDTO(n domain.NodeSpec) nodeDTO {
 	return nodeDTO{
 		ID: string(n.ID), Type: n.Type, Name: n.Name, Params: n.Params, ContinueOnFail: n.ContinueOnFail,
-		Position: positionDTO{X: n.Position.X, Y: n.Position.Y},
+		Position: positionDTO{X: n.Position.X, Y: n.Position.Y}, Notes: n.Notes,
 	}
 }
 
 func (n nodeDTO) spec() domain.NodeSpec {
 	return domain.NodeSpec{
 		ID: domain.NodeID(n.ID), Type: n.Type, Name: n.Name, Params: n.Params, ContinueOnFail: n.ContinueOnFail,
-		Position: domain.CanvasPosition{X: n.Position.X, Y: n.Position.Y},
+		Position: domain.CanvasPosition{X: n.Position.X, Y: n.Position.Y}, Notes: n.Notes,
 	}
 }
 
@@ -225,6 +227,8 @@ type paramDTO struct {
 	Default     any    `json:"default,omitempty" validate:"optional"`
 	// Options are the allowed values of a string, or of each element of a list.
 	Options []string `json:"options,omitempty" validate:"optional"`
+	// Sensitive values, like a webhook URL, are personal: sharing leaves them out.
+	Sensitive bool `json:"sensitive,omitempty" validate:"optional"`
 } // @name ParamSpec
 
 type nodeTypeDTO struct {
@@ -263,10 +267,7 @@ func (s *Server) listNodeTypes(_ context.Context, c *app.RequestContext) {
 		}
 
 		for j, p := range t.Params {
-			dto.Params[j] = paramDTO{
-				Name: p.Name, Label: p.Label, Description: p.Description, Kind: string(p.Kind),
-				Required: p.Required, Default: p.Default, Options: p.Options,
-			}
+			dto.Params[j] = toParamDTO(p)
 		}
 
 		out.NodeTypes[i] = dto
@@ -480,8 +481,9 @@ func (s *Server) setActive(
 	c.JSON(http.StatusOK, toWorkflowDTO(w))
 }
 
-// runWorkflow runs the saved workflow once and waits for it to finish. The execution keeps
-// samples of each node's output. The body is optional.
+// runWorkflow runs the saved workflow once and waits for it to finish: from its manual
+// trigger, or its schedule as if it fired. The execution keeps samples of each node's
+// output. The body is optional.
 //
 //	@Summary	Run a workflow now
 //	@ID			runWorkflow

@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"maps"
 	"math"
+	"time"
 
 	"github.com/shopspring/decimal"
 )
@@ -120,6 +121,21 @@ func (p Params) Decimal(name string) (decimal.Decimal, error) {
 	default:
 		return decimal.Zero, invalid(name, v, "a decimal")
 	}
+}
+
+// Duration reads a Go duration string like "30s" or "1h30m"; it must be positive.
+func (p Params) Duration(name string) (time.Duration, error) {
+	s, err := p.String(name)
+	if err != nil {
+		return 0, err
+	}
+
+	d, err := time.ParseDuration(s)
+	if err != nil || d <= 0 {
+		return 0, invalid(name, s, "a positive duration like 30s")
+	}
+
+	return d, nil
 }
 
 // Int accepts integers and whole JSON numbers.

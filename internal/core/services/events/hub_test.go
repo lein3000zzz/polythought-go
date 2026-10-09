@@ -101,7 +101,7 @@ func TestHubCloseStopsDelivery(t *testing.T) {
 	assert.False(t, open)
 }
 
-func TestHubLimitsStreamsPerUser(t *testing.T) {
+func TestHubMakesRoomByClosingTheOldest(t *testing.T) {
 	hub := newHub(t)
 
 	subs := make([]*events.Subscription, events.MaxStreams)
@@ -109,13 +109,18 @@ func TestHubLimitsStreamsPerUser(t *testing.T) {
 		subs[i] = subscribe(t, hub, alice)
 	}
 
-	_, err := hub.Subscribe(alice)
-	require.ErrorIs(t, err, domain.ErrRateLimited)
+	bobs := subscribe(t, hub, bob)
+	newest := subscribe(t, hub, alice) // one more than allowed
 
-	subscribe(t, hub, bob) // the limit is per user
+	_, open := <-subs[0].Events()
+	assert.False(t, open, "the oldest stream made room")
 
-	subs[0].Close()
-	subscribe(t, hub, alice) // a closed stream frees its place
+	hub.ExecutionFinished(alice, execution("ex-1"))
+	assert.Equal(t, []domain.ExecutionID{"ex-1"}, received(newest))
+	assert.Equal(t, []domain.ExecutionID{"ex-1"}, received(subs[1]), "the others stay")
+
+	hub.ExecutionFinished(bob, execution("ex-2"))
+	assert.Equal(t, []domain.ExecutionID{"ex-2"}, received(bobs), "the limit is per user")
 }
 
 func TestHubDropsForSlowSubscribers(t *testing.T) {

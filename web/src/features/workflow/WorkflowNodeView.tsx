@@ -62,6 +62,12 @@ export function WorkflowNodeView({ id, data, selected }: NodeProps<FlowNode>) {
         {type ? spec.type : `${spec.type} (unknown type)`}
       </div>
 
+      {spec.notes && (
+        <p className="line-clamp-3 px-3 pt-1 text-xs text-foreground/80 italic" title={spec.notes}>
+          {spec.notes}
+        </p>
+      )}
+
       <div className="flex justify-between gap-4 py-1.5">
         <Ports ports={inputs} side="in" />
         <Ports ports={outputs} side="out" counts={run?.output} />

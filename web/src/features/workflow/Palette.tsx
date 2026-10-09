@@ -8,8 +8,12 @@ export const nodeTypeMime = 'application/x-polythought-node-type'
 const groupNames: Record<string, string> = {
   polymarket: 'Polymarket',
   logic: 'Logic',
+  transform: 'Transform',
   output: 'Output',
 }
+
+// Groups follow the way items flow: where they start, come from, are sorted out, go.
+const groupOrder = ['Triggers', 'Polymarket', 'Logic', 'Transform', 'Output', 'Other']
 
 type Props = {
   types: readonly NodeType[]
@@ -63,15 +67,15 @@ export function Palette({ types, onAdd }: Props) {
   )
 }
 
-// groups puts triggers first, then the other types by the first part of their name.
+// groups sorts the types into groups by the first part of their name, triggers apart.
 function groups(types: readonly NodeType[]): [string, NodeType[]][] {
-  const out = new Map<string, NodeType[]>([['Triggers', []]])
+  const out = new Map<string, NodeType[]>(groupOrder.map((g) => [g, []]))
 
   for (const t of types) {
     const prefix = t.name.split('.')[0]
     const group = t.trigger ? 'Triggers' : (groupNames[prefix] ?? 'Other')
 
-    out.set(group, [...(out.get(group) ?? []), t])
+    out.get(group)?.push(t)
   }
 
   return [...out].filter(([, members]) => members.length > 0)

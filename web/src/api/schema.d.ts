@@ -134,11 +134,63 @@ export interface paths {
         };
         /**
          * Live events
-         * @description A text/event-stream. Every finished execution of the user's workflows arrives as an "execution" event, its data an ExecutionEvent without item samples. Comment lines keep the stream open.
+         * @description A text/event-stream. Every finished execution of the user's workflows arrives as an "execution" event, its data an ExecutionEvent without item samples. Comment lines keep the stream open. A user holds a few streams at most; opening another closes their oldest.
          */
         get: operations["streamEvents"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/library": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List the library */
+        get: operations["listTemplates"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/library/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get a template */
+        get: operations["getTemplate"];
+        put?: never;
+        post?: never;
+        /** Delete a shared workflow */
+        delete: operations["deleteTemplate"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/library/{id}/use": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Start a workflow from a template */
+        post: operations["useTemplate"];
         delete?: never;
         options?: never;
         head?: never;
@@ -407,6 +459,24 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/workflows/{id}/share": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get a workflow's shared copy */
+        get: operations["getSharedCopy"];
+        /** Share a workflow */
+        put: operations["shareWorkflow"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -539,6 +609,8 @@ export interface components {
             continueOnFail?: boolean;
             id: string;
             name?: string;
+            /** @description Notes explain the node to whoever reads the workflow; they never affect execution. */
+            notes?: string;
             params?: {
                 [key: string]: unknown;
             };
@@ -593,6 +665,8 @@ export interface components {
             /** @description Options are the allowed values of a string, or of each element of a list. */
             options?: string[];
             required: boolean;
+            /** @description Sensitive values, like a webhook URL, are personal: sharing leaves them out. */
+            sensitive?: boolean;
         };
         Problem: {
             message: string;
@@ -622,6 +696,37 @@ export interface components {
             /** @description Signer defaults to the wallet address. */
             signer?: string;
         };
+        ShareRequest: {
+            description?: string;
+            summary?: string;
+        };
+        Template: {
+            /** @description BuiltIn scenarios ship with Polythought; the others are members' shared workflows. */
+            builtIn: boolean;
+            connections?: components["schemas"]["Connection"][];
+            description: string;
+            id: string;
+            inputs: components["schemas"]["TemplateInput"][];
+            /** @description Mine is set on the workflows you shared. */
+            mine: boolean;
+            name: string;
+            /** @description the kinds of node it uses, without repeats */
+            nodeTypes: string[];
+            /** @description Nodes and connections come with one template, not with the list. */
+            nodes?: components["schemas"]["Node"][];
+            summary: string;
+            /** Format: date-time */
+            updatedAt?: string;
+        };
+        TemplateInput: {
+            nodeId: string;
+            param: components["schemas"]["ParamSpec"];
+        };
+        TemplatePage: {
+            /** @description NextCursor is absent on the last page. */
+            nextCursor?: string;
+            templates: components["schemas"]["Template"][];
+        };
         UpdateUserRequest: {
             disabled?: boolean;
             /** @enum {string} */
@@ -633,6 +738,16 @@ export interface components {
             nodes: components["schemas"]["Node"][];
             /** @description Version is the version the edit started from; a newer one on the server is a conflict. */
             version: number;
+        };
+        UseTemplateRequest: {
+            /** @description Name of the new workflow; left out, it takes the template's. */
+            name?: string;
+            /** @description Values for the template's inputs, by node ID and then param name. */
+            values?: {
+                [key: string]: {
+                    [key: string]: unknown;
+                };
+            };
         };
         User: {
             /** Format: date-time */
@@ -1151,13 +1266,191 @@ export interface operations {
                     "text/event-stream": components["schemas"]["Error"];
                 };
             };
-            /** @description rate_limited: too many streams open */
-            429: {
+        };
+    };
+    listTemplates: {
+        parameters: {
+            query?: {
+                /** @description Page size, of shared workflows */
+                limit?: number;
+                /** @description nextCursor of the previous page */
+                cursor?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "text/event-stream": components["schemas"]["Error"];
+                    "application/json": components["schemas"]["TemplatePage"];
+                };
+            };
+            /** @description invalid_input */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description unauthenticated */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    getTemplate: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Template ID */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Template"];
+                };
+            };
+            /** @description unauthenticated */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description not_found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    deleteTemplate: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Template ID */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No Content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description unauthenticated */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description not_found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    useTemplate: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Template ID */
+                id: string;
+            };
+            cookie?: never;
+        };
+        /** @description Name and values for the template's inputs */
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UseTemplateRequest"];
+            };
+        };
+        responses: {
+            /** @description Created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Workflow"];
+                };
+            };
+            /** @description invalid_input, or invalid_workflow with problems, e.g. an input left empty */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description unauthenticated */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description not_found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
                 };
             };
         };
@@ -2082,6 +2375,102 @@ export interface operations {
                 };
             };
             /** @description invalid_input or invalid_workflow */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description unauthenticated */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description not_found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    getSharedCopy: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Workflow ID */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Template"];
+                };
+            };
+            /** @description unauthenticated */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description not_found: no such workflow, or not shared */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    shareWorkflow: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Workflow ID */
+                id: string;
+            };
+            cookie?: never;
+        };
+        /** @description How to describe it */
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ShareRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Template"];
+                };
+            };
+            /** @description invalid_input */
             400: {
                 headers: {
                     [name: string]: unknown;

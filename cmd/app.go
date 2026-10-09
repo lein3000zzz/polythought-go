@@ -16,12 +16,14 @@ import (
 	pmadapter "github.com/lein3000zzz/polythought-go/internal/adapters/polymarket"
 	"github.com/lein3000zzz/polythought-go/internal/adapters/postgres"
 	"github.com/lein3000zzz/polythought-go/internal/adapters/ratelimit"
+	"github.com/lein3000zzz/polythought-go/internal/adapters/webhook"
 	"github.com/lein3000zzz/polythought-go/internal/config"
 	"github.com/lein3000zzz/polythought-go/internal/core/engine"
 	"github.com/lein3000zzz/polythought-go/internal/core/nodes"
 	"github.com/lein3000zzz/polythought-go/internal/core/services/auth"
 	"github.com/lein3000zzz/polythought-go/internal/core/services/events"
 	"github.com/lein3000zzz/polythought-go/internal/core/services/feed"
+	"github.com/lein3000zzz/polythought-go/internal/core/services/library"
 	"github.com/lein3000zzz/polythought-go/internal/core/services/wallets"
 	"github.com/lein3000zzz/polythought-go/internal/core/services/workflows"
 	pm "github.com/lein3000zzz/polythought-go/pkg/clients/polymarket"
@@ -81,6 +83,7 @@ type app struct {
 	supervisor *engine.Supervisor
 	feed       *feed.Hub
 	events     *events.Hub
+	library    *library.Service
 }
 
 func newApp(ctx context.Context) (*app, error) {
@@ -201,14 +204,23 @@ func (a *app) initEngine(ctx context.Context, pmc polymarket) error {
 
 	a.registry = engine.NewRegistry()
 
+	webhooks, err := webhook.New(a.util, webhook.Config{AllowPrivate: a.cfg.WebhookAllowPrivate})
+	if err != nil {
+		return err
+	}
+
 	err = nodes.Register(a.registry, nodes.Deps{
-		Markets:    pmc.reader,
-		OrderBooks: pmc.reader,
-		Positions:  pmc.reader,
-		Account:    pmc.account,
-		Wallets:    a.wallets,
-		Feed:       a.feed,
-		Logger:     a.util.Logger,
+		Markets:      pmc.reader,
+		Events:       pmc.reader,
+		OrderBooks:   pmc.reader,
+		PriceHistory: pmc.reader,
+		Trades:       pmc.reader,
+		Positions:    pmc.reader,
+		Account:      pmc.account,
+		Wallets:      a.wallets,
+		Webhooks:     webhooks,
+		Feed:         a.feed,
+		Logger:       a.util.Logger,
 	})
 	if err != nil {
 		return err
@@ -229,6 +241,10 @@ func (a *app) initEngine(ctx context.Context, pmc polymarket) error {
 	a.util.OnShutdown(a.supervisor.Shutdown)
 
 	a.workflows = workflows.New(postgres.NewWorkflows(a.db), executions, a.registry, executor, a.supervisor, a.util.Logger)
+
+	if a.library, err = library.New(postgres.NewTemplates(a.db), a.workflows, a.registry, a.util.Logger); err != nil {
+		return err
+	}
 
 	return nil
 }

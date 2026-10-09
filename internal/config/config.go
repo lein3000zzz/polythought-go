@@ -25,6 +25,10 @@ type Config struct {
 	// AutoMigrate applies pending migrations on start.
 	AutoMigrate bool
 
+	// WebhookAllowPrivate lets workflows post to addresses inside the server's network,
+	// for self-hosted setups. Off, they reach only the public internet.
+	WebhookAllowPrivate bool
+
 	HTTPAddr string
 
 	// PublicURL is where users reach the server. Its origin is the only one allowed to
@@ -111,6 +115,7 @@ func Load(getenv func(string) string) (Config, error) {
 	cfg.DatabaseURL = required("DATABASE_URL")
 	cfg.SecretKeys = required("SECRET_KEYS")
 	cfg.AutoMigrate = boolean("AUTO_MIGRATE", true)
+	cfg.WebhookAllowPrivate = boolean("WEBHOOK_ALLOW_PRIVATE", false)
 
 	cfg.HTTPAddr = withDefault("HTTP_ADDR", ":8080")
 	cfg.PublicURL = withDefault("PUBLIC_URL", "http://localhost:8080")

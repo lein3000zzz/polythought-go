@@ -183,6 +183,7 @@ function specOf(n: NodeSpec): NodeSpec {
     ...(n.name ? { name: n.name } : {}),
     ...(Object.keys(params).length > 0 && { params }),
     ...(n.continueOnFail && { continueOnFail: true }),
+    ...(n.notes?.trim() ? { notes: n.notes } : {}),
   }
 }
 

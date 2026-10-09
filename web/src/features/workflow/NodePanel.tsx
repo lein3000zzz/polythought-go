@@ -6,14 +6,15 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Switch } from '@/components/ui/switch'
+import { Textarea } from '@/components/ui/textarea'
 
 import type { FlowNode, NodeSpec } from './graph'
 import { ParamField } from './ParamField'
-import { useNodeProblems } from './problems'
+import { fieldMessage, useNodeProblems } from './problems'
 
 type Props = {
   node: FlowNode
-  onChange: (patch: Partial<Pick<NodeSpec, 'name' | 'continueOnFail'>>) => void
+  onChange: (patch: Partial<Pick<NodeSpec, 'name' | 'continueOnFail' | 'notes'>>) => void
   onParam: (name: string, value: unknown) => void
   onDelete: () => void
 }
@@ -72,6 +73,17 @@ export function NodePanel({ node, onChange, onParam, onDelete }: Props) {
           value={spec.name ?? ''}
           placeholder={type?.label || spec.type}
           onChange={(e) => onChange({ name: e.target.value })}
+        />
+      </div>
+
+      <div className="flex flex-col gap-2">
+        <Label htmlFor="node-notes">Notes</Label>
+        <Textarea
+          id="node-notes"
+          rows={2}
+          value={spec.notes ?? ''}
+          placeholder="What this step is for, for whoever reads the workflow"
+          onChange={(e) => onChange({ notes: e.target.value })}
         />
       </div>
 
@@ -154,11 +166,4 @@ export function WorkflowPanel({ problems }: WorkflowPanelProps) {
       </p>
     </div>
   )
-}
-
-// fieldMessage drops the "node "x": param "y"" prefix the server puts on problems, which
-// the panel already makes plain.
-function fieldMessage(p: Problem): string {
-  const message = p.message.replace(/^node "[^"]*":\s*(param "[^"]*"\s*)?/, '')
-  return message.charAt(0).toUpperCase() + message.slice(1)
 }

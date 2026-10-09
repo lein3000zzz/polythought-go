@@ -41,6 +41,11 @@ func ManualOutput() engine.Ports {
 	return engine.Ports{engine.DefaultPort: {{JSON: map[string]any{}}}}
 }
 
+// ScheduleOutput is what a schedule emits when it fires at at: one item with the time.
+func ScheduleOutput(at time.Time) engine.Ports {
+	return engine.Ports{engine.DefaultPort: {{JSON: map[string]any{"firedAt": at.UTC()}}}}
+}
+
 // DefaultMinInterval keeps schedules from hammering the APIs they feed.
 const DefaultMinInterval = time.Second
 
@@ -81,7 +86,7 @@ func (s *Schedule) Start(ctx context.Context, tc engine.TriggerContext, emit eng
 	}
 
 	fire := func(at time.Time) {
-		_ = emit(ctx, engine.Ports{engine.DefaultPort: {{JSON: map[string]any{"firedAt": at.UTC()}}}})
+		_ = emit(ctx, ScheduleOutput(at))
 	}
 
 	if runOnStart {

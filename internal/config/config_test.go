@@ -57,17 +57,18 @@ func TestLoad(t *testing.T) {
 		{
 			name: "overrides",
 			env: with(map[string]string{
-				"POLYTHOUGHT_AUTO_MIGRATE":         "false",
-				"POLYTHOUGHT_HTTP_ADDR":            "0.0.0.0:9000",
-				"POLYTHOUGHT_PUBLIC_URL":           "https://app.example",
-				"POLYTHOUGHT_TRUSTED_PROXIES":      "10.0.0.0/8, fd00::/8",
-				"POLYTHOUGHT_REGISTRATION":         "open",
-				"POLYTHOUGHT_SESSION_IDLE_TTL":     "24h",
-				"POLYTHOUGHT_SESSION_ABSOLUTE_TTL": "72h",
-				"POLYTHOUGHT_ADMIN_EMAIL":          "root@example.com",
-				"POLYTHOUGHT_ADMIN_PASSWORD":       " spaced secret ",
-				"POLYTHOUGHT_LOG_LEVEL":            "debug",
-				"POLYTHOUGHT_LOG_FORMAT":           "json",
+				"POLYTHOUGHT_AUTO_MIGRATE":          "false",
+				"POLYTHOUGHT_HTTP_ADDR":             "0.0.0.0:9000",
+				"POLYTHOUGHT_PUBLIC_URL":            "https://app.example",
+				"POLYTHOUGHT_TRUSTED_PROXIES":       "10.0.0.0/8, fd00::/8",
+				"POLYTHOUGHT_REGISTRATION":          "open",
+				"POLYTHOUGHT_SESSION_IDLE_TTL":      "24h",
+				"POLYTHOUGHT_SESSION_ABSOLUTE_TTL":  "72h",
+				"POLYTHOUGHT_ADMIN_EMAIL":           "root@example.com",
+				"POLYTHOUGHT_ADMIN_PASSWORD":        " spaced secret ",
+				"POLYTHOUGHT_LOG_LEVEL":             "debug",
+				"POLYTHOUGHT_LOG_FORMAT":            "json",
+				"POLYTHOUGHT_WEBHOOK_ALLOW_PRIVATE": "true",
 			}),
 			check: func(t *testing.T, cfg config.Config) {
 				assert.False(t, cfg.AutoMigrate)
@@ -79,6 +80,7 @@ func TestLoad(t *testing.T) {
 				assert.Equal(t, 72*time.Hour, cfg.SessionAbsoluteTTL)
 				assert.Equal(t, " spaced secret ", cfg.AdminPassword, "passwords keep their spaces")
 				assert.Equal(t, "json", cfg.LogFormat)
+				assert.True(t, cfg.WebhookAllowPrivate)
 			},
 		},
 		{

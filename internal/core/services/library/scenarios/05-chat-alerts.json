@@ -1,0 +1,59 @@
+{
+  "id": "chat-alerts",
+  "name": "Alerts in Discord or Slack",
+  "summary": "Get a chat message when an outcome in the markets you follow becomes 80% likely.",
+  "description": "Workflows can tell you things instead of waiting for you to look. The Webhook node posts a message to a chat channel.\n\nEvery 5 minutes this workflow checks the bitcoin markets, and when an outcome's price reaches 0.80, it sends one message to your channel. Each outcome is announced once a day at most.\n\nTo get a webhook URL:\n- Discord: Server Settings, Integrations, Webhooks, New Webhook, then Copy Webhook URL.\n- Slack: add the Incoming Webhooks app to a channel and copy its URL.\n\nThe URL works like a password for posting to your channel. It stays in your workflow; sharing the workflow leaves it out.",
+  "nodes": [
+    {
+      "id": "every",
+      "type": "trigger.schedule",
+      "params": { "interval": "5m", "runOnStart": true },
+      "notes": "Runs every 5 minutes while the workflow is active.",
+      "position": { "x": 0, "y": 0 }
+    },
+    {
+      "id": "search",
+      "type": "polymarket.search",
+      "name": "Markets to follow",
+      "params": { "query": "bitcoin", "limit": 10 },
+      "notes": "The markets to watch. Change the words to follow others.",
+      "position": { "x": 300, "y": 0 }
+    },
+    {
+      "id": "books",
+      "type": "polymarket.orderbook",
+      "notes": "Reads the live price of every outcome: mid is halfway between the best bid and ask.",
+      "position": { "x": 600, "y": 0 }
+    },
+    {
+      "id": "likely",
+      "type": "logic.filter",
+      "name": "80% likely or more",
+      "params": { "field": "mid", "operator": "gte", "value": "0.8" },
+      "notes": "Keeps outcomes priced at 0.80 or more: the market thinks they are at least 80% likely.",
+      "position": { "x": 900, "y": 0 }
+    },
+    {
+      "id": "new",
+      "type": "logic.dedupe",
+      "params": { "field": "tokenId", "forget": "24h" },
+      "notes": "Announces each outcome once a day at most.",
+      "position": { "x": 1200, "y": 0 }
+    },
+    {
+      "id": "chat",
+      "type": "output.webhook",
+      "name": "Post to the channel",
+      "params": { "message": "{{question}}: {{outcome}} is now at {{mid}}", "send": "all", "format": "message" },
+      "notes": "Sends one message listing every outcome that crossed the line. {{question}} and the like are filled in from each item.",
+      "position": { "x": 1500, "y": 0 }
+    }
+  ],
+  "connections": [
+    { "from": "every", "fromPort": "main", "to": "search", "toPort": "main" },
+    { "from": "search", "fromPort": "main", "to": "books", "toPort": "main" },
+    { "from": "books", "fromPort": "main", "to": "likely", "toPort": "main" },
+    { "from": "likely", "fromPort": "main", "to": "new", "toPort": "main" },
+    { "from": "new", "fromPort": "main", "to": "chat", "toPort": "main" }
+  ]
+}

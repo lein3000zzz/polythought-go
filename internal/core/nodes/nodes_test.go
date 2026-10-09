@@ -33,6 +33,14 @@ func TestRegister(t *testing.T) {
 		{name: "positions", typ: "polymarket.positions"},
 		{name: "orders", typ: "polymarket.orders"},
 		{name: "balance", typ: "polymarket.balance"},
+		{name: "search", typ: "polymarket.search"},
+		{name: "price change", typ: "polymarket.priceChange"},
+		{name: "trades", typ: "polymarket.trades"},
+		{name: "filter", typ: "logic.filter"},
+		{name: "only new", typ: "logic.dedupe"},
+		{name: "top items", typ: "transform.top"},
+		{name: "keep fields", typ: "transform.pick"},
+		{name: "webhook", typ: "output.webhook"},
 	}
 
 	registry := engine.NewRegistry()

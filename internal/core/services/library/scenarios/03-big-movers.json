@@ -1,0 +1,68 @@
+{
+  "id": "big-movers",
+  "name": "Big price moves",
+  "summary": "Every 15 minutes, spot popular markets whose odds moved 5% or more in the last hour.",
+  "description": "Prices on Polymarket are odds: a Yes at 0.62 means the market thinks the answer is 62% likely. A sudden move often means news.\n\nThis workflow takes the 20 most liquid open markets, compares each one's price now with an hour ago, and keeps the ones that moved by 5% or more. Only new remembers what it already reported, so the same move shows up once, not every 15 minutes.\n\n- Press Run to try it now; a quiet hour may find nothing, which is fine.\n- Switch Active on and it checks every 15 minutes by itself. Open Executions to watch the runs, and turn on Show new runs as they finish.\n- Want a message when something moves? Add a Webhook node after Only new, or start from Alerts in Discord or Slack.",
+  "nodes": [
+    {
+      "id": "every",
+      "type": "trigger.schedule",
+      "params": { "interval": "15m", "runOnStart": true },
+      "notes": "Runs every 15 minutes while the workflow is active. Run also starts it once, for a test.",
+      "position": { "x": 0, "y": 0 }
+    },
+    {
+      "id": "markets",
+      "type": "polymarket.markets",
+      "params": { "limit": 100 },
+      "notes": "Lists 100 open markets.",
+      "position": { "x": 300, "y": 0 }
+    },
+    {
+      "id": "popular",
+      "type": "transform.top",
+      "name": "20 most liquid",
+      "params": { "field": "liquidity", "order": "desc", "limit": 20 },
+      "notes": "Keeps the 20 markets with the most money in their books, where moves matter most.",
+      "position": { "x": 600, "y": 0 }
+    },
+    {
+      "id": "change",
+      "type": "polymarket.priceChange",
+      "name": "Change over 1 hour",
+      "params": { "window": "1h", "outcomes": "first" },
+      "notes": "Compares the first outcome's price, usually Yes, with an hour ago. Adds priceThen, priceNow, changePct and absChangePct, the move ignoring its direction.",
+      "position": { "x": 900, "y": 0 }
+    },
+    {
+      "id": "moved",
+      "type": "logic.filter",
+      "name": "Moved 5% or more",
+      "params": { "field": "absChangePct", "operator": "gte", "value": "5" },
+      "notes": "Keeps markets whose odds moved by at least 5%, up or down.",
+      "position": { "x": 1200, "y": 0 }
+    },
+    {
+      "id": "new",
+      "type": "logic.dedupe",
+      "params": { "field": "tokenId", "forget": "1h" },
+      "notes": "Passes each market once an hour at most, so one move is reported once.",
+      "position": { "x": 1500, "y": 0 }
+    },
+    {
+      "id": "pick",
+      "type": "transform.pick",
+      "params": { "fields": ["question", "outcome", "priceThen", "priceNow", "changePct"] },
+      "notes": "Keeps the fields worth reading.",
+      "position": { "x": 1800, "y": 0 }
+    }
+  ],
+  "connections": [
+    { "from": "every", "fromPort": "main", "to": "markets", "toPort": "main" },
+    { "from": "markets", "fromPort": "main", "to": "popular", "toPort": "main" },
+    { "from": "popular", "fromPort": "main", "to": "change", "toPort": "main" },
+    { "from": "change", "fromPort": "main", "to": "moved", "toPort": "main" },
+    { "from": "moved", "fromPort": "main", "to": "new", "toPort": "main" },
+    { "from": "new", "fromPort": "main", "to": "pick", "toPort": "main" }
+  ]
+}

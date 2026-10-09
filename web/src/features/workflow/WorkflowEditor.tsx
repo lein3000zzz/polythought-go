@@ -13,7 +13,7 @@ import {
   type OnConnect,
   type XYPosition,
 } from '@xyflow/react'
-import { ChevronLeft, EllipsisVertical, History, Play, Trash2, X } from 'lucide-react'
+import { ChevronLeft, EllipsisVertical, History, Play, Share2, Trash2, X } from 'lucide-react'
 import { useEffect, useEffectEvent, useMemo, useRef, useState } from 'react'
 import { Link, useBlocker, useNavigate } from 'react-router'
 import { toast } from 'sonner'
@@ -40,6 +40,7 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { Input } from '@/components/ui/input'
@@ -68,6 +69,7 @@ import { nodeTypeMime, Palette } from './Palette'
 import { ProblemsContext } from './problems'
 import { RunOutput } from './RunOutput'
 import { RunsContext } from './runs'
+import { ShareDialog } from './ShareDialog'
 import { WorkflowNodeView } from './WorkflowNodeView'
 
 // Defined once: React Flow re-mounts every node when this object changes identity.
@@ -120,6 +122,7 @@ function Editor({ workflow, types, onReload }: Props) {
   const [problems, setProblems] = useState<Problem[]>([])
   const [conflict, setConflict] = useState(false)
   const [confirmDelete, setConfirmDelete] = useState(false)
+  const [sharing, setSharing] = useState(false)
   const leaving = useRef(false) // set before navigating away on purpose
 
   // An execution shown on the canvas: each node's status, counts and kept items.
@@ -242,7 +245,10 @@ function Editor({ workflow, types, onReload }: Props) {
     )
   }
 
-  function changeNode(id: string, patch: Partial<Pick<NodeSpec, 'name' | 'continueOnFail'>>) {
+  function changeNode(
+    id: string,
+    patch: Partial<Pick<NodeSpec, 'name' | 'continueOnFail' | 'notes'>>,
+  ) {
     updateSpec(id, (spec) => ({ ...spec, ...patch }))
 
     // The error port goes away with the setting, and so do its connections.
@@ -334,6 +340,7 @@ function Editor({ workflow, types, onReload }: Props) {
             onRun={() => void runNow()}
             showExecutions={showExecutions}
             onToggleExecutions={() => setShowExecutions((s) => !s)}
+            onShare={() => setSharing(true)}
             onDelete={() => setConfirmDelete(true)}
           />
 
@@ -471,6 +478,15 @@ function Editor({ workflow, types, onReload }: Props) {
           />
 
           {workflow && (
+            <ShareDialog
+              workflow={workflow}
+              dirty={dirty}
+              open={sharing}
+              onClose={() => setSharing(false)}
+            />
+          )}
+
+          {workflow && (
             <DeleteDialog
               workflow={workflow}
               open={confirmDelete}
@@ -499,6 +515,7 @@ type HeaderProps = {
   onRun: () => void
   showExecutions: boolean
   onToggleExecutions: () => void
+  onShare: () => void
   onDelete: () => void
 }
 
@@ -514,6 +531,7 @@ function Header({
   onRun,
   showExecutions,
   onToggleExecutions,
+  onShare,
   onDelete,
 }: HeaderProps) {
   return (
@@ -577,6 +595,11 @@ function Header({
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
+              <DropdownMenuItem onSelect={onShare}>
+                <Share2 />
+                Share to library…
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
               <DropdownMenuItem variant="destructive" onSelect={onDelete}>
                 <Trash2 />
                 Delete workflow

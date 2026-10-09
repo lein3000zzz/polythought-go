@@ -83,6 +83,7 @@ type Services struct {
 	Workflows WorkflowService
 	NodeTypes NodeTypes
 	Events    EventService
+	Library   LibraryService
 }
 
 type Config struct {
@@ -107,6 +108,7 @@ type Server struct {
 	workflows WorkflowService
 	nodeTypes NodeTypes
 	events    EventService
+	library   LibraryService
 	log       logging.Logger
 	kit       *redkit.Kit
 	scope     tracing.Scope
@@ -149,6 +151,9 @@ func New(cfg Config, util *observability.Utility, services Services) (*Server, e
 		server.WithMaxRequestBodySize(maxBody),
 		server.WithExitWaitTime(5*time.Second),
 		server.WithDisablePrintRoute(true),
+		// Cancel a request's context when its client goes away, so an event stream for a
+		// closed tab ends at once. Only Hertz's netpoll transport, the one on Linux, can.
+		server.WithSenseClientDisconnection(true),
 	)
 
 	// Hertz trusts X-Forwarded-For from anyone by default, which would let clients pick
@@ -165,6 +170,7 @@ func New(cfg Config, util *observability.Utility, services Services) (*Server, e
 		workflows: services.Workflows,
 		nodeTypes: services.NodeTypes,
 		events:    services.Events,
+		library:   services.Library,
 		log:       log,
 		kit:       kit,
 		scope:     tracing.Scope{Manager: util.TracerManager, TracerName: tracerName},
@@ -234,6 +240,14 @@ func (s *Server) routes() {
 	wf.POST("/:id/run", s.runWorkflow)
 	wf.GET("/:id/executions", s.listExecutions)
 	wf.GET("/:id/executions/:eid", s.getExecution)
+	wf.GET("/:id/share", s.getSharedCopy)
+	wf.PUT("/:id/share", s.shareWorkflow)
+
+	lib := v1.Group("/library", s.requireAuth)
+	lib.GET("", s.listTemplates)
+	lib.GET("/:id", s.getTemplate)
+	lib.POST("/:id/use", s.useTemplate)
+	lib.DELETE("/:id", s.deleteTemplate)
 
 	admin := v1.Group("/admin", s.requireAuth)
 	admin.GET("/users", s.listUsers)

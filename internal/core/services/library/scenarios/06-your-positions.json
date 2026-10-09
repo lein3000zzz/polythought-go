@@ -1,0 +1,51 @@
+{
+  "id": "your-positions",
+  "name": "Your positions",
+  "summary": "List a wallet's biggest positions and how much each moved today.",
+  "description": "Positions are the shares a wallet holds. Polymarket wallets are public, so this works for your own wallet or any other you want to follow; link it on the Wallets page first.\n\nThis workflow lists the wallet's positions, keeps the ten largest by value, and compares each one's price with 24 hours ago.\n\n- Run it whenever you like, or switch Active on: it then runs once a day.\n- In Your positions, changePct is how much each holding's price moved over the day.",
+  "nodes": [
+    {
+      "id": "daily",
+      "type": "trigger.schedule",
+      "params": { "interval": "24h", "runOnStart": false },
+      "notes": "Runs once a day while the workflow is active. Press Run any time.",
+      "position": { "x": 0, "y": 0 }
+    },
+    {
+      "id": "positions",
+      "type": "polymarket.positions",
+      "params": { "limit": 100 },
+      "notes": "Lists the wallet's positions: shares held, average price paid, current price and value.",
+      "position": { "x": 300, "y": 0 }
+    },
+    {
+      "id": "largest",
+      "type": "transform.top",
+      "name": "Ten largest",
+      "params": { "field": "value", "order": "desc", "limit": 10 },
+      "notes": "Keeps the ten positions worth the most.",
+      "position": { "x": 600, "y": 0 }
+    },
+    {
+      "id": "change",
+      "type": "polymarket.priceChange",
+      "name": "Change over 24 hours",
+      "params": { "window": "24h" },
+      "notes": "Compares each position's price now with a day ago.",
+      "position": { "x": 900, "y": 0 }
+    },
+    {
+      "id": "pick",
+      "type": "transform.pick",
+      "params": { "fields": ["outcome", "priceThen", "priceNow", "changePct", "marketId"] },
+      "notes": "Keeps the fields worth reading.",
+      "position": { "x": 1200, "y": 0 }
+    }
+  ],
+  "connections": [
+    { "from": "daily", "fromPort": "main", "to": "positions", "toPort": "main" },
+    { "from": "positions", "fromPort": "main", "to": "largest", "toPort": "main" },
+    { "from": "largest", "fromPort": "main", "to": "change", "toPort": "main" },
+    { "from": "change", "fromPort": "main", "to": "pick", "toPort": "main" }
+  ]
+}

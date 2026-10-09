@@ -7,6 +7,7 @@ import (
 	"github.com/lein3000zzz/the-watchers/pkg/observability/logging"
 
 	"github.com/lein3000zzz/polythought-go/internal/core/engine"
+	"github.com/lein3000zzz/polythought-go/internal/core/nodes/fields"
 )
 
 const LogType = "output.log"
@@ -26,11 +27,14 @@ func (*Log) Type() engine.NodeType {
 	return engine.NodeType{
 		Name:        LogType,
 		Label:       "Log",
-		Description: "Writes each item to the server log and passes it on.",
+		Description: "Writes a line to the server log for each item and passes the items on. The run's Output tab shows them too.",
 		Inputs:      []string{engine.DefaultPort},
 		Outputs:     []string{engine.DefaultPort},
 		Params: []engine.ParamSpec{
-			{Name: "message", Label: "Message", Kind: engine.ParamString, Default: "Workflow item"},
+			{
+				Name: "message", Label: "Message", Kind: engine.ParamString, Default: "Workflow item",
+				Description: "{{field}} puts in an item's field, e.g. {{question}}.",
+			},
 		},
 	}
 }
@@ -51,7 +55,7 @@ func (n *Log) Run(ctx context.Context, rc engine.RunContext, in engine.Ports) (e
 			return nil, err
 		}
 
-		n.log.Info(ctx, message,
+		n.log.Info(ctx, fields.Render(message, item.JSON),
 			"workflow_id", rc.WorkflowID,
 			"execution_id", rc.ExecutionID,
 			"node_id", rc.NodeID,

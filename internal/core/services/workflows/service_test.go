@@ -321,20 +321,34 @@ func TestRun(t *testing.T) {
 	twoManual := stored
 	twoManual.Nodes = []domain.NodeSpec{{ID: "m1", Type: "trigger.manual"}, {ID: "m2", Type: "trigger.manual"}}
 
-	noManual := stored
-	noManual.Nodes = []domain.NodeSpec{{ID: "every", Type: "trigger.schedule"}}
+	scheduled := stored
+	scheduled.Nodes = []domain.NodeSpec{{ID: "every", Type: "trigger.schedule"}}
+
+	both := stored
+	both.Nodes = []domain.NodeSpec{{ID: "every", Type: "trigger.schedule"}, {ID: "manual", Type: "trigger.manual"}}
+
+	live := stored
+	live.Nodes = []domain.NodeSpec{{ID: "trades", Type: "trigger.market"}}
+
+	manualItem := engine.Ports{engine.DefaultPort: {{JSON: map[string]any{}}}}
+	tick := engine.Ports{engine.DefaultPort: {{JSON: map[string]any{"firedAt": now}}}}
 
 	tests := []struct {
 		name        string
 		workflow    domain.Workflow
 		trigger     domain.NodeID
 		wantTrigger domain.NodeID
+		wantOutput  engine.Ports
 		wantErr     error
 	}{
-		{name: "the only manual trigger", workflow: stored, wantTrigger: "manual"},
-		{name: "a named trigger", workflow: twoManual, trigger: "m2", wantTrigger: "m2"},
+		{name: "the only manual trigger", workflow: stored, wantTrigger: "manual", wantOutput: manualItem},
+		{name: "a named trigger", workflow: twoManual, trigger: "m2", wantTrigger: "m2", wantOutput: manualItem},
 		{name: "several manual triggers need a name", workflow: twoManual, wantErr: domain.ErrInvalidInput},
-		{name: "no manual trigger", workflow: noManual, wantErr: domain.ErrInvalidInput},
+		{name: "a schedule fires as if its time had come", workflow: scheduled, wantTrigger: "every", wantOutput: tick},
+		{name: "a manual trigger comes before a schedule", workflow: both, wantTrigger: "manual", wantOutput: manualItem},
+		{name: "a named schedule", workflow: both, trigger: "every", wantTrigger: "every", wantOutput: tick},
+		{name: "market activity cannot be imitated", workflow: live, wantErr: domain.ErrInvalidInput},
+		{name: "nor named", workflow: live, trigger: "trades", wantErr: domain.ErrInvalidInput},
 	}
 
 	for _, tt := range tests {
@@ -344,7 +358,7 @@ func TestRun(t *testing.T) {
 
 			if tt.wantErr == nil {
 				// One option: manual runs keep samples (engine.KeepSamples, tested in the engine).
-				d.executor.EXPECT().Execute(mock.Anything, tt.workflow, tt.wantTrigger, mock.Anything, mock.Anything).
+				d.executor.EXPECT().Execute(mock.Anything, tt.workflow, tt.wantTrigger, tt.wantOutput, mock.Anything).
 					Return(engine.Result{Execution: domain.Execution{ID: "ex-1", Status: domain.ExecutionSucceeded}}, nil)
 			}
 

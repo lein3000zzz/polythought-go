@@ -1,0 +1,58 @@
+{
+  "id": "tight-spreads",
+  "name": "Markets with tight spreads",
+  "summary": "Read live order books and find outcomes where buying and selling cost almost the same.",
+  "description": "The spread is the gap between the best price someone will pay for an outcome (the bid) and the best price someone will sell it for (the ask). A small spread means you can trade in and out without losing much to the gap.\n\nThis workflow reads the order books of 30 markets, keeps the outcomes whose spread is under 2 cents, and lists the deepest books first.\n\n- Run it, then open the Output of Order books to see bids, asks and depth for every outcome.\n- Change the Value in Tight spreads only to be stricter or looser.\n- Depth is how many shares rest on the best five price levels: a deep book takes large orders without moving.",
+  "nodes": [
+    {
+      "id": "manual",
+      "type": "trigger.manual",
+      "notes": "Starts the workflow when you press Run.",
+      "position": { "x": 0, "y": 0 }
+    },
+    {
+      "id": "markets",
+      "type": "polymarket.markets",
+      "params": { "limit": 30 },
+      "notes": "Lists 30 open markets, one item each.",
+      "position": { "x": 300, "y": 0 }
+    },
+    {
+      "id": "books",
+      "type": "polymarket.orderbook",
+      "params": { "depth": 5 },
+      "notes": "Reads each outcome's order book: best bid, best ask, the spread between them and the depth. One item per outcome, so a Yes/No market becomes two.",
+      "position": { "x": 600, "y": 0 }
+    },
+    {
+      "id": "tight",
+      "type": "logic.filter",
+      "name": "Tight spreads only",
+      "params": { "field": "spread", "operator": "lt", "value": "0.02" },
+      "notes": "Keeps outcomes whose spread is under 0.02, that is 2 cents on the dollar. A book with only one side has no spread and is dropped.",
+      "position": { "x": 900, "y": 0 }
+    },
+    {
+      "id": "deepest",
+      "type": "transform.top",
+      "name": "Deepest first",
+      "params": { "field": "bidDepth", "order": "desc", "limit": 10 },
+      "notes": "Sorts by the shares waiting on the buy side and keeps ten.",
+      "position": { "x": 1200, "y": 0 }
+    },
+    {
+      "id": "pick",
+      "type": "transform.pick",
+      "params": { "fields": ["question", "outcome", "bestBid", "bestAsk", "spread", "bidDepth", "askDepth"] },
+      "notes": "Keeps the fields worth reading.",
+      "position": { "x": 1500, "y": 0 }
+    }
+  ],
+  "connections": [
+    { "from": "manual", "fromPort": "main", "to": "markets", "toPort": "main" },
+    { "from": "markets", "fromPort": "main", "to": "books", "toPort": "main" },
+    { "from": "books", "fromPort": "main", "to": "tight", "toPort": "main" },
+    { "from": "tight", "fromPort": "main", "to": "deepest", "toPort": "main" },
+    { "from": "deepest", "fromPort": "main", "to": "pick", "toPort": "main" }
+  ]
+}

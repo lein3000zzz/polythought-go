@@ -35,6 +35,7 @@ type nodeDoc struct {
 	Params         map[string]any `json:"params,omitempty"`
 	ContinueOnFail bool           `json:"continueOnFail,omitempty"`
 	Position       positionDoc    `json:"position,omitzero"`
+	Notes          string         `json:"notes,omitempty"`
 }
 
 type positionDoc struct {
@@ -49,20 +50,21 @@ type connectionDoc struct {
 	ToPort   string `json:"toPort"`
 }
 
-func encodeDefinition(w domain.Workflow) (string, error) {
+// encodeDefinition stores a graph: a workflow's, or a shared template's.
+func encodeDefinition(nodes []domain.NodeSpec, connections []domain.Connection) (string, error) {
 	doc := definitionDoc{
-		Nodes:       make([]nodeDoc, len(w.Nodes)),
-		Connections: make([]connectionDoc, len(w.Connections)),
+		Nodes:       make([]nodeDoc, len(nodes)),
+		Connections: make([]connectionDoc, len(connections)),
 	}
 
-	for i, n := range w.Nodes {
+	for i, n := range nodes {
 		doc.Nodes[i] = nodeDoc{
 			ID: string(n.ID), Type: n.Type, Name: n.Name, Params: n.Params, ContinueOnFail: n.ContinueOnFail,
-			Position: positionDoc{X: n.Position.X, Y: n.Position.Y},
+			Position: positionDoc{X: n.Position.X, Y: n.Position.Y}, Notes: n.Notes,
 		}
 	}
 
-	for i, c := range w.Connections {
+	for i, c := range connections {
 		doc.Connections[i] = connectionDoc{From: string(c.From), FromPort: c.FromPort, To: string(c.To), ToPort: c.ToPort}
 	}
 
@@ -86,7 +88,7 @@ func decodeDefinition(raw string) ([]domain.NodeSpec, []domain.Connection, error
 	for i, n := range doc.Nodes {
 		nodes[i] = domain.NodeSpec{
 			ID: domain.NodeID(n.ID), Type: n.Type, Name: n.Name, Params: n.Params, ContinueOnFail: n.ContinueOnFail,
-			Position: domain.CanvasPosition{X: n.Position.X, Y: n.Position.Y},
+			Position: domain.CanvasPosition{X: n.Position.X, Y: n.Position.Y}, Notes: n.Notes,
 		}
 	}
 
@@ -185,7 +187,7 @@ func (r *Workflows) Update(ctx context.Context, w domain.Workflow, expectedVersi
 		return err
 	}
 
-	def, err := encodeDefinition(w)
+	def, err := encodeDefinition(w.Nodes, w.Connections)
 	if err != nil {
 		return err
 	}
@@ -329,7 +331,7 @@ func toWorkflowModel(w domain.Workflow) (model.Workflows, error) {
 		return model.Workflows{}, err
 	}
 
-	def, err := encodeDefinition(w)
+	def, err := encodeDefinition(w.Nodes, w.Connections)
 	if err != nil {
 		return model.Workflows{}, err
 	}

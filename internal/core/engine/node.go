@@ -108,6 +108,16 @@ type ParamSpec struct {
 	// Options lists the allowed values of a string parameter, or of each element of a
 	// list parameter. Empty means any value.
 	Options []string
+
+	// Sensitive marks values that are personal, like a webhook URL: sharing a workflow
+	// leaves them out. Wallet params are personal regardless.
+	Sensitive bool
+}
+
+// Personal reports whether the value belongs to whoever configured it, so sharing must
+// leave it out.
+func (p ParamSpec) Personal() bool {
+	return p.Sensitive || p.Kind == ParamWallet
 }
 
 // NodeType describes a kind of node for the registry, the editor and workflow validation.

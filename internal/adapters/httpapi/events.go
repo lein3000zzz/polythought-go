@@ -19,9 +19,9 @@ type EventService interface {
 	Subscribe(user domain.UserID) (*events.Subscription, error)
 }
 
-// heartbeat keeps a quiet stream open through proxies, and lets the server notice a
-// client that went away: Hertz does not tell handlers, a failed write does.
-const heartbeat = 25 * time.Second
+// heartbeat keeps a quiet stream open through proxies. Where Hertz cannot report a
+// client that went away (only its netpoll transport can), a failed heartbeat does.
+const heartbeat = 15 * time.Second
 
 type executionEventDTO struct {
 	WorkflowID string       `json:"workflowId"`
@@ -31,13 +31,12 @@ type executionEventDTO struct {
 // streamEvents sends the user's events as server-sent events until the client leaves.
 //
 //	@Summary		Live events
-//	@Description	A text/event-stream. Every finished execution of the user's workflows arrives as an "execution" event, its data an ExecutionEvent without item samples. Comment lines keep the stream open.
+//	@Description	A text/event-stream. Every finished execution of the user's workflows arrives as an "execution" event, its data an ExecutionEvent without item samples. Comment lines keep the stream open. A user holds a few streams at most; opening another closes their oldest.
 //	@ID				streamEvents
 //	@Tags			events
 //	@Produce		text/event-stream
 //	@Success		200	{object}	executionEventDTO
 //	@Failure		401	{object}	errorBody	"unauthenticated"
-//	@Failure		429	{object}	errorBody	"rate_limited: too many streams open"
 //	@Security		SessionCookie
 //	@Security		APIToken
 //	@Router			/events [get]
@@ -79,6 +78,9 @@ func (s *Server) streamEvents(ctx context.Context, c *app.RequestContext) {
 	for {
 		select {
 		case <-s.closing:
+			return
+
+		case <-ctx.Done(): // the client went away
 			return
 
 		case <-tick.C:

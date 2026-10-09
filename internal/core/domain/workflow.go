@@ -42,6 +42,7 @@ type NodeSpec struct {
 	Name     string
 	Params   map[string]any
 	Position CanvasPosition
+	Notes    string // shown with the node in the editor; never affects execution
 
 	// ContinueOnFail routes items that failed to the node's error port instead of
 	// failing the execution.

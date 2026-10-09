@@ -1,0 +1,43 @@
+{
+  "id": "first-workflow",
+  "name": "Your first workflow",
+  "summary": "Search live markets and watch items pass from node to node.",
+  "description": "A workflow is a chain of nodes. Each node takes a list of items, does one job with them, and hands its own items on along the lines.\n\nThis one starts when you press Run. It searches Polymarket for markets about bitcoin, keeps the five with the most money waiting in their order books, and trims each market down to the fields worth reading.\n\n- Press Use this scenario, then Run.\n- Click a node and open Output to see the items it made. Each item here is one market.\n- Change the words in Search markets, press Save, and run it again.",
+  "nodes": [
+    {
+      "id": "manual",
+      "type": "trigger.manual",
+      "notes": "Starts the workflow when you press Run.",
+      "position": { "x": 0, "y": 0 }
+    },
+    {
+      "id": "search",
+      "type": "polymarket.search",
+      "name": "Bitcoin markets",
+      "params": { "query": "bitcoin", "limit": 20 },
+      "notes": "Finds open markets with bitcoin in their title. Every market becomes one item.",
+      "position": { "x": 300, "y": 0 }
+    },
+    {
+      "id": "top",
+      "type": "transform.top",
+      "name": "Five most liquid",
+      "params": { "field": "liquidity", "order": "desc", "limit": 5 },
+      "notes": "Liquidity is the money resting in a market's order book. Sorts by it and keeps the top five.",
+      "position": { "x": 600, "y": 0 }
+    },
+    {
+      "id": "pick",
+      "type": "transform.pick",
+      "name": "Just the essentials",
+      "params": { "fields": ["question", "outcomes", "liquidity", "volume24h", "endsAt"] },
+      "notes": "Drops every other field so the output is easy to read. Outcomes holds each answer's price, from 0 to 1.",
+      "position": { "x": 900, "y": 0 }
+    }
+  ],
+  "connections": [
+    { "from": "manual", "fromPort": "main", "to": "search", "toPort": "main" },
+    { "from": "search", "fromPort": "main", "to": "top", "toPort": "main" },
+    { "from": "top", "fromPort": "main", "to": "pick", "toPort": "main" }
+  ]
+}

@@ -420,6 +420,10 @@
                     "name": {
                         "type": "string"
                     },
+                    "notes": {
+                        "description": "Notes explain the node to whoever reads the workflow; they never affect execution.",
+                        "type": "string"
+                    },
                     "params": {
                         "additionalProperties": {},
                         "type": "object"
@@ -590,6 +594,10 @@
                     },
                     "required": {
                         "type": "boolean"
+                    },
+                    "sensitive": {
+                        "description": "Sensitive values, like a webhook URL, are personal: sharing leaves them out.",
+                        "type": "boolean"
                     }
                 },
                 "required": [
@@ -678,6 +686,122 @@
                 ],
                 "type": "object"
             },
+            "ShareRequest": {
+                "properties": {
+                    "description": {
+                        "maxLength": 4000,
+                        "type": "string"
+                    },
+                    "summary": {
+                        "maxLength": 200,
+                        "type": "string"
+                    }
+                },
+                "type": "object"
+            },
+            "Template": {
+                "properties": {
+                    "builtIn": {
+                        "description": "BuiltIn scenarios ship with Polythought; the others are members' shared workflows.",
+                        "type": "boolean"
+                    },
+                    "connections": {
+                        "items": {
+                            "$ref": "#/components/schemas/Connection"
+                        },
+                        "type": "array",
+                        "uniqueItems": false
+                    },
+                    "description": {
+                        "type": "string"
+                    },
+                    "id": {
+                        "type": "string"
+                    },
+                    "inputs": {
+                        "items": {
+                            "$ref": "#/components/schemas/TemplateInput"
+                        },
+                        "type": "array",
+                        "uniqueItems": false
+                    },
+                    "mine": {
+                        "description": "Mine is set on the workflows you shared.",
+                        "type": "boolean"
+                    },
+                    "name": {
+                        "type": "string"
+                    },
+                    "nodeTypes": {
+                        "description": "the kinds of node it uses, without repeats",
+                        "items": {
+                            "type": "string"
+                        },
+                        "type": "array",
+                        "uniqueItems": false
+                    },
+                    "nodes": {
+                        "description": "Nodes and connections come with one template, not with the list.",
+                        "items": {
+                            "$ref": "#/components/schemas/Node"
+                        },
+                        "type": "array",
+                        "uniqueItems": false
+                    },
+                    "summary": {
+                        "type": "string"
+                    },
+                    "updatedAt": {
+                        "format": "date-time",
+                        "type": "string"
+                    }
+                },
+                "required": [
+                    "builtIn",
+                    "description",
+                    "id",
+                    "inputs",
+                    "mine",
+                    "name",
+                    "nodeTypes",
+                    "summary"
+                ],
+                "type": "object"
+            },
+            "TemplateInput": {
+                "properties": {
+                    "nodeId": {
+                        "type": "string"
+                    },
+                    "param": {
+                        "$ref": "#/components/schemas/ParamSpec"
+                    }
+                },
+                "required": [
+                    "nodeId",
+                    "param"
+                ],
+                "type": "object"
+            },
+            "TemplatePage": {
+                "properties": {
+                    "nextCursor": {
+                        "description": "NextCursor is absent on the last page.",
+                        "type": "string"
+                    },
+                    "templates": {
+                        "items": {
+                            "$ref": "#/components/schemas/Template"
+                        },
+                        "type": "array",
+                        "uniqueItems": false
+                    }
+                },
+                "required": [
+                    "templates"
+                ],
+                "type": "object"
+            },
             "UpdateUserRequest": {
                 "properties": {
                     "disabled": {
@@ -723,6 +847,23 @@
                     "nodes",
                     "version"
                 ],
+                "type": "object"
+            },
+            "UseTemplateRequest": {
+                "properties": {
+                    "name": {
+                        "description": "Name of the new workflow; left out, it takes the template's.",
+                        "type": "string"
+                    },
+                    "values": {
+                        "additionalProperties": {
+                            "additionalProperties": {},
+                            "type": "object"
+                        },
+                        "description": "Values for the template's inputs, by node ID and then param name.",
+                        "type": "object"
+                    }
+                },
                 "type": "object"
             },
             "User": {
@@ -1511,7 +1652,7 @@
         },
         "/events": {
             "get": {
-                "description": "A text/event-stream. Every finished execution of the user's workflows arrives as an \"execution\" event, its data an ExecutionEvent without item samples. Comment lines keep the stream open.",
+                "description": "A text/event-stream. Every finished execution of the user's workflows arrives as an \"execution\" event, its data an ExecutionEvent without item samples. Comment lines keep the stream open. A user holds a few streams at most; opening another closes their oldest.",
                 "operationId": "streamEvents",
                 "responses": {
                     "200": {
@@ -1533,16 +1674,6 @@
                             }
                         },
                         "description": "unauthenticated"
-                    },
-                    "429": {
-                        "content": {
-                            "text/event-stream": {
-                                "schema": {
-                                    "$ref": "#/components/schemas/Error"
-                                }
-                            }
-                        },
-                        "description": "rate_limited: too many streams open"
                     }
                 },
                 "security": [
@@ -1556,6 +1687,278 @@
                 "summary": "Live events",
                 "tags": [
                     "events"
+                ]
+            }
+        },
+        "/library": {
+            "get": {
+                "operationId": "listTemplates",
+                "parameters": [
+                    {
+                        "description": "Page size, of shared workflows",
+                        "in": "query",
+                        "name": "limit",
+                        "schema": {
+                            "minimum": 1,
+                            "type": "integer"
+                        }
+                    },
+                    {
+                        "description": "nextCursor of the previous page",
+                        "in": "query",
+                        "name": "cursor",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/TemplatePage"
+                                }
+                            }
+                        },
+                        "description": "OK"
+                    },
+                    "400": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "invalid_input"
+                    },
+                    "401": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "unauthenticated"
+                    }
+                },
+                "security": [
+                    {
+                        "SessionCookie": []
+                    },
+                    {
+                        "APIToken": []
+                    }
+                ],
+                "summary": "List the library",
+                "tags": [
+                    "library"
+                ]
+            }
+        },
+        "/library/{id}": {
+            "delete": {
+                "operationId": "deleteTemplate",
+                "parameters": [
+                    {
+                        "description": "Template ID",
+                        "in": "path",
+                        "name": "id",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "No Content"
+                    },
+                    "401": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "unauthenticated"
+                    },
+                    "403": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "forbidden"
+                    },
+                    "404": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "not_found"
+                    }
+                },
+                "security": [
+                    {
+                        "SessionCookie": []
+                    },
+                    {
+                        "APIToken": []
+                    }
+                ],
+                "summary": "Delete a shared workflow",
+                "tags": [
+                    "library"
+                ]
+            },
+            "get": {
+                "operationId": "getTemplate",
+                "parameters": [
+                    {
+                        "description": "Template ID",
+                        "in": "path",
+                        "name": "id",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Template"
+                                }
+                            }
+                        },
+                        "description": "OK"
+                    },
+                    "401": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "unauthenticated"
+                    },
+                    "404": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "not_found"
+                    }
+                },
+                "security": [
+                    {
+                        "SessionCookie": []
+                    },
+                    {
+                        "APIToken": []
+                    }
+                ],
+                "summary": "Get a template",
+                "tags": [
+                    "library"
+                ]
+            }
+        },
+        "/library/{id}/use": {
+            "post": {
+                "operationId": "useTemplate",
+                "parameters": [
+                    {
+                        "description": "Template ID",
+                        "in": "path",
+                        "name": "id",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/UseTemplateRequest",
+                                "summary": "body",
+                                "description": "Name and values for the template's inputs"
+                            }
+                        }
+                    },
+                    "description": "Name and values for the template's inputs",
+                    "required": true
+                },
+                "responses": {
+                    "201": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Workflow"
+                                }
+                            }
+                        },
+                        "description": "Created"
+                    },
+                    "400": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "invalid_input, or invalid_workflow with problems, e.g. an input left empty"
+                    },
+                    "401": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "unauthenticated"
+                    },
+                    "404": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "not_found"
+                    }
+                },
+                "security": [
+                    {
+                        "SessionCookie": []
+                    },
+                    {
+                        "APIToken": []
+                    }
+                ],
+                "summary": "Start a workflow from a template",
+                "tags": [
+                    "library"
                 ]
             }
         },
@@ -2903,6 +3306,147 @@
                 "summary": "Run a workflow now",
                 "tags": [
                     "executions"
+                ]
+            }
+        },
+        "/workflows/{id}/share": {
+            "get": {
+                "operationId": "getSharedCopy",
+                "parameters": [
+                    {
+                        "description": "Workflow ID",
+                        "in": "path",
+                        "name": "id",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Template"
+                                }
+                            }
+                        },
+                        "description": "OK"
+                    },
+                    "401": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "unauthenticated"
+                    },
+                    "404": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "not_found: no such workflow, or not shared"
+                    }
+                },
+                "security": [
+                    {
+                        "SessionCookie": []
+                    },
+                    {
+                        "APIToken": []
+                    }
+                ],
+                "summary": "Get a workflow's shared copy",
+                "tags": [
+                    "library"
+                ]
+            },
+            "put": {
+                "operationId": "shareWorkflow",
+                "parameters": [
+                    {
+                        "description": "Workflow ID",
+                        "in": "path",
+                        "name": "id",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/ShareRequest",
+                                "summary": "body",
+                                "description": "How to describe it"
+                            }
+                        }
+                    },
+                    "description": "How to describe it",
+                    "required": true
+                },
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Template"
+                                }
+                            }
+                        },
+                        "description": "OK"
+                    },
+                    "400": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "invalid_input"
+                    },
+                    "401": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "unauthenticated"
+                    },
+                    "404": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "not_found"
+                    }
+                },
+                "security": [
+                    {
+                        "SessionCookie": []
+                    },
+                    {
+                        "APIToken": []
+                    }
+                ],
+                "summary": "Share a workflow",
+                "tags": [
+                    "library"
                 ]
             }
         }

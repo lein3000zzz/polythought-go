@@ -1,0 +1,59 @@
+{
+  "id": "large-trades",
+  "name": "Large trades",
+  "summary": "Every 10 minutes, list trades of $1,000 or more in the markets you follow.",
+  "description": "Big trades show where people with conviction, or information, put their money.\n\nThis workflow searches for bitcoin markets, reads their trades from the last 10 minutes, and keeps those worth $1,000 or more. Each trade appears once, however many runs see it.\n\n- Change the words in Search markets to follow other markets.\n- Change the Value in $1,000 or more to raise or lower the bar.\n- Each trade item names the wallet that made it: paste one into the Wallets page to follow what it holds with Your positions.",
+  "nodes": [
+    {
+      "id": "every",
+      "type": "trigger.schedule",
+      "params": { "interval": "10m", "runOnStart": true },
+      "notes": "Runs every 10 minutes while the workflow is active.",
+      "position": { "x": 0, "y": 0 }
+    },
+    {
+      "id": "search",
+      "type": "polymarket.search",
+      "name": "Markets to follow",
+      "params": { "query": "bitcoin", "limit": 5 },
+      "notes": "The markets to watch: open ones with bitcoin in their title.",
+      "position": { "x": 300, "y": 0 }
+    },
+    {
+      "id": "trades",
+      "type": "polymarket.trades",
+      "params": { "since": "10m", "limit": 200 },
+      "notes": "Reads each market's trades from the last 10 minutes. Adds value: price times size, in dollars.",
+      "position": { "x": 600, "y": 0 }
+    },
+    {
+      "id": "large",
+      "type": "logic.filter",
+      "name": "$1,000 or more",
+      "params": { "field": "value", "operator": "gte", "value": "1000" },
+      "notes": "Keeps trades worth at least $1,000.",
+      "position": { "x": 900, "y": 0 }
+    },
+    {
+      "id": "new",
+      "type": "logic.dedupe",
+      "params": { "field": "txHash", "forget": "24h" },
+      "notes": "A trade has a unique transaction hash. Passes each one once.",
+      "position": { "x": 1200, "y": 0 }
+    },
+    {
+      "id": "pick",
+      "type": "transform.pick",
+      "params": { "fields": ["question", "outcome", "side", "price", "size", "value", "wallet", "at"] },
+      "notes": "Keeps the fields worth reading.",
+      "position": { "x": 1500, "y": 0 }
+    }
+  ],
+  "connections": [
+    { "from": "every", "fromPort": "main", "to": "search", "toPort": "main" },
+    { "from": "search", "fromPort": "main", "to": "trades", "toPort": "main" },
+    { "from": "trades", "fromPort": "main", "to": "large", "toPort": "main" },
+    { "from": "large", "fromPort": "main", "to": "new", "toPort": "main" },
+    { "from": "new", "fromPort": "main", "to": "pick", "toPort": "main" }
+  ]
+}

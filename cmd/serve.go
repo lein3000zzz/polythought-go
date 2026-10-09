@@ -38,6 +38,7 @@ func serve(ctx context.Context) error {
 		TrustedProxies: a.cfg.TrustedProxies,
 	}, a.util, httpapi.Services{
 		Auth: a.auth, Wallets: a.wallets, Workflows: a.workflows, NodeTypes: a.registry, Events: a.events,
+		Library: a.library,
 	})
 	if err != nil {
 		return err
