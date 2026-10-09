@@ -1,11 +1,17 @@
 GO            ?= go
 GOLANGCI_LINT ?= $(GO) run github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.14.0
 MOCKERY       ?= $(GO) run github.com/vektra/mockery/v3@v3.8.0
+SWAG          ?= $(GO) run github.com/swaggo/swag/v2/cmd/swag@v2.0.0-rc6
 
 INTEGRATION_TAG := integration
 DB_TAG          := db
 COVER_PROFILE   := coverage.out
 COMPOSE         := docker compose -f deploy/docker-compose.yml
+API_SPEC        := api/openapi.json
+
+# swag writes swagger.json into a directory; the targets move it to API_SPEC.
+SWAG_INIT = $(SWAG) init --quiet --v3.1 --requiredByDefault --parseInternal --outputTypes json \
+	--generalInfo doc.go --dir internal/adapters/httpapi --output
 
 .DEFAULT_GOAL := help
 
@@ -99,6 +105,19 @@ mocks-check: ## Fail if the mocks on disk are stale
 	$(MOCKERY) && diff -r "$$snapshot/mocks" internal/mocks >/dev/null; \
 	status=$$?; rm -rf "$$snapshot"; \
 	if [ $$status -ne 0 ]; then echo "mocks were stale and have been regenerated"; exit 1; fi
+
+.PHONY: api-spec
+api-spec: ## Regenerate api/openapi.json from the handler annotations
+	@tmp="$$(mktemp -d)"; \
+	$(SWAG_INIT) "$$tmp" && mkdir -p $(dir $(API_SPEC)) && mv "$$tmp/swagger.json" $(API_SPEC); \
+	status=$$?; rm -rf "$$tmp"; exit $$status
+
+.PHONY: api-check
+api-check: ## Fail if api/openapi.json is stale
+	@tmp="$$(mktemp -d)"; \
+	$(SWAG_INIT) "$$tmp" && diff -u $(API_SPEC) "$$tmp/swagger.json"; \
+	status=$$?; rm -rf "$$tmp"; \
+	if [ $$status -ne 0 ]; then echo "$(API_SPEC) is stale: run make api-spec"; exit 1; fi
 
 .PHONY: fixtures
 fixtures: ## Refresh client test fixtures from live Polymarket (network)

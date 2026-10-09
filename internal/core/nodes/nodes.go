@@ -22,11 +22,18 @@ type Deps struct {
 	Positions  ports.PositionReader
 	Account    ports.AccountReader
 	Wallets    ports.WalletDirectory
+	Feed       ports.MarketFeed // optional: without it, trigger.market is not available
 	Logger     logging.Logger
 }
 
 func Register(r *engine.Registry, d Deps) error {
+	var market error
+	if d.Feed != nil {
+		market = r.RegisterTrigger(triggers.NewMarket(d.Feed, triggers.DefaultMinInterval))
+	}
+
 	return errors.Join(
+		market,
 		r.RegisterTrigger(triggers.Manual{}),
 		r.RegisterTrigger(triggers.NewSchedule(triggers.DefaultMinInterval)),
 		r.RegisterNode(markets2.NewMarkets(d.Markets)),

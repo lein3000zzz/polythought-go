@@ -2,6 +2,7 @@ package httpapi_test
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"testing"
 	"time"
@@ -23,20 +24,21 @@ import (
 var flow = domain.Workflow{
 	ID: "wf-1", OwnerID: alice.ID, Name: "Spread watch", Version: 2,
 	Nodes: []domain.NodeSpec{
-		{ID: "manual", Type: "trigger.manual"},
+		{ID: "manual", Type: "trigger.manual", Position: domain.CanvasPosition{X: 40, Y: -12.5}},
 		{ID: "tight", Type: "logic.if", Params: map[string]any{"field": "spread", "value": json.Number("0.02")}},
 	},
 	Connections: []domain.Connection{{From: "manual", FromPort: "main", To: "tight", ToPort: "main"}},
 	CreatedAt:   created, UpdatedAt: created,
 }
 
-const flowBody = `{"name":"Spread watch","nodes":[{"id":"manual","type":"trigger.manual"},` +
+const flowBody = `{"name":"Spread watch","nodes":[{"id":"manual","type":"trigger.manual","position":{"x":40,"y":-12.5}},` +
 	`{"id":"tight","type":"logic.if","params":{"field":"spread","value":0.02}}],` +
 	`"connections":[{"from":"manual","fromPort":"main","to":"tight","toPort":"main"}]}`
 
 // exactDefinition checks the request body reached the service intact, numbers exact.
 func exactDefinition(def workflows.Definition) bool {
 	return def.Name == "Spread watch" && len(def.Nodes) == 2 && len(def.Connections) == 1 &&
+		def.Nodes[0].Position == domain.CanvasPosition{X: 40, Y: -12.5} &&
 		def.Nodes[1].Params["value"] == json.Number("0.02")
 }
 
@@ -61,12 +63,12 @@ func TestWorkflowRoutes(t *testing.T) {
 			setup: func(_ *httpapimocks.MockWorkflowService, nt *httpapimocks.MockNodeTypes) {
 				nt.EXPECT().Types().Return([]engine.TypeInfo{
 					{NodeType: engine.NodeType{Name: "trigger.manual", Outputs: []string{"main"}}, Trigger: true},
-					{NodeType: engine.NodeType{Name: "logic.if", Inputs: []string{"main"}, Outputs: []string{"true", "false"},
-						Params: []engine.ParamSpec{{Name: "operator", Kind: engine.ParamString, Default: "gt"}}}},
+					{NodeType: engine.NodeType{Name: "logic.if", Label: "If", Inputs: []string{"main"}, Outputs: []string{"true", "false"},
+						Params: []engine.ParamSpec{{Name: "operator", Kind: engine.ParamString, Default: "gt", Options: []string{"gt", "lt"}}}}},
 				})
 			},
 			wantStatus: http.StatusOK,
-			wantBody:   []string{`"name":"trigger.manual","trigger":true,"inputs":[]`, `"default":"gt"`},
+			wantBody:   []string{`"name":"trigger.manual","trigger":true,"inputs":[]`, `"label":"If"`, `"default":"gt","options":["gt","lt"]`},
 		},
 		{
 			name: "create keeps numbers exact",
@@ -75,16 +77,22 @@ func TestWorkflowRoutes(t *testing.T) {
 				w.EXPECT().Create(mock.Anything, mock.Anything, mock.MatchedBy(exactDefinition)).Return(flow, nil)
 			},
 			wantStatus: http.StatusCreated,
-			wantBody:   []string{`"id":"wf-1"`, `"value":0.02`, `"version":2`},
+			wantBody:   []string{`"id":"wf-1"`, `"value":0.02`, `"version":2`, `"position":{"x":40,"y":-12.5}`, `"position":{"x":0,"y":0}`},
 		},
 		{
 			name: "invalid graph",
 			req:  request{method: "POST", path: "/api/v1/workflows", body: flowBody, headers: cookie},
 			setup: func(w *httpapimocks.MockWorkflowService, _ *httpapimocks.MockNodeTypes) {
-				w.EXPECT().Create(mock.Anything, mock.Anything, mock.Anything).Return(domain.Workflow{}, domain.ErrInvalidWorkflow)
+				var v domain.ValidationError
+				v.Add(domain.Problem{NodeID: "tight", Param: "value", Message: `node "tight": param "value" must be a number`})
+				v.Add(domain.Problem{Message: "no trigger node"})
+				w.EXPECT().Create(mock.Anything, mock.Anything, mock.Anything).Return(domain.Workflow{}, fmt.Errorf("create: %w", v.Err()))
 			},
 			wantStatus: http.StatusBadRequest,
-			wantBody:   []string{`"code":"invalid_workflow"`},
+			wantBody: []string{
+				`"code":"invalid_workflow"`,
+				`"problems":[{"nodeId":"tight","param":"value","message":"node \"tight\": param \"value\" must be a number"},{"message":"no trigger node"}]`,
+			},
 		},
 		{
 			name: "update names the version it edited",

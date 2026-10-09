@@ -34,6 +34,12 @@ type nodeDoc struct {
 	Name           string         `json:"name,omitempty"`
 	Params         map[string]any `json:"params,omitempty"`
 	ContinueOnFail bool           `json:"continueOnFail,omitempty"`
+	Position       positionDoc    `json:"position,omitzero"`
+}
+
+type positionDoc struct {
+	X float64 `json:"x"`
+	Y float64 `json:"y"`
 }
 
 type connectionDoc struct {
@@ -50,7 +56,10 @@ func encodeDefinition(w domain.Workflow) (string, error) {
 	}
 
 	for i, n := range w.Nodes {
-		doc.Nodes[i] = nodeDoc{ID: string(n.ID), Type: n.Type, Name: n.Name, Params: n.Params, ContinueOnFail: n.ContinueOnFail}
+		doc.Nodes[i] = nodeDoc{
+			ID: string(n.ID), Type: n.Type, Name: n.Name, Params: n.Params, ContinueOnFail: n.ContinueOnFail,
+			Position: positionDoc{X: n.Position.X, Y: n.Position.Y},
+		}
 	}
 
 	for i, c := range w.Connections {
@@ -75,7 +84,10 @@ func decodeDefinition(raw string) ([]domain.NodeSpec, []domain.Connection, error
 
 	nodes := make([]domain.NodeSpec, len(doc.Nodes))
 	for i, n := range doc.Nodes {
-		nodes[i] = domain.NodeSpec{ID: domain.NodeID(n.ID), Type: n.Type, Name: n.Name, Params: n.Params, ContinueOnFail: n.ContinueOnFail}
+		nodes[i] = domain.NodeSpec{
+			ID: domain.NodeID(n.ID), Type: n.Type, Name: n.Name, Params: n.Params, ContinueOnFail: n.ContinueOnFail,
+			Position: domain.CanvasPosition{X: n.Position.X, Y: n.Position.Y},
+		}
 	}
 
 	conns := make([]domain.Connection, len(doc.Connections))

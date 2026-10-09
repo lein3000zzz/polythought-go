@@ -235,3 +235,58 @@ func TestWorkflowLookups(t *testing.T) {
 		assert.False(t, ok)
 	})
 }
+
+func TestValidationProblemsPointAtNodes(t *testing.T) {
+	tests := []struct {
+		name      string
+		workflow  domain.Workflow
+		wantNodes []domain.NodeID // one per problem, in order
+	}{
+		{
+			name:      "duplicate id and missing type",
+			workflow:  domain.Workflow{Nodes: []domain.NodeSpec{{ID: "a", Type: "t"}, {ID: "a"}}},
+			wantNodes: []domain.NodeID{"a", "a"},
+		},
+		{
+			name: "every node stuck in a cycle is named",
+			workflow: domain.Workflow{
+				Nodes:       nodes("start", "a", "b"),
+				Connections: []domain.Connection{conn("start", "a"), conn("a", "b"), conn("b", "a")},
+			},
+			wantNodes: []domain.NodeID{"a", "b"},
+		},
+		{
+			name:      "workflow-level problem has no node",
+			workflow:  domain.Workflow{},
+			wantNodes: []domain.NodeID{""},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var v *domain.ValidationError
+			require.ErrorAs(t, tt.workflow.Validate(), &v)
+
+			got := make([]domain.NodeID, len(v.Problems))
+			for i, p := range v.Problems {
+				got[i] = p.NodeID
+			}
+
+			assert.Equal(t, tt.wantNodes, got)
+		})
+	}
+}
+
+func TestValidationErrorMerge(t *testing.T) {
+	var v domain.ValidationError
+	require.NoError(t, v.Err(), "no problems is no error")
+
+	v.Merge(nil)
+	v.Merge(&domain.ValidationError{Problems: []domain.Problem{{NodeID: "a", Message: "first"}}})
+	v.Merge(domain.ErrNotFound)
+
+	require.Len(t, v.Problems, 2)
+	assert.ErrorIs(t, v.Err(), domain.ErrInvalidWorkflow)
+	assert.ErrorIs(t, v.Err(), domain.ErrNotFound, "merged errors stay matchable")
+	assert.Equal(t, "invalid workflow: first\ninvalid workflow: not found", v.Error())
+}

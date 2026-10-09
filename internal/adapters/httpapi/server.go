@@ -1,5 +1,3 @@
-// Package httpapi serves the JSON API over Hertz. Handlers translate HTTP to service
-// calls; authorization decisions stay in the services.
 package httpapi
 
 import (

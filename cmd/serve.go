@@ -41,6 +41,12 @@ func serve(ctx context.Context) error {
 		return err
 	}
 
+	go func() {
+		if err := a.feed.Run(ctx); err != nil {
+			log.Error(ctx, "Market feed stopped", logging.Err(err))
+		}
+	}()
+
 	if err := a.workflows.StartActive(ctx); err != nil {
 		return err
 	}

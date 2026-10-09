@@ -191,17 +191,6 @@ func TestExecute(t *testing.T) {
 			wantError:  `node "bad": node panicked: kaboom`,
 		},
 		{
-			name: "bad param type fails the node",
-			workflow: domain.Workflow{
-				Nodes:       []domain.NodeSpec{trigger(), spec("if", "test.if", map[string]any{"threshold": true})},
-				Connections: []domain.Connection{mainLink("trigger", "if")},
-			},
-			output:     fired(item("v", 1)),
-			wantStatus: domain.ExecutionFailed,
-			wantRuns:   map[domain.NodeID]domain.NodeRunStatus{"trigger": "succeeded", "if": "failed"},
-			wantError:  `invalid param "threshold"`,
-		},
-		{
 			name: "cancellation",
 			workflow: domain.Workflow{
 				Nodes:       []domain.NodeSpec{trigger(), spec("wait", "test.wait", nil), spec("after", "test.pass", nil)},
@@ -272,6 +261,15 @@ func TestExecuteRejects(t *testing.T) {
 		{name: "invalid workflow", workflow: domain.Workflow{}, trigger: "trigger", wantErr: domain.ErrInvalidWorkflow},
 		{name: "start from a regular node", workflow: valid, trigger: "a", wantErr: engine.ErrNotTrigger},
 		{name: "start from an unknown node", workflow: valid, trigger: "ghost", wantErr: engine.ErrNotTrigger},
+		{
+			name: "a param of the wrong type is caught before running",
+			workflow: domain.Workflow{
+				Nodes:       []domain.NodeSpec{trigger(), spec("if", "test.if", map[string]any{"threshold": true})},
+				Connections: []domain.Connection{mainLink("trigger", "if")},
+			},
+			trigger: "trigger",
+			wantErr: engine.ErrInvalidParam,
+		},
 	}
 
 	for _, tt := range tests {

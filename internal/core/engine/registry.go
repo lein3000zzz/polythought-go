@@ -3,6 +3,7 @@ package engine
 import (
 	"errors"
 	"fmt"
+	"maps"
 	"slices"
 	"strings"
 	"sync"
@@ -84,17 +85,14 @@ func (r *Registry) Type(name string) (typ NodeType, trigger bool, ok bool) {
 }
 
 // Validate runs the structural checks of domain.Workflow.Validate, then the ones that
-// need node types. Every problem matches domain.ErrInvalidWorkflow.
+// need node types. Problems come back together as a *domain.ValidationError, which
+// matches domain.ErrInvalidWorkflow.
 func (r *Registry) Validate(w domain.Workflow) error {
 	if err := w.Validate(); err != nil {
 		return err
 	}
 
-	var problems []error
-
-	problem := func(format string, args ...any) {
-		problems = append(problems, fmt.Errorf("%w: "+format, append([]any{domain.ErrInvalidWorkflow}, args...)...))
-	}
+	var v domain.ValidationError
 
 	types := make(map[domain.NodeID]NodeType, len(w.Nodes))
 	triggers := 0
@@ -102,7 +100,12 @@ func (r *Registry) Validate(w domain.Workflow) error {
 	for _, n := range w.Nodes {
 		typ, trigger, ok := r.Type(n.Type)
 		if !ok {
-			problems = append(problems, fmt.Errorf("%w: node %q: %w %q", domain.ErrInvalidWorkflow, n.ID, ErrUnknownNodeType, n.Type))
+			v.Add(domain.Problem{
+				NodeID:  n.ID,
+				Message: fmt.Sprintf("node %q: %s %q", n.ID, ErrUnknownNodeType, n.Type),
+				Err:     ErrUnknownNodeType,
+			})
+
 			continue
 		}
 
@@ -112,15 +115,11 @@ func (r *Registry) Validate(w domain.Workflow) error {
 			triggers++
 		}
 
-		for _, spec := range typ.Params {
-			if spec.Required && spec.Default == nil && n.Params[spec.Name] == nil {
-				problem("node %q: missing required param %q", n.ID, spec.Name)
-			}
-		}
+		checkParams(&v, n, typ)
 	}
 
 	if triggers == 0 {
-		problem("no trigger node")
+		v.Add(domain.Problem{Message: "no trigger node"})
 	}
 
 	for _, c := range w.Connections {
@@ -129,18 +128,52 @@ func (r *Registry) Validate(w domain.Workflow) error {
 
 		if fromOK && c.FromPort == ErrorPort {
 			if spec, _ := w.Node(c.From); !spec.ContinueOnFail {
-				problem("node %q: error port is connected but continueOnFail is off", c.From)
+				v.Add(domain.Problem{NodeID: c.From, Message: fmt.Sprintf("node %q: error port is connected but continueOnFail is off", c.From)})
 			}
 		} else if fromOK && !slices.Contains(from.Outputs, c.FromPort) {
-			problem("node %q (%s) has no output port %q", c.From, from.Name, c.FromPort)
+			v.Add(domain.Problem{NodeID: c.From, Message: fmt.Sprintf("node %q (%s) has no output port %q", c.From, from.Name, c.FromPort)})
 		}
 
 		if toOK && !slices.Contains(to.Inputs, c.ToPort) {
-			problem("node %q (%s) has no input port %q", c.To, to.Name, c.ToPort)
+			v.Add(domain.Problem{NodeID: c.To, Message: fmt.Sprintf("node %q (%s) has no input port %q", c.To, to.Name, c.ToPort)})
 		}
 	}
 
-	return errors.Join(problems...)
+	return v.Err()
+}
+
+// checkParams reports missing required params, unknown params and values that do not
+// fit their spec.
+func checkParams(v *domain.ValidationError, n domain.NodeSpec, typ NodeType) {
+	declared := make(map[string]bool, len(typ.Params))
+
+	for _, spec := range typ.Params {
+		declared[spec.Name] = true
+
+		value := n.Params[spec.Name]
+		if value == nil {
+			if spec.Required && spec.Default == nil {
+				v.Add(domain.Problem{NodeID: n.ID, Param: spec.Name, Message: fmt.Sprintf("node %q: missing required param %q", n.ID, spec.Name)})
+			}
+
+			continue
+		}
+
+		if msg := checkParam(spec, value); msg != "" {
+			v.Add(domain.Problem{
+				NodeID:  n.ID,
+				Param:   spec.Name,
+				Message: fmt.Sprintf("node %q: param %q %s", n.ID, spec.Name, msg),
+				Err:     ErrInvalidParam,
+			})
+		}
+	}
+
+	for _, name := range slices.Sorted(maps.Keys(n.Params)) {
+		if !declared[name] {
+			v.Add(domain.Problem{NodeID: n.ID, Param: name, Message: fmt.Sprintf("node %q: unknown param %q", n.ID, name)})
+		}
+	}
 }
 
 // TypeInfo describes a registered type for clients such as the editor.

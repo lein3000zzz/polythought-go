@@ -20,6 +20,7 @@ import (
 	"github.com/lein3000zzz/polythought-go/internal/core/engine"
 	"github.com/lein3000zzz/polythought-go/internal/core/nodes"
 	"github.com/lein3000zzz/polythought-go/internal/core/services/auth"
+	"github.com/lein3000zzz/polythought-go/internal/core/services/feed"
 	"github.com/lein3000zzz/polythought-go/internal/core/services/wallets"
 	"github.com/lein3000zzz/polythought-go/internal/core/services/workflows"
 	pm "github.com/lein3000zzz/polythought-go/pkg/clients/polymarket"
@@ -77,6 +78,7 @@ type app struct {
 	workflows  *workflows.Service
 	registry   *engine.Registry
 	supervisor *engine.Supervisor
+	feed       *feed.Hub
 }
 
 func newApp(ctx context.Context) (*app, error) {
@@ -184,14 +186,25 @@ func newPolymarket(a *app) (polymarket, error) {
 // initEngine builds the workflow engine. Workflows run under ctx: cancelling it stops
 // them, and the supervisor is also stopped on shutdown, before the database closes.
 func (a *app) initEngine(ctx context.Context, pmc polymarket) error {
+	streamClient, err := pm.NewMarketStreamClient(a.util, pm.StreamConfig{})
+	if err != nil {
+		return err
+	}
+
+	// One market stream for the whole process; serve runs it.
+	if a.feed, err = feed.NewHub(a.util, pmadapter.NewStream(streamClient)); err != nil {
+		return err
+	}
+
 	a.registry = engine.NewRegistry()
 
-	err := nodes.Register(a.registry, nodes.Deps{
+	err = nodes.Register(a.registry, nodes.Deps{
 		Markets:    pmc.reader,
 		OrderBooks: pmc.reader,
 		Positions:  pmc.reader,
 		Account:    pmc.account,
 		Wallets:    a.wallets,
+		Feed:       a.feed,
 		Logger:     a.util.Logger,
 	})
 	if err != nil {

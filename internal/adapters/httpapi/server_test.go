@@ -229,7 +229,10 @@ func TestRoutes(t *testing.T) {
 				svc.EXPECT().CreateInvite(mock.Anything, mock.Anything).Return("inv_code", domain.Invite{ID: "i-1", CreatedBy: root.ID}, nil)
 			},
 			wantStatus: http.StatusCreated,
-			wantBody:   []string{`"code":"inv_code"`, `"usedAt":null`},
+			wantBody:   []string{`"code":"inv_code"`},
+			check: func(t *testing.T, w *ut.ResponseRecorder) {
+				assert.NotContains(t, w.Body.String(), "usedAt", "unset times are left out, not null")
+			},
 		},
 		{
 			name: "bearer requests are not origin-checked",

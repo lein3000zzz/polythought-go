@@ -23,7 +23,12 @@ var (
 type Manual struct{}
 
 func (Manual) Type() engine.NodeType {
-	return engine.NodeType{Name: ManualType, Outputs: []string{engine.DefaultPort}}
+	return engine.NodeType{
+		Name:        ManualType,
+		Label:       "Manual",
+		Description: "Starts the workflow when you run it by hand.",
+		Outputs:     []string{engine.DefaultPort},
+	}
 }
 
 func (Manual) Start(ctx context.Context, _ engine.TriggerContext, _ engine.Emit) error {
@@ -50,11 +55,13 @@ func NewSchedule(minInterval time.Duration) *Schedule {
 
 func (*Schedule) Type() engine.NodeType {
 	return engine.NodeType{
-		Name:    ScheduleType,
-		Outputs: []string{engine.DefaultPort},
+		Name:        ScheduleType,
+		Label:       "Schedule",
+		Description: "Starts the workflow at a fixed interval.",
+		Outputs:     []string{engine.DefaultPort},
 		Params: []engine.ParamSpec{
-			{Name: "interval", Kind: engine.ParamString, Required: true}, // Go duration: "30s", "5m"
-			{Name: "runOnStart", Kind: engine.ParamBool, Default: true},
+			{Name: "interval", Label: "Every", Description: "A duration like 30s or 5m.", Kind: engine.ParamDuration, Required: true},
+			{Name: "runOnStart", Label: "Run on start", Description: "Also fire as soon as the workflow is activated.", Kind: engine.ParamBool, Default: true},
 		},
 	}
 }

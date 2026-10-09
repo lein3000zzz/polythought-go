@@ -16,8 +16,8 @@ type walletDTO struct {
 	Address        string    `json:"address"`
 	Label          string    `json:"label"`
 	HasCredentials bool      `json:"hasCredentials"`
-	CreatedAt      time.Time `json:"createdAt"`
-}
+	CreatedAt      time.Time `json:"createdAt" format:"date-time"`
+} // @name Wallet
 
 func toWalletDTO(w domain.Wallet) walletDTO {
 	return walletDTO{
@@ -29,14 +29,18 @@ func toWalletDTO(w domain.Wallet) walletDTO {
 	}
 }
 
+type walletList struct {
+	Wallets []walletDTO `json:"wallets"`
+} // @name WalletList
+
 // credentialsDTO never carries a secret: only a hint of the API key.
 type credentialsDTO struct {
 	APIKeyHint    string    `json:"apiKeyHint"`
 	Signer        string    `json:"signer"`
-	SignatureType int       `json:"signatureType"`
-	CreatedAt     time.Time `json:"createdAt"`
-	UpdatedAt     time.Time `json:"updatedAt"`
-}
+	SignatureType int       `json:"signatureType" enums:"0,1,2,3"`
+	CreatedAt     time.Time `json:"createdAt" format:"date-time"`
+	UpdatedAt     time.Time `json:"updatedAt" format:"date-time"`
+} // @name Credentials
 
 func toCredentialsDTO(c domain.CredentialsInfo) credentialsDTO {
 	return credentialsDTO{
@@ -48,6 +52,31 @@ func toCredentialsDTO(c domain.CredentialsInfo) credentialsDTO {
 	}
 }
 
+type linkWalletRequest struct {
+	Address string `json:"address"`
+	Label   string `json:"label" validate:"optional"`
+} // @name LinkWalletRequest
+
+type setCredentialsRequest struct {
+	APIKey     string `json:"apiKey"`
+	Secret     string `json:"secret"`
+	Passphrase string `json:"passphrase"`
+	// Signer defaults to the wallet address.
+	Signer string `json:"signer" validate:"optional"`
+	// SignatureType: 0 EOA, 1 Polymarket proxy, 2 Gnosis Safe, 3 deposit wallet.
+	SignatureType int `json:"signatureType" validate:"optional" enums:"0,1,2,3" default:"0"`
+} // @name SetCredentialsRequest
+
+// listWallets lists the user's linked wallets.
+//
+//	@Summary	List wallets
+//	@ID			listWallets
+//	@Tags		wallets
+//	@Success	200	{object}	walletList
+//	@Failure	401	{object}	errorBody	"unauthenticated"
+//	@Security	SessionCookie
+//	@Security	APIToken
+//	@Router		/wallets [get]
 func (s *Server) listWallets(ctx context.Context, c *app.RequestContext) {
 	p, _ := principal(c)
 
@@ -57,19 +86,29 @@ func (s *Server) listWallets(ctx context.Context, c *app.RequestContext) {
 		return
 	}
 
-	out := make([]walletDTO, len(list))
+	out := walletList{Wallets: make([]walletDTO, len(list))}
 	for i, w := range list {
-		out[i] = toWalletDTO(w)
+		out.Wallets[i] = toWalletDTO(w)
 	}
 
-	c.JSON(http.StatusOK, map[string]any{"wallets": out})
+	c.JSON(http.StatusOK, out)
 }
 
+// linkWallet adds a wallet by address, for reading its public data.
+//
+//	@Summary	Link a wallet
+//	@ID			linkWallet
+//	@Tags		wallets
+//	@Param		body	body		linkWalletRequest	true	"Wallet"
+//	@Success	201		{object}	walletDTO
+//	@Failure	400		{object}	errorBody	"invalid_input or invalid_address"
+//	@Failure	401		{object}	errorBody	"unauthenticated"
+//	@Failure	409		{object}	errorBody	"wallet_exists"
+//	@Security	SessionCookie
+//	@Security	APIToken
+//	@Router		/wallets [post]
 func (s *Server) linkWallet(ctx context.Context, c *app.RequestContext) {
-	var req struct {
-		Address string `json:"address"`
-		Label   string `json:"label"`
-	}
+	var req linkWalletRequest
 
 	if err := decodeJSON(c, &req); err != nil {
 		s.fail(ctx, c, err)
@@ -87,6 +126,18 @@ func (s *Server) linkWallet(ctx context.Context, c *app.RequestContext) {
 	c.JSON(http.StatusCreated, toWalletDTO(w))
 }
 
+// unlinkWallet removes a wallet and its credentials.
+//
+//	@Summary	Unlink a wallet
+//	@ID			unlinkWallet
+//	@Tags		wallets
+//	@Param		id	path	string	true	"Wallet ID"
+//	@Success	204
+//	@Failure	401	{object}	errorBody	"unauthenticated"
+//	@Failure	404	{object}	errorBody	"not_found"
+//	@Security	SessionCookie
+//	@Security	APIToken
+//	@Router		/wallets/{id} [delete]
 func (s *Server) unlinkWallet(ctx context.Context, c *app.RequestContext) {
 	p, _ := principal(c)
 
@@ -98,6 +149,18 @@ func (s *Server) unlinkWallet(ctx context.Context, c *app.RequestContext) {
 	c.Status(http.StatusNoContent)
 }
 
+// credentialsInfo describes the stored credentials without revealing them.
+//
+//	@Summary	Show a wallet's API credentials
+//	@ID			getCredentials
+//	@Tags		wallets
+//	@Param		id	path		string	true	"Wallet ID"
+//	@Success	200	{object}	credentialsDTO
+//	@Failure	401	{object}	errorBody	"unauthenticated"
+//	@Failure	404	{object}	errorBody	"not_found: no such wallet, or no credentials on it"
+//	@Security	SessionCookie
+//	@Security	APIToken
+//	@Router		/wallets/{id}/credentials [get]
 func (s *Server) credentialsInfo(ctx context.Context, c *app.RequestContext) {
 	p, _ := principal(c)
 
@@ -110,14 +173,23 @@ func (s *Server) credentialsInfo(ctx context.Context, c *app.RequestContext) {
 	c.JSON(http.StatusOK, toCredentialsDTO(info))
 }
 
+// setCredentials checks the credentials against Polymarket before storing them encrypted.
+//
+//	@Summary	Store a wallet's API credentials
+//	@ID			setCredentials
+//	@Tags		wallets
+//	@Param		id		path		string					true	"Wallet ID"
+//	@Param		body	body		setCredentialsRequest	true	"Polymarket CLOB API credentials"
+//	@Success	200		{object}	credentialsDTO
+//	@Failure	400		{object}	errorBody	"invalid_input, invalid_address or credentials_rejected"
+//	@Failure	401		{object}	errorBody	"unauthenticated"
+//	@Failure	404		{object}	errorBody	"not_found"
+//	@Failure	503		{object}	errorBody	"upstream_unavailable: Polymarket could not be reached"
+//	@Security	SessionCookie
+//	@Security	APIToken
+//	@Router		/wallets/{id}/credentials [put]
 func (s *Server) setCredentials(ctx context.Context, c *app.RequestContext) {
-	var req struct {
-		APIKey        string `json:"apiKey"`
-		Secret        string `json:"secret"`
-		Passphrase    string `json:"passphrase"`
-		Signer        string `json:"signer"`
-		SignatureType int    `json:"signatureType"`
-	}
+	var req setCredentialsRequest
 
 	if err := decodeJSON(c, &req); err != nil {
 		s.fail(ctx, c, err)
@@ -141,6 +213,18 @@ func (s *Server) setCredentials(ctx context.Context, c *app.RequestContext) {
 	c.JSON(http.StatusOK, toCredentialsDTO(info))
 }
 
+// removeCredentials deletes the stored credentials; the wallet stays linked.
+//
+//	@Summary	Remove a wallet's API credentials
+//	@ID			removeCredentials
+//	@Tags		wallets
+//	@Param		id	path	string	true	"Wallet ID"
+//	@Success	204
+//	@Failure	401	{object}	errorBody	"unauthenticated"
+//	@Failure	404	{object}	errorBody	"not_found"
+//	@Security	SessionCookie
+//	@Security	APIToken
+//	@Router		/wallets/{id}/credentials [delete]
 func (s *Server) removeCredentials(ctx context.Context, c *app.RequestContext) {
 	p, _ := principal(c)
 

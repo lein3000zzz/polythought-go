@@ -24,11 +24,13 @@ func NewLog(log logging.Logger) *Log {
 
 func (*Log) Type() engine.NodeType {
 	return engine.NodeType{
-		Name:    LogType,
-		Inputs:  []string{engine.DefaultPort},
-		Outputs: []string{engine.DefaultPort},
+		Name:        LogType,
+		Label:       "Log",
+		Description: "Writes each item to the server log and passes it on.",
+		Inputs:      []string{engine.DefaultPort},
+		Outputs:     []string{engine.DefaultPort},
 		Params: []engine.ParamSpec{
-			{Name: "message", Kind: engine.ParamString, Default: "Workflow item"},
+			{Name: "message", Label: "Message", Kind: engine.ParamString, Default: "Workflow item"},
 		},
 	}
 }

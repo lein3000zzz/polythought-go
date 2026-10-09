@@ -64,3 +64,24 @@ func TestIf(t *testing.T) {
 		})
 	}
 }
+
+func TestIfOffersOnlyKnownOperators(t *testing.T) {
+	node := logic.If{}
+
+	var options []string
+
+	for _, p := range node.Type().Params {
+		if p.Name == "operator" {
+			options = p.Options
+		}
+	}
+
+	require.NotEmpty(t, options)
+
+	for _, op := range options {
+		rc := engine.RunContext{Params: engine.LiteralParams(node.Type(), map[string]any{"field": "v", "value": 1, "operator": op})}
+
+		_, err := node.Run(context.Background(), rc, engine.Ports{engine.DefaultPort: {{JSON: map[string]any{"v": 1}}}})
+		assert.NoError(t, err, "operator %q", op)
+	}
+}

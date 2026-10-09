@@ -27,19 +27,24 @@ var operators = map[string]func(cmp int) bool{
 	"neq": func(c int) bool { return c != 0 },
 }
 
+// operatorNames lists the operators in the order an editor offers them.
+var operatorNames = []string{"gt", "gte", "lt", "lte", "eq", "neq"}
+
 // If compares a numeric field of each item with a value and routes it to "true" or
 // "false". A missing or null field is false; a non-numeric one fails the item.
 type If struct{}
 
 func (If) Type() engine.NodeType {
 	return engine.NodeType{
-		Name:    IfType,
-		Inputs:  []string{engine.DefaultPort},
-		Outputs: []string{PortTrue, PortFalse},
+		Name:        IfType,
+		Label:       "If",
+		Description: "Compares a numeric field of each item with a value and routes the item to true or false.",
+		Inputs:      []string{engine.DefaultPort},
+		Outputs:     []string{PortTrue, PortFalse},
 		Params: []engine.ParamSpec{
-			{Name: "field", Kind: engine.ParamString, Required: true},
-			{Name: "operator", Kind: engine.ParamString, Default: "gt"},
-			{Name: "value", Kind: engine.ParamDecimal, Required: true},
+			{Name: "field", Label: "Field", Description: "Item field to compare, e.g. bestBid.", Kind: engine.ParamString, Required: true},
+			{Name: "operator", Label: "Operator", Kind: engine.ParamString, Default: "gt", Options: operatorNames},
+			{Name: "value", Label: "Value", Kind: engine.ParamDecimal, Required: true},
 		},
 	}
 }

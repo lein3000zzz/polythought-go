@@ -16,11 +16,37 @@ const protocolLax = protocol.CookieSameSiteLaxMode
 
 type errorBody struct {
 	Error errorDetail `json:"error"`
-}
+} // @name Error
 
 type errorDetail struct {
+	// Code is stable and meant for programs, e.g. invalid_workflow or not_found.
 	Code    string `json:"code"`
 	Message string `json:"message"`
+
+	// Problems lists everything wrong with a submitted workflow (code invalid_workflow).
+	Problems []problemDTO `json:"problems,omitempty" validate:"optional"`
+} // @name ErrorDetail
+
+// problemDTO points at the node and parameter a problem is about, when it is about one,
+// so an editor can highlight them.
+type problemDTO struct {
+	NodeID  string `json:"nodeId,omitempty" validate:"optional"`
+	Param   string `json:"param,omitempty" validate:"optional"`
+	Message string `json:"message"`
+} // @name Problem
+
+func toProblemDTOs(err error) []problemDTO {
+	var v *domain.ValidationError
+	if !errors.As(err, &v) {
+		return nil
+	}
+
+	out := make([]problemDTO, len(v.Problems))
+	for i, p := range v.Problems {
+		out[i] = problemDTO{NodeID: string(p.NodeID), Param: p.Param, Message: p.Message}
+	}
+
+	return out
 }
 
 // errorMapping lists the errors clients may see, with their status and stable code.
@@ -56,7 +82,7 @@ var errorMapping = []struct {
 func (s *Server) fail(ctx context.Context, c *app.RequestContext, err error) {
 	for _, m := range errorMapping {
 		if errors.Is(err, m.err) {
-			c.JSON(m.status, errorBody{Error: errorDetail{Code: m.code, Message: err.Error()}})
+			c.JSON(m.status, errorBody{Error: errorDetail{Code: m.code, Message: err.Error(), Problems: toProblemDTOs(err)}})
 			return
 		}
 	}

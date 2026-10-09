@@ -22,14 +22,16 @@ func NewMarkets(reader ports.MarketReader) *Markets {
 
 func (*Markets) Type() engine.NodeType {
 	return engine.NodeType{
-		Name:    MarketsType,
-		Inputs:  []string{engine.DefaultPort},
-		Outputs: []string{engine.DefaultPort},
+		Name:        MarketsType,
+		Label:       "Markets",
+		Description: "Looks up markets, one item per market.",
+		Inputs:      []string{engine.DefaultPort},
+		Outputs:     []string{engine.DefaultPort},
 		Params: []engine.ParamSpec{
-			{Name: "limit", Kind: engine.ParamNumber, Default: 20},
-			{Name: "closed", Kind: engine.ParamBool, Default: false},
-			{Name: "slugs", Kind: engine.ParamList},
-			{Name: "tagIds", Kind: engine.ParamList},
+			{Name: "limit", Label: "Limit", Description: "Most markets to return.", Kind: engine.ParamNumber, Default: 20},
+			{Name: "closed", Label: "Include closed", Kind: engine.ParamBool, Default: false},
+			{Name: "slugs", Label: "Slugs", Description: "Only these markets.", Kind: engine.ParamList},
+			{Name: "tagIds", Label: "Tag IDs", Description: "Only markets with these tags.", Kind: engine.ParamList},
 		},
 	}
 }

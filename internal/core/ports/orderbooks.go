@@ -20,3 +20,16 @@ type MarketStream interface {
 	Unsubscribe(ctx context.Context, tokenIDs ...domain.TokenID) error
 	Updates() <-chan domain.MarketUpdate
 }
+
+// MarketFeed shares one live market stream among many consumers.
+type MarketFeed interface {
+	// Subscribe starts delivering updates for tokens until the subscription is closed or
+	// ctx is done.
+	Subscribe(ctx context.Context, tokens []domain.TokenID) (FeedSubscription, error)
+}
+
+type FeedSubscription interface {
+	// Updates is closed once the subscription ends.
+	Updates() <-chan domain.MarketUpdate
+	Close()
+}

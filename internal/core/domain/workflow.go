@@ -29,12 +29,19 @@ type Workflow struct {
 	UpdatedAt time.Time
 }
 
+// CanvasPosition is where a node sits on the editor canvas. It never affects execution.
+type CanvasPosition struct {
+	X float64
+	Y float64
+}
+
 // NodeSpec is a node as configured in the editor. Type selects the implementation.
 type NodeSpec struct {
-	ID     NodeID
-	Type   string // "polymarket.orderbook", "logic.if"
-	Name   string
-	Params map[string]any
+	ID       NodeID
+	Type     string // "polymarket.orderbook", "logic.if"
+	Name     string
+	Params   map[string]any
+	Position CanvasPosition
 
 	// ContinueOnFail routes items that failed to the node's error port instead of
 	// failing the execution.
@@ -85,30 +92,31 @@ func (w Workflow) Incoming(id NodeID) []Connection {
 	return in
 }
 
-// Validate checks the graph's structure and reports every problem at once. It does not
-// know node types: whether a type or port exists is checked where types are registered.
+// Validate checks the graph's structure and reports every problem at once, as a
+// *ValidationError. It does not know node types: whether a type or port exists is
+// checked where types are registered.
 func (w Workflow) Validate() error {
-	var problems []error
+	var v ValidationError
 
-	problem := func(format string, args ...any) {
-		problems = append(problems, fmt.Errorf("%w: "+format, append([]any{ErrInvalidWorkflow}, args...)...))
+	problem := func(node NodeID, format string, args ...any) {
+		v.Add(Problem{NodeID: node, Message: fmt.Sprintf(format, args...)})
 	}
 
 	if len(w.Nodes) == 0 {
-		problem("no nodes")
+		problem("", "no nodes")
 	}
 
 	seen := make(map[NodeID]bool, len(w.Nodes))
 	for i, n := range w.Nodes {
 		switch {
 		case n.ID == "":
-			problem("node %d has no id", i)
+			problem("", "node %d has no id", i)
 		case seen[n.ID]:
-			problem("duplicate node id %q", n.ID)
+			problem(n.ID, "duplicate node id %q", n.ID)
 		}
 
 		if n.Type == "" {
-			problem("node %q has no type", n.ID)
+			problem(n.ID, "node %q has no type", n.ID)
 		}
 
 		seen[n.ID] = true
@@ -117,41 +125,54 @@ func (w Workflow) Validate() error {
 	unique := make(map[Connection]bool, len(w.Connections))
 	for _, c := range w.Connections {
 		if !seen[c.From] {
-			problem("connection from unknown node %q", c.From)
+			problem(c.To, "connection from unknown node %q", c.From)
 		}
 
 		if !seen[c.To] {
-			problem("connection to unknown node %q", c.To)
+			problem(c.From, "connection to unknown node %q", c.To)
 		}
 
 		if c.FromPort == "" || c.ToPort == "" {
-			problem("connection %s -> %s has an unnamed port", c.From, c.To)
+			problem(c.From, "connection %s -> %s has an unnamed port", c.From, c.To)
 		}
 
 		if c.From == c.To {
-			problem("node %q is connected to itself", c.From)
+			problem(c.From, "node %q is connected to itself", c.From)
 		}
 
 		if unique[c] {
-			problem("duplicate connection %s.%s -> %s.%s", c.From, c.FromPort, c.To, c.ToPort)
+			problem(c.From, "duplicate connection %s.%s -> %s.%s", c.From, c.FromPort, c.To, c.ToPort)
 		}
 
 		unique[c] = true
 	}
 
-	if len(problems) == 0 {
-		if _, err := w.TopologicalOrder(); err != nil {
-			problems = append(problems, err)
+	if len(v.Problems) == 0 {
+		if _, stuck := w.order(); len(stuck) > 0 {
+			for _, id := range stuck {
+				problem(id, "node %q: cycle, cannot order %v", id, stuck)
+			}
 		}
 	}
 
-	return errors.Join(problems...)
+	return v.Err()
 }
 
 // TopologicalOrder returns node IDs so that every node comes after all nodes feeding it.
 // Ties keep declaration order, so the result is deterministic. A cycle is an error.
 // Connections to unknown nodes are ignored; Validate reports them.
 func (w Workflow) TopologicalOrder() ([]NodeID, error) {
+	order, stuck := w.order()
+	if len(stuck) > 0 {
+		return nil, fmt.Errorf("%w: cycle, cannot order %v", ErrInvalidWorkflow, stuck)
+	}
+
+	return order, nil
+}
+
+// order sorts the nodes topologically. stuck lists, sorted, the nodes that could not be
+// placed because of a cycle: those in it and those downstream of it.
+func (w Workflow) order() (order, stuck []NodeID) {
 	indegree := make(map[NodeID]int, len(w.Nodes))
 	for _, n := range w.Nodes {
 		indegree[n.ID] = 0
@@ -167,7 +188,7 @@ func (w Workflow) TopologicalOrder() ([]NodeID, error) {
 		}
 	}
 
-	order := make([]NodeID, 0, len(indegree))
+	order = make([]NodeID, 0, len(indegree))
 	placed := make(map[NodeID]bool, len(indegree))
 
 	// Repeated passes in declaration order: O(n²) worst case, fine for editor-sized graphs.
@@ -191,8 +212,6 @@ func (w Workflow) TopologicalOrder() ([]NodeID, error) {
 		}
 
 		if !progressed {
-			var stuck []NodeID
-
 			for id := range indegree {
 				if !placed[id] {
 					stuck = append(stuck, id)
@@ -201,7 +220,7 @@ func (w Workflow) TopologicalOrder() ([]NodeID, error) {
 
 			slices.Sort(stuck)
 
-			return nil, fmt.Errorf("%w: cycle, cannot order %v", ErrInvalidWorkflow, stuck)
+			return order, stuck
 		}
 	}
 

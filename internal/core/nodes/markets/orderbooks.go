@@ -27,11 +27,13 @@ func NewOrderBooks(reader ports.OrderBookReader) *OrderBooks {
 
 func (*OrderBooks) Type() engine.NodeType {
 	return engine.NodeType{
-		Name:    OrderBooksType,
-		Inputs:  []string{engine.DefaultPort},
-		Outputs: []string{engine.DefaultPort},
+		Name:        OrderBooksType,
+		Label:       "Order books",
+		Description: "Adds the current order book of each outcome to market items: best prices, spread and depth.",
+		Inputs:      []string{engine.DefaultPort},
+		Outputs:     []string{engine.DefaultPort},
 		Params: []engine.ParamSpec{
-			{Name: "depth", Kind: engine.ParamNumber, Default: 5}, // levels summed into bidDepth/askDepth
+			{Name: "depth", Label: "Depth", Description: "Price levels summed into bidDepth and askDepth.", Kind: engine.ParamNumber, Default: 5},
 		},
 	}
 }

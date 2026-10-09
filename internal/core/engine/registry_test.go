@@ -1,6 +1,7 @@
 package engine_test
 
 import (
+	"encoding/json"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -164,6 +165,17 @@ func TestRegistryValidate(t *testing.T) {
 			wantProblems: []string{`node "f": error port is connected but continueOnFail is off`},
 		},
 		{
+			name:         "unknown param",
+			workflow:     domain.Workflow{Nodes: []domain.NodeSpec{trigger(), spec("a", "test.pass", map[string]any{"tga": "x"})}},
+			wantProblems: []string{`node "a": unknown param "tga"`},
+		},
+		{
+			name:         "param of the wrong type",
+			workflow:     domain.Workflow{Nodes: []domain.NodeSpec{trigger(), spec("if", "test.if", map[string]any{"threshold": "lots"})}},
+			wantProblems: []string{`node "if": param "threshold" must be a number`},
+			wantErrIs:    engine.ErrInvalidParam,
+		},
+		{
 			name: "error port with continueOnFail",
 			workflow: domain.Workflow{
 				Nodes: []domain.NodeSpec{
@@ -192,6 +204,66 @@ func TestRegistryValidate(t *testing.T) {
 			for _, p := range tt.wantProblems {
 				assert.Contains(t, err.Error(), p)
 			}
+		})
+	}
+}
+
+func TestCheckParams(t *testing.T) {
+	typ := engine.NodeType{
+		Name:    "test.check",
+		Inputs:  mainPorts(),
+		Outputs: mainPorts(),
+		Params: []engine.ParamSpec{
+			{Name: "op", Kind: engine.ParamString, Options: []string{"gt", "lt"}},
+			{Name: "on", Kind: engine.ParamList, Options: []string{"trade", "book"}},
+			{Name: "every", Kind: engine.ParamDuration},
+			{Name: "flag", Kind: engine.ParamBool},
+			{Name: "n", Kind: engine.ParamNumber},
+			{Name: "wallet", Kind: engine.ParamWallet},
+			{Name: "tokens", Kind: engine.ParamTokens},
+		},
+	}
+
+	tests := []struct {
+		name    string
+		params  map[string]any
+		problem string // "" means valid
+	}{
+		{name: "valid values", params: map[string]any{
+			"op": "gt", "on": []any{"trade"}, "every": "5s", "flag": true, "n": 3, "wallet": "w-1", "tokens": []any{"t1"},
+		}},
+		{name: "json numbers count as numbers", params: map[string]any{"n": json.Number("2.5")}},
+		{name: "option outside the list", params: map[string]any{"op": "eq"}, problem: `param "op" "eq" is not one of [gt lt]`},
+		{name: "list element outside the options", params: map[string]any{"on": []any{"trade", "gossip"}}, problem: `param "on" "gossip" is not one of [trade book]`},
+		{name: "not a duration", params: map[string]any{"every": "soon"}, problem: `param "every" "soon" is not a positive duration`},
+		{name: "negative duration", params: map[string]any{"every": "-5s"}, problem: `param "every" "-5s" is not a positive duration`},
+		{name: "bool as string", params: map[string]any{"flag": "yes"}, problem: `param "flag" must be true or false`},
+		{name: "number as text", params: map[string]any{"n": "many"}, problem: `param "n" must be a number`},
+		{name: "wallet as number", params: map[string]any{"wallet": 7}, problem: `param "wallet" must be a string`},
+		{name: "tokens not a list", params: map[string]any{"tokens": "t1"}, problem: `param "tokens" must be a list of strings`},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			r := testRegistry(t)
+			require.NoError(t, r.RegisterNode(fakeNode{typ: typ}))
+
+			err := r.Validate(domain.Workflow{
+				Nodes:       []domain.NodeSpec{trigger(), spec("c", "test.check", tt.params)},
+				Connections: []domain.Connection{mainLink("trigger", "c")},
+			})
+
+			if tt.problem == "" {
+				require.NoError(t, err)
+				return
+			}
+
+			var v *domain.ValidationError
+			require.ErrorAs(t, err, &v)
+			require.Len(t, v.Problems, 1)
+			assert.Equal(t, domain.NodeID("c"), v.Problems[0].NodeID)
+			assert.Contains(t, v.Problems[0].Message, tt.problem)
+			assert.NotEmpty(t, v.Problems[0].Param, "the editor can point at the field")
 		})
 	}
 }

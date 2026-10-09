@@ -22,7 +22,7 @@ func newWorkflow(owner domain.UserID, name string) domain.Workflow {
 		OwnerID: owner,
 		Name:    name,
 		Nodes: []domain.NodeSpec{
-			{ID: "manual", Type: "trigger.manual"},
+			{ID: "manual", Type: "trigger.manual", Position: domain.CanvasPosition{X: 120, Y: -40.5}},
 			{ID: "if", Type: "logic.if", Name: "Tight?", Params: map[string]any{"field": "spread", "value": json.Number("0.02")}, ContinueOnFail: true},
 		},
 		Connections: []domain.Connection{{From: "manual", FromPort: "main", To: "if", ToPort: "main"}},

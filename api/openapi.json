@@ -1,0 +1,2829 @@
+{
+    "components": {
+        "schemas": {
+            "APIToken": {
+                "properties": {
+                    "createdAt": {
+                        "format": "date-time",
+                        "type": "string"
+                    },
+                    "expiresAt": {
+                        "format": "date-time",
+                        "type": "string"
+                    },
+                    "id": {
+                        "type": "string"
+                    },
+                    "lastUsedAt": {
+                        "format": "date-time",
+                        "type": "string"
+                    },
+                    "name": {
+                        "type": "string"
+                    },
+                    "prefix": {
+                        "type": "string"
+                    },
+                    "token": {
+                        "description": "Token is the secret, present only in the response that creates it.",
+                        "type": "string"
+                    }
+                },
+                "required": [
+                    "createdAt",
+                    "id",
+                    "name",
+                    "prefix"
+                ],
+                "type": "object"
+            },
+            "APITokenList": {
+                "properties": {
+                    "tokens": {
+                        "items": {
+                            "$ref": "#/components/schemas/APIToken"
+                        },
+                        "type": "array",
+                        "uniqueItems": false
+                    }
+                },
+                "required": [
+                    "tokens"
+                ],
+                "type": "object"
+            },
+            "AuthConfig": {
+                "properties": {
+                    "registration": {
+                        "enum": [
+                            "open",
+                            "invite",
+                            "closed"
+                        ],
+                        "type": "string"
+                    }
+                },
+                "required": [
+                    "registration"
+                ],
+                "type": "object"
+            },
+            "CanvasPosition": {
+                "properties": {
+                    "x": {
+                        "type": "number"
+                    },
+                    "y": {
+                        "type": "number"
+                    }
+                },
+                "required": [
+                    "x",
+                    "y"
+                ],
+                "type": "object"
+            },
+            "ChangePasswordRequest": {
+                "properties": {
+                    "currentPassword": {
+                        "type": "string"
+                    },
+                    "newPassword": {
+                        "type": "string"
+                    }
+                },
+                "required": [
+                    "currentPassword",
+                    "newPassword"
+                ],
+                "type": "object"
+            },
+            "Connection": {
+                "properties": {
+                    "from": {
+                        "type": "string"
+                    },
+                    "fromPort": {
+                        "type": "string"
+                    },
+                    "to": {
+                        "type": "string"
+                    },
+                    "toPort": {
+                        "type": "string"
+                    }
+                },
+                "required": [
+                    "from",
+                    "fromPort",
+                    "to",
+                    "toPort"
+                ],
+                "type": "object"
+            },
+            "CreateTokenRequest": {
+                "properties": {
+                    "expiresAt": {
+                        "description": "ExpiresAt left out means the token never expires.",
+                        "format": "date-time",
+                        "type": "string"
+                    },
+                    "name": {
+                        "type": "string"
+                    }
+                },
+                "required": [
+                    "name"
+                ],
+                "type": "object"
+            },
+            "CreateUserRequest": {
+                "properties": {
+                    "email": {
+                        "type": "string"
+                    },
+                    "password": {
+                        "type": "string"
+                    },
+                    "role": {
+                        "default": "user",
+                        "enum": [
+                            "admin",
+                            "user"
+                        ],
+                        "type": "string"
+                    }
+                },
+                "required": [
+                    "email",
+                    "password"
+                ],
+                "type": "object"
+            },
+            "Credentials": {
+                "properties": {
+                    "apiKeyHint": {
+                        "type": "string"
+                    },
+                    "createdAt": {
+                        "format": "date-time",
+                        "type": "string"
+                    },
+                    "signatureType": {
+                        "enum": [
+                            0,
+                            1,
+                            2,
+                            3
+                        ],
+                        "type": "integer"
+                    },
+                    "signer": {
+                        "type": "string"
+                    },
+                    "updatedAt": {
+                        "format": "date-time",
+                        "type": "string"
+                    }
+                },
+                "required": [
+                    "apiKeyHint",
+                    "createdAt",
+                    "signatureType",
+                    "signer",
+                    "updatedAt"
+                ],
+                "type": "object"
+            },
+            "Error": {
+                "properties": {
+                    "error": {
+                        "$ref": "#/components/schemas/ErrorDetail"
+                    }
+                },
+                "required": [
+                    "error"
+                ],
+                "type": "object"
+            },
+            "ErrorDetail": {
+                "properties": {
+                    "code": {
+                        "description": "Code is stable and meant for programs, e.g. invalid_workflow or not_found.",
+                        "type": "string"
+                    },
+                    "message": {
+                        "type": "string"
+                    },
+                    "problems": {
+                        "description": "Problems lists everything wrong with a submitted workflow (code invalid_workflow).",
+                        "items": {
+                            "$ref": "#/components/schemas/Problem"
+                        },
+                        "type": "array",
+                        "uniqueItems": false
+                    }
+                },
+                "required": [
+                    "code",
+                    "message"
+                ],
+                "type": "object"
+            },
+            "Execution": {
+                "properties": {
+                    "durationMs": {
+                        "type": "integer"
+                    },
+                    "error": {
+                        "type": "string"
+                    },
+                    "finishedAt": {
+                        "format": "date-time",
+                        "type": "string"
+                    },
+                    "id": {
+                        "type": "string"
+                    },
+                    "runs": {
+                        "items": {
+                            "$ref": "#/components/schemas/NodeRun"
+                        },
+                        "type": "array",
+                        "uniqueItems": false
+                    },
+                    "startedAt": {
+                        "format": "date-time",
+                        "type": "string"
+                    },
+                    "status": {
+                        "enum": [
+                            "running",
+                            "succeeded",
+                            "failed",
+                            "cancelled"
+                        ],
+                        "type": "string"
+                    },
+                    "triggeredBy": {
+                        "type": "string"
+                    },
+                    "workflowVersion": {
+                        "type": "integer"
+                    }
+                },
+                "required": [
+                    "durationMs",
+                    "id",
+                    "runs",
+                    "startedAt",
+                    "status",
+                    "triggeredBy",
+                    "workflowVersion"
+                ],
+                "type": "object"
+            },
+            "ExecutionPage": {
+                "properties": {
+                    "executions": {
+                        "items": {
+                            "$ref": "#/components/schemas/Execution"
+                        },
+                        "type": "array",
+                        "uniqueItems": false
+                    },
+                    "nextCursor": {
+                        "description": "NextCursor is absent on the last page.",
+                        "type": "string"
+                    }
+                },
+                "required": [
+                    "executions"
+                ],
+                "type": "object"
+            },
+            "Invite": {
+                "properties": {
+                    "code": {
+                        "description": "Code is the secret, present only in the response that creates it.",
+                        "type": "string"
+                    },
+                    "createdAt": {
+                        "format": "date-time",
+                        "type": "string"
+                    },
+                    "createdBy": {
+                        "type": "string"
+                    },
+                    "expiresAt": {
+                        "format": "date-time",
+                        "type": "string"
+                    },
+                    "id": {
+                        "type": "string"
+                    },
+                    "usedAt": {
+                        "format": "date-time",
+                        "type": "string"
+                    },
+                    "usedBy": {
+                        "type": "string"
+                    }
+                },
+                "required": [
+                    "createdAt",
+                    "createdBy",
+                    "expiresAt",
+                    "id"
+                ],
+                "type": "object"
+            },
+            "InviteList": {
+                "properties": {
+                    "invites": {
+                        "items": {
+                            "$ref": "#/components/schemas/Invite"
+                        },
+                        "type": "array",
+                        "uniqueItems": false
+                    }
+                },
+                "required": [
+                    "invites"
+                ],
+                "type": "object"
+            },
+            "LinkWalletRequest": {
+                "properties": {
+                    "address": {
+                        "type": "string"
+                    },
+                    "label": {
+                        "type": "string"
+                    }
+                },
+                "required": [
+                    "address"
+                ],
+                "type": "object"
+            },
+            "LoginRequest": {
+                "properties": {
+                    "email": {
+                        "type": "string"
+                    },
+                    "password": {
+                        "type": "string"
+                    }
+                },
+                "required": [
+                    "email",
+                    "password"
+                ],
+                "type": "object"
+            },
+            "Node": {
+                "properties": {
+                    "continueOnFail": {
+                        "type": "boolean"
+                    },
+                    "id": {
+                        "type": "string"
+                    },
+                    "name": {
+                        "type": "string"
+                    },
+                    "params": {
+                        "additionalProperties": {},
+                        "type": "object"
+                    },
+                    "position": {
+                        "$ref": "#/components/schemas/CanvasPosition",
+                        "description": "Position is where the editor draws the node; it never affects execution."
+                    },
+                    "type": {
+                        "type": "string"
+                    }
+                },
+                "required": [
+                    "id",
+                    "type"
+                ],
+                "type": "object"
+            },
+            "NodeRun": {
+                "properties": {
+                    "error": {
+                        "type": "string"
+                    },
+                    "finishedAt": {
+                        "format": "date-time",
+                        "type": "string"
+                    },
+                    "input": {
+                        "additionalProperties": {
+                            "type": "integer"
+                        },
+                        "description": "items per input port",
+                        "type": "object"
+                    },
+                    "nodeId": {
+                        "type": "string"
+                    },
+                    "output": {
+                        "additionalProperties": {
+                            "type": "integer"
+                        },
+                        "description": "items per output port",
+                        "type": "object"
+                    },
+                    "startedAt": {
+                        "format": "date-time",
+                        "type": "string"
+                    },
+                    "status": {
+                        "enum": [
+                            "succeeded",
+                            "failed",
+                            "skipped"
+                        ],
+                        "type": "string"
+                    }
+                },
+                "required": [
+                    "finishedAt",
+                    "nodeId",
+                    "startedAt",
+                    "status"
+                ],
+                "type": "object"
+            },
+            "NodeType": {
+                "properties": {
+                    "description": {
+                        "type": "string"
+                    },
+                    "inputs": {
+                        "items": {
+                            "type": "string"
+                        },
+                        "type": "array",
+                        "uniqueItems": false
+                    },
+                    "label": {
+                        "type": "string"
+                    },
+                    "name": {
+                        "type": "string"
+                    },
+                    "outputs": {
+                        "items": {
+                            "type": "string"
+                        },
+                        "type": "array",
+                        "uniqueItems": false
+                    },
+                    "params": {
+                        "items": {
+                            "$ref": "#/components/schemas/ParamSpec"
+                        },
+                        "type": "array",
+                        "uniqueItems": false
+                    },
+                    "trigger": {
+                        "type": "boolean"
+                    }
+                },
+                "required": [
+                    "inputs",
+                    "name",
+                    "outputs",
+                    "params",
+                    "trigger"
+                ],
+                "type": "object"
+            },
+            "NodeTypeList": {
+                "properties": {
+                    "nodeTypes": {
+                        "items": {
+                            "$ref": "#/components/schemas/NodeType"
+                        },
+                        "type": "array",
+                        "uniqueItems": false
+                    }
+                },
+                "required": [
+                    "nodeTypes"
+                ],
+                "type": "object"
+            },
+            "ParamSpec": {
+                "properties": {
+                    "default": {},
+                    "description": {
+                        "type": "string"
+                    },
+                    "kind": {
+                        "enum": [
+                            "string",
+                            "number",
+                            "decimal",
+                            "bool",
+                            "list",
+                            "duration",
+                            "wallet",
+                            "tokens"
+                        ],
+                        "type": "string"
+                    },
+                    "label": {
+                        "type": "string"
+                    },
+                    "name": {
+                        "type": "string"
+                    },
+                    "options": {
+                        "description": "Options are the allowed values of a string, or of each element of a list.",
+                        "items": {
+                            "type": "string"
+                        },
+                        "type": "array",
+                        "uniqueItems": false
+                    },
+                    "required": {
+                        "type": "boolean"
+                    }
+                },
+                "required": [
+                    "kind",
+                    "name",
+                    "required"
+                ],
+                "type": "object"
+            },
+            "Problem": {
+                "properties": {
+                    "message": {
+                        "type": "string"
+                    },
+                    "nodeId": {
+                        "type": "string"
+                    },
+                    "param": {
+                        "type": "string"
+                    }
+                },
+                "required": [
+                    "message"
+                ],
+                "type": "object"
+            },
+            "RegisterRequest": {
+                "properties": {
+                    "email": {
+                        "type": "string"
+                    },
+                    "inviteCode": {
+                        "description": "InviteCode is required when registration is by invite.",
+                        "type": "string"
+                    },
+                    "password": {
+                        "type": "string"
+                    }
+                },
+                "required": [
+                    "email",
+                    "password"
+                ],
+                "type": "object"
+            },
+            "RunRequest": {
+                "properties": {
+                    "trigger": {
+                        "description": "Trigger is the trigger node to start from; left out means the manual trigger.",
+                        "type": "string"
+                    }
+                },
+                "type": "object"
+            },
+            "SetCredentialsRequest": {
+                "properties": {
+                    "apiKey": {
+                        "type": "string"
+                    },
+                    "passphrase": {
+                        "type": "string"
+                    },
+                    "secret": {
+                        "type": "string"
+                    },
+                    "signatureType": {
+                        "default": 0,
+                        "description": "SignatureType: 0 EOA, 1 Polymarket proxy, 2 Gnosis Safe, 3 deposit wallet.",
+                        "enum": [
+                            0,
+                            1,
+                            2,
+                            3
+                        ],
+                        "type": "integer"
+                    },
+                    "signer": {
+                        "description": "Signer defaults to the wallet address.",
+                        "type": "string"
+                    }
+                },
+                "required": [
+                    "apiKey",
+                    "passphrase",
+                    "secret"
+                ],
+                "type": "object"
+            },
+            "UpdateUserRequest": {
+                "properties": {
+                    "disabled": {
+                        "type": "boolean"
+                    },
+                    "role": {
+                        "enum": [
+                            "admin",
+                            "user"
+                        ],
+                        "type": "string"
+                    }
+                },
+                "type": "object"
+            },
+            "UpdateWorkflowRequest": {
+                "properties": {
+                    "connections": {
+                        "items": {
+                            "$ref": "#/components/schemas/Connection"
+                        },
+                        "type": "array",
+                        "uniqueItems": false
+                    },
+                    "name": {
+                        "type": "string"
+                    },
+                    "nodes": {
+                        "items": {
+                            "$ref": "#/components/schemas/Node"
+                        },
+                        "type": "array",
+                        "uniqueItems": false
+                    },
+                    "version": {
+                        "description": "Version is the version the edit started from; a newer one on the server is a conflict.",
+                        "type": "integer"
+                    }
+                },
+                "required": [
+                    "connections",
+                    "name",
+                    "nodes",
+                    "version"
+                ],
+                "type": "object"
+            },
+            "User": {
+                "properties": {
+                    "createdAt": {
+                        "format": "date-time",
+                        "type": "string"
+                    },
+                    "disabled": {
+                        "type": "boolean"
+                    },
+                    "email": {
+                        "type": "string"
+                    },
+                    "emailVerified": {
+                        "type": "boolean"
+                    },
+                    "id": {
+                        "type": "string"
+                    },
+                    "role": {
+                        "enum": [
+                            "admin",
+                            "user"
+                        ],
+                        "type": "string"
+                    }
+                },
+                "required": [
+                    "createdAt",
+                    "disabled",
+                    "email",
+                    "emailVerified",
+                    "id",
+                    "role"
+                ],
+                "type": "object"
+            },
+            "UserPage": {
+                "properties": {
+                    "nextCursor": {
+                        "description": "NextCursor is absent on the last page.",
+                        "type": "string"
+                    },
+                    "users": {
+                        "items": {
+                            "$ref": "#/components/schemas/User"
+                        },
+                        "type": "array",
+                        "uniqueItems": false
+                    }
+                },
+                "required": [
+                    "users"
+                ],
+                "type": "object"
+            },
+            "Wallet": {
+                "properties": {
+                    "address": {
+                        "type": "string"
+                    },
+                    "createdAt": {
+                        "format": "date-time",
+                        "type": "string"
+                    },
+                    "hasCredentials": {
+                        "type": "boolean"
+                    },
+                    "id": {
+                        "type": "string"
+                    },
+                    "label": {
+                        "type": "string"
+                    }
+                },
+                "required": [
+                    "address",
+                    "createdAt",
+                    "hasCredentials",
+                    "id",
+                    "label"
+                ],
+                "type": "object"
+            },
+            "WalletList": {
+                "properties": {
+                    "wallets": {
+                        "items": {
+                            "$ref": "#/components/schemas/Wallet"
+                        },
+                        "type": "array",
+                        "uniqueItems": false
+                    }
+                },
+                "required": [
+                    "wallets"
+                ],
+                "type": "object"
+            },
+            "Workflow": {
+                "properties": {
+                    "active": {
+                        "type": "boolean"
+                    },
+                    "connections": {
+                        "items": {
+                            "$ref": "#/components/schemas/Connection"
+                        },
+                        "type": "array",
+                        "uniqueItems": false
+                    },
+                    "createdAt": {
+                        "format": "date-time",
+                        "type": "string"
+                    },
+                    "id": {
+                        "type": "string"
+                    },
+                    "name": {
+                        "type": "string"
+                    },
+                    "nodes": {
+                        "items": {
+                            "$ref": "#/components/schemas/Node"
+                        },
+                        "type": "array",
+                        "uniqueItems": false
+                    },
+                    "updatedAt": {
+                        "format": "date-time",
+                        "type": "string"
+                    },
+                    "version": {
+                        "type": "integer"
+                    }
+                },
+                "required": [
+                    "active",
+                    "connections",
+                    "createdAt",
+                    "id",
+                    "name",
+                    "nodes",
+                    "updatedAt",
+                    "version"
+                ],
+                "type": "object"
+            },
+            "WorkflowDefinition": {
+                "properties": {
+                    "connections": {
+                        "items": {
+                            "$ref": "#/components/schemas/Connection"
+                        },
+                        "type": "array",
+                        "uniqueItems": false
+                    },
+                    "name": {
+                        "type": "string"
+                    },
+                    "nodes": {
+                        "items": {
+                            "$ref": "#/components/schemas/Node"
+                        },
+                        "type": "array",
+                        "uniqueItems": false
+                    }
+                },
+                "required": [
+                    "connections",
+                    "name",
+                    "nodes"
+                ],
+                "type": "object"
+            },
+            "WorkflowPage": {
+                "properties": {
+                    "nextCursor": {
+                        "description": "NextCursor is absent on the last page.",
+                        "type": "string"
+                    },
+                    "workflows": {
+                        "items": {
+                            "$ref": "#/components/schemas/Workflow"
+                        },
+                        "type": "array",
+                        "uniqueItems": false
+                    }
+                },
+                "required": [
+                    "workflows"
+                ],
+                "type": "object"
+            }
+        },
+        "securitySchemes": {
+            "APIToken": {
+                "description": "Personal API token: Authorization: Bearer pt_...",
+                "scheme": "bearer",
+                "type": "http"
+            },
+            "SessionCookie": {
+                "description": "Browser session cookie, set by POST /auth/login.",
+                "in": "cookie",
+                "name": "polythought_session",
+                "type": "apiKey"
+            }
+        }
+    },
+    "info": {
+        "description": "Workflow automation for Polymarket. Errors share one shape: {\"error\": {\"code\", \"message\"}}.",
+        "title": "Polythought API",
+        "version": "1"
+    },
+    "externalDocs": {
+        "description": "Source",
+        "url": "https://github.com/lein3000zzz/polythought-go"
+    },
+    "paths": {
+        "/admin/invites": {
+            "get": {
+                "operationId": "listInvites",
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/InviteList"
+                                }
+                            }
+                        },
+                        "description": "OK"
+                    },
+                    "401": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "unauthenticated"
+                    },
+                    "403": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "forbidden"
+                    }
+                },
+                "security": [
+                    {
+                        "SessionCookie": []
+                    },
+                    {
+                        "APIToken": []
+                    }
+                ],
+                "summary": "List invites",
+                "tags": [
+                    "admin"
+                ]
+            },
+            "post": {
+                "operationId": "createInvite",
+                "responses": {
+                    "201": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Invite"
+                                }
+                            }
+                        },
+                        "description": "Created"
+                    },
+                    "401": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "unauthenticated"
+                    },
+                    "403": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "forbidden"
+                    }
+                },
+                "security": [
+                    {
+                        "SessionCookie": []
+                    },
+                    {
+                        "APIToken": []
+                    }
+                ],
+                "summary": "Create an invite",
+                "tags": [
+                    "admin"
+                ]
+            }
+        },
+        "/admin/users": {
+            "get": {
+                "operationId": "listUsers",
+                "parameters": [
+                    {
+                        "description": "Page size",
+                        "in": "query",
+                        "name": "limit",
+                        "schema": {
+                            "minimum": 1,
+                            "type": "integer"
+                        }
+                    },
+                    {
+                        "description": "nextCursor of the previous page",
+                        "in": "query",
+                        "name": "cursor",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/UserPage"
+                                }
+                            }
+                        },
+                        "description": "OK"
+                    },
+                    "400": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "invalid_input"
+                    },
+                    "401": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "unauthenticated"
+                    },
+                    "403": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "forbidden"
+                    }
+                },
+                "security": [
+                    {
+                        "SessionCookie": []
+                    },
+                    {
+                        "APIToken": []
+                    }
+                ],
+                "summary": "List users",
+                "tags": [
+                    "admin"
+                ]
+            },
+            "post": {
+                "operationId": "createUser",
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/CreateUserRequest",
+                                "summary": "body",
+                                "description": "User"
+                            }
+                        }
+                    },
+                    "description": "User",
+                    "required": true
+                },
+                "responses": {
+                    "201": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/User"
+                                }
+                            }
+                        },
+                        "description": "Created"
+                    },
+                    "400": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "invalid_input, invalid_email or weak_password"
+                    },
+                    "401": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "unauthenticated"
+                    },
+                    "403": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "forbidden"
+                    },
+                    "409": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "email_taken"
+                    }
+                },
+                "security": [
+                    {
+                        "SessionCookie": []
+                    },
+                    {
+                        "APIToken": []
+                    }
+                ],
+                "summary": "Create a user",
+                "tags": [
+                    "admin"
+                ]
+            }
+        },
+        "/admin/users/{id}": {
+            "patch": {
+                "operationId": "updateUser",
+                "parameters": [
+                    {
+                        "description": "User ID",
+                        "in": "path",
+                        "name": "id",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/UpdateUserRequest",
+                                "summary": "body",
+                                "description": "Fields to change"
+                            }
+                        }
+                    },
+                    "description": "Fields to change",
+                    "required": true
+                },
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/User"
+                                }
+                            }
+                        },
+                        "description": "OK"
+                    },
+                    "400": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "invalid_input"
+                    },
+                    "401": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "unauthenticated"
+                    },
+                    "403": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "forbidden"
+                    },
+                    "404": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "not_found"
+                    },
+                    "409": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "last_admin"
+                    }
+                },
+                "security": [
+                    {
+                        "SessionCookie": []
+                    },
+                    {
+                        "APIToken": []
+                    }
+                ],
+                "summary": "Change a user's role or disable them",
+                "tags": [
+                    "admin"
+                ]
+            }
+        },
+        "/auth/config": {
+            "get": {
+                "operationId": "getAuthConfig",
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/AuthConfig"
+                                }
+                            }
+                        },
+                        "description": "OK"
+                    }
+                },
+                "summary": "Registration settings",
+                "tags": [
+                    "auth"
+                ]
+            }
+        },
+        "/auth/login": {
+            "post": {
+                "operationId": "login",
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/LoginRequest",
+                                "summary": "body",
+                                "description": "Credentials"
+                            }
+                        }
+                    },
+                    "description": "Credentials",
+                    "required": true
+                },
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/User"
+                                }
+                            }
+                        },
+                        "description": "OK",
+                        "headers": {
+                            "Set-Cookie": {
+                                "description": "The polythought_session cookie",
+                                "schema": {
+                                    "type": "string"
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "invalid_input"
+                    },
+                    "401": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "invalid_credentials"
+                    },
+                    "403": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "user_disabled"
+                    },
+                    "429": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "rate_limited"
+                    }
+                },
+                "summary": "Sign in",
+                "tags": [
+                    "auth"
+                ]
+            }
+        },
+        "/auth/logout": {
+            "post": {
+                "operationId": "logout",
+                "responses": {
+                    "204": {
+                        "description": "No Content"
+                    },
+                    "401": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "unauthenticated"
+                    }
+                },
+                "security": [
+                    {
+                        "SessionCookie": []
+                    },
+                    {
+                        "APIToken": []
+                    }
+                ],
+                "summary": "Sign out",
+                "tags": [
+                    "auth"
+                ]
+            }
+        },
+        "/auth/register": {
+            "post": {
+                "operationId": "register",
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/RegisterRequest",
+                                "summary": "body",
+                                "description": "Account"
+                            }
+                        }
+                    },
+                    "description": "Account",
+                    "required": true
+                },
+                "responses": {
+                    "201": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/User"
+                                }
+                            }
+                        },
+                        "description": "Created"
+                    },
+                    "400": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "invalid_input, invalid_email, weak_password or invalid_invite"
+                    },
+                    "403": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "registration_closed"
+                    },
+                    "409": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "email_taken"
+                    },
+                    "429": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "rate_limited"
+                    }
+                },
+                "summary": "Create an account",
+                "tags": [
+                    "auth"
+                ]
+            }
+        },
+        "/me": {
+            "get": {
+                "operationId": "getMe",
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/User"
+                                }
+                            }
+                        },
+                        "description": "OK"
+                    },
+                    "401": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "unauthenticated"
+                    }
+                },
+                "security": [
+                    {
+                        "SessionCookie": []
+                    },
+                    {
+                        "APIToken": []
+                    }
+                ],
+                "summary": "Current user",
+                "tags": [
+                    "me"
+                ]
+            }
+        },
+        "/me/password": {
+            "put": {
+                "operationId": "changePassword",
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/ChangePasswordRequest",
+                                "summary": "body",
+                                "description": "Current and new password"
+                            }
+                        }
+                    },
+                    "description": "Current and new password",
+                    "required": true
+                },
+                "responses": {
+                    "204": {
+                        "description": "No Content"
+                    },
+                    "400": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "invalid_input or weak_password"
+                    },
+                    "401": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "unauthenticated or invalid_credentials"
+                    }
+                },
+                "security": [
+                    {
+                        "SessionCookie": []
+                    },
+                    {
+                        "APIToken": []
+                    }
+                ],
+                "summary": "Change password",
+                "tags": [
+                    "me"
+                ]
+            }
+        },
+        "/node-types": {
+            "get": {
+                "operationId": "listNodeTypes",
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/NodeTypeList"
+                                }
+                            }
+                        },
+                        "description": "OK"
+                    },
+                    "401": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "unauthenticated"
+                    }
+                },
+                "security": [
+                    {
+                        "SessionCookie": []
+                    },
+                    {
+                        "APIToken": []
+                    }
+                ],
+                "summary": "List node types",
+                "tags": [
+                    "workflows"
+                ]
+            }
+        },
+        "/tokens": {
+            "get": {
+                "operationId": "listTokens",
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/APITokenList"
+                                }
+                            }
+                        },
+                        "description": "OK"
+                    },
+                    "401": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "unauthenticated"
+                    }
+                },
+                "security": [
+                    {
+                        "SessionCookie": []
+                    },
+                    {
+                        "APIToken": []
+                    }
+                ],
+                "summary": "List API tokens",
+                "tags": [
+                    "tokens"
+                ]
+            },
+            "post": {
+                "operationId": "createToken",
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/CreateTokenRequest",
+                                "summary": "body",
+                                "description": "Token"
+                            }
+                        }
+                    },
+                    "description": "Token",
+                    "required": true
+                },
+                "responses": {
+                    "201": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/APIToken"
+                                }
+                            }
+                        },
+                        "description": "Created"
+                    },
+                    "400": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "invalid_input"
+                    },
+                    "401": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "unauthenticated"
+                    }
+                },
+                "security": [
+                    {
+                        "SessionCookie": []
+                    },
+                    {
+                        "APIToken": []
+                    }
+                ],
+                "summary": "Create an API token",
+                "tags": [
+                    "tokens"
+                ]
+            }
+        },
+        "/tokens/{id}": {
+            "delete": {
+                "operationId": "revokeToken",
+                "parameters": [
+                    {
+                        "description": "Token ID",
+                        "in": "path",
+                        "name": "id",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "No Content"
+                    },
+                    "401": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "unauthenticated"
+                    },
+                    "404": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "not_found"
+                    }
+                },
+                "security": [
+                    {
+                        "SessionCookie": []
+                    },
+                    {
+                        "APIToken": []
+                    }
+                ],
+                "summary": "Revoke an API token",
+                "tags": [
+                    "tokens"
+                ]
+            }
+        },
+        "/wallets": {
+            "get": {
+                "operationId": "listWallets",
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/WalletList"
+                                }
+                            }
+                        },
+                        "description": "OK"
+                    },
+                    "401": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "unauthenticated"
+                    }
+                },
+                "security": [
+                    {
+                        "SessionCookie": []
+                    },
+                    {
+                        "APIToken": []
+                    }
+                ],
+                "summary": "List wallets",
+                "tags": [
+                    "wallets"
+                ]
+            },
+            "post": {
+                "operationId": "linkWallet",
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/LinkWalletRequest",
+                                "summary": "body",
+                                "description": "Wallet"
+                            }
+                        }
+                    },
+                    "description": "Wallet",
+                    "required": true
+                },
+                "responses": {
+                    "201": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Wallet"
+                                }
+                            }
+                        },
+                        "description": "Created"
+                    },
+                    "400": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "invalid_input or invalid_address"
+                    },
+                    "401": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "unauthenticated"
+                    },
+                    "409": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "wallet_exists"
+                    }
+                },
+                "security": [
+                    {
+                        "SessionCookie": []
+                    },
+                    {
+                        "APIToken": []
+                    }
+                ],
+                "summary": "Link a wallet",
+                "tags": [
+                    "wallets"
+                ]
+            }
+        },
+        "/wallets/{id}": {
+            "delete": {
+                "operationId": "unlinkWallet",
+                "parameters": [
+                    {
+                        "description": "Wallet ID",
+                        "in": "path",
+                        "name": "id",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "No Content"
+                    },
+                    "401": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "unauthenticated"
+                    },
+                    "404": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "not_found"
+                    }
+                },
+                "security": [
+                    {
+                        "SessionCookie": []
+                    },
+                    {
+                        "APIToken": []
+                    }
+                ],
+                "summary": "Unlink a wallet",
+                "tags": [
+                    "wallets"
+                ]
+            }
+        },
+        "/wallets/{id}/credentials": {
+            "delete": {
+                "operationId": "removeCredentials",
+                "parameters": [
+                    {
+                        "description": "Wallet ID",
+                        "in": "path",
+                        "name": "id",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "No Content"
+                    },
+                    "401": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "unauthenticated"
+                    },
+                    "404": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "not_found"
+                    }
+                },
+                "security": [
+                    {
+                        "SessionCookie": []
+                    },
+                    {
+                        "APIToken": []
+                    }
+                ],
+                "summary": "Remove a wallet's API credentials",
+                "tags": [
+                    "wallets"
+                ]
+            },
+            "get": {
+                "operationId": "getCredentials",
+                "parameters": [
+                    {
+                        "description": "Wallet ID",
+                        "in": "path",
+                        "name": "id",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Credentials"
+                                }
+                            }
+                        },
+                        "description": "OK"
+                    },
+                    "401": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "unauthenticated"
+                    },
+                    "404": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "not_found: no such wallet, or no credentials on it"
+                    }
+                },
+                "security": [
+                    {
+                        "SessionCookie": []
+                    },
+                    {
+                        "APIToken": []
+                    }
+                ],
+                "summary": "Show a wallet's API credentials",
+                "tags": [
+                    "wallets"
+                ]
+            },
+            "put": {
+                "operationId": "setCredentials",
+                "parameters": [
+                    {
+                        "description": "Wallet ID",
+                        "in": "path",
+                        "name": "id",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/SetCredentialsRequest",
+                                "summary": "body",
+                                "description": "Polymarket CLOB API credentials"
+                            }
+                        }
+                    },
+                    "description": "Polymarket CLOB API credentials",
+                    "required": true
+                },
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Credentials"
+                                }
+                            }
+                        },
+                        "description": "OK"
+                    },
+                    "400": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "invalid_input, invalid_address or credentials_rejected"
+                    },
+                    "401": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "unauthenticated"
+                    },
+                    "404": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "not_found"
+                    },
+                    "503": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "upstream_unavailable: Polymarket could not be reached"
+                    }
+                },
+                "security": [
+                    {
+                        "SessionCookie": []
+                    },
+                    {
+                        "APIToken": []
+                    }
+                ],
+                "summary": "Store a wallet's API credentials",
+                "tags": [
+                    "wallets"
+                ]
+            }
+        },
+        "/workflows": {
+            "get": {
+                "operationId": "listWorkflows",
+                "parameters": [
+                    {
+                        "description": "Page size",
+                        "in": "query",
+                        "name": "limit",
+                        "schema": {
+                            "minimum": 1,
+                            "type": "integer"
+                        }
+                    },
+                    {
+                        "description": "nextCursor of the previous page",
+                        "in": "query",
+                        "name": "cursor",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/WorkflowPage"
+                                }
+                            }
+                        },
+                        "description": "OK"
+                    },
+                    "400": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "invalid_input"
+                    },
+                    "401": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "unauthenticated"
+                    }
+                },
+                "security": [
+                    {
+                        "SessionCookie": []
+                    },
+                    {
+                        "APIToken": []
+                    }
+                ],
+                "summary": "List workflows",
+                "tags": [
+                    "workflows"
+                ]
+            },
+            "post": {
+                "operationId": "createWorkflow",
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/WorkflowDefinition",
+                                "summary": "body",
+                                "description": "Workflow"
+                            }
+                        }
+                    },
+                    "description": "Workflow",
+                    "required": true
+                },
+                "responses": {
+                    "201": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Workflow"
+                                }
+                            }
+                        },
+                        "description": "Created"
+                    },
+                    "400": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "invalid_input, or invalid_workflow with problems"
+                    },
+                    "401": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "unauthenticated"
+                    }
+                },
+                "security": [
+                    {
+                        "SessionCookie": []
+                    },
+                    {
+                        "APIToken": []
+                    }
+                ],
+                "summary": "Create a workflow",
+                "tags": [
+                    "workflows"
+                ]
+            }
+        },
+        "/workflows/{id}": {
+            "delete": {
+                "operationId": "deleteWorkflow",
+                "parameters": [
+                    {
+                        "description": "Workflow ID",
+                        "in": "path",
+                        "name": "id",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "No Content"
+                    },
+                    "401": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "unauthenticated"
+                    },
+                    "404": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "not_found"
+                    }
+                },
+                "security": [
+                    {
+                        "SessionCookie": []
+                    },
+                    {
+                        "APIToken": []
+                    }
+                ],
+                "summary": "Delete a workflow",
+                "tags": [
+                    "workflows"
+                ]
+            },
+            "get": {
+                "operationId": "getWorkflow",
+                "parameters": [
+                    {
+                        "description": "Workflow ID",
+                        "in": "path",
+                        "name": "id",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Workflow"
+                                }
+                            }
+                        },
+                        "description": "OK"
+                    },
+                    "401": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "unauthenticated"
+                    },
+                    "404": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "not_found"
+                    }
+                },
+                "security": [
+                    {
+                        "SessionCookie": []
+                    },
+                    {
+                        "APIToken": []
+                    }
+                ],
+                "summary": "Get a workflow",
+                "tags": [
+                    "workflows"
+                ]
+            },
+            "put": {
+                "operationId": "updateWorkflow",
+                "parameters": [
+                    {
+                        "description": "Workflow ID",
+                        "in": "path",
+                        "name": "id",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/UpdateWorkflowRequest",
+                                "summary": "body",
+                                "description": "Workflow and the version it was edited from"
+                            }
+                        }
+                    },
+                    "description": "Workflow and the version it was edited from",
+                    "required": true
+                },
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Workflow"
+                                }
+                            }
+                        },
+                        "description": "OK"
+                    },
+                    "400": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "invalid_input, or invalid_workflow with problems"
+                    },
+                    "401": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "unauthenticated"
+                    },
+                    "404": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "not_found"
+                    },
+                    "409": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "conflict: someone saved a newer version"
+                    }
+                },
+                "security": [
+                    {
+                        "SessionCookie": []
+                    },
+                    {
+                        "APIToken": []
+                    }
+                ],
+                "summary": "Update a workflow",
+                "tags": [
+                    "workflows"
+                ]
+            }
+        },
+        "/workflows/{id}/activate": {
+            "post": {
+                "operationId": "activateWorkflow",
+                "parameters": [
+                    {
+                        "description": "Workflow ID",
+                        "in": "path",
+                        "name": "id",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Workflow"
+                                }
+                            }
+                        },
+                        "description": "OK"
+                    },
+                    "400": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "invalid_workflow"
+                    },
+                    "401": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "unauthenticated"
+                    },
+                    "404": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "not_found"
+                    }
+                },
+                "security": [
+                    {
+                        "SessionCookie": []
+                    },
+                    {
+                        "APIToken": []
+                    }
+                ],
+                "summary": "Activate a workflow",
+                "tags": [
+                    "workflows"
+                ]
+            }
+        },
+        "/workflows/{id}/deactivate": {
+            "post": {
+                "operationId": "deactivateWorkflow",
+                "parameters": [
+                    {
+                        "description": "Workflow ID",
+                        "in": "path",
+                        "name": "id",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Workflow"
+                                }
+                            }
+                        },
+                        "description": "OK"
+                    },
+                    "401": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "unauthenticated"
+                    },
+                    "404": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "not_found"
+                    }
+                },
+                "security": [
+                    {
+                        "SessionCookie": []
+                    },
+                    {
+                        "APIToken": []
+                    }
+                ],
+                "summary": "Deactivate a workflow",
+                "tags": [
+                    "workflows"
+                ]
+            }
+        },
+        "/workflows/{id}/executions": {
+            "get": {
+                "operationId": "listExecutions",
+                "parameters": [
+                    {
+                        "description": "Workflow ID",
+                        "in": "path",
+                        "name": "id",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "description": "Page size",
+                        "in": "query",
+                        "name": "limit",
+                        "schema": {
+                            "minimum": 1,
+                            "type": "integer"
+                        }
+                    },
+                    {
+                        "description": "nextCursor of the previous page",
+                        "in": "query",
+                        "name": "cursor",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ExecutionPage"
+                                }
+                            }
+                        },
+                        "description": "OK"
+                    },
+                    "400": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "invalid_input"
+                    },
+                    "401": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "unauthenticated"
+                    },
+                    "404": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "not_found"
+                    }
+                },
+                "security": [
+                    {
+                        "SessionCookie": []
+                    },
+                    {
+                        "APIToken": []
+                    }
+                ],
+                "summary": "List executions",
+                "tags": [
+                    "executions"
+                ]
+            }
+        },
+        "/workflows/{id}/executions/{eid}": {
+            "get": {
+                "operationId": "getExecution",
+                "parameters": [
+                    {
+                        "description": "Workflow ID",
+                        "in": "path",
+                        "name": "id",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "description": "Execution ID",
+                        "in": "path",
+                        "name": "eid",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Execution"
+                                }
+                            }
+                        },
+                        "description": "OK"
+                    },
+                    "401": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "unauthenticated"
+                    },
+                    "404": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "not_found"
+                    }
+                },
+                "security": [
+                    {
+                        "SessionCookie": []
+                    },
+                    {
+                        "APIToken": []
+                    }
+                ],
+                "summary": "Get an execution",
+                "tags": [
+                    "executions"
+                ]
+            }
+        },
+        "/workflows/{id}/run": {
+            "post": {
+                "operationId": "runWorkflow",
+                "parameters": [
+                    {
+                        "description": "Workflow ID",
+                        "in": "path",
+                        "name": "id",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/RunRequest",
+                                "summary": "body",
+                                "description": "Trigger to start from"
+                            }
+                        }
+                    },
+                    "description": "Trigger to start from"
+                },
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Execution"
+                                }
+                            }
+                        },
+                        "description": "OK"
+                    },
+                    "400": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "invalid_input or invalid_workflow"
+                    },
+                    "401": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "unauthenticated"
+                    },
+                    "404": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "not_found"
+                    }
+                },
+                "security": [
+                    {
+                        "SessionCookie": []
+                    },
+                    {
+                        "APIToken": []
+                    }
+                ],
+                "summary": "Run a workflow now",
+                "tags": [
+                    "executions"
+                ]
+            }
+        }
+    },
+    "openapi": "3.1.0",
+    "servers": [
+        {
+            "url": "/api/v1"
+        }
+    ]
+}

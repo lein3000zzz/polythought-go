@@ -31,7 +31,7 @@ var (
 	_ engine.Node = (*Balance)(nil)
 )
 
-var walletParam = engine.ParamSpec{Name: "wallet", Kind: engine.ParamString, Required: true}
+var walletParam = engine.ParamSpec{Name: "wallet", Label: "Wallet", Kind: engine.ParamWallet, Required: true}
 
 // perItem runs fn for every input item with its resolved params and the wallet named by
 // the "wallet" param. Item-level problems fail the item; a cancelled run fails the node.
@@ -84,10 +84,15 @@ func NewPositions(wallets ports.WalletDirectory, positions ports.PositionReader)
 
 func (*Positions) Type() engine.NodeType {
 	return engine.NodeType{
-		Name:    PositionsType,
-		Inputs:  []string{engine.DefaultPort},
-		Outputs: []string{engine.DefaultPort},
-		Params:  []engine.ParamSpec{walletParam, {Name: "limit", Kind: engine.ParamNumber, Default: 50}},
+		Name:        PositionsType,
+		Label:       "Positions",
+		Description: "Lists the open positions of one of your wallets, one item per position.",
+		Inputs:      []string{engine.DefaultPort},
+		Outputs:     []string{engine.DefaultPort},
+		Params: []engine.ParamSpec{
+			walletParam,
+			{Name: "limit", Label: "Limit", Description: "Most positions to return.", Kind: engine.ParamNumber, Default: 50},
+		},
 	}
 }
 
@@ -157,10 +162,15 @@ func NewOrders(wallets ports.WalletDirectory, account ports.AccountReader) *Orde
 
 func (*Orders) Type() engine.NodeType {
 	return engine.NodeType{
-		Name:    OrdersType,
-		Inputs:  []string{engine.DefaultPort},
-		Outputs: []string{engine.DefaultPort},
-		Params:  []engine.ParamSpec{walletParam, {Name: "market", Kind: engine.ParamString}},
+		Name:        OrdersType,
+		Label:       "Open orders",
+		Description: "Lists the open orders of one of your wallets. Needs API credentials on the wallet.",
+		Inputs:      []string{engine.DefaultPort},
+		Outputs:     []string{engine.DefaultPort},
+		Params: []engine.ParamSpec{
+			walletParam,
+			{Name: "market", Label: "Market", Description: "Only orders in this market (condition ID).", Kind: engine.ParamString},
+		},
 	}
 }
 
@@ -236,10 +246,12 @@ func NewBalance(wallets ports.WalletDirectory, account ports.AccountReader) *Bal
 
 func (*Balance) Type() engine.NodeType {
 	return engine.NodeType{
-		Name:    BalanceType,
-		Inputs:  []string{engine.DefaultPort},
-		Outputs: []string{engine.DefaultPort},
-		Params:  []engine.ParamSpec{walletParam},
+		Name:        BalanceType,
+		Label:       "Balance",
+		Description: "Reads the USDC collateral balance of one of your wallets. Needs API credentials on the wallet.",
+		Inputs:      []string{engine.DefaultPort},
+		Outputs:     []string{engine.DefaultPort},
+		Params:      []engine.ParamSpec{walletParam},
 	}
 }
 

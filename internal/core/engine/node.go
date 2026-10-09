@@ -86,26 +86,38 @@ type TriggerContext struct {
 type ParamKind string
 
 const (
-	ParamString  ParamKind = "string"
-	ParamNumber  ParamKind = "number"
-	ParamDecimal ParamKind = "decimal"
-	ParamBool    ParamKind = "bool"
-	ParamList    ParamKind = "list"
+	ParamString   ParamKind = "string"
+	ParamNumber   ParamKind = "number"
+	ParamDecimal  ParamKind = "decimal"
+	ParamBool     ParamKind = "bool"
+	ParamList     ParamKind = "list"     // of strings
+	ParamDuration ParamKind = "duration" // a Go duration string: "30s", "5m"
+	ParamWallet   ParamKind = "wallet"   // the ID of one of the owner's wallets
+	ParamTokens   ParamKind = "tokens"   // a list of token IDs
 )
 
+// ParamSpec describes one parameter: how to read it, and how an editor should present it.
 type ParamSpec struct {
-	Name     string
-	Kind     ParamKind
-	Required bool
-	Default  any
+	Name        string
+	Label       string
+	Description string
+	Kind        ParamKind
+	Required    bool
+	Default     any
+
+	// Options lists the allowed values of a string parameter, or of each element of a
+	// list parameter. Empty means any value.
+	Options []string
 }
 
 // NodeType describes a kind of node for the registry, the editor and workflow validation.
 type NodeType struct {
-	Name    string // "polymarket.orderbook", "logic.if"
-	Inputs  []string
-	Outputs []string
-	Params  []ParamSpec
+	Name        string // "polymarket.orderbook", "logic.if"
+	Label       string
+	Description string
+	Inputs      []string
+	Outputs     []string
+	Params      []ParamSpec
 }
 
 // Node is a step that transforms items. Per-item failures go to ErrorPort via Ports.Fail;

@@ -1,4 +1,6 @@
 # Local Postgres for development: `make db-up`.
+# The API runs in a container only with its profile:
+#   POLYTHOUGHT_SECRET_KEYS=... docker compose -f deploy/docker-compose.yml --profile api up --build
 services:
   postgres:
     image: postgres:17-alpine
@@ -15,6 +17,23 @@ services:
       interval: 2s
       timeout: 3s
       retries: 15
+
+  api:
+    profiles: [api]
+    build:
+      context: ..
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      POLYTHOUGHT_DATABASE_URL: postgres://polythought:polythought@postgres:5432/polythought?sslmode=disable
+      POLYTHOUGHT_SECRET_KEYS: ${POLYTHOUGHT_SECRET_KEYS:-} # required, see internal/config
+      POLYTHOUGHT_PUBLIC_URL: ${POLYTHOUGHT_PUBLIC_URL:-http://localhost:8080}
+      POLYTHOUGHT_REGISTRATION: ${POLYTHOUGHT_REGISTRATION:-invite}
+      POLYTHOUGHT_ADMIN_EMAIL: ${POLYTHOUGHT_ADMIN_EMAIL:-}
+      POLYTHOUGHT_ADMIN_PASSWORD: ${POLYTHOUGHT_ADMIN_PASSWORD:-}
+    ports:
+      - "8080:8080"
 
 volumes:
   pgdata:
