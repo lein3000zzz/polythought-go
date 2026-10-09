@@ -9,6 +9,8 @@ INTEGRATION_TAG := integration
 DB_TAG          := db
 COVER_PROFILE   := coverage.out
 COMPOSE         := docker compose -f deploy/docker-compose.yml
+APP_COMPOSE     := $(COMPOSE) --env-file .env --profile app
+DEV_DATABASE    := postgres://polythought:polythought@localhost:5432/polythought?sslmode=disable
 E2E_COMPOSE     := docker compose -p polythought-e2e -f deploy/docker-compose.yml -f deploy/docker-compose.e2e.yml --profile app
 API_SPEC        := api/openapi.json
 
@@ -29,8 +31,21 @@ build: ## Compile every package
 	$(GO) build ./...
 
 .PHONY: run
-run: ## Run the API server (needs POLYTHOUGHT_* env, see internal/config)
-	$(GO) run ./cmd serve
+run: ## Run the API on :8080 with settings from .env, for the UI from make web-dev (needs make db-up)
+	@test -f .env || { echo "no .env: copy .env.example to .env and fill it in"; exit 1; }
+	@set -a; . ./.env; set +a; \
+	POLYTHOUGHT_DATABASE_URL="$${POLYTHOUGHT_DATABASE_URL:-$(DEV_DATABASE)}" \
+	POLYTHOUGHT_PUBLIC_URL="$${POLYTHOUGHT_PUBLIC_URL:-http://localhost:5173}" \
+	$(GO) run -tags stdjson ./cmd serve
+
+.PHONY: up
+up: ## Run everything in Docker at http://localhost:3000 with settings from .env (Ctrl+C stops)
+	@test -f .env || { echo "no .env: copy .env.example to .env and fill it in"; exit 1; }
+	$(APP_COMPOSE) up --build
+
+.PHONY: down
+down: ## Stop everything make up or make db-up started (data is kept in a volume)
+	$(APP_COMPOSE) down
 
 .PHONY: demo
 demo: ## Run the spread-watch demo workflow against live Polymarket

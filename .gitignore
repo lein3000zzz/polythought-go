@@ -1,2 +1,3 @@
 .idea
 web/node_modules
+.env

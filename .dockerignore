@@ -4,3 +4,4 @@ api
 deploy
 web
 coverage.out
+.env

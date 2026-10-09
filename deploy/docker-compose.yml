@@ -1,6 +1,6 @@
 # Local Postgres for development: `make db-up`.
-# The whole app runs in containers with its profile, at http://localhost:3000:
-#   POLYTHOUGHT_SECRET_KEYS=... docker compose -f deploy/docker-compose.yml --profile app up --build
+# The whole app runs in containers with its profile, at http://localhost:3000: `make up`,
+# which reads the settings below from the .env file at the repository root.
 services:
   postgres:
     image: postgres:17-alpine
@@ -29,13 +29,17 @@ services:
     environment:
       POLYTHOUGHT_DATABASE_URL: postgres://polythought:polythought@postgres:5432/polythought?sslmode=disable
       POLYTHOUGHT_SECRET_KEYS: ${POLYTHOUGHT_SECRET_KEYS:-} # required, see internal/config
-      POLYTHOUGHT_PUBLIC_URL: ${POLYTHOUGHT_PUBLIC_URL:-http://localhost:3000}
+      # Where browsers reach this stack: web's published port below. Not taken from .env,
+      # whose public URL is the one for development.
+      POLYTHOUGHT_PUBLIC_URL: http://localhost:3000
       # Only web can reach the API, from the compose network, so its X-Forwarded-For is
       # trusted for client IPs.
       POLYTHOUGHT_TRUSTED_PROXIES: ${POLYTHOUGHT_TRUSTED_PROXIES:-172.16.0.0/12}
       POLYTHOUGHT_REGISTRATION: ${POLYTHOUGHT_REGISTRATION:-invite}
       POLYTHOUGHT_ADMIN_EMAIL: ${POLYTHOUGHT_ADMIN_EMAIL:-}
       POLYTHOUGHT_ADMIN_PASSWORD: ${POLYTHOUGHT_ADMIN_PASSWORD:-}
+      POLYTHOUGHT_LOG_LEVEL: ${POLYTHOUGHT_LOG_LEVEL:-info}
+      POLYTHOUGHT_LOG_FORMAT: ${POLYTHOUGHT_LOG_FORMAT:-text}
 
   web:
     profiles: [app]
