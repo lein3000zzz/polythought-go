@@ -51,6 +51,7 @@ type Executor struct {
 	now       func() time.Time
 	newExecID func() domain.ExecutionID
 	recorder  ports.ExecutionRecorder
+	notifier  ports.ExecutionNotifier
 }
 
 type ExecutorOption func(*Executor)
@@ -63,6 +64,11 @@ func WithClock(now func() time.Time) ExecutorOption {
 // WithRecorder stores every finished execution.
 func WithRecorder(r ports.ExecutionRecorder) ExecutorOption {
 	return func(e *Executor) { e.recorder = r }
+}
+
+// WithNotifier tells n about every finished execution, after it is recorded.
+func WithNotifier(n ports.ExecutionNotifier) ExecutorOption {
+	return func(e *Executor) { e.notifier = n }
 }
 
 // WithExecutionIDs replaces the random execution ID generator, for tests.
@@ -117,7 +123,18 @@ func NewExecutor(util *observability.Utility, registry *Registry, opts ...Execut
 //
 // The returned error is for executions that could not start (invalid workflow, unknown
 // trigger). Failures while running are reported in Result.Execution, not as an error.
-func (e *Executor) Execute(ctx context.Context, w domain.Workflow, trigger domain.NodeID, output Ports) (Result, error) {
+func (e *Executor) Execute(
+	ctx context.Context,
+	w domain.Workflow,
+	trigger domain.NodeID,
+	output Ports,
+	opts ...ExecuteOption,
+) (Result, error) {
+	var o executeOptions
+	for _, opt := range opts {
+		opt(&o)
+	}
+
 	if err := e.registry.Validate(w); err != nil {
 		return Result{}, err
 	}
@@ -144,7 +161,10 @@ func (e *Executor) Execute(ctx context.Context, w domain.Workflow, trigger domai
 			attribute.String("workflow.trigger", string(trigger)),
 		)
 
-		run := &execution{executor: e, workflow: w, exec: &exec, outputs: make(map[domain.NodeID]Ports, len(w.Nodes))}
+		run := &execution{
+			executor: e, workflow: w, exec: &exec, samples: o.samples,
+			outputs: make(map[domain.NodeID]Ports, len(w.Nodes)),
+		}
 		cause := run.walk(ctx, order, trigger, output)
 
 		status := statusOf(ctx, cause)
@@ -159,6 +179,10 @@ func (e *Executor) Execute(ctx context.Context, w domain.Workflow, trigger domai
 	done(exec.Status == domain.ExecutionSucceeded)
 
 	e.record(ctx, exec)
+
+	if e.notifier != nil {
+		e.notifier.ExecutionFinished(w.OwnerID, exec)
+	}
 
 	return result, nil
 }
@@ -213,6 +237,7 @@ type execution struct {
 	executor *Executor
 	workflow domain.Workflow
 	exec     *domain.Execution
+	samples  bool // keep the first items of each node's output
 	inputs   map[domain.NodeID]Ports
 	outputs  map[domain.NodeID]Ports
 }
@@ -224,7 +249,7 @@ func (x *execution) walk(ctx context.Context, order []domain.NodeID, trigger dom
 	now := x.executor.now()
 	x.record(domain.NodeRun{
 		NodeID: trigger, Status: domain.NodeRunSucceeded,
-		StartedAt: now, FinishedAt: now, Output: output.Counts(),
+		StartedAt: now, FinishedAt: now, Output: output.Counts(), Samples: x.sample(output),
 	})
 	x.route(trigger, output)
 
@@ -293,6 +318,7 @@ func (x *execution) runNode(ctx context.Context, id domain.NodeID, in Ports) (er
 
 	run.FinishedAt = x.executor.now()
 	run.Output = out.Counts()
+	run.Samples = x.sample(out)
 	run.Status = domain.NodeRunSucceeded
 
 	if err != nil {
@@ -318,6 +344,14 @@ func (x *execution) runNode(ctx context.Context, id domain.NodeID, in Ports) (er
 	x.route(id, out)
 
 	return nil
+}
+
+func (x *execution) sample(out Ports) map[string][]domain.ItemSample {
+	if !x.samples {
+		return nil
+	}
+
+	return sample(out)
 }
 
 // safeRun turns a panicking node into a failed node, so one bad node cannot take down

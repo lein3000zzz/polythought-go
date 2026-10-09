@@ -46,7 +46,13 @@ func TestWorkflowRoutes(t *testing.T) {
 	exec := domain.Execution{
 		ID: "ex-1", WorkflowID: "wf-1", WorkflowVersion: 2, TriggeredBy: "manual", Status: domain.ExecutionSucceeded,
 		StartedAt: created, FinishedAt: created.Add(1500 * time.Millisecond),
-		Runs: []domain.NodeRun{{NodeID: "manual", Status: domain.NodeRunSucceeded, Output: map[string]int{"main": 1}}},
+		Runs: []domain.NodeRun{{
+			NodeID: "manual", Status: domain.NodeRunSucceeded, Output: map[string]int{"main": 1},
+			Samples: map[string][]domain.ItemSample{
+				"main":  {{JSON: json.RawMessage(`{"price":0.020}`)}},
+				"error": {{JSON: json.RawMessage(`{"v":1}`), Error: "boom"}},
+			},
+		}},
 	}
 
 	tests := []struct {
@@ -163,7 +169,10 @@ func TestWorkflowRoutes(t *testing.T) {
 				w.EXPECT().Run(mock.Anything, mock.Anything, domain.WorkflowID("wf-1"), domain.NodeID("")).Return(exec, nil)
 			},
 			wantStatus: http.StatusOK,
-			wantBody:   []string{`"status":"succeeded"`, `"durationMs":1500`, `"output":{"main":1}`},
+			wantBody: []string{
+				`"status":"succeeded"`, `"durationMs":1500`, `"output":{"main":1}`,
+				`"main":[{"json":{"price":0.020}}]`, `"error":[{"json":{"v":1},"error":"boom"}]`,
+			},
 		},
 		{
 			name: "run a named trigger",
@@ -182,6 +191,9 @@ func TestWorkflowRoutes(t *testing.T) {
 			},
 			wantStatus: http.StatusOK,
 			wantBody:   []string{`"executions":[{"id":"ex-1"`, `"nextCursor":"ex-1"`},
+			check: func(t *testing.T, w *ut.ResponseRecorder) {
+				assert.NotContains(t, w.Body.String(), "samples", "lists stay small")
+			},
 		},
 		{
 			name: "one execution",
@@ -190,7 +202,7 @@ func TestWorkflowRoutes(t *testing.T) {
 				w.EXPECT().Execution(mock.Anything, mock.Anything, domain.WorkflowID("wf-1"), domain.ExecutionID("ex-1")).Return(exec, nil)
 			},
 			wantStatus: http.StatusOK,
-			wantBody:   []string{`"workflowVersion":2`, `"triggeredBy":"manual"`},
+			wantBody:   []string{`"workflowVersion":2`, `"triggeredBy":"manual"`, `"samples":{`},
 		},
 	}
 

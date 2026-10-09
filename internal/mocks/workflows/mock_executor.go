@@ -49,8 +49,14 @@ func (_m *MockExecutor) EXPECT() *MockExecutor_Expecter {
 }
 
 // Execute provides a mock function for the type MockExecutor
-func (_mock *MockExecutor) Execute(ctx context.Context, w domain.Workflow, trigger domain.NodeID, output engine.Ports) (engine.Result, error) {
-	ret := _mock.Called(ctx, w, trigger, output)
+func (_mock *MockExecutor) Execute(ctx context.Context, w domain.Workflow, trigger domain.NodeID, output engine.Ports, opts ...engine.ExecuteOption) (engine.Result, error) {
+	var tmpRet mock.Arguments
+	if len(opts) > 0 {
+		tmpRet = _mock.Called(ctx, w, trigger, output, opts)
+	} else {
+		tmpRet = _mock.Called(ctx, w, trigger, output)
+	}
+	ret := tmpRet
 
 	if len(ret) == 0 {
 		panic("no return value specified for Execute")
@@ -58,16 +64,16 @@ func (_mock *MockExecutor) Execute(ctx context.Context, w domain.Workflow, trigg
 
 	var r0 engine.Result
 	var r1 error
-	if returnFunc, ok := ret.Get(0).(func(context.Context, domain.Workflow, domain.NodeID, engine.Ports) (engine.Result, error)); ok {
-		return returnFunc(ctx, w, trigger, output)
+	if returnFunc, ok := ret.Get(0).(func(context.Context, domain.Workflow, domain.NodeID, engine.Ports, ...engine.ExecuteOption) (engine.Result, error)); ok {
+		return returnFunc(ctx, w, trigger, output, opts...)
 	}
-	if returnFunc, ok := ret.Get(0).(func(context.Context, domain.Workflow, domain.NodeID, engine.Ports) engine.Result); ok {
-		r0 = returnFunc(ctx, w, trigger, output)
+	if returnFunc, ok := ret.Get(0).(func(context.Context, domain.Workflow, domain.NodeID, engine.Ports, ...engine.ExecuteOption) engine.Result); ok {
+		r0 = returnFunc(ctx, w, trigger, output, opts...)
 	} else {
 		r0 = ret.Get(0).(engine.Result)
 	}
-	if returnFunc, ok := ret.Get(1).(func(context.Context, domain.Workflow, domain.NodeID, engine.Ports) error); ok {
-		r1 = returnFunc(ctx, w, trigger, output)
+	if returnFunc, ok := ret.Get(1).(func(context.Context, domain.Workflow, domain.NodeID, engine.Ports, ...engine.ExecuteOption) error); ok {
+		r1 = returnFunc(ctx, w, trigger, output, opts...)
 	} else {
 		r1 = ret.Error(1)
 	}
@@ -84,11 +90,13 @@ type MockExecutor_Execute_Call struct {
 //   - w domain.Workflow
 //   - trigger domain.NodeID
 //   - output engine.Ports
-func (_e *MockExecutor_Expecter) Execute(ctx any, w any, trigger any, output any) *MockExecutor_Execute_Call {
-	return &MockExecutor_Execute_Call{Call: _e.mock.On("Execute", ctx, w, trigger, output)}
+//   - opts ...engine.ExecuteOption
+func (_e *MockExecutor_Expecter) Execute(ctx any, w any, trigger any, output any, opts ...any) *MockExecutor_Execute_Call {
+	return &MockExecutor_Execute_Call{Call: _e.mock.On("Execute",
+		append([]any{ctx, w, trigger, output}, opts...)...)}
 }
 
-func (_c *MockExecutor_Execute_Call) Run(run func(ctx context.Context, w domain.Workflow, trigger domain.NodeID, output engine.Ports)) *MockExecutor_Execute_Call {
+func (_c *MockExecutor_Execute_Call) Run(run func(ctx context.Context, w domain.Workflow, trigger domain.NodeID, output engine.Ports, opts ...engine.ExecuteOption)) *MockExecutor_Execute_Call {
 	_c.Call.Run(func(args mock.Arguments) {
 		var arg0 context.Context
 		if args[0] != nil {
@@ -106,11 +114,18 @@ func (_c *MockExecutor_Execute_Call) Run(run func(ctx context.Context, w domain.
 		if args[3] != nil {
 			arg3 = args[3].(engine.Ports)
 		}
+		var arg4 []engine.ExecuteOption
+		var variadicArgs []engine.ExecuteOption
+		if len(args) > 4 {
+			variadicArgs = args[4].([]engine.ExecuteOption)
+		}
+		arg4 = variadicArgs
 		run(
 			arg0,
 			arg1,
 			arg2,
 			arg3,
+			arg4...,
 		)
 	})
 	return _c
@@ -121,7 +136,7 @@ func (_c *MockExecutor_Execute_Call) Return(result engine.Result, err error) *Mo
 	return _c
 }
 
-func (_c *MockExecutor_Execute_Call) RunAndReturn(run func(ctx context.Context, w domain.Workflow, trigger domain.NodeID, output engine.Ports) (engine.Result, error)) *MockExecutor_Execute_Call {
+func (_c *MockExecutor_Execute_Call) RunAndReturn(run func(ctx context.Context, w domain.Workflow, trigger domain.NodeID, output engine.Ports, opts ...engine.ExecuteOption) (engine.Result, error)) *MockExecutor_Execute_Call {
 	_c.Call.Return(run)
 	return _c
 }

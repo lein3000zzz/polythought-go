@@ -411,7 +411,6 @@ func TestClientIP(t *testing.T) {
 				})
 
 			addr := freeAddr(t)
-			client := &http.Client{Transport: &http.Transport{DisableKeepAlives: true}} // lets Shutdown return at once
 
 			srv, err := httpapi.New(httpapi.Config{Addr: addr, PublicURL: publicURL, TrustedProxies: tt.proxies}, observability.NoopUtility(), httpapi.Services{Auth: svc})
 			require.NoError(t, err)

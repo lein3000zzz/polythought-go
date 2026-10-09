@@ -1,16 +1,18 @@
 import { Handle, Position, useUpdateNodeInternals, type NodeProps } from '@xyflow/react'
 import { cn } from 'cn'
-import { Box, TriangleAlert, Zap } from 'lucide-react'
+import { Box, CircleCheck, CircleMinus, CircleX, TriangleAlert, Zap } from 'lucide-react'
 import { useEffect, useRef } from 'react'
 
 import { defaultPort, errorPort, inputsOf, outputsOf, type FlowNode } from './graph'
 import { useNodeProblems } from './problems'
+import { useNodeRun, type NodeRun } from './runs'
 
 export function WorkflowNodeView({ id, data, selected }: NodeProps<FlowNode>) {
   const { spec, type } = data
   const inputs = inputsOf(data)
   const outputs = outputsOf(data)
   const problems = useNodeProblems(id)
+  const run = useNodeRun(id)
   const Icon = !type ? TriangleAlert : type.trigger ? Zap : Box
 
   // React Flow measures handles when a node mounts; ports that come and go later, with
@@ -53,6 +55,7 @@ export function WorkflowNodeView({ id, data, selected }: NodeProps<FlowNode>) {
         <span className="truncate text-sm font-medium">
           {spec.name || type?.label || spec.type}
         </span>
+        {run && <RunStatus run={run} />}
       </div>
 
       <div className="px-3 pt-1.5 text-xs text-muted-foreground">
@@ -61,7 +64,7 @@ export function WorkflowNodeView({ id, data, selected }: NodeProps<FlowNode>) {
 
       <div className="flex justify-between gap-4 py-1.5">
         <Ports ports={inputs} side="in" />
-        <Ports ports={outputs} side="out" />
+        <Ports ports={outputs} side="out" counts={run?.output} />
       </div>
     </div>
   )
@@ -69,7 +72,15 @@ export function WorkflowNodeView({ id, data, selected }: NodeProps<FlowNode>) {
 
 // Ports draws one row per port, with its handle on the card's edge. Names are shown only
 // when they tell the ports apart: a lone "main" port goes unlabelled.
-function Ports({ ports, side }: { ports: string[]; side: 'in' | 'out' }) {
+function Ports({
+  ports,
+  side,
+  counts,
+}: {
+  ports: string[]
+  side: 'in' | 'out'
+  counts?: Record<string, number> // items per port in the inspected run
+}) {
   const labelled = ports.length > 1 || ports.some((p) => p !== defaultPort)
 
   return (
@@ -84,6 +95,11 @@ function Ports({ ports, side }: { ports: string[]; side: 'in' | 'out' }) {
           )}
         >
           {labelled && port}
+          {counts && (
+            <span className="ml-1 font-medium text-foreground tabular-nums">
+              {counts[port] ?? 0}
+            </span>
+          )}
           <Handle
             id={port}
             type={side === 'in' ? 'target' : 'source'}
@@ -93,5 +109,25 @@ function Ports({ ports, side }: { ports: string[]; side: 'in' | 'out' }) {
         </div>
       ))}
     </div>
+  )
+}
+
+const runIcons = {
+  succeeded: { Icon: CircleCheck, className: 'text-emerald-600', label: 'Succeeded' },
+  failed: { Icon: CircleX, className: 'text-destructive', label: 'Failed' },
+  skipped: {
+    Icon: CircleMinus,
+    className: 'text-muted-foreground',
+    label: 'Skipped: no items reached it',
+  },
+} as const
+
+function RunStatus({ run }: { run: NodeRun }) {
+  const { Icon, className, label } = runIcons[run.status]
+
+  return (
+    <span className="ml-auto" title={run.error ?? label}>
+      <Icon className={cn('size-4', className)} aria-label={label} />
+    </span>
   )
 }

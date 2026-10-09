@@ -13,12 +13,20 @@ import {
   type OnConnect,
   type XYPosition,
 } from '@xyflow/react'
-import { ChevronLeft, EllipsisVertical, Trash2 } from 'lucide-react'
+import { ChevronLeft, EllipsisVertical, History, Play, Trash2, X } from 'lucide-react'
 import { useEffect, useEffectEvent, useMemo, useRef, useState } from 'react'
 import { Link, useBlocker, useNavigate } from 'react-router'
 import { toast } from 'sonner'
 
-import { ApiError, errorMessage, type NodeType, type Problem, type Workflow } from '@/api/client'
+import {
+  ApiError,
+  errorMessage,
+  type NodeType,
+  type Problem,
+  type Schemas,
+  type Workflow,
+} from '@/api/client'
+import { useExecution, useExecutions, useRunWorkflow } from '@/api/executions'
 import {
   useCreateWorkflow,
   useDeleteWorkflow,
@@ -37,6 +45,7 @@ import {
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Switch } from '@/components/ui/switch'
+import { formatDuration, formatTime } from '@/lib/format'
 
 import {
   defaultPort,
@@ -52,9 +61,13 @@ import {
   type FlowNode,
   type NodeSpec,
 } from './graph'
+import { ExecutionsPanel } from './ExecutionsPanel'
+import { ExecutionStatus } from './ExecutionStatus'
 import { NodePanel, WorkflowPanel } from './NodePanel'
 import { nodeTypeMime, Palette } from './Palette'
 import { ProblemsContext } from './problems'
+import { RunOutput } from './RunOutput'
+import { RunsContext } from './runs'
 import { WorkflowNodeView } from './WorkflowNodeView'
 
 // Defined once: React Flow re-mounts every node when this object changes identity.
@@ -109,6 +122,21 @@ function Editor({ workflow, types, onReload }: Props) {
   const [confirmDelete, setConfirmDelete] = useState(false)
   const leaving = useRef(false) // set before navigating away on purpose
 
+  // An execution shown on the canvas: each node's status, counts and kept items.
+  const [inspectedId, setInspectedId] = useState<string>()
+  const [showExecutions, setShowExecutions] = useState(false)
+  const [panelTab, setPanelTab] = useState<'settings' | 'output'>('settings')
+  // Following shows the newest execution, which live events keep moving.
+  const [follow, setFollow] = useState(false)
+  const latest = useExecutions(workflow?.id ?? '', workflow !== undefined && follow).data?.[0]
+  const shownId = follow ? latest?.id : inspectedId
+  const inspected = useExecution(workflow?.id ?? '', workflow ? shownId : undefined)
+  const runs = useMemo(
+    () => inspected.data && new Map(inspected.data.runs.map((r) => [r.nodeId, r])),
+    [inspected.data],
+  )
+  const kept = inspected.data?.runs.some((r) => r.samples !== undefined) ?? false
+
   const definition = useMemo(() => toDefinition(name, nodes, edges), [name, nodes, edges])
   const dirty = !sameDefinition(definition, saved ?? initial.definition)
   const selected = nodes.filter((n) => n.selected)
@@ -117,19 +145,34 @@ function Editor({ workflow, types, onReload }: Props) {
 
   const create = useCreateWorkflow()
   const update = useUpdateWorkflow(workflow?.id ?? '')
+  const run = useRunWorkflow(workflow?.id ?? '')
   const saving = create.isPending || update.isPending
 
-  function save() {
-    if (saving) return
+  /** Saves the workflow and reports whether it was saved. */
+  async function save(): Promise<boolean> {
+    if (saving) return false
 
     const sent = definition
-    const done = (w: Workflow) => {
+
+    try {
+      const w = workflow
+        ? await update.mutateAsync({ ...sent, version: version ?? workflow.version })
+        : await create.mutateAsync(sent)
+
       setSaved({ ...sent, name: w.name })
       setName((current) => (current === sent.name ? w.name : current)) // the server trims it
       setVersion(w.version)
       setProblems([])
-    }
-    const failed = (error: Error) => {
+
+      if (!workflow) {
+        leaving.current = true
+        void navigate(`/workflows/${w.id}`, { replace: true })
+      }
+
+      toast.success(workflow ? 'Saved' : 'Workflow created')
+
+      return true
+    } catch (error) {
       if (error instanceof ApiError && error.status === 409) {
         setConflict(true)
       } else if (error instanceof ApiError && error.problems.length > 0) {
@@ -138,39 +181,34 @@ function Editor({ workflow, types, onReload }: Props) {
       } else {
         toast.error(errorMessage(error))
       }
+
+      return false
     }
+  }
 
-    if (!workflow) {
-      create.mutate(sent, {
-        onSuccess: (w) => {
-          done(w)
-          leaving.current = true
-          void navigate(`/workflows/${w.id}`, { replace: true })
-          toast.success('Workflow created')
-        },
-        onError: failed,
-      })
+  /** Runs the saved workflow, saving unsaved changes first, and shows the result. */
+  async function runNow() {
+    if (dirty && !(await save())) return
 
-      return
-    }
+    run.mutate(undefined, {
+      onSuccess: (e) => {
+        setFollow(false)
+        setInspectedId(e.id)
+        setPanelTab('output')
 
-    update.mutate(
-      { ...sent, version: version ?? workflow.version },
-      {
-        onSuccess: (w) => {
-          done(w)
-          toast.success('Saved')
-        },
-        onError: failed,
+        if (e.status === 'succeeded')
+          toast.success(`Run succeeded in ${formatDuration(e.durationMs)}`)
+        else toast.error(`Run ${e.status}${e.error ? `: ${e.error}` : ''}`)
       },
-    )
+      onError: (error) => toast.error(errorMessage(error)),
+    })
   }
 
   // Cmd/Ctrl+S saves, wherever the focus is.
   const onSaveKey = useEffectEvent((e: KeyboardEvent) => {
     if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 's') {
       e.preventDefault()
-      save()
+      void save()
     }
   })
   useEffect(() => {
@@ -282,115 +320,169 @@ function Editor({ workflow, types, onReload }: Props) {
 
   return (
     <ProblemsContext value={problems}>
-      <div className="flex h-full flex-col">
-        <Header
-          workflow={workflow}
-          name={name}
-          onName={setName}
-          version={version}
-          dirty={dirty}
-          saving={saving}
-          onSave={save}
-          onDelete={() => setConfirmDelete(true)}
-        />
-
-        {newer && (
-          <div className="flex items-center gap-3 border-b bg-amber-50 px-4 py-2 text-sm">
-            A newer version was saved elsewhere. Saving here will be refused until you reload.
-            <Button variant="outline" size="sm" onClick={onReload}>
-              Reload
-            </Button>
-          </div>
-        )}
-
-        <div className="flex min-h-0 flex-1">
-          <aside className="w-60 shrink-0 overflow-y-auto border-r">
-            <Palette types={types} onAdd={(t) => addNode(t)} />
-          </aside>
-
-          <div
-            ref={canvas}
-            className="min-w-0 flex-1"
-            onDragOver={(e) => {
-              if (e.dataTransfer.types.includes(nodeTypeMime)) {
-                e.preventDefault()
-                e.dataTransfer.dropEffect = 'move'
-              }
-            }}
-            onDrop={(e) => {
-              const type = types.find((t) => t.name === e.dataTransfer.getData(nodeTypeMime))
-              if (!type) return
-
-              e.preventDefault()
-              const p = screenToFlowPosition({ x: e.clientX, y: e.clientY })
-              addNode(type, { x: p.x - nodeOffset.x, y: p.y - nodeOffset.y })
-            }}
-          >
-            <ReactFlow
-              nodes={nodes}
-              edges={edges}
-              nodeTypes={nodeTypes}
-              onNodesChange={handleNodesChange}
-              onEdgesChange={onEdgesChange}
-              onConnect={onConnect}
-              isValidConnection={isValidConnection}
-              deleteKeyCode={['Backspace', 'Delete']}
-              fitView
-              fitViewOptions={fitViewOptions}
-            >
-              <Background />
-              <Controls fitViewOptions={fitViewOptions} showInteractive={false} />
-            </ReactFlow>
-          </div>
-
-          <aside className="w-80 shrink-0 overflow-y-auto border-l" aria-label="Settings">
-            {selectedNode ? (
-              <NodePanel
-                key={selectedNode.id}
-                node={selectedNode}
-                onChange={(patch) => changeNode(selectedNode.id, patch)}
-                onParam={(param, value) => changeParam(selectedNode.id, param, value)}
-                onDelete={() => void deleteElements({ nodes: [{ id: selectedNode.id }] })}
-              />
-            ) : (
-              <WorkflowPanel problems={problems} />
-            )}
-          </aside>
-        </div>
-
-        <ConfirmDialog
-          open={conflict}
-          title="This workflow changed elsewhere"
-          description="A newer version was saved since you opened it, perhaps in another tab. Reload to continue from that version; your changes here will be lost."
-          confirm="Reload"
-          cancel="Keep editing"
-          onConfirm={onReload}
-          onCancel={() => setConflict(false)}
-        />
-
-        <ConfirmDialog
-          open={blocker.state === 'blocked'}
-          title="Leave without saving?"
-          description="Your changes to this workflow have not been saved."
-          confirm="Leave"
-          cancel="Stay"
-          destructive
-          onConfirm={() => blocker.proceed?.()}
-          onCancel={() => blocker.reset?.()}
-        />
-
-        {workflow && (
-          <DeleteDialog
+      <RunsContext value={runs}>
+        <div className="flex h-full flex-col">
+          <Header
             workflow={workflow}
-            open={confirmDelete}
-            onClose={() => setConfirmDelete(false)}
-            onDeleted={() => {
-              leaving.current = true
-              void navigate('/workflows')
-            }}
+            name={name}
+            onName={setName}
+            version={version}
+            dirty={dirty}
+            saving={saving}
+            onSave={() => void save()}
+            running={run.isPending}
+            onRun={() => void runNow()}
+            showExecutions={showExecutions}
+            onToggleExecutions={() => setShowExecutions((s) => !s)}
+            onDelete={() => setConfirmDelete(true)}
           />
-        )}
-      </div>
+
+          {inspected.data && (
+            <InspectBar
+              execution={inspected.data}
+              version={version}
+              onClose={() => {
+                setFollow(false)
+                setInspectedId(undefined)
+                setPanelTab('settings')
+              }}
+            />
+          )}
+
+          {newer && (
+            <div className="flex items-center gap-3 border-b bg-amber-50 px-4 py-2 text-sm">
+              A newer version was saved elsewhere. Saving here will be refused until you reload.
+              <Button variant="outline" size="sm" onClick={onReload}>
+                Reload
+              </Button>
+            </div>
+          )}
+
+          <div className="flex min-h-0 flex-1">
+            <aside className="w-60 shrink-0 overflow-y-auto border-r">
+              <Palette types={types} onAdd={(t) => addNode(t)} />
+            </aside>
+
+            <div className="flex min-w-0 flex-1 flex-col">
+              <div
+                ref={canvas}
+                className="min-h-0 flex-1"
+                onDragOver={(e) => {
+                  if (e.dataTransfer.types.includes(nodeTypeMime)) {
+                    e.preventDefault()
+                    e.dataTransfer.dropEffect = 'move'
+                  }
+                }}
+                onDrop={(e) => {
+                  const type = types.find((t) => t.name === e.dataTransfer.getData(nodeTypeMime))
+                  if (!type) return
+
+                  e.preventDefault()
+                  const p = screenToFlowPosition({ x: e.clientX, y: e.clientY })
+                  addNode(type, { x: p.x - nodeOffset.x, y: p.y - nodeOffset.y })
+                }}
+              >
+                <ReactFlow
+                  nodes={nodes}
+                  edges={edges}
+                  nodeTypes={nodeTypes}
+                  onNodesChange={handleNodesChange}
+                  onEdgesChange={onEdgesChange}
+                  onConnect={onConnect}
+                  isValidConnection={isValidConnection}
+                  deleteKeyCode={['Backspace', 'Delete']}
+                  fitView
+                  fitViewOptions={fitViewOptions}
+                >
+                  <Background />
+                  <Controls fitViewOptions={fitViewOptions} showInteractive={false} />
+                </ReactFlow>
+              </div>
+
+              {workflow && showExecutions && (
+                <ExecutionsPanel
+                  workflowId={workflow.id}
+                  selected={shownId}
+                  onSelect={(id) => {
+                    setFollow(false)
+                    setInspectedId(id)
+                    setPanelTab('output')
+                  }}
+                  follow={follow}
+                  onFollow={setFollow}
+                  onClose={() => setShowExecutions(false)}
+                />
+              )}
+            </div>
+
+            <aside className="w-80 shrink-0 overflow-y-auto border-l" aria-label="Settings">
+              {selectedNode && runs && (
+                <div className="flex gap-1 border-b p-2" role="tablist">
+                  {(['settings', 'output'] as const).map((tab) => (
+                    <Button
+                      key={tab}
+                      role="tab"
+                      aria-selected={panelTab === tab}
+                      variant={panelTab === tab ? 'secondary' : 'ghost'}
+                      size="sm"
+                      onClick={() => setPanelTab(tab)}
+                    >
+                      {tab === 'settings' ? 'Settings' : 'Output'}
+                    </Button>
+                  ))}
+                </div>
+              )}
+
+              {selectedNode && runs && panelTab === 'output' ? (
+                <RunOutput key={selectedNode.id} run={runs.get(selectedNode.id)} kept={kept} />
+              ) : selectedNode ? (
+                <NodePanel
+                  key={selectedNode.id}
+                  node={selectedNode}
+                  onChange={(patch) => changeNode(selectedNode.id, patch)}
+                  onParam={(param, value) => changeParam(selectedNode.id, param, value)}
+                  onDelete={() => void deleteElements({ nodes: [{ id: selectedNode.id }] })}
+                />
+              ) : (
+                <WorkflowPanel problems={problems} />
+              )}
+            </aside>
+          </div>
+
+          <ConfirmDialog
+            open={conflict}
+            title="This workflow changed elsewhere"
+            description="A newer version was saved since you opened it, perhaps in another tab. Reload to continue from that version; your changes here will be lost."
+            confirm="Reload"
+            cancel="Keep editing"
+            onConfirm={onReload}
+            onCancel={() => setConflict(false)}
+          />
+
+          <ConfirmDialog
+            open={blocker.state === 'blocked'}
+            title="Leave without saving?"
+            description="Your changes to this workflow have not been saved."
+            confirm="Leave"
+            cancel="Stay"
+            destructive
+            onConfirm={() => blocker.proceed?.()}
+            onCancel={() => blocker.reset?.()}
+          />
+
+          {workflow && (
+            <DeleteDialog
+              workflow={workflow}
+              open={confirmDelete}
+              onClose={() => setConfirmDelete(false)}
+              onDeleted={() => {
+                leaving.current = true
+                void navigate('/workflows')
+              }}
+            />
+          )}
+        </div>
+      </RunsContext>
     </ProblemsContext>
   )
 }
@@ -403,10 +495,27 @@ type HeaderProps = {
   dirty: boolean
   saving: boolean
   onSave: () => void
+  running: boolean
+  onRun: () => void
+  showExecutions: boolean
+  onToggleExecutions: () => void
   onDelete: () => void
 }
 
-function Header({ workflow, name, onName, version, dirty, saving, onSave, onDelete }: HeaderProps) {
+function Header({
+  workflow,
+  name,
+  onName,
+  version,
+  dirty,
+  saving,
+  onSave,
+  running,
+  onRun,
+  showExecutions,
+  onToggleExecutions,
+  onDelete,
+}: HeaderProps) {
   return (
     <header className="flex items-center gap-3 border-b px-4 py-2">
       <Link
@@ -436,7 +545,25 @@ function Header({ workflow, name, onName, version, dirty, saving, onSave, onDele
       </span>
 
       <div className="ml-auto flex items-center gap-3">
+        {workflow && (
+          <Button
+            variant={showExecutions ? 'secondary' : 'ghost'}
+            aria-pressed={showExecutions}
+            onClick={onToggleExecutions}
+          >
+            <History />
+            Executions
+          </Button>
+        )}
+
         {workflow && <ActiveSwitch workflow={workflow} dirty={dirty} />}
+
+        {workflow && (
+          <Button variant="outline" onClick={onRun} disabled={running || saving}>
+            <Play />
+            {running ? 'Running…' : dirty ? 'Save and run' : 'Run'}
+          </Button>
+        )}
 
         <Button onClick={onSave} disabled={saving || (workflow !== undefined && !dirty)}>
           {saving ? 'Saving…' : 'Save'}
@@ -459,6 +586,34 @@ function Header({ workflow, name, onName, version, dirty, saving, onSave, onDele
         )}
       </div>
     </header>
+  )
+}
+
+type InspectBarProps = {
+  execution: Schemas['Execution']
+  version?: number // of the workflow being edited
+  onClose: () => void
+}
+
+function InspectBar({ execution: e, version, onClose }: InspectBarProps) {
+  return (
+    <div className="flex items-center gap-3 border-b bg-muted/50 px-4 py-1.5 text-sm">
+      <ExecutionStatus status={e.status} />
+      <span>
+        Execution at {formatTime(e.startedAt)}
+        {e.finishedAt && ` · ${formatDuration(e.durationMs)}`} · started by {e.triggeredBy}
+      </span>
+      {version !== undefined && e.workflowVersion !== version && (
+        <span className="text-muted-foreground">
+          Ran version {e.workflowVersion}; the nodes may have changed since.
+        </span>
+      )}
+      {e.error && <span className="min-w-0 truncate text-destructive">{e.error}</span>}
+      <Button variant="ghost" size="sm" className="ml-auto" onClick={onClose}>
+        <X />
+        Close
+      </Button>
+    </div>
   )
 }
 

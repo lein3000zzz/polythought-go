@@ -283,6 +283,21 @@
                 ],
                 "type": "object"
             },
+            "ExecutionEvent": {
+                "properties": {
+                    "execution": {
+                        "$ref": "#/components/schemas/Execution"
+                    },
+                    "workflowId": {
+                        "type": "string"
+                    }
+                },
+                "required": [
+                    "execution",
+                    "workflowId"
+                ],
+                "type": "object"
+            },
             "ExecutionPage": {
                 "properties": {
                     "executions": {
@@ -351,6 +366,18 @@
                 "required": [
                     "invites"
                 ],
+                "type": "object"
+            },
+            "ItemSample": {
+                "properties": {
+                    "error": {
+                        "type": "string"
+                    },
+                    "json": {
+                        "additionalProperties": {},
+                        "type": "object"
+                    }
+                },
                 "type": "object"
             },
             "LinkWalletRequest": {
@@ -435,6 +462,16 @@
                             "type": "integer"
                         },
                         "description": "items per output port",
+                        "type": "object"
+                    },
+                    "samples": {
+                        "additionalProperties": {
+                            "items": {
+                                "$ref": "#/components/schemas/ItemSample"
+                            },
+                            "type": "array"
+                        },
+                        "description": "Samples are the first items of each output port. Only runs started by hand keep\nthem, and execution lists leave them out.",
                         "type": "object"
                     },
                     "startedAt": {
@@ -1469,6 +1506,56 @@
                 "summary": "Create an account",
                 "tags": [
                     "auth"
+                ]
+            }
+        },
+        "/events": {
+            "get": {
+                "description": "A text/event-stream. Every finished execution of the user's workflows arrives as an \"execution\" event, its data an ExecutionEvent without item samples. Comment lines keep the stream open.",
+                "operationId": "streamEvents",
+                "responses": {
+                    "200": {
+                        "content": {
+                            "text/event-stream": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ExecutionEvent"
+                                }
+                            }
+                        },
+                        "description": "OK"
+                    },
+                    "401": {
+                        "content": {
+                            "text/event-stream": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "unauthenticated"
+                    },
+                    "429": {
+                        "content": {
+                            "text/event-stream": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "rate_limited: too many streams open"
+                    }
+                },
+                "security": [
+                    {
+                        "SessionCookie": []
+                    },
+                    {
+                        "APIToken": []
+                    }
+                ],
+                "summary": "Live events",
+                "tags": [
+                    "events"
                 ]
             }
         },

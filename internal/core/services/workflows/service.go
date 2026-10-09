@@ -38,7 +38,13 @@ type Validator interface {
 
 // Executor runs one execution.
 type Executor interface {
-	Execute(ctx context.Context, w domain.Workflow, trigger domain.NodeID, output engine.Ports) (engine.Result, error)
+	Execute(
+		ctx context.Context,
+		w domain.Workflow,
+		trigger domain.NodeID,
+		output engine.Ports,
+		opts ...engine.ExecuteOption,
+	) (engine.Result, error)
 }
 
 // Supervisor keeps active workflows running.
@@ -241,7 +247,8 @@ func (s *Service) Deactivate(ctx context.Context, p auth.Principal, id domain.Wo
 }
 
 // Run executes the workflow once from a manual trigger: the one named, or the
-// workflow's only trigger.manual node. It waits for the execution to finish.
+// workflow's only trigger.manual node. It waits for the execution to finish, which keeps
+// samples of each node's output for inspection.
 func (s *Service) Run(ctx context.Context, p auth.Principal, id domain.WorkflowID, trigger domain.NodeID) (domain.Execution, error) {
 	w, err := s.repo.Get(ctx, p.User.ID, id)
 	if err != nil {
@@ -255,7 +262,7 @@ func (s *Service) Run(ctx context.Context, p auth.Principal, id domain.WorkflowI
 		}
 	}
 
-	res, err := s.executor.Execute(ctx, w, trigger, triggers.ManualOutput())
+	res, err := s.executor.Execute(ctx, w, trigger, triggers.ManualOutput(), engine.KeepSamples())
 	if err != nil {
 		return domain.Execution{}, err
 	}

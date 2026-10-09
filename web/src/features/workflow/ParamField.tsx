@@ -8,6 +8,7 @@ import { Label } from '@/components/ui/label'
 import { NativeSelect, NativeSelectOption } from '@/components/ui/native-select'
 import { Switch } from '@/components/ui/switch'
 import { Textarea } from '@/components/ui/textarea'
+import { shortAddress } from '@/lib/format'
 
 import { chosen, parseText, textOf } from './params'
 
@@ -167,7 +168,7 @@ function WalletField({ spec, value, onChange, problem }: Props) {
         </NativeSelectOption>
         {wallets.data?.map((w) => (
           <NativeSelectOption key={w.id} value={w.id}>
-            {w.label || 'Wallet'} · {w.address.slice(0, 6)}…{w.address.slice(-4)}
+            {w.label || 'Wallet'} · {shortAddress(w.address)}
           </NativeSelectOption>
         ))}
         {current && wallets.isSuccess && !known && (

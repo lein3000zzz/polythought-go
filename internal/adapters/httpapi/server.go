@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net"
 	"net/url"
+	"sync"
 	"time"
 
 	"github.com/cloudwego/hertz/pkg/app"
@@ -81,6 +82,7 @@ type Services struct {
 	Wallets   WalletService
 	Workflows WorkflowService
 	NodeTypes NodeTypes
+	Events    EventService
 }
 
 type Config struct {
@@ -104,11 +106,16 @@ type Server struct {
 	wallets   WalletService
 	workflows WorkflowService
 	nodeTypes NodeTypes
+	events    EventService
 	log       logging.Logger
 	kit       *redkit.Kit
 	scope     tracing.Scope
 	origin    string
 	secure    bool
+
+	// closing ends event streams on shutdown, which would otherwise hold it up.
+	closing   chan struct{}
+	closeOnce sync.Once
 }
 
 func New(cfg Config, util *observability.Utility, services Services) (*Server, error) {
@@ -157,11 +164,13 @@ func New(cfg Config, util *observability.Utility, services Services) (*Server, e
 		wallets:   services.Wallets,
 		workflows: services.Workflows,
 		nodeTypes: services.NodeTypes,
+		events:    services.Events,
 		log:       log,
 		kit:       kit,
 		scope:     tracing.Scope{Manager: util.TracerManager, TracerName: tracerName},
 		origin:    public.Scheme + "://" + public.Host,
 		secure:    public.Scheme == "https",
+		closing:   make(chan struct{}),
 	}
 
 	s.routes()
@@ -177,6 +186,7 @@ func (s *Server) Run() error {
 
 // Shutdown matches observability.ShutdownFunc.
 func (s *Server) Shutdown(ctx context.Context) error {
+	s.closeOnce.Do(func() { close(s.closing) })
 	return s.hertz.Shutdown(ctx)
 }
 
@@ -211,6 +221,7 @@ func (s *Server) routes() {
 	w.DELETE("/:id/credentials", s.removeCredentials)
 
 	v1.GET("/node-types", s.requireAuth, s.listNodeTypes)
+	v1.GET("/events", s.requireAuth, s.streamEvents)
 
 	wf := v1.Group("/workflows", s.requireAuth)
 	wf.GET("", s.listWorkflows)

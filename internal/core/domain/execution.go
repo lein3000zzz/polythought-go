@@ -1,6 +1,7 @@
 package domain
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"time"
@@ -42,8 +43,7 @@ type Execution struct {
 	Error           string
 }
 
-// NodeRun records one node's part in an execution. Item counts are per port; the items
-// themselves are not kept here.
+// NodeRun records one node's part in an execution, with item counts per port.
 type NodeRun struct {
 	NodeID     NodeID
 	Status     NodeRunStatus
@@ -52,6 +52,16 @@ type NodeRun struct {
 	Input      map[string]int
 	Output     map[string]int
 	Error      string
+
+	// Samples are the first items of each output port, for executions that keep them;
+	// Output has the full counts.
+	Samples map[string][]ItemSample
+}
+
+// ItemSample is an item a node emitted, as JSON.
+type ItemSample struct {
+	JSON  json.RawMessage
+	Error string // why the item failed, for items on the error port
 }
 
 func NewExecution(id ExecutionID, workflowID WorkflowID, trigger NodeID, at time.Time) Execution {

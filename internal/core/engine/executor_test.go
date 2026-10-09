@@ -8,11 +8,13 @@ import (
 	"github.com/lein3000zzz/the-watchers/pkg/observability"
 	"github.com/lein3000zzz/the-watchers/pkg/observability/metrics"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
 	"github.com/lein3000zzz/polythought-go/internal/core/domain"
 	"github.com/lein3000zzz/polythought-go/internal/core/engine"
 	metricsmocks "github.com/lein3000zzz/polythought-go/internal/mocks/metrics"
+	portsmocks "github.com/lein3000zzz/polythought-go/internal/mocks/ports"
 )
 
 var epoch = time.Date(2026, 10, 8, 12, 0, 0, 0, time.UTC)
@@ -314,4 +316,33 @@ func TestExecuteMetrics(t *testing.T) {
 			require.NoError(t, err)
 		})
 	}
+}
+
+func TestExecuteNotifies(t *testing.T) {
+	var order []string
+
+	recorder := portsmocks.NewMockExecutionRecorder(t)
+	recorder.EXPECT().Save(mock.Anything, mock.Anything).
+		RunAndReturn(func(context.Context, domain.Execution) error {
+			order = append(order, "recorded")
+			return nil
+		}).Once()
+
+	notifier := portsmocks.NewMockExecutionNotifier(t)
+	notifier.EXPECT().ExecutionFinished(domain.UserID("alice"), mock.MatchedBy(func(e domain.Execution) bool {
+		return e.ID == "ex-1" && e.Status == domain.ExecutionSucceeded
+	})).Run(func(domain.UserID, domain.Execution) { order = append(order, "notified") }).Once()
+
+	ex, err := engine.NewExecutor(observability.NoopUtility(), testRegistry(t),
+		engine.WithExecutionIDs(func() domain.ExecutionID { return "ex-1" }),
+		engine.WithRecorder(recorder),
+		engine.WithNotifier(notifier),
+	)
+	require.NoError(t, err)
+
+	wf := domain.Workflow{ID: "wf-1", OwnerID: "alice", Nodes: []domain.NodeSpec{trigger()}}
+	_, err = ex.Execute(context.Background(), wf, "trigger", fired(item("v", 1)))
+	require.NoError(t, err)
+
+	assert.Equal(t, []string{"recorded", "notified"}, order, "listeners can load what they hear about")
 }

@@ -1,7 +1,9 @@
 package httpapi
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
 	"net/http"
 	"time"
 
@@ -129,7 +131,16 @@ type nodeRunDTO struct {
 	Input      map[string]int `json:"input,omitempty" validate:"optional"`  // items per input port
 	Output     map[string]int `json:"output,omitempty" validate:"optional"` // items per output port
 	Error      string         `json:"error,omitempty" validate:"optional"`
+	// Samples are the first items of each output port. Only runs started by hand keep
+	// them, and execution lists leave them out.
+	Samples map[string][]itemSampleDTO `json:"samples,omitempty" validate:"optional"`
 } // @name NodeRun
+
+// itemSampleDTO is an item a node emitted, and why it failed if it went to the error port.
+type itemSampleDTO struct {
+	JSON  map[string]any `json:"json,omitempty" validate:"optional"`
+	Error string         `json:"error,omitempty" validate:"optional"`
+} // @name ItemSample
 
 type executionDTO struct {
 	ID              string       `json:"id"`
@@ -143,7 +154,8 @@ type executionDTO struct {
 	Runs            []nodeRunDTO `json:"runs"`
 } // @name Execution
 
-func toExecutionDTO(e domain.Execution) executionDTO {
+// toExecutionDTO describes e, with the runs' item samples when withSamples is set.
+func toExecutionDTO(e domain.Execution, withSamples bool) executionDTO {
 	out := executionDTO{
 		ID: string(e.ID), WorkflowVersion: e.WorkflowVersion, TriggeredBy: string(e.TriggeredBy), Status: string(e.Status),
 		StartedAt: e.StartedAt, FinishedAt: optionalTime(e.FinishedAt), DurationMs: e.Duration().Milliseconds(),
@@ -155,9 +167,47 @@ func toExecutionDTO(e domain.Execution) executionDTO {
 			NodeID: string(r.NodeID), Status: string(r.Status), StartedAt: r.StartedAt, FinishedAt: r.FinishedAt,
 			Input: r.Input, Output: r.Output, Error: r.Error,
 		}
+
+		if withSamples {
+			out.Runs[i].Samples = toSampleDTOs(r.Samples)
+		}
 	}
 
 	return out
+}
+
+func toSampleDTOs(samples map[string][]domain.ItemSample) map[string][]itemSampleDTO {
+	if len(samples) == 0 {
+		return nil
+	}
+
+	out := make(map[string][]itemSampleDTO, len(samples))
+	for port, list := range samples {
+		out[port] = make([]itemSampleDTO, len(list))
+		for i, s := range list {
+			out[port][i] = itemSampleDTO{JSON: itemJSON(s.JSON), Error: s.Error}
+		}
+	}
+
+	return out
+}
+
+// itemJSON decodes a stored item for the response. Numbers stay as written, so 0.020 is
+// not turned into a float. Items are objects; anything else is left out.
+func itemJSON(raw json.RawMessage) map[string]any {
+	if len(raw) == 0 {
+		return nil
+	}
+
+	dec := json.NewDecoder(bytes.NewReader(raw))
+	dec.UseNumber()
+
+	var item map[string]any
+	if err := dec.Decode(&item); err != nil {
+		return nil
+	}
+
+	return item
 }
 
 type executionPage struct {
@@ -430,7 +480,8 @@ func (s *Server) setActive(
 	c.JSON(http.StatusOK, toWorkflowDTO(w))
 }
 
-// runWorkflow runs the saved workflow once and waits for it to finish. The body is optional.
+// runWorkflow runs the saved workflow once and waits for it to finish. The execution keeps
+// samples of each node's output. The body is optional.
 //
 //	@Summary	Run a workflow now
 //	@ID			runWorkflow
@@ -462,10 +513,10 @@ func (s *Server) runWorkflow(ctx context.Context, c *app.RequestContext) {
 		return
 	}
 
-	c.JSON(http.StatusOK, toExecutionDTO(exec))
+	c.JSON(http.StatusOK, toExecutionDTO(exec, true))
 }
 
-// listExecutions lists a workflow's executions, newest first.
+// listExecutions lists a workflow's executions, newest first, without item samples.
 //
 //	@Summary	List executions
 //	@ID			listExecutions
@@ -497,7 +548,7 @@ func (s *Server) listExecutions(ctx context.Context, c *app.RequestContext) {
 
 	out := executionPage{Executions: make([]executionDTO, len(page.Items)), NextCursor: page.NextCursor}
 	for i, e := range page.Items {
-		out.Executions[i] = toExecutionDTO(e)
+		out.Executions[i] = toExecutionDTO(e, false)
 	}
 
 	c.JSON(http.StatusOK, out)
@@ -525,5 +576,5 @@ func (s *Server) getExecution(ctx context.Context, c *app.RequestContext) {
 		return
 	}
 
-	c.JSON(http.StatusOK, toExecutionDTO(e))
+	c.JSON(http.StatusOK, toExecutionDTO(e, true))
 }

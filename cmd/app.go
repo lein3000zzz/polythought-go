@@ -20,6 +20,7 @@ import (
 	"github.com/lein3000zzz/polythought-go/internal/core/engine"
 	"github.com/lein3000zzz/polythought-go/internal/core/nodes"
 	"github.com/lein3000zzz/polythought-go/internal/core/services/auth"
+	"github.com/lein3000zzz/polythought-go/internal/core/services/events"
 	"github.com/lein3000zzz/polythought-go/internal/core/services/feed"
 	"github.com/lein3000zzz/polythought-go/internal/core/services/wallets"
 	"github.com/lein3000zzz/polythought-go/internal/core/services/workflows"
@@ -79,6 +80,7 @@ type app struct {
 	registry   *engine.Registry
 	supervisor *engine.Supervisor
 	feed       *feed.Hub
+	events     *events.Hub
 }
 
 func newApp(ctx context.Context) (*app, error) {
@@ -213,7 +215,11 @@ func (a *app) initEngine(ctx context.Context, pmc polymarket) error {
 
 	executions := postgres.NewExecutions(a.db)
 
-	executor, err := engine.NewExecutor(a.util, a.registry, engine.WithRecorder(executions))
+	if a.events, err = events.NewHub(a.util); err != nil {
+		return err
+	}
+
+	executor, err := engine.NewExecutor(a.util, a.registry, engine.WithRecorder(executions), engine.WithNotifier(a.events))
 	if err != nil {
 		return err
 	}

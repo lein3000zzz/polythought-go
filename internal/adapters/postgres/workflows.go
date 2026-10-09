@@ -354,6 +354,13 @@ type runDoc struct {
 	Input      map[string]int `json:"input,omitempty"`
 	Output     map[string]int `json:"output,omitempty"`
 	Error      string         `json:"error,omitempty"`
+
+	Samples map[string][]sampleDoc `json:"samples,omitempty"`
+}
+
+type sampleDoc struct {
+	JSON  json.RawMessage `json:"json,omitempty"`
+	Error string          `json:"error,omitempty"`
 }
 
 type Executions struct {
@@ -379,7 +386,7 @@ func (r *Executions) Save(ctx context.Context, e domain.Execution) error {
 	for i, run := range e.Runs {
 		runs[i] = runDoc{
 			NodeID: string(run.NodeID), Status: string(run.Status), StartedAt: run.StartedAt, FinishedAt: run.FinishedAt,
-			Input: run.Input, Output: run.Output, Error: run.Error,
+			Input: run.Input, Output: run.Output, Error: run.Error, Samples: toSampleDocs(run.Samples),
 		}
 	}
 
@@ -506,9 +513,51 @@ func toExecution(m model.Executions) (domain.Execution, error) {
 		e.Runs[i] = domain.NodeRun{
 			NodeID: domain.NodeID(r.NodeID), Status: domain.NodeRunStatus(r.Status),
 			StartedAt: r.StartedAt.UTC(), FinishedAt: r.FinishedAt.UTC(),
-			Input: r.Input, Output: r.Output, Error: r.Error,
+			Input: r.Input, Output: r.Output, Error: r.Error, Samples: fromSampleDocs(r.Samples),
 		}
 	}
 
 	return e, nil
+}
+
+func toSampleDocs(samples map[string][]domain.ItemSample) map[string][]sampleDoc {
+	if samples == nil {
+		return nil
+	}
+
+	out := make(map[string][]sampleDoc, len(samples))
+	for port, list := range samples {
+		for _, s := range list {
+			out[port] = append(out[port], sampleDoc{JSON: s.JSON, Error: s.Error})
+		}
+	}
+
+	return out
+}
+
+// fromSampleDocs compacts the items again: jsonb hands JSON back with spaces added.
+func fromSampleDocs(docs map[string][]sampleDoc) map[string][]domain.ItemSample {
+	if docs == nil {
+		return nil
+	}
+
+	out := make(map[string][]domain.ItemSample, len(docs))
+	for port, list := range docs {
+		for _, d := range list {
+			s := domain.ItemSample{Error: d.Error}
+
+			if len(d.JSON) > 0 {
+				var buf bytes.Buffer
+				if err := json.Compact(&buf, d.JSON); err == nil {
+					s.JSON = buf.Bytes()
+				} else {
+					s.JSON = d.JSON
+				}
+			}
+
+			out[port] = append(out[port], s)
+		}
+	}
+
+	return out
 }

@@ -125,6 +125,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/events": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Live events
+         * @description A text/event-stream. Every finished execution of the user's workflows arrives as an "execution" event, its data an ExecutionEvent without item samples. Comment lines keep the stream open.
+         */
+        get: operations["streamEvents"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/me": {
         parameters: {
             query?: never;
@@ -476,6 +496,10 @@ export interface components {
             triggeredBy: string;
             workflowVersion: number;
         };
+        ExecutionEvent: {
+            execution: components["schemas"]["Execution"];
+            workflowId: string;
+        };
         ExecutionPage: {
             executions: components["schemas"]["Execution"][];
             /** @description NextCursor is absent on the last page. */
@@ -496,6 +520,12 @@ export interface components {
         };
         InviteList: {
             invites: components["schemas"]["Invite"][];
+        };
+        ItemSample: {
+            error?: string;
+            json?: {
+                [key: string]: unknown;
+            };
         };
         LinkWalletRequest: {
             address: string;
@@ -528,6 +558,13 @@ export interface components {
             /** @description items per output port */
             output?: {
                 [key: string]: number;
+            };
+            /**
+             * @description Samples are the first items of each output port. Only runs started by hand keep
+             *     them, and execution lists leave them out.
+             */
+            samples?: {
+                [key: string]: components["schemas"]["ItemSample"][];
             };
             /** Format: date-time */
             startedAt: string;
@@ -1083,6 +1120,44 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    streamEvents: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "text/event-stream": components["schemas"]["ExecutionEvent"];
+                };
+            };
+            /** @description unauthenticated */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "text/event-stream": components["schemas"]["Error"];
+                };
+            };
+            /** @description rate_limited: too many streams open */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "text/event-stream": components["schemas"]["Error"];
                 };
             };
         };

@@ -14,8 +14,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
-
-const updated = new Intl.DateTimeFormat(undefined, { dateStyle: 'medium', timeStyle: 'short' })
+import { formatDateTime } from '@/lib/format'
 
 export function WorkflowsPage() {
   const workflows = useWorkflows()
@@ -78,7 +77,7 @@ export function WorkflowsPage() {
                 <TableCell className="text-right tabular-nums">{w.nodes.length}</TableCell>
                 <TableCell className="text-right tabular-nums">{w.version}</TableCell>
                 <TableCell className="text-muted-foreground">
-                  {updated.format(new Date(w.updatedAt))}
+                  {formatDateTime(w.updatedAt)}
                 </TableCell>
               </TableRow>
             ))}

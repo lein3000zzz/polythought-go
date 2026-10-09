@@ -32,6 +32,12 @@ type ExecutionRecorder interface {
 	Save(ctx context.Context, e domain.Execution) error
 }
 
+// ExecutionNotifier hears about every finished execution once it is recorded. It must
+// not block: the executor calls it on the execution's own goroutine.
+type ExecutionNotifier interface {
+	ExecutionFinished(owner domain.UserID, e domain.Execution)
+}
+
 type ExecutionRepository interface {
 	ExecutionRecorder
 	// List and Get see only executions of the given workflow; callers check ownership

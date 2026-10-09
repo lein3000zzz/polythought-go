@@ -3,9 +3,12 @@ import { Navigate, type RouteObject } from 'react-router'
 import { AppShell } from '@/components/AppShell'
 import { RequireAuth } from '@/components/RequireAuth'
 import { Skeleton } from '@/components/ui/skeleton'
+import { AdminPage } from '@/pages/AdminPage'
 import { LoginPage } from '@/pages/LoginPage'
 import { NotFoundPage } from '@/pages/NotFoundPage'
 import { RegisterPage } from '@/pages/RegisterPage'
+import { SettingsPage } from '@/pages/SettingsPage'
+import { WalletsPage } from '@/pages/WalletsPage'
 import { WorkflowsPage } from '@/pages/WorkflowsPage'
 
 // The editor and its canvas library are most of the bundle; only these pages need them.
@@ -34,6 +37,9 @@ export const routes: RouteObject[] = [
           { path: 'workflows', element: <WorkflowsPage /> },
           { path: 'workflows/new', ...editor },
           { path: 'workflows/:id', ...editor },
+          { path: 'wallets', element: <WalletsPage /> },
+          { path: 'settings', element: <SettingsPage /> },
+          { path: 'admin', element: <AdminPage /> },
         ],
       },
     ],

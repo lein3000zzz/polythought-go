@@ -51,6 +51,7 @@ packages:
       WorkflowRepository: {}
       ExecutionRepository: {}
       ExecutionRecorder: {}
+      ExecutionNotifier: {}
       CredentialsVerifier: {}
       AccountReader: {}
       WalletDirectory: {}

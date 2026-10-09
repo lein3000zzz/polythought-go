@@ -80,6 +80,14 @@ export const nodeTypes: Schemas['NodeType'][] = [
     outputs: ['main'],
     params: [{ name: 'message', label: 'Message', kind: 'string', required: false }],
   },
+  {
+    name: 'polymarket.balance',
+    label: 'Balance',
+    trigger: false,
+    inputs: ['main'],
+    outputs: ['main'],
+    params: [{ name: 'wallet', label: 'Wallet', kind: 'wallet', required: true }],
+  },
 ]
 
 /** manual -> tight (an If node) -> log, saved as version 3. */

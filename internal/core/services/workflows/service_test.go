@@ -343,7 +343,8 @@ func TestRun(t *testing.T) {
 			d.repo.EXPECT().Get(mock.Anything, mock.Anything, mock.Anything).Return(tt.workflow, nil)
 
 			if tt.wantErr == nil {
-				d.executor.EXPECT().Execute(mock.Anything, tt.workflow, tt.wantTrigger, mock.Anything).
+				// One option: manual runs keep samples (engine.KeepSamples, tested in the engine).
+				d.executor.EXPECT().Execute(mock.Anything, tt.workflow, tt.wantTrigger, mock.Anything, mock.Anything).
 					Return(engine.Result{Execution: domain.Execution{ID: "ex-1", Status: domain.ExecutionSucceeded}}, nil)
 			}
 

@@ -3,13 +3,23 @@ import { Link, NavLink, Outlet } from 'react-router'
 import { cn } from 'cn'
 
 import { useLogout, useMe } from '@/api/auth'
+import { useLiveEvents } from '@/api/events'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Toaster } from '@/components/ui/sonner'
 
+const navLinks = [
+  ['/workflows', 'Workflows'],
+  ['/wallets', 'Wallets'],
+  ['/settings', 'Settings'],
+] as const
+
+const adminLinks = [['/admin', 'Admin']] as const
+
 export function AppShell() {
   const { data: user } = useMe()
   const logout = useLogout()
+  useLiveEvents()
 
   return (
     <div className="flex h-dvh flex-col">
@@ -19,14 +29,17 @@ export function AppShell() {
         </Link>
 
         <nav className="flex gap-4 text-sm">
-          <NavLink
-            to="/workflows"
-            className={({ isActive }) =>
-              cn('text-muted-foreground hover:text-foreground', isActive && 'text-foreground')
-            }
-          >
-            Workflows
-          </NavLink>
+          {[...navLinks, ...(user?.role === 'admin' ? adminLinks : [])].map(([to, label]) => (
+            <NavLink
+              key={to}
+              to={to}
+              className={({ isActive }) =>
+                cn('text-muted-foreground hover:text-foreground', isActive && 'text-foreground')
+              }
+            >
+              {label}
+            </NavLink>
+          ))}
         </nav>
 
         <div className="ml-auto flex items-center gap-3 text-sm">

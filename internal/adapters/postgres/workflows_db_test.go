@@ -130,8 +130,14 @@ func TestExecutions(t *testing.T) {
 			ID: domain.ExecutionID(newID()), WorkflowID: w.ID, WorkflowVersion: 3, TriggeredBy: "manual",
 			Status: status, StartedAt: started, FinishedAt: started.Add(time.Second), Error: "",
 			Runs: []domain.NodeRun{
-				{NodeID: "manual", Status: domain.NodeRunSucceeded, StartedAt: started, FinishedAt: started, Output: map[string]int{"main": 1}},
-				{NodeID: "if", Status: domain.NodeRunFailed, StartedAt: started, FinishedAt: started.Add(time.Second), Input: map[string]int{"main": 1}, Error: "boom"},
+				{
+					NodeID: "manual", Status: domain.NodeRunSucceeded, StartedAt: started, FinishedAt: started, Output: map[string]int{"main": 2},
+					Samples: map[string][]domain.ItemSample{"main": {{JSON: json.RawMessage(`{"price":0.020,"ok":true}`)}, {JSON: json.RawMessage(`{}`)}}},
+				},
+				{
+					NodeID: "if", Status: domain.NodeRunFailed, StartedAt: started, FinishedAt: started.Add(time.Second), Input: map[string]int{"main": 1}, Error: "boom",
+					Samples: map[string][]domain.ItemSample{"error": {{JSON: json.RawMessage(`{"v":1}`), Error: "boom"}}},
+				},
 			},
 		}
 	}
@@ -146,6 +152,21 @@ func TestExecutions(t *testing.T) {
 
 			got, err := execs.Get(ctx, w.ID, e.ID)
 			require.NoError(t, err)
+
+			// jsonb keeps the items' meaning, not their bytes: keys may be reordered.
+			for i := range e.Runs {
+				for port, want := range e.Runs[i].Samples {
+					require.Len(t, got.Runs[i].Samples[port], len(want))
+
+					for j := range want {
+						assert.JSONEq(t, string(want[j].JSON), string(got.Runs[i].Samples[port][j].JSON))
+						assert.Equal(t, want[j].Error, got.Runs[i].Samples[port][j].Error)
+					}
+				}
+
+				e.Runs[i].Samples, got.Runs[i].Samples = nil, nil
+			}
+
 			assert.Equal(t, e, got)
 
 			_, err = execs.Get(ctx, domain.WorkflowID(newID()), e.ID)
