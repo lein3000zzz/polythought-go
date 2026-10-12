@@ -1,4 +1,6 @@
 import type { CSSProperties } from 'react'
+
+import { useTheme } from '@/lib/theme'
 import { Toaster as Sonner, type ToasterProps } from 'sonner'
 import {
   CircleCheckIcon,
@@ -9,10 +11,11 @@ import {
 } from 'lucide-react'
 
 const Toaster = ({ ...props }: ToasterProps) => {
-  // The app has no dark mode yet; follow it here when it does.
+  const { theme } = useTheme()
+
   return (
     <Sonner
-      theme="light"
+      theme={theme}
       className="toaster group"
       icons={{
         success: <CircleCheckIcon className="size-4" />,

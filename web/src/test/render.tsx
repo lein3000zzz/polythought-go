@@ -4,6 +4,7 @@ import userEvent from '@testing-library/user-event'
 import { createMemoryRouter, RouterProvider } from 'react-router'
 
 import { createQueryClient } from '@/api/queryClient'
+import { TooltipProvider } from '@/components/ui/tooltip'
 import { routes } from '@/routes'
 
 /** Renders the whole app at path, with an empty cache and no retries. */
@@ -15,7 +16,9 @@ export function renderApp(path: string) {
 
   render(
     <QueryClientProvider client={queryClient}>
-      <RouterProvider router={router} />
+      <TooltipProvider>
+        <RouterProvider router={router} />
+      </TooltipProvider>
     </QueryClientProvider>,
   )
 

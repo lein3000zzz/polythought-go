@@ -119,7 +119,11 @@ function Ports({
 }
 
 const runIcons = {
-  succeeded: { Icon: CircleCheck, className: 'text-emerald-600', label: 'Succeeded' },
+  succeeded: {
+    Icon: CircleCheck,
+    className: 'text-emerald-600 dark:text-emerald-400',
+    label: 'Succeeded',
+  },
   failed: { Icon: CircleX, className: 'text-destructive', label: 'Failed' },
   skipped: {
     Icon: CircleMinus,

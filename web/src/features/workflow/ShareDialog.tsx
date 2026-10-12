@@ -95,7 +95,7 @@ function ShareForm({ workflow, dirty, existing, onClose }: FormProps) {
         {share.isError && <ErrorAlert error={share.error} />}
 
         {dirty && (
-          <p className="rounded-md bg-amber-50 p-2 text-sm">
+          <p className="rounded-md bg-amber-50 p-2 text-sm dark:bg-amber-950/40">
             This shares the last saved version. Save first to include your latest changes.
           </p>
         )}

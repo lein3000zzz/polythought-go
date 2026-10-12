@@ -5,6 +5,7 @@ import { useMemo } from 'react'
 
 import type { NodeType } from '@/api/client'
 import type { Template } from '@/api/library'
+import { useTheme } from '@/lib/theme'
 
 import { toFlow } from './graph'
 import { WorkflowNodeView } from './WorkflowNodeView'
@@ -21,6 +22,7 @@ type Props = {
 
 /** A template's graph to look at: nodes can be selected, not moved or connected. */
 export function TemplateCanvas({ template, types, onSelect }: Props) {
+  const { theme } = useTheme()
   const { nodes, edges } = useMemo(
     () => toFlow({ nodes: template.nodes ?? [], connections: template.connections ?? [] }, types),
     [template, types],
@@ -29,6 +31,7 @@ export function TemplateCanvas({ template, types, onSelect }: Props) {
   return (
     <ReactFlowProvider>
       <ReactFlow
+        colorMode={theme}
         defaultNodes={nodes}
         defaultEdges={edges}
         nodeTypes={nodeTypes}

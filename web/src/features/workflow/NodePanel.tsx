@@ -158,7 +158,7 @@ export function WorkflowPanel({ problems }: WorkflowPanelProps) {
           </AlertDescription>
         </Alert>
       )}
-      <p>Add nodes from the left, by clicking or dragging them onto the canvas.</p>
+      <p>Add nodes from the node list on the left, by clicking or dragging them onto the canvas.</p>
       <p>Drag from an output port to an input port to connect two nodes.</p>
       <p>
         Select a node to change its settings. Select a node or connection and press Delete to remove

@@ -17,6 +17,22 @@ export default defineConfig({
   server: {
     proxy: { '/api': api },
   },
+  build: {
+    rolldownOptions: {
+      output: {
+        // React and the router change only on upgrades: in a chunk of their own, browsers
+        // keep them cached across deploys of the app.
+        codeSplitting: {
+          groups: [
+            {
+              name: 'react',
+              test: /node_modules[\\/](react|react-dom|scheduler|react-router)[\\/]/,
+            },
+          ],
+        },
+      },
+    },
+  },
   test: {
     include: ['src/**/*.test.{ts,tsx}'], // e2e/ is Playwright's
     environment: 'jsdom',

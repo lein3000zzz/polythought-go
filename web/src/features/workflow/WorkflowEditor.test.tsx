@@ -1,6 +1,6 @@
 import '@/test/browser'
 
-import { act, fireEvent, screen, waitFor, within } from '@testing-library/react'
+import { act, cleanup, fireEvent, screen, waitFor, within } from '@testing-library/react'
 import { http, HttpResponse } from 'msw'
 import { describe, expect, it } from 'vitest'
 
@@ -547,5 +547,32 @@ describe('notes and sharing', () => {
     await user.click(dialog.getByRole('button', { name: 'Remove from library' }))
     expect(await screen.findByText('Removed from the library')).toBeInTheDocument()
     expect(removed).toBe(true)
+  })
+})
+
+describe('node list', () => {
+  it('closes to make room for the canvas, and stays closed', async () => {
+    editing(branching())
+    const first = renderApp('/workflows/wf-1')
+
+    const nodeTypesNav = await screen.findByRole('navigation', { name: 'Node types' })
+    expect(nodeTypesNav).toBeInTheDocument()
+
+    await first.user.click(screen.getByRole('button', { name: 'Hide node list' }))
+    expect(screen.queryByRole('navigation', { name: 'Node types' })).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Show node list' })).toHaveAttribute(
+      'aria-expanded',
+      'false',
+    )
+
+    // Remembered for the next visit.
+    first.router.dispose()
+    cleanup()
+    const second = renderApp('/workflows/wf-1')
+    await screen.findByRole('button', { name: 'Show node list' })
+    expect(screen.queryByRole('navigation', { name: 'Node types' })).not.toBeInTheDocument()
+
+    await second.user.click(screen.getByRole('button', { name: 'Show node list' }))
+    expect(screen.getByRole('navigation', { name: 'Node types' })).toBeInTheDocument()
   })
 })

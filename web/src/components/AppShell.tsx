@@ -4,6 +4,7 @@ import { cn } from 'cn'
 
 import { useLogout, useMe } from '@/api/auth'
 import { useLiveEvents } from '@/api/events'
+import { ThemeToggle } from '@/components/ThemeToggle'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Toaster } from '@/components/ui/sonner'
@@ -46,6 +47,7 @@ export function AppShell() {
         <div className="ml-auto flex items-center gap-3 text-sm">
           {user && <span className="text-muted-foreground">{user.email}</span>}
           {user?.role === 'admin' && <Badge variant="secondary">Admin</Badge>}
+          <ThemeToggle />
           <Button
             variant="ghost"
             size="sm"

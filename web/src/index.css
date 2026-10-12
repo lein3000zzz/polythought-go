@@ -136,3 +136,19 @@
 .react-flow__edge.error-edge .react-flow__edge-path {
   stroke: var(--destructive);
 }
+
+/* Native controls (scrollbars, date pickers, select menus) follow the theme too. */
+:root {
+  color-scheme: light;
+}
+:root.dark {
+  color-scheme: dark;
+}
+
+/* The dark canvas: the page's background, so node cards stand out from it, and
+   connections bright enough to follow. The extra .dark outranks React Flow's own
+   stylesheet, which loads later with the editor. */
+.dark .react-flow.dark {
+  --xy-background-color-default: var(--background);
+  --xy-edge-stroke-default: var(--muted-foreground);
+}

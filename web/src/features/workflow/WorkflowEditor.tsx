@@ -13,7 +13,17 @@ import {
   type OnConnect,
   type XYPosition,
 } from '@xyflow/react'
-import { ChevronLeft, EllipsisVertical, History, Play, Share2, Trash2, X } from 'lucide-react'
+import {
+  ChevronLeft,
+  EllipsisVertical,
+  History,
+  PanelLeftClose,
+  PanelLeftOpen,
+  Play,
+  Share2,
+  Trash2,
+  X,
+} from 'lucide-react'
 import { useEffect, useEffectEvent, useMemo, useRef, useState } from 'react'
 import { Link, useBlocker, useNavigate } from 'react-router'
 import { toast } from 'sonner'
@@ -46,7 +56,10 @@ import {
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Switch } from '@/components/ui/switch'
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { formatDuration, formatTime } from '@/lib/format'
+import { useStoredFlag } from '@/lib/storage'
+import { useTheme } from '@/lib/theme'
 
 import {
   defaultPort,
@@ -101,6 +114,7 @@ export function WorkflowEditor(props: Props) {
 function Editor({ workflow, types, onReload }: Props) {
   const navigate = useNavigate()
   const { screenToFlowPosition, deleteElements } = useReactFlow<FlowNode, FlowEdge>()
+  const { theme } = useTheme()
   const canvas = useRef<HTMLDivElement>(null)
 
   const [initial] = useState(() => {
@@ -123,6 +137,7 @@ function Editor({ workflow, types, onReload }: Props) {
   const [conflict, setConflict] = useState(false)
   const [confirmDelete, setConfirmDelete] = useState(false)
   const [sharing, setSharing] = useState(false)
+  const [nodeListOpen, setNodeListOpen] = useStoredFlag('polythought.nodeList', true)
   const leaving = useRef(false) // set before navigating away on purpose
 
   // An execution shown on the canvas: each node's status, counts and kept items.
@@ -357,7 +372,7 @@ function Editor({ workflow, types, onReload }: Props) {
           )}
 
           {newer && (
-            <div className="flex items-center gap-3 border-b bg-amber-50 px-4 py-2 text-sm">
+            <div className="flex items-center gap-3 border-b bg-amber-50 px-4 py-2 text-sm dark:bg-amber-950/40">
               A newer version was saved elsewhere. Saving here will be refused until you reload.
               <Button variant="outline" size="sm" onClick={onReload}>
                 Reload
@@ -366,9 +381,21 @@ function Editor({ workflow, types, onReload }: Props) {
           )}
 
           <div className="flex min-h-0 flex-1">
-            <aside className="w-60 shrink-0 overflow-y-auto border-r">
-              <Palette types={types} onAdd={(t) => addNode(t)} />
-            </aside>
+            {nodeListOpen ? (
+              <aside className="flex w-60 shrink-0 flex-col border-r" aria-label="Node list">
+                <div className="flex items-center justify-between border-b py-1.5 pr-1.5 pl-5">
+                  <span className="text-xs font-medium text-muted-foreground">Nodes</span>
+                  <PanelToggle open onToggle={() => setNodeListOpen(false)} />
+                </div>
+                <div className="min-h-0 flex-1 overflow-y-auto">
+                  <Palette types={types} onAdd={(t) => addNode(t)} />
+                </div>
+              </aside>
+            ) : (
+              <div className="flex w-11 shrink-0 flex-col items-center border-r py-1.5">
+                <PanelToggle open={false} onToggle={() => setNodeListOpen(true)} />
+              </div>
+            )}
 
             <div className="flex min-w-0 flex-1 flex-col">
               <div
@@ -390,6 +417,7 @@ function Editor({ workflow, types, onReload }: Props) {
                 }}
               >
                 <ReactFlow
+                  colorMode={theme}
                   nodes={nodes}
                   edges={edges}
                   nodeTypes={nodeTypes}
@@ -500,6 +528,28 @@ function Editor({ workflow, types, onReload }: Props) {
         </div>
       </RunsContext>
     </ProblemsContext>
+  )
+}
+
+/** Opens or closes the node list on the left; the canvas takes the room. */
+function PanelToggle({ open, onToggle }: { open: boolean; onToggle: () => void }) {
+  const label = open ? 'Hide node list' : 'Show node list'
+
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <Button
+          variant="ghost"
+          size="icon-sm"
+          aria-label={label}
+          aria-expanded={open}
+          onClick={onToggle}
+        >
+          {open ? <PanelLeftClose /> : <PanelLeftOpen />}
+        </Button>
+      </TooltipTrigger>
+      <TooltipContent side="right">{label}</TooltipContent>
+    </Tooltip>
   )
 }
 
