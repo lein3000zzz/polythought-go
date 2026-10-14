@@ -222,13 +222,16 @@ type paramDTO struct {
 	Name        string `json:"name"`
 	Label       string `json:"label,omitempty" validate:"optional"`
 	Description string `json:"description,omitempty" validate:"optional"`
-	Kind        string `json:"kind" enums:"string,number,decimal,bool,list,duration,wallet,tokens"`
+	Kind        string `json:"kind" enums:"string,number,decimal,bool,list,duration,wallet,tokens,credential"`
 	Required    bool   `json:"required"`
 	Default     any    `json:"default,omitempty" validate:"optional"`
 	// Options are the allowed values of a string, or of each element of a list.
 	Options []string `json:"options,omitempty" validate:"optional"`
 	// Sensitive values, like a webhook URL, are personal: sharing leaves them out.
 	Sensitive bool `json:"sensitive,omitempty" validate:"optional"`
+	// CredentialType is the kind of credential a credential param takes, one of the
+	// user's of that type.
+	CredentialType string `json:"credentialType,omitempty" validate:"optional"`
 } // @name ParamSpec
 
 type nodeTypeDTO struct {

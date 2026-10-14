@@ -94,6 +94,10 @@ const (
 	ParamDuration ParamKind = "duration" // a Go duration string: "30s", "5m"
 	ParamWallet   ParamKind = "wallet"   // the ID of one of the owner's wallets
 	ParamTokens   ParamKind = "tokens"   // a list of token IDs
+
+	// ParamCredential is the ID of one of the owner's credentials, of the type the
+	// param's CredentialType names.
+	ParamCredential ParamKind = "credential"
 )
 
 // ParamSpec describes one parameter: how to read it, and how an editor should present it.
@@ -110,14 +114,17 @@ type ParamSpec struct {
 	Options []string
 
 	// Sensitive marks values that are personal, like a webhook URL: sharing a workflow
-	// leaves them out. Wallet params are personal regardless.
+	// leaves them out. Wallet and credential params are personal regardless.
 	Sensitive bool
+
+	// CredentialType names the kind of credential a credential param asks for.
+	CredentialType string
 }
 
 // Personal reports whether the value belongs to whoever configured it, so sharing must
 // leave it out.
 func (p ParamSpec) Personal() bool {
-	return p.Sensitive || p.Kind == ParamWallet
+	return p.Sensitive || p.Kind == ParamWallet || p.Kind == ParamCredential
 }
 
 // NodeType describes a kind of node for the registry, the editor and workflow validation.

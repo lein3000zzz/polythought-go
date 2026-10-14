@@ -120,7 +120,12 @@ export function TemplatePage() {
                   <p className="font-medium">You fill in</p>
                   <ul className="mt-1 list-disc pl-5">
                     {t.inputs.map((i) => (
-                      <li key={`${i.nodeId}.${i.param.name}`}>{i.param.label ?? i.param.name}</li>
+                      <li key={`${i.nodeId}.${i.param.name}`}>
+                        {i.param.label ?? i.param.name}
+                        {!i.param.required && (
+                          <span className="text-muted-foreground"> (optional)</span>
+                        )}
+                      </li>
                     ))}
                   </ul>
                 </div>

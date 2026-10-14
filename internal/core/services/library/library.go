@@ -298,7 +298,8 @@ func (s *Service) entry(p auth.Principal, t domain.Template) Entry {
 
 // inputs lists the settings a template needs and does not have: required, without a
 // default, and empty. Shared copies have their personal settings removed, so those
-// become inputs; built-in scenarios leave out the ones only their user can know.
+// become inputs; built-in scenarios leave out the ones only their user can know. Empty
+// credentials are asked for too, required or not: only their user has them.
 func (s *Service) inputs(t domain.Template) []Input {
 	var out []Input
 
@@ -309,7 +310,11 @@ func (s *Service) inputs(t domain.Template) []Input {
 		}
 
 		for _, param := range typ.Params {
-			if param.Required && param.Default == nil && n.Params[param.Name] == nil {
+			if n.Params[param.Name] != nil {
+				continue
+			}
+
+			if param.Required && param.Default == nil || param.Kind == engine.ParamCredential {
 				out = append(out, Input{NodeID: n.ID, Param: param})
 			}
 		}

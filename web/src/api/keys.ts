@@ -1,6 +1,7 @@
 /**
- * Query keys. Each family shares a prefix, "workflows", "wallets", "library" or "admin",
- * so one invalidation covers it.
+ * Query keys. Each family shares a prefix, "workflows", "wallets", "vault", "library" or
+ * "admin", so one invalidation covers it. "vault" is the credentials page; a wallet's
+ * Polymarket API credentials live under "wallets".
  */
 export const keys = {
   me: ['me'],
@@ -15,6 +16,9 @@ export const keys = {
   wallets: ['wallets'],
   walletList: ['wallets', 'list'],
   credentials: (walletId: string) => ['wallets', 'credentials', walletId],
+  vault: ['vault'],
+  vaultList: ['vault', 'list'],
+  vaultTypes: ['vault', 'types'],
   library: ['library'],
   templateList: ['library', 'list'],
   template: (id: string) => ['library', 'template', id],

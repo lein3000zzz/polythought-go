@@ -13,7 +13,7 @@ func checkParam(spec ParamSpec, value any) string {
 	p := Params{spec.Name: value}
 
 	switch spec.Kind {
-	case ParamString, ParamWallet:
+	case ParamString, ParamWallet, ParamCredential:
 		s, err := p.String(spec.Name)
 		if err != nil {
 			return "must be a string"

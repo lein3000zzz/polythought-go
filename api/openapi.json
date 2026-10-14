@@ -126,6 +126,28 @@
                 ],
                 "type": "object"
             },
+            "CreateCredentialRequest": {
+                "properties": {
+                    "name": {
+                        "type": "string"
+                    },
+                    "type": {
+                        "type": "string"
+                    },
+                    "values": {
+                        "additionalProperties": {
+                            "type": "string"
+                        },
+                        "type": "object"
+                    }
+                },
+                "required": [
+                    "name",
+                    "type",
+                    "values"
+                ],
+                "type": "object"
+            },
             "CreateTokenRequest": {
                 "properties": {
                     "expiresAt": {
@@ -162,6 +184,148 @@
                 "required": [
                     "email",
                     "password"
+                ],
+                "type": "object"
+            },
+            "Credential": {
+                "properties": {
+                    "createdAt": {
+                        "format": "date-time",
+                        "type": "string"
+                    },
+                    "id": {
+                        "type": "string"
+                    },
+                    "name": {
+                        "type": "string"
+                    },
+                    "secrets": {
+                        "description": "Secrets names the secret values that are set; the values themselves are never sent.",
+                        "items": {
+                            "type": "string"
+                        },
+                        "type": "array",
+                        "uniqueItems": false
+                    },
+                    "testError": {
+                        "type": "string"
+                    },
+                    "testedAt": {
+                        "description": "TestedAt is absent until the credential is tested. TestError says why the last test\nfailed, and is absent when it passed.",
+                        "format": "date-time",
+                        "type": "string"
+                    },
+                    "type": {
+                        "type": "string"
+                    },
+                    "updatedAt": {
+                        "format": "date-time",
+                        "type": "string"
+                    },
+                    "values": {
+                        "additionalProperties": {
+                            "type": "string"
+                        },
+                        "description": "Values holds the values that are not secret, by field name.",
+                        "type": "object"
+                    }
+                },
+                "required": [
+                    "createdAt",
+                    "id",
+                    "name",
+                    "secrets",
+                    "type",
+                    "updatedAt",
+                    "values"
+                ],
+                "type": "object"
+            },
+            "CredentialField": {
+                "properties": {
+                    "description": {
+                        "type": "string"
+                    },
+                    "label": {
+                        "type": "string"
+                    },
+                    "name": {
+                        "type": "string"
+                    },
+                    "required": {
+                        "type": "boolean"
+                    },
+                    "secret": {
+                        "description": "Secret values are write-only: stored encrypted and never sent back.",
+                        "type": "boolean"
+                    }
+                },
+                "required": [
+                    "label",
+                    "name",
+                    "required",
+                    "secret"
+                ],
+                "type": "object"
+            },
+            "CredentialList": {
+                "properties": {
+                    "credentials": {
+                        "items": {
+                            "$ref": "#/components/schemas/Credential"
+                        },
+                        "type": "array",
+                        "uniqueItems": false
+                    }
+                },
+                "required": [
+                    "credentials"
+                ],
+                "type": "object"
+            },
+            "CredentialType": {
+                "properties": {
+                    "description": {
+                        "type": "string"
+                    },
+                    "fields": {
+                        "items": {
+                            "$ref": "#/components/schemas/CredentialField"
+                        },
+                        "type": "array",
+                        "uniqueItems": false
+                    },
+                    "label": {
+                        "type": "string"
+                    },
+                    "name": {
+                        "type": "string"
+                    },
+                    "testable": {
+                        "description": "Testable types can be tried against their service.",
+                        "type": "boolean"
+                    }
+                },
+                "required": [
+                    "fields",
+                    "label",
+                    "name",
+                    "testable"
+                ],
+                "type": "object"
+            },
+            "CredentialTypeList": {
+                "properties": {
+                    "credentialTypes": {
+                        "items": {
+                            "$ref": "#/components/schemas/CredentialType"
+                        },
+                        "type": "array",
+                        "uniqueItems": false
+                    }
+                },
+                "required": [
+                    "credentialTypes"
                 ],
                 "type": "object"
             },
@@ -221,7 +385,7 @@
                         "type": "string"
                     },
                     "problems": {
-                        "description": "Problems lists everything wrong with a submitted workflow (code invalid_workflow)\nor with changed settings (code invalid_input, param is the setting's key).",
+                        "description": "Problems lists everything wrong with a submitted workflow (code invalid_workflow),\nwith changed settings (code invalid_input, param is the setting's key) or with a\ncredential (code invalid_input, param is \"name\" or \"values.\u003cfield\u003e\").",
                         "items": {
                             "$ref": "#/components/schemas/Problem"
                         },
@@ -566,6 +730,10 @@
             },
             "ParamSpec": {
                 "properties": {
+                    "credentialType": {
+                        "description": "CredentialType is the kind of credential a credential param takes, one of the\nuser's of that type.",
+                        "type": "string"
+                    },
                     "default": {},
                     "description": {
                         "type": "string"
@@ -579,7 +747,8 @@
                             "list",
                             "duration",
                             "wallet",
-                            "tokens"
+                            "tokens",
+                            "credential"
                         ],
                         "type": "string"
                     },
@@ -963,6 +1132,24 @@
                 },
                 "required": [
                     "templates"
+                ],
+                "type": "object"
+            },
+            "UpdateCredentialRequest": {
+                "properties": {
+                    "name": {
+                        "type": "string"
+                    },
+                    "values": {
+                        "additionalProperties": {
+                            "type": "string"
+                        },
+                        "description": "Values to change, by field name. A value left out keeps what is saved, and so does\nan empty secret.",
+                        "type": "object"
+                    }
+                },
+                "required": [
+                    "name"
                 ],
                 "type": "object"
             },
@@ -2063,6 +2250,368 @@
                 "summary": "Create an account",
                 "tags": [
                     "auth"
+                ]
+            }
+        },
+        "/credential-types": {
+            "get": {
+                "operationId": "listCredentialTypes",
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/CredentialTypeList"
+                                }
+                            }
+                        },
+                        "description": "OK"
+                    },
+                    "401": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "unauthenticated"
+                    }
+                },
+                "security": [
+                    {
+                        "SessionCookie": []
+                    },
+                    {
+                        "APIToken": []
+                    }
+                ],
+                "summary": "List credential types",
+                "tags": [
+                    "credentials"
+                ]
+            }
+        },
+        "/credentials": {
+            "get": {
+                "operationId": "listCredentials",
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/CredentialList"
+                                }
+                            }
+                        },
+                        "description": "OK"
+                    },
+                    "401": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "unauthenticated"
+                    }
+                },
+                "security": [
+                    {
+                        "SessionCookie": []
+                    },
+                    {
+                        "APIToken": []
+                    }
+                ],
+                "summary": "List your credentials",
+                "tags": [
+                    "credentials"
+                ]
+            },
+            "post": {
+                "operationId": "createCredential",
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/CreateCredentialRequest",
+                                "summary": "body",
+                                "description": "Credential"
+                            }
+                        }
+                    },
+                    "description": "Credential",
+                    "required": true
+                },
+                "responses": {
+                    "201": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Credential"
+                                }
+                            }
+                        },
+                        "description": "Created"
+                    },
+                    "400": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "invalid_input"
+                    },
+                    "401": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "unauthenticated"
+                    },
+                    "409": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "credential_exists"
+                    }
+                },
+                "security": [
+                    {
+                        "SessionCookie": []
+                    },
+                    {
+                        "APIToken": []
+                    }
+                ],
+                "summary": "Create a credential",
+                "tags": [
+                    "credentials"
+                ]
+            }
+        },
+        "/credentials/{id}": {
+            "delete": {
+                "operationId": "deleteCredential",
+                "parameters": [
+                    {
+                        "description": "Credential ID",
+                        "in": "path",
+                        "name": "id",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "No Content"
+                    },
+                    "401": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "unauthenticated"
+                    },
+                    "404": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "not_found"
+                    }
+                },
+                "security": [
+                    {
+                        "SessionCookie": []
+                    },
+                    {
+                        "APIToken": []
+                    }
+                ],
+                "summary": "Delete a credential",
+                "tags": [
+                    "credentials"
+                ]
+            },
+            "patch": {
+                "operationId": "updateCredential",
+                "parameters": [
+                    {
+                        "description": "Credential ID",
+                        "in": "path",
+                        "name": "id",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/UpdateCredentialRequest",
+                                "summary": "body",
+                                "description": "Changes"
+                            }
+                        }
+                    },
+                    "description": "Changes",
+                    "required": true
+                },
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Credential"
+                                }
+                            }
+                        },
+                        "description": "OK"
+                    },
+                    "400": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "invalid_input"
+                    },
+                    "401": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "unauthenticated"
+                    },
+                    "404": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "not_found"
+                    },
+                    "409": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "credential_exists"
+                    }
+                },
+                "security": [
+                    {
+                        "SessionCookie": []
+                    },
+                    {
+                        "APIToken": []
+                    }
+                ],
+                "summary": "Change a credential",
+                "tags": [
+                    "credentials"
+                ]
+            }
+        },
+        "/credentials/{id}/test": {
+            "post": {
+                "operationId": "testCredential",
+                "parameters": [
+                    {
+                        "description": "Credential ID",
+                        "in": "path",
+                        "name": "id",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Credential"
+                                }
+                            }
+                        },
+                        "description": "OK"
+                    },
+                    "400": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "invalid_input: this type cannot be tested"
+                    },
+                    "401": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "unauthenticated"
+                    },
+                    "404": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "not_found"
+                    }
+                },
+                "security": [
+                    {
+                        "SessionCookie": []
+                    },
+                    {
+                        "APIToken": []
+                    }
+                ],
+                "summary": "Test a credential",
+                "tags": [
+                    "credentials"
                 ]
             }
         },

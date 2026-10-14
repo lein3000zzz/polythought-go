@@ -4,6 +4,9 @@
 // connect to loopback, private, link-local and other internal addresses. It checks the
 // address actually dialled, after DNS, so a name that resolves inside the network is
 // refused too, on redirects as well.
+//
+// Extra headers, usually a credential, go only to the host the user named: a redirect to
+// another host loses them.
 package webhook
 
 import (
@@ -15,6 +18,7 @@ import (
 	"net"
 	"net/http"
 	"net/netip"
+	"net/textproto"
 	"net/url"
 	"syscall"
 	"time"
@@ -44,7 +48,18 @@ var (
 
 	ErrInvalidURL       = errors.New("not an http or https address")
 	ErrForbiddenAddress = errors.New("address inside the server's network")
+	ErrReservedHeader   = errors.New("header set by the sender itself")
 )
+
+// reservedHeaders describe the request; extra headers may not replace them.
+var reservedHeaders = map[string]bool{
+	"Host": true, "Content-Length": true, "Content-Type": true, "Transfer-Encoding": true,
+	"Connection": true, "Keep-Alive": true, "Upgrade": true, "Te": true, "Trailer": true,
+	"User-Agent": true,
+}
+
+// extraHeadersKey carries the names of a request's extra headers to CheckRedirect.
+type extraHeadersKey struct{}
 
 type Config struct {
 	// AllowPrivate lets workflows post to internal addresses, for self-hosted setups
@@ -105,9 +120,18 @@ func New(util *observability.Utility, cfg Config) (*Sender, error) {
 		client: &http.Client{
 			Timeout:   timeout,
 			Transport: otelhttp.NewTransport(transport),
-			CheckRedirect: func(_ *http.Request, via []*http.Request) error {
+			CheckRedirect: func(req *http.Request, via []*http.Request) error {
 				if len(via) >= maxRedirects {
 					return fmt.Errorf("more than %d redirects", maxRedirects)
+				}
+
+				// Go drops Authorization and cookies on a redirect to another host, but
+				// not headers like X-Api-Key.
+				if req.URL.Host != via[0].URL.Host {
+					names, _ := req.Context().Value(extraHeadersKey{}).([]string)
+					for _, name := range names {
+						req.Header.Del(name)
+					}
 				}
 
 				return nil
@@ -119,9 +143,10 @@ func New(util *observability.Utility, cfg Config) (*Sender, error) {
 	}, nil
 }
 
-// Post sends body as JSON. Errors name only the host: the rest of a webhook URL is
-// usually a secret token, and errors end up in logs and executions.
-func (s *Sender) Post(ctx context.Context, rawURL string, body []byte) (err error) {
+// Post sends body as JSON, with any extra headers. Errors name only the host: the rest of
+// a webhook URL is usually a secret token, and errors end up in logs and executions.
+// They never include header values.
+func (s *Sender) Post(ctx context.Context, rawURL string, body []byte, header map[string]string) (err error) {
 	done := s.kit.Start(ctx, opPost)
 	defer func() { done(err == nil) }()
 
@@ -134,9 +159,25 @@ func (s *Sender) Post(ctx context.Context, rawURL string, body []byte) (err erro
 		host := u.Hostname()
 		span.SetAttributes(attribute.String("server.address", host), attribute.Int("http.request.body.size", len(body)))
 
+		names := make([]string, 0, len(header))
+		for name := range header {
+			name = textproto.CanonicalMIMEHeaderKey(name)
+			if reservedHeaders[name] {
+				return struct{}{}, fmt.Errorf("%w: %s", ErrReservedHeader, name)
+			}
+
+			names = append(names, name)
+		}
+
+		ctx = context.WithValue(ctx, extraHeadersKey{}, names)
+
 		req, err := http.NewRequestWithContext(ctx, http.MethodPost, u.String(), bytes.NewReader(body))
 		if err != nil {
 			return struct{}{}, ErrInvalidURL
+		}
+
+		for name, value := range header {
+			req.Header.Set(name, value)
 		}
 
 		req.Header.Set("Content-Type", "application/json")

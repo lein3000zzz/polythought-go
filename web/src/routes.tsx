@@ -5,6 +5,7 @@ import { RequireAuth } from '@/components/RequireAuth'
 import { Skeleton } from '@/components/ui/skeleton'
 import { AdminConfigPage } from '@/pages/AdminConfigPage'
 import { AdminPage } from '@/pages/AdminPage'
+import { CredentialsPage } from '@/pages/CredentialsPage'
 import { LibraryPage } from '@/pages/LibraryPage'
 import { LoginPage } from '@/pages/LoginPage'
 import { NotFoundPage } from '@/pages/NotFoundPage'
@@ -46,6 +47,7 @@ export const routes: RouteObject[] = [
             hydrateFallbackElement: editor.hydrateFallbackElement,
           },
           { path: 'wallets', element: <WalletsPage /> },
+          { path: 'credentials', element: <CredentialsPage /> },
           { path: 'settings', element: <SettingsPage /> },
           { path: 'admin', element: <AdminPage /> },
           { path: 'admin/config', element: <AdminConfigPage /> },

@@ -13,6 +13,7 @@ const navLinks = [
   ['/workflows', 'Workflows'],
   ['/library', 'Library'],
   ['/wallets', 'Wallets'],
+  ['/credentials', 'Credentials'],
   ['/settings', 'Settings'],
 ] as const
 

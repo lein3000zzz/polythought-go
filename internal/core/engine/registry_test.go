@@ -222,6 +222,7 @@ func TestCheckParams(t *testing.T) {
 			{Name: "d", Kind: engine.ParamDecimal},
 			{Name: "wallet", Kind: engine.ParamWallet},
 			{Name: "tokens", Kind: engine.ParamTokens},
+			{Name: "key", Kind: engine.ParamCredential, CredentialType: "test.key"},
 		},
 	}
 
@@ -232,6 +233,7 @@ func TestCheckParams(t *testing.T) {
 	}{
 		{name: "valid values", params: map[string]any{
 			"op": "gt", "on": []any{"trade"}, "every": "5s", "flag": true, "n": 3, "wallet": "w-1", "tokens": []any{"t1"},
+			"key": "cred-1",
 		}},
 		{name: "json numbers count", params: map[string]any{"n": json.Number("3"), "d": json.Number("2.5")}},
 		{name: "decimals may be numeric strings", params: map[string]any{"d": "0.02"}},
@@ -245,11 +247,13 @@ func TestCheckParams(t *testing.T) {
 		{name: "number as text", params: map[string]any{"n": "many"}, problem: `param "n" must be a whole number`},
 		{name: "wallet as number", params: map[string]any{"wallet": 7}, problem: `param "wallet" must be a string`},
 		{name: "tokens not a list", params: map[string]any{"tokens": "t1"}, problem: `param "tokens" must be a list of strings`},
+		{name: "credential as number", params: map[string]any{"key": 7}, problem: `param "key" must be a string`},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			r := testRegistry(t)
+			require.NoError(t, r.RegisterCredentialType(keyType))
 			require.NoError(t, r.RegisterNode(fakeNode{typ: typ}))
 
 			err := r.Validate(domain.Workflow{
@@ -270,4 +274,99 @@ func TestCheckParams(t *testing.T) {
 			assert.NotEmpty(t, v.Problems[0].Param, "the editor can point at the field")
 		})
 	}
+}
+
+var keyType = engine.CredentialType{
+	Name: "test.key", Label: "Test key",
+	Fields: []engine.CredentialField{{Name: "key", Label: "Key", Secret: true, Required: true}},
+}
+
+func TestRegistryCredentialTypes(t *testing.T) {
+	user := func(credType string) fakeNode {
+		return fakeNode{typ: engine.NodeType{
+			Name:   "test.user",
+			Params: []engine.ParamSpec{{Name: "key", Kind: engine.ParamCredential, CredentialType: credType}},
+		}}
+	}
+
+	tests := []struct {
+		name     string
+		register func(r *engine.Registry) error
+		wantErr  string
+	}{
+		{name: "a type", register: func(r *engine.Registry) error { return r.RegisterCredentialType(keyType) }},
+		{
+			name: "a type twice",
+			register: func(r *engine.Registry) error {
+				_ = r.RegisterCredentialType(keyType)
+				return r.RegisterCredentialType(keyType)
+			},
+			wantErr: "already registered",
+		},
+		{
+			name: "a type without fields",
+			register: func(r *engine.Registry) error {
+				return r.RegisterCredentialType(engine.CredentialType{Name: "x", Label: "X"})
+			},
+			wantErr: "no fields",
+		},
+		{
+			name: "a field twice",
+			register: func(r *engine.Registry) error {
+				f := engine.CredentialField{Name: "k", Label: "K"}
+				return r.RegisterCredentialType(engine.CredentialType{Name: "x", Label: "X", Fields: []engine.CredentialField{f, f}})
+			},
+			wantErr: "unique name",
+		},
+		{
+			name: "a node using a registered type",
+			register: func(r *engine.Registry) error {
+				_ = r.RegisterCredentialType(keyType)
+				return r.RegisterNode(user("test.key"))
+			},
+		},
+		{
+			name:     "a node using an unknown type",
+			register: func(r *engine.Registry) error { return r.RegisterNode(user("test.key")) },
+			wantErr:  `param "key": a credential param must name a registered credential type, not "test.key"`,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := tt.register(engine.NewRegistry())
+			if tt.wantErr != "" {
+				assert.ErrorContains(t, err, tt.wantErr)
+				return
+			}
+
+			require.NoError(t, err)
+		})
+	}
+
+	t.Run("lookup and listing", func(t *testing.T) {
+		r := engine.NewRegistry()
+		require.NoError(t, r.RegisterCredentialType(engine.CredentialType{Name: "z.last", Label: "Z", Fields: keyType.Fields}))
+		require.NoError(t, r.RegisterCredentialType(keyType))
+
+		got, ok := r.CredentialType("test.key")
+		require.True(t, ok)
+		assert.Equal(t, "Test key", got.Label)
+
+		_, ok = r.CredentialType("nope")
+		assert.False(t, ok)
+
+		names := []string{}
+		for _, ct := range r.CredentialTypes() {
+			names = append(names, ct.Name)
+		}
+
+		assert.Equal(t, []string{"test.key", "z.last"}, names)
+	})
+
+	t.Run("credential params are personal", func(t *testing.T) {
+		assert.True(t, engine.ParamSpec{Kind: engine.ParamCredential}.Personal())
+		assert.True(t, engine.ParamSpec{Kind: engine.ParamWallet}.Personal())
+		assert.False(t, engine.ParamSpec{Kind: engine.ParamString}.Personal())
+	})
 }

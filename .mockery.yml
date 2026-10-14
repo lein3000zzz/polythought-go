@@ -62,6 +62,8 @@ packages:
       TradeReader: {}
       PriceHistoryReader: {}
       WebhookSender: {}
+      CredentialRepository: {}
+      CredentialReader: {}
   github.com/lein3000zzz/polythought-go/internal/core/services/auth:
     config:
       dir: internal/mocks/auth
@@ -94,3 +96,4 @@ packages:
       EventService: {}
       LibraryService: {}
       SettingsService: {}
+      CredentialService: {}

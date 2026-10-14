@@ -26,8 +26,9 @@ type errorDetail struct {
 	Code    string `json:"code"`
 	Message string `json:"message"`
 
-	// Problems lists everything wrong with a submitted workflow (code invalid_workflow)
-	// or with changed settings (code invalid_input, param is the setting's key).
+	// Problems lists everything wrong with a submitted workflow (code invalid_workflow),
+	// with changed settings (code invalid_input, param is the setting's key) or with a
+	// credential (code invalid_input, param is "name" or "values.<field>").
 	Problems []problemDTO `json:"problems,omitempty" validate:"optional"`
 } // @name ErrorDetail
 
@@ -75,6 +76,7 @@ var errorMapping = []struct {
 	{domain.ErrNotFound, http.StatusNotFound, "not_found"},
 	{domain.ErrEmailTaken, http.StatusConflict, "email_taken"},
 	{domain.ErrWalletExists, http.StatusConflict, "wallet_exists"},
+	{domain.ErrCredentialExists, http.StatusConflict, "credential_exists"},
 	{domain.ErrLastAdmin, http.StatusConflict, "last_admin"},
 	{domain.ErrConflict, http.StatusConflict, "conflict"},
 	{domain.ErrRateLimited, http.StatusTooManyRequests, "rate_limited"},

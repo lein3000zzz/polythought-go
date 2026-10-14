@@ -3,11 +3,14 @@ package output
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"strings"
 	"unicode/utf8"
 
+	"github.com/lein3000zzz/polythought-go/internal/core/domain"
 	"github.com/lein3000zzz/polythought-go/internal/core/engine"
+	"github.com/lein3000zzz/polythought-go/internal/core/nodes/credtypes"
 	"github.com/lein3000zzz/polythought-go/internal/core/nodes/fields"
 	"github.com/lein3000zzz/polythought-go/internal/core/ports"
 )
@@ -27,11 +30,12 @@ var _ engine.Node = (*Webhook)(nil)
 // Webhook posts items to a URL: as a chat message, which Discord, Slack and many other
 // services accept, or as the items' JSON. It passes on the items it delivered.
 type Webhook struct {
-	sender ports.WebhookSender
+	sender      ports.WebhookSender
+	credentials ports.CredentialReader // nil where there is no vault, e.g. the demo
 }
 
-func NewWebhook(sender ports.WebhookSender) *Webhook {
-	return &Webhook{sender: sender}
+func NewWebhook(sender ports.WebhookSender, credentials ports.CredentialReader) *Webhook {
+	return &Webhook{sender: sender, credentials: credentials}
 }
 
 func (*Webhook) Type() engine.NodeType {
@@ -59,12 +63,17 @@ func (*Webhook) Type() engine.NodeType {
 				Name: "format", Label: "Format", Kind: engine.ParamString, Default: "message", Options: []string{"message", "json"},
 				Description: "message: the text above, for chat apps. json: the items themselves.",
 			},
+			{
+				Name: "credential", Label: "Credential", Kind: engine.ParamCredential, CredentialType: credtypes.HTTPHeader,
+				Description: "Optional. A header sent with each request, such as Authorization, from your Credentials page.",
+			},
 		},
 	}
 }
 
 type webhookConfig struct {
 	url, message, send, format string
+	header                     map[string]string
 }
 
 func (n *Webhook) Run(ctx context.Context, rc engine.RunContext, in engine.Ports) (engine.Ports, error) {
@@ -77,6 +86,10 @@ func (n *Webhook) Run(ctx context.Context, rc engine.RunContext, in engine.Ports
 
 	cfg, err := webhookSettings(rc)
 	if err != nil {
+		return nil, err
+	}
+
+	if cfg.header, err = n.header(ctx, rc); err != nil {
 		return nil, err
 	}
 
@@ -109,7 +122,7 @@ func (n *Webhook) Run(ctx context.Context, rc engine.RunContext, in engine.Ports
 func (n *Webhook) deliver(ctx context.Context, cfg webhookConfig, items []engine.Item, srcs []engine.ItemRef, out engine.Ports) {
 	body, err := webhookBody(cfg, items)
 	if err == nil {
-		err = n.sender.Post(ctx, cfg.url, body)
+		err = n.sender.Post(ctx, cfg.url, body, cfg.header)
 	}
 
 	for i, item := range items {
@@ -138,6 +151,34 @@ func webhookSettings(rc engine.RunContext) (webhookConfig, error) {
 	}
 
 	return cfg, nil
+}
+
+// header reads the credential, if the node has one, as the header it adds.
+func (n *Webhook) header(ctx context.Context, rc engine.RunContext) (map[string]string, error) {
+	p, err := rc.Params.Resolve(engine.ItemRef{Port: engine.DefaultPort})
+	if err != nil {
+		return nil, err
+	}
+
+	if p["credential"] == nil {
+		return nil, nil
+	}
+
+	id, err := p.String("credential")
+	if err != nil {
+		return nil, err
+	}
+
+	if n.credentials == nil {
+		return nil, errors.New("credentials are not available here")
+	}
+
+	values, err := n.credentials.Values(ctx, rc.OwnerID, domain.CredentialID(id), credtypes.HTTPHeader)
+	if err != nil {
+		return nil, fmt.Errorf("credential: %w", err)
+	}
+
+	return map[string]string{values["header"]: values["value"]}, nil
 }
 
 // webhookBody is {"content", "text"} for messages, read by Discord and Slack

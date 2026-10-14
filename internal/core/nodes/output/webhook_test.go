@@ -11,7 +11,9 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
+	"github.com/lein3000zzz/polythought-go/internal/core/domain"
 	"github.com/lein3000zzz/polythought-go/internal/core/engine"
+	"github.com/lein3000zzz/polythought-go/internal/core/nodes/credtypes"
 	"github.com/lein3000zzz/polythought-go/internal/core/nodes/output"
 	portsmocks "github.com/lein3000zzz/polythought-go/internal/mocks/ports"
 )
@@ -90,13 +92,13 @@ func TestWebhook(t *testing.T) {
 			var bodies []string
 
 			sender := portsmocks.NewMockWebhookSender(t)
-			sender.EXPECT().Post(mock.Anything, hook, mock.Anything).
-				RunAndReturn(func(_ context.Context, _ string, body []byte) error {
+			sender.EXPECT().Post(mock.Anything, hook, mock.Anything, map[string]string(nil)).
+				RunAndReturn(func(_ context.Context, _ string, body []byte, _ map[string]string) error {
 					bodies = append(bodies, string(body))
 					return tt.postErr
 				}).Maybe()
 
-			node := output.NewWebhook(sender)
+			node := output.NewWebhook(sender, nil)
 			out, err := node.Run(context.Background(), engine.RunContext{Params: engine.LiteralParams(node.Type(), tt.params)}, tt.in)
 			require.NoError(t, err)
 
@@ -111,4 +113,57 @@ func TestWebhook(t *testing.T) {
 			assert.Len(t, out[engine.ErrorPort], tt.wantFailed)
 		})
 	}
+}
+
+func TestWebhookCredential(t *testing.T) {
+	const owner = domain.UserID("u-1")
+
+	run := func(t *testing.T, node *output.Webhook, params map[string]any) (engine.Ports, error) {
+		t.Helper()
+
+		rc := engine.RunContext{OwnerID: owner, Params: engine.LiteralParams(node.Type(), params)}
+
+		return node.Run(context.Background(), rc, items(1))
+	}
+
+	t.Run("adds the credential's header", func(t *testing.T) {
+		sender := portsmocks.NewMockWebhookSender(t)
+		sender.EXPECT().Post(mock.Anything, hook, mock.Anything, map[string]string{"Authorization": "Bearer t-1"}).Return(nil).Once()
+
+		creds := portsmocks.NewMockCredentialReader(t)
+		creds.EXPECT().Values(mock.Anything, owner, domain.CredentialID("c-1"), credtypes.HTTPHeader).
+			Return(map[string]string{"header": "Authorization", "value": "Bearer t-1"}, nil).Once()
+
+		out, err := run(t, output.NewWebhook(sender, creds), map[string]any{"url": hook, "credential": "c-1"})
+		require.NoError(t, err)
+		assert.Len(t, out[engine.DefaultPort], 1)
+	})
+
+	t.Run("a credential that is not the owner's fails the node", func(t *testing.T) {
+		creds := portsmocks.NewMockCredentialReader(t)
+		creds.EXPECT().Values(mock.Anything, owner, domain.CredentialID("c-9"), credtypes.HTTPHeader).Return(nil, domain.ErrNotFound)
+
+		_, err := run(t, output.NewWebhook(portsmocks.NewMockWebhookSender(t), creds), map[string]any{"url": hook, "credential": "c-9"})
+		require.ErrorIs(t, err, domain.ErrNotFound)
+		assert.ErrorContains(t, err, "credential: not found")
+	})
+
+	t.Run("without a vault, a credential cannot be used", func(t *testing.T) {
+		_, err := run(t, output.NewWebhook(portsmocks.NewMockWebhookSender(t), nil), map[string]any{"url": hook, "credential": "c-1"})
+		require.ErrorContains(t, err, "credentials are not available here")
+	})
+
+	t.Run("the param asks for a header credential and is personal", func(t *testing.T) {
+		var spec engine.ParamSpec
+		for _, p := range output.NewWebhook(nil, nil).Type().Params {
+			if p.Name == "credential" {
+				spec = p
+			}
+		}
+
+		assert.Equal(t, engine.ParamCredential, spec.Kind)
+		assert.Equal(t, credtypes.HTTPHeader, spec.CredentialType)
+		assert.False(t, spec.Required)
+		assert.True(t, spec.Personal())
+	})
 }

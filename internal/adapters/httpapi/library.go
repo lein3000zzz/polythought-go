@@ -102,6 +102,7 @@ func toParamDTO(p engine.ParamSpec) paramDTO {
 	return paramDTO{
 		Name: p.Name, Label: p.Label, Description: p.Description, Kind: string(p.Kind),
 		Required: p.Required, Default: p.Default, Options: p.Options, Sensitive: p.Sensitive,
+		CredentialType: p.CredentialType,
 	}
 }
 

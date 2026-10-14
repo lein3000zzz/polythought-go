@@ -11,6 +11,7 @@ package table
 // this method only once at the beginning of the program.
 func UseSchema(schema string) {
 	APITokens = APITokens.FromSchema(schema)
+	Credentials = Credentials.FromSchema(schema)
 	Executions = Executions.FromSchema(schema)
 	Invites = Invites.FromSchema(schema)
 	PolymarketCredentials = PolymarketCredentials.FromSchema(schema)

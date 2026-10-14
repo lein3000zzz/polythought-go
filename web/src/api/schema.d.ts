@@ -177,6 +177,76 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/credential-types": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List credential types */
+        get: operations["listCredentialTypes"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/credentials": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List your credentials */
+        get: operations["listCredentials"];
+        put?: never;
+        /** Create a credential */
+        post: operations["createCredential"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/credentials/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Delete a credential */
+        delete: operations["deleteCredential"];
+        options?: never;
+        head?: never;
+        /** Change a credential */
+        patch: operations["updateCredential"];
+        trace?: never;
+    };
+    "/credentials/{id}/test": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Test a credential */
+        post: operations["testCredential"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/events": {
         parameters: {
             query?: never;
@@ -569,6 +639,13 @@ export interface components {
             to: string;
             toPort: string;
         };
+        CreateCredentialRequest: {
+            name: string;
+            type: string;
+            values: {
+                [key: string]: string;
+            };
+        };
         CreateTokenRequest: {
             /**
              * Format: date-time
@@ -585,6 +662,50 @@ export interface components {
              * @enum {string}
              */
             role: "admin" | "user";
+        };
+        Credential: {
+            /** Format: date-time */
+            createdAt: string;
+            id: string;
+            name: string;
+            /** @description Secrets names the secret values that are set; the values themselves are never sent. */
+            secrets: string[];
+            testError?: string;
+            /**
+             * Format: date-time
+             * @description TestedAt is absent until the credential is tested. TestError says why the last test
+             *     failed, and is absent when it passed.
+             */
+            testedAt?: string;
+            type: string;
+            /** Format: date-time */
+            updatedAt: string;
+            /** @description Values holds the values that are not secret, by field name. */
+            values: {
+                [key: string]: string;
+            };
+        };
+        CredentialField: {
+            description?: string;
+            label: string;
+            name: string;
+            required: boolean;
+            /** @description Secret values are write-only: stored encrypted and never sent back. */
+            secret: boolean;
+        };
+        CredentialList: {
+            credentials: components["schemas"]["Credential"][];
+        };
+        CredentialType: {
+            description?: string;
+            fields: components["schemas"]["CredentialField"][];
+            label: string;
+            name: string;
+            /** @description Testable types can be tried against their service. */
+            testable: boolean;
+        };
+        CredentialTypeList: {
+            credentialTypes: components["schemas"]["CredentialType"][];
         };
         Credentials: {
             apiKeyHint: string;
@@ -604,8 +725,9 @@ export interface components {
             code: string;
             message: string;
             /**
-             * @description Problems lists everything wrong with a submitted workflow (code invalid_workflow)
-             *     or with changed settings (code invalid_input, param is the setting's key).
+             * @description Problems lists everything wrong with a submitted workflow (code invalid_workflow),
+             *     with changed settings (code invalid_input, param is the setting's key) or with a
+             *     credential (code invalid_input, param is "name" or "values.<field>").
              */
             problems?: components["schemas"]["Problem"][];
         };
@@ -713,10 +835,15 @@ export interface components {
             nodeTypes: components["schemas"]["NodeType"][];
         };
         ParamSpec: {
+            /**
+             * @description CredentialType is the kind of credential a credential param takes, one of the
+             *     user's of that type.
+             */
+            credentialType?: string;
             default?: unknown;
             description?: string;
             /** @enum {string} */
-            kind: "string" | "number" | "decimal" | "bool" | "list" | "duration" | "wallet" | "tokens";
+            kind: "string" | "number" | "decimal" | "bool" | "list" | "duration" | "wallet" | "tokens" | "credential";
             label?: string;
             name: string;
             /** @description Options are the allowed values of a string, or of each element of a list. */
@@ -838,6 +965,16 @@ export interface components {
             /** @description NextCursor is absent on the last page. */
             nextCursor?: string;
             templates: components["schemas"]["Template"][];
+        };
+        UpdateCredentialRequest: {
+            name: string;
+            /**
+             * @description Values to change, by field name. A value left out keeps what is saved, and so does
+             *     an empty secret.
+             */
+            values?: {
+                [key: string]: string;
+            };
         };
         UpdateSettingsRequest: {
             /**
@@ -1529,6 +1666,269 @@ export interface operations {
             };
             /** @description rate_limited */
             429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    listCredentialTypes: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CredentialTypeList"];
+                };
+            };
+            /** @description unauthenticated */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    listCredentials: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CredentialList"];
+                };
+            };
+            /** @description unauthenticated */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    createCredential: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description Credential */
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateCredentialRequest"];
+            };
+        };
+        responses: {
+            /** @description Created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Credential"];
+                };
+            };
+            /** @description invalid_input */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description unauthenticated */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description credential_exists */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    deleteCredential: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Credential ID */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No Content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description unauthenticated */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description not_found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    updateCredential: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Credential ID */
+                id: string;
+            };
+            cookie?: never;
+        };
+        /** @description Changes */
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateCredentialRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Credential"];
+                };
+            };
+            /** @description invalid_input */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description unauthenticated */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description not_found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description credential_exists */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    testCredential: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Credential ID */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Credential"];
+                };
+            };
+            /** @description invalid_input: this type cannot be tested */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description unauthenticated */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description not_found */
+            404: {
                 headers: {
                     [name: string]: unknown;
                 };

@@ -71,10 +71,15 @@ func TestWorkflowRoutes(t *testing.T) {
 					{NodeType: engine.NodeType{Name: "trigger.manual", Outputs: []string{"main"}}, Trigger: true},
 					{NodeType: engine.NodeType{Name: "logic.if", Label: "If", Inputs: []string{"main"}, Outputs: []string{"true", "false"},
 						Params: []engine.ParamSpec{{Name: "operator", Kind: engine.ParamString, Default: "gt", Options: []string{"gt", "lt"}}}}},
+					{NodeType: engine.NodeType{Name: "output.webhook", Inputs: []string{"main"}, Outputs: []string{"main"},
+						Params: []engine.ParamSpec{{Name: "credential", Kind: engine.ParamCredential, CredentialType: "http.header"}}}},
 				})
 			},
 			wantStatus: http.StatusOK,
-			wantBody:   []string{`"name":"trigger.manual","trigger":true,"inputs":[]`, `"label":"If"`, `"default":"gt","options":["gt","lt"]`},
+			wantBody: []string{
+				`"name":"trigger.manual","trigger":true,"inputs":[]`, `"label":"If"`, `"default":"gt","options":["gt","lt"]`,
+				`{"name":"credential","kind":"credential","required":false,"credentialType":"http.header"}`,
+			},
 		},
 		{
 			name: "create keeps numbers exact",

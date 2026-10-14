@@ -13,15 +13,21 @@ import (
 
 var ErrUnknownNodeType = errors.New("unknown node type")
 
-// Registry holds the node and trigger implementations by type name.
+// Registry holds the node and trigger implementations by type name, and the credential
+// types their params may ask for.
 type Registry struct {
-	mu       sync.RWMutex
-	nodes    map[string]Node
-	triggers map[string]Trigger
+	mu          sync.RWMutex
+	nodes       map[string]Node
+	triggers    map[string]Trigger
+	credentials map[string]CredentialType
 }
 
 func NewRegistry() *Registry {
-	return &Registry{nodes: make(map[string]Node), triggers: make(map[string]Trigger)}
+	return &Registry{
+		nodes:       make(map[string]Node),
+		triggers:    make(map[string]Trigger),
+		credentials: make(map[string]CredentialType),
+	}
 }
 
 func (r *Registry) RegisterNode(n Node) error {
@@ -46,6 +52,10 @@ func (r *Registry) register(typ NodeType, store func()) error {
 
 	if _, ok := r.triggers[typ.Name]; ok {
 		return fmt.Errorf("register node type %q: already registered", typ.Name)
+	}
+
+	if err := r.checkCredentialParams(typ); err != nil {
+		return err
 	}
 
 	store()

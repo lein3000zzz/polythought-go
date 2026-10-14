@@ -24,6 +24,7 @@ import (
 	"github.com/lein3000zzz/polythought-go/internal/core/nodes"
 	"github.com/lein3000zzz/polythought-go/internal/core/ports"
 	"github.com/lein3000zzz/polythought-go/internal/core/services/auth"
+	"github.com/lein3000zzz/polythought-go/internal/core/services/credentials"
 	"github.com/lein3000zzz/polythought-go/internal/core/services/events"
 	"github.com/lein3000zzz/polythought-go/internal/core/services/feed"
 	"github.com/lein3000zzz/polythought-go/internal/core/services/library"
@@ -81,18 +82,20 @@ const restartDelay = 300 * time.Millisecond
 
 // app is everything the server and the operator tools share.
 type app struct {
-	cfg        config.Config
-	util       *observability.Utility
-	db         *postgres.DB
-	settings   *settings.Service
-	auth       *auth.Service
-	wallets    *wallets.Service
-	workflows  *workflows.Service
-	registry   *engine.Registry
-	supervisor *engine.Supervisor
-	feed       *feed.Hub
-	events     *events.Hub
-	library    *library.Service
+	cfg         config.Config
+	util        *observability.Utility
+	db          *postgres.DB
+	box         ports.SecretBox
+	settings    *settings.Service
+	auth        *auth.Service
+	wallets     *wallets.Service
+	workflows   *workflows.Service
+	registry    *engine.Registry
+	supervisor  *engine.Supervisor
+	feed        *feed.Hub
+	events      *events.Hub
+	library     *library.Service
+	credentials *credentials.Service
 
 	restartOnce sync.Once
 	restartc    chan struct{} // closed when an admin asked for a restart
@@ -140,9 +143,9 @@ func (a *app) init(ctx context.Context) error {
 		return err
 	}
 
-	box := crypto.NewEnvelope(keys)
+	a.box = crypto.NewEnvelope(keys)
 
-	if err := a.initSettings(ctx, box); err != nil {
+	if err := a.initSettings(ctx, a.box); err != nil {
 		return err
 	}
 
@@ -157,7 +160,7 @@ func (a *app) init(ctx context.Context) error {
 		return err
 	}
 
-	a.wallets = wallets.New(postgres.NewWallets(a.db), box, pmc.account, a.util.Logger)
+	a.wallets = wallets.New(postgres.NewWallets(a.db), a.box, pmc.account, a.util.Logger)
 
 	if err := a.initEngine(ctx, pmc); err != nil {
 		return err
@@ -284,6 +287,9 @@ func (a *app) initEngine(ctx context.Context, pmc polymarket) error {
 
 	a.registry = engine.NewRegistry()
 
+	// The vault reads credential types from the registry, which nodes.Register fills.
+	a.credentials = credentials.New(a.registry, postgres.NewCredentials(a.db), a.box, a.util.Logger)
+
 	webhooks, err := webhook.New(a.util, webhook.Config{
 		AllowPrivate: func() bool { return a.settings.Current().Bool(config.KeyWebhookAllowPrivate) },
 	})
@@ -301,6 +307,7 @@ func (a *app) initEngine(ctx context.Context, pmc polymarket) error {
 		Account:      pmc.account,
 		Wallets:      a.wallets,
 		Webhooks:     webhooks,
+		Credentials:  a.credentials,
 		Feed:         a.feed,
 		Logger:       a.util.Logger,
 		MinInterval:  current.Duration(config.KeyScheduleMinInterval),

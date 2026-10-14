@@ -1,6 +1,7 @@
 import { useState, type ReactNode } from 'react'
 
 import type { ParamSpec } from '@/api/client'
+import { useCredentialList, useCredentialTypes } from '@/api/vault'
 import { useWallets } from '@/api/wallets'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Input } from '@/components/ui/input'
@@ -26,6 +27,7 @@ export function ParamField(props: Props) {
 
   if (spec.kind === 'bool') return <BoolField {...props} />
   if (spec.kind === 'wallet') return <WalletField {...props} />
+  if (spec.kind === 'credential') return <CredentialField {...props} />
   if (spec.options?.length && spec.kind === 'list') return <ChecklistField {...props} />
   if (spec.options?.length) return <SelectField {...props} />
   if (spec.kind === 'list' || spec.kind === 'tokens') return <TextField {...props} multiline />
@@ -160,6 +162,7 @@ function WalletField({ spec, value, onChange, problem, scope }: Props) {
   return (
     <Field
       spec={spec}
+      scope={scope}
       problem={problem}
       hint={wallets.data?.length === 0 ? 'No wallets linked yet.' : undefined}
     >
@@ -181,6 +184,54 @@ function WalletField({ spec, value, onChange, problem, scope }: Props) {
         ))}
         {current && wallets.isSuccess && !known && (
           <NativeSelectOption value={current}>Unknown wallet ({current})</NativeSelectOption>
+        )}
+      </NativeSelect>
+    </Field>
+  )
+}
+
+/** One of the user's credentials of the kind the param asks for. */
+function CredentialField({ spec, value, onChange, problem, scope }: Props) {
+  const credentials = useCredentialList()
+  const types = useCredentialTypes()
+  const current = typeof value === 'string' ? value : ''
+  const matching = credentials.data?.filter((c) => c.type === spec.credentialType) ?? []
+  const known = matching.some((c) => c.id === current)
+  const kind = types.data?.find((t) => t.name === spec.credentialType)?.label ?? 'credential'
+
+  return (
+    <Field
+      spec={spec}
+      scope={scope}
+      problem={problem}
+      hint={
+        credentials.isSuccess && matching.length === 0
+          ? `You have no ${kind} credentials yet: add one on the Credentials page.`
+          : undefined
+      }
+    >
+      <NativeSelect
+        id={fieldId(spec, scope)}
+        className="w-full"
+        value={current}
+        disabled={credentials.isPending}
+        aria-invalid={Boolean(problem) || undefined}
+        onChange={(e) => onChange(e.target.value === '' ? undefined : e.target.value)}
+      >
+        <NativeSelectOption value="">
+          {credentials.isPending
+            ? 'Loading credentials…'
+            : spec.required
+              ? 'Choose a credential'
+              : 'None'}
+        </NativeSelectOption>
+        {matching.map((c) => (
+          <NativeSelectOption key={c.id} value={c.id}>
+            {c.name}
+          </NativeSelectOption>
+        ))}
+        {current && credentials.isSuccess && !known && (
+          <NativeSelectOption value={current}>Missing credential ({current})</NativeSelectOption>
         )}
       </NativeSelect>
     </Field>

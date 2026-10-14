@@ -80,13 +80,14 @@ type NodeTypes interface {
 
 // Services are the application services behind the API.
 type Services struct {
-	Auth      AuthService
-	Wallets   WalletService
-	Workflows WorkflowService
-	NodeTypes NodeTypes
-	Events    EventService
-	Library   LibraryService
-	Settings  SettingsService
+	Auth        AuthService
+	Wallets     WalletService
+	Workflows   WorkflowService
+	NodeTypes   NodeTypes
+	Events      EventService
+	Library     LibraryService
+	Settings    SettingsService
+	Credentials CredentialService
 }
 
 type Config struct {
@@ -105,20 +106,21 @@ type Config struct {
 }
 
 type Server struct {
-	hertz     *server.Hertz
-	auth      AuthService
-	wallets   WalletService
-	workflows WorkflowService
-	nodeTypes NodeTypes
-	events    EventService
-	library   LibraryService
-	settings  SettingsService
-	log       logging.Logger
-	kit       *redkit.Kit
-	scope     tracing.Scope
-	origin    string
-	secure    bool
-	clientIP  atomic.Pointer[app.ClientIP]
+	hertz       *server.Hertz
+	auth        AuthService
+	wallets     WalletService
+	workflows   WorkflowService
+	nodeTypes   NodeTypes
+	events      EventService
+	library     LibraryService
+	settings    SettingsService
+	credentials CredentialService
+	log         logging.Logger
+	kit         *redkit.Kit
+	scope       tracing.Scope
+	origin      string
+	secure      bool
+	clientIP    atomic.Pointer[app.ClientIP]
 
 	// closing ends event streams on shutdown, which would otherwise hold it up.
 	closing   chan struct{}
@@ -162,20 +164,21 @@ func New(cfg Config, util *observability.Utility, services Services) (*Server, e
 	)
 
 	s := &Server{
-		hertz:     h,
-		auth:      services.Auth,
-		wallets:   services.Wallets,
-		workflows: services.Workflows,
-		nodeTypes: services.NodeTypes,
-		events:    services.Events,
-		library:   services.Library,
-		settings:  services.Settings,
-		log:       log,
-		kit:       kit,
-		scope:     tracing.Scope{Manager: util.TracerManager, TracerName: tracerName},
-		origin:    public.Scheme + "://" + public.Host,
-		secure:    public.Scheme == "https",
-		closing:   make(chan struct{}),
+		hertz:       h,
+		auth:        services.Auth,
+		wallets:     services.Wallets,
+		workflows:   services.Workflows,
+		nodeTypes:   services.NodeTypes,
+		events:      services.Events,
+		library:     services.Library,
+		settings:    services.Settings,
+		credentials: services.Credentials,
+		log:         log,
+		kit:         kit,
+		scope:       tracing.Scope{Manager: util.TracerManager, TracerName: tracerName},
+		origin:      public.Scheme + "://" + public.Host,
+		secure:      public.Scheme == "https",
+		closing:     make(chan struct{}),
 	}
 
 	s.SetTrustedProxies(cfg.TrustedProxies)
@@ -240,6 +243,15 @@ func (s *Server) routes() {
 	w.GET("/:id/credentials", s.credentialsInfo)
 	w.PUT("/:id/credentials", s.setCredentials)
 	w.DELETE("/:id/credentials", s.removeCredentials)
+
+	v1.GET("/credential-types", s.requireAuth, s.listCredentialTypes)
+
+	cr := v1.Group("/credentials", s.requireAuth)
+	cr.GET("", s.listCredentials)
+	cr.POST("", s.createCredential)
+	cr.PATCH("/:id", s.updateCredential)
+	cr.DELETE("/:id", s.deleteCredential)
+	cr.POST("/:id/test", s.testCredential)
 
 	v1.GET("/node-types", s.requireAuth, s.listNodeTypes)
 	v1.GET("/events", s.requireAuth, s.streamEvents)

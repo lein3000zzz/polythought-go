@@ -137,7 +137,7 @@ func TestInputs(t *testing.T) {
 		want []string // node.param
 	}{
 		{id: "first-workflow"},
-		{id: "chat-alerts", want: []string{"chat.url"}},
+		{id: "chat-alerts", want: []string{"chat.url", "chat.credential"}}, // the credential is optional
 		{id: "your-positions", want: []string{"positions.wallet"}},
 		{id: "low-balance", want: []string{"balance.wallet"}},
 	}
@@ -165,12 +165,13 @@ func TestUse(t *testing.T) {
 
 		d.workflows.EXPECT().Create(ctx, alice, mock.MatchedBy(func(def workflows.Definition) bool {
 			return def.Name == "My alerts" && def.Nodes[5].Params["url"] == "https://chat.example/hook" &&
+				def.Nodes[5].Params["credential"] == "c-1" &&
 				def.Nodes[5].Params["send"] == "all" && len(def.Connections) == 5
 		})).Return(domain.Workflow{ID: "wf-9"}, nil)
 
 		w, err := s.Use(ctx, alice, "chat-alerts", library.UseInput{
 			Name:   " My alerts ",
-			Values: map[domain.NodeID]map[string]any{"chat": {"url": "https://chat.example/hook"}},
+			Values: map[domain.NodeID]map[string]any{"chat": {"url": "https://chat.example/hook", "credential": "c-1"}},
 		})
 		require.NoError(t, err)
 		assert.Equal(t, domain.WorkflowID("wf-9"), w.ID)
@@ -206,7 +207,7 @@ func TestShare(t *testing.T) {
 		Nodes: []domain.NodeSpec{
 			{ID: "t", Type: "trigger.manual"},
 			{ID: "b", Type: "polymarket.balance", Params: map[string]any{"wallet": "w-alice"}, Notes: "mine"},
-			{ID: "h", Type: "output.webhook", Params: map[string]any{"url": "https://secret/hook", "send": "each"}},
+			{ID: "h", Type: "output.webhook", Params: map[string]any{"url": "https://secret/hook", "send": "each", "credential": "c-alice"}},
 		},
 		Connections: []domain.Connection{{From: "t", FromPort: "main", To: "b", ToPort: "main"}},
 	}
@@ -229,7 +230,7 @@ func TestShare(t *testing.T) {
 		assert.Equal(t, source.ID, entry.SourceID)
 		assert.Equal(t, now, entry.CreatedAt)
 		assert.Empty(t, entry.Nodes[1].Params, "the wallet stays home")
-		assert.Equal(t, map[string]any{"send": "each"}, entry.Nodes[2].Params, "so does the webhook URL")
+		assert.Equal(t, map[string]any{"send": "each"}, entry.Nodes[2].Params, "so do the webhook URL and credential")
 		assert.Equal(t, "mine", entry.Nodes[1].Notes)
 		assert.Equal(t, "w-alice", source.Nodes[1].Params["wallet"], "the workflow is untouched")
 
@@ -238,7 +239,7 @@ func TestShare(t *testing.T) {
 			inputs = append(inputs, string(in.NodeID)+"."+in.Param.Name)
 		}
 
-		assert.Equal(t, []string{"b.wallet", "h.url"}, inputs)
+		assert.Equal(t, []string{"b.wallet", "h.url", "h.credential"}, inputs)
 	})
 
 	t.Run("sharing again updates the copy, whatever the allowance", func(t *testing.T) {

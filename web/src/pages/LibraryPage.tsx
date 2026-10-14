@@ -120,13 +120,16 @@ function TemplateCard({ template: t }: { template: Template }) {
   )
 }
 
-// inputSummary names what using a template asks for: "a wallet", "a webhook URL".
+// inputSummary names what using a template needs: "a wallet", "a webhook URL". Optional
+// inputs, like a credential, are left out.
 function inputSummary(t: Template): string | undefined {
   const asks = [
     ...new Set(
-      t.inputs.map((i) =>
-        i.param.kind === 'wallet' ? 'a wallet' : `a ${lowerFirst(i.param.label ?? i.param.name)}`,
-      ),
+      t.inputs
+        .filter((i) => i.param.required)
+        .map((i) =>
+          i.param.kind === 'wallet' ? 'a wallet' : `a ${lowerFirst(i.param.label ?? i.param.name)}`,
+        ),
     ),
   ]
 

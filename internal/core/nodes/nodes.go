@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/lein3000zzz/polythought-go/internal/core/nodes/account"
+	"github.com/lein3000zzz/polythought-go/internal/core/nodes/credtypes"
 	"github.com/lein3000zzz/polythought-go/internal/core/nodes/logic"
 	markets2 "github.com/lein3000zzz/polythought-go/internal/core/nodes/markets"
 	"github.com/lein3000zzz/polythought-go/internal/core/nodes/output"
@@ -28,7 +29,8 @@ type Deps struct {
 	Account      ports.AccountReader
 	Wallets      ports.WalletDirectory
 	Webhooks     ports.WebhookSender
-	Feed         ports.MarketFeed // optional: without it, trigger.market is not available
+	Credentials  ports.CredentialReader // optional: without it, nodes cannot use credentials
+	Feed         ports.MarketFeed       // optional: without it, trigger.market is not available
 	Logger       logging.Logger
 
 	// MinInterval is the shortest interval schedules and market triggers may use. Zero
@@ -40,6 +42,11 @@ func Register(r *engine.Registry, d Deps) error {
 	minInterval := d.MinInterval
 	if minInterval <= 0 {
 		minInterval = triggers.DefaultMinInterval
+	}
+
+	// Credential types first: nodes asking for one are checked against them.
+	if err := r.RegisterCredentialType(credtypes.HTTPHeaderType()); err != nil {
+		return err
 	}
 
 	var market error
@@ -62,7 +69,7 @@ func Register(r *engine.Registry, d Deps) error {
 		r.RegisterNode(transform.Top{}),
 		r.RegisterNode(transform.Pick{}),
 		r.RegisterNode(output.NewLog(d.Logger)),
-		r.RegisterNode(output.NewWebhook(d.Webhooks)),
+		r.RegisterNode(output.NewWebhook(d.Webhooks, d.Credentials)),
 		r.RegisterNode(account.NewPositions(d.Wallets, d.Positions)),
 		r.RegisterNode(account.NewOrders(d.Wallets, d.Account)),
 		r.RegisterNode(account.NewBalance(d.Wallets, d.Account)),

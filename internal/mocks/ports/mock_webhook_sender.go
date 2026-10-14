@@ -47,16 +47,16 @@ func (_m *MockWebhookSender) EXPECT() *MockWebhookSender_Expecter {
 }
 
 // Post provides a mock function for the type MockWebhookSender
-func (_mock *MockWebhookSender) Post(ctx context.Context, url string, body []byte) error {
-	ret := _mock.Called(ctx, url, body)
+func (_mock *MockWebhookSender) Post(ctx context.Context, url string, body []byte, header map[string]string) error {
+	ret := _mock.Called(ctx, url, body, header)
 
 	if len(ret) == 0 {
 		panic("no return value specified for Post")
 	}
 
 	var r0 error
-	if returnFunc, ok := ret.Get(0).(func(context.Context, string, []byte) error); ok {
-		r0 = returnFunc(ctx, url, body)
+	if returnFunc, ok := ret.Get(0).(func(context.Context, string, []byte, map[string]string) error); ok {
+		r0 = returnFunc(ctx, url, body, header)
 	} else {
 		r0 = ret.Error(0)
 	}
@@ -72,11 +72,12 @@ type MockWebhookSender_Post_Call struct {
 //   - ctx context.Context
 //   - url string
 //   - body []byte
-func (_e *MockWebhookSender_Expecter) Post(ctx any, url any, body any) *MockWebhookSender_Post_Call {
-	return &MockWebhookSender_Post_Call{Call: _e.mock.On("Post", ctx, url, body)}
+//   - header map[string]string
+func (_e *MockWebhookSender_Expecter) Post(ctx any, url any, body any, header any) *MockWebhookSender_Post_Call {
+	return &MockWebhookSender_Post_Call{Call: _e.mock.On("Post", ctx, url, body, header)}
 }
 
-func (_c *MockWebhookSender_Post_Call) Run(run func(ctx context.Context, url string, body []byte)) *MockWebhookSender_Post_Call {
+func (_c *MockWebhookSender_Post_Call) Run(run func(ctx context.Context, url string, body []byte, header map[string]string)) *MockWebhookSender_Post_Call {
 	_c.Call.Run(func(args mock.Arguments) {
 		var arg0 context.Context
 		if args[0] != nil {
@@ -90,10 +91,15 @@ func (_c *MockWebhookSender_Post_Call) Run(run func(ctx context.Context, url str
 		if args[2] != nil {
 			arg2 = args[2].([]byte)
 		}
+		var arg3 map[string]string
+		if args[3] != nil {
+			arg3 = args[3].(map[string]string)
+		}
 		run(
 			arg0,
 			arg1,
 			arg2,
+			arg3,
 		)
 	})
 	return _c
@@ -104,7 +110,7 @@ func (_c *MockWebhookSender_Post_Call) Return(err error) *MockWebhookSender_Post
 	return _c
 }
 
-func (_c *MockWebhookSender_Post_Call) RunAndReturn(run func(ctx context.Context, url string, body []byte) error) *MockWebhookSender_Post_Call {
+func (_c *MockWebhookSender_Post_Call) RunAndReturn(run func(ctx context.Context, url string, body []byte, header map[string]string) error) *MockWebhookSender_Post_Call {
 	_c.Call.Return(run)
 	return _c
 }
