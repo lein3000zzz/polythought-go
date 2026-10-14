@@ -370,6 +370,40 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/notifications": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Your notifications */
+        get: operations["listNotifications"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/notifications/{key}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Switch a notification on or off */
+        put: operations["setNotification"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/telegram": {
         parameters: {
             query?: never;
@@ -886,6 +920,15 @@ export interface components {
         NodeTypeList: {
             nodeTypes: components["schemas"]["NodeType"][];
         };
+        Notification: {
+            description: string;
+            enabled: boolean;
+            key: string;
+            label: string;
+        };
+        NotificationList: {
+            notifications: components["schemas"]["Notification"][];
+        };
         ParamSpec: {
             /**
              * @description CredentialType is the kind of credential a credential param takes, one of the
@@ -931,6 +974,9 @@ export interface components {
             signatureType: 0 | 1 | 2 | 3;
             /** @description Signer defaults to the wallet address. */
             signer?: string;
+        };
+        SetNotificationRequest: {
+            enabled: boolean;
         };
         Setting: {
             /**
@@ -2319,6 +2365,90 @@ export interface operations {
             };
             /** @description unauthenticated */
             401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    listNotifications: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NotificationList"];
+                };
+            };
+            /** @description unauthenticated */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    setNotification: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Kind of notification, e.g. workflow_failed */
+                key: string;
+            };
+            cookie?: never;
+        };
+        /** @description On or off */
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SetNotificationRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Notification"];
+                };
+            };
+            /** @description invalid_input */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description unauthenticated */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description not_found */
+            404: {
                 headers: {
                     [name: string]: unknown;
                 };

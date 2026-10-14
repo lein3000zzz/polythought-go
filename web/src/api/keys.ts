@@ -9,6 +9,7 @@ export const keys = {
   nodeTypes: ['node-types'],
   tokens: ['tokens'],
   telegram: ['telegram'],
+  notifications: ['notifications'],
   users: ['admin', 'users'],
   invites: ['admin', 'invites'],
   settings: ['admin', 'settings'],

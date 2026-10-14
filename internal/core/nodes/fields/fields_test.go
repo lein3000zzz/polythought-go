@@ -96,4 +96,9 @@ func TestRender(t *testing.T) {
 			assert.Equal(t, tt.want, fields.Render(tt.template, item))
 		})
 	}
+
+	t.Run("escaped values, template untouched", func(t *testing.T) {
+		upper := func(s string) string { return "[" + s + "]" }
+		assert.Equal(t, "<b>[Yes]</b> at [0.62]", fields.RenderEscaped("<b>{{outcomes.0.label}}</b> at {{outcomes.0.price}}", item, upper))
+	})
 }

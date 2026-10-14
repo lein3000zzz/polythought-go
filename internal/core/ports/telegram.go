@@ -20,6 +20,7 @@ type TelegramMessage struct {
 	ChatID  int64
 	HTML    string // Telegram's subset of HTML; escape everything that is not markup
 	Buttons [][]TelegramButton
+	Silent  bool // delivered without a sound; sending only
 }
 
 type TelegramUser struct {
@@ -84,4 +85,34 @@ type TelegramLinkRepository interface {
 	SaveCode(ctx context.Context, user domain.UserID, codeHash []byte, expiresAt time.Time) error
 	// ConsumeCode deletes a code and returns whose it was. Expired codes are not found.
 	ConsumeCode(ctx context.Context, codeHash []byte, now time.Time) (domain.UserID, error)
+}
+
+// UserMessage is a message for a user, wherever they get them: for now their linked
+// Telegram chat.
+type UserMessage struct {
+	HTML    string // Telegram's subset of HTML; escape everything that is not markup
+	Buttons [][]TelegramButton
+	Silent  bool // delivered without a sound
+}
+
+// UserMessenger writes to users. One with nowhere to write to is
+// domain.ErrTelegramNotLinked.
+type UserMessenger interface {
+	MessageUser(ctx context.Context, user domain.UserID, m UserMessage) error
+}
+
+// TelegramInboxMessage is a message a linked user sent the bot.
+type TelegramInboxMessage struct {
+	Text      string
+	Username  string
+	FirstName string
+	At        time.Time
+}
+
+// TelegramInbox hands the messages linked users send the bot to the workflows waiting for
+// them. Messages the bot answers itself, such as /start, never arrive here.
+type TelegramInbox interface {
+	// Subscribe delivers the owner's messages that match, until cancel is called. A
+	// subscriber too slow to keep up misses messages.
+	Subscribe(owner domain.UserID, match func(text string) bool) (messages <-chan TelegramInboxMessage, cancel func())
 }

@@ -42,8 +42,11 @@ func build() (Pages, error) {
 	registry := engine.NewRegistry()
 
 	// Only the types are read, so the nodes get no real dependencies; the market trigger
-	// registers only with a feed.
-	if err := nodes.Register(registry, nodes.Deps{Feed: noFeed{}, Logger: logging.Noop()}); err != nil {
+	// registers only with a feed, and the Telegram nodes only with the bot.
+	err := nodes.Register(registry, nodes.Deps{
+		Feed: noFeed{}, Messenger: noTelegram{}, TelegramInbox: noTelegram{}, Logger: logging.Noop(),
+	})
+	if err != nil {
 		return nil, err
 	}
 
@@ -123,4 +126,12 @@ type noFeed struct{}
 
 func (noFeed) Subscribe(context.Context, []domain.TokenID) (ports.FeedSubscription, error) {
 	return nil, nil //nolint:nilnil // never called: only the node types are read
+}
+
+type noTelegram struct{}
+
+func (noTelegram) MessageUser(context.Context, domain.UserID, ports.UserMessage) error { return nil }
+
+func (noTelegram) Subscribe(domain.UserID, func(string) bool) (<-chan ports.TelegramInboxMessage, func()) {
+	return nil, func() {}
 }

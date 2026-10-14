@@ -333,10 +333,15 @@ func TestExecuteNotifies(t *testing.T) {
 		return e.ID == "ex-1" && e.Status == domain.ExecutionSucceeded
 	})).Run(func(domain.UserID, domain.Execution) { order = append(order, "notified") }).Once()
 
+	another := portsmocks.NewMockExecutionNotifier(t)
+	another.EXPECT().ExecutionFinished(domain.UserID("alice"), mock.Anything).
+		Run(func(domain.UserID, domain.Execution) { order = append(order, "notified again") }).Once()
+
 	ex, err := engine.NewExecutor(observability.NoopUtility(), testRegistry(t),
 		engine.WithExecutionIDs(func() domain.ExecutionID { return "ex-1" }),
 		engine.WithRecorder(recorder),
 		engine.WithNotifier(notifier),
+		engine.WithNotifier(another),
 	)
 	require.NoError(t, err)
 
@@ -344,5 +349,5 @@ func TestExecuteNotifies(t *testing.T) {
 	_, err = ex.Execute(context.Background(), wf, "trigger", fired(item("v", 1)))
 	require.NoError(t, err)
 
-	assert.Equal(t, []string{"recorded", "notified"}, order, "listeners can load what they hear about")
+	assert.Equal(t, []string{"recorded", "notified", "notified again"}, order, "listeners can load what they hear about")
 }

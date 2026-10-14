@@ -3,8 +3,9 @@ title: Telegram
 description: Link Telegram to get messages from Polythought there, and set up the bot.
 ---
 
-Polythought can write to you on Telegram, through the bot of your instance. Link your
-Telegram account once; messages from Polythought then arrive in your chat with the bot.
+Polythought can write to you on Telegram, through the bot of your instance: notifications,
+and messages from your workflows. Your workflows can also start on messages you send the
+bot. Link your Telegram account once to use any of it.
 
 ## Linking
 
@@ -18,6 +19,31 @@ to another moves it there.
 
 If **Link Telegram** is missing, the instance has no bot yet; see below.
 
+## Notifications
+
+Under **Settings → Notifications**, choose what Polythought tells you about:
+
+- **A workflow fails**: a run of one of your workflows failed, with the reason. At most once
+  an hour for each workflow; the next message says how many failures came in between. Runs
+  you start by hand never notify: you see those yourself.
+
+Notifications go to your linked chat. Without one, nothing is sent.
+
+## In workflows
+
+Two nodes use your chat with the bot:
+
+- [Telegram message](/docs/reference/nodes/telegram/send/) sends items to you: one message
+  listing them all, or one per item. `{{field}}` puts in an item's field. With the **html**
+  format, Telegram's tags work, such as `<b>` and `<a href="…">`; item fields are escaped,
+  so they cannot change the formatting.
+- [Telegram message trigger](/docs/reference/nodes/triggers/telegram/) starts a workflow when
+  you send the bot a message. **Starts with** limits it to messages like `/report`; the item
+  has the whole `text` and the `rest` after that start. A message that no workflow takes gets
+  the bot's usual answer.
+
+Both reach only your own chat: a shared workflow that uses them writes to whoever uses it.
+
 ## Unlinking
 
 Either side works:
@@ -25,7 +51,8 @@ Either side works:
 - In Polythought, **Settings → Telegram → Unlink**. The bot tells the chat.
 - In Telegram, send the bot `/start` and press **Unlink this chat** under its answer.
 
-The bot then answers only with how to link again.
+The bot then answers only with how to link again. Blocking the bot in Telegram unlinks the
+chat too, the next time Polythought writes to it.
 
 ## Setting up the bot
 

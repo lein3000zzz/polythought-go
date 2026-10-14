@@ -14,6 +14,7 @@ Each node has a page with its settings. In the editor, the node list on the left
 | [Manual](/docs/reference/nodes/triggers/manual/) | `trigger.manual` | Starts the workflow when you run it by hand. |
 | [Market activity](/docs/reference/nodes/triggers/market/) | `trigger.market` | Starts the workflow on live trades, book changes or resolutions of the chosen tokens, batched per window. |
 | [Schedule](/docs/reference/nodes/triggers/schedule/) | `trigger.schedule` | Starts the workflow at a fixed interval. |
+| [Telegram message](/docs/reference/nodes/triggers/telegram/) | `trigger.telegram` | Starts the workflow when you send the instance's bot a message, one item per message. |
 
 ## Polymarket
 
@@ -49,3 +50,9 @@ Each node has a page with its settings. In the editor, the node list on the left
 |---|---|---|
 | [Log](/docs/reference/nodes/output/log/) | `output.log` | Writes a line to the server log for each item and passes the items on. |
 | [Webhook](/docs/reference/nodes/output/webhook/) | `output.webhook` | Sends items to a web address: a message to a Discord or Slack channel, or the items as JSON to any service that takes them. |
+
+## Telegram
+
+| Node | Type | What it does |
+|---|---|---|
+| [Telegram message](/docs/reference/nodes/telegram/send/) | `telegram.send` | Sends items to you on Telegram, in your chat with the instance's bot. |

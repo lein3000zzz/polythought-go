@@ -1,6 +1,6 @@
 import '@/test/browser'
 
-import { screen, within } from '@testing-library/react'
+import { screen, waitFor, within } from '@testing-library/react'
 import { http, HttpResponse } from 'msw'
 import { describe, expect, it } from 'vitest'
 
@@ -18,6 +18,17 @@ const token: Schemas['APIToken'] = {
 
 const noTelegram = http.get('/api/v1/telegram', () => HttpResponse.json({ available: false }))
 
+const failedPref: Schemas['Notification'] = {
+  key: 'workflow_failed',
+  label: 'A workflow fails',
+  description: 'A run of one of your workflows failed.',
+  enabled: true,
+}
+
+const notifications = http.get('/api/v1/notifications', () =>
+  HttpResponse.json({ notifications: [failedPref] }),
+)
+
 describe('settings page', () => {
   it('changes the password', async () => {
     const sent: unknown[] = []
@@ -25,6 +36,7 @@ describe('settings page', () => {
     server.use(
       signedIn,
       noTelegram,
+      notifications,
       http.get('/api/v1/tokens', () => HttpResponse.json({ tokens: [] })),
       http.put('/api/v1/me/password', async ({ request }) => {
         sent.push(await request.json())
@@ -65,6 +77,7 @@ describe('settings page', () => {
     server.use(
       signedIn,
       noTelegram,
+      notifications,
       http.get('/api/v1/tokens', () => HttpResponse.json({ tokens })),
       http.post('/api/v1/tokens', async ({ request }) => {
         created = (await request.json()) as Schemas['CreateTokenRequest']
@@ -96,7 +109,11 @@ describe('settings page', () => {
   })
 
   describe('telegram', () => {
-    const base = [signedIn, http.get('/api/v1/tokens', () => HttpResponse.json({ tokens: [] }))]
+    const base = [
+      signedIn,
+      notifications,
+      http.get('/api/v1/tokens', () => HttpResponse.json({ tokens: [] })),
+    ]
 
     it('says when the instance has no bot', async () => {
       server.use(...base, noTelegram)
@@ -110,6 +127,7 @@ describe('settings page', () => {
     it('tells admins what went wrong', async () => {
       server.use(
         http.get('/api/v1/me', () => HttpResponse.json({ ...alice, role: 'admin' })),
+        notifications,
         http.get('/api/v1/tokens', () => HttpResponse.json({ tokens: [] })),
         http.get('/api/v1/telegram', () =>
           HttpResponse.json({
@@ -188,5 +206,29 @@ describe('settings page', () => {
       expect(await screen.findByText('Telegram unlinked')).toBeInTheDocument()
       expect(await screen.findByRole('button', { name: 'Link Telegram' })).toBeInTheDocument()
     })
+  })
+
+  it('switches a notification off, and says where they go', async () => {
+    let sent: unknown
+    server.use(
+      signedIn,
+      noTelegram,
+      notifications,
+      http.get('/api/v1/tokens', () => HttpResponse.json({ tokens: [] })),
+      http.put('/api/v1/notifications/workflow_failed', async ({ request }) => {
+        sent = await request.json()
+        return HttpResponse.json({ ...failedPref, enabled: false })
+      }),
+    )
+    const { user } = renderApp('/settings')
+
+    const toggle = await screen.findByRole('switch', { name: 'A workflow fails' })
+    expect(toggle).toBeChecked()
+    expect(screen.getByText(/Link Telegram above to get them/)).toBeInTheDocument()
+
+    await user.click(toggle)
+
+    await waitFor(() => expect(toggle).not.toBeChecked())
+    expect(sent).toEqual({ enabled: false })
   })
 })

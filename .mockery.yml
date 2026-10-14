@@ -99,3 +99,4 @@ packages:
       CredentialService: {}
       TelegramService: {}
       TelegramWebhook: {}
+      NotificationService: {}

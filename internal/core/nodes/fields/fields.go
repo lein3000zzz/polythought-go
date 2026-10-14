@@ -92,8 +92,14 @@ var placeholder = regexp.MustCompile(`\{\{\s*([^{}\s]+)\s*\}\}`)
 // Render replaces each {{path}} in template with the item's value at that path. Paths
 // the item does not have become empty.
 func Render(template string, item map[string]any) string {
+	return RenderEscaped(template, item, func(s string) string { return s })
+}
+
+// RenderEscaped is Render with every value passed through escape, so values cannot
+// change the markup the template is written in, such as HTML.
+func RenderEscaped(template string, item map[string]any, escape func(string) string) string {
 	return placeholder.ReplaceAllStringFunc(template, func(m string) string {
 		v, _ := Lookup(item, placeholder.FindStringSubmatch(m)[1])
-		return Format(v)
+		return escape(Format(v))
 	})
 }

@@ -32,8 +32,10 @@ A workflow starts at a **trigger**, a node with no input:
 - [Schedule](/docs/reference/nodes/triggers/schedule/) starts it at a fixed interval, such as every 15 minutes.
 - [Market activity](/docs/reference/nodes/triggers/market/) starts it on live trades, order
   book changes or resolutions of the outcomes you choose.
+- [Telegram message](/docs/reference/nodes/triggers/telegram/) starts it when you message the
+  instance's bot; see [Telegram](/docs/guides/telegram/).
 
-Schedules and market triggers only fire while the workflow is **active**. Switch it on in the
+Schedules, market and Telegram triggers only fire while the workflow is **active**. Switch it on in the
 editor; switch it off to stop it. You can always run a workflow by hand, active or not: Run
 starts from its Manual trigger, or from its Schedule if it has no Manual one.
 

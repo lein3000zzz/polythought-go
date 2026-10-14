@@ -29,6 +29,7 @@ import (
 	"github.com/lein3000zzz/polythought-go/internal/core/services/events"
 	"github.com/lein3000zzz/polythought-go/internal/core/services/feed"
 	"github.com/lein3000zzz/polythought-go/internal/core/services/library"
+	"github.com/lein3000zzz/polythought-go/internal/core/services/notify"
 	"github.com/lein3000zzz/polythought-go/internal/core/services/settings"
 	"github.com/lein3000zzz/polythought-go/internal/core/services/telegram"
 	"github.com/lein3000zzz/polythought-go/internal/core/services/wallets"
@@ -100,6 +101,7 @@ type app struct {
 	credentials *credentials.Service
 	telegramBot *tgadapter.Bot
 	telegram    *telegram.Service
+	notify      *notify.Service
 
 	restartOnce sync.Once
 	restartc    chan struct{} // closed when an admin asked for a restart
@@ -166,6 +168,16 @@ func (a *app) init(ctx context.Context) error {
 
 	a.wallets = wallets.New(postgres.NewWallets(a.db), a.box, pmc.account, a.util.Logger)
 
+	// Before the engine: the Telegram nodes use the bot, and failures are notified.
+	// The bot and the notifications run only in serve, which starts them.
+	if a.telegramBot, err = tgadapter.New(a.util); err != nil {
+		return err
+	}
+
+	a.telegram = telegram.New(a.telegramBot, postgres.NewTelegramLinks(a.db), postgres.NewUsers(a.db), a.util.Logger)
+	a.telegramBot.SetHandler(a.telegram.HandleUpdate)
+	a.notify = notify.New(a.telegram, postgres.NewNotificationPrefs(a.db), postgres.NewWorkflows(a.db), a.cfg.PublicURL, a.util.Logger)
+
 	if err := a.initEngine(ctx, pmc); err != nil {
 		return err
 	}
@@ -183,19 +195,8 @@ func (a *app) init(ctx context.Context) error {
 		auth.WithWorkflowStopper(a.workflows),
 		auth.WithLiveConfig(func() auth.Config { return authConfig(a.settings.Current()) }),
 	)
-	if err != nil {
-		return err
-	}
 
-	// The bot runs only in serve, which starts it; the other commands just have it.
-	if a.telegramBot, err = tgadapter.New(a.util); err != nil {
-		return err
-	}
-
-	a.telegram = telegram.New(a.telegramBot, postgres.NewTelegramLinks(a.db), postgres.NewUsers(a.db), a.util.Logger)
-	a.telegramBot.SetHandler(a.telegram.HandleUpdate)
-
-	return nil
+	return err
 }
 
 // telegramConfig is how the bot should run, from the settings.
@@ -323,19 +324,21 @@ func (a *app) initEngine(ctx context.Context, pmc polymarket) error {
 	}
 
 	err = nodes.Register(a.registry, nodes.Deps{
-		Markets:      pmc.reader,
-		Events:       pmc.reader,
-		OrderBooks:   pmc.reader,
-		PriceHistory: pmc.reader,
-		Trades:       pmc.reader,
-		Positions:    pmc.reader,
-		Account:      pmc.account,
-		Wallets:      a.wallets,
-		Webhooks:     webhooks,
-		Credentials:  a.credentials,
-		Feed:         a.feed,
-		Logger:       a.util.Logger,
-		MinInterval:  current.Duration(config.KeyScheduleMinInterval),
+		Markets:       pmc.reader,
+		Events:        pmc.reader,
+		OrderBooks:    pmc.reader,
+		PriceHistory:  pmc.reader,
+		Trades:        pmc.reader,
+		Positions:     pmc.reader,
+		Account:       pmc.account,
+		Wallets:       a.wallets,
+		Webhooks:      webhooks,
+		Credentials:   a.credentials,
+		Messenger:     a.telegram,
+		TelegramInbox: a.telegram,
+		Feed:          a.feed,
+		Logger:        a.util.Logger,
+		MinInterval:   current.Duration(config.KeyScheduleMinInterval),
 	})
 	if err != nil {
 		return err
@@ -347,7 +350,8 @@ func (a *app) initEngine(ctx context.Context, pmc polymarket) error {
 		return err
 	}
 
-	executor, err := engine.NewExecutor(a.util, a.registry, engine.WithRecorder(executions), engine.WithNotifier(a.events))
+	executor, err := engine.NewExecutor(a.util, a.registry,
+		engine.WithRecorder(executions), engine.WithNotifier(a.events), engine.WithNotifier(a.notify))
 	if err != nil {
 		return err
 	}

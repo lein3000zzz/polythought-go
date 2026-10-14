@@ -7,6 +7,7 @@ import { toast } from 'sonner'
 import { useChangePassword, useCreateToken, useRevokeToken, useTokens } from '@/api/account'
 import { useMe, useMinPasswordLength } from '@/api/auth'
 import { ApiError, errorMessage, type Schemas } from '@/api/client'
+import { useNotifications, useSetNotification } from '@/api/notifications'
 import { useCreateTelegramLink, useTelegram, useUnlinkTelegram } from '@/api/telegram'
 import { ConfirmDialog } from '@/components/ConfirmDialog'
 import { ErrorAlert } from '@/components/ErrorAlert'
@@ -15,6 +16,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Skeleton } from '@/components/ui/skeleton'
+import { Switch } from '@/components/ui/switch'
 import {
   Table,
   TableBody,
@@ -31,6 +33,7 @@ export function SettingsPage() {
       <h1 className="font-heading text-xl font-semibold">Settings</h1>
       <PasswordSection />
       <TelegramSection />
+      <NotificationsSection />
       <TokensSection />
     </div>
   )
@@ -411,6 +414,52 @@ function TelegramSection() {
           })
         }}
       />
+    </section>
+  )
+}
+
+function NotificationsSection() {
+  const notifications = useNotifications()
+  const telegram = useTelegram()
+  const set = useSetNotification()
+
+  return (
+    <section className="flex flex-col gap-4">
+      <div>
+        <h2 className="font-medium">Notifications</h2>
+        <p className="text-sm text-muted-foreground">
+          Sent to your Telegram chat.
+          {telegram.data && !telegram.data.link && ' Link Telegram above to get them.'}
+        </p>
+      </div>
+
+      {notifications.isPending && <Skeleton className="h-12" />}
+      {notifications.isError && (
+        <ErrorAlert error={notifications.error} onRetry={() => void notifications.refetch()} />
+      )}
+
+      {notifications.data?.map((n) => (
+        <div key={n.key} className="flex items-start justify-between gap-4">
+          <div className="flex flex-col gap-0.5">
+            <Label htmlFor={`notify-${n.key}`}>{n.label}</Label>
+            <p id={`notify-${n.key}-hint`} className="text-xs text-muted-foreground">
+              {n.description}
+            </p>
+          </div>
+          <Switch
+            id={`notify-${n.key}`}
+            aria-describedby={`notify-${n.key}-hint`}
+            checked={n.enabled}
+            disabled={set.isPending}
+            onCheckedChange={(enabled) =>
+              set.mutate(
+                { key: n.key, enabled },
+                { onError: (error) => toast.error(errorMessage(error)) },
+              )
+            }
+          />
+        </div>
+      ))}
     </section>
   )
 }

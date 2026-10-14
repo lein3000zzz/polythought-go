@@ -51,7 +51,7 @@ type Executor struct {
 	now       func() time.Time
 	newExecID func() domain.ExecutionID
 	recorder  ports.ExecutionRecorder
-	notifier  ports.ExecutionNotifier
+	notifiers []ports.ExecutionNotifier
 }
 
 type ExecutorOption func(*Executor)
@@ -66,9 +66,10 @@ func WithRecorder(r ports.ExecutionRecorder) ExecutorOption {
 	return func(e *Executor) { e.recorder = r }
 }
 
-// WithNotifier tells n about every finished execution, after it is recorded.
+// WithNotifier tells n about every finished execution, after it is recorded. Each use
+// adds a notifier; they are told in order.
 func WithNotifier(n ports.ExecutionNotifier) ExecutorOption {
-	return func(e *Executor) { e.notifier = n }
+	return func(e *Executor) { e.notifiers = append(e.notifiers, n) }
 }
 
 // WithExecutionIDs replaces the random execution ID generator, for tests.
@@ -180,8 +181,8 @@ func (e *Executor) Execute(
 
 	e.record(ctx, exec)
 
-	if e.notifier != nil {
-		e.notifier.ExecutionFinished(w.OwnerID, exec)
+	for _, n := range e.notifiers {
+		n.ExecutionFinished(w.OwnerID, exec)
 	}
 
 	return result, nil

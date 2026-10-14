@@ -35,7 +35,7 @@ export default defineConfig({
               items: [
                 { label: 'All nodes', slug: 'reference/nodes' },
                 // The groups of internal/tools/docgen, which writes these pages.
-                ...['Triggers', 'Polymarket', 'Logic', 'Transform', 'Output'].map((label) => ({
+                ...['Triggers', 'Polymarket', 'Logic', 'Transform', 'Output', 'Telegram'].map((label) => ({
                   label,
                   collapsed: true,
                   items: [{ autogenerate: { directory: `reference/nodes/${label.toLowerCase()}` } }],

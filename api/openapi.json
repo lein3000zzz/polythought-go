@@ -728,6 +728,44 @@
                 ],
                 "type": "object"
             },
+            "Notification": {
+                "properties": {
+                    "description": {
+                        "type": "string"
+                    },
+                    "enabled": {
+                        "type": "boolean"
+                    },
+                    "key": {
+                        "type": "string"
+                    },
+                    "label": {
+                        "type": "string"
+                    }
+                },
+                "required": [
+                    "description",
+                    "enabled",
+                    "key",
+                    "label"
+                ],
+                "type": "object"
+            },
+            "NotificationList": {
+                "properties": {
+                    "notifications": {
+                        "items": {
+                            "$ref": "#/components/schemas/Notification"
+                        },
+                        "type": "array",
+                        "uniqueItems": false
+                    }
+                },
+                "required": [
+                    "notifications"
+                ],
+                "type": "object"
+            },
             "ParamSpec": {
                 "properties": {
                     "credentialType": {
@@ -857,6 +895,17 @@
                     "apiKey",
                     "passphrase",
                     "secret"
+                ],
+                "type": "object"
+            },
+            "SetNotificationRequest": {
+                "properties": {
+                    "enabled": {
+                        "type": "boolean"
+                    }
+                },
+                "required": [
+                    "enabled"
                 ],
                 "type": "object"
             },
@@ -3119,6 +3168,128 @@
                 "summary": "List node types",
                 "tags": [
                     "workflows"
+                ]
+            }
+        },
+        "/notifications": {
+            "get": {
+                "operationId": "listNotifications",
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/NotificationList"
+                                }
+                            }
+                        },
+                        "description": "OK"
+                    },
+                    "401": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "unauthenticated"
+                    }
+                },
+                "security": [
+                    {
+                        "SessionCookie": []
+                    },
+                    {
+                        "APIToken": []
+                    }
+                ],
+                "summary": "Your notifications",
+                "tags": [
+                    "notifications"
+                ]
+            }
+        },
+        "/notifications/{key}": {
+            "put": {
+                "operationId": "setNotification",
+                "parameters": [
+                    {
+                        "description": "Kind of notification, e.g. workflow_failed",
+                        "in": "path",
+                        "name": "key",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/SetNotificationRequest",
+                                "summary": "body",
+                                "description": "On or off"
+                            }
+                        }
+                    },
+                    "description": "On or off",
+                    "required": true
+                },
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Notification"
+                                }
+                            }
+                        },
+                        "description": "OK"
+                    },
+                    "400": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "invalid_input"
+                    },
+                    "401": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "unauthenticated"
+                    },
+                    "404": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "not_found"
+                    }
+                },
+                "security": [
+                    {
+                        "SessionCookie": []
+                    },
+                    {
+                        "APIToken": []
+                    }
+                ],
+                "summary": "Switch a notification on or off",
+                "tags": [
+                    "notifications"
                 ]
             }
         },

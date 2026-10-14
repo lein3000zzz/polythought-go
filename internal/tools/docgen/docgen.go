@@ -25,6 +25,7 @@ var groups = []struct{ dir, label, prefix string }{
 	{"logic", "Logic", "logic"},
 	{"transform", "Transform", "transform"},
 	{"output", "Output", "output"},
+	{"telegram", "Telegram", "telegram"},
 }
 
 // Pages are generated files by path, relative to the reference directory.

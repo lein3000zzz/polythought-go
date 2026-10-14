@@ -54,7 +54,7 @@ func serve(ctx context.Context) error {
 	}, a.util, httpapi.Services{
 		Auth: a.auth, Wallets: a.wallets, Workflows: a.workflows, NodeTypes: a.registry, Events: a.events,
 		Library: a.library, Settings: a.settings, Credentials: a.credentials,
-		Telegram: a.telegram, TelegramWebhook: a.telegramBot,
+		Telegram: a.telegram, TelegramWebhook: a.telegramBot, Notifications: a.notify,
 	})
 	if err != nil {
 		return err
@@ -82,6 +82,7 @@ func serve(ctx context.Context) error {
 	}()
 
 	a.telegramBot.Configure(a.telegramConfig(a.settings.Current()))
+	go a.notify.Run(ctx)
 	a.settings.Subscribe(func(s *settings.Snapshot) { a.telegramBot.Configure(a.telegramConfig(s)) })
 
 	if err := a.workflows.StartActive(ctx); err != nil {

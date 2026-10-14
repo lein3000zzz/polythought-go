@@ -10,6 +10,7 @@ import (
 	"github.com/lein3000zzz/polythought-go/internal/core/nodes/logic"
 	markets2 "github.com/lein3000zzz/polythought-go/internal/core/nodes/markets"
 	"github.com/lein3000zzz/polythought-go/internal/core/nodes/output"
+	"github.com/lein3000zzz/polythought-go/internal/core/nodes/telegram"
 	"github.com/lein3000zzz/polythought-go/internal/core/nodes/transform"
 	"github.com/lein3000zzz/polythought-go/internal/core/nodes/triggers"
 	"github.com/lein3000zzz/the-watchers/pkg/observability/logging"
@@ -33,6 +34,11 @@ type Deps struct {
 	Feed         ports.MarketFeed       // optional: without it, trigger.market is not available
 	Logger       logging.Logger
 
+	// Messenger and TelegramInbox are optional: without them the Telegram nodes are not
+	// available.
+	Messenger     ports.UserMessenger
+	TelegramInbox ports.TelegramInbox
+
 	// MinInterval is the shortest interval schedules and market triggers may use. Zero
 	// means triggers.DefaultMinInterval.
 	MinInterval time.Duration
@@ -54,8 +60,19 @@ func Register(r *engine.Registry, d Deps) error {
 		market = r.RegisterTrigger(triggers.NewMarket(d.Feed, minInterval))
 	}
 
+	var telegramSend, telegramTrigger error
+	if d.Messenger != nil {
+		telegramSend = r.RegisterNode(telegram.NewSend(d.Messenger))
+	}
+
+	if d.TelegramInbox != nil {
+		telegramTrigger = r.RegisterTrigger(telegram.NewTrigger(d.TelegramInbox))
+	}
+
 	return errors.Join(
 		market,
+		telegramSend,
+		telegramTrigger,
 		r.RegisterTrigger(triggers.Manual{}),
 		r.RegisterTrigger(triggers.NewSchedule(minInterval)),
 		r.RegisterNode(markets2.NewMarkets(d.Markets)),

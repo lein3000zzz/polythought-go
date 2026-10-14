@@ -27,6 +27,7 @@ const (
 	linkTTL = 10 * time.Minute
 
 	cmdStart   = "/start"
+	cmdMenu    = "/menu"
 	dataUnlink = "unlink"
 )
 
@@ -47,10 +48,16 @@ const (
 
 var unlinkButton = [][]ports.TelegramButton{{{Text: "Unlink this chat", Data: dataUnlink}}}
 
+var (
+	_ ports.UserMessenger = (*Service)(nil)
+	_ ports.TelegramInbox = (*Service)(nil)
+)
+
 type Service struct {
 	bot   ports.TelegramBot
 	links ports.TelegramLinkRepository
 	users ports.UserRepository
+	inbox *inbox
 	log   logging.Logger
 	now   func() time.Time
 }
@@ -67,6 +74,7 @@ func New(bot ports.TelegramBot, links ports.TelegramLinkRepository, users ports.
 		bot:   bot,
 		links: links,
 		users: users,
+		inbox: newInbox(),
 		log:   log.With("component", "telegram"),
 		now:   func() time.Time { return time.Now().UTC().Truncate(time.Microsecond) },
 	}
@@ -202,7 +210,51 @@ func (s *Service) message(ctx context.Context, m ports.TelegramIncoming) {
 		return
 	}
 
+	// Anything but the bot's own commands may be for a workflow's Telegram trigger.
+	if cmd != cmdStart && cmd != cmdMenu {
+		matched, dropped := s.inbox.deliver(user.ID, ports.TelegramInboxMessage{
+			Text: m.Text, Username: m.From.Username, FirstName: m.From.FirstName, At: s.now(),
+		})
+
+		if dropped > 0 {
+			s.log.Warn(ctx, "Telegram message dropped: the workflow is busy", "user_id", user.ID, "workflows", dropped)
+		}
+
+		if matched {
+			return
+		}
+	}
+
 	s.reply(ctx, m.ChatID, linkedText(user), unlinkButton)
+}
+
+// Subscribe hands the owner's messages that match to a workflow's Telegram trigger.
+func (s *Service) Subscribe(owner domain.UserID, match func(text string) bool) (<-chan ports.TelegramInboxMessage, func()) {
+	return s.inbox.subscribe(owner, match)
+}
+
+// MessageUser writes to the user's linked chat. A chat that blocked the bot is unlinked,
+// as if the user had unlinked it.
+func (s *Service) MessageUser(ctx context.Context, user domain.UserID, m ports.UserMessage) error {
+	link, err := s.links.ForUser(ctx, user)
+	if errors.Is(err, domain.ErrNotFound) {
+		return domain.ErrTelegramNotLinked
+	}
+
+	if err != nil {
+		return err
+	}
+
+	_, err = s.bot.Send(ctx, ports.TelegramMessage{ChatID: link.ChatID, HTML: m.HTML, Buttons: m.Buttons, Silent: m.Silent})
+	if errors.Is(err, domain.ErrTelegramBlocked) {
+		if derr := s.links.Delete(ctx, user); derr != nil && !errors.Is(derr, domain.ErrNotFound) {
+			s.log.Warn(ctx, "Blocked Telegram chat not unlinked", logging.Err(derr))
+		} else {
+			s.log.Info(ctx, "Telegram unlinked", "user_id", user, "from", "blocked")
+		}
+	}
+
+	return err
 }
 
 // link binds the Telegram user to the account whose code they sent.

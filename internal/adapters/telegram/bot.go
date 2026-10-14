@@ -462,6 +462,7 @@ func (b *Bot) Send(ctx context.Context, m ports.TelegramMessage) (int, error) {
 
 	params := &bot.SendMessageParams{
 		ChatID: m.ChatID, Text: m.HTML, ParseMode: models.ParseModeHTML, LinkPreviewOptions: noPreview(),
+		DisableNotification: m.Silent,
 	}
 	if len(m.Buttons) > 0 {
 		params.ReplyMarkup = keyboard(m.Buttons)

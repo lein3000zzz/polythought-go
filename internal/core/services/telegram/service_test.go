@@ -365,3 +365,97 @@ func TestUnlinking(t *testing.T) {
 		assert.Len(t, d.links.links, 1)
 	})
 }
+
+func TestMessageUser(t *testing.T) {
+	ctx := context.Background()
+
+	t.Run("to the linked chat", func(t *testing.T) {
+		s, d := newService(t)
+		require.NoError(t, d.links.Save(ctx, domain.TelegramLink{UserID: alice.ID, TelegramUserID: 7, ChatID: 70}))
+
+		require.NoError(t, s.MessageUser(ctx, alice.ID, ports.UserMessage{HTML: "<b>Hi</b>", Silent: true}))
+		assert.Equal(t, ports.TelegramMessage{ChatID: 70, HTML: "<b>Hi</b>", Silent: true}, d.bot.last(t))
+	})
+
+	t.Run("nowhere to write to", func(t *testing.T) {
+		s, _ := newService(t)
+
+		require.ErrorIs(t, s.MessageUser(ctx, alice.ID, ports.UserMessage{HTML: "hi"}), domain.ErrTelegramNotLinked)
+	})
+
+	t.Run("a chat that blocked the bot is unlinked", func(t *testing.T) {
+		s, d := newService(t)
+		require.NoError(t, d.links.Save(ctx, domain.TelegramLink{UserID: alice.ID, TelegramUserID: 7, ChatID: 70}))
+		d.bot.sendErr = domain.ErrTelegramBlocked
+
+		require.ErrorIs(t, s.MessageUser(ctx, alice.ID, ports.UserMessage{HTML: "hi"}), domain.ErrTelegramBlocked)
+		assert.Empty(t, d.links.links)
+	})
+}
+
+func TestInbox(t *testing.T) {
+	ctx := context.Background()
+	reports := func(text string) bool { return strings.HasPrefix(text, "/report") }
+
+	linked := func(t *testing.T) (*telegram.Service, deps) {
+		t.Helper()
+
+		s, d := newService(t)
+		require.NoError(t, d.links.Save(ctx, domain.TelegramLink{UserID: alice.ID, TelegramUserID: 7, ChatID: 70}))
+
+		return s, d
+	}
+
+	t.Run("matching messages go to the workflow, and the bot keeps quiet", func(t *testing.T) {
+		s, d := linked(t)
+		messages, cancel := s.Subscribe(alice.ID, reports)
+		defer cancel()
+
+		s.HandleUpdate(ctx, message("/report weekly"))
+
+		got := <-messages
+		assert.Equal(t, ports.TelegramInboxMessage{Text: "/report weekly", Username: "alice_tg", FirstName: "Alice", At: now}, got)
+		assert.Empty(t, d.bot.sent)
+	})
+
+	t.Run("other messages get the usual answer", func(t *testing.T) {
+		s, d := linked(t)
+		messages, cancel := s.Subscribe(alice.ID, reports)
+		defer cancel()
+
+		s.HandleUpdate(ctx, message("hello"))
+		s.HandleUpdate(ctx, message("/start"))
+		s.HandleUpdate(ctx, message("/menu"))
+
+		assert.Len(t, d.bot.sent, 3)
+		assert.Empty(t, messages)
+	})
+
+	t.Run("only the owner's messages, only from linked users", func(t *testing.T) {
+		s, _ := newService(t) // nobody linked
+		everything := func(string) bool { return true }
+		messages, cancel := s.Subscribe(alice.ID, everything)
+		defer cancel()
+
+		s.HandleUpdate(ctx, message("/report"))
+		assert.Empty(t, messages)
+	})
+
+	t.Run("a busy workflow misses what does not fit", func(t *testing.T) {
+		s, d := linked(t)
+		messages, cancel := s.Subscribe(alice.ID, reports)
+
+		for range 20 {
+			s.HandleUpdate(ctx, message("/report"))
+		}
+
+		assert.Len(t, messages, 16)
+		assert.Empty(t, d.bot.sent, "matched, though dropped")
+
+		cancel()
+		cancel() // twice is fine
+
+		for range messages {
+		}
+	})
+}
