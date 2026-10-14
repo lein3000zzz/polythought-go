@@ -26,6 +26,9 @@ const (
 	KeyWebhookAllowPrivate = "webhook.allow_private"
 	KeyLogLevel            = "log.level"
 	KeyLogFormat           = "log.format"
+	KeyTelegramEnabled     = "telegram.enabled"
+	KeyTelegramToken       = "telegram.token"
+	KeyTelegramMode        = "telegram.mode"
 )
 
 const (
@@ -34,6 +37,7 @@ const (
 	groupExecutions = "Executions"
 	groupNetwork    = "Network"
 	groupLogging    = "Logging"
+	groupTelegram   = "Telegram"
 )
 
 // Settings is the registry of the server's own settings.
@@ -127,6 +131,21 @@ func Settings() (*settings.Registry, error) {
 			Kind:        settings.KindEnum, Default: "text", Options: []string{"text", "json"},
 			Apply: settings.ApplyRestart,
 			Env:   prefix + "LOG_FORMAT",
+		},
+		settings.Spec{
+			Key: KeyTelegramEnabled, Group: groupTelegram, Label: "Telegram bot",
+			Description: "Run the instance's Telegram bot, so members can link Telegram from Settings. Changes restart the bot, not the server.",
+			Kind:        settings.KindBool, Default: false,
+		},
+		settings.Spec{
+			Key: KeyTelegramToken, Group: groupTelegram, Label: "Bot token",
+			Description: "The token @BotFather gave you when you made the bot, like 123456:ABC-DEF…",
+			Kind:        settings.KindString, Secret: true, Default: "",
+		},
+		settings.Spec{
+			Key: KeyTelegramMode, Group: groupTelegram, Label: "How the bot gets messages",
+			Description: "polling asks Telegram for new messages, and works anywhere, even behind a firewall. webhook has Telegram send them to this server, and needs the public URL to be https.",
+			Kind:        settings.KindEnum, Default: "polling", Options: []string{"polling", "webhook"},
 		},
 	)
 	if err != nil {

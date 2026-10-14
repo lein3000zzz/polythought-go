@@ -1032,6 +1032,68 @@
                 },
                 "type": "object"
             },
+            "TelegramLink": {
+                "properties": {
+                    "firstName": {
+                        "type": "string"
+                    },
+                    "linkedAt": {
+                        "format": "date-time",
+                        "type": "string"
+                    },
+                    "username": {
+                        "description": "Username is the Telegram user's, without the @; not everyone has one.",
+                        "type": "string"
+                    }
+                },
+                "required": [
+                    "linkedAt"
+                ],
+                "type": "object"
+            },
+            "TelegramLinkURL": {
+                "properties": {
+                    "expiresAt": {
+                        "format": "date-time",
+                        "type": "string"
+                    },
+                    "url": {
+                        "description": "URL opens the bot in Telegram; it links whoever opens it, once.",
+                        "type": "string"
+                    }
+                },
+                "required": [
+                    "expiresAt",
+                    "url"
+                ],
+                "type": "object"
+            },
+            "TelegramStatus": {
+                "properties": {
+                    "available": {
+                        "description": "Available is set while the instance's bot runs, so accounts can link.",
+                        "type": "boolean"
+                    },
+                    "botUsername": {
+                        "type": "string"
+                    },
+                    "link": {
+                        "$ref": "#/components/schemas/TelegramLink"
+                    },
+                    "problem": {
+                        "description": "Problem says why the bot does not run, or what last went wrong. Admins only.",
+                        "type": "string"
+                    },
+                    "problemAt": {
+                        "format": "date-time",
+                        "type": "string"
+                    }
+                },
+                "required": [
+                    "available"
+                ],
+                "type": "object"
+            },
             "Template": {
                 "properties": {
                     "builtIn": {
@@ -3057,6 +3119,169 @@
                 "summary": "List node types",
                 "tags": [
                     "workflows"
+                ]
+            }
+        },
+        "/telegram": {
+            "get": {
+                "operationId": "getTelegram",
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/TelegramStatus"
+                                }
+                            }
+                        },
+                        "description": "OK"
+                    },
+                    "401": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "unauthenticated"
+                    }
+                },
+                "security": [
+                    {
+                        "SessionCookie": []
+                    },
+                    {
+                        "APIToken": []
+                    }
+                ],
+                "summary": "Your Telegram link",
+                "tags": [
+                    "telegram"
+                ]
+            }
+        },
+        "/telegram/link": {
+            "delete": {
+                "operationId": "unlinkTelegram",
+                "responses": {
+                    "204": {
+                        "description": "No Content"
+                    },
+                    "401": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "unauthenticated"
+                    },
+                    "404": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "not_found: nothing is linked"
+                    }
+                },
+                "security": [
+                    {
+                        "SessionCookie": []
+                    },
+                    {
+                        "APIToken": []
+                    }
+                ],
+                "summary": "Unlink Telegram",
+                "tags": [
+                    "telegram"
+                ]
+            },
+            "post": {
+                "operationId": "createTelegramLink",
+                "responses": {
+                    "201": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/TelegramLinkURL"
+                                }
+                            }
+                        },
+                        "description": "Created"
+                    },
+                    "401": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "unauthenticated"
+                    },
+                    "503": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "telegram_unavailable"
+                    }
+                },
+                "security": [
+                    {
+                        "SessionCookie": []
+                    },
+                    {
+                        "APIToken": []
+                    }
+                ],
+                "summary": "Make a link to the Telegram bot",
+                "tags": [
+                    "telegram"
+                ]
+            }
+        },
+        "/telegram/webhook": {
+            "post": {
+                "operationId": "telegramWebhook",
+                "parameters": [
+                    {
+                        "description": "The secret the bot set with the webhook",
+                        "in": "header",
+                        "name": "X-Telegram-Bot-Api-Secret-Token",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK"
+                    },
+                    "404": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "not_found"
+                    }
+                },
+                "summary": "Updates from Telegram (webhook mode)",
+                "tags": [
+                    "telegram"
                 ]
             }
         },

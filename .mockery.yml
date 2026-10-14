@@ -97,3 +97,5 @@ packages:
       LibraryService: {}
       SettingsService: {}
       CredentialService: {}
+      TelegramService: {}
+      TelegramWebhook: {}

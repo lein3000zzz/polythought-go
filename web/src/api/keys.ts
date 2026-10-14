@@ -8,6 +8,7 @@ export const keys = {
   authConfig: ['auth-config'],
   nodeTypes: ['node-types'],
   tokens: ['tokens'],
+  telegram: ['telegram'],
   users: ['admin', 'users'],
   invites: ['admin', 'invites'],
   settings: ['admin', 'settings'],

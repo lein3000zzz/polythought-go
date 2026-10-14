@@ -57,11 +57,15 @@ func TestSettingsDefaults(t *testing.T) {
 		config.KeyWebhookAllowPrivate: false,
 		config.KeyLogLevel:            "info",
 		config.KeyLogFormat:           "text",
+		config.KeyTelegramEnabled:     false,
+		config.KeyTelegramToken:       "",
+		config.KeyTelegramMode:        "polling",
 	} {
 		assert.Equal(t, want, spec(t, key).Default, key)
 	}
 
-	assert.Len(t, registry(t).Specs(), 15, "every setting has a default checked above")
+	assert.Len(t, registry(t).Specs(), 18, "every setting has a default checked above")
+	assert.True(t, spec(t, config.KeyTelegramToken).Secret)
 }
 
 func TestSettingsEnvironmentNames(t *testing.T) {
@@ -78,6 +82,7 @@ func TestSettingsEnvironmentNames(t *testing.T) {
 		config.KeyLogLevel:            "POLYTHOUGHT_LOG_LEVEL",
 		config.KeyLogFormat:           "POLYTHOUGHT_LOG_FORMAT",
 		config.KeyInviteTTL:           "POLYTHOUGHT_AUTH_INVITE_TTL",
+		config.KeyTelegramToken:       "POLYTHOUGHT_TELEGRAM_TOKEN",
 	} {
 		assert.Equal(t, want, spec(t, key).EnvName(), key)
 	}
@@ -127,4 +132,21 @@ func TestSettingsValidation(t *testing.T) {
 	assert.Equal(t, []*net.IPNet{private, v6}, got)
 
 	assert.True(t, domain.RegistrationMode(spec(t, config.KeyRegistration).Default.(string)).Valid())
+}
+
+func TestSettingsGroupsAreTogether(t *testing.T) {
+	t.Parallel()
+
+	// The Config page and the reference list a group where it first appears.
+	done := map[string]bool{}
+	current := ""
+
+	for _, s := range registry(t).Specs() {
+		if s.Group == current {
+			continue
+		}
+
+		assert.False(t, done[s.Group], "%s: group %q is split; register its settings together", s.Key, s.Group)
+		done[current], current = true, s.Group
+	}
 }

@@ -19,6 +19,7 @@ hero:
 - **[The editor](/docs/guides/editor/)**: build a workflow, run it, see what each node did.
 - **[The library](/docs/guides/library/)**: ready-made scenarios to start from, and sharing your own.
 - **[Credentials](/docs/guides/credentials/)**: keys and tokens your workflows use, kept encrypted.
+- **[Telegram](/docs/guides/telegram/)**: messages from Polythought in Telegram.
 
 ## Running an instance
 

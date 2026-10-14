@@ -81,6 +81,7 @@ var errorMapping = []struct {
 	{domain.ErrConflict, http.StatusConflict, "conflict"},
 	{domain.ErrRateLimited, http.StatusTooManyRequests, "rate_limited"},
 	{domain.ErrUnavailable, http.StatusServiceUnavailable, "upstream_unavailable"},
+	{domain.ErrTelegramUnavailable, http.StatusServiceUnavailable, "telegram_unavailable"},
 }
 
 // fail writes err as a JSON error response. Unexpected errors are logged with the

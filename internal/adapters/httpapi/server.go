@@ -88,6 +88,9 @@ type Services struct {
 	Library     LibraryService
 	Settings    SettingsService
 	Credentials CredentialService
+	Telegram    TelegramService
+	// TelegramWebhook takes updates in webhook mode; nil when there is no bot.
+	TelegramWebhook TelegramWebhook
 }
 
 type Config struct {
@@ -106,21 +109,23 @@ type Config struct {
 }
 
 type Server struct {
-	hertz       *server.Hertz
-	auth        AuthService
-	wallets     WalletService
-	workflows   WorkflowService
-	nodeTypes   NodeTypes
-	events      EventService
-	library     LibraryService
-	settings    SettingsService
-	credentials CredentialService
-	log         logging.Logger
-	kit         *redkit.Kit
-	scope       tracing.Scope
-	origin      string
-	secure      bool
-	clientIP    atomic.Pointer[app.ClientIP]
+	hertz        *server.Hertz
+	auth         AuthService
+	wallets      WalletService
+	workflows    WorkflowService
+	nodeTypes    NodeTypes
+	events       EventService
+	library      LibraryService
+	settings     SettingsService
+	credentials  CredentialService
+	telegram     TelegramService
+	telegramHook TelegramWebhook
+	log          logging.Logger
+	kit          *redkit.Kit
+	scope        tracing.Scope
+	origin       string
+	secure       bool
+	clientIP     atomic.Pointer[app.ClientIP]
 
 	// closing ends event streams on shutdown, which would otherwise hold it up.
 	closing   chan struct{}
@@ -164,21 +169,23 @@ func New(cfg Config, util *observability.Utility, services Services) (*Server, e
 	)
 
 	s := &Server{
-		hertz:       h,
-		auth:        services.Auth,
-		wallets:     services.Wallets,
-		workflows:   services.Workflows,
-		nodeTypes:   services.NodeTypes,
-		events:      services.Events,
-		library:     services.Library,
-		settings:    services.Settings,
-		credentials: services.Credentials,
-		log:         log,
-		kit:         kit,
-		scope:       tracing.Scope{Manager: util.TracerManager, TracerName: tracerName},
-		origin:      public.Scheme + "://" + public.Host,
-		secure:      public.Scheme == "https",
-		closing:     make(chan struct{}),
+		hertz:        h,
+		auth:         services.Auth,
+		wallets:      services.Wallets,
+		workflows:    services.Workflows,
+		nodeTypes:    services.NodeTypes,
+		events:       services.Events,
+		library:      services.Library,
+		settings:     services.Settings,
+		credentials:  services.Credentials,
+		telegram:     services.Telegram,
+		telegramHook: services.TelegramWebhook,
+		log:          log,
+		kit:          kit,
+		scope:        tracing.Scope{Manager: util.TracerManager, TracerName: tracerName},
+		origin:       public.Scheme + "://" + public.Host,
+		secure:       public.Scheme == "https",
+		closing:      make(chan struct{}),
 	}
 
 	s.SetTrustedProxies(cfg.TrustedProxies)
@@ -252,6 +259,12 @@ func (s *Server) routes() {
 	cr.PATCH("/:id", s.updateCredential)
 	cr.DELETE("/:id", s.deleteCredential)
 	cr.POST("/:id/test", s.testCredential)
+
+	tg := v1.Group("/telegram")
+	tg.GET("", s.requireAuth, s.telegramStatus)
+	tg.POST("/link", s.requireAuth, s.createTelegramLink)
+	tg.DELETE("/link", s.requireAuth, s.unlinkTelegram)
+	tg.POST("/webhook", s.telegramWebhook) // Telegram proves itself with a secret, not a session
 
 	v1.GET("/node-types", s.requireAuth, s.listNodeTypes)
 	v1.GET("/events", s.requireAuth, s.streamEvents)

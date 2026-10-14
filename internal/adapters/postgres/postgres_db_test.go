@@ -30,7 +30,7 @@ func TestMigrate(t *testing.T) {
 		name        string
 		wantApplied []int64
 	}{
-		{name: "fresh database gets every migration", wantApplied: []int64{1, 2, 3, 4, 5, 6}},
+		{name: "fresh database gets every migration", wantApplied: []int64{1, 2, 3, 4, 5, 6, 7}},
 		{name: "second run is a no-op", wantApplied: []int64{}},
 	}
 
@@ -56,7 +56,7 @@ func TestMigrate(t *testing.T) {
 
 		require.NoError(t, rows.Err())
 		assert.Equal(t, []string{
-			"api_tokens", "credentials", "executions", "goose_db_version", "invites", "polymarket_credentials", "sessions", "settings", "settings_audit", "templates", "users", "wallets", "workflows",
+			"api_tokens", "credentials", "executions", "goose_db_version", "invites", "polymarket_credentials", "sessions", "settings", "settings_audit", "telegram_link_codes", "telegram_links", "templates", "users", "wallets", "workflows",
 		}, tables)
 	})
 

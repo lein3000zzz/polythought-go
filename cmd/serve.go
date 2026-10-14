@@ -54,6 +54,7 @@ func serve(ctx context.Context) error {
 	}, a.util, httpapi.Services{
 		Auth: a.auth, Wallets: a.wallets, Workflows: a.workflows, NodeTypes: a.registry, Events: a.events,
 		Library: a.library, Settings: a.settings, Credentials: a.credentials,
+		Telegram: a.telegram, TelegramWebhook: a.telegramBot,
 	})
 	if err != nil {
 		return err
@@ -71,6 +72,17 @@ func serve(ctx context.Context) error {
 			log.Error(ctx, "Market feed stopped", logging.Err(err))
 		}
 	}()
+
+	// The bot follows its settings: a change restarts it, not the server.
+	telegramDone := make(chan struct{})
+
+	go func() {
+		defer close(telegramDone)
+		a.telegramBot.Run(ctx)
+	}()
+
+	a.telegramBot.Configure(a.telegramConfig(a.settings.Current()))
+	a.settings.Subscribe(func(s *settings.Snapshot) { a.telegramBot.Configure(a.telegramConfig(s)) })
 
 	if err := a.workflows.StartActive(ctx); err != nil {
 		return err
@@ -94,6 +106,12 @@ func serve(ctx context.Context) error {
 
 	log.Info(context.Background(), "Shutting down", "restart", restart)
 	cancel()
+
+	select {
+	case <-telegramDone:
+	case <-time.After(5 * time.Second):
+		log.Warn(context.Background(), "Telegram bot slow to stop")
+	}
 
 	stopCtx, stopCancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer stopCancel()

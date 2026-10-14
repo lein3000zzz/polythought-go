@@ -196,3 +196,41 @@ Plain text for people, JSON for log collectors.
 | Kind | one of `text`, `json` |
 | Default | `text` |
 | Applies | after a restart |
+
+## Telegram
+
+### Telegram bot
+
+Run the instance's Telegram bot, so members can link Telegram from Settings. Changes restart the bot, not the server.
+
+| | |
+|---|---|
+| Key | `telegram.enabled` |
+| Environment variable | `POLYTHOUGHT_TELEGRAM_ENABLED` |
+| Kind | `true` or `false` |
+| Default | `false` |
+| Applies | at once |
+
+### Bot token
+
+The token @BotFather gave you when you made the bot, like 123456:ABC-DEF…
+
+| | |
+|---|---|
+| Key | `telegram.token` |
+| Environment variable | `POLYTHOUGHT_TELEGRAM_TOKEN` |
+| Kind | text, secret: stored encrypted and never shown |
+| Default | empty |
+| Applies | at once |
+
+### How the bot gets messages
+
+polling asks Telegram for new messages, and works anywhere, even behind a firewall. webhook has Telegram send them to this server, and needs the public URL to be https.
+
+| | |
+|---|---|
+| Key | `telegram.mode` |
+| Environment variable | `POLYTHOUGHT_TELEGRAM_MODE` |
+| Kind | one of `polling`, `webhook` |
+| Default | `polling` |
+| Applies | at once |

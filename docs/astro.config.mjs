@@ -13,7 +13,13 @@ export default defineConfig({
       sidebar: [
         {
           label: 'Guides',
-          items: ['guides/concepts', 'guides/editor', 'guides/library', 'guides/credentials'],
+          items: [
+            'guides/concepts',
+            'guides/editor',
+            'guides/library',
+            'guides/credentials',
+            'guides/telegram',
+          ],
         },
         {
           label: 'Self-hosting',

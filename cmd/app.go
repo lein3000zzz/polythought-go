@@ -17,6 +17,7 @@ import (
 	pmadapter "github.com/lein3000zzz/polythought-go/internal/adapters/polymarket"
 	"github.com/lein3000zzz/polythought-go/internal/adapters/postgres"
 	"github.com/lein3000zzz/polythought-go/internal/adapters/ratelimit"
+	tgadapter "github.com/lein3000zzz/polythought-go/internal/adapters/telegram"
 	"github.com/lein3000zzz/polythought-go/internal/adapters/webhook"
 	"github.com/lein3000zzz/polythought-go/internal/config"
 	"github.com/lein3000zzz/polythought-go/internal/core/domain"
@@ -29,6 +30,7 @@ import (
 	"github.com/lein3000zzz/polythought-go/internal/core/services/feed"
 	"github.com/lein3000zzz/polythought-go/internal/core/services/library"
 	"github.com/lein3000zzz/polythought-go/internal/core/services/settings"
+	"github.com/lein3000zzz/polythought-go/internal/core/services/telegram"
 	"github.com/lein3000zzz/polythought-go/internal/core/services/wallets"
 	"github.com/lein3000zzz/polythought-go/internal/core/services/workflows"
 	pm "github.com/lein3000zzz/polythought-go/pkg/clients/polymarket"
@@ -96,6 +98,8 @@ type app struct {
 	events      *events.Hub
 	library     *library.Service
 	credentials *credentials.Service
+	telegramBot *tgadapter.Bot
+	telegram    *telegram.Service
 
 	restartOnce sync.Once
 	restartc    chan struct{} // closed when an admin asked for a restart
@@ -179,8 +183,29 @@ func (a *app) init(ctx context.Context) error {
 		auth.WithWorkflowStopper(a.workflows),
 		auth.WithLiveConfig(func() auth.Config { return authConfig(a.settings.Current()) }),
 	)
+	if err != nil {
+		return err
+	}
 
-	return err
+	// The bot runs only in serve, which starts it; the other commands just have it.
+	if a.telegramBot, err = tgadapter.New(a.util); err != nil {
+		return err
+	}
+
+	a.telegram = telegram.New(a.telegramBot, postgres.NewTelegramLinks(a.db), postgres.NewUsers(a.db), a.util.Logger)
+	a.telegramBot.SetHandler(a.telegram.HandleUpdate)
+
+	return nil
+}
+
+// telegramConfig is how the bot should run, from the settings.
+func (a *app) telegramConfig(s *settings.Snapshot) tgadapter.Config {
+	return tgadapter.Config{
+		Enabled:   s.Bool(config.KeyTelegramEnabled),
+		Token:     s.String(config.KeyTelegramToken),
+		Mode:      s.String(config.KeyTelegramMode),
+		PublicURL: a.cfg.PublicURL,
+	}
 }
 
 // initSettings loads the settings, then builds logging from them.
