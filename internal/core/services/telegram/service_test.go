@@ -222,7 +222,7 @@ func TestLinking(t *testing.T) {
 		reply := d.bot.last(t)
 		assert.Equal(t, int64(70), reply.ChatID)
 		assert.Contains(t, reply.HTML, "Linked to <b>alice@example.com</b>")
-		assert.Equal(t, "unlink", reply.Buttons[0][0].Data)
+		assert.Equal(t, [][]string{{"📋 Workflows", "📊 Status"}, {"💼 Positions", "🔔 Notifications"}}, reply.Keyboard, "the menu")
 
 		status, err := s.Status(ctx, p)
 		require.NoError(t, err)
@@ -326,6 +326,7 @@ func TestUnlinking(t *testing.T) {
 		assert.Empty(t, d.links.links)
 		assert.Contains(t, d.bot.last(t).HTML, "no longer linked")
 		assert.Equal(t, int64(70), d.bot.last(t).ChatID)
+		assert.True(t, d.bot.last(t).RemoveKeyboard, "the menu goes too")
 
 		require.ErrorIs(t, s.Unlink(ctx, p), domain.ErrNotFound)
 	})
@@ -350,6 +351,7 @@ func TestUnlinking(t *testing.T) {
 		assert.Contains(t, d.bot.edits[0].HTML, "Unlinked.")
 		assert.Nil(t, d.bot.edits[0].Buttons)
 		assert.Equal(t, []string{"Unlinked"}, d.bot.answers)
+		assert.True(t, d.bot.last(t).RemoveKeyboard, "the menu goes too")
 
 		// Pressing it again, or anyone else pressing anything, gets a short answer.
 		s.HandleUpdate(ctx, ports.TelegramUpdate{Callback: &ports.TelegramCallback{ID: "cb2", From: tgAlice, Data: "unlink"}})

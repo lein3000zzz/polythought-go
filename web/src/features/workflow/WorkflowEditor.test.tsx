@@ -575,4 +575,51 @@ describe('node list', () => {
     await second.user.click(screen.getByRole('button', { name: 'Show node list' }))
     expect(screen.getByRole('navigation', { name: 'Node types' })).toBeInTheDocument()
   })
+
+  it('searches the nodes, and adds the first match on Enter', async () => {
+    editing(branching())
+    const { user } = renderApp('/workflows/wf-1')
+
+    const search = await screen.findByRole('searchbox', { name: 'Search nodes' })
+    const nav = () => within(screen.getByRole('navigation', { name: 'Node types' }))
+
+    // Every word must match, in the name, the type, the description or the group.
+    await user.type(search, 'numeric value')
+    expect(nav().getByText('If')).toBeInTheDocument()
+    expect(nav().queryByText('Log')).not.toBeInTheDocument()
+
+    await user.clear(search)
+    await user.type(search, 'polymarket')
+    expect(nav().getByText('Balance')).toBeInTheDocument()
+    expect(nav().getAllByRole('button')).toHaveLength(1)
+
+    await user.keyboard('{Enter}')
+    expect(canvasNode('balance')).toBeInTheDocument()
+    expect(search).toHaveValue('')
+
+    await user.type(search, 'nothing like this')
+    expect(screen.getByText('No nodes match “nothing like this”.')).toBeInTheDocument()
+    expect(screen.queryByRole('navigation', { name: 'Node types' })).not.toBeInTheDocument()
+
+    await user.keyboard('{Escape}')
+    expect(search).toHaveValue('')
+    expect(nav().getByText('Log')).toBeInTheDocument()
+  })
+
+  it('opens and focuses the search on /', async () => {
+    editing(branching())
+    const { user } = renderApp('/workflows/wf-1')
+
+    await user.click(await screen.findByRole('button', { name: 'Hide node list' }))
+    await user.click(document.body)
+    await user.keyboard('/')
+
+    const search = await screen.findByRole('searchbox', { name: 'Search nodes' })
+    await waitFor(() => expect(search).toHaveFocus())
+    expect(screen.getByRole('button', { name: 'Hide node list' })).toBeInTheDocument()
+
+    // Typing / in a field is just a slash.
+    await user.type(search, 'a/b')
+    expect(search).toHaveValue('a/b')
+  })
 })

@@ -19,4 +19,4 @@ Starts the workflow when you send the instance's bot a message, one item per mes
 
 | Setting | Kind | Required | Default | Description |
 |---|---|---|---|---|
-| Starts with (`startsWith`) | text | no |  | Only messages that start with this, in any letter case, e.g. /report. Empty: every message. /start and /menu are the bot's own. |
+| Starts with (`startsWith`) | text | no |  | Only messages that start with this, in any letter case, e.g. /report. Empty: every message. The bot keeps /start, /menu and the names of its menu's sections for itself. |

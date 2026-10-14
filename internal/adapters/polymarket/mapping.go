@@ -139,6 +139,7 @@ func toPosition(p pm.Position) domain.Position {
 		Wallet:        domain.WalletAddress(p.ProxyWallet),
 		MarketID:      domain.MarketID(p.ConditionID),
 		TokenID:       domain.TokenID(p.TokenID),
+		Title:         p.Title,
 		Outcome:       p.Outcome,
 		Size:          p.CurrentSize,
 		AvgPrice:      p.AvgPrice,

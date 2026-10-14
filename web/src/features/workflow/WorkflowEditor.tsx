@@ -117,6 +117,7 @@ function Editor({ workflow, types, onReload }: Props) {
   const { screenToFlowPosition, deleteElements } = useReactFlow<FlowNode, FlowEdge>()
   const { theme } = useTheme()
   const canvas = useRef<HTMLDivElement>(null)
+  const search = useRef<HTMLInputElement>(null)
 
   const [initial] = useState(() => {
     const name = workflow?.name ?? 'Untitled workflow'
@@ -233,6 +234,26 @@ function Editor({ workflow, types, onReload }: Props) {
   useEffect(() => {
     window.addEventListener('keydown', onSaveKey)
     return () => window.removeEventListener('keydown', onSaveKey)
+  }, [])
+
+  // "/" searches the node list, opening it if need be, unless the focus is in a field.
+  const onSearchKey = useEffectEvent((e: KeyboardEvent) => {
+    if (e.key !== '/' || e.metaKey || e.ctrlKey || e.altKey) return
+    if (
+      e.target instanceof Element &&
+      e.target.closest('input, textarea, select, [contenteditable]')
+    ) {
+      return
+    }
+
+    e.preventDefault()
+    setNodeListOpen(true)
+    // Once the list is open: a closed one is inert and cannot take the focus.
+    requestAnimationFrame(() => search.current?.focus())
+  })
+  useEffect(() => {
+    window.addEventListener('keydown', onSearchKey)
+    return () => window.removeEventListener('keydown', onSearchKey)
   }, [])
 
   // Closing or reloading the tab with unsaved changes asks first.
@@ -399,12 +420,7 @@ function Editor({ workflow, types, onReload }: Props) {
                   nodeListOpen ? 'opacity-100 delay-75' : 'opacity-0',
                 )}
               >
-                <div className="flex h-10 shrink-0 items-center border-b pr-10 pl-5">
-                  <span className="text-xs font-medium text-muted-foreground">Nodes</span>
-                </div>
-                <div className="min-h-0 flex-1 overflow-y-auto">
-                  <Palette types={types} onAdd={(t) => addNode(t)} />
-                </div>
+                <Palette types={types} onAdd={(t) => addNode(t)} searchRef={search} />
               </div>
 
               {/* Pinned to the panel's edge, so it travels with it. */}

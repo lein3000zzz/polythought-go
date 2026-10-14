@@ -44,6 +44,7 @@ const (
 	textFailed    = "Something went wrong on our side. Try again in a minute."
 	textStale     = "This button no longer works."
 	textNoLink    = "This chat is not linked to Polythought."
+	textUseMenu   = "Pick a section from the menu below, or send /menu to bring it back."
 )
 
 var unlinkButton = [][]ports.TelegramButton{{{Text: "Unlink this chat", Data: dataUnlink}}}
@@ -58,6 +59,7 @@ type Service struct {
 	links ports.TelegramLinkRepository
 	users ports.UserRepository
 	inbox *inbox
+	menu  *Menu // nil until UseMenu
 	log   logging.Logger
 	now   func() time.Time
 }
@@ -154,7 +156,7 @@ func (s *Service) Unlink(ctx context.Context, p auth.Principal) error {
 
 	s.log.Info(ctx, "Telegram unlinked", "user_id", p.User.ID, "from", "app")
 
-	_, err = s.bot.Send(ctx, ports.TelegramMessage{ChatID: link.ChatID, HTML: textUnlinkedQ})
+	_, err = s.bot.Send(ctx, ports.TelegramMessage{ChatID: link.ChatID, HTML: textUnlinkedQ, RemoveKeyboard: true})
 	s.ignored(ctx, "Unlink notice not sent", err)
 
 	return nil
@@ -210,22 +212,29 @@ func (s *Service) message(ctx context.Context, m ports.TelegramIncoming) {
 		return
 	}
 
-	// Anything but the bot's own commands may be for a workflow's Telegram trigger.
-	if cmd != cmdStart && cmd != cmdMenu {
-		matched, dropped := s.inbox.deliver(user.ID, ports.TelegramInboxMessage{
-			Text: m.Text, Username: m.From.Username, FirstName: m.From.FirstName, At: s.now(),
-		})
-
-		if dropped > 0 {
-			s.log.Warn(ctx, "Telegram message dropped: the workflow is busy", "user_id", user.ID, "workflows", dropped)
-		}
-
-		if matched {
-			return
-		}
+	if cmd == cmdStart || cmd == cmdMenu {
+		s.showMenu(ctx, m.ChatID, user)
+		return
 	}
 
-	s.reply(ctx, m.ChatID, linkedText(user), unlinkButton)
+	if section := sectionOf(m.Text); section != "" {
+		s.openSection(ctx, m.ChatID, user, section)
+		return
+	}
+
+	// Anything else may be for a workflow's Telegram trigger.
+	matched, dropped := s.inbox.deliver(user.ID, ports.TelegramInboxMessage{
+		Text: m.Text, Username: m.From.Username, FirstName: m.From.FirstName, At: s.now(),
+	})
+
+	if dropped > 0 {
+		s.log.Warn(ctx, "Telegram message dropped: the workflow is busy", "user_id", user.ID, "workflows", dropped)
+	}
+
+	if !matched {
+		_, err := s.bot.Send(ctx, ports.TelegramMessage{ChatID: m.ChatID, HTML: textUseMenu, Keyboard: mainKeyboard})
+		s.ignored(ctx, "Telegram reply not sent", err)
+	}
 }
 
 // Subscribe hands the owner's messages that match to a workflow's Telegram trigger.
@@ -291,7 +300,13 @@ func (s *Service) link(ctx context.Context, m ports.TelegramIncoming, code strin
 	}
 
 	s.log.Info(ctx, "Telegram linked", "user_id", user.ID)
-	s.reply(ctx, m.ChatID, "Linked to <b>"+html.EscapeString(user.Email)+"</b>. Messages from Polythought will arrive here.", unlinkButton)
+
+	_, err = s.bot.Send(ctx, ports.TelegramMessage{
+		ChatID:   m.ChatID,
+		HTML:     "Linked to <b>" + html.EscapeString(user.Email) + "</b>. Messages from Polythought will arrive here. Pick a section below.",
+		Keyboard: mainKeyboard,
+	})
+	s.ignored(ctx, "Telegram reply not sent", err)
 }
 
 func (s *Service) callback(ctx context.Context, cb ports.TelegramCallback) {
@@ -303,21 +318,42 @@ func (s *Service) callback(ctx context.Context, cb ports.TelegramCallback) {
 		return
 	}
 
-	switch cb.Data {
-	case dataUnlink:
-		if err := s.links.Delete(ctx, link.UserID); err != nil && !errors.Is(err, domain.ErrNotFound) {
-			s.log.Error(ctx, "Telegram unlink failed", logging.Err(err))
-			s.answer(ctx, cb.ID, textFailed)
-
-			return
-		}
-
-		s.log.Info(ctx, "Telegram unlinked", "user_id", link.UserID, "from", "telegram")
-		s.ignored(ctx, "Unlink message not edited", s.bot.Edit(ctx, cb.MessageID, ports.TelegramMessage{ChatID: cb.ChatID, HTML: textUnlinked}))
-		s.answer(ctx, cb.ID, "Unlinked")
-	default:
-		s.answer(ctx, cb.ID, textStale)
+	if cb.Data == dataUnlink {
+		s.unlinkFromChat(ctx, cb, link)
+		return
 	}
+
+	user, err := s.users.ByID(ctx, link.UserID)
+	if err != nil {
+		s.log.Error(ctx, "Telegram button failed", logging.Err(err))
+		s.answer(ctx, cb.ID, textFailed)
+
+		return
+	}
+
+	if user.Disabled() {
+		s.answer(ctx, cb.ID, textDisabled)
+		return
+	}
+
+	s.menuPress(ctx, cb, user)
+}
+
+// unlinkFromChat unlinks on the chat's own button, and takes the menu away.
+func (s *Service) unlinkFromChat(ctx context.Context, cb ports.TelegramCallback, link domain.TelegramLink) {
+	if err := s.links.Delete(ctx, link.UserID); err != nil && !errors.Is(err, domain.ErrNotFound) {
+		s.log.Error(ctx, "Telegram unlink failed", logging.Err(err))
+		s.answer(ctx, cb.ID, textFailed)
+
+		return
+	}
+
+	s.log.Info(ctx, "Telegram unlinked", "user_id", link.UserID, "from", "telegram")
+	s.answer(ctx, cb.ID, "Unlinked")
+	s.ignored(ctx, "Unlink message not edited", s.bot.Edit(ctx, cb.MessageID, ports.TelegramMessage{ChatID: cb.ChatID, HTML: "Unlinked."}))
+
+	_, err := s.bot.Send(ctx, ports.TelegramMessage{ChatID: cb.ChatID, HTML: textUnlinked, RemoveKeyboard: true})
+	s.ignored(ctx, "Unlink message not sent", err)
 }
 
 func linkedText(u domain.User) string {

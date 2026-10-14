@@ -21,6 +21,12 @@ type TelegramMessage struct {
 	HTML    string // Telegram's subset of HTML; escape everything that is not markup
 	Buttons [][]TelegramButton
 	Silent  bool // delivered without a sound; sending only
+
+	// Keyboard replaces the keyboard under the chat's input field with these buttons,
+	// which send their text when pressed; RemoveKeyboard takes it away. Sending only, and
+	// not with Buttons: a message has one or the other.
+	Keyboard       [][]string
+	RemoveKeyboard bool
 }
 
 type TelegramUser struct {

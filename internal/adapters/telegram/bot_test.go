@@ -245,6 +245,20 @@ func TestSend(t *testing.T) {
 	assert.Equal(t, "HTML", sent["parse_mode"])
 	assert.JSONEq(t, `{"inline_keyboard":[[{"text":"Unlink","callback_data":"unlink"},{"text":"Open","url":"https://poly.example"}]]}`, sent["reply_markup"])
 
+	t.Run("a reply keyboard, and taking it away", func(t *testing.T) {
+		_, err := b.Send(ctx, ports.TelegramMessage{ChatID: 42, HTML: "Menu", Keyboard: [][]string{{"Workflows", "Status"}}})
+		require.NoError(t, err)
+
+		sent := api.called("sendMessage")
+		assert.JSONEq(t, `{"keyboard":[[{"text":"Workflows"},{"text":"Status"}]],"is_persistent":true,"resize_keyboard":true}`, sent[len(sent)-1]["reply_markup"])
+
+		_, err = b.Send(ctx, ports.TelegramMessage{ChatID: 42, HTML: "Bye", RemoveKeyboard: true})
+		require.NoError(t, err)
+
+		sent = api.called("sendMessage")
+		assert.JSONEq(t, `{"remove_keyboard":true}`, sent[len(sent)-1]["reply_markup"])
+	})
+
 	t.Run("waits when asked to", func(t *testing.T) {
 		api.fail("sendMessage", `{"ok":false,"error_code":429,"description":"Too Many Requests","parameters":{"retry_after":1}}`)
 

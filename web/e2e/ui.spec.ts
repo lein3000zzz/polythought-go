@@ -45,3 +45,22 @@ test('the node list closes and stays closed', async ({ page }) => {
   await page.getByRole('button', { name: 'Show node list' }).click()
   await expect(page.getByRole('navigation', { name: 'Node types' })).toBeVisible()
 })
+
+test('the node list searches, and / gets there from anywhere', async ({ page }) => {
+  await page.goto('/workflows/new')
+  await expect(canvasNode(page, 'manual')).toBeVisible()
+
+  await page.locator('.react-flow__pane').click()
+  await page.keyboard.press('/')
+  const search = page.getByRole('searchbox', { name: 'Search nodes' })
+  await expect(search).toBeFocused()
+
+  await search.fill('discord slack')
+  const list = page.getByRole('navigation', { name: 'Node types' })
+  await expect(list.getByRole('button')).toHaveCount(1)
+  await expect(list.getByText('Webhook', { exact: true })).toBeVisible()
+
+  await search.press('Enter')
+  await expect(canvasNode(page, 'webhook')).toBeVisible()
+  await expect(search).toHaveValue('')
+})

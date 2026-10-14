@@ -209,7 +209,7 @@ func (*Trigger) Type() engine.NodeType {
 			{
 				Name: "startsWith", Label: "Starts with", Kind: engine.ParamString,
 				Description: "Only messages that start with this, in any letter case, e.g. /report. Empty: every message. " +
-					"/start and /menu are the bot's own.",
+					"The bot keeps /start, /menu and the names of its menu's sections for itself.",
 			},
 		},
 	}

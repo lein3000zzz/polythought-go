@@ -119,6 +119,7 @@ func (n *Positions) Run(ctx context.Context, rc engine.RunContext, in engine.Por
 				"address":       string(w.Address),
 				"marketId":      string(pos.MarketID),
 				"tokenId":       string(pos.TokenID),
+				"title":         pos.Title,
 				"outcome":       pos.Outcome,
 				"size":          pos.Size,
 				"avgPrice":      pos.AvgPrice,

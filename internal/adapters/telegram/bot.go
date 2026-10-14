@@ -464,8 +464,14 @@ func (b *Bot) Send(ctx context.Context, m ports.TelegramMessage) (int, error) {
 		ChatID: m.ChatID, Text: m.HTML, ParseMode: models.ParseModeHTML, LinkPreviewOptions: noPreview(),
 		DisableNotification: m.Silent,
 	}
-	if len(m.Buttons) > 0 {
+
+	switch {
+	case len(m.Buttons) > 0:
 		params.ReplyMarkup = keyboard(m.Buttons)
+	case len(m.Keyboard) > 0:
+		params.ReplyMarkup = replyKeyboard(m.Keyboard)
+	case m.RemoveKeyboard:
+		params.ReplyMarkup = &models.ReplyKeyboardRemove{RemoveKeyboard: true}
 	}
 
 	msg, err := retrying(ctx, func(ctx context.Context) (*models.Message, error) {
@@ -538,6 +544,22 @@ func keyboard(rows [][]ports.TelegramButton) *models.InlineKeyboardMarkup {
 		out.InlineKeyboard[i] = make([]models.InlineKeyboardButton, len(row))
 		for j, btn := range row {
 			out.InlineKeyboard[i][j] = models.InlineKeyboardButton{Text: btn.Text, CallbackData: btn.Data, URL: btn.URL}
+		}
+	}
+
+	return out
+}
+
+// replyKeyboard stays under the input field, sized to its buttons, until removed.
+func replyKeyboard(rows [][]string) *models.ReplyKeyboardMarkup {
+	out := &models.ReplyKeyboardMarkup{
+		Keyboard: make([][]models.KeyboardButton, len(rows)), IsPersistent: true, ResizeKeyboard: true,
+	}
+
+	for i, row := range rows {
+		out.Keyboard[i] = make([]models.KeyboardButton, len(row))
+		for j, text := range row {
+			out.Keyboard[i][j] = models.KeyboardButton{Text: text}
 		}
 	}
 

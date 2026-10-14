@@ -185,7 +185,7 @@ func TestReader(t *testing.T) {
 			setup: func(m clientMocks) {
 				m.data.EXPECT().Positions(mock.Anything, pm.PositionsQuery{User: "0xw", Limit: 2}).
 					Return(pm.Page[pm.Position]{Items: []pm.Position{{
-						ProxyWallet: "0xw", ConditionID: "0xc", TokenID: "t1", Outcome: "Yes",
+						ProxyWallet: "0xw", ConditionID: "0xc", TokenID: "t1", Outcome: "Yes", Title: "Will it rain?",
 						CurrentSize: dec("100"), AvgPrice: dec("0.2"), CurrentPrice: dec("0.3"), CurrentValue: dec("30"),
 						RealizedPnl: dec("1"), UnrealizedPnl: dec("10"), Redeemable: true,
 					}}}, nil)
@@ -194,7 +194,7 @@ func TestReader(t *testing.T) {
 				return r.Positions(ctx, ports.PositionFilter{Wallet: "0xw", Limit: 2})
 			},
 			want: ports.Page[domain.Position]{Items: []domain.Position{{
-				Wallet: "0xw", MarketID: "0xc", TokenID: "t1", Outcome: "Yes",
+				Wallet: "0xw", MarketID: "0xc", TokenID: "t1", Title: "Will it rain?", Outcome: "Yes",
 				Size: dec("100"), AvgPrice: dec("0.2"), CurrentPrice: dec("0.3"), Value: dec("30"),
 				RealizedPnL: dec("1"), UnrealizedPnL: dec("10"), Redeemable: true,
 			}}},

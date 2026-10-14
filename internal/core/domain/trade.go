@@ -30,6 +30,7 @@ type Position struct {
 	Wallet        WalletAddress
 	MarketID      MarketID
 	TokenID       TokenID
+	Title         string // the market's question
 	Outcome       string
 	Size          decimal.Decimal
 	AvgPrice      decimal.Decimal

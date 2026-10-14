@@ -182,6 +182,10 @@ func (a *app) init(ctx context.Context) error {
 		return err
 	}
 
+	a.telegram.UseMenu(telegram.Menu{
+		Workflows: a.workflows, Wallets: a.wallets, Positions: pmc.reader, Notifications: a.notify,
+	})
+
 	a.auth, err = auth.New(authConfig(a.settings.Current()), auth.Repositories{
 		Users:    postgres.NewUsers(a.db),
 		Sessions: postgres.NewSessions(a.db),
