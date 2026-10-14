@@ -9,13 +9,16 @@ import { defineConfig } from 'vitest/config'
 // POLYTHOUGHT_PUBLIC_URL=http://localhost:5173 so its origin check accepts this one.
 const api = process.env.POLYTHOUGHT_API_URL ?? 'http://localhost:8080'
 
+// The docs, from `make docs-dev`, under the same origin too.
+const docs = process.env.POLYTHOUGHT_DOCS_URL ?? 'http://localhost:4321'
+
 export default defineConfig({
   plugins: [react(), tailwindcss()],
   resolve: {
     alias: { '@': path.resolve(import.meta.dirname, 'src') },
   },
   server: {
-    proxy: { '/api': api },
+    proxy: { '/api': api, '/docs': docs },
   },
   build: {
     rolldownOptions: {

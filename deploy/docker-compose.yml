@@ -47,7 +47,8 @@ services:
   web:
     profiles: [app]
     build:
-      context: ../web
+      context: ..
+      dockerfile: web/Dockerfile # the app and the docs
     depends_on:
       - api
     ports:

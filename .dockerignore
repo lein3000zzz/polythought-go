@@ -3,5 +3,6 @@
 api
 deploy
 web
+docs
 coverage.out
 .env

@@ -1,4 +1,4 @@
-import { LogOut } from 'lucide-react'
+import { BookOpen, LogOut } from 'lucide-react'
 import { Link, NavLink, Outlet } from 'react-router'
 import { cn } from 'cn'
 
@@ -46,6 +46,16 @@ export function AppShell() {
         </nav>
 
         <div className="ml-auto flex items-center gap-3 text-sm">
+          {/* Outside the app's router; a new tab keeps unsaved work in the editor. */}
+          <a
+            href="/docs/"
+            target="_blank"
+            rel="noopener"
+            className="flex items-center gap-1 text-muted-foreground hover:text-foreground"
+          >
+            <BookOpen className="size-4" />
+            Docs
+          </a>
           {user && <span className="text-muted-foreground">{user.email}</span>}
           {user?.role === 'admin' && <Badge variant="secondary">Admin</Badge>}
           <ThemeToggle />

@@ -165,6 +165,24 @@ web-check: ## UI typecheck, lint, format, API types up to date, tests
 web-build: ## Build the UI into web/dist
 	$(PNPM) --dir web build
 
+## Docs site (docs/, needs Node 22)
+
+.PHONY: docs-install
+docs-install: ## Install the docs site's dependencies
+	$(PNPM) --dir docs install --frozen-lockfile
+
+.PHONY: docs-dev
+docs-dev: ## Run the docs on :4321/docs with live reload (make web-dev serves them at /docs too)
+	ASTRO_TELEMETRY_DISABLED=1 $(PNPM) --dir docs dev
+
+.PHONY: docs-build
+docs-build: ## Build the docs into docs/dist, with their Content-Security-Policy
+	ASTRO_TELEMETRY_DISABLED=1 $(PNPM) --dir docs build
+
+.PHONY: docs-gen
+docs-gen: ## Regenerate the docs' reference pages from the code (a test fails when they are stale)
+	$(GO) run ./internal/tools/docgen
+
 .PHONY: e2e
 e2e: ## Browser tests against a throwaway stack in Docker (UI on :3100, removed afterwards)
 	$(PNPM) --dir web exec playwright install --only-shell chromium

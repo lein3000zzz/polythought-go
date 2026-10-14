@@ -1,0 +1,12 @@
+/* The app's neutral palette: an accent close to its near-black and near-white buttons. */
+:root {
+  --sl-color-accent-low: #262626;
+  --sl-color-accent: #a3a3a3;
+  --sl-color-accent-high: #f5f5f5;
+}
+
+:root[data-theme='light'] {
+  --sl-color-accent-low: #e5e5e5;
+  --sl-color-accent: #404040;
+  --sl-color-accent-high: #171717;
+}

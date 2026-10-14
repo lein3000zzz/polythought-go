@@ -1,0 +1,13 @@
+# The web image is built from the repository root (see web/Dockerfile), and needs only
+# the app and the docs.
+*
+!web
+!docs
+web/node_modules
+web/dist
+web/test-results
+web/e2e/.auth
+docs/node_modules
+docs/dist
+docs/.astro
+docs/csp.caddy

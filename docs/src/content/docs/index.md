@@ -1,0 +1,34 @@
+---
+title: Polythought
+description: Workflow automation for Polymarket. Build workflows from nodes, run them on a schedule or on live market activity, and share them.
+template: splash
+hero:
+  tagline: Workflow automation for Polymarket. Build workflows from nodes, run them on a schedule or on live market activity, and share them.
+  actions:
+    - text: Learn the concepts
+      link: /docs/guides/concepts/
+      icon: right-arrow
+    - text: Run your own
+      link: /docs/self-hosting/install/
+      variant: minimal
+---
+
+## Start here
+
+- **[Concepts](/docs/guides/concepts/)**: workflows, nodes, items, ports and executions, in five minutes.
+- **[The editor](/docs/guides/editor/)**: build a workflow, run it, see what each node did.
+- **[The library](/docs/guides/library/)**: ready-made scenarios to start from, and sharing your own.
+- **[Credentials](/docs/guides/credentials/)**: keys and tokens your workflows use, kept encrypted.
+
+## Running an instance
+
+- **[Install](/docs/self-hosting/install/)** with Docker in a few minutes.
+- **[Configuration](/docs/self-hosting/configuration/)**: what goes in the environment, and what admins change on the Config page.
+
+## Reference
+
+- **[Nodes](/docs/reference/nodes/)**: every node and its settings.
+- **[Settings](/docs/reference/settings/)**: every setting of the instance.
+- **[Credential types](/docs/reference/credential-types/)**.
+
+These reference pages are generated from the code, so they match the version you run.

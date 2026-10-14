@@ -1,5 +1,5 @@
-# Serves the web UI and proxies the API on the same origin, so the session cookie and the
-# API's origin check need no CORS. Put TLS in front, or give Caddy a domain and let it
+# Serves the web UI and the docs, and proxies the API on the same origin, so the session
+# cookie and the API's origin check need no CORS. Put TLS in front, or give Caddy a domain and let it
 # manage certificates itself.
 {
 	admin off
@@ -21,6 +21,22 @@
 		reverse_proxy {$API_UPSTREAM:api:8080}
 	}
 
+	# The docs, a static site. Its Content-Security-Policy replaces the app's: it allows the
+	# docs' few inline scripts by hash and WebAssembly for search (docs/scripts/csp.mjs
+	# writes it at build time).
+	handle /docs* {
+		import /etc/caddy/docs-csp.caddy
+		root * /srv
+
+		@hashed path /docs/_astro/*
+		header @hashed Cache-Control "public, max-age=31536000, immutable"
+
+		@page not path /docs/_astro/*
+		header @page Cache-Control no-cache
+
+		file_server
+	}
+
 	handle {
 		root * /srv
 
@@ -35,5 +51,16 @@
 
 		try_files {path} /index.html
 		file_server
+	}
+
+	# A page missing from the docs gets the docs' own not-found page, with a 404.
+	handle_errors 404 {
+		@docs path /docs*
+		handle @docs {
+			import /etc/caddy/docs-csp.caddy
+			root * /srv
+			rewrite * /docs/404.html
+			file_server
+		}
 	}
 }

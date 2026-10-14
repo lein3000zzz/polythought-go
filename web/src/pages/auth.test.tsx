@@ -99,7 +99,12 @@ describe('session', () => {
 
     const { router, user } = renderApp('/workflows')
 
-    await user.click(await screen.findByRole('button', { name: 'Sign out' }))
+    // The docs are beside the app, outside its router, and open in a tab of their own.
+    const docs = await screen.findByRole('link', { name: 'Docs' })
+    expect(docs).toHaveAttribute('href', '/docs/')
+    expect(docs).toHaveAttribute('target', '_blank')
+
+    await user.click(screen.getByRole('button', { name: 'Sign out' }))
 
     expect(await screen.findByRole('button', { name: 'Sign in' })).toBeInTheDocument()
     expect(router.state.location.pathname).toBe('/login')
