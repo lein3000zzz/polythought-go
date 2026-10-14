@@ -38,8 +38,10 @@ export const signedOut = http.get('/api/v1/me', () =>
   apiError(401, 'unauthenticated', 'not authenticated'),
 )
 
-export function registration(mode: Schemas['AuthConfig']['registration']) {
-  return http.get('/api/v1/auth/config', () => HttpResponse.json({ registration: mode }))
+export function registration(mode: Schemas['AuthConfig']['registration'], minPasswordLength = 12) {
+  return http.get('/api/v1/auth/config', () =>
+    HttpResponse.json({ registration: mode, minPasswordLength }),
+  )
 }
 
 /** Node types as the server describes them, a representative few. */

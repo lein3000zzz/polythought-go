@@ -181,7 +181,7 @@ func (s *Service) CreateInvite(ctx context.Context, actor Principal) (string, do
 		ID:        domain.InviteID(newID()),
 		CreatedBy: actor.User.ID,
 		CreatedAt: now,
-		ExpiresAt: now.Add(s.cfg.InviteTTL),
+		ExpiresAt: now.Add(s.config().InviteTTL),
 	}
 
 	if err := s.repos.Invites.Create(ctx, inv, hashSecret(code)); err != nil {
@@ -203,5 +203,10 @@ func (s *Service) ListInvites(ctx context.Context, actor Principal) ([]domain.In
 
 // RegistrationMode tells clients which sign-up form to show.
 func (s *Service) RegistrationMode() domain.RegistrationMode {
-	return s.cfg.Registration
+	return s.config().Registration
+}
+
+// MinPasswordLength is the fewest characters a new password may have, for forms to say.
+func (s *Service) MinPasswordLength() int {
+	return s.config().MinPasswordLength
 }

@@ -3,6 +3,7 @@ import { Navigate, type RouteObject } from 'react-router'
 import { AppShell } from '@/components/AppShell'
 import { RequireAuth } from '@/components/RequireAuth'
 import { Skeleton } from '@/components/ui/skeleton'
+import { AdminConfigPage } from '@/pages/AdminConfigPage'
 import { AdminPage } from '@/pages/AdminPage'
 import { LibraryPage } from '@/pages/LibraryPage'
 import { LoginPage } from '@/pages/LoginPage'
@@ -47,6 +48,7 @@ export const routes: RouteObject[] = [
           { path: 'wallets', element: <WalletsPage /> },
           { path: 'settings', element: <SettingsPage /> },
           { path: 'admin', element: <AdminPage /> },
+          { path: 'admin/config', element: <AdminConfigPage /> },
         ],
       },
     ],

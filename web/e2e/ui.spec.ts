@@ -30,6 +30,16 @@ test('the node list closes and stays closed', async ({ page }) => {
   await expect(page.getByRole('navigation', { name: 'Node types' })).toHaveCount(0)
   await expect.poll(async () => (await pane.boundingBox())!.width).toBeGreaterThan(narrow + 150)
 
+  // Out of reach while closed: it cannot take focus, so Tab skips it.
+  const focused = await page
+    .locator('nav[aria-label="Node types"] button')
+    .first()
+    .evaluate((b: HTMLElement) => {
+      b.focus()
+      return document.activeElement === b
+    })
+  expect(focused).toBe(false)
+
   await page.reload()
   await expect(page.getByRole('button', { name: 'Show node list' })).toBeVisible()
   await page.getByRole('button', { name: 'Show node list' }).click()

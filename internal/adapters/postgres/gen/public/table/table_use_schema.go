@@ -15,6 +15,8 @@ func UseSchema(schema string) {
 	Invites = Invites.FromSchema(schema)
 	PolymarketCredentials = PolymarketCredentials.FromSchema(schema)
 	Sessions = Sessions.FromSchema(schema)
+	Settings = Settings.FromSchema(schema)
+	SettingsAudit = SettingsAudit.FromSchema(schema)
 	Templates = Templates.FromSchema(schema)
 	Users = Users.FromSchema(schema)
 	Wallets = Wallets.FromSchema(schema)

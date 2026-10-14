@@ -96,13 +96,14 @@ func TestRoutes(t *testing.T) {
 			wantBody:   []string{`"status":"ok"`},
 		},
 		{
-			name: "registration mode",
+			name: "registration mode and password rule",
 			req:  request{method: "GET", path: "/api/v1/auth/config"},
 			setup: func(svc *httpapimocks.MockAuthService) {
 				svc.EXPECT().RegistrationMode().Return(domain.RegistrationInvite)
+				svc.EXPECT().MinPasswordLength().Return(14)
 			},
 			wantStatus: http.StatusOK,
-			wantBody:   []string{`"registration":"invite"`},
+			wantBody:   []string{`{"registration":"invite","minPasswordLength":14}`},
 		},
 		{
 			name: "register",
@@ -393,10 +394,13 @@ func TestClientIP(t *testing.T) {
 	tests := []struct {
 		name    string
 		proxies []*net.IPNet
+		later   []*net.IPNet // set while the server runs
 		want    string
 	}{
 		{name: "forwarded headers ignored by default", want: "127.0.0.1"},
 		{name: "trusted proxy may forward", proxies: []*net.IPNet{everyone}, want: "9.9.9.9"},
+		{name: "proxies trusted while running", later: []*net.IPNet{everyone}, want: "9.9.9.9"},
+		{name: "proxies distrusted while running", proxies: []*net.IPNet{everyone}, later: []*net.IPNet{}, want: "127.0.0.1"},
 	}
 
 	for _, tt := range tests {
@@ -428,6 +432,10 @@ func TestClientIP(t *testing.T) {
 
 				return resp.StatusCode == http.StatusOK
 			}, 3*time.Second, 10*time.Millisecond)
+
+			if tt.later != nil {
+				srv.SetTrustedProxies(tt.later)
+			}
 
 			req, err := http.NewRequest(http.MethodPost, "http://"+addr+"/api/v1/auth/login", strings.NewReader(`{}`))
 			require.NoError(t, err)

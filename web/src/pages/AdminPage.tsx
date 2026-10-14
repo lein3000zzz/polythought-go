@@ -1,11 +1,13 @@
 import { Copy, Plus } from 'lucide-react'
 import { useState } from 'react'
 import { useForm } from 'react-hook-form'
+import { Link } from 'react-router'
 import { toast } from 'sonner'
 
 import { useCreateInvite, useCreateUser, useInvites, useUpdateUser, useUsers } from '@/api/admin'
-import { useAuthConfig, useMe } from '@/api/auth'
+import { useAuthConfig, useMe, useMinPasswordLength } from '@/api/auth'
 import { errorMessage, type Schemas } from '@/api/client'
+import { AdminHeader } from '@/components/AdminHeader'
 import { ConfirmDialog } from '@/components/ConfirmDialog'
 import { ErrorAlert } from '@/components/ErrorAlert'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
@@ -27,9 +29,6 @@ import { formatDateTime } from '@/lib/format'
 
 type User = Schemas['User']
 
-// The server's minimum, repeated here only to say it up front.
-const minPasswordLength = 12
-
 const registrationModes: Record<Schemas['AuthConfig']['registration'], string> = {
   open: 'Anyone can create an account.',
   invite: 'People need an invite to create an account.',
@@ -45,7 +44,7 @@ export function AdminPage() {
 
   return (
     <div className="mx-auto flex max-w-4xl flex-col gap-10 p-6">
-      <h1 className="font-heading text-xl font-semibold">Admin</h1>
+      <AdminHeader />
       <UsersSection me={me} />
       <InvitesSection />
     </div>
@@ -185,6 +184,7 @@ type CreateUserForm = { email: string; password: string; role: 'user' | 'admin' 
 
 function CreateUserForm() {
   const create = useCreateUser()
+  const minPasswordLength = useMinPasswordLength()
   const { register, handleSubmit, reset } = useForm<CreateUserForm>({
     defaultValues: { role: 'user' },
   })
@@ -222,7 +222,7 @@ function CreateUserForm() {
             type="password"
             autoComplete="new-password"
             minLength={minPasswordLength}
-            placeholder={`At least ${minPasswordLength} characters`}
+            placeholder={minPasswordLength ? `At least ${minPasswordLength} characters` : undefined}
             required
             {...register('password')}
           />
@@ -260,8 +260,11 @@ function InvitesSection() {
           <h2 className="font-medium">Invites</h2>
           {config.data && (
             <p className="text-sm text-muted-foreground">
-              {registrationModes[config.data.registration]} The server's POLYTHOUGHT_REGISTRATION
-              setting decides this.
+              {registrationModes[config.data.registration]} Change who may sign up under{' '}
+              <Link to="/admin/config" className="text-foreground underline underline-offset-4">
+                Config
+              </Link>
+              .
             </p>
           )}
         </div>

@@ -1,6 +1,6 @@
 /**
- * Query keys. Each family shares a prefix, "workflows", "wallets" or "library", so one
- * invalidation covers it.
+ * Query keys. Each family shares a prefix, "workflows", "wallets", "library" or "admin",
+ * so one invalidation covers it.
  */
 export const keys = {
   me: ['me'],
@@ -9,6 +9,9 @@ export const keys = {
   tokens: ['tokens'],
   users: ['admin', 'users'],
   invites: ['admin', 'invites'],
+  settings: ['admin', 'settings'],
+  settingList: ['admin', 'settings', 'list'],
+  settingHistory: ['admin', 'settings', 'history'],
   wallets: ['wallets'],
   walletList: ['wallets', 'list'],
   credentials: (walletId: string) => ['wallets', 'credentials', walletId],

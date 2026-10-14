@@ -48,7 +48,7 @@ func TestPublic(t *testing.T) {
 func newSender(t *testing.T, allowPrivate bool) *Sender {
 	t.Helper()
 
-	s, err := New(observability.NoopUtility(), Config{AllowPrivate: allowPrivate})
+	s, err := New(observability.NoopUtility(), Config{AllowPrivate: func() bool { return allowPrivate }})
 	require.NoError(t, err)
 
 	return s

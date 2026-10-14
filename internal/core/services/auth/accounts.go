@@ -28,7 +28,9 @@ func (s *Service) Register(ctx context.Context, in RegisterInput) (domain.User, 
 		return domain.User{}, domain.ErrRateLimited
 	}
 
-	switch s.cfg.Registration {
+	mode := s.config().Registration
+
+	switch mode {
 	case domain.RegistrationClosed:
 		return domain.User{}, domain.ErrRegistrationClosed
 	case domain.RegistrationInvite:
@@ -47,7 +49,7 @@ func (s *Service) Register(ctx context.Context, in RegisterInput) (domain.User, 
 			return err
 		}
 
-		if s.cfg.Registration != domain.RegistrationInvite {
+		if mode != domain.RegistrationInvite {
 			return nil
 		}
 
@@ -201,10 +203,11 @@ func validateEmail(raw string) (string, error) {
 
 func (s *Service) validatePassword(password string) error {
 	n := utf8.RuneCountInString(password)
+	least := s.config().MinPasswordLength
 
 	switch {
-	case n < s.cfg.MinPasswordLength:
-		return fmt.Errorf("%w: at least %d characters", domain.ErrWeakPassword, s.cfg.MinPasswordLength)
+	case n < least:
+		return fmt.Errorf("%w: at least %d characters", domain.ErrWeakPassword, least)
 	case len(password) > maxPasswordLength:
 		return fmt.Errorf("%w: at most %d bytes", domain.ErrWeakPassword, maxPasswordLength)
 	case strings.TrimSpace(password) == "":

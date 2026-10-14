@@ -35,12 +35,14 @@ services:
       # Only web can reach the API, from the compose network, so its X-Forwarded-For is
       # trusted for client IPs.
       POLYTHOUGHT_TRUSTED_PROXIES: ${POLYTHOUGHT_TRUSTED_PROXIES:-172.16.0.0/12}
-      POLYTHOUGHT_REGISTRATION: ${POLYTHOUGHT_REGISTRATION:-invite}
       POLYTHOUGHT_ADMIN_EMAIL: ${POLYTHOUGHT_ADMIN_EMAIL:-}
       POLYTHOUGHT_ADMIN_PASSWORD: ${POLYTHOUGHT_ADMIN_PASSWORD:-}
-      POLYTHOUGHT_LOG_LEVEL: ${POLYTHOUGHT_LOG_LEVEL:-info}
-      POLYTHOUGHT_LOG_FORMAT: ${POLYTHOUGHT_LOG_FORMAT:-text}
-      POLYTHOUGHT_WEBHOOK_ALLOW_PRIVATE: ${POLYTHOUGHT_WEBHOOK_ALLOW_PRIVATE:-false}
+      # Settings an admin can also change on the Config page. Empty leaves them to it; a
+      # value set in .env wins and locks the setting there.
+      POLYTHOUGHT_REGISTRATION: ${POLYTHOUGHT_REGISTRATION:-}
+      POLYTHOUGHT_LOG_LEVEL: ${POLYTHOUGHT_LOG_LEVEL:-}
+      POLYTHOUGHT_LOG_FORMAT: ${POLYTHOUGHT_LOG_FORMAT:-}
+      POLYTHOUGHT_WEBHOOK_ALLOW_PRIVATE: ${POLYTHOUGHT_WEBHOOK_ALLOW_PRIVATE:-}
 
   web:
     profiles: [app]

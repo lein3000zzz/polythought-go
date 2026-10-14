@@ -27,6 +27,11 @@ export function useAuthConfig() {
   })
 }
 
+/** The fewest characters a new password may have, once the server has said. */
+export function useMinPasswordLength(): number | undefined {
+  return useAuthConfig().data?.minPasswordLength
+}
+
 export function useLogin() {
   const queryClient = useQueryClient()
 

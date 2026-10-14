@@ -6,6 +6,7 @@ import (
 	"net"
 	"net/url"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/cloudwego/hertz/pkg/app"
@@ -29,6 +30,7 @@ const tracerName = "github.com/lein3000zzz/polythought-go/internal/adapters/http
 // AuthService is what the handlers need from the auth service.
 type AuthService interface {
 	RegistrationMode() domain.RegistrationMode
+	MinPasswordLength() int
 	Register(ctx context.Context, in auth.RegisterInput) (domain.User, error)
 	Login(ctx context.Context, in auth.LoginInput) (auth.LoginResult, error)
 	Logout(ctx context.Context, id domain.SessionID) error
@@ -84,6 +86,7 @@ type Services struct {
 	NodeTypes NodeTypes
 	Events    EventService
 	Library   LibraryService
+	Settings  SettingsService
 }
 
 type Config struct {
@@ -109,11 +112,13 @@ type Server struct {
 	nodeTypes NodeTypes
 	events    EventService
 	library   LibraryService
+	settings  SettingsService
 	log       logging.Logger
 	kit       *redkit.Kit
 	scope     tracing.Scope
 	origin    string
 	secure    bool
+	clientIP  atomic.Pointer[app.ClientIP]
 
 	// closing ends event streams on shutdown, which would otherwise hold it up.
 	closing   chan struct{}
@@ -156,13 +161,6 @@ func New(cfg Config, util *observability.Utility, services Services) (*Server, e
 		server.WithSenseClientDisconnection(true),
 	)
 
-	// Hertz trusts X-Forwarded-For from anyone by default, which would let clients pick
-	// their own IP and dodge rate limits.
-	h.SetClientIPFunc(app.ClientIPWithOption(app.ClientIPOptions{
-		RemoteIPHeaders: []string{"X-Forwarded-For", "X-Real-IP"},
-		TrustedCIDRs:    cfg.TrustedProxies,
-	}))
-
 	s := &Server{
 		hertz:     h,
 		auth:      services.Auth,
@@ -171,6 +169,7 @@ func New(cfg Config, util *observability.Utility, services Services) (*Server, e
 		nodeTypes: services.NodeTypes,
 		events:    services.Events,
 		library:   services.Library,
+		settings:  services.Settings,
 		log:       log,
 		kit:       kit,
 		scope:     tracing.Scope{Manager: util.TracerManager, TracerName: tracerName},
@@ -179,9 +178,25 @@ func New(cfg Config, util *observability.Utility, services Services) (*Server, e
 		closing:   make(chan struct{}),
 	}
 
+	s.SetTrustedProxies(cfg.TrustedProxies)
+	h.SetClientIPFunc(func(c *app.RequestContext) string { return (*s.clientIP.Load())(c) })
+
 	s.routes()
 
 	return s, nil
+}
+
+// SetTrustedProxies replaces the proxies trusted to report a client's address. Requests
+// that start afterwards use the new ones.
+func (s *Server) SetTrustedProxies(cidrs []*net.IPNet) {
+	// Hertz trusts X-Forwarded-For from anyone by default, which would let clients pick
+	// their own IP and dodge rate limits.
+	clientIP := app.ClientIPWithOption(app.ClientIPOptions{
+		RemoteIPHeaders: []string{"X-Forwarded-For", "X-Real-IP"},
+		TrustedCIDRs:    cidrs,
+	})
+
+	s.clientIP.Store(&clientIP)
 }
 
 // Run serves until Shutdown is called.
@@ -255,6 +270,10 @@ func (s *Server) routes() {
 	admin.PATCH("/users/:id", s.updateUser)
 	admin.GET("/invites", s.listInvites)
 	admin.POST("/invites", s.createInvite)
+	admin.GET("/settings", s.listSettings)
+	admin.PATCH("/settings", s.updateSettings)
+	admin.GET("/settings/history", s.listSettingChanges)
+	admin.POST("/restart", s.restartServer)
 }
 
 // Engine exposes the router for in-process tests.

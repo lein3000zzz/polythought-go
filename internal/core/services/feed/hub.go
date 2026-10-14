@@ -20,8 +20,8 @@ var _ ports.MarketFeed = (*Hub)(nil)
 var ErrNoTokens = errors.New("subscribe to at least one token")
 
 const (
-	defaultBuffer = 256
-	maxTokens     = 100 // per subscription
+	defaultBuffer    = 256
+	defaultMaxTokens = 100 // per subscription
 )
 
 // Hub owns the process's single market stream. It subscribes a token on the stream when
@@ -29,10 +29,11 @@ const (
 // delivered without blocking: a consumer whose buffer is full misses the update, which
 // is counted, so one slow workflow cannot stall the others.
 type Hub struct {
-	stream  ports.MarketStream
-	log     logging.Logger
-	dropped metrics.Counter
-	buffer  int
+	stream    ports.MarketStream
+	log       logging.Logger
+	dropped   metrics.Counter
+	buffer    int
+	maxTokens int
 
 	mu       sync.Mutex
 	subs     map[domain.TokenID]map[*subscription]struct{}
@@ -40,7 +41,14 @@ type Hub struct {
 	stopping bool
 }
 
-func NewHub(util *observability.Utility, stream ports.MarketStream) (*Hub, error) {
+type Option func(*Hub)
+
+// WithMaxTokens limits how many tokens one subscription may watch.
+func WithMaxTokens(n int) Option {
+	return func(h *Hub) { h.maxTokens = n }
+}
+
+func NewHub(util *observability.Utility, stream ports.MarketStream, opts ...Option) (*Hub, error) {
 	dropped, err := util.MetricsManager.RegisterCounter(metrics.CounterDefinition{
 		Definition: metrics.Definition{
 			Namespace: metrics.DefaultNamespace,
@@ -53,14 +61,21 @@ func NewHub(util *observability.Utility, stream ports.MarketStream) (*Hub, error
 		return nil, fmt.Errorf("feed: register metrics: %w", err)
 	}
 
-	return &Hub{
-		stream:  stream,
-		log:     util.Logger.With("component", "feed"),
-		dropped: dropped,
-		buffer:  defaultBuffer,
-		subs:    make(map[domain.TokenID]map[*subscription]struct{}),
-		markets: make(map[domain.TokenID]domain.MarketID),
-	}, nil
+	h := &Hub{
+		stream:    stream,
+		log:       util.Logger.With("component", "feed"),
+		dropped:   dropped,
+		buffer:    defaultBuffer,
+		maxTokens: defaultMaxTokens,
+		subs:      make(map[domain.TokenID]map[*subscription]struct{}),
+		markets:   make(map[domain.TokenID]domain.MarketID),
+	}
+
+	for _, opt := range opts {
+		opt(h)
+	}
+
+	return h, nil
 }
 
 // Run drives the stream and dispatches its updates until ctx is done, then ends every
@@ -96,8 +111,8 @@ func (h *Hub) Subscribe(ctx context.Context, tokens []domain.TokenID) (ports.Fee
 		return nil, ErrNoTokens
 	}
 
-	if len(tokens) > maxTokens {
-		return nil, fmt.Errorf("%w: at most %d tokens per subscription", domain.ErrInvalidInput, maxTokens)
+	if len(tokens) > h.maxTokens {
+		return nil, fmt.Errorf("%w: at most %d tokens per subscription", domain.ErrInvalidInput, h.maxTokens)
 	}
 
 	s := &subscription{

@@ -104,6 +104,8 @@ func optionalTime(t time.Time) *time.Time {
 
 type authConfigDTO struct {
 	Registration string `json:"registration" enums:"open,invite,closed"`
+	// MinPasswordLength is the fewest characters a new password may have.
+	MinPasswordLength int `json:"minPasswordLength"`
 } // @name AuthConfig
 
 type registerRequest struct {
@@ -160,7 +162,8 @@ func (s *Server) health(_ context.Context, c *app.RequestContext) {
 	c.JSON(http.StatusOK, map[string]string{"status": "ok"})
 }
 
-// authConfig tells the sign-up page whether and how accounts can be created.
+// authConfig tells the sign-up page whether and how accounts can be created, and what a
+// password needs.
 //
 //	@Summary	Registration settings
 //	@ID			getAuthConfig
@@ -168,7 +171,10 @@ func (s *Server) health(_ context.Context, c *app.RequestContext) {
 //	@Success	200	{object}	authConfigDTO
 //	@Router		/auth/config [get]
 func (s *Server) authConfig(_ context.Context, c *app.RequestContext) {
-	c.JSON(http.StatusOK, authConfigDTO{Registration: string(s.auth.RegistrationMode())})
+	c.JSON(http.StatusOK, authConfigDTO{
+		Registration:      string(s.auth.RegistrationMode()),
+		MinPasswordLength: s.auth.MinPasswordLength(),
+	})
 }
 
 // register creates an account when the registration mode allows it.

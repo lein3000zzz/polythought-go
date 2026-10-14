@@ -26,7 +26,7 @@ func demo(ctx context.Context, args []string) error {
 		return err
 	}
 
-	util, err := newUtility("info", "text")
+	util, _, err := newUtility("info", "text")
 	if err != nil {
 		return err
 	}

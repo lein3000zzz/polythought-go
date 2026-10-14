@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"sync"
 	"time"
 
 	"github.com/lein3000zzz/the-watchers/pkg/observability"
@@ -18,12 +19,15 @@ import (
 	"github.com/lein3000zzz/polythought-go/internal/adapters/ratelimit"
 	"github.com/lein3000zzz/polythought-go/internal/adapters/webhook"
 	"github.com/lein3000zzz/polythought-go/internal/config"
+	"github.com/lein3000zzz/polythought-go/internal/core/domain"
 	"github.com/lein3000zzz/polythought-go/internal/core/engine"
 	"github.com/lein3000zzz/polythought-go/internal/core/nodes"
+	"github.com/lein3000zzz/polythought-go/internal/core/ports"
 	"github.com/lein3000zzz/polythought-go/internal/core/services/auth"
 	"github.com/lein3000zzz/polythought-go/internal/core/services/events"
 	"github.com/lein3000zzz/polythought-go/internal/core/services/feed"
 	"github.com/lein3000zzz/polythought-go/internal/core/services/library"
+	"github.com/lein3000zzz/polythought-go/internal/core/services/settings"
 	"github.com/lein3000zzz/polythought-go/internal/core/services/wallets"
 	"github.com/lein3000zzz/polythought-go/internal/core/services/workflows"
 	pm "github.com/lein3000zzz/polythought-go/pkg/clients/polymarket"
@@ -36,8 +40,9 @@ var logLevels = map[string]logging.Level{
 	"error": logging.LevelError,
 }
 
-// newUtility sets up logging, metrics and tracing. Call its Shutdown before exiting.
-func newUtility(level, format string) (*observability.Utility, error) {
+// newUtility sets up logging, metrics and tracing. Call its Shutdown before exiting. The
+// returned logger is the root one, whose level can change while running.
+func newUtility(level, format string) (*observability.Utility, *slogging.SlogLogger, error) {
 	logFormat := logging.FormatText
 	if format == "json" {
 		logFormat = logging.FormatJSON
@@ -49,7 +54,7 @@ func newUtility(level, format string) (*observability.Utility, error) {
 		ToStdout: true,
 	}, oteltracing.CorrelateCore)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	oteltracing.InstallPropagator()
@@ -59,7 +64,7 @@ func newUtility(level, format string) (*observability.Utility, error) {
 		prommetrics.DefaultManager(),
 		oteltracing.DefaultOtelManager(),
 		func(context.Context) error { return log.Close() },
-	), nil
+	), log, nil
 }
 
 func shutdown(util *observability.Utility) {
@@ -71,11 +76,15 @@ func shutdown(util *observability.Utility) {
 	}
 }
 
+// restartDelay lets the request that asked for a restart be answered first.
+const restartDelay = 300 * time.Millisecond
+
 // app is everything the server and the operator tools share.
 type app struct {
 	cfg        config.Config
 	util       *observability.Utility
 	db         *postgres.DB
+	settings   *settings.Service
 	auth       *auth.Service
 	wallets    *wallets.Service
 	workflows  *workflows.Service
@@ -84,6 +93,9 @@ type app struct {
 	feed       *feed.Hub
 	events     *events.Hub
 	library    *library.Service
+
+	restartOnce sync.Once
+	restartc    chan struct{} // closed when an admin asked for a restart
 }
 
 func newApp(ctx context.Context) (*app, error) {
@@ -92,15 +104,21 @@ func newApp(ctx context.Context) (*app, error) {
 		return nil, fmt.Errorf("config:\n%w", err)
 	}
 
-	util, err := newUtility(cfg.LogLevel, cfg.LogFormat)
+	// The database comes first: the log settings are stored in it.
+	db, err := postgres.Open(ctx, cfg.DatabaseURL)
 	if err != nil {
 		return nil, err
 	}
 
-	a := &app{cfg: cfg, util: util}
+	a := &app{cfg: cfg, db: db, restartc: make(chan struct{})}
 
 	if err := a.init(ctx); err != nil {
-		shutdown(util)
+		if a.util != nil {
+			shutdown(a.util)
+		} else {
+			_ = db.Close(ctx)
+		}
+
 		return nil, err
 	}
 
@@ -108,22 +126,12 @@ func newApp(ctx context.Context) (*app, error) {
 }
 
 func (a *app) init(ctx context.Context) error {
-	db, err := postgres.Open(ctx, a.cfg.DatabaseURL)
-	if err != nil {
-		return err
-	}
-
-	a.db = db
-	a.util.OnShutdown(db.Close)
+	var applied []int64
 
 	if a.cfg.AutoMigrate {
-		applied, err := db.Migrate(ctx)
-		if err != nil {
+		var err error
+		if applied, err = a.db.Migrate(ctx); err != nil {
 			return err
-		}
-
-		if len(applied) > 0 {
-			a.util.Logger.Info(ctx, "Migrations applied", "versions", applied)
 		}
 	}
 
@@ -132,36 +140,105 @@ func (a *app) init(ctx context.Context) error {
 		return err
 	}
 
+	box := crypto.NewEnvelope(keys)
+
+	if err := a.initSettings(ctx, box); err != nil {
+		return err
+	}
+
+	a.util.OnShutdown(a.db.Close)
+
+	if len(applied) > 0 {
+		a.util.Logger.Info(ctx, "Migrations applied", "versions", applied)
+	}
+
 	pmc, err := newPolymarket(a)
 	if err != nil {
 		return err
 	}
 
-	a.wallets = wallets.New(postgres.NewWallets(db), crypto.NewEnvelope(keys), pmc.account, a.util.Logger)
+	a.wallets = wallets.New(postgres.NewWallets(a.db), box, pmc.account, a.util.Logger)
 
 	if err := a.initEngine(ctx, pmc); err != nil {
 		return err
 	}
 
-	authCfg := auth.DefaultConfig()
-	authCfg.Registration = a.cfg.Registration
-	authCfg.SessionIdleTTL = a.cfg.SessionIdleTTL
-	authCfg.SessionAbsoluteTTL = a.cfg.SessionAbsoluteTTL
-
-	a.auth, err = auth.New(authCfg, auth.Repositories{
-		Users:    postgres.NewUsers(db),
-		Sessions: postgres.NewSessions(db),
-		Tokens:   postgres.NewAPITokens(db),
-		Invites:  postgres.NewInvites(db),
-		Tx:       db,
+	a.auth, err = auth.New(authConfig(a.settings.Current()), auth.Repositories{
+		Users:    postgres.NewUsers(a.db),
+		Sessions: postgres.NewSessions(a.db),
+		Tokens:   postgres.NewAPITokens(a.db),
+		Invites:  postgres.NewInvites(a.db),
+		Tx:       a.db,
 	},
 		crypto.NewArgon2id(crypto.DefaultArgon2Params),
 		ratelimit.NewMemory(30*time.Second, 10), // 10 attempts, then one every 30 s per key
 		a.util.Logger,
 		auth.WithWorkflowStopper(a.workflows),
+		auth.WithLiveConfig(func() auth.Config { return authConfig(a.settings.Current()) }),
 	)
 
 	return err
+}
+
+// initSettings loads the settings, then builds logging from them.
+func (a *app) initSettings(ctx context.Context, box ports.SecretBox) error {
+	registry, err := config.Settings()
+	if err != nil {
+		return err
+	}
+
+	a.settings = settings.New(registry, postgres.NewSettings(a.db), box, settings.WithRestarter(a.requestRestart))
+
+	warnings, err := a.settings.Load(ctx, os.Getenv)
+	if err != nil {
+		return fmt.Errorf("settings:\n%w", err)
+	}
+
+	current := a.settings.Current()
+
+	util, root, err := newUtility(current.String(config.KeyLogLevel), current.String(config.KeyLogFormat))
+	if err != nil {
+		return err
+	}
+
+	a.util = util
+
+	for _, w := range warnings {
+		util.Logger.Warn(ctx, "Saved setting ignored; fix it on the Config page", logging.Err(w))
+	}
+
+	a.settings.Subscribe(func(s *settings.Snapshot) {
+		root.SetLevel(logLevels[s.String(config.KeyLogLevel)])
+	})
+
+	return nil
+}
+
+// requestRestart is what an admin's restart request calls.
+func (a *app) requestRestart(by domain.User) {
+	a.restartOnce.Do(func() {
+		a.util.Logger.Info(context.Background(), "Restart requested", "by", by.Email)
+		time.AfterFunc(restartDelay, func() { close(a.restartc) })
+	})
+}
+
+func authConfig(s *settings.Snapshot) auth.Config {
+	cfg := auth.DefaultConfig()
+	cfg.Registration = domain.RegistrationMode(s.String(config.KeyRegistration))
+	cfg.SessionIdleTTL = s.Duration(config.KeySessionIdleTTL)
+	cfg.SessionAbsoluteTTL = s.Duration(config.KeySessionAbsoluteTTL)
+	cfg.InviteTTL = s.Duration(config.KeyInviteTTL)
+	cfg.MinPasswordLength = s.Int(config.KeyMinPasswordLength)
+
+	return cfg
+}
+
+func workflowLimits(s *settings.Snapshot) workflows.Limits {
+	return workflows.Limits{
+		Workflows:       s.Int(config.KeyMaxWorkflows),
+		ActiveWorkflows: s.Int(config.KeyMaxActiveWorkflows),
+		NodesPerFlow:    s.Int(config.KeyMaxNodes),
+	}
 }
 
 // polymarket holds the adapters over the Polymarket clients.
@@ -197,14 +274,19 @@ func (a *app) initEngine(ctx context.Context, pmc polymarket) error {
 		return err
 	}
 
+	current := a.settings.Current()
+
 	// One market stream for the whole process; serve runs it.
-	if a.feed, err = feed.NewHub(a.util, pmadapter.NewStream(streamClient)); err != nil {
+	a.feed, err = feed.NewHub(a.util, pmadapter.NewStream(streamClient), feed.WithMaxTokens(current.Int(config.KeyFeedMaxTokens)))
+	if err != nil {
 		return err
 	}
 
 	a.registry = engine.NewRegistry()
 
-	webhooks, err := webhook.New(a.util, webhook.Config{AllowPrivate: a.cfg.WebhookAllowPrivate})
+	webhooks, err := webhook.New(a.util, webhook.Config{
+		AllowPrivate: func() bool { return a.settings.Current().Bool(config.KeyWebhookAllowPrivate) },
+	})
 	if err != nil {
 		return err
 	}
@@ -221,6 +303,7 @@ func (a *app) initEngine(ctx context.Context, pmc polymarket) error {
 		Webhooks:     webhooks,
 		Feed:         a.feed,
 		Logger:       a.util.Logger,
+		MinInterval:  current.Duration(config.KeyScheduleMinInterval),
 	})
 	if err != nil {
 		return err
@@ -240,7 +323,8 @@ func (a *app) initEngine(ctx context.Context, pmc polymarket) error {
 	a.supervisor = engine.NewSupervisor(ctx, engine.NewRunner(a.util, a.registry, executor), a.util.Logger)
 	a.util.OnShutdown(a.supervisor.Shutdown)
 
-	a.workflows = workflows.New(postgres.NewWorkflows(a.db), executions, a.registry, executor, a.supervisor, a.util.Logger)
+	a.workflows = workflows.New(postgres.NewWorkflows(a.db), executions, a.registry, executor, a.supervisor, a.util.Logger,
+		workflows.WithLiveLimits(func() workflows.Limits { return workflowLimits(a.settings.Current()) }))
 
 	if a.library, err = library.New(postgres.NewTemplates(a.db), a.workflows, a.registry, a.util.Logger); err != nil {
 		return err

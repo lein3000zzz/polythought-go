@@ -54,6 +54,10 @@
             },
             "AuthConfig": {
                 "properties": {
+                    "minPasswordLength": {
+                        "description": "MinPasswordLength is the fewest characters a new password may have.",
+                        "type": "integer"
+                    },
                     "registration": {
                         "enum": [
                             "open",
@@ -64,6 +68,7 @@
                     }
                 },
                 "required": [
+                    "minPasswordLength",
                     "registration"
                 ],
                 "type": "object"
@@ -216,7 +221,7 @@
                         "type": "string"
                     },
                     "problems": {
-                        "description": "Problems lists everything wrong with a submitted workflow (code invalid_workflow).",
+                        "description": "Problems lists everything wrong with a submitted workflow (code invalid_workflow)\nor with changed settings (code invalid_input, param is the setting's key).",
                         "items": {
                             "$ref": "#/components/schemas/Problem"
                         },
@@ -686,6 +691,165 @@
                 ],
                 "type": "object"
             },
+            "Setting": {
+                "properties": {
+                    "apply": {
+                        "description": "Apply says when a change takes effect: at once, or after a restart.",
+                        "enum": [
+                            "live",
+                            "restart"
+                        ],
+                        "type": "string"
+                    },
+                    "default": {},
+                    "description": {
+                        "type": "string"
+                    },
+                    "env": {
+                        "type": "string"
+                    },
+                    "group": {
+                        "type": "string"
+                    },
+                    "isSet": {
+                        "type": "boolean"
+                    },
+                    "key": {
+                        "type": "string"
+                    },
+                    "kind": {
+                        "enum": [
+                            "string",
+                            "int",
+                            "bool",
+                            "duration",
+                            "enum",
+                            "list"
+                        ],
+                        "type": "string"
+                    },
+                    "label": {
+                        "type": "string"
+                    },
+                    "options": {
+                        "description": "the choices of an enum",
+                        "items": {
+                            "type": "string"
+                        },
+                        "type": "array",
+                        "uniqueItems": false
+                    },
+                    "pending": {
+                        "description": "Pending is set on a changed setting that waits for a restart.",
+                        "type": "boolean"
+                    },
+                    "secret": {
+                        "description": "Secret values are write-only: value is null and isSet says whether one is saved.",
+                        "type": "boolean"
+                    },
+                    "source": {
+                        "description": "Source is where the value comes from. One set by the environment variable Env\ncannot be changed here.",
+                        "enum": [
+                            "default",
+                            "database",
+                            "environment"
+                        ],
+                        "type": "string"
+                    },
+                    "value": {
+                        "description": "Value and Default are typed by kind: text, a whole number, true or false, a\nduration as text like \"168h\", or a list of text. Both are null for a secret."
+                    }
+                },
+                "required": [
+                    "apply",
+                    "default",
+                    "description",
+                    "env",
+                    "group",
+                    "isSet",
+                    "key",
+                    "kind",
+                    "label",
+                    "pending",
+                    "secret",
+                    "source",
+                    "value"
+                ],
+                "type": "object"
+            },
+            "SettingChange": {
+                "properties": {
+                    "actorEmail": {
+                        "description": "ActorEmail is absent once the account that made the change is gone.",
+                        "type": "string"
+                    },
+                    "at": {
+                        "format": "date-time",
+                        "type": "string"
+                    },
+                    "id": {
+                        "type": "string"
+                    },
+                    "key": {
+                        "type": "string"
+                    },
+                    "newValue": {},
+                    "oldValue": {
+                        "description": "The values that applied before and after; null for a secret."
+                    },
+                    "secret": {
+                        "type": "boolean"
+                    }
+                },
+                "required": [
+                    "at",
+                    "id",
+                    "key",
+                    "newValue",
+                    "oldValue",
+                    "secret"
+                ],
+                "type": "object"
+            },
+            "SettingChangePage": {
+                "properties": {
+                    "changes": {
+                        "items": {
+                            "$ref": "#/components/schemas/SettingChange"
+                        },
+                        "type": "array",
+                        "uniqueItems": false
+                    },
+                    "nextCursor": {
+                        "description": "NextCursor is absent on the last page.",
+                        "type": "string"
+                    }
+                },
+                "required": [
+                    "changes"
+                ],
+                "type": "object"
+            },
+            "Settings": {
+                "properties": {
+                    "restartPending": {
+                        "description": "RestartPending is set when a saved change waits for a restart.",
+                        "type": "boolean"
+                    },
+                    "settings": {
+                        "items": {
+                            "$ref": "#/components/schemas/Setting"
+                        },
+                        "type": "array",
+                        "uniqueItems": false
+                    }
+                },
+                "required": [
+                    "restartPending",
+                    "settings"
+                ],
+                "type": "object"
+            },
             "ShareRequest": {
                 "properties": {
                     "description": {
@@ -799,6 +963,19 @@
                 },
                 "required": [
                     "templates"
+                ],
+                "type": "object"
+            },
+            "UpdateSettingsRequest": {
+                "properties": {
+                    "values": {
+                        "additionalProperties": {},
+                        "description": "New values by setting key, typed as Setting.value. null resets a setting to its\ndefault, as does an empty string for a secret.",
+                        "type": "object"
+                    }
+                },
+                "required": [
+                    "values"
                 ],
                 "type": "object"
             },
@@ -1175,6 +1352,245 @@
                     }
                 ],
                 "summary": "Create an invite",
+                "tags": [
+                    "admin"
+                ]
+            }
+        },
+        "/admin/restart": {
+            "post": {
+                "operationId": "restartServer",
+                "responses": {
+                    "202": {
+                        "description": "Accepted"
+                    },
+                    "401": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "unauthenticated"
+                    },
+                    "403": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "forbidden"
+                    }
+                },
+                "security": [
+                    {
+                        "SessionCookie": []
+                    },
+                    {
+                        "APIToken": []
+                    }
+                ],
+                "summary": "Restart the server",
+                "tags": [
+                    "admin"
+                ]
+            }
+        },
+        "/admin/settings": {
+            "get": {
+                "operationId": "listSettings",
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Settings"
+                                }
+                            }
+                        },
+                        "description": "OK"
+                    },
+                    "401": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "unauthenticated"
+                    },
+                    "403": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "forbidden"
+                    }
+                },
+                "security": [
+                    {
+                        "SessionCookie": []
+                    },
+                    {
+                        "APIToken": []
+                    }
+                ],
+                "summary": "List the instance's settings",
+                "tags": [
+                    "admin"
+                ]
+            },
+            "patch": {
+                "operationId": "updateSettings",
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/UpdateSettingsRequest",
+                                "summary": "body",
+                                "description": "Changes"
+                            }
+                        }
+                    },
+                    "description": "Changes",
+                    "required": true
+                },
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Settings"
+                                }
+                            }
+                        },
+                        "description": "OK"
+                    },
+                    "400": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "invalid_input"
+                    },
+                    "401": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "unauthenticated"
+                    },
+                    "403": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "forbidden"
+                    }
+                },
+                "security": [
+                    {
+                        "SessionCookie": []
+                    },
+                    {
+                        "APIToken": []
+                    }
+                ],
+                "summary": "Change settings",
+                "tags": [
+                    "admin"
+                ]
+            }
+        },
+        "/admin/settings/history": {
+            "get": {
+                "operationId": "listSettingChanges",
+                "parameters": [
+                    {
+                        "description": "Page size",
+                        "in": "query",
+                        "name": "limit",
+                        "schema": {
+                            "minimum": 1,
+                            "type": "integer"
+                        }
+                    },
+                    {
+                        "description": "nextCursor of the previous page",
+                        "in": "query",
+                        "name": "cursor",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/SettingChangePage"
+                                }
+                            }
+                        },
+                        "description": "OK"
+                    },
+                    "400": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "invalid_input"
+                    },
+                    "401": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "unauthenticated"
+                    },
+                    "403": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "forbidden"
+                    }
+                },
+                "security": [
+                    {
+                        "SessionCookie": []
+                    },
+                    {
+                        "APIToken": []
+                    }
+                ],
+                "summary": "List changes to settings, newest first",
                 "tags": [
                     "admin"
                 ]

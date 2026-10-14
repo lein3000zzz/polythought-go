@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"testing"
+	"time"
 
 	"github.com/lein3000zzz/the-watchers/pkg/observability/logging"
 	"github.com/stretchr/testify/assert"
@@ -19,6 +20,31 @@ func TestNewRejectsUnknownRegistrationMode(t *testing.T) {
 
 	_, err := auth.New(config("sometimes"), auth.Repositories{}, d.hasher, d.limiter, logging.Noop())
 	require.Error(t, err)
+}
+
+func TestLiveConfig(t *testing.T) {
+	d := newDeps(t)
+	d.allow(true)
+	d.hasher.EXPECT().Hash("polythought-dummy-password").Return(dummyHash, nil).Once()
+
+	cfg := config(domain.RegistrationOpen)
+
+	s, err := auth.New(config(domain.RegistrationClosed), auth.Repositories{Users: d.users, Tx: d.tx}, d.hasher, d.limiter, logging.Noop(),
+		auth.WithClock(func() time.Time { return now }),
+		auth.WithLiveConfig(func() auth.Config { return cfg }),
+	)
+	require.NoError(t, err)
+	assert.Equal(t, domain.RegistrationOpen, s.RegistrationMode(), "the live config replaces the one given to New")
+
+	cfg.Registration = domain.RegistrationClosed
+	_, err = s.Register(context.Background(), auth.RegisterInput{Email: "bob@example.com", Password: goodPass})
+	require.ErrorIs(t, err, domain.ErrRegistrationClosed, "a change applies to the next request")
+
+	cfg.Registration = domain.RegistrationOpen
+	cfg.MinPasswordLength = 30
+	_, err = s.Register(context.Background(), auth.RegisterInput{Email: "bob@example.com", Password: goodPass})
+	require.ErrorIs(t, err, domain.ErrWeakPassword)
+	assert.ErrorContains(t, err, "at least 30 characters")
 }
 
 func TestRegister(t *testing.T) {

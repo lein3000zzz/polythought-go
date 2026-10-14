@@ -26,7 +26,8 @@ type errorDetail struct {
 	Code    string `json:"code"`
 	Message string `json:"message"`
 
-	// Problems lists everything wrong with a submitted workflow (code invalid_workflow).
+	// Problems lists everything wrong with a submitted workflow (code invalid_workflow)
+	// or with changed settings (code invalid_input, param is the setting's key).
 	Problems []problemDTO `json:"problems,omitempty" validate:"optional"`
 } // @name ErrorDetail
 

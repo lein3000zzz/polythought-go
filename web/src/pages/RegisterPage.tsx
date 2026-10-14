@@ -10,12 +10,10 @@ import { Label } from '@/components/ui/label'
 
 type Form = { email: string; password: string; inviteCode: string }
 
-// The server's minimum, repeated here only to say it up front.
-const minPasswordLength = 12
-
 export function RegisterPage() {
   const me = useMe()
   const config = useAuthConfig()
+  const minPasswordLength = config.data?.minPasswordLength
   const registration = useRegister()
   const [params] = useSearchParams()
   const { register, handleSubmit } = useForm<Form>({
@@ -90,7 +88,7 @@ export function RegisterPage() {
             {...register('password')}
           />
           <p id="password-hint" className="text-xs text-muted-foreground">
-            At least {minPasswordLength} characters.
+            {minPasswordLength && `At least ${minPasswordLength} characters.`}
           </p>
         </div>
 

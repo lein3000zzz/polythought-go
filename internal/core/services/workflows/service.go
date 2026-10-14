@@ -59,7 +59,7 @@ type Service struct {
 	validator  Validator
 	executor   Executor
 	supervisor Supervisor
-	limits     Limits
+	limits     func() Limits
 	log        logging.Logger
 	now        func() time.Time
 }
@@ -71,7 +71,12 @@ func WithClock(now func() time.Time) Option {
 }
 
 func WithLimits(l Limits) Option {
-	return func(s *Service) { s.limits = l }
+	return func(s *Service) { s.limits = func() Limits { return l } }
+}
+
+// WithLiveLimits reads the limits through limits on every check, so changes apply at once.
+func WithLiveLimits(limits func() Limits) Option {
+	return func(s *Service) { s.limits = limits }
 }
 
 func New(
@@ -89,7 +94,7 @@ func New(
 		validator:  validator,
 		executor:   executor,
 		supervisor: supervisor,
-		limits:     DefaultLimits(),
+		limits:     DefaultLimits,
 		log:        log.With("component", "workflows"),
 		now:        func() time.Time { return time.Now().UTC().Truncate(time.Microsecond) },
 	}
@@ -115,8 +120,8 @@ func (s *Service) Create(ctx context.Context, p auth.Principal, def Definition) 
 		return domain.Workflow{}, err
 	}
 
-	if total >= s.limits.Workflows {
-		return domain.Workflow{}, fmt.Errorf("%w: at most %d workflows per user", domain.ErrInvalidInput, s.limits.Workflows)
+	if most := s.limits().Workflows; total >= most {
+		return domain.Workflow{}, fmt.Errorf("%w: at most %d workflows per user", domain.ErrInvalidInput, most)
 	}
 
 	now := s.now()
@@ -210,8 +215,8 @@ func (s *Service) Activate(ctx context.Context, p auth.Principal, id domain.Work
 			return domain.Workflow{}, err
 		}
 
-		if active >= s.limits.ActiveWorkflows {
-			return domain.Workflow{}, fmt.Errorf("%w: at most %d active workflows per user", domain.ErrInvalidInput, s.limits.ActiveWorkflows)
+		if most := s.limits().ActiveWorkflows; active >= most {
+			return domain.Workflow{}, fmt.Errorf("%w: at most %d active workflows per user", domain.ErrInvalidInput, most)
 		}
 	}
 
@@ -378,8 +383,8 @@ func (s *Service) apply(w *domain.Workflow, def Definition) error {
 		return fmt.Errorf("%w: name must be 1 to %d characters", domain.ErrInvalidInput, maxName)
 	}
 
-	if len(def.Nodes) > s.limits.NodesPerFlow {
-		return fmt.Errorf("%w: at most %d nodes per workflow", domain.ErrInvalidInput, s.limits.NodesPerFlow)
+	if most := s.limits().NodesPerFlow; len(def.Nodes) > most {
+		return fmt.Errorf("%w: at most %d nodes per workflow", domain.ErrInvalidInput, most)
 	}
 
 	candidate := *w

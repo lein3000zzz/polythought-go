@@ -8,11 +8,21 @@ import (
 	"github.com/lein3000zzz/the-watchers/pkg/observability/logging"
 
 	"github.com/lein3000zzz/polythought-go/internal/adapters/httpapi"
+	"github.com/lein3000zzz/polythought-go/internal/config"
+	"github.com/lein3000zzz/polythought-go/internal/core/services/settings"
 )
 
 const sessionPruneInterval = time.Hour
 
+// errRestart ends serve when an admin asked for a restart, once everything has shut down.
+var errRestart = errors.New("restart requested")
+
 func serve(ctx context.Context) error {
+	// Cancelling stops workflows, the market feed and background jobs, for a signal and
+	// for a restart alike.
+	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
+
 	a, err := newApp(ctx)
 	if err != nil {
 		return err
@@ -32,17 +42,29 @@ func serve(ctx context.Context) error {
 		}
 	}
 
+	proxies, err := config.ParseCIDRs(a.settings.Current().Strings(config.KeyTrustedProxies))
+	if err != nil {
+		return err
+	}
+
 	srv, err := httpapi.New(httpapi.Config{
 		Addr:           a.cfg.HTTPAddr,
 		PublicURL:      a.cfg.PublicURL,
-		TrustedProxies: a.cfg.TrustedProxies,
+		TrustedProxies: proxies,
 	}, a.util, httpapi.Services{
 		Auth: a.auth, Wallets: a.wallets, Workflows: a.workflows, NodeTypes: a.registry, Events: a.events,
-		Library: a.library,
+		Library: a.library, Settings: a.settings,
 	})
 	if err != nil {
 		return err
 	}
+
+	a.settings.Subscribe(func(s *settings.Snapshot) {
+		// Saved values passed the same parsing, so this cannot fail.
+		if proxies, err := config.ParseCIDRs(s.Strings(config.KeyTrustedProxies)); err == nil {
+			srv.SetTrustedProxies(proxies)
+		}
+	})
 
 	go func() {
 		if err := a.feed.Run(ctx); err != nil {
@@ -60,19 +82,28 @@ func serve(ctx context.Context) error {
 	errc := make(chan error, 1)
 	go func() { errc <- srv.Run() }()
 
+	restart := false
+
 	select {
 	case err := <-errc:
 		return err
 	case <-ctx.Done():
+	case <-a.restartc:
+		restart = true
 	}
 
-	log.Info(context.Background(), "Shutting down")
+	log.Info(context.Background(), "Shutting down", "restart", restart)
+	cancel()
 
-	stopCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
+	stopCtx, stopCancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer stopCancel()
 
 	if err := srv.Shutdown(stopCtx); err != nil && !errors.Is(err, context.Canceled) {
 		return err
+	}
+
+	if restart {
+		return errRestart
 	}
 
 	return nil
@@ -102,13 +133,15 @@ const executionPruneInterval = 24 * time.Hour
 
 func pruneExecutions(ctx context.Context, a *app, log logging.Logger) {
 	prune := func() {
-		n, err := a.workflows.PruneExecutions(ctx, a.cfg.ExecutionRetention)
+		retention := a.settings.Current().Duration(config.KeyExecutionRetention)
+
+		n, err := a.workflows.PruneExecutions(ctx, retention)
 		if err != nil {
 			log.Warn(ctx, "Execution pruning failed", logging.Err(err))
 			return
 		}
 
-		log.Info(ctx, "Old executions pruned", "count", n, "retention", a.cfg.ExecutionRetention)
+		log.Info(ctx, "Old executions pruned", "count", n, "retention", retention)
 	}
 
 	prune()

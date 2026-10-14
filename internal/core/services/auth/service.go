@@ -59,7 +59,7 @@ type Repositories struct {
 }
 
 type Service struct {
-	cfg     Config
+	config  func() Config
 	repos   Repositories
 	hasher  ports.PasswordHasher
 	limiter ports.RateLimiter
@@ -85,6 +85,12 @@ func WithWorkflowStopper(w WorkflowStopper) Option {
 	return func(s *Service) { s.workflows = w }
 }
 
+// WithLiveConfig reads the configuration through config on every use, so changes to it
+// apply at once. It replaces the configuration New was given.
+func WithLiveConfig(config func() Config) Option {
+	return func(s *Service) { s.config = config }
+}
+
 // WithClock replaces time.Now, for tests.
 func WithClock(now func() time.Time) Option {
 	return func(s *Service) { s.now = now }
@@ -101,7 +107,7 @@ func New(cfg Config, repos Repositories, hasher ports.PasswordHasher, limiter po
 	}
 
 	s := &Service{
-		cfg:       cfg,
+		config:    func() Config { return cfg },
 		repos:     repos,
 		hasher:    hasher,
 		limiter:   limiter,

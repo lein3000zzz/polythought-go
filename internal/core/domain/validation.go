@@ -2,8 +2,9 @@ package domain
 
 import "strings"
 
-// Problem is one thing wrong with a workflow. NodeID and Param point at what to fix, so
-// an editor can highlight it; both are empty for problems with the workflow as a whole.
+// Problem is one thing wrong with a workflow, or with other input. NodeID and Param point
+// at what to fix, so an editor can highlight it; both are empty for problems with the
+// input as a whole. For settings, Param is the setting's key.
 type Problem struct {
 	NodeID  NodeID
 	Param   string
@@ -11,10 +12,19 @@ type Problem struct {
 	Err     error // a more specific sentinel, matched by errors.Is; optional
 }
 
-// ValidationError lists every problem found in a workflow. It matches ErrInvalidWorkflow
-// and the Err of each problem.
+// ValidationError lists every problem found in a workflow, or in other input. It matches
+// Base and the Err of each problem.
 type ValidationError struct {
 	Problems []Problem
+	Base     error // what kind of input was invalid; nil means ErrInvalidWorkflow
+}
+
+func (v *ValidationError) base() error {
+	if v.Base != nil {
+		return v.Base
+	}
+
+	return ErrInvalidWorkflow
 }
 
 func (v *ValidationError) Add(p Problem) {
@@ -47,14 +57,14 @@ func (v *ValidationError) Err() error {
 func (v *ValidationError) Error() string {
 	lines := make([]string, len(v.Problems))
 	for i, p := range v.Problems {
-		lines[i] = ErrInvalidWorkflow.Error() + ": " + p.Message
+		lines[i] = v.base().Error() + ": " + p.Message
 	}
 
 	return strings.Join(lines, "\n")
 }
 
 func (v *ValidationError) Unwrap() []error {
-	errs := []error{ErrInvalidWorkflow}
+	errs := []error{v.base()}
 
 	for _, p := range v.Problems {
 		if p.Err != nil {

@@ -22,6 +22,58 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/admin/restart": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Restart the server */
+        post: operations["restartServer"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/settings": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List the instance's settings */
+        get: operations["listSettings"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Change settings */
+        patch: operations["updateSettings"];
+        trace?: never;
+    };
+    "/admin/settings/history": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List changes to settings, newest first */
+        get: operations["listSettingChanges"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/admin/users": {
         parameters: {
             query?: never;
@@ -498,6 +550,8 @@ export interface components {
             tokens: components["schemas"]["APIToken"][];
         };
         AuthConfig: {
+            /** @description MinPasswordLength is the fewest characters a new password may have. */
+            minPasswordLength: number;
             /** @enum {string} */
             registration: "open" | "invite" | "closed";
         };
@@ -549,7 +603,10 @@ export interface components {
             /** @description Code is stable and meant for programs, e.g. invalid_workflow or not_found. */
             code: string;
             message: string;
-            /** @description Problems lists everything wrong with a submitted workflow (code invalid_workflow). */
+            /**
+             * @description Problems lists everything wrong with a submitted workflow (code invalid_workflow)
+             *     or with changed settings (code invalid_input, param is the setting's key).
+             */
             problems?: components["schemas"]["Problem"][];
         };
         Execution: {
@@ -696,6 +753,61 @@ export interface components {
             /** @description Signer defaults to the wallet address. */
             signer?: string;
         };
+        Setting: {
+            /**
+             * @description Apply says when a change takes effect: at once, or after a restart.
+             * @enum {string}
+             */
+            apply: "live" | "restart";
+            default: unknown;
+            description: string;
+            env: string;
+            group: string;
+            isSet: boolean;
+            key: string;
+            /** @enum {string} */
+            kind: "string" | "int" | "bool" | "duration" | "enum" | "list";
+            label: string;
+            /** @description the choices of an enum */
+            options?: string[];
+            /** @description Pending is set on a changed setting that waits for a restart. */
+            pending: boolean;
+            /** @description Secret values are write-only: value is null and isSet says whether one is saved. */
+            secret: boolean;
+            /**
+             * @description Source is where the value comes from. One set by the environment variable Env
+             *     cannot be changed here.
+             * @enum {string}
+             */
+            source: "default" | "database" | "environment";
+            /**
+             * @description Value and Default are typed by kind: text, a whole number, true or false, a
+             *     duration as text like "168h", or a list of text. Both are null for a secret.
+             */
+            value: unknown;
+        };
+        SettingChange: {
+            /** @description ActorEmail is absent once the account that made the change is gone. */
+            actorEmail?: string;
+            /** Format: date-time */
+            at: string;
+            id: string;
+            key: string;
+            newValue: unknown;
+            /** @description The values that applied before and after; null for a secret. */
+            oldValue: unknown;
+            secret: boolean;
+        };
+        SettingChangePage: {
+            changes: components["schemas"]["SettingChange"][];
+            /** @description NextCursor is absent on the last page. */
+            nextCursor?: string;
+        };
+        Settings: {
+            /** @description RestartPending is set when a saved change waits for a restart. */
+            restartPending: boolean;
+            settings: components["schemas"]["Setting"][];
+        };
         ShareRequest: {
             description?: string;
             summary?: string;
@@ -726,6 +838,15 @@ export interface components {
             /** @description NextCursor is absent on the last page. */
             nextCursor?: string;
             templates: components["schemas"]["Template"][];
+        };
+        UpdateSettingsRequest: {
+            /**
+             * @description New values by setting key, typed as Setting.value. null resets a setting to its
+             *     default, as does an empty string for a secret.
+             */
+            values: {
+                [key: string]: unknown;
+            };
         };
         UpdateUserRequest: {
             disabled?: boolean;
@@ -860,6 +981,184 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Invite"];
+                };
+            };
+            /** @description unauthenticated */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    restartServer: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Accepted */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description unauthenticated */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    listSettings: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Settings"];
+                };
+            };
+            /** @description unauthenticated */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    updateSettings: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description Changes */
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateSettingsRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Settings"];
+                };
+            };
+            /** @description invalid_input */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description unauthenticated */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    listSettingChanges: {
+        parameters: {
+            query?: {
+                /** @description Page size */
+                limit?: number;
+                /** @description nextCursor of the previous page */
+                cursor?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SettingChangePage"];
+                };
+            };
+            /** @description invalid_input */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
                 };
             };
             /** @description unauthenticated */

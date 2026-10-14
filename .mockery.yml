@@ -93,3 +93,4 @@ packages:
       NodeTypes: {}
       EventService: {}
       LibraryService: {}
+      SettingsService: {}

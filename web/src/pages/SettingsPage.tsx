@@ -4,6 +4,7 @@ import { useForm } from 'react-hook-form'
 import { toast } from 'sonner'
 
 import { useChangePassword, useCreateToken, useRevokeToken, useTokens } from '@/api/account'
+import { useMinPasswordLength } from '@/api/auth'
 import { ApiError, errorMessage, type Schemas } from '@/api/client'
 import { ConfirmDialog } from '@/components/ConfirmDialog'
 import { ErrorAlert } from '@/components/ErrorAlert'
@@ -22,9 +23,6 @@ import {
 } from '@/components/ui/table'
 import { formatDateTime } from '@/lib/format'
 
-// The server's minimum, repeated here only to say it up front.
-const minPasswordLength = 12
-
 export function SettingsPage() {
   return (
     <div className="mx-auto flex max-w-3xl flex-col gap-10 p-6">
@@ -38,6 +36,7 @@ export function SettingsPage() {
 type PasswordForm = { currentPassword: string; newPassword: string; repeat: string }
 
 function PasswordSection() {
+  const minPasswordLength = useMinPasswordLength()
   const change = useChangePassword()
   const { register, handleSubmit, reset, formState, setError } = useForm<PasswordForm>()
   const wrongPassword =
@@ -100,7 +99,7 @@ function PasswordSection() {
             {...register('newPassword')}
           />
           <p id="new-password-hint" className="text-xs text-muted-foreground">
-            At least {minPasswordLength} characters.
+            {minPasswordLength && `At least ${minPasswordLength} characters.`}
           </p>
         </div>
 

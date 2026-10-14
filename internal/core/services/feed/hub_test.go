@@ -262,8 +262,9 @@ func TestHubEndsSubscriptions(t *testing.T) {
 
 func TestHubSubscribeValidation(t *testing.T) {
 	hub, _, _ := startHub(t, observability.NoopUtility())
+	WithMaxTokens(3)(hub)
 
-	tooMany := make([]domain.TokenID, maxTokens+1)
+	tooMany := make([]domain.TokenID, 4)
 	for i := range tooMany {
 		tooMany[i] = domain.TokenID(string(rune('a' + i%26)))
 	}

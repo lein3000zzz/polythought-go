@@ -26,13 +26,18 @@ export function unique(prefix: string): string {
 // violations included.
 const handledHttpError = /^Failed to load resource: the server responded with a status of 4\d\d/
 
-export const test = base.extend<{ console: void }>({
+export const test = base.extend<{ console: void; expectedConsoleError?: RegExp }>({
+  // Further console errors a test expects, set with test.use.
+  expectedConsoleError: [undefined, { option: true }],
+
   console: [
-    async ({ page }, use) => {
+    async ({ page, expectedConsoleError }, use) => {
       const problems: string[] = []
+      const expected = (text: string) =>
+        handledHttpError.test(text) || (expectedConsoleError?.test(text) ?? false)
 
       page.on('console', (m) => {
-        if (m.type() === 'error' && !handledHttpError.test(m.text())) problems.push(m.text())
+        if (m.type() === 'error' && !expected(m.text())) problems.push(m.text())
       })
       page.on('pageerror', (e) => problems.push(e.message))
 

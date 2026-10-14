@@ -13,6 +13,7 @@ import {
   type OnConnect,
   type XYPosition,
 } from '@xyflow/react'
+import { cn } from 'cn'
 import {
   ChevronLeft,
   EllipsisVertical,
@@ -381,21 +382,36 @@ function Editor({ workflow, types, onReload }: Props) {
           )}
 
           <div className="flex min-h-0 flex-1">
-            {nodeListOpen ? (
-              <aside className="flex w-60 shrink-0 flex-col border-r" aria-label="Node list">
-                <div className="flex items-center justify-between border-b py-1.5 pr-1.5 pl-5">
+            {/* The list keeps its width inside a panel that narrows to a rail: it slides
+                under the edge rather than re-wrapping, and fades as it goes. */}
+            <aside
+              aria-label="Node list"
+              className={cn(
+                'relative shrink-0 overflow-hidden border-r transition-[width] duration-200 ease-out motion-reduce:transition-none',
+                nodeListOpen ? 'w-60' : 'w-11',
+              )}
+            >
+              <div
+                inert={!nodeListOpen}
+                aria-hidden={!nodeListOpen}
+                className={cn(
+                  'flex h-full w-60 flex-col transition-opacity duration-150 motion-reduce:transition-none',
+                  nodeListOpen ? 'opacity-100 delay-75' : 'opacity-0',
+                )}
+              >
+                <div className="flex h-10 shrink-0 items-center border-b pr-10 pl-5">
                   <span className="text-xs font-medium text-muted-foreground">Nodes</span>
-                  <PanelToggle open onToggle={() => setNodeListOpen(false)} />
                 </div>
                 <div className="min-h-0 flex-1 overflow-y-auto">
                   <Palette types={types} onAdd={(t) => addNode(t)} />
                 </div>
-              </aside>
-            ) : (
-              <div className="flex w-11 shrink-0 flex-col items-center border-r py-1.5">
-                <PanelToggle open={false} onToggle={() => setNodeListOpen(true)} />
               </div>
-            )}
+
+              {/* Pinned to the panel's edge, so it travels with it. */}
+              <div className="absolute top-1.5 right-1.5">
+                <PanelToggle open={nodeListOpen} onToggle={() => setNodeListOpen(!nodeListOpen)} />
+              </div>
+            </aside>
 
             <div className="flex min-w-0 flex-1 flex-col">
               <div

@@ -7,6 +7,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"os/signal"
@@ -28,7 +29,10 @@ func main() {
 
 	switch cmd {
 	case "serve":
-		err = serve(ctx)
+		if err = serve(ctx); errors.Is(err, errRestart) {
+			stop()
+			err = reexec()
+		}
 	case "admin":
 		err = admin(ctx, args)
 	case "demo":

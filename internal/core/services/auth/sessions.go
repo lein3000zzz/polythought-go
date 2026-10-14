@@ -73,7 +73,7 @@ func (s *Service) Login(ctx context.Context, in LoginInput) (LoginResult, error)
 		return LoginResult{}, err
 	}
 
-	now := s.now()
+	now, cfg := s.now(), s.config()
 	session := domain.Session{
 		ID:                domain.SessionID(newID()),
 		UserID:            user.ID,
@@ -81,8 +81,8 @@ func (s *Service) Login(ctx context.Context, in LoginInput) (LoginResult, error)
 		IP:                in.IP,
 		CreatedAt:         now,
 		LastSeenAt:        now,
-		ExpiresAt:         now.Add(s.cfg.SessionIdleTTL),
-		AbsoluteExpiresAt: now.Add(s.cfg.SessionAbsoluteTTL),
+		ExpiresAt:         now.Add(cfg.SessionIdleTTL),
+		AbsoluteExpiresAt: now.Add(cfg.SessionAbsoluteTTL),
 	}
 
 	if session.ExpiresAt.After(session.AbsoluteExpiresAt) {
@@ -144,8 +144,8 @@ func (s *Service) AuthenticateSession(ctx context.Context, token string) (Princi
 		return Principal{}, err
 	}
 
-	if now.Sub(session.LastSeenAt) >= s.cfg.TouchInterval {
-		expires := now.Add(s.cfg.SessionIdleTTL)
+	if cfg := s.config(); now.Sub(session.LastSeenAt) >= cfg.TouchInterval {
+		expires := now.Add(cfg.SessionIdleTTL)
 		if expires.After(session.AbsoluteExpiresAt) {
 			expires = session.AbsoluteExpiresAt
 		}
@@ -182,7 +182,7 @@ func (s *Service) AuthenticateToken(ctx context.Context, token string) (Principa
 		return Principal{}, err
 	}
 
-	if now.Sub(t.LastUsedAt) >= s.cfg.TouchInterval {
+	if now.Sub(t.LastUsedAt) >= s.config().TouchInterval {
 		s.logIgnored(ctx, "Token touch failed", s.repos.Tokens.TouchLastUsed(ctx, t.ID, now), "token_id", t.ID)
 	}
 

@@ -48,8 +48,9 @@ var (
 
 type Config struct {
 	// AllowPrivate lets workflows post to internal addresses, for self-hosted setups
-	// that send to a service on the same machine or network.
-	AllowPrivate bool
+	// that send to a service on the same machine or network. It is asked on every
+	// connection, so a change applies at once; nil means never.
+	AllowPrivate func() bool
 	Timeout      time.Duration
 }
 
@@ -79,9 +80,15 @@ func New(util *observability.Utility, cfg Config) (*Sender, error) {
 		timeout = defaultTimeout
 	}
 
-	dialer := &net.Dialer{Timeout: 5 * time.Second}
-	if !cfg.AllowPrivate {
-		dialer.Control = refuseInternal
+	dialer := &net.Dialer{
+		Timeout: 5 * time.Second,
+		Control: func(network, address string, c syscall.RawConn) error {
+			if cfg.AllowPrivate != nil && cfg.AllowPrivate() {
+				return nil
+			}
+
+			return refuseInternal(network, address, c)
+		},
 	}
 
 	transport := &http.Transport{
