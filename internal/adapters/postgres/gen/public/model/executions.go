@@ -22,4 +22,6 @@ type Executions struct {
 	FinishedAt      *time.Time
 	Error           string
 	Runs            string
+	WaitingOn       string
+	WaitingUntil    *time.Time
 }

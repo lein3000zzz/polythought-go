@@ -84,6 +84,7 @@ packages:
       Validator: {}
       Executor: {}
       Supervisor: {}
+      Waits: {}
   github.com/lein3000zzz/polythought-go/internal/adapters/httpapi:
     config:
       dir: internal/mocks/httpapi

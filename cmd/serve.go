@@ -83,6 +83,14 @@ func serve(ctx context.Context) error {
 
 	a.telegramBot.Configure(a.telegramConfig(a.settings.Current()))
 	go a.notify.Run(ctx)
+
+	// Waits come due here, also the ones that did while the server was down.
+	waitsDone := make(chan struct{})
+
+	go func() {
+		defer close(waitsDone)
+		a.waits.Run(ctx)
+	}()
 	a.settings.Subscribe(func(s *settings.Snapshot) { a.telegramBot.Configure(a.telegramConfig(s)) })
 
 	if err := a.workflows.StartActive(ctx); err != nil {
@@ -112,6 +120,13 @@ func serve(ctx context.Context) error {
 	case <-telegramDone:
 	case <-time.After(5 * time.Second):
 		log.Warn(context.Background(), "Telegram bot slow to stop")
+	}
+
+	// Executions it carried on are cancelled with ctx; they record that before it returns.
+	select {
+	case <-waitsDone:
+	case <-time.After(5 * time.Second):
+		log.Warn(context.Background(), "Waiting executions slow to stop")
 	}
 
 	stopCtx, stopCancel := context.WithTimeout(context.Background(), 10*time.Second)

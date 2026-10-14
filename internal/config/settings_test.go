@@ -53,6 +53,8 @@ func TestSettingsDefaults(t *testing.T) {
 		config.KeyScheduleMinInterval: triggers.DefaultMinInterval,
 		config.KeyFeedMaxTokens:       100,
 		config.KeyExecutionRetention:  30 * 24 * time.Hour,
+		config.KeyMaxWaiting:          50,
+		config.KeyMaxWait:             7 * 24 * time.Hour,
 		config.KeyTrustedProxies:      []string{},
 		config.KeyWebhookAllowPrivate: false,
 		config.KeyLogLevel:            "info",
@@ -64,7 +66,7 @@ func TestSettingsDefaults(t *testing.T) {
 		assert.Equal(t, want, spec(t, key).Default, key)
 	}
 
-	assert.Len(t, registry(t).Specs(), 18, "every setting has a default checked above")
+	assert.Len(t, registry(t).Specs(), 20, "every setting has a default checked above")
 	assert.True(t, spec(t, config.KeyTelegramToken).Secret)
 }
 

@@ -26,6 +26,8 @@ type executionsTable struct {
 	FinishedAt      postgres.ColumnTimestampz
 	Error           postgres.ColumnString
 	Runs            postgres.ColumnString
+	WaitingOn       postgres.ColumnString
+	WaitingUntil    postgres.ColumnTimestampz
 
 	AllColumns     postgres.ColumnList
 	MutableColumns postgres.ColumnList
@@ -76,9 +78,11 @@ func newExecutionsTableImpl(schemaName, tableName, alias string) executionsTable
 		FinishedAtColumn      = postgres.TimestampzColumn("finished_at")
 		ErrorColumn           = postgres.StringColumn("error")
 		RunsColumn            = postgres.StringColumn("runs")
-		allColumns            = postgres.ColumnList{IDColumn, WorkflowIDColumn, WorkflowVersionColumn, TriggeredByColumn, StatusColumn, StartedAtColumn, FinishedAtColumn, ErrorColumn, RunsColumn}
-		mutableColumns        = postgres.ColumnList{WorkflowIDColumn, WorkflowVersionColumn, TriggeredByColumn, StatusColumn, StartedAtColumn, FinishedAtColumn, ErrorColumn, RunsColumn}
-		defaultColumns        = postgres.ColumnList{ErrorColumn}
+		WaitingOnColumn       = postgres.StringColumn("waiting_on")
+		WaitingUntilColumn    = postgres.TimestampzColumn("waiting_until")
+		allColumns            = postgres.ColumnList{IDColumn, WorkflowIDColumn, WorkflowVersionColumn, TriggeredByColumn, StatusColumn, StartedAtColumn, FinishedAtColumn, ErrorColumn, RunsColumn, WaitingOnColumn, WaitingUntilColumn}
+		mutableColumns        = postgres.ColumnList{WorkflowIDColumn, WorkflowVersionColumn, TriggeredByColumn, StatusColumn, StartedAtColumn, FinishedAtColumn, ErrorColumn, RunsColumn, WaitingOnColumn, WaitingUntilColumn}
+		defaultColumns        = postgres.ColumnList{ErrorColumn, WaitingOnColumn}
 	)
 
 	return executionsTable{
@@ -94,6 +98,8 @@ func newExecutionsTableImpl(schemaName, tableName, alias string) executionsTable
 		FinishedAt:      FinishedAtColumn,
 		Error:           ErrorColumn,
 		Runs:            RunsColumn,
+		WaitingOn:       WaitingOnColumn,
+		WaitingUntil:    WaitingUntilColumn,
 
 		AllColumns:     allColumns,
 		MutableColumns: mutableColumns,

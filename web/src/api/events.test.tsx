@@ -47,6 +47,22 @@ describe('applyExecution', () => {
     expect(list?.[0].id).toBe('ex-new')
   })
 
+  it('updates an execution that carried on in place, and fetches its copy again', async () => {
+    const qc = new QueryClient()
+    const waiting = execution('ex-1', { status: 'waiting', waitingOn: 'pause' })
+    qc.setQueryData(keys.executions('wf-1'), [waiting, execution('ex-0')])
+    qc.setQueryData(keys.execution('wf-1', 'ex-1'), waiting)
+
+    applyExecution(qc, { workflowId: 'wf-1', execution: execution('ex-1') })
+
+    const list = qc.getQueryData<Schemas['Execution'][]>(keys.executions('wf-1'))
+    expect(list?.map((e) => [e.id, e.status])).toEqual([
+      ['ex-1', 'succeeded'],
+      ['ex-0', 'succeeded'],
+    ])
+    expect(qc.getQueryState(keys.execution('wf-1', 'ex-1'))?.isInvalidated).toBe(true)
+  })
+
   it('leaves lists alone that nobody loaded', () => {
     const qc = new QueryClient()
 

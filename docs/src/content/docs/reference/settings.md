@@ -145,6 +145,30 @@ Finished executions older than this are deleted, at start and then daily.
 | Default | `720h` |
 | Applies | at once |
 
+### Waiting executions per user
+
+The most executions of one user that may wait at once, such as at a Wait node. Past it, a node that would wait fails.
+
+| | |
+|---|---|
+| Key | `executions.max_waiting_per_user` |
+| Environment variable | `POLYTHOUGHT_EXECUTIONS_MAX_WAITING_PER_USER` |
+| Kind | whole number |
+| Default | `50` |
+| Applies | at once |
+
+### Longest wait
+
+How far ahead a wait may end. A node asking to wait longer fails.
+
+| | |
+|---|---|
+| Key | `executions.max_wait` |
+| Environment variable | `POLYTHOUGHT_EXECUTIONS_MAX_WAIT` |
+| Kind | duration, e.g. `30s`, `5m`, `168h` |
+| Default | `168h` |
+| Applies | at once |
+
 ## Network
 
 ### Trusted proxies

@@ -428,6 +428,7 @@
                     "status": {
                         "enum": [
                             "running",
+                            "waiting",
                             "succeeded",
                             "failed",
                             "cancelled"
@@ -435,6 +436,14 @@
                         "type": "string"
                     },
                     "triggeredBy": {
+                        "type": "string"
+                    },
+                    "waitingOn": {
+                        "description": "WaitingOn is the node a waiting execution paused at, and WaitingUntil when the wait\nends at the latest.",
+                        "type": "string"
+                    },
+                    "waitingUntil": {
+                        "format": "date-time",
                         "type": "string"
                     },
                     "workflowVersion": {
@@ -617,6 +626,7 @@
                         "type": "string"
                     },
                     "finishedAt": {
+                        "description": "absent while it waits",
                         "format": "date-time",
                         "type": "string"
                     },
@@ -655,13 +665,14 @@
                         "enum": [
                             "succeeded",
                             "failed",
-                            "skipped"
+                            "skipped",
+                            "waiting",
+                            "cancelled"
                         ],
                         "type": "string"
                     }
                 },
                 "required": [
-                    "finishedAt",
                     "nodeId",
                     "startedAt",
                     "status"
@@ -4583,6 +4594,85 @@
                     }
                 ],
                 "summary": "Get an execution",
+                "tags": [
+                    "executions"
+                ]
+            }
+        },
+        "/workflows/{id}/executions/{eid}/cancel": {
+            "post": {
+                "operationId": "cancelExecution",
+                "parameters": [
+                    {
+                        "description": "Workflow ID",
+                        "in": "path",
+                        "name": "id",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "description": "Execution ID",
+                        "in": "path",
+                        "name": "eid",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Execution"
+                                }
+                            }
+                        },
+                        "description": "OK"
+                    },
+                    "401": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "unauthenticated"
+                    },
+                    "404": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "not_found"
+                    },
+                    "409": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "not_waiting"
+                    }
+                },
+                "security": [
+                    {
+                        "SessionCookie": []
+                    },
+                    {
+                        "APIToken": []
+                    }
+                ],
+                "summary": "Cancel a waiting execution",
                 "tags": [
                     "executions"
                 ]

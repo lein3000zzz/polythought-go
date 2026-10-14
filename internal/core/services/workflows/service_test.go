@@ -426,3 +426,81 @@ func TestStopAll(t *testing.T) {
 		})
 	}
 }
+
+func TestWaitingExecutions(t *testing.T) {
+	ctx := context.Background()
+
+	withWaits := func(t *testing.T) (*workflows.Service, deps, *workflowsmocks.MockWaits) {
+		t.Helper()
+
+		d := deps{
+			repo:       portsmocks.NewMockWorkflowRepository(t),
+			executions: portsmocks.NewMockExecutionRepository(t),
+			validator:  workflowsmocks.NewMockValidator(t),
+			executor:   workflowsmocks.NewMockExecutor(t),
+			supervisor: workflowsmocks.NewMockSupervisor(t),
+		}
+		w := workflowsmocks.NewMockWaits(t)
+
+		svc := workflows.New(d.repo, d.executions, d.validator, d.executor, d.supervisor, logging.Noop(),
+			workflows.WithClock(func() time.Time { return now }), workflows.WithWaits(w))
+
+		return svc, d, w
+	}
+
+	t.Run("switching off cancels what waits", func(t *testing.T) {
+		s, d, w := withWaits(t)
+		d.repo.EXPECT().Get(mock.Anything, domain.UserID("u-1"), domain.WorkflowID("wf-1")).Return(active(stored), nil)
+		d.repo.EXPECT().SetActive(mock.Anything, domain.UserID("u-1"), domain.WorkflowID("wf-1"), false, now).Return(nil)
+		d.supervisor.EXPECT().Stop(domain.WorkflowID("wf-1")).Once()
+		w.EXPECT().CancelWorkflow(mock.Anything, domain.UserID("u-1"), domain.WorkflowID("wf-1"), "cancelled: the workflow was switched off").Return(nil).Once()
+
+		_, err := s.Deactivate(ctx, alice, "wf-1")
+		require.NoError(t, err)
+	})
+
+	t.Run("so does disabling the account", func(t *testing.T) {
+		s, d, w := withWaits(t)
+		d.repo.EXPECT().DeactivateAll(mock.Anything, alice.User.ID, now).Return([]domain.WorkflowID{"wf-1"}, nil)
+		d.supervisor.EXPECT().Stop(domain.WorkflowID("wf-1")).Once()
+		w.EXPECT().CancelWorkflow(mock.Anything, alice.User.ID, domain.WorkflowID("wf-1"), "cancelled: the account was disabled").Return(nil).Once()
+
+		require.NoError(t, s.StopAll(ctx, alice.User.ID))
+	})
+
+	t.Run("cancel one that waits", func(t *testing.T) {
+		s, d, w := withWaits(t)
+		d.repo.EXPECT().Get(mock.Anything, domain.UserID("u-1"), domain.WorkflowID("wf-1")).Return(stored, nil)
+		d.executions.EXPECT().Get(mock.Anything, domain.WorkflowID("wf-1"), domain.ExecutionID("ex-1")).
+			Return(domain.Execution{ID: "ex-1", Status: domain.ExecutionWaiting}, nil)
+		w.EXPECT().Cancel(mock.Anything, domain.UserID("u-1"), domain.ExecutionID("ex-1"), "cancelled by you").
+			Return(domain.Execution{ID: "ex-1", Status: domain.ExecutionCancelled}, nil)
+
+		e, err := s.CancelExecution(ctx, alice, "wf-1", "ex-1")
+		require.NoError(t, err)
+		assert.Equal(t, domain.ExecutionCancelled, e.Status)
+	})
+
+	t.Run("only one that waits", func(t *testing.T) {
+		s, d, _ := withWaits(t)
+		d.repo.EXPECT().Get(mock.Anything, domain.UserID("u-1"), domain.WorkflowID("wf-1")).Return(stored, nil)
+		d.executions.EXPECT().Get(mock.Anything, domain.WorkflowID("wf-1"), domain.ExecutionID("ex-1")).
+			Return(domain.Execution{ID: "ex-1", Status: domain.ExecutionSucceeded}, nil)
+
+		_, err := s.CancelExecution(ctx, alice, "wf-1", "ex-1")
+		require.ErrorIs(t, err, domain.ErrNotWaiting)
+		assert.ErrorContains(t, err, "it is succeeded")
+	})
+
+	t.Run("one that carried on meanwhile", func(t *testing.T) {
+		s, d, w := withWaits(t)
+		d.repo.EXPECT().Get(mock.Anything, domain.UserID("u-1"), domain.WorkflowID("wf-1")).Return(stored, nil)
+		d.executions.EXPECT().Get(mock.Anything, domain.WorkflowID("wf-1"), domain.ExecutionID("ex-1")).
+			Return(domain.Execution{ID: "ex-1", Status: domain.ExecutionWaiting}, nil)
+		w.EXPECT().Cancel(mock.Anything, domain.UserID("u-1"), domain.ExecutionID("ex-1"), mock.Anything).
+			Return(domain.Execution{}, domain.ErrNotFound)
+
+		_, err := s.CancelExecution(ctx, alice, "wf-1", "ex-1")
+		require.ErrorIs(t, err, domain.ErrNotWaiting)
+	})
+}

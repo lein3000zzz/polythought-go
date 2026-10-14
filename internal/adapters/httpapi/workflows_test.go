@@ -209,6 +209,41 @@ func TestWorkflowRoutes(t *testing.T) {
 			wantStatus: http.StatusOK,
 			wantBody:   []string{`"workflowVersion":2`, `"triggeredBy":"manual"`, `"samples":{`},
 		},
+		{
+			name: "a waiting execution says where and until when",
+			req:  request{method: "GET", path: "/api/v1/workflows/wf-1/executions/ex-2", headers: cookie},
+			setup: func(w *httpapimocks.MockWorkflowService, _ *httpapimocks.MockNodeTypes) {
+				w.EXPECT().Execution(mock.Anything, mock.Anything, domain.WorkflowID("wf-1"), domain.ExecutionID("ex-2")).Return(domain.Execution{
+					ID: "ex-2", Status: domain.ExecutionWaiting, StartedAt: created, WaitingOn: "pause", WaitingUntil: created.Add(time.Hour),
+					Runs: []domain.NodeRun{{NodeID: "pause", Status: domain.NodeRunWaiting, StartedAt: created}},
+				}, nil)
+			},
+			wantStatus: http.StatusOK,
+			wantBody: []string{
+				`"status":"waiting"`, `"waitingOn":"pause","waitingUntil":"2026-10-08T13:00:00Z"`,
+				`{"nodeId":"pause","status":"waiting","startedAt":"2026-10-08T12:00:00Z"}`,
+			},
+		},
+		{
+			name: "cancel a waiting execution",
+			req:  request{method: "POST", path: "/api/v1/workflows/wf-1/executions/ex-2/cancel", headers: cookie},
+			setup: func(w *httpapimocks.MockWorkflowService, _ *httpapimocks.MockNodeTypes) {
+				w.EXPECT().CancelExecution(mock.Anything, mock.Anything, domain.WorkflowID("wf-1"), domain.ExecutionID("ex-2")).
+					Return(domain.Execution{ID: "ex-2", Status: domain.ExecutionCancelled, Error: "cancelled by you"}, nil)
+			},
+			wantStatus: http.StatusOK,
+			wantBody:   []string{`"status":"cancelled"`, `"error":"cancelled by you"`},
+		},
+		{
+			name: "only a waiting one",
+			req:  request{method: "POST", path: "/api/v1/workflows/wf-1/executions/ex-1/cancel", headers: cookie},
+			setup: func(w *httpapimocks.MockWorkflowService, _ *httpapimocks.MockNodeTypes) {
+				w.EXPECT().CancelExecution(mock.Anything, mock.Anything, domain.WorkflowID("wf-1"), domain.ExecutionID("ex-1")).
+					Return(domain.Execution{}, fmt.Errorf("%w: it is succeeded", domain.ErrNotWaiting))
+			},
+			wantStatus: http.StatusConflict,
+			wantBody:   []string{`"code":"not_waiting"`},
+		},
 	}
 
 	for _, tt := range tests {

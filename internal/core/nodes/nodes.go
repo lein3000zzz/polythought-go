@@ -83,6 +83,7 @@ func Register(r *engine.Registry, d Deps) error {
 		r.RegisterNode(logic.If{}),
 		r.RegisterNode(logic.Filter{}),
 		r.RegisterNode(logic.NewDedupe()),
+		r.RegisterNode(logic.NewWait(time.Now)),
 		r.RegisterNode(transform.Top{}),
 		r.RegisterNode(transform.Pick{}),
 		r.RegisterNode(output.NewLog(d.Logger)),

@@ -78,7 +78,11 @@ export function ExecutionsPanel({
                 <ExecutionStatus status={e.status} />
                 <span className="w-24 tabular-nums">{formatTime(e.startedAt)}</span>
                 <span className="w-20 text-muted-foreground tabular-nums">
-                  {e.finishedAt ? formatDuration(e.durationMs) : '…'}
+                  {e.finishedAt
+                    ? formatDuration(e.durationMs)
+                    : e.waitingUntil
+                      ? `till ${formatTime(e.waitingUntil)}`
+                      : '…'}
                 </span>
                 <span className="w-28 truncate text-muted-foreground">{e.triggeredBy}</span>
                 <span className="w-20 text-muted-foreground">v{e.workflowVersion}</span>

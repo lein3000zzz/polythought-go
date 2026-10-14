@@ -425,7 +425,10 @@ func (r *Executions) Save(ctx context.Context, e domain.Execution) error {
 		return err
 	}
 
-	_, err = table.Executions.INSERT(table.Executions.AllColumns).MODEL(model.Executions{
+	ex := table.Executions
+
+	// An execution that waits is saved again when it carries on.
+	_, err = ex.INSERT(ex.AllColumns).MODEL(model.Executions{
 		ID:              id,
 		WorkflowID:      wid,
 		WorkflowVersion: int32(e.WorkflowVersion),
@@ -435,7 +438,19 @@ func (r *Executions) Save(ctx context.Context, e domain.Execution) error {
 		FinishedAt:      timePtr(e.FinishedAt),
 		Error:           e.Error,
 		Runs:            string(raw),
-	}).ExecContext(ctx, r.db.conn(ctx))
+		WaitingOn:       string(e.WaitingOn),
+		WaitingUntil:    timePtr(e.WaitingUntil),
+	}).
+		ON_CONFLICT(ex.ID).
+		DO_UPDATE(jet.SET(
+			ex.Status.SET(ex.EXCLUDED.Status),
+			ex.FinishedAt.SET(ex.EXCLUDED.FinishedAt),
+			ex.Error.SET(ex.EXCLUDED.Error),
+			ex.Runs.SET(ex.EXCLUDED.Runs),
+			ex.WaitingOn.SET(ex.EXCLUDED.WaitingOn),
+			ex.WaitingUntil.SET(ex.EXCLUDED.WaitingUntil),
+		)).
+		ExecContext(ctx, r.db.conn(ctx))
 
 	return err
 }
@@ -537,6 +552,8 @@ func toExecution(m model.Executions) (domain.Execution, error) {
 		FinishedAt:      timeOf(m.FinishedAt),
 		Error:           m.Error,
 		Runs:            make([]domain.NodeRun, len(runs)),
+		WaitingOn:       domain.NodeID(m.WaitingOn),
+		WaitingUntil:    timeOf(m.WaitingUntil),
 	}
 
 	for i, r := range runs {

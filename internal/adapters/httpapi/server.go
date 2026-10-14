@@ -71,6 +71,7 @@ type WorkflowService interface {
 	Run(ctx context.Context, p auth.Principal, id domain.WorkflowID, trigger domain.NodeID) (domain.Execution, error)
 	Executions(ctx context.Context, p auth.Principal, id domain.WorkflowID, f ports.PageFilter) (ports.Page[domain.Execution], error)
 	Execution(ctx context.Context, p auth.Principal, id domain.WorkflowID, execID domain.ExecutionID) (domain.Execution, error)
+	CancelExecution(ctx context.Context, p auth.Principal, id domain.WorkflowID, execID domain.ExecutionID) (domain.Execution, error)
 }
 
 // NodeTypes lists what the editor can place in a workflow.
@@ -286,6 +287,7 @@ func (s *Server) routes() {
 	wf.POST("/:id/run", s.runWorkflow)
 	wf.GET("/:id/executions", s.listExecutions)
 	wf.GET("/:id/executions/:eid", s.getExecution)
+	wf.POST("/:id/executions/:eid/cancel", s.cancelExecution)
 	wf.GET("/:id/share", s.getSharedCopy)
 	wf.PUT("/:id/share", s.shareWorkflow)
 

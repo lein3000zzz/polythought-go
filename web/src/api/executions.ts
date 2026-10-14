@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
-import { api, call } from './client'
-import { executionListSize } from './events'
+import { api, call, type Schemas } from './client'
+import { applyExecution, executionListSize } from './events'
 import { keys } from './keys'
 
 /** The workflow's latest executions, newest first, without item samples. */
@@ -20,7 +20,15 @@ export function useExecutions(workflowId: string, enabled = true) {
   })
 }
 
-/** One execution with the item samples its runs kept. Finished executions never change. */
+/** Whether an execution can still change: it runs, or waits to carry on. */
+export function unfinished(e: Schemas['Execution']): boolean {
+  return e.status === 'running' || e.status === 'waiting'
+}
+
+/**
+ * One execution with the item samples its runs kept. Finished executions never change; a
+ * waiting one is refreshed by the live events when it carries on.
+ */
 export function useExecution(workflowId: string, id: string | undefined) {
   return useQuery({
     queryKey: keys.execution(workflowId, id ?? ''),
@@ -31,7 +39,22 @@ export function useExecution(workflowId: string, id: string | undefined) {
         }),
       ),
     enabled: id !== undefined,
-    staleTime: Infinity,
+    staleTime: (query) => (query.state.data && unfinished(query.state.data) ? 0 : Infinity),
+  })
+}
+
+/** Cancels an execution that waits. */
+export function useCancelExecution(workflowId: string) {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: (id: string) =>
+      call(
+        api.POST('/workflows/{id}/executions/{eid}/cancel', {
+          params: { path: { id: workflowId, eid: id } },
+        }),
+      ),
+    onSuccess: (execution) => applyExecution(queryClient, { workflowId, execution }),
   })
 }
 

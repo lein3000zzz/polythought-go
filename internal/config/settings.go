@@ -22,6 +22,8 @@ const (
 	KeyScheduleMinInterval = "workflows.schedule_min_interval"
 	KeyFeedMaxTokens       = "workflows.feed_max_tokens"
 	KeyExecutionRetention  = "executions.retention"
+	KeyMaxWaiting          = "executions.max_waiting_per_user"
+	KeyMaxWait             = "executions.max_wait"
 	KeyTrustedProxies      = "http.trusted_proxies"
 	KeyWebhookAllowPrivate = "webhook.allow_private"
 	KeyLogLevel            = "log.level"
@@ -106,6 +108,16 @@ func Settings() (*settings.Registry, error) {
 			Description: "Finished executions older than this are deleted, at start and then daily.",
 			Kind:        settings.KindDuration, Default: 30 * 24 * time.Hour, Check: atLeast(time.Hour),
 			Env: prefix + "EXECUTION_RETENTION",
+		},
+		settings.Spec{
+			Key: KeyMaxWaiting, Group: groupExecutions, Label: "Waiting executions per user",
+			Description: "The most executions of one user that may wait at once, such as at a Wait node. Past it, a node that would wait fails.",
+			Kind:        settings.KindInt, Default: 50, Check: between(1, 10_000),
+		},
+		settings.Spec{
+			Key: KeyMaxWait, Group: groupExecutions, Label: "Longest wait",
+			Description: "How far ahead a wait may end. A node asking to wait longer fails.",
+			Kind:        settings.KindDuration, Default: 7 * 24 * time.Hour, Check: atLeast(time.Minute),
 		},
 		settings.Spec{
 			Key: KeyTrustedProxies, Group: groupNetwork, Label: "Trusted proxies",

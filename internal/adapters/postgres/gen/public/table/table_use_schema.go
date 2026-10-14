@@ -23,6 +23,7 @@ func UseSchema(schema string) {
 	TelegramLinks = TelegramLinks.FromSchema(schema)
 	Templates = Templates.FromSchema(schema)
 	Users = Users.FromSchema(schema)
+	Waits = Waits.FromSchema(schema)
 	Wallets = Wallets.FromSchema(schema)
 	Workflows = Workflows.FromSchema(schema)
 }

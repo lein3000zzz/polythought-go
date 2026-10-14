@@ -623,3 +623,64 @@ describe('node list', () => {
     expect(search).toHaveValue('a/b')
   })
 })
+
+describe('waiting executions', () => {
+  const waiting: Schemas['Execution'] = {
+    id: 'ex-9',
+    workflowVersion: 3,
+    triggeredBy: 'manual',
+    status: 'waiting',
+    startedAt: '2026-10-09T12:00:00Z',
+    durationMs: 0,
+    waitingOn: 'tight',
+    waitingUntil: '2026-10-09T13:00:00Z',
+    runs: [{ nodeId: 'tight', status: 'waiting', startedAt: '2026-10-09T12:00:00Z' }],
+  }
+
+  it('says where it waits, and cancels it', async () => {
+    const done: Schemas['Execution'] = {
+      ...waiting,
+      status: 'cancelled',
+      finishedAt: '2026-10-09T12:10:00Z',
+      error: 'cancelled by you',
+      waitingOn: undefined,
+      waitingUntil: undefined,
+      runs: [{ ...waiting.runs[0], status: 'cancelled' }],
+    }
+    let cancelled = false
+
+    editing(branching())
+    server.use(
+      http.get('/api/v1/workflows/wf-1/executions', () =>
+        HttpResponse.json({ executions: [cancelled ? done : waiting] }),
+      ),
+      http.get('/api/v1/workflows/wf-1/executions/ex-9', () =>
+        HttpResponse.json(cancelled ? done : waiting),
+      ),
+      http.post('/api/v1/workflows/wf-1/executions/ex-9/cancel', () => {
+        cancelled = true
+        return HttpResponse.json(done)
+      }),
+    )
+    const { user } = renderApp('/workflows/wf-1')
+
+    await user.click(await screen.findByRole('button', { name: 'Executions' }))
+    const list = within(await screen.findByRole('region', { name: 'Executions' }))
+    expect(await list.findByText(/^till /)).toBeInTheDocument()
+    await user.click(list.getAllByRole('button')[1])
+
+    expect(await screen.findByText(/Waiting at tight until/)).toBeInTheDocument()
+    expect(within(canvasNode('tight')).getByLabelText('Waiting')).toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: 'Cancel execution' }))
+
+    expect(await screen.findByText('Execution cancelled')).toBeInTheDocument()
+    expect(cancelled).toBe(true)
+    await waitFor(() =>
+      expect(screen.queryByRole('button', { name: 'Cancel execution' })).not.toBeInTheDocument(),
+    )
+    expect(
+      within(canvasNode('tight')).getByLabelText('Cancelled while it waited'),
+    ).toBeInTheDocument()
+  })
+})

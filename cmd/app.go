@@ -32,6 +32,7 @@ import (
 	"github.com/lein3000zzz/polythought-go/internal/core/services/notify"
 	"github.com/lein3000zzz/polythought-go/internal/core/services/settings"
 	"github.com/lein3000zzz/polythought-go/internal/core/services/telegram"
+	"github.com/lein3000zzz/polythought-go/internal/core/services/waits"
 	"github.com/lein3000zzz/polythought-go/internal/core/services/wallets"
 	"github.com/lein3000zzz/polythought-go/internal/core/services/workflows"
 	pm "github.com/lein3000zzz/polythought-go/pkg/clients/polymarket"
@@ -102,6 +103,7 @@ type app struct {
 	telegramBot *tgadapter.Bot
 	telegram    *telegram.Service
 	notify      *notify.Service
+	waits       *waits.Service
 
 	restartOnce sync.Once
 	restartc    chan struct{} // closed when an admin asked for a restart
@@ -266,6 +268,13 @@ func authConfig(s *settings.Snapshot) auth.Config {
 	return cfg
 }
 
+func waitLimits(s *settings.Snapshot) engine.WaitLimits {
+	return engine.WaitLimits{
+		MaxWaiting: s.Int(config.KeyMaxWaiting),
+		MaxWait:    s.Duration(config.KeyMaxWait),
+	}
+}
+
 func workflowLimits(s *settings.Snapshot) workflows.Limits {
 	return workflows.Limits{
 		Workflows:       s.Int(config.KeyMaxWorkflows),
@@ -354,17 +363,24 @@ func (a *app) initEngine(ctx context.Context, pmc polymarket) error {
 		return err
 	}
 
+	waitRecords := postgres.NewWaits(a.db)
+
 	executor, err := engine.NewExecutor(a.util, a.registry,
-		engine.WithRecorder(executions), engine.WithNotifier(a.events), engine.WithNotifier(a.notify))
+		engine.WithRecorder(executions), engine.WithNotifier(a.events), engine.WithNotifier(a.notify),
+		engine.WithWaits(waitRecords, func() engine.WaitLimits { return waitLimits(a.settings.Current()) }))
 	if err != nil {
 		return err
 	}
+
+	// Executions that wait carry on from here, which serve runs.
+	a.waits = waits.New(waitRecords, executor, a.util.Logger)
 
 	a.supervisor = engine.NewSupervisor(ctx, engine.NewRunner(a.util, a.registry, executor), a.util.Logger)
 	a.util.OnShutdown(a.supervisor.Shutdown)
 
 	a.workflows = workflows.New(postgres.NewWorkflows(a.db), executions, a.registry, executor, a.supervisor, a.util.Logger,
-		workflows.WithLiveLimits(func() workflows.Limits { return workflowLimits(a.settings.Current()) }))
+		workflows.WithLiveLimits(func() workflows.Limits { return workflowLimits(a.settings.Current()) }),
+		workflows.WithWaits(a.waits))
 
 	if a.library, err = library.New(postgres.NewTemplates(a.db), a.workflows, a.registry, a.util.Logger); err != nil {
 		return err

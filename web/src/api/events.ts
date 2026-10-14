@@ -11,8 +11,8 @@ export type ExecutionEvent = Schemas['ExecutionEvent']
 const reopenAfter = 15_000
 
 /**
- * Listens to the server's event stream while mounted and folds every finished execution
- * into the cache, so open execution lists update as runs happen.
+ * Listens to the server's event stream while mounted and folds every execution that
+ * finished or waits into the cache, so open execution lists update as runs happen.
  */
 export function useLiveEvents() {
   const queryClient = useQueryClient()
@@ -52,22 +52,30 @@ export function useLiveEvents() {
 export const executionListSize = 20
 
 /**
- * Puts a finished execution where the cache would show it: at the top of its
- * workflow's list, if that list is loaded, and as the execution itself unless a fuller
- * copy, with the item samples a manual run keeps, is cached already.
+ * Puts an execution that finished, or started or stopped waiting, where the cache would
+ * show it: in its workflow's list, if that list is loaded, at the top when new; and as the
+ * execution itself. A cached copy that changed is fetched again rather than replaced, as
+ * the server's has the item samples a manual run keeps.
  */
 export function applyExecution(
   queryClient: QueryClient,
   { workflowId, execution }: ExecutionEvent,
 ) {
-  queryClient.setQueryData<Schemas['Execution'][]>(keys.executions(workflowId), (list) =>
-    list && !list.some((e) => e.id === execution.id)
-      ? [execution, ...list].slice(0, executionListSize)
-      : list,
-  )
+  queryClient.setQueryData<Schemas['Execution'][]>(keys.executions(workflowId), (list) => {
+    if (!list) return list
+    if (list.some((e) => e.id === execution.id)) {
+      return list.map((e) => (e.id === execution.id ? execution : e))
+    }
+
+    return [execution, ...list].slice(0, executionListSize)
+  })
 
   const detail = keys.execution(workflowId, execution.id)
-  if (queryClient.getQueryData(detail) === undefined) {
+  const cached = queryClient.getQueryData<Schemas['Execution']>(detail)
+
+  if (cached === undefined) {
     queryClient.setQueryData(detail, execution)
+  } else if (cached.status !== execution.status) {
+    void queryClient.invalidateQueries({ queryKey: detail })
   }
 }

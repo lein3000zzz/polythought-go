@@ -37,7 +37,7 @@ import {
   type Schemas,
   type Workflow,
 } from '@/api/client'
-import { useExecution, useExecutions, useRunWorkflow } from '@/api/executions'
+import { useCancelExecution, useExecution, useExecutions, useRunWorkflow } from '@/api/executions'
 import {
   useCreateWorkflow,
   useDeleteWorkflow,
@@ -58,7 +58,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Switch } from '@/components/ui/switch'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
-import { formatDuration, formatTime } from '@/lib/format'
+import { formatDateTime, formatDuration, formatTime } from '@/lib/format'
 import { useStoredFlag } from '@/lib/storage'
 import { useTheme } from '@/lib/theme'
 
@@ -381,8 +381,9 @@ function Editor({ workflow, types, onReload }: Props) {
             onDelete={() => setConfirmDelete(true)}
           />
 
-          {inspected.data && (
+          {workflow && inspected.data && (
             <InspectBar
+              workflowId={workflow.id}
               execution={inspected.data}
               version={version}
               onClose={() => {
@@ -695,12 +696,15 @@ function Header({
 }
 
 type InspectBarProps = {
+  workflowId: string
   execution: Schemas['Execution']
   version?: number // of the workflow being edited
   onClose: () => void
 }
 
-function InspectBar({ execution: e, version, onClose }: InspectBarProps) {
+function InspectBar({ workflowId, execution: e, version, onClose }: InspectBarProps) {
+  const cancel = useCancelExecution(workflowId)
+
   return (
     <div className="flex items-center gap-3 border-b bg-muted/50 px-4 py-1.5 text-sm">
       <ExecutionStatus status={e.status} />
@@ -708,6 +712,27 @@ function InspectBar({ execution: e, version, onClose }: InspectBarProps) {
         Execution at {formatTime(e.startedAt)}
         {e.finishedAt && ` · ${formatDuration(e.durationMs)}`} · started by {e.triggeredBy}
       </span>
+      {e.status === 'waiting' && (
+        <>
+          <span className="text-muted-foreground">
+            Waiting at {e.waitingOn}
+            {e.waitingUntil && ` until ${formatDateTime(e.waitingUntil)}`}
+          </span>
+          <Button
+            variant="outline"
+            size="sm"
+            disabled={cancel.isPending}
+            onClick={() =>
+              cancel.mutate(e.id, {
+                onSuccess: () => toast.success('Execution cancelled'),
+                onError: (error) => toast.error(errorMessage(error)),
+              })
+            }
+          >
+            Cancel execution
+          </Button>
+        </>
+      )}
       {version !== undefined && e.workflowVersion !== version && (
         <span className="text-muted-foreground">
           Ran version {e.workflowVersion}; the nodes may have changed since.

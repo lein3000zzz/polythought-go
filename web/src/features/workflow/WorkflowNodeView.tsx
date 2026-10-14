@@ -1,6 +1,15 @@
 import { Handle, Position, useUpdateNodeInternals, type NodeProps } from '@xyflow/react'
 import { cn } from 'cn'
-import { Box, CircleCheck, CircleMinus, CircleX, TriangleAlert, Zap } from 'lucide-react'
+import {
+  Box,
+  CircleCheck,
+  CircleMinus,
+  CircleSlash,
+  CircleX,
+  Hourglass,
+  TriangleAlert,
+  Zap,
+} from 'lucide-react'
 import { useEffect, useRef } from 'react'
 
 import { defaultPort, errorPort, inputsOf, outputsOf, type FlowNode } from './graph'
@@ -129,6 +138,12 @@ const runIcons = {
     Icon: CircleMinus,
     className: 'text-muted-foreground',
     label: 'Skipped: no items reached it',
+  },
+  waiting: { Icon: Hourglass, className: 'text-amber-500', label: 'Waiting' },
+  cancelled: {
+    Icon: CircleSlash,
+    className: 'text-muted-foreground',
+    label: 'Cancelled while it waited',
   },
 } as const
 

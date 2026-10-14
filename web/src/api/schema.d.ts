@@ -650,6 +650,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/workflows/{id}/executions/{eid}/cancel": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Cancel a waiting execution */
+        post: operations["cancelExecution"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/workflows/{id}/run": {
         parameters: {
             query?: never;
@@ -827,8 +844,15 @@ export interface components {
             /** Format: date-time */
             startedAt: string;
             /** @enum {string} */
-            status: "running" | "succeeded" | "failed" | "cancelled";
+            status: "running" | "waiting" | "succeeded" | "failed" | "cancelled";
             triggeredBy: string;
+            /**
+             * @description WaitingOn is the node a waiting execution paused at, and WaitingUntil when the wait
+             *     ends at the latest.
+             */
+            waitingOn?: string;
+            /** Format: date-time */
+            waitingUntil?: string;
             workflowVersion: number;
         };
         ExecutionEvent: {
@@ -885,8 +909,11 @@ export interface components {
         };
         NodeRun: {
             error?: string;
-            /** Format: date-time */
-            finishedAt: string;
+            /**
+             * Format: date-time
+             * @description absent while it waits
+             */
+            finishedAt?: string;
             /** @description items per input port */
             input?: {
                 [key: string]: number;
@@ -906,7 +933,7 @@ export interface components {
             /** Format: date-time */
             startedAt: string;
             /** @enum {string} */
-            status: "succeeded" | "failed" | "skipped";
+            status: "succeeded" | "failed" | "skipped" | "waiting" | "cancelled";
         };
         NodeType: {
             description?: string;
@@ -3376,6 +3403,58 @@ export interface operations {
             };
             /** @description not_found */
             404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    cancelExecution: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Workflow ID */
+                id: string;
+                /** @description Execution ID */
+                eid: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Execution"];
+                };
+            };
+            /** @description unauthenticated */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description not_found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description not_waiting */
+            409: {
                 headers: {
                     [name: string]: unknown;
                 };

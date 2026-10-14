@@ -45,7 +45,8 @@ Each start is an **execution**. The trigger's items go to the nodes connected to
 the nodes run in order, each once, with every item that reached it. A node no item reached
 is skipped.
 
-An execution **succeeds** when every node that ran finished. It **fails** when a node
+An execution **succeeds** when every node that ran finished, or **waits** when a node paused
+it; see [Waiting](#waiting). It **fails** when a node
 fails, for example when the Polymarket API cannot be reached, and then stops. It is
 **cancelled** when the workflow is switched off or the server stops while it runs.
 
@@ -54,6 +55,22 @@ and sent out on each port. Runs you start by hand also keep the first few items 
 port, so you can see what flowed through. Finished executions are deleted after a while,
 30 days unless an admin
 [changed it](/docs/reference/settings/#keep-executions-for).
+
+## Waiting
+
+Some nodes pause the execution instead of finishing at once: [Wait](/docs/reference/nodes/logic/wait/)
+holds its items for a while or until a time of day. The execution then **waits**: it keeps
+nothing busy meanwhile, survives a restart of the server, and carries on from that node when
+the wait ends, with the nodes after it.
+
+- In the editor, a waiting execution says where it waits and until when, and
+  **Cancel execution** ends it.
+- Switching a workflow off cancels its executions that wait.
+- A wait carries on the workflow as it was when the execution started, even if you edit the
+  workflow meanwhile.
+- Each user may have a limited number of executions waiting at once, 50 unless an admin
+  changed it, and a wait ends within 7 days; see
+  [Settings](/docs/reference/settings/#executions).
 
 ## When items fail
 

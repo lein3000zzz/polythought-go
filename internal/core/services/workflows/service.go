@@ -4,6 +4,7 @@ package workflows
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strings"
 	"time"
@@ -53,12 +54,19 @@ type Supervisor interface {
 	Stop(id domain.WorkflowID)
 }
 
+// Waits cancels executions that wait.
+type Waits interface {
+	Cancel(ctx context.Context, owner domain.UserID, id domain.ExecutionID, reason string) (domain.Execution, error)
+	CancelWorkflow(ctx context.Context, owner domain.UserID, workflowID domain.WorkflowID, reason string) error
+}
+
 type Service struct {
 	repo       ports.WorkflowRepository
 	executions ports.ExecutionRepository
 	validator  Validator
 	executor   Executor
 	supervisor Supervisor
+	waits      Waits // optional: without it, nothing waits
 	limits     func() Limits
 	log        logging.Logger
 	now        func() time.Time
@@ -72,6 +80,12 @@ func WithClock(now func() time.Time) Option {
 
 func WithLimits(l Limits) Option {
 	return func(s *Service) { s.limits = func() Limits { return l } }
+}
+
+// WithWaits cancels waiting executions when a workflow is switched off, and lets users
+// cancel them.
+func WithWaits(w Waits) Option {
+	return func(s *Service) { s.waits = w }
 }
 
 // WithLiveLimits reads the limits through limits on every check, so changes apply at once.
@@ -248,6 +262,13 @@ func (s *Service) Deactivate(ctx context.Context, p auth.Principal, id domain.Wo
 	s.supervisor.Stop(id)
 	w.Active = false
 
+	// Switched off is off: executions that wait would carry on otherwise.
+	if s.waits != nil {
+		if err := s.waits.CancelWorkflow(ctx, p.User.ID, id, "cancelled: the workflow was switched off"); err != nil {
+			s.log.Warn(ctx, "Waiting executions not cancelled", "workflow_id", id, "error", err.Error())
+		}
+	}
+
 	return w, nil
 }
 
@@ -261,6 +282,12 @@ func (s *Service) StopAll(ctx context.Context, owner domain.UserID) error {
 
 	for _, id := range ids {
 		s.supervisor.Stop(id)
+
+		if s.waits != nil {
+			if err := s.waits.CancelWorkflow(ctx, owner, id, "cancelled: the account was disabled"); err != nil {
+				s.log.Warn(ctx, "Waiting executions not cancelled", "workflow_id", id, "error", err.Error())
+			}
+		}
 	}
 
 	if len(ids) > 0 {
@@ -347,6 +374,26 @@ func (s *Service) Execution(ctx context.Context, p auth.Principal, id domain.Wor
 	}
 
 	return s.executions.Get(ctx, id, execID)
+}
+
+// CancelExecution cancels one of the workflow's executions that waits.
+func (s *Service) CancelExecution(ctx context.Context, p auth.Principal, id domain.WorkflowID, execID domain.ExecutionID) (domain.Execution, error) {
+	exec, err := s.Execution(ctx, p, id, execID)
+	if err != nil {
+		return domain.Execution{}, err
+	}
+
+	if exec.Status != domain.ExecutionWaiting || s.waits == nil {
+		return domain.Execution{}, fmt.Errorf("%w: it is %s", domain.ErrNotWaiting, exec.Status)
+	}
+
+	cancelled, err := s.waits.Cancel(ctx, p.User.ID, execID, "cancelled by you")
+	if errors.Is(err, domain.ErrNotFound) {
+		// It carried on, or timed out, in the meantime.
+		return domain.Execution{}, fmt.Errorf("%w: it carried on meanwhile", domain.ErrNotWaiting)
+	}
+
+	return cancelled, err
 }
 
 // StartActive starts every active workflow; call it once on boot. Workflows that no

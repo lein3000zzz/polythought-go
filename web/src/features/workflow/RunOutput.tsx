@@ -2,7 +2,7 @@ import { CircleAlert } from 'lucide-react'
 
 import type { Schemas } from '@/api/client'
 import { Alert, AlertDescription } from '@/components/ui/alert'
-import { formatDuration } from '@/lib/format'
+import { formatDuration, formatTime } from '@/lib/format'
 
 import { errorPort } from './graph'
 import type { NodeRun } from './runs'
@@ -26,13 +26,7 @@ export function RunOutput({ run, kept }: Props) {
 
   return (
     <div className="flex flex-col gap-4 p-4 text-sm">
-      <p className="text-muted-foreground">
-        {run.status === 'skipped'
-          ? 'Skipped: no items reached this node.'
-          : `${run.status === 'failed' ? 'Failed' : 'Succeeded'} in ${formatDuration(
-              Date.parse(run.finishedAt) - Date.parse(run.startedAt),
-            )}.`}
-      </p>
+      <p className="text-muted-foreground">{runSummary(run)}</p>
 
       {run.error && (
         <Alert variant="destructive">
@@ -98,4 +92,19 @@ function Port({ port, count, samples, kept }: PortProps) {
 // portOrder lists the main port first and the error port last.
 function portOrder(port: string): number {
   return port === 'main' ? 0 : port === errorPort ? 2 : 1
+}
+
+function runSummary(run: NodeRun): string {
+  switch (run.status) {
+    case 'skipped':
+      return 'Skipped: no items reached this node.'
+    case 'waiting':
+      return `Waiting since ${formatTime(run.startedAt)}.`
+    case 'cancelled':
+      return 'Cancelled while it waited.'
+  }
+
+  const took = run.finishedAt ? Date.parse(run.finishedAt) - Date.parse(run.startedAt) : 0
+
+  return `${run.status === 'failed' ? 'Failed' : 'Succeeded'} in ${formatDuration(took)}.`
 }

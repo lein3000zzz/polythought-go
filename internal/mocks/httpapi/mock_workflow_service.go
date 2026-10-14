@@ -122,6 +122,84 @@ func (_c *MockWorkflowService_Activate_Call) RunAndReturn(run func(ctx context.C
 	return _c
 }
 
+// CancelExecution provides a mock function for the type MockWorkflowService
+func (_mock *MockWorkflowService) CancelExecution(ctx context.Context, p auth.Principal, id domain.WorkflowID, execID domain.ExecutionID) (domain.Execution, error) {
+	ret := _mock.Called(ctx, p, id, execID)
+
+	if len(ret) == 0 {
+		panic("no return value specified for CancelExecution")
+	}
+
+	var r0 domain.Execution
+	var r1 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context, auth.Principal, domain.WorkflowID, domain.ExecutionID) (domain.Execution, error)); ok {
+		return returnFunc(ctx, p, id, execID)
+	}
+	if returnFunc, ok := ret.Get(0).(func(context.Context, auth.Principal, domain.WorkflowID, domain.ExecutionID) domain.Execution); ok {
+		r0 = returnFunc(ctx, p, id, execID)
+	} else {
+		r0 = ret.Get(0).(domain.Execution)
+	}
+	if returnFunc, ok := ret.Get(1).(func(context.Context, auth.Principal, domain.WorkflowID, domain.ExecutionID) error); ok {
+		r1 = returnFunc(ctx, p, id, execID)
+	} else {
+		r1 = ret.Error(1)
+	}
+	return r0, r1
+}
+
+// MockWorkflowService_CancelExecution_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'CancelExecution'
+type MockWorkflowService_CancelExecution_Call struct {
+	*mock.Call
+}
+
+// CancelExecution is a helper method to define mock.On call
+//   - ctx context.Context
+//   - p auth.Principal
+//   - id domain.WorkflowID
+//   - execID domain.ExecutionID
+func (_e *MockWorkflowService_Expecter) CancelExecution(ctx any, p any, id any, execID any) *MockWorkflowService_CancelExecution_Call {
+	return &MockWorkflowService_CancelExecution_Call{Call: _e.mock.On("CancelExecution", ctx, p, id, execID)}
+}
+
+func (_c *MockWorkflowService_CancelExecution_Call) Run(run func(ctx context.Context, p auth.Principal, id domain.WorkflowID, execID domain.ExecutionID)) *MockWorkflowService_CancelExecution_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		var arg1 auth.Principal
+		if args[1] != nil {
+			arg1 = args[1].(auth.Principal)
+		}
+		var arg2 domain.WorkflowID
+		if args[2] != nil {
+			arg2 = args[2].(domain.WorkflowID)
+		}
+		var arg3 domain.ExecutionID
+		if args[3] != nil {
+			arg3 = args[3].(domain.ExecutionID)
+		}
+		run(
+			arg0,
+			arg1,
+			arg2,
+			arg3,
+		)
+	})
+	return _c
+}
+
+func (_c *MockWorkflowService_CancelExecution_Call) Return(execution domain.Execution, err error) *MockWorkflowService_CancelExecution_Call {
+	_c.Call.Return(execution, err)
+	return _c
+}
+
+func (_c *MockWorkflowService_CancelExecution_Call) RunAndReturn(run func(ctx context.Context, p auth.Principal, id domain.WorkflowID, execID domain.ExecutionID) (domain.Execution, error)) *MockWorkflowService_CancelExecution_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // Create provides a mock function for the type MockWorkflowService
 func (_mock *MockWorkflowService) Create(ctx context.Context, p auth.Principal, def workflows.Definition) (domain.Workflow, error) {
 	ret := _mock.Called(ctx, p, def)

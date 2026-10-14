@@ -127,11 +127,11 @@ type runRequest struct {
 
 type nodeRunDTO struct {
 	NodeID     string         `json:"nodeId"`
-	Status     string         `json:"status" enums:"succeeded,failed,skipped"`
+	Status     string         `json:"status" enums:"succeeded,failed,skipped,waiting,cancelled"`
 	StartedAt  time.Time      `json:"startedAt" format:"date-time"`
-	FinishedAt time.Time      `json:"finishedAt" format:"date-time"`
-	Input      map[string]int `json:"input,omitempty" validate:"optional"`  // items per input port
-	Output     map[string]int `json:"output,omitempty" validate:"optional"` // items per output port
+	FinishedAt *time.Time     `json:"finishedAt,omitempty" validate:"optional" format:"date-time"` // absent while it waits
+	Input      map[string]int `json:"input,omitempty" validate:"optional"`                         // items per input port
+	Output     map[string]int `json:"output,omitempty" validate:"optional"`                        // items per output port
 	Error      string         `json:"error,omitempty" validate:"optional"`
 	// Samples are the first items of each output port. Only runs started by hand keep
 	// them, and execution lists leave them out.
@@ -148,12 +148,16 @@ type executionDTO struct {
 	ID              string       `json:"id"`
 	WorkflowVersion int          `json:"workflowVersion"`
 	TriggeredBy     string       `json:"triggeredBy"`
-	Status          string       `json:"status" enums:"running,succeeded,failed,cancelled"`
+	Status          string       `json:"status" enums:"running,waiting,succeeded,failed,cancelled"`
 	StartedAt       time.Time    `json:"startedAt" format:"date-time"`
 	FinishedAt      *time.Time   `json:"finishedAt,omitempty" validate:"optional" format:"date-time"`
 	DurationMs      int64        `json:"durationMs"`
 	Error           string       `json:"error,omitempty" validate:"optional"`
 	Runs            []nodeRunDTO `json:"runs"`
+	// WaitingOn is the node a waiting execution paused at, and WaitingUntil when the wait
+	// ends at the latest.
+	WaitingOn    string     `json:"waitingOn,omitempty" validate:"optional"`
+	WaitingUntil *time.Time `json:"waitingUntil,omitempty" validate:"optional" format:"date-time"`
 } // @name Execution
 
 // toExecutionDTO describes e, with the runs' item samples when withSamples is set.
@@ -162,11 +166,12 @@ func toExecutionDTO(e domain.Execution, withSamples bool) executionDTO {
 		ID: string(e.ID), WorkflowVersion: e.WorkflowVersion, TriggeredBy: string(e.TriggeredBy), Status: string(e.Status),
 		StartedAt: e.StartedAt, FinishedAt: optionalTime(e.FinishedAt), DurationMs: e.Duration().Milliseconds(),
 		Error: e.Error, Runs: make([]nodeRunDTO, len(e.Runs)),
+		WaitingOn: string(e.WaitingOn), WaitingUntil: optionalTime(e.WaitingUntil),
 	}
 
 	for i, r := range e.Runs {
 		out.Runs[i] = nodeRunDTO{
-			NodeID: string(r.NodeID), Status: string(r.Status), StartedAt: r.StartedAt, FinishedAt: r.FinishedAt,
+			NodeID: string(r.NodeID), Status: string(r.Status), StartedAt: r.StartedAt, FinishedAt: optionalTime(r.FinishedAt),
 			Input: r.Input, Output: r.Output, Error: r.Error,
 		}
 
@@ -557,6 +562,32 @@ func (s *Server) listExecutions(ctx context.Context, c *app.RequestContext) {
 	}
 
 	c.JSON(http.StatusOK, out)
+}
+
+// cancelExecution cancels an execution that waits.
+//
+//	@Summary	Cancel a waiting execution
+//	@ID			cancelExecution
+//	@Tags		executions
+//	@Param		id	path		string	true	"Workflow ID"
+//	@Param		eid	path		string	true	"Execution ID"
+//	@Success	200	{object}	executionDTO
+//	@Failure	401	{object}	errorBody	"unauthenticated"
+//	@Failure	404	{object}	errorBody	"not_found"
+//	@Failure	409	{object}	errorBody	"not_waiting"
+//	@Security	SessionCookie
+//	@Security	APIToken
+//	@Router		/workflows/{id}/executions/{eid}/cancel [post]
+func (s *Server) cancelExecution(ctx context.Context, c *app.RequestContext) {
+	p, _ := principal(c)
+
+	e, err := s.workflows.CancelExecution(ctx, p, domain.WorkflowID(c.Param("id")), domain.ExecutionID(c.Param("eid")))
+	if err != nil {
+		s.fail(ctx, c, err)
+		return
+	}
+
+	c.JSON(http.StatusOK, toExecutionDTO(e, false))
 }
 
 // getExecution returns one execution with its node runs.
