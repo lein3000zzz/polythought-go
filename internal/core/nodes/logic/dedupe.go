@@ -9,6 +9,7 @@ import (
 	"github.com/lein3000zzz/polythought-go/internal/core/domain"
 	"github.com/lein3000zzz/polythought-go/internal/core/engine"
 	"github.com/lein3000zzz/polythought-go/internal/core/nodes/fields"
+	"github.com/lein3000zzz/polythought-go/internal/core/nodes/shape"
 )
 
 const DedupeType = "logic.dedupe"
@@ -58,6 +59,7 @@ func (*Dedupe) Type() engine.NodeType {
 			"on every run. It remembers in memory: a server restart forgets.",
 		Inputs:  []string{engine.DefaultPort},
 		Outputs: []string{engine.DefaultPort},
+		Items:   shape.Passed(),
 		Params: []engine.ParamSpec{
 			{
 				Name: "field", Label: "Identify items by", Kind: engine.ParamString, Default: "id",

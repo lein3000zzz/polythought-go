@@ -68,9 +68,15 @@ func TestWorkflowRoutes(t *testing.T) {
 			req:  request{method: "GET", path: "/api/v1/node-types", headers: cookie},
 			setup: func(_ *httpapimocks.MockWorkflowService, nt *httpapimocks.MockNodeTypes) {
 				nt.EXPECT().Types().Return([]engine.TypeInfo{
-					{NodeType: engine.NodeType{Name: "trigger.manual", Outputs: []string{"main"}}, Trigger: true},
+					{NodeType: engine.NodeType{Name: "trigger.manual", Outputs: []string{"main"}, Items: &engine.Items{Fields: []engine.Field{
+						{Name: "side", Kind: engine.FieldText, Options: []string{"buy", "sell"}},
+						{Name: "outcomes", Kind: engine.FieldList, Of: &engine.Field{Kind: engine.FieldObject, Fields: []engine.Field{
+							{Name: "price", Kind: engine.FieldDecimal, Nullable: true},
+						}}},
+					}}}, Trigger: true},
 					{NodeType: engine.NodeType{Name: "logic.if", Label: "If", Inputs: []string{"main"}, Outputs: []string{"true", "false"},
-						Params: []engine.ParamSpec{{Name: "operator", Kind: engine.ParamString, Default: "gt", Options: []string{"gt", "lt"}}}}},
+						Params: []engine.ParamSpec{{Name: "operator", Kind: engine.ParamString, Default: "gt", Options: []string{"gt", "lt"}}},
+						Items:  &engine.Items{Passed: true}}},
 					{NodeType: engine.NodeType{Name: "output.webhook", Inputs: []string{"main"}, Outputs: []string{"main"},
 						Params: []engine.ParamSpec{{Name: "credential", Kind: engine.ParamCredential, CredentialType: "http.header"}}}},
 				})
@@ -79,6 +85,10 @@ func TestWorkflowRoutes(t *testing.T) {
 			wantBody: []string{
 				`"name":"trigger.manual","trigger":true,"inputs":[]`, `"label":"If"`, `"default":"gt","options":["gt","lt"]`,
 				`{"name":"credential","kind":"credential","required":false,"credentialType":"http.header"}`,
+				`"items":{"fields":[{"name":"side","kind":"text","optional":false,"nullable":false,"options":["buy","sell"]},` +
+					`{"name":"outcomes","kind":"list","optional":false,"nullable":false,"of":{"name":"","kind":"object","optional":false,"nullable":false,` +
+					`"fields":[{"name":"price","kind":"decimal","optional":false,"nullable":true}]}}],"passed":false}`,
+				`"items":{"fields":[],"passed":true}`,
 			},
 		},
 		{

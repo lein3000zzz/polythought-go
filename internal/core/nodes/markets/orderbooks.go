@@ -8,6 +8,7 @@ import (
 
 	"github.com/lein3000zzz/polythought-go/internal/core/domain"
 	"github.com/lein3000zzz/polythought-go/internal/core/engine"
+	"github.com/lein3000zzz/polythought-go/internal/core/nodes/shape"
 	"github.com/lein3000zzz/polythought-go/internal/core/ports"
 )
 
@@ -32,6 +33,7 @@ func (*OrderBooks) Type() engine.NodeType {
 		Description: "Adds the current order book of each outcome to market items: best prices, spread and depth.",
 		Inputs:      []string{engine.DefaultPort},
 		Outputs:     []string{engine.DefaultPort},
+		Items:       shape.Own(bookFields()...),
 		Params: []engine.ParamSpec{
 			{Name: "depth", Label: "Depth", Description: "Price levels summed into bidDepth and askDepth.", Kind: engine.ParamNumber, Default: 5},
 		},
@@ -163,4 +165,16 @@ func SumSize(levels []domain.Level, depth int) decimal.Decimal {
 	}
 
 	return sum
+}
+
+func bookFields() []engine.Field {
+	return append(outcomeFields(),
+		shape.Nullable(shape.Decimal("bestBid", "The highest bid; null when there is none, as are mid and spread.")),
+		shape.Nullable(shape.Decimal("bestAsk", "The lowest ask.")),
+		shape.Nullable(shape.Decimal("mid", "Halfway between the best bid and ask.")),
+		shape.Nullable(shape.Decimal("spread", "The best ask less the best bid.")),
+		shape.Decimal("bidDepth", "Shares bid within the levels counted."),
+		shape.Decimal("askDepth", "Shares asked within the levels counted."),
+		shape.Time("at", "When Polymarket took the book."),
+	)
 }

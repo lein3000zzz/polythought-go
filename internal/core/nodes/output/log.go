@@ -8,6 +8,7 @@ import (
 
 	"github.com/lein3000zzz/polythought-go/internal/core/engine"
 	"github.com/lein3000zzz/polythought-go/internal/core/nodes/fields"
+	"github.com/lein3000zzz/polythought-go/internal/core/nodes/shape"
 )
 
 const LogType = "output.log"
@@ -30,6 +31,7 @@ func (*Log) Type() engine.NodeType {
 		Description: "Writes a line to the server log for each item and passes the items on. The run's Output tab shows them too.",
 		Inputs:      []string{engine.DefaultPort},
 		Outputs:     []string{engine.DefaultPort},
+		Items:       shape.Passed(),
 		Params: []engine.ParamSpec{
 			{
 				Name: "message", Label: "Message", Kind: engine.ParamString, Default: "Workflow item",

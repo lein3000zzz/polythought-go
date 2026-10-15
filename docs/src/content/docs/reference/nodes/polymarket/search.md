@@ -25,3 +25,27 @@ Items that fail stop the execution, unless **Continue on failure** is on: then t
 | Search for (`query`) | text | yes |  | Words in the event title. |
 | Limit (`limit`) | whole number | no | `10` | Most markets to return. |
 | Closed markets (`closed`) | true or false | no | `false` | Search closed markets instead of open ones. |
+
+## Items
+
+Each item has these fields. Decimals are text, so they stay exact; times are RFC 3339 text.
+
+| Field | Kind | Description |
+|---|---|---|
+| `id` | text | The market's condition ID, 0x… |
+| `slug` | text | Its name in its polymarket.com address. |
+| `question` | text | What it settles. |
+| `status` | text, one of `open`, `closed`, `resolved`, `archived` | Whether it trades. |
+| `acceptingOrders` | true or false | Whether its order books take orders now. |
+| `negRisk` | true or false | Part of an event whose outcomes exclude each other. |
+| `tickSize` | decimal | The smallest price step. |
+| `minOrderSize` | decimal | The smallest order, in shares. |
+| `volume24h` | decimal | Dollars traded in the last 24 hours. |
+| `liquidity` | decimal | Dollars on its order books. |
+| `endsAt` | time | When it is expected to settle. |
+| `outcomes` | list of objects | What it can settle as, such as Yes and No. |
+| `outcomes[].tokenId` | text | The outcome's token ID. |
+| `outcomes[].label` | text | Like Yes or No. |
+| `outcomes[].price` | decimal | The last price, a probability from 0 to 1. |
+| `event` | text | The title of the event it belongs to. |
+| `eventSlug` | text | The event's name in its polymarket.com address. |

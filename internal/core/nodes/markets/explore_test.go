@@ -14,6 +14,7 @@ import (
 	"github.com/lein3000zzz/polythought-go/internal/core/domain"
 	"github.com/lein3000zzz/polythought-go/internal/core/engine"
 	"github.com/lein3000zzz/polythought-go/internal/core/nodes/markets"
+	"github.com/lein3000zzz/polythought-go/internal/core/nodes/shape"
 	"github.com/lein3000zzz/polythought-go/internal/core/ports"
 	portsmocks "github.com/lein3000zzz/polythought-go/internal/mocks/ports"
 )
@@ -34,6 +35,7 @@ func runNode(t *testing.T, node engine.Node, params map[string]any, in engine.Po
 
 	out, err := node.Run(context.Background(), engine.RunContext{Params: engine.LiteralParams(node.Type(), params)}, in)
 	require.NoError(t, err)
+	require.NoError(t, shape.Check(node.Type(), out), "items as declared")
 
 	return out
 }

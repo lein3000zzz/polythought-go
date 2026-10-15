@@ -62,6 +62,10 @@ func (r *Registry) register(typ NodeType, store func()) error {
 		return err
 	}
 
+	if err := checkItems(typ); err != nil {
+		return err
+	}
+
 	store()
 
 	return nil

@@ -17,6 +17,11 @@ best prices to its item, Filter passes on only the items that match.
 A node's settings can use an item's fields. The Webhook node's message, for example, puts
 in a field with `{{question}}` or `{{spread}}`.
 
+Every node's page in the [reference](/docs/reference/nodes/) lists the fields of the items
+it sends out, or says it passes on the items it receives. Prices, sizes and other decimals
+are text, like `"0.0200"`, so they stay exact; times are text too, like
+`"2026-10-15T12:00:00Z"`.
+
 ## Ports
 
 Nodes take items in and send them out through **ports**. Most have one input and one output,

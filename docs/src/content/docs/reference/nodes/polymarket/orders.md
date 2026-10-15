@@ -24,3 +24,24 @@ Items that fail stop the execution, unless **Continue on failure** is on: then t
 |---|---|---|---|---|
 | Wallet (`wallet`) | one of your [wallets](/docs/guides/concepts/#wallets) | yes |  | Personal: sharing the workflow leaves it out. |
 | Market (`market`) | text | no |  | Only orders in this market (condition ID). |
+
+## Items
+
+Each item has these fields. Decimals are text, so they stay exact; times are RFC 3339 text.
+
+| Field | Kind | Description |
+|---|---|---|
+| `walletId` | text | The wallet's ID in Polythought. |
+| `id` | text | The order's ID. |
+| `marketId` | text | The market's condition ID. |
+| `tokenId` | text | The outcome's token ID. |
+| `outcome` | text | Like Yes or No. |
+| `side` | text, one of `buy`, `sell` | Whether it buys or sells. |
+| `price` | decimal | Per share. |
+| `size` | decimal | Shares, as placed. |
+| `filled` | decimal | Shares matched so far. |
+| `remaining` | decimal | Shares still on the book. |
+| `status` | text | Like live or matched, as Polymarket says. |
+| `type` | text | GTC, GTD, FOK or FAK. |
+| `createdAt` | time | When it was placed. |
+| `expiresAt` | time; or null | When it expires; null when it does not. |

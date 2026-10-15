@@ -25,3 +25,7 @@ Items that fail stop the execution, unless **Continue on failure** is on: then t
 | Field (`field`) | text | yes |  | The item field to test, e.g. spread, or outcomes.0.price for the first outcome's price. |
 | Test (`operator`) | text | no | `gt` | One of `gt`, `gte`, `lt`, `lte`, `eq`, `neq`, `contains`, `notContains`, `exists`, `missing`. |
 | Value (`value`) | text | no |  | A number for the comparisons, text for contains (any case). Not used by exists and missing. |
+
+## Items
+
+The items it receives, passed on as they are.

@@ -24,3 +24,23 @@ Items that fail stop the execution, unless **Continue on failure** is on: then t
 |---|---|---|---|---|
 | Wallet (`wallet`) | one of your [wallets](/docs/guides/concepts/#wallets) | yes |  | Personal: sharing the workflow leaves it out. |
 | Limit (`limit`) | whole number | no | `50` | Most positions to return. |
+
+## Items
+
+Each item has these fields. Decimals are text, so they stay exact; times are RFC 3339 text.
+
+| Field | Kind | Description |
+|---|---|---|
+| `walletId` | text | The wallet's ID in Polythought. |
+| `address` | text | The wallet's address. |
+| `marketId` | text | The market's condition ID. |
+| `tokenId` | text | The outcome's token ID. |
+| `title` | text | The market's question. |
+| `outcome` | text | Like Yes or No. |
+| `size` | decimal | Shares held. |
+| `avgPrice` | decimal | What a share cost, on average. |
+| `currentPrice` | decimal | What a share is worth now. |
+| `value` | decimal | size times currentPrice, in dollars. |
+| `realizedPnl` | decimal | Profit or loss taken, in dollars. |
+| `unrealizedPnl` | decimal | Profit or loss if sold at currentPrice, in dollars. |
+| `redeemable` | true or false | The market settled and the shares can be redeemed. |

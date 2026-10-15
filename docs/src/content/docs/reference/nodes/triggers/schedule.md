@@ -21,3 +21,11 @@ Starts the workflow at a fixed interval.
 |---|---|---|---|---|
 | Every (`interval`) | duration, e.g. `30s`, `5m`, `1h` | yes |  | A duration like 30s or 5m. |
 | Run on start (`runOnStart`) | true or false | no | `true` | Also fire as soon as the workflow is activated. |
+
+## Items
+
+Each item has these fields. Decimals are text, so they stay exact; times are RFC 3339 text.
+
+| Field | Kind | Description |
+|---|---|---|
+| `firedAt` | time | When the schedule fired. |

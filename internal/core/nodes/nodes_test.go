@@ -1,6 +1,7 @@
 package nodes_test
 
 import (
+	"context"
 	"testing"
 
 	"github.com/lein3000zzz/polythought-go/internal/core/nodes"
@@ -8,7 +9,9 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/lein3000zzz/polythought-go/internal/core/domain"
 	"github.com/lein3000zzz/polythought-go/internal/core/engine"
+	"github.com/lein3000zzz/polythought-go/internal/core/ports"
 	portsmocks "github.com/lein3000zzz/polythought-go/internal/mocks/ports"
 )
 
@@ -56,7 +59,37 @@ func TestRegister(t *testing.T) {
 		})
 	}
 
+	t.Run("every type says what it emits", func(t *testing.T) {
+		all := engine.NewRegistry()
+		require.NoError(t, nodes.Register(all, nodes.Deps{
+			Logger: logging.Noop(), Feed: portsmocks.NewMockMarketFeed(t),
+			Messenger: telegramStub{}, TelegramInbox: telegramStub{}, Asker: telegramStub{},
+		}))
+
+		types := all.Types()
+		assert.Len(t, types, 22)
+
+		for _, typ := range types {
+			assert.NotNil(t, typ.Items, typ.Name)
+		}
+	})
+
 	t.Run("registering twice fails", func(t *testing.T) {
 		assert.Error(t, nodes.Register(registry, deps))
 	})
+}
+
+// telegramStub stands in for the bot: only the node types are read.
+type telegramStub struct{}
+
+func (telegramStub) MessageUser(context.Context, domain.UserID, ports.UserMessage) error { return nil }
+
+func (telegramStub) AskUser(context.Context, domain.UserID, ports.Question) (int, error) {
+	return 0, nil
+}
+
+func (telegramStub) CloseQuestion(context.Context, domain.UserID, int, string) error { return nil }
+
+func (telegramStub) Subscribe(domain.UserID, func(string) bool) (<-chan ports.TelegramInboxMessage, func()) {
+	return nil, func() {}
 }

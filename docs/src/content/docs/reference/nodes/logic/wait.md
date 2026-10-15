@@ -25,3 +25,7 @@ Items that fail stop the execution, unless **Continue on failure** is on: then t
 | Wait (`mode`) | text | no | `for` | for: a while. until: the next time the clock shows a time of day. One of `for`, `until`. |
 | For (`for`) | duration, e.g. `30s`, `5m`, `1h` | no | `10m` | How long, e.g. 30s, 10m or 2h. |
 | Until (`until`) | text | no |  | A time of day in UTC, as HH:MM, e.g. 09:30. With mode until. |
+
+## Items
+
+The items it receives, passed on as they are.

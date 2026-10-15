@@ -20,3 +20,15 @@ Starts the workflow when you send the instance's bot a message, one item per mes
 | Setting | Kind | Required | Default | Description |
 |---|---|---|---|---|
 | Starts with (`startsWith`) | text | no |  | Only messages that start with this, in any letter case, e.g. /report. Empty: every message. The bot keeps /start, /menu and the names of its menu's sections for itself. |
+
+## Items
+
+Each item has these fields. Decimals are text, so they stay exact; times are RFC 3339 text.
+
+| Field | Kind | Description |
+|---|---|---|
+| `text` | text | The whole message. |
+| `rest` | text | What follows Starts with, trimmed; the whole message without it. |
+| `username` | text | Your Telegram username, without the @. |
+| `firstName` | text | Your first name on Telegram. |
+| `receivedAt` | time | When the bot got it. |

@@ -11,6 +11,7 @@ import (
 
 	"github.com/lein3000zzz/polythought-go/internal/core/engine"
 	"github.com/lein3000zzz/polythought-go/internal/core/nodes/fields"
+	"github.com/lein3000zzz/polythought-go/internal/core/nodes/shape"
 )
 
 const (
@@ -34,6 +35,7 @@ func (Top) Type() engine.NodeType {
 		Description: "Sorts the items by a number and keeps the first few, e.g. the five markets with the most liquidity.",
 		Inputs:      []string{engine.DefaultPort},
 		Outputs:     []string{engine.DefaultPort},
+		Items:       shape.Passed(),
 		Params: []engine.ParamSpec{
 			{
 				Name: "field", Label: "Sort by", Kind: engine.ParamString, Required: true,
@@ -119,6 +121,7 @@ func (Pick) Type() engine.NodeType {
 		Description: "Keeps only the fields you name on each item and drops the rest, so outputs and messages stay short.",
 		Inputs:      []string{engine.DefaultPort},
 		Outputs:     []string{engine.DefaultPort},
+		Items:       &engine.Items{Picked: "fields"},
 		Params: []engine.ParamSpec{
 			{
 				Name: "fields", Label: "Fields", Kind: engine.ParamList, Required: true,

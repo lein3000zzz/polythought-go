@@ -14,6 +14,7 @@ import (
 
 	"github.com/lein3000zzz/polythought-go/internal/core/domain"
 	"github.com/lein3000zzz/polythought-go/internal/core/engine"
+	"github.com/lein3000zzz/polythought-go/internal/core/nodes/shape"
 	"github.com/lein3000zzz/polythought-go/internal/core/ports"
 	portsmocks "github.com/lein3000zzz/polythought-go/internal/mocks/ports"
 )
@@ -122,6 +123,7 @@ func TestMarketsNode(t *testing.T) {
 			}
 
 			require.NoError(t, err)
+			require.NoError(t, shape.Check(node.Type(), out), "items as declared")
 
 			var ids []any
 			for _, it := range out[engine.DefaultPort] {
@@ -277,6 +279,7 @@ func TestOrderBooksNode(t *testing.T) {
 			node := NewOrderBooks(reader)
 			out, err := node.Run(context.Background(), runContext(node.Type(), tt.params), tt.in)
 			require.NoError(t, err)
+			require.NoError(t, shape.Check(node.Type(), out), "items as declared")
 
 			tt.check(t, out)
 		})

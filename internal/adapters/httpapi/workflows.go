@@ -10,6 +10,7 @@ import (
 	"github.com/cloudwego/hertz/pkg/app"
 
 	"github.com/lein3000zzz/polythought-go/internal/core/domain"
+	"github.com/lein3000zzz/polythought-go/internal/core/engine"
 	"github.com/lein3000zzz/polythought-go/internal/core/services/auth"
 	"github.com/lein3000zzz/polythought-go/internal/core/services/workflows"
 )
@@ -249,7 +250,32 @@ type nodeTypeDTO struct {
 	Params      []paramDTO `json:"params"`
 	// OutputsParam names a list param whose values are more output ports, after outputs.
 	OutputsParam string `json:"outputsParam,omitempty" validate:"optional"`
+	// Items describes what the node emits; absent when nobody knows.
+	Items *itemsDTO `json:"items,omitempty" validate:"optional"`
 } // @name NodeType
+
+// itemsDTO describes the items a node emits on every output port: fields of its own, or
+// the items it received, whole or with only the fields a list param names. The error
+// port carries the items received.
+type itemsDTO struct {
+	Fields []fieldDTO `json:"fields"`
+	Passed bool       `json:"passed"`
+	Picked string     `json:"picked,omitempty" validate:"optional"`
+} // @name NodeItems
+
+type fieldDTO struct {
+	// Name is empty for a list's elements.
+	Name        string   `json:"name"`
+	Kind        string   `json:"kind" enums:"text,number,decimal,bool,time,list,object,any"`
+	Description string   `json:"description,omitempty" validate:"optional"`
+	Optional    bool     `json:"optional"`
+	Nullable    bool     `json:"nullable"`
+	Options     []string `json:"options,omitempty" validate:"optional"`
+	// Of describes a list's elements.
+	Of *fieldDTO `json:"of,omitempty" validate:"optional"`
+	// Fields are an object's.
+	Fields []fieldDTO `json:"fields,omitempty" validate:"optional"`
+} // @name ItemField
 
 type nodeTypeList struct {
 	NodeTypes []nodeTypeDTO `json:"nodeTypes"`
@@ -274,6 +300,7 @@ func (s *Server) listNodeTypes(_ context.Context, c *app.RequestContext) {
 			Name: t.Name, Label: t.Label, Description: t.Description, Trigger: t.Trigger,
 			Inputs: nonNil(t.Inputs), Outputs: nonNil(t.Outputs),
 			Params: make([]paramDTO, len(t.Params)), OutputsParam: t.OutputsParam,
+			Items: toItemsDTO(t.Items),
 		}
 
 		for j, p := range t.Params {
@@ -284,6 +311,41 @@ func (s *Server) listNodeTypes(_ context.Context, c *app.RequestContext) {
 	}
 
 	c.JSON(http.StatusOK, out)
+}
+
+func toItemsDTO(it *engine.Items) *itemsDTO {
+	if it == nil {
+		return nil
+	}
+
+	return &itemsDTO{Fields: toFieldDTOs(it.Fields), Passed: it.Passed, Picked: it.Picked}
+}
+
+func toFieldDTOs(fields []engine.Field) []fieldDTO {
+	out := make([]fieldDTO, len(fields))
+	for i, f := range fields {
+		out[i] = toFieldDTO(f)
+	}
+
+	return out
+}
+
+func toFieldDTO(f engine.Field) fieldDTO {
+	dto := fieldDTO{
+		Name: f.Name, Kind: string(f.Kind), Description: f.Description,
+		Optional: f.Optional, Nullable: f.Nullable, Options: f.Options,
+	}
+
+	if f.Of != nil {
+		of := toFieldDTO(*f.Of)
+		dto.Of = &of
+	}
+
+	if len(f.Fields) > 0 {
+		dto.Fields = toFieldDTOs(f.Fields)
+	}
+
+	return dto
 }
 
 func nonNil(s []string) []string {

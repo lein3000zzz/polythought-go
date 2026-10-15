@@ -8,6 +8,7 @@ import (
 
 	"github.com/lein3000zzz/polythought-go/internal/core/domain"
 	"github.com/lein3000zzz/polythought-go/internal/core/engine"
+	"github.com/lein3000zzz/polythought-go/internal/core/nodes/shape"
 	"github.com/lein3000zzz/polythought-go/internal/core/ports"
 )
 
@@ -47,6 +48,7 @@ func (*Market) Type() engine.NodeType {
 		Label:       "Market activity",
 		Description: "Starts the workflow on live trades, book changes or resolutions of the chosen tokens, batched per window.",
 		Outputs:     []string{engine.DefaultPort},
+		Items:       shape.Own(updateFields()...),
 		Params: []engine.ParamSpec{
 			{Name: "tokens", Label: "Tokens", Description: "Outcome token IDs to watch.", Kind: engine.ParamTokens, Required: true},
 			{Name: "on", Label: "Events", Kind: engine.ParamList, Default: []any{KindTrade}, Options: kinds},
@@ -211,5 +213,30 @@ func toItems(u domain.MarketUpdate) (string, []engine.Item) {
 
 	default:
 		return "", nil
+	}
+}
+
+// updateFields describe every kind of update. Fields that only some kinds have are
+// optional, and say which.
+func updateFields() []engine.Field {
+	opt := func(f engine.Field) engine.Field { return shape.Optional(f) }
+
+	return []engine.Field{
+		shape.OneOf("kind", "What happened.", kinds...),
+		shape.Text("marketId", "The market's condition ID."),
+		opt(shape.Text("tokenId", "The outcome's token ID; not for resolutions.")),
+		shape.Time("at", "When it happened."),
+		opt(shape.OneOf("side", "Trades: whether the taker bought or sold. Book changes: the side that changed.",
+			string(domain.SideBuy), string(domain.SideSell))),
+		opt(shape.Decimal("price", "Trades: per share. Book changes: the level's price.")),
+		opt(shape.Decimal("size", "Trades: shares. Book changes: the level's new size.")),
+		opt(shape.Text("txHash", "Trades: the transaction that settled it.")),
+		opt(shape.Nullable(shape.Decimal("bestBid", "Books and quotes: the highest bid; null on an empty side."))),
+		opt(shape.Nullable(shape.Decimal("bestAsk", "Books and quotes: the lowest ask."))),
+		opt(shape.Nullable(shape.Decimal("mid", "Book snapshots: halfway between the best bid and ask."))),
+		opt(shape.Nullable(shape.Decimal("spread", "Book snapshots: the best ask less the best bid."))),
+		opt(shape.Decimal("tickSize", "Tick size changes: the new smallest price step.")),
+		opt(shape.Text("winningTokenId", "Resolutions: the token that won.")),
+		opt(shape.Text("winningOutcome", "Resolutions: the outcome that won, like Yes.")),
 	}
 }

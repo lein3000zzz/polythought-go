@@ -5,6 +5,7 @@ import (
 
 	"github.com/lein3000zzz/polythought-go/internal/core/domain"
 	"github.com/lein3000zzz/polythought-go/internal/core/engine"
+	"github.com/lein3000zzz/polythought-go/internal/core/nodes/shape"
 	"github.com/lein3000zzz/polythought-go/internal/core/ports"
 )
 
@@ -29,6 +30,7 @@ func (*Search) Type() engine.NodeType {
 		Description: "Finds markets by words in their title, e.g. bitcoin or election, one item per market.",
 		Inputs:      []string{engine.DefaultPort},
 		Outputs:     []string{engine.DefaultPort},
+		Items:       shape.Own(FoundFields()...),
 		Params: []engine.ParamSpec{
 			{Name: "query", Label: "Search for", Kind: engine.ParamString, Required: true, Description: "Words in the event title."},
 			{Name: "limit", Label: "Limit", Kind: engine.ParamNumber, Default: 10, Description: "Most markets to return."},

@@ -24,3 +24,21 @@ Items that fail stop the execution, unless **Continue on failure** is on: then t
 |---|---|---|---|---|
 | Look back (`since`) | duration, e.g. `30s`, `5m`, `1h` | no | `1h` | How far back, e.g. 15m or 1h. |
 | Limit (`limit`) | whole number | no | `50` | Most trades per market, up to 500. |
+
+## Items
+
+Each item has these fields. Decimals are text, so they stay exact; times are RFC 3339 text.
+
+| Field | Kind | Description |
+|---|---|---|
+| `marketId` | text | The market's condition ID. |
+| `question` | text; or null | The market's question, from the item received. |
+| `outcome` | text | The outcome's label, like Yes. |
+| `tokenId` | text | The outcome's token ID. |
+| `side` | text, one of `buy`, `sell` | Whether the taker bought or sold. |
+| `price` | decimal | Per share. |
+| `size` | decimal | In shares. |
+| `value` | decimal | price times size, in dollars. |
+| `wallet` | text | The trader's wallet address. |
+| `at` | time | When it happened. |
+| `txHash` | text | The transaction that settled it. |

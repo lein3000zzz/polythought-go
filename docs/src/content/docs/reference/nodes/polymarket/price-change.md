@@ -24,3 +24,20 @@ Items that fail stop the execution, unless **Continue on failure** is on: then t
 |---|---|---|---|---|
 | Compare with (`window`) | duration, e.g. `30s`, `5m`, `1h` | no | `1h` | How long ago, e.g. 1h or 24h. |
 | Outcomes (`outcomes`) | text | no | `first` | first: the first outcome of each market, usually Yes. all: every outcome. One of `first`, `all`. |
+
+## Items
+
+Each item has these fields. Decimals are text, so they stay exact; times are RFC 3339 text.
+
+| Field | Kind | Description |
+|---|---|---|
+| `marketId` | text; or null | The market's ID, from the item received. |
+| `question` | text; or null | The market's question, from the item received. |
+| `outcome` | text | The outcome's label, like Yes. |
+| `tokenId` | text | The outcome's token ID. |
+| `priceThen` | decimal | The first price in the window. |
+| `priceNow` | decimal | The last price in the window. |
+| `change` | decimal | priceNow less priceThen. |
+| `changePct` | decimal; or null | The change in percent of priceThen, to 2 places; null when priceThen is 0. |
+| `absChangePct` | decimal; or null | changePct without its sign. |
+| `since` | time | When the window began. |

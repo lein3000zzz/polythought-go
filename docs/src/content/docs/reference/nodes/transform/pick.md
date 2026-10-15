@@ -23,3 +23,7 @@ Items that fail stop the execution, unless **Continue on failure** is on: then t
 | Setting | Kind | Required | Default | Description |
 |---|---|---|---|---|
 | Fields (`fields`) | list of text | yes |  | One per line, e.g. question and spread. Paths like outcomes.0.price work too. |
+
+## Items
+
+The items it receives, with only the fields **Fields** (`fields`) names.

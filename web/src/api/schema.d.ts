@@ -880,6 +880,20 @@ export interface components {
         InviteList: {
             invites: components["schemas"]["Invite"][];
         };
+        ItemField: {
+            description?: string;
+            /** @description Fields are an object's. */
+            fields?: components["schemas"]["ItemField"][];
+            /** @enum {string} */
+            kind: "text" | "number" | "decimal" | "bool" | "time" | "list" | "object" | "any";
+            /** @description Name is empty for a list's elements. */
+            name: string;
+            nullable: boolean;
+            /** @description Of describes a list's elements. */
+            of?: components["schemas"]["ItemField"];
+            optional: boolean;
+            options?: string[];
+        };
         ItemSample: {
             error?: string;
             json?: {
@@ -906,6 +920,11 @@ export interface components {
             /** @description Position is where the editor draws the node; it never affects execution. */
             position?: components["schemas"]["CanvasPosition"];
             type: string;
+        };
+        NodeItems: {
+            fields: components["schemas"]["ItemField"][];
+            passed: boolean;
+            picked?: string;
         };
         NodeRun: {
             error?: string;
@@ -938,6 +957,8 @@ export interface components {
         NodeType: {
             description?: string;
             inputs: string[];
+            /** @description Items describes what the node emits; absent when nobody knows. */
+            items?: components["schemas"]["NodeItems"];
             label?: string;
             name: string;
             outputs: string[];

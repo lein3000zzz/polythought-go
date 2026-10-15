@@ -104,7 +104,7 @@ export interface Market {
   id: string
   slug: string
   question: string
-  /** open, closed or archived. */
+  /** open, closed, resolved or archived. */
   status: string
   acceptingOrders: boolean
   negRisk: boolean

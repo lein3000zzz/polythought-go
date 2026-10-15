@@ -7,6 +7,7 @@ import (
 
 	"github.com/lein3000zzz/polythought-go/internal/core/engine"
 	"github.com/lein3000zzz/polythought-go/internal/core/nodes/fields"
+	"github.com/lein3000zzz/polythought-go/internal/core/nodes/shape"
 )
 
 const FilterType = "logic.filter"
@@ -29,6 +30,7 @@ func (Filter) Type() engine.NodeType {
 			"compared with a value, text that contains a value, or a field being there at all.",
 		Inputs:  []string{engine.DefaultPort},
 		Outputs: []string{engine.DefaultPort},
+		Items:   shape.Passed(),
 		Params: []engine.ParamSpec{
 			{
 				Name: "field", Label: "Field", Kind: engine.ParamString, Required: true,

@@ -12,6 +12,7 @@ import (
 	"github.com/lein3000zzz/polythought-go/internal/core/domain"
 	"github.com/lein3000zzz/polythought-go/internal/core/engine"
 	"github.com/lein3000zzz/polythought-go/internal/core/nodes/account"
+	"github.com/lein3000zzz/polythought-go/internal/core/nodes/shape"
 	"github.com/lein3000zzz/polythought-go/internal/core/ports"
 	portsmocks "github.com/lein3000zzz/polythought-go/internal/mocks/ports"
 )
@@ -54,7 +55,12 @@ func run(t *testing.T, node engine.Node, params map[string]any, setup func(m moc
 
 	rc := engine.RunContext{OwnerID: owner, Params: engine.LiteralParams(n.Type(), params)}
 
-	return n.Run(context.Background(), rc, engine.Ports{engine.DefaultPort: {{JSON: map[string]any{}}}})
+	out, err := n.Run(context.Background(), rc, engine.Ports{engine.DefaultPort: {{JSON: map[string]any{}}}})
+	if err == nil {
+		require.NoError(t, shape.Check(n.Type(), out), "items as declared")
+	}
+
+	return out, err
 }
 
 func TestPositions(t *testing.T) {
@@ -183,7 +189,7 @@ func TestOrdersStopAtThePageCap(t *testing.T) {
 	out, err := run(t, account.NewOrders(nil, nil), map[string]any{"wallet": "w-1"}, func(m mocks) {
 		m.wallets.EXPECT().Credentials(mock.Anything, owner, domain.WalletID("w-1")).Return(creds, nil)
 		m.account.EXPECT().OpenOrders(mock.Anything, creds, mock.Anything).
-			Return(ports.Page[domain.Order]{Items: []domain.Order{{ID: "o"}}, NextCursor: "more"}, nil).Times(10)
+			Return(ports.Page[domain.Order]{Items: []domain.Order{{ID: "o", Side: domain.SideBuy}}, NextCursor: "more"}, nil).Times(10)
 	})
 	require.NoError(t, err)
 	assert.Len(t, out[engine.DefaultPort], 10)

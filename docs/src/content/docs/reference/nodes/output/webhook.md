@@ -27,3 +27,7 @@ Items that fail stop the execution, unless **Continue on failure** is on: then t
 | Send (`send`) | text | no | `all` | all: one request listing every item. each: one request per item, up to 20 a run. One of `all`, `each`. |
 | Format (`format`) | text | no | `message` | message: the text above, for chat apps. json: the items themselves. One of `message`, `json`. |
 | Credential (`credential`) | one of your credentials: [HTTP header](/docs/reference/credential-types/#http-header) | no |  | Optional. A header sent with each request, such as Authorization, from your Credentials page. Personal: sharing the workflow leaves it out. |
+
+## Items
+
+The items it receives, passed on as they are.

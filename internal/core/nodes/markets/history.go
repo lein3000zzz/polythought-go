@@ -11,6 +11,7 @@ import (
 
 	"github.com/lein3000zzz/polythought-go/internal/core/domain"
 	"github.com/lein3000zzz/polythought-go/internal/core/engine"
+	"github.com/lein3000zzz/polythought-go/internal/core/nodes/shape"
 	"github.com/lein3000zzz/polythought-go/internal/core/ports"
 )
 
@@ -47,6 +48,7 @@ func (*PriceChange) Type() engine.NodeType {
 			"cents and in percent, for spotting markets on the move.",
 		Inputs:  []string{engine.DefaultPort},
 		Outputs: []string{engine.DefaultPort},
+		Items:   shape.Own(changeFields()...),
 		Params: []engine.ParamSpec{
 			{Name: "window", Label: "Compare with", Kind: engine.ParamDuration, Default: "1h", Description: "How long ago, e.g. 1h or 24h."},
 			{
@@ -176,4 +178,15 @@ func firstOf(j map[string]any, keys ...string) any {
 	}
 
 	return nil
+}
+
+func changeFields() []engine.Field {
+	return append(outcomeFields(),
+		shape.Decimal("priceThen", "The first price in the window."),
+		shape.Decimal("priceNow", "The last price in the window."),
+		shape.Decimal("change", "priceNow less priceThen."),
+		shape.Nullable(shape.Decimal("changePct", "The change in percent of priceThen, to 2 places; null when priceThen is 0.")),
+		shape.Nullable(shape.Decimal("absChangePct", "changePct without its sign.")),
+		shape.Time("since", "When the window began."),
+	)
 }

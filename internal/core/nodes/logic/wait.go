@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/lein3000zzz/polythought-go/internal/core/engine"
+	"github.com/lein3000zzz/polythought-go/internal/core/nodes/shape"
 )
 
 const WaitType = "logic.wait"
@@ -30,6 +31,7 @@ func (*Wait) Type() engine.NodeType {
 			"waits meanwhile without keeping anything busy, and carries on after a restart.",
 		Inputs:  []string{engine.DefaultPort},
 		Outputs: []string{engine.DefaultPort},
+		Items:   shape.Passed(),
 		Params: []engine.ParamSpec{
 			{
 				Name: "mode", Label: "Wait", Kind: engine.ParamString, Default: "for", Options: []string{"for", "until"},

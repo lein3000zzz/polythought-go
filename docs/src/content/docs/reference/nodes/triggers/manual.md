@@ -18,3 +18,7 @@ Starts the workflow when you run it by hand.
 ## Settings
 
 None.
+
+## Items
+
+Empty: items with no fields.

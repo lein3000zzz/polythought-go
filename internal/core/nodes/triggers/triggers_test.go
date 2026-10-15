@@ -12,6 +12,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/lein3000zzz/polythought-go/internal/core/engine"
+	"github.com/lein3000zzz/polythought-go/internal/core/nodes/shape"
 )
 
 const waitFor = 3 * time.Second
@@ -133,4 +134,6 @@ func TestManual(t *testing.T) {
 	out := triggers.ManualOutput()
 	assert.Equal(t, 1, out.Len())
 	assert.Equal(t, triggers.ManualType, m.Type().Name)
+	require.NoError(t, shape.Check(m.Type(), out), "items as declared")
+	require.NoError(t, shape.Check(triggers.NewSchedule(time.Second).Type(), triggers.ScheduleOutput(time.Now())))
 }

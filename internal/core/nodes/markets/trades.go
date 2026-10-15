@@ -8,6 +8,7 @@ import (
 
 	"github.com/lein3000zzz/polythought-go/internal/core/domain"
 	"github.com/lein3000zzz/polythought-go/internal/core/engine"
+	"github.com/lein3000zzz/polythought-go/internal/core/nodes/shape"
 	"github.com/lein3000zzz/polythought-go/internal/core/ports"
 )
 
@@ -47,6 +48,7 @@ func (*Trades) Type() engine.NodeType {
 			"dollars: for spotting large buyers and sellers.",
 		Inputs:  []string{engine.DefaultPort},
 		Outputs: []string{engine.DefaultPort},
+		Items:   shape.Own(tradeFields()...),
 		Params: []engine.ParamSpec{
 			{Name: "since", Label: "Look back", Kind: engine.ParamDuration, Default: "1h", Description: "How far back, e.g. 15m or 1h."},
 			{Name: "limit", Label: "Limit", Kind: engine.ParamNumber, Default: 50, Description: "Most trades per market, up to 500."},
@@ -121,5 +123,21 @@ func tradeItem(market engine.Item, t domain.Trade) map[string]any {
 		"wallet":   string(t.Wallet),
 		"at":       t.At,
 		"txHash":   t.TxHash,
+	}
+}
+
+func tradeFields() []engine.Field {
+	return []engine.Field{
+		shape.Text("marketId", "The market's condition ID."),
+		shape.Nullable(shape.Text("question", "The market's question, from the item received.")),
+		shape.Text("outcome", "The outcome's label, like Yes."),
+		shape.Text("tokenId", "The outcome's token ID."),
+		shape.OneOf("side", "Whether the taker bought or sold.", string(domain.SideBuy), string(domain.SideSell)),
+		shape.Decimal("price", "Per share."),
+		shape.Decimal("size", "In shares."),
+		shape.Decimal("value", "price times size, in dollars."),
+		shape.Text("wallet", "The trader's wallet address."),
+		shape.Time("at", "When it happened."),
+		shape.Text("txHash", "The transaction that settled it."),
 	}
 }

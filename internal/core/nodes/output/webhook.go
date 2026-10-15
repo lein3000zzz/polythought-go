@@ -12,6 +12,7 @@ import (
 	"github.com/lein3000zzz/polythought-go/internal/core/engine"
 	"github.com/lein3000zzz/polythought-go/internal/core/nodes/credtypes"
 	"github.com/lein3000zzz/polythought-go/internal/core/nodes/fields"
+	"github.com/lein3000zzz/polythought-go/internal/core/nodes/shape"
 	"github.com/lein3000zzz/polythought-go/internal/core/ports"
 )
 
@@ -46,6 +47,7 @@ func (*Webhook) Type() engine.NodeType {
 			"items as JSON to any service that takes them.",
 		Inputs:  []string{engine.DefaultPort},
 		Outputs: []string{engine.DefaultPort},
+		Items:   shape.Passed(),
 		Params: []engine.ParamSpec{
 			{
 				Name: "url", Label: "Webhook URL", Kind: engine.ParamString, Required: true, Sensitive: true,

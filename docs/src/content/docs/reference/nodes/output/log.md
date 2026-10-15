@@ -23,3 +23,7 @@ Items that fail stop the execution, unless **Continue on failure** is on: then t
 | Setting | Kind | Required | Default | Description |
 |---|---|---|---|---|
 | Message (`message`) | text | no | `Workflow item` | {{field}} puts in an item's field, e.g. {{question}}. |
+
+## Items
+
+The items it receives, passed on as they are.

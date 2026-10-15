@@ -14,6 +14,7 @@ import (
 	"github.com/lein3000zzz/polythought-go/internal/core/domain"
 	"github.com/lein3000zzz/polythought-go/internal/core/engine"
 	"github.com/lein3000zzz/polythought-go/internal/core/nodes/fields"
+	"github.com/lein3000zzz/polythought-go/internal/core/nodes/shape"
 	"github.com/lein3000zzz/polythought-go/internal/core/ports"
 )
 
@@ -50,6 +51,7 @@ func (*Send) Type() engine.NodeType {
 		Description: "Sends items to you on Telegram, in your chat with the instance's bot. Link Telegram in Settings first.",
 		Inputs:      []string{engine.DefaultPort},
 		Outputs:     []string{engine.DefaultPort},
+		Items:       shape.Passed(),
 		Params: []engine.ParamSpec{
 			{
 				Name: "message", Label: "Message", Kind: engine.ParamString, Default: "Update from your Polythought workflow",
@@ -210,6 +212,7 @@ func (*Trigger) Type() engine.NodeType {
 		Description: "Starts the workflow when you send the instance's bot a message, one item per message. " +
 			"Link Telegram in Settings first.",
 		Outputs: []string{engine.DefaultPort},
+		Items:   shape.Own(messageFields()...),
 		Params: []engine.ParamSpec{
 			{
 				Name: "startsWith", Label: "Starts with", Kind: engine.ParamString,
@@ -265,4 +268,14 @@ func Output(m ports.TelegramInboxMessage, prefix string) engine.Ports {
 // hasPrefixFold is strings.HasPrefix ignoring letter case, on whole runes.
 func hasPrefixFold(s, prefix string) bool {
 	return len(s) >= len(prefix) && strings.EqualFold(s[:len(prefix)], prefix)
+}
+
+func messageFields() []engine.Field {
+	return []engine.Field{
+		shape.Text("text", "The whole message."),
+		shape.Text("rest", "What follows Starts with, trimmed; the whole message without it."),
+		shape.Text("username", "Your Telegram username, without the @."),
+		shape.Text("firstName", "Your first name on Telegram."),
+		shape.Time("receivedAt", "When the bot got it."),
+	}
 }

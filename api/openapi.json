@@ -546,6 +546,62 @@
                 ],
                 "type": "object"
             },
+            "ItemField": {
+                "properties": {
+                    "description": {
+                        "type": "string"
+                    },
+                    "fields": {
+                        "description": "Fields are an object's.",
+                        "items": {
+                            "$ref": "#/components/schemas/ItemField"
+                        },
+                        "type": "array",
+                        "uniqueItems": false
+                    },
+                    "kind": {
+                        "enum": [
+                            "text",
+                            "number",
+                            "decimal",
+                            "bool",
+                            "time",
+                            "list",
+                            "object",
+                            "any"
+                        ],
+                        "type": "string"
+                    },
+                    "name": {
+                        "description": "Name is empty for a list's elements.",
+                        "type": "string"
+                    },
+                    "nullable": {
+                        "type": "boolean"
+                    },
+                    "of": {
+                        "$ref": "#/components/schemas/ItemField",
+                        "description": "Of describes a list's elements."
+                    },
+                    "optional": {
+                        "type": "boolean"
+                    },
+                    "options": {
+                        "items": {
+                            "type": "string"
+                        },
+                        "type": "array",
+                        "uniqueItems": false
+                    }
+                },
+                "required": [
+                    "kind",
+                    "name",
+                    "nullable",
+                    "optional"
+                ],
+                "type": "object"
+            },
             "ItemSample": {
                 "properties": {
                     "error": {
@@ -620,6 +676,28 @@
                 ],
                 "type": "object"
             },
+            "NodeItems": {
+                "properties": {
+                    "fields": {
+                        "items": {
+                            "$ref": "#/components/schemas/ItemField"
+                        },
+                        "type": "array",
+                        "uniqueItems": false
+                    },
+                    "passed": {
+                        "type": "boolean"
+                    },
+                    "picked": {
+                        "type": "string"
+                    }
+                },
+                "required": [
+                    "fields",
+                    "passed"
+                ],
+                "type": "object"
+            },
             "NodeRun": {
                 "properties": {
                     "error": {
@@ -690,6 +768,10 @@
                         },
                         "type": "array",
                         "uniqueItems": false
+                    },
+                    "items": {
+                        "$ref": "#/components/schemas/NodeItems",
+                        "description": "Items describes what the node emits; absent when nobody knows."
                     },
                     "label": {
                         "type": "string"

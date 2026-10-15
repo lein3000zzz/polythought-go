@@ -22,3 +22,25 @@ Starts the workflow on live trades, book changes or resolutions of the chosen to
 | Tokens (`tokens`) | list of token IDs | yes |  | Outcome token IDs to watch. |
 | Events (`on`) | list of text | no | `trade` | One of `trade`, `book`, `quote`, `tick`, `resolution`. |
 | Batch window (`batch`) | duration, e.g. `30s`, `5m`, `1h` | no | `5s` | Updates in one window start one execution. |
+
+## Items
+
+Each item has these fields. Decimals are text, so they stay exact; times are RFC 3339 text.
+
+| Field | Kind | Description |
+|---|---|---|
+| `kind` | text, one of `trade`, `book`, `quote`, `tick`, `resolution` | What happened. |
+| `marketId` | text | The market's condition ID. |
+| `tokenId` | text; not always there | The outcome's token ID; not for resolutions. |
+| `at` | time | When it happened. |
+| `side` | text, one of `buy`, `sell`; not always there | Trades: whether the taker bought or sold. Book changes: the side that changed. |
+| `price` | decimal; not always there | Trades: per share. Book changes: the level's price. |
+| `size` | decimal; not always there | Trades: shares. Book changes: the level's new size. |
+| `txHash` | text; not always there | Trades: the transaction that settled it. |
+| `bestBid` | decimal; or null; not always there | Books and quotes: the highest bid; null on an empty side. |
+| `bestAsk` | decimal; or null; not always there | Books and quotes: the lowest ask. |
+| `mid` | decimal; or null; not always there | Book snapshots: halfway between the best bid and ask. |
+| `spread` | decimal; or null; not always there | Book snapshots: the best ask less the best bid. |
+| `tickSize` | decimal; not always there | Tick size changes: the new smallest price step. |
+| `winningTokenId` | text; not always there | Resolutions: the token that won. |
+| `winningOutcome` | text; not always there | Resolutions: the outcome that won, like Yes. |

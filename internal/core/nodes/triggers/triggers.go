@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/lein3000zzz/polythought-go/internal/core/engine"
+	"github.com/lein3000zzz/polythought-go/internal/core/nodes/shape"
 )
 
 const (
@@ -28,6 +29,7 @@ func (Manual) Type() engine.NodeType {
 		Label:       "Manual",
 		Description: "Starts the workflow when you run it by hand.",
 		Outputs:     []string{engine.DefaultPort},
+		Items:       shape.Own(), // one empty item
 	}
 }
 
@@ -64,6 +66,7 @@ func (*Schedule) Type() engine.NodeType {
 		Label:       "Schedule",
 		Description: "Starts the workflow at a fixed interval.",
 		Outputs:     []string{engine.DefaultPort},
+		Items:       shape.Own(shape.Time("firedAt", "When the schedule fired.")),
 		Params: []engine.ParamSpec{
 			{Name: "interval", Label: "Every", Description: "A duration like 30s or 5m.", Kind: engine.ParamDuration, Required: true},
 			{Name: "runOnStart", Label: "Run on start", Description: "Also fire as soon as the workflow is activated.", Kind: engine.ParamBool, Default: true},

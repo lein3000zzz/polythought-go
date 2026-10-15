@@ -23,3 +23,14 @@ Items that fail stop the execution, unless **Continue on failure** is on: then t
 | Setting | Kind | Required | Default | Description |
 |---|---|---|---|---|
 | Wallet (`wallet`) | one of your [wallets](/docs/guides/concepts/#wallets) | yes |  | Personal: sharing the workflow leaves it out. |
+
+## Items
+
+Each item has these fields. Decimals are text, so they stay exact; times are RFC 3339 text.
+
+| Field | Kind | Description |
+|---|---|---|
+| `walletId` | text | The wallet's ID in Polythought. |
+| `signer` | text | The address that signs its orders. |
+| `balance` | decimal | Collateral it can spend, in dollars. |
+| `at` | time | When it was read. |

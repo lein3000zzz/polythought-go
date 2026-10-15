@@ -6,6 +6,7 @@ import (
 	"fmt"
 
 	"github.com/lein3000zzz/polythought-go/internal/core/engine"
+	"github.com/lein3000zzz/polythought-go/internal/core/nodes/shape"
 )
 
 const (
@@ -41,6 +42,7 @@ func (If) Type() engine.NodeType {
 		Description: "Compares a numeric field of each item with a value and routes the item to true or false.",
 		Inputs:      []string{engine.DefaultPort},
 		Outputs:     []string{PortTrue, PortFalse},
+		Items:       shape.Passed(),
 		Params: []engine.ParamSpec{
 			{Name: "field", Label: "Field", Description: "Item field to compare, e.g. bestBid.", Kind: engine.ParamString, Required: true},
 			{Name: "operator", Label: "Operator", Kind: engine.ParamString, Default: "gt", Options: operatorNames},

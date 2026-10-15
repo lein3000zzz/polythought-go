@@ -25,3 +25,7 @@ Items that fail stop the execution, unless **Continue on failure** is on: then t
 | Field (`field`) | text | yes |  | Item field to compare, e.g. bestBid. |
 | Operator (`operator`) | text | no | `gt` | One of `gt`, `gte`, `lt`, `lte`, `eq`, `neq`. |
 | Value (`value`) | number | yes |  |  |
+
+## Items
+
+The items it receives, passed on as they are.

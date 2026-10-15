@@ -11,6 +11,7 @@ import (
 
 	"github.com/lein3000zzz/polythought-go/internal/core/domain"
 	"github.com/lein3000zzz/polythought-go/internal/core/engine"
+	"github.com/lein3000zzz/polythought-go/internal/core/nodes/shape"
 	"github.com/lein3000zzz/polythought-go/internal/core/nodes/triggers"
 	"github.com/lein3000zzz/polythought-go/internal/core/ports"
 )
@@ -75,7 +76,7 @@ func TestMarketBatches(t *testing.T) {
 			name: "book changes become one item per level",
 			on:   []any{"book"},
 			updates: []domain.MarketUpdate{
-				domain.BookChanges{MarketID: "m", Changes: []domain.LevelChange{{TokenID: "t1"}, {TokenID: "t2"}}},
+				domain.BookChanges{MarketID: "m", Changes: []domain.LevelChange{{TokenID: "t1", Side: domain.SideBuy}, {TokenID: "t2", Side: domain.SideSell}}},
 				domain.BookSnapshot{OrderBook: domain.OrderBook{TokenID: "t1"}},
 			},
 			wantKinds: []string{"book", "book", "book"},
@@ -114,6 +115,8 @@ func TestMarketBatches(t *testing.T) {
 
 			assert.Equal(t, []domain.TokenID{"t1", "t2"}, feed.tokens)
 			assert.Equal(t, 1, rec.count(), "everything in one window starts one execution")
+
+			require.NoError(t, shape.Check(m.Type(), rec.first()), "items as declared")
 
 			items := rec.first()[engine.DefaultPort]
 			got := make([]string, len(items))

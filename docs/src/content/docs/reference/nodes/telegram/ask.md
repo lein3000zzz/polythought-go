@@ -26,3 +26,7 @@ Items that fail stop the execution, unless **Continue on failure** is on: then t
 | Format (`format`) | text | no | `text` | text: sent as written. html: Telegram's tags work, such as &lt;b&gt;, &lt;i&gt;, &lt;code&gt; and &lt;a href="…"&gt;; item fields are escaped. One of `text`, `html`. |
 | Buttons (`buttons`) | list of text | no | `Yes`, `No` | One per line, up to 10, at most 40 characters each. Each button is an output port of the same name. |
 | Timeout (`timeout`) | duration, e.g. `30s`, `5m`, `1h` | no | `1h` | How long to wait for a press before the items go through timeout, e.g. 30m or 24h. At most the instance's longest wait, 7 days unless an admin changed it. |
+
+## Items
+
+The items it receives, passed on as they are.

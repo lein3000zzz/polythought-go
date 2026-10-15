@@ -139,6 +139,10 @@ type NodeType struct {
 	// OutputsParam names a list param whose values are more output ports, after Outputs:
 	// buttons [Yes, No] give a port for each. Empty means the type's ports are fixed.
 	OutputsParam string
+
+	// Items describes what it emits; nil when nobody knows, as for code whose author did
+	// not say.
+	Items *Items
 }
 
 // Node is a step that transforms items. Per-item failures go to ErrorPort via Ports.Fail;

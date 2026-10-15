@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"github.com/lein3000zzz/polythought-go/internal/core/engine"
+	"github.com/lein3000zzz/polythought-go/internal/core/nodes/shape"
 	"github.com/lein3000zzz/polythought-go/internal/core/ports"
 )
 
@@ -27,6 +28,7 @@ func (*Markets) Type() engine.NodeType {
 		Description: "Looks up markets, one item per market.",
 		Inputs:      []string{engine.DefaultPort},
 		Outputs:     []string{engine.DefaultPort},
+		Items:       shape.Own(MarketFields()...),
 		Params: []engine.ParamSpec{
 			{Name: "limit", Label: "Limit", Description: "Most markets to return.", Kind: engine.ParamNumber, Default: 20},
 			{Name: "closed", Label: "Include closed", Kind: engine.ParamBool, Default: false},

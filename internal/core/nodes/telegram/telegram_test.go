@@ -13,6 +13,7 @@ import (
 
 	"github.com/lein3000zzz/polythought-go/internal/core/domain"
 	"github.com/lein3000zzz/polythought-go/internal/core/engine"
+	"github.com/lein3000zzz/polythought-go/internal/core/nodes/shape"
 	"github.com/lein3000zzz/polythought-go/internal/core/nodes/telegram"
 	"github.com/lein3000zzz/polythought-go/internal/core/ports"
 )
@@ -192,6 +193,7 @@ func TestTrigger(t *testing.T) {
 	assert.Equal(t, map[string]any{
 		"text": "/report  weekly ", "rest": "weekly", "username": "alice_tg", "firstName": "Alice", "receivedAt": at,
 	}, out[engine.DefaultPort][0].JSON)
+	require.NoError(t, shape.Check(trigger.Type(), out), "items as declared")
 
 	cancel()
 	require.NoError(t, <-done)

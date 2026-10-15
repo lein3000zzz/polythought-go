@@ -25,3 +25,7 @@ Items that fail stop the execution, unless **Continue on failure** is on: then t
 | Sort by (`field`) | text | yes |  | A numeric field, e.g. liquidity, volume24h or absChangePct. |
 | Order (`order`) | text | no | `desc` | One of `desc`, `asc`. |
 | Keep (`limit`) | whole number | no | `10` | How many items to keep. |
+
+## Items
+
+The items it receives, passed on as they are.

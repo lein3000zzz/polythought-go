@@ -11,6 +11,7 @@ import (
 
 	"github.com/lein3000zzz/polythought-go/internal/core/domain"
 	"github.com/lein3000zzz/polythought-go/internal/core/engine"
+	"github.com/lein3000zzz/polythought-go/internal/core/nodes/shape"
 	"github.com/lein3000zzz/polythought-go/internal/core/ports"
 )
 
@@ -89,6 +90,7 @@ func (*Positions) Type() engine.NodeType {
 		Description: "Lists the open positions of one of your wallets, one item per position.",
 		Inputs:      []string{engine.DefaultPort},
 		Outputs:     []string{engine.DefaultPort},
+		Items:       shape.Own(PositionFields()...),
 		Params: []engine.ParamSpec{
 			walletParam,
 			{Name: "limit", Label: "Limit", Description: "Most positions to return.", Kind: engine.ParamNumber, Default: 50},
@@ -174,6 +176,7 @@ func (*Orders) Type() engine.NodeType {
 		Description: "Lists the open orders of one of your wallets. Needs API credentials on the wallet.",
 		Inputs:      []string{engine.DefaultPort},
 		Outputs:     []string{engine.DefaultPort},
+		Items:       shape.Own(orderFields()...),
 		Params: []engine.ParamSpec{
 			walletParam,
 			{Name: "market", Label: "Market", Description: "Only orders in this market (condition ID).", Kind: engine.ParamString},
@@ -258,6 +261,7 @@ func (*Balance) Type() engine.NodeType {
 		Description: "Reads the USDC collateral balance of one of your wallets. Needs API credentials on the wallet.",
 		Inputs:      []string{engine.DefaultPort},
 		Outputs:     []string{engine.DefaultPort},
+		Items:       shape.Own(balanceFields()...),
 		Params:      []engine.ParamSpec{walletParam},
 	}
 }
@@ -283,4 +287,51 @@ func (n *Balance) Run(ctx context.Context, rc engine.RunContext, in engine.Ports
 
 		return nil
 	})
+}
+
+// PositionFields describe a PositionItem.
+func PositionFields() []engine.Field {
+	return []engine.Field{
+		shape.Text("walletId", "The wallet's ID in Polythought."),
+		shape.Text("address", "The wallet's address."),
+		shape.Text("marketId", "The market's condition ID."),
+		shape.Text("tokenId", "The outcome's token ID."),
+		shape.Text("title", "The market's question."),
+		shape.Text("outcome", "Like Yes or No."),
+		shape.Decimal("size", "Shares held."),
+		shape.Decimal("avgPrice", "What a share cost, on average."),
+		shape.Decimal("currentPrice", "What a share is worth now."),
+		shape.Decimal("value", "size times currentPrice, in dollars."),
+		shape.Decimal("realizedPnl", "Profit or loss taken, in dollars."),
+		shape.Decimal("unrealizedPnl", "Profit or loss if sold at currentPrice, in dollars."),
+		shape.Bool("redeemable", "The market settled and the shares can be redeemed."),
+	}
+}
+
+func orderFields() []engine.Field {
+	return []engine.Field{
+		shape.Text("walletId", "The wallet's ID in Polythought."),
+		shape.Text("id", "The order's ID."),
+		shape.Text("marketId", "The market's condition ID."),
+		shape.Text("tokenId", "The outcome's token ID."),
+		shape.Text("outcome", "Like Yes or No."),
+		shape.OneOf("side", "Whether it buys or sells.", string(domain.SideBuy), string(domain.SideSell)),
+		shape.Decimal("price", "Per share."),
+		shape.Decimal("size", "Shares, as placed."),
+		shape.Decimal("filled", "Shares matched so far."),
+		shape.Decimal("remaining", "Shares still on the book."),
+		shape.Text("status", "Like live or matched, as Polymarket says."),
+		shape.Text("type", "GTC, GTD, FOK or FAK."),
+		shape.Time("createdAt", "When it was placed."),
+		shape.Nullable(shape.Time("expiresAt", "When it expires; null when it does not.")),
+	}
+}
+
+func balanceFields() []engine.Field {
+	return []engine.Field{
+		shape.Text("walletId", "The wallet's ID in Polythought."),
+		shape.Text("signer", "The address that signs its orders."),
+		shape.Decimal("balance", "Collateral it can spend, in dollars."),
+		shape.Time("at", "When it was read."),
+	}
 }

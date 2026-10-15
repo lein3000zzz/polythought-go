@@ -167,6 +167,8 @@ func nodePage(t engine.TypeInfo, order int, credTypes []engine.CredentialType) s
 
 	if len(t.Params) == 0 {
 		b.WriteString("\n## Settings\n\nNone.\n")
+		writeItems(&b, t.NodeType)
+
 		return b.String()
 	}
 
@@ -196,7 +198,87 @@ func nodePage(t engine.TypeInfo, order int, credTypes []engine.CredentialType) s
 			cell(label), p.Name, paramKind(p, credTypes), required, defaultOf(p.Default), cell(strings.Join(nonEmpty(notes), " ")))
 	}
 
+	writeItems(&b, t.NodeType)
+
 	return b.String()
+}
+
+// writeItems says what the node emits, with every field, nested ones as paths.
+func writeItems(b *strings.Builder, t engine.NodeType) {
+	it := t.Items
+	if it == nil {
+		return
+	}
+
+	b.WriteString("\n## Items\n\n")
+
+	switch {
+	case it.Passed:
+		b.WriteString("The items it receives, passed on as they are.\n")
+		return
+	case it.Picked != "":
+		fmt.Fprintf(b, "The items it receives, with only the fields %s names.\n", paramLabel(t, it.Picked))
+		return
+	case len(it.Fields) == 0:
+		b.WriteString("Empty: items with no fields.\n")
+		return
+	}
+
+	b.WriteString("Each item has these fields. Decimals are text, so they stay exact; times are RFC 3339 text.\n\n" +
+		"| Field | Kind | Description |\n|---|---|---|\n")
+
+	writeFields(b, it.Fields, "")
+}
+
+func writeFields(b *strings.Builder, fields []engine.Field, prefix string) {
+	for _, f := range fields {
+		path := prefix + f.Name
+		fmt.Fprintf(b, "| `%s` | %s | %s |\n", path, fieldKind(f), cell(f.Description))
+
+		switch {
+		case f.Kind == engine.FieldObject:
+			writeFields(b, f.Fields, path+".")
+		case f.Kind == engine.FieldList && f.Of != nil && f.Of.Kind == engine.FieldObject:
+			writeFields(b, f.Of.Fields, path+"[].")
+		}
+	}
+}
+
+// fieldKind names a field's kind for people: "text, one of `buy`, `sell`; or null".
+func fieldKind(f engine.Field) string {
+	kind := kindName(f.Kind)
+
+	switch {
+	case f.Kind == engine.FieldList && f.Of != nil && f.Of.Kind == engine.FieldObject:
+		kind = "list of objects"
+	case f.Kind == engine.FieldList && f.Of != nil:
+		kind = "list of " + kindName(f.Of.Kind)
+	}
+
+	if len(f.Options) > 0 {
+		kind += ", one of " + codes(f.Options)
+	}
+
+	if f.Nullable {
+		kind += "; or null"
+	}
+
+	if f.Optional {
+		kind += "; not always there"
+	}
+
+	return kind
+}
+
+func kindName(k engine.FieldKind) string {
+	switch k {
+	case engine.FieldBool:
+		return "true or false"
+	case engine.FieldAny:
+		return "anything"
+	default:
+		return string(k)
+	}
 }
 
 func paramKind(p engine.ParamSpec, credTypes []engine.CredentialType) string {

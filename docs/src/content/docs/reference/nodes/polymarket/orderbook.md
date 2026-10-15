@@ -23,3 +23,21 @@ Items that fail stop the execution, unless **Continue on failure** is on: then t
 | Setting | Kind | Required | Default | Description |
 |---|---|---|---|---|
 | Depth (`depth`) | whole number | no | `5` | Price levels summed into bidDepth and askDepth. |
+
+## Items
+
+Each item has these fields. Decimals are text, so they stay exact; times are RFC 3339 text.
+
+| Field | Kind | Description |
+|---|---|---|
+| `marketId` | text; or null | The market's ID, from the item received. |
+| `question` | text; or null | The market's question, from the item received. |
+| `outcome` | text | The outcome's label, like Yes. |
+| `tokenId` | text | The outcome's token ID. |
+| `bestBid` | decimal; or null | The highest bid; null when there is none, as are mid and spread. |
+| `bestAsk` | decimal; or null | The lowest ask. |
+| `mid` | decimal; or null | Halfway between the best bid and ask. |
+| `spread` | decimal; or null | The best ask less the best bid. |
+| `bidDepth` | decimal | Shares bid within the levels counted. |
+| `askDepth` | decimal | Shares asked within the levels counted. |
+| `at` | time | When Polymarket took the book. |

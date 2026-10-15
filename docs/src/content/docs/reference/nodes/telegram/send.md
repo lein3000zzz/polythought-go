@@ -26,3 +26,7 @@ Items that fail stop the execution, unless **Continue on failure** is on: then t
 | Format (`format`) | text | no | `text` | text: sent as written. html: Telegram's tags work, such as &lt;b&gt;, &lt;i&gt;, &lt;code&gt; and &lt;a href="…"&gt;; item fields are escaped. One of `text`, `html`. |
 | Send (`send`) | text | no | `all` | all: one message listing every item. each: one message per item, up to 20 a run. One of `all`, `each`. |
 | Silent (`silent`) | true or false | no | `false` | Deliver without a sound. |
+
+## Items
+
+The items it receives, passed on as they are.

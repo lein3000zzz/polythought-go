@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/lein3000zzz/polythought-go/internal/core/engine"
+	"github.com/lein3000zzz/polythought-go/internal/core/nodes/shape"
 	"github.com/lein3000zzz/polythought-go/internal/core/ports"
 )
 
@@ -46,6 +47,7 @@ func (*Ask) Type() engine.NodeType {
 			"of the button you press, or through timeout. Link Telegram in Settings first.",
 		Inputs:       []string{engine.DefaultPort},
 		Outputs:      []string{TimeoutPort},
+		Items:        shape.Passed(),
 		OutputsParam: "buttons",
 		Params: []engine.ParamSpec{
 			{
