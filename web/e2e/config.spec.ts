@@ -43,3 +43,13 @@ test('an admin changes settings live and restarts the server for the rest', asyn
   await expect(history.getByRole('row', { name: /Log format/ })).toContainText('text → json')
   await expect(history.getByRole('row', { name: /Shortest password/ })).toHaveCount(2)
 })
+
+test('the limits on user code are settings, checked when saved', async ({ page }) => {
+  await page.goto('/admin/config')
+  await expect(page.getByRole('heading', { name: 'Code' })).toBeVisible()
+  await expect(page.getByLabel('Memory per run (MiB)')).toBeVisible()
+
+  await page.getByLabel('Time per run').fill('10m')
+  await page.getByRole('button', { name: 'Save' }).click()
+  await expect(page.getByText(/must be between 100ms and 5m/)).toBeVisible()
+})

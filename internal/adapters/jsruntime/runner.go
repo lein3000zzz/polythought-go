@@ -54,7 +54,7 @@ const (
 	maxReport   = 64 << 10 // bytes of an error report read back
 )
 
-// DefaultLimits apply where a job leaves a limit at zero.
+// DefaultLimits are the limits without Config.Limits.
 var DefaultLimits = ports.CodeLimits{Memory: 64 << 20, Time: 5 * time.Second, Output: 1 << 20, HostCalls: 100}
 
 // What the engine's run returns, as engine.c numbers it.
@@ -73,6 +73,7 @@ type Runner struct {
 	rt     wazero.Runtime
 	engine wazero.CompiledModule
 	slots  chan struct{}
+	limits func() ports.CodeLimits
 	kit    *redkit.Kit
 	scope  tracing.Scope
 }
@@ -81,6 +82,11 @@ type Config struct {
 	// Concurrency is how many runs may go at once; more wait their turn. Zero means one
 	// per CPU.
 	Concurrency int
+
+	// Limits are the most a run may use, and what it gets when its job sets no limit;
+	// a job may ask for less. Asked before every run, so changes apply at once. Nil, or
+	// a limit at zero, means DefaultLimits.
+	Limits func() ports.CodeLimits
 }
 
 // New compiles the engine, which takes a moment, once for every run to come.
@@ -137,7 +143,12 @@ func newRunner(ctx context.Context, rt wazero.Runtime, cfg Config) (*Runner, err
 		n = runtime.NumCPU()
 	}
 
-	return &Runner{rt: rt, engine: engine, slots: make(chan struct{}, n)}, nil
+	limits := cfg.Limits
+	if limits == nil {
+		limits = func() ports.CodeLimits { return DefaultLimits }
+	}
+
+	return &Runner{rt: rt, engine: engine, slots: make(chan struct{}, n), limits: limits}, nil
 }
 
 // Close releases the engine. Runs still going end.
@@ -175,7 +186,7 @@ func (r *Runner) run(ctx context.Context, job ports.CodeJob) (ports.CodeResult, 
 		return ports.CodeResult{}, fmt.Errorf("jsruntime: entry %q is not a name", job.Entry)
 	}
 
-	limits := withDefaults(job.Limits)
+	limits := bound(job.Limits, r.limits())
 
 	select {
 	case r.slots <- struct{}{}:
@@ -206,7 +217,7 @@ func (r *Runner) run(ctx context.Context, job ports.CodeJob) (ports.CodeResult, 
 	case err != nil:
 		return res, codeError(domain.CodeCrashed, "the code stopped the engine: %v", err)
 	case st.tooManyCalls:
-		return res, codeError(domain.CodeTooManyCalls, "the code made more than the %d host calls it may", limits.HostCalls)
+		return res, codeError(domain.CodeTooManyCalls, "the code asked for data more than the %d times it may", limits.HostCalls)
 	}
 
 	switch st.status {
@@ -367,10 +378,10 @@ func hostCall(ctx context.Context, m api.Module, namePtr, nameLen, argsPtr, args
 
 	switch {
 	case st.host == nil:
-		return st.fail(fmt.Sprintf("%s: this code has no host calls", name))
+		return st.fail(fmt.Sprintf("%s: this code cannot ask for data", name))
 	case st.calls > st.limits.HostCalls:
 		st.tooManyCalls = true
-		return st.fail(fmt.Sprintf("%s: more than the %d host calls a run may make", name, st.limits.HostCalls))
+		return st.fail(fmt.Sprintf("%s: asked for data more than the %d times a run may", name, st.limits.HostCalls))
 	}
 
 	answer, err := st.host(ctx, string(name), json.RawMessage(bytes.Clone(args)))
@@ -460,26 +471,28 @@ func codeError(kind domain.CodeErrorKind, format string, args ...any) *domain.Co
 	return &domain.CodeError{Kind: kind, Message: fmt.Sprintf(format, args...)}
 }
 
-func withDefaults(l ports.CodeLimits) ports.CodeLimits {
-	if l.Memory <= 0 {
-		l.Memory = DefaultLimits.Memory
+// bound is what a job gets: what it asks for, within most.
+func bound(asked, most ports.CodeLimits) ports.CodeLimits {
+	most.Memory = min(limit(most.Memory, DefaultLimits.Memory), MaxMemory)
+	most.Time = limit(most.Time, DefaultLimits.Time)
+	most.Output = limit(most.Output, DefaultLimits.Output)
+	most.HostCalls = limit(most.HostCalls, DefaultLimits.HostCalls)
+
+	return ports.CodeLimits{
+		Memory:    limit(min(asked.Memory, most.Memory), most.Memory),
+		Time:      limit(min(asked.Time, most.Time), most.Time),
+		Output:    limit(min(asked.Output, most.Output), most.Output),
+		HostCalls: limit(min(asked.HostCalls, most.HostCalls), most.HostCalls),
+	}
+}
+
+// limit is n, or otherwise when n is not set.
+func limit[T int | int64 | time.Duration](n, otherwise T) T {
+	if n <= 0 {
+		return otherwise
 	}
 
-	if l.Time <= 0 {
-		l.Time = DefaultLimits.Time
-	}
-
-	if l.Output <= 0 {
-		l.Output = DefaultLimits.Output
-	}
-
-	if l.HostCalls <= 0 {
-		l.HostCalls = DefaultLimits.HostCalls
-	}
-
-	l.Memory = min(l.Memory, MaxMemory)
-
-	return l
+	return n
 }
 
 // size writes bytes for people: 64 MiB, 512 KiB, 300 bytes.

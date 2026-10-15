@@ -169,6 +169,68 @@ How far ahead a wait may end. A node asking to wait longer fails.
 | Default | `168h` |
 | Applies | at once |
 
+## Code
+
+### Memory per run (MiB)
+
+The most memory one run of user code may use. Running out stops the run.
+
+| | |
+|---|---|
+| Key | `code.memory` |
+| Environment variable | `POLYTHOUGHT_CODE_MEMORY` |
+| Kind | whole number |
+| Default | `64` |
+| Applies | at once |
+
+### Time per run
+
+How long one run of user code may take, waiting for the data it asks for included.
+
+| | |
+|---|---|
+| Key | `code.time` |
+| Environment variable | `POLYTHOUGHT_CODE_TIME` |
+| Kind | duration, e.g. `30s`, `5m`, `168h` |
+| Default | `5s` |
+| Applies | at once |
+
+### Result per run (KiB)
+
+The largest result one run of user code may return, measured as JSON.
+
+| | |
+|---|---|
+| Key | `code.output` |
+| Environment variable | `POLYTHOUGHT_CODE_OUTPUT` |
+| Kind | whole number |
+| Default | `1024` |
+| Applies | at once |
+
+### Data requests per run
+
+How many times one run of user code may ask Polythought for data, such as a market search.
+
+| | |
+|---|---|
+| Key | `code.host_calls` |
+| Environment variable | `POLYTHOUGHT_CODE_HOST_CALLS` |
+| Kind | whole number |
+| Default | `100` |
+| Applies | at once |
+
+### Runs at once
+
+How many runs of user code may go at the same time; the others wait their turn. 0 means one per CPU of the server.
+
+| | |
+|---|---|
+| Key | `code.concurrency` |
+| Environment variable | `POLYTHOUGHT_CODE_CONCURRENCY` |
+| Kind | whole number |
+| Default | `0` |
+| Applies | after a restart |
+
 ## Network
 
 ### Trusted proxies

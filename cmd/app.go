@@ -14,6 +14,7 @@ import (
 	"github.com/lein3000zzz/the-watchers/pkg/observability/tracing/oteltracing"
 
 	"github.com/lein3000zzz/polythought-go/internal/adapters/crypto"
+	"github.com/lein3000zzz/polythought-go/internal/adapters/jsruntime"
 	pmadapter "github.com/lein3000zzz/polythought-go/internal/adapters/polymarket"
 	"github.com/lein3000zzz/polythought-go/internal/adapters/postgres"
 	"github.com/lein3000zzz/polythought-go/internal/adapters/ratelimit"
@@ -104,6 +105,7 @@ type app struct {
 	telegram    *telegram.Service
 	notify      *notify.Service
 	waits       *waits.Service
+	code        *jsruntime.Runner
 
 	restartOnce sync.Once
 	restartc    chan struct{} // closed when an admin asked for a restart
@@ -276,6 +278,16 @@ func waitLimits(s *settings.Snapshot) engine.WaitLimits {
 	}
 }
 
+// codeLimits are the most one run of user code may use.
+func codeLimits(s *settings.Snapshot) ports.CodeLimits {
+	return ports.CodeLimits{
+		Memory:    int64(s.Int(config.KeyCodeMemory)) << 20,
+		Time:      s.Duration(config.KeyCodeTime),
+		Output:    s.Int(config.KeyCodeOutput) << 10,
+		HostCalls: s.Int(config.KeyCodeHostCalls),
+	}
+}
+
 func workflowLimits(s *settings.Snapshot) workflows.Limits {
 	return workflows.Limits{
 		Workflows:       s.Int(config.KeyMaxWorkflows),
@@ -318,6 +330,18 @@ func (a *app) initEngine(ctx context.Context, pmc polymarket) error {
 	}
 
 	current := a.settings.Current()
+
+	// User code runs here. Made before the supervisor, it closes after: shutdown goes in
+	// reverse, so workflows have stopped by then.
+	a.code, err = jsruntime.New(ctx, a.util, jsruntime.Config{
+		Concurrency: current.Int(config.KeyCodeConcurrency),
+		Limits:      func() ports.CodeLimits { return codeLimits(a.settings.Current()) },
+	})
+	if err != nil {
+		return err
+	}
+
+	a.util.OnShutdown(a.code.Close)
 
 	// One market stream for the whole process; serve runs it.
 	a.feed, err = feed.NewHub(a.util, pmadapter.NewStream(streamClient), feed.WithMaxTokens(current.Int(config.KeyFeedMaxTokens)))

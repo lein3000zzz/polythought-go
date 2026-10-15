@@ -236,7 +236,7 @@ func TestHostCalls(t *testing.T) {
 
 		_, err := runner.Run(ctx, ports.CodeJob{Source: `function run() { __host("markets.search") }`, Entry: "run"})
 		ce := codeErr(t, err, domain.CodeThrew)
-		assert.Equal(t, "Error: markets.search: this code has no host calls", ce.Message)
+		assert.Equal(t, "Error: markets.search: this code cannot ask for data", ce.Message)
 	})
 
 	t.Run("too many fails the run, caught or not", func(t *testing.T) {
@@ -247,7 +247,7 @@ func TestHostCalls(t *testing.T) {
 			Entry:  "run", Host: echo, Limits: ports.CodeLimits{HostCalls: 3},
 		})
 		ce := codeErr(t, err, domain.CodeTooManyCalls)
-		assert.Equal(t, "the code made more than the 3 host calls it may", ce.Message)
+		assert.Equal(t, "the code asked for data more than the 3 times it may", ce.Message)
 		assert.Equal(t, 10, res.HostCalls)
 	})
 
@@ -338,4 +338,63 @@ func TestConcurrentRuns(t *testing.T) {
 	}
 
 	wg.Wait()
+}
+
+func TestConfiguredLimits(t *testing.T) {
+	t.Parallel()
+
+	ctx := context.Background()
+
+	var (
+		mu   sync.Mutex
+		most = ports.CodeLimits{Memory: 16 << 20, Time: 300 * time.Millisecond}
+	)
+
+	r, err := jsruntime.New(ctx, observability.NoopUtility(), jsruntime.Config{
+		Concurrency: 1,
+		Limits: func() ports.CodeLimits {
+			mu.Lock()
+			defer mu.Unlock()
+
+			return most
+		},
+	})
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = r.Close(ctx) })
+
+	loop := func(limits ports.CodeLimits) error {
+		_, err := r.Run(ctx, ports.CodeJob{Source: `function run() { while (true) {} }`, Entry: "run", Limits: limits})
+		return err
+	}
+
+	ce := codeErr(t, loop(ports.CodeLimits{}), domain.CodeOutOfTime)
+	assert.Contains(t, ce.Message, "300ms", "what is configured, where the job sets nothing")
+
+	ce = codeErr(t, loop(ports.CodeLimits{Time: time.Hour}), domain.CodeOutOfTime)
+	assert.Contains(t, ce.Message, "300ms", "a job cannot ask for more")
+
+	ce = codeErr(t, loop(ports.CodeLimits{Time: 100 * time.Millisecond}), domain.CodeOutOfTime)
+	assert.Contains(t, ce.Message, "100ms", "but may for less")
+
+	mu.Lock()
+	most.Time = 150 * time.Millisecond
+	mu.Unlock()
+
+	ce = codeErr(t, loop(ports.CodeLimits{}), domain.CodeOutOfTime)
+	assert.Contains(t, ce.Message, "150ms", "changes apply to the next run")
+
+	mu.Lock()
+	most.Time = 0 // the default
+	mu.Unlock()
+
+	_, err = r.Run(ctx, ports.CodeJob{
+		Source: `function run() { const a = []; while (true) a.push("x".repeat(1e5) + a.length) }`, Entry: "run",
+		Limits: ports.CodeLimits{Memory: 1 << 30},
+	})
+	ce = codeErr(t, err, domain.CodeOutOfMemory)
+	assert.Contains(t, ce.Message, "16 MiB")
+
+	res, err := r.Run(ctx, ports.CodeJob{Source: `function run() { return 1 }`, Entry: "run"})
+	require.NoError(t, err, "unset limits are the defaults")
+	assert.Equal(t, "1", string(res.Output))
 }

@@ -8,6 +8,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/lein3000zzz/polythought-go/internal/adapters/jsruntime"
 	"github.com/lein3000zzz/polythought-go/internal/config"
 	"github.com/lein3000zzz/polythought-go/internal/core/domain"
 	"github.com/lein3000zzz/polythought-go/internal/core/nodes/triggers"
@@ -55,6 +56,11 @@ func TestSettingsDefaults(t *testing.T) {
 		config.KeyExecutionRetention:  30 * 24 * time.Hour,
 		config.KeyMaxWaiting:          50,
 		config.KeyMaxWait:             7 * 24 * time.Hour,
+		config.KeyCodeMemory:          int(jsruntime.DefaultLimits.Memory >> 20),
+		config.KeyCodeTime:            jsruntime.DefaultLimits.Time,
+		config.KeyCodeOutput:          jsruntime.DefaultLimits.Output >> 10,
+		config.KeyCodeHostCalls:       jsruntime.DefaultLimits.HostCalls,
+		config.KeyCodeConcurrency:     0,
 		config.KeyTrustedProxies:      []string{},
 		config.KeyWebhookAllowPrivate: false,
 		config.KeyLogLevel:            "info",
@@ -66,7 +72,7 @@ func TestSettingsDefaults(t *testing.T) {
 		assert.Equal(t, want, spec(t, key).Default, key)
 	}
 
-	assert.Len(t, registry(t).Specs(), 20, "every setting has a default checked above")
+	assert.Len(t, registry(t).Specs(), 25, "every setting has a default checked above")
 	assert.True(t, spec(t, config.KeyTelegramToken).Secret)
 }
 
@@ -111,6 +117,8 @@ func TestSettingsValidation(t *testing.T) {
 		{config.KeyLogLevel, "loud", `"loud" is not one of debug, info, warn, error`},
 		{config.KeyLogFormat, "xml", `"xml" is not one of text, json`},
 		{config.KeyWebhookAllowPrivate, "sometimes", `"sometimes" is not true or false`},
+		{config.KeyCodeTime, "10m", "must be between 100ms and 5m"},
+		{config.KeyCodeMemory, "2048", "must be between 8 and 1024"},
 	}
 
 	for _, tc := range tests {

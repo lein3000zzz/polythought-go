@@ -24,6 +24,11 @@ const (
 	KeyExecutionRetention  = "executions.retention"
 	KeyMaxWaiting          = "executions.max_waiting_per_user"
 	KeyMaxWait             = "executions.max_wait"
+	KeyCodeMemory          = "code.memory"
+	KeyCodeTime            = "code.time"
+	KeyCodeOutput          = "code.output"
+	KeyCodeHostCalls       = "code.host_calls"
+	KeyCodeConcurrency     = "code.concurrency"
 	KeyTrustedProxies      = "http.trusted_proxies"
 	KeyWebhookAllowPrivate = "webhook.allow_private"
 	KeyLogLevel            = "log.level"
@@ -37,6 +42,7 @@ const (
 	groupAccounts   = "Accounts"
 	groupWorkflows  = "Workflows"
 	groupExecutions = "Executions"
+	groupCode       = "Code"
 	groupNetwork    = "Network"
 	groupLogging    = "Logging"
 	groupTelegram   = "Telegram"
@@ -120,6 +126,32 @@ func Settings() (*settings.Registry, error) {
 			Kind:        settings.KindDuration, Default: 7 * 24 * time.Hour, Check: atLeast(time.Minute),
 		},
 		settings.Spec{
+			Key: KeyCodeMemory, Group: groupCode, Label: "Memory per run (MiB)",
+			Description: "The most memory one run of user code may use. Running out stops the run.",
+			Kind:        settings.KindInt, Default: 64, Check: between(8, 1024),
+		},
+		settings.Spec{
+			Key: KeyCodeTime, Group: groupCode, Label: "Time per run",
+			Description: "How long one run of user code may take, waiting for the data it asks for included.",
+			Kind:        settings.KindDuration, Default: 5 * time.Second, Check: within(100*time.Millisecond, 5*time.Minute),
+		},
+		settings.Spec{
+			Key: KeyCodeOutput, Group: groupCode, Label: "Result per run (KiB)",
+			Description: "The largest result one run of user code may return, measured as JSON.",
+			Kind:        settings.KindInt, Default: 1024, Check: between(1, 16384),
+		},
+		settings.Spec{
+			Key: KeyCodeHostCalls, Group: groupCode, Label: "Data requests per run",
+			Description: "How many times one run of user code may ask Polythought for data, such as a market search.",
+			Kind:        settings.KindInt, Default: 100, Check: between(1, 10_000),
+		},
+		settings.Spec{
+			Key: KeyCodeConcurrency, Group: groupCode, Label: "Runs at once",
+			Description: "How many runs of user code may go at the same time; the others wait their turn. 0 means one per CPU of the server.",
+			Kind:        settings.KindInt, Default: 0, Check: between(0, 256),
+			Apply: settings.ApplyRestart,
+		},
+		settings.Spec{
 			Key: KeyTrustedProxies, Group: groupNetwork, Label: "Trusted proxies",
 			Description: "Address ranges (CIDR, e.g. 10.0.0.0/8) of reverse proxies allowed to report the client's address in X-Forwarded-For. Leave empty without a proxy: anyone could then pick their own address and dodge rate limits.",
 			Kind:        settings.KindList, Default: []string{}, Check: cidrs,
@@ -171,6 +203,16 @@ func atLeast(least time.Duration) func(any) error {
 	return func(v any) error {
 		if v.(time.Duration) < least {
 			return fmt.Errorf("must be at least %s", settings.FormatDuration(least))
+		}
+
+		return nil
+	}
+}
+
+func within(least, most time.Duration) func(any) error {
+	return func(v any) error {
+		if d := v.(time.Duration); d < least || d > most {
+			return fmt.Errorf("must be between %s and %s", settings.FormatDuration(least), settings.FormatDuration(most))
 		}
 
 		return nil
