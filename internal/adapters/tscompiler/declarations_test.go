@@ -55,9 +55,9 @@ func TestNodeDeclarations(t *testing.T) {
 
 	for _, want := range []string{
 		`import type { Json } from "./sdk";`,
-		"export interface TestQuoteSettings {\n    /** Outcome token IDs. */\n    tokens: string[];\n",
-		"    /**\n     * @default [\"trade\"]\n     */\n    on?: (\"trade\" | \"book\")[];\n",
-		"    /** Ignore smaller *\\/ ones. */\n    least?: DecimalText | number;\n",
+		"export interface TestQuoteSettings {\n    /** Outcome token IDs. */\n    tokens: string[] | Expression;\n",
+		"    /**\n     * @default [\"trade\"]\n     */\n    on?: (\"trade\" | \"book\")[] | Expression;\n",
+		"    /** Ignore smaller *\\/ ones. */\n    least?: DecimalText | number | Expression;\n",
 		"    /** A field of the items it receives. */\n    field: string;\n",
 		"/** An item Quote (test.quote) sends on. */\nexport interface TestQuoteItem {\n" +
 			"    /** Who took. */\n    side: \"buy\" | \"sell\";\n" +

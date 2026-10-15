@@ -12,6 +12,9 @@ export type TimeText = string;
 /** A duration, like "30s", "5m" or "1h30m". */
 export type DurationText = string;
 
+/** A setting's value worked out per item: {{ }} around an expression, like "{{ params.max }}". */
+export type Expression = `{{${string}}}`;
+
 /** The settings of Only new (logic.dedupe). */
 export interface LogicDedupeSettings {
     /**
@@ -23,7 +26,7 @@ export interface LogicDedupeSettings {
      * How long an item counts as seen.
      * @default "24h"
      */
-    forget?: DurationText;
+    forget?: DurationText | Expression;
 }
 
 /** The settings of Filter (logic.filter). */
@@ -33,7 +36,7 @@ export interface LogicFilterSettings {
     /**
      * @default "gt"
      */
-    operator?: "gt" | "gte" | "lt" | "lte" | "eq" | "neq" | "contains" | "notContains" | "exists" | "missing";
+    operator?: "gt" | "gte" | "lt" | "lte" | "eq" | "neq" | "contains" | "notContains" | "exists" | "missing" | Expression;
     /** A number for the comparisons, text for contains (any case). Not used by exists and missing. */
     value?: string;
 }
@@ -45,8 +48,8 @@ export interface LogicIfSettings {
     /**
      * @default "gt"
      */
-    operator?: "gt" | "gte" | "lt" | "lte" | "eq" | "neq";
-    value: DecimalText | number;
+    operator?: "gt" | "gte" | "lt" | "lte" | "eq" | "neq" | Expression;
+    value: DecimalText | number | Expression;
 }
 
 /** The settings of Wait (logic.wait). */
@@ -55,12 +58,12 @@ export interface LogicWaitSettings {
      * for: a while. until: the next time the clock shows a time of day.
      * @default "for"
      */
-    mode?: "for" | "until";
+    mode?: "for" | "until" | Expression;
     /**
      * How long, e.g. 30s, 10m or 2h.
      * @default "10m"
      */
-    for?: DurationText;
+    for?: DurationText | Expression;
     /** A time of day in UTC, as HH:MM, e.g. 09:30. With mode until. */
     until?: string;
 }
@@ -87,12 +90,12 @@ export interface OutputWebhookSettings {
      * all: one request listing every item. each: one request per item, up to 20 a run.
      * @default "all"
      */
-    send?: "all" | "each";
+    send?: "all" | "each" | Expression;
     /**
      * message: the text above, for chat apps. json: the items themselves.
      * @default "message"
      */
-    format?: "message" | "json";
+    format?: "message" | "json" | Expression;
     /** Optional. A header sent with each request, such as Authorization, from your Credentials page. The ID of one of your credentials of type http.header. */
     credential?: string;
 }
@@ -121,15 +124,15 @@ export interface PolymarketMarketsSettings {
      * Most markets to return.
      * @default 20
      */
-    limit?: number;
+    limit?: number | Expression;
     /**
      * @default false
      */
-    closed?: boolean;
+    closed?: boolean | Expression;
     /** Only these markets. */
-    slugs?: string[];
+    slugs?: string[] | Expression;
     /** Only markets with these tags. */
-    tagIds?: string[];
+    tagIds?: string[] | Expression;
 }
 
 /** An item Markets (polymarket.markets) sends on. */
@@ -173,7 +176,7 @@ export interface PolymarketOrderbookSettings {
      * Price levels summed into bidDepth and askDepth.
      * @default 5
      */
-    depth?: number;
+    depth?: number | Expression;
 }
 
 /** An item Order books (polymarket.orderbook) sends on. */
@@ -250,7 +253,7 @@ export interface PolymarketPositionsSettings {
      * Most positions to return.
      * @default 50
      */
-    limit?: number;
+    limit?: number | Expression;
 }
 
 /** An item Positions (polymarket.positions) sends on. */
@@ -289,12 +292,12 @@ export interface PolymarketPriceChangeSettings {
      * How long ago, e.g. 1h or 24h.
      * @default "1h"
      */
-    window?: DurationText;
+    window?: DurationText | Expression;
     /**
      * first: the first outcome of each market, usually Yes. all: every outcome.
      * @default "first"
      */
-    outcomes?: "first" | "all";
+    outcomes?: "first" | "all" | Expression;
 }
 
 /** An item Price change (polymarket.priceChange) sends on. */
@@ -329,12 +332,12 @@ export interface PolymarketSearchSettings {
      * Most markets to return.
      * @default 10
      */
-    limit?: number;
+    limit?: number | Expression;
     /**
      * Search closed markets instead of open ones.
      * @default false
      */
-    closed?: boolean;
+    closed?: boolean | Expression;
 }
 
 /** An item Search markets (polymarket.search) sends on. */
@@ -382,12 +385,12 @@ export interface PolymarketTradesSettings {
      * How far back, e.g. 15m or 1h.
      * @default "1h"
      */
-    since?: DurationText;
+    since?: DurationText | Expression;
     /**
      * Most trades per market, up to 500.
      * @default 50
      */
-    limit?: number;
+    limit?: number | Expression;
 }
 
 /** An item Recent trades (polymarket.trades) sends on. */
@@ -427,7 +430,7 @@ export interface TelegramAskSettings {
      * text: sent as written. html: Telegram's tags work, such as <b>, <i>, <code> and <a href="…">; item fields are escaped.
      * @default "text"
      */
-    format?: "text" | "html";
+    format?: "text" | "html" | Expression;
     /**
      * One per line, up to 10, at most 40 characters each. Each button is an output port of the same name.
      * @default ["Yes","No"]
@@ -437,7 +440,7 @@ export interface TelegramAskSettings {
      * How long to wait for a press before the items go through timeout, e.g. 30m or 24h. At most the instance's longest wait, 7 days unless an admin changed it.
      * @default "1h"
      */
-    timeout?: DurationText;
+    timeout?: DurationText | Expression;
 }
 
 /** The settings of Telegram message (telegram.send). */
@@ -451,17 +454,17 @@ export interface TelegramSendSettings {
      * text: sent as written. html: Telegram's tags work, such as <b>, <i>, <code> and <a href="…">; item fields are escaped.
      * @default "text"
      */
-    format?: "text" | "html";
+    format?: "text" | "html" | Expression;
     /**
      * all: one message listing every item. each: one message per item, up to 20 a run.
      * @default "all"
      */
-    send?: "all" | "each";
+    send?: "all" | "each" | Expression;
     /**
      * Deliver without a sound.
      * @default false
      */
-    silent?: boolean;
+    silent?: boolean | Expression;
 }
 
 /** The settings of Keep fields (transform.pick). */
@@ -477,12 +480,12 @@ export interface TransformTopSettings {
     /**
      * @default "desc"
      */
-    order?: "desc" | "asc";
+    order?: "desc" | "asc" | Expression;
     /**
      * How many items to keep.
      * @default 10
      */
-    limit?: number;
+    limit?: number | Expression;
 }
 
 /** The settings of Manual (trigger.manual). */

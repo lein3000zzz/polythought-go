@@ -43,15 +43,20 @@ const (
 	// MaxSource is the largest source compiled, in bytes.
 	MaxSource = 256 << 10
 
-	cacheSize = 256
+	cacheSize           = 256
+	expressionCacheSize = 4096
+
+	// MaxExpression is the longest expression compiled, in bytes.
+	MaxExpression = 16 << 10
 )
 
 var _ ports.CodeCompiler = (*Compiler)(nil)
 
 type Compiler struct {
-	cache *lru.Cache[string, string] // scripts by the source's hash
-	kit   *redkit.Kit
-	scope tracing.Scope
+	cache       *lru.Cache[string, string] // scripts by the source's hash
+	expressions *lru.Cache[string, string] // JavaScript by the expression
+	kit         *redkit.Kit
+	scope       tracing.Scope
 }
 
 func New(util *observability.Utility) (*Compiler, error) {
@@ -67,9 +72,10 @@ func New(util *observability.Utility) (*Compiler, error) {
 	}
 
 	return &Compiler{
-		cache: lru.New[string, string](cacheSize),
-		kit:   kit,
-		scope: tracing.Scope{Manager: util.TracerManager, TracerName: tracerName},
+		cache:       lru.New[string, string](cacheSize),
+		expressions: lru.New[string, string](expressionCacheSize),
+		kit:         kit,
+		scope:       tracing.Scope{Manager: util.TracerManager, TracerName: tracerName},
 	}, nil
 }
 
@@ -132,6 +138,57 @@ func compile(source string) (string, error) {
 	}
 
 	return string(result.OutputFiles[0].Contents), nil
+}
+
+// CompileExpression turns one TypeScript expression, the inside of {{ }}, into the same
+// expression in JavaScript. Statements and imports are not expressions, and fail.
+func (c *Compiler) CompileExpression(_ context.Context, expr string) (string, error) {
+	if len(expr) > MaxExpression {
+		return "", &domain.CodeError{
+			Kind:    domain.CodeDidNotCompile,
+			Message: fmt.Sprintf("the expression is %d KiB, more than the %d KiB allowed", len(expr)>>10, MaxExpression>>10),
+		}
+	}
+
+	if js, ok := c.expressions.Get(expr); ok {
+		return js, nil
+	}
+
+	// In parentheses, only an expression parses; on lines of their own, a // comment at
+	// the end cannot swallow the closing one.
+	result := api.Transform("(\n"+expr+"\n)", api.TransformOptions{
+		Loader:      api.LoaderTS,
+		Target:      api.ES2023,
+		Charset:     api.CharsetUTF8,
+		TsconfigRaw: "{}",
+		LogLevel:    api.LogLevelSilent,
+	})
+
+	if len(result.Errors) > 0 {
+		lines := strings.Split(expr, "\n")
+
+		for i := range result.Errors {
+			loc := result.Errors[i].Location
+			if loc == nil {
+				continue
+			}
+
+			loc.Line-- // the opening parenthesis's line
+
+			// Stuck at the closing parenthesis: the expression stopped short.
+			if loc.Line > len(lines) {
+				loc.Line, loc.Column = len(lines), len(lines[len(lines)-1])
+				result.Errors[i].Text = "Unexpected end of the expression"
+			}
+		}
+
+		return "", problems(expr, result.Errors)
+	}
+
+	js := strings.TrimSuffix(strings.TrimSpace(string(result.Code)), ";")
+	c.expressions.Put(expr, js)
+
+	return js, nil
 }
 
 // onlySDK refuses every import but the SDK's, which becomes the global the runtime sets.

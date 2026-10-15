@@ -125,6 +125,10 @@ type ParamSpec struct {
 	// set, are the kinds that field may be.
 	Field      bool
 	FieldKinds []FieldKind
+
+	// Template marks a text param the node fills in itself, per item, with
+	// Params.Template, so it can escape the values: a message in HTML, say.
+	Template bool
 }
 
 // Personal reports whether the value belongs to whoever configured it, so sharing must

@@ -21,6 +21,7 @@ import (
 	"github.com/lein3000zzz/polythought-go/internal/adapters/jsruntime"
 	"github.com/lein3000zzz/polythought-go/internal/adapters/tscompiler"
 	"github.com/lein3000zzz/polythought-go/internal/core/domain"
+	"github.com/lein3000zzz/polythought-go/internal/core/engine"
 	"github.com/lein3000zzz/polythought-go/internal/core/ports"
 	"github.com/lein3000zzz/polythought-go/internal/core/services/code"
 	portsmocks "github.com/lein3000zzz/polythought-go/internal/mocks/ports"
@@ -260,4 +261,66 @@ func TestSDKBuild(t *testing.T) {
 	require.NoError(t, err)
 	assert.Less(t, len(sdk), 32<<10, "small: every run parses it")
 	assert.True(t, strings.HasPrefix(sdk, "var "+tscompiler.SDKGlobal+"="), sdk[:min(len(sdk), 80)])
+}
+
+func TestExpressionsEndToEnd(t *testing.T) {
+	t.Parallel()
+
+	_, err := withSDK(t, `export const run = () => null`, nil, code.Data{}, ports.CodeLimits{}) // starts the runner
+	require.NoError(t, err)
+
+	svc := code.New(compiler(t), sdkRunner, code.Data{})
+
+	exprs := []string{
+		"spread * 100",
+		"dec(bestAsk).minus(bestBid)",
+		"item.question.toUpperCase()",
+		"params.least",
+		"execution.id",
+		"params",      // the node's settings, though the item has a field so named
+		"item.params", // which this reaches
+		"`${question}!`",
+		"missing + 1",
+		"(x as number) +",
+		"new Date(0)",
+		"outcomes[1].label",
+	}
+
+	results, err := svc.Evaluate(context.Background(), engine.Evaluation{
+		Expressions: exprs,
+		Items: []map[string]any{
+			{
+				"question": "BTC?", "spread": "0.012", "bestBid": "0.43", "bestAsk": "0.45", "params": "a field",
+				"outcomes": []any{map[string]any{"label": "Yes"}, map[string]any{"label": "No"}},
+			},
+			{"question": "ETH?", "spread": 0.5, "bestBid": "0.1", "bestAsk": "0.3", "outcomes": []any{}},
+		},
+		Params:    map[string]any{"least": "0.02"},
+		Execution: map[string]any{"id": "ex-1"},
+	})
+	require.NoError(t, err)
+	require.Len(t, results, 2)
+
+	first := results[0]
+	want := []any{
+		json.Number("1.2"), "0.02", "BTC?", "0.02", "ex-1",
+		map[string]any{"least": "0.02"}, "a field", "BTC?!", nil, nil, "1970-01-01T00:00:00.000Z", "No",
+	}
+
+	for j, w := range want {
+		if w == nil {
+			continue
+		}
+
+		assert.Empty(t, first[j].Err, exprs[j])
+		assert.Equal(t, w, first[j].Value, exprs[j])
+	}
+
+	assert.Contains(t, first[8].Err, "ReferenceError", "a field the item lacks, in the sandbox")
+	assert.Contains(t, first[9].Err, "line 1, column 16: Unexpected end of the expression")
+	assert.Contains(t, results[1][9].Err, "Unexpected end", "for every item")
+
+	assert.Equal(t, json.Number("50"), results[1][0].Value)
+	assert.Equal(t, "0.2", results[1][1].Value)
+	assert.Contains(t, results[1][11].Err, "TypeError", "each item on its own")
 }

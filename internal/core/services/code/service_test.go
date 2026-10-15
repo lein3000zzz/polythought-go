@@ -26,6 +26,10 @@ func (c compiler) Compile(_ context.Context, source string) (ports.CompiledCode,
 	return ports.CompiledCode{Script: "compiled: " + source, Exports: "__exports", Invoke: "__invoke", Hash: "h"}, c.err
 }
 
+func (c compiler) CompileExpression(_ context.Context, expr string) (string, error) {
+	return expr, c.err
+}
+
 // runner keeps the job it was given.
 type runner struct{ job ports.CodeJob }
 

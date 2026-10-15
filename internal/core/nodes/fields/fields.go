@@ -4,41 +4,16 @@ package fields
 
 import (
 	"encoding/json"
-	"fmt"
-	"regexp"
-	"strconv"
 	"strings"
-	"time"
 
 	"github.com/shopspring/decimal"
+
+	"github.com/lein3000zzz/polythought-go/internal/core/engine"
 )
 
 // Lookup follows a dot-separated path through maps and lists; list steps are indexes.
 func Lookup(item map[string]any, path string) (any, bool) {
-	var cur any = item
-
-	for step := range strings.SplitSeq(path, ".") {
-		switch v := cur.(type) {
-		case map[string]any:
-			next, ok := v[step]
-			if !ok {
-				return nil, false
-			}
-
-			cur = next
-		case []any:
-			i, err := strconv.Atoi(step)
-			if err != nil || i < 0 || i >= len(v) {
-				return nil, false
-			}
-
-			cur = v[i]
-		default:
-			return nil, false
-		}
-	}
-
-	return cur, true
+	return engine.Lookup(item, path)
 }
 
 // Number reads a value as a decimal: decimals, JSON numbers, Go numbers and numeric
@@ -66,40 +41,18 @@ func Number(v any) (decimal.Decimal, bool) {
 
 // Format writes a value the way a person would read it in a message.
 func Format(v any) string {
-	switch x := v.(type) {
-	case nil:
-		return ""
-	case string:
-		return x
-	case decimal.Decimal:
-		return x.String()
-	case time.Time:
-		return x.UTC().Format(time.RFC3339)
-	case map[string]any, []any:
-		b, err := json.Marshal(x)
-		if err != nil {
-			return fmt.Sprint(x)
-		}
-
-		return string(b)
-	default:
-		return fmt.Sprint(x)
-	}
+	return engine.Format(v)
 }
-
-var placeholder = regexp.MustCompile(`\{\{\s*([^{}\s]+)\s*\}\}`)
 
 // Render replaces each {{path}} in template with the item's value at that path. Paths
 // the item does not have become empty.
 func Render(template string, item map[string]any) string {
-	return RenderEscaped(template, item, func(s string) string { return s })
+	return RenderEscaped(template, item, engine.Same)
 }
 
 // RenderEscaped is Render with every value passed through escape, so values cannot
 // change the markup the template is written in, such as HTML.
 func RenderEscaped(template string, item map[string]any, escape func(string) string) string {
-	return placeholder.ReplaceAllStringFunc(template, func(m string) string {
-		v, _ := Lookup(item, placeholder.FindStringSubmatch(m)[1])
-		return escape(Format(v))
-	})
+	t, _ := engine.Params{"t": template}.Template("t")
+	return t.Render(item, escape)
 }

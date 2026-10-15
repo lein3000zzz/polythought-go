@@ -2,6 +2,7 @@ package engine_test
 
 import (
 	"context"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -212,6 +213,6 @@ func TestRegistryTypes(t *testing.T) {
 	assert.Contains(t, names, "test.trigger")
 
 	for _, ti := range types {
-		assert.Equal(t, ti.Name == "test.trigger", ti.Trigger, ti.Name)
+		assert.Equal(t, strings.HasPrefix(ti.Name, "test.trigger"), ti.Trigger, ti.Name)
 	}
 }

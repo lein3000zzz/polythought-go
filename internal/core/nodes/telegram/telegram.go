@@ -13,7 +13,6 @@ import (
 
 	"github.com/lein3000zzz/polythought-go/internal/core/domain"
 	"github.com/lein3000zzz/polythought-go/internal/core/engine"
-	"github.com/lein3000zzz/polythought-go/internal/core/nodes/fields"
 	"github.com/lein3000zzz/polythought-go/internal/core/nodes/shape"
 	"github.com/lein3000zzz/polythought-go/internal/core/ports"
 )
@@ -54,7 +53,7 @@ func (*Send) Type() engine.NodeType {
 		Items:       shape.Passed(),
 		Params: []engine.ParamSpec{
 			{
-				Name: "message", Label: "Message", Kind: engine.ParamString, Default: "Update from your Polythought workflow",
+				Name: "message", Template: true, Label: "Message", Kind: engine.ParamString, Default: "Update from your Polythought workflow",
 				Description: "{{field}} puts in an item's field, e.g. {{question}} or {{spread}}.",
 			},
 			{
@@ -74,8 +73,8 @@ func (*Send) Type() engine.NodeType {
 }
 
 type sendConfig struct {
-	message, format, send string
-	silent                bool
+	format, send string
+	silent       bool
 }
 
 func (n *Send) Run(ctx context.Context, rc engine.RunContext, in engine.Ports) (engine.Ports, error) {
@@ -97,7 +96,7 @@ func (n *Send) Run(ctx context.Context, rc engine.RunContext, in engine.Ports) (
 	}
 
 	if cfg.send != "each" {
-		return out, n.deliver(ctx, rc.OwnerID, cfg, items, refs, out)
+		return out, n.deliver(ctx, rc, cfg, items, refs, out)
 	}
 
 	for i, item := range items {
@@ -106,7 +105,7 @@ func (n *Send) Run(ctx context.Context, rc engine.RunContext, in engine.Ports) (
 			continue
 		}
 
-		if err := n.deliver(ctx, rc.OwnerID, cfg, []engine.Item{item}, refs[i:i+1], out); err != nil {
+		if err := n.deliver(ctx, rc, cfg, []engine.Item{item}, refs[i:i+1], out); err != nil {
 			return nil, err
 		}
 	}
@@ -116,10 +115,10 @@ func (n *Send) Run(ctx context.Context, rc engine.RunContext, in engine.Ports) (
 
 // deliver sends items as one message and passes them on, or fails them. Having nowhere
 // to send, no linked chat or no bot, fails the node instead: no item would get through.
-func (n *Send) deliver(ctx context.Context, owner domain.UserID, cfg sendConfig, items []engine.Item, refs []engine.ItemRef, out engine.Ports) error {
-	text, err := render(cfg, items)
+func (n *Send) deliver(ctx context.Context, rc engine.RunContext, cfg sendConfig, items []engine.Item, refs []engine.ItemRef, out engine.Ports) error {
+	text, err := render(rc, cfg, items, refs, maxLength)
 	if err == nil {
-		err = n.messenger.MessageUser(ctx, owner, ports.UserMessage{HTML: text, Silent: cfg.silent})
+		err = n.messenger.MessageUser(ctx, rc.OwnerID, ports.UserMessage{HTML: text, Silent: cfg.silent})
 	}
 
 	if errors.Is(err, domain.ErrTelegramNotLinked) || errors.Is(err, domain.ErrTelegramUnavailable) || ctx.Err() != nil {
@@ -138,18 +137,14 @@ func (n *Send) deliver(ctx context.Context, owner domain.UserID, cfg sendConfig,
 	return nil
 }
 
-// render writes the message for items: one line per item, as HTML for Telegram.
-func render(cfg sendConfig, items []engine.Item) (string, error) {
-	return renderWithin(cfg, items, maxLength)
-}
-
-// renderWithin is render for a message of at most most characters.
-func renderWithin(cfg sendConfig, items []engine.Item, most int) (string, error) {
-	lines := make([]string, len(items))
-
+// render writes the message for items, at most most characters: one line per item, as
+// HTML for Telegram. With the html format the message's tags stay; values are escaped
+// either way.
+func render(rc engine.RunContext, cfg sendConfig, items []engine.Item, refs []engine.ItemRef, most int) (string, error) {
 	if cfg.format == "html" {
-		for i, it := range items {
-			lines[i] = fields.RenderEscaped(cfg.message, it.JSON, html.EscapeString)
+		lines, err := engine.RenderEach(rc, "message", items, refs, html.EscapeString)
+		if err != nil {
+			return "", err
 		}
 
 		text := strings.Join(lines, "\n")
@@ -160,8 +155,9 @@ func renderWithin(cfg sendConfig, items []engine.Item, most int) (string, error)
 		return text, nil
 	}
 
-	for i, it := range items {
-		lines[i] = fields.Render(cfg.message, it.JSON)
+	lines, err := engine.RenderEach(rc, "message", items, refs, engine.Same)
+	if err != nil {
+		return "", err
 	}
 
 	return html.EscapeString(truncate(strings.Join(lines, "\n"), most)), nil
@@ -183,7 +179,7 @@ func sendSettings(rc engine.RunContext) (sendConfig, error) {
 
 	var cfg sendConfig
 
-	for name, dst := range map[string]*string{"message": &cfg.message, "format": &cfg.format, "send": &cfg.send} {
+	for name, dst := range map[string]*string{"format": &cfg.format, "send": &cfg.send} {
 		if *dst, err = p.String(name); err != nil {
 			return sendConfig{}, err
 		}

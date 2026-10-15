@@ -10,6 +10,8 @@ import (
 // only the SDK. Code that does not compile is a *domain.CodeError with its problems.
 type CodeCompiler interface {
 	Compile(ctx context.Context, source string) (CompiledCode, error)
+	// CompileExpression turns one TypeScript expression, as in {{ }}, into JavaScript.
+	CompileExpression(ctx context.Context, expr string) (string, error)
 }
 
 // CompiledCode is a script that puts the module's exports in a global object.

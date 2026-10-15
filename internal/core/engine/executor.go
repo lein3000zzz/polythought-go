@@ -56,6 +56,8 @@ type Executor struct {
 
 	waits      ports.WaitRepository
 	waitLimits func() WaitLimits
+
+	evaluator Evaluator // works expressions out; nil: only plain fields
 }
 
 type ExecutorOption func(*Executor)
@@ -498,7 +500,9 @@ func (x *execution) step(
 			WorkflowID:  x.workflow.ID,
 			OwnerID:     x.workflow.OwnerID,
 			NodeID:      id,
-			Params:      newLiteralResolver(typ, spec.Params),
+			Params: x.executor.resolverFor(ctx, typ, spec.Params, in, map[string]any{
+				"id": string(x.exec.ID), "workflowId": string(x.workflow.ID), "startedAt": x.exec.StartedAt,
+			}),
 		}
 
 		out, err := x.safeCall(ctx, id, func(ctx context.Context) (Ports, error) { return call(ctx, node, rc) })

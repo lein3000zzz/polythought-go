@@ -7,11 +7,15 @@ import type { Context, NodeTypes, PolymarketMarketsItem, TriggerMarketItem } fro
 export async function run(items: PolymarketMarketsItem[], ctx: Context<{ least: string }>) {
   const settings: NodeTypes['logic.if']['settings'] = { field: 'liquidity', value: '1000' }
   const passes: NodeTypes['logic.if']['items'] = 'received'
+  const top: NodeTypes['transform.top']['settings'] = {
+    field: 'liquidity',
+    limit: '{{ params.max }}',
+  }
 
   const deep = items.filter((m) => dec(m.liquidity).gt(settings.value) && m.status === 'open')
   const found = await markets.search(ctx.params.least)
 
-  return { tokens: deep.map((m) => m.outcomes[0].tokenId), found: found.length, passes }
+  return { tokens: deep.map((m) => m.outcomes[0].tokenId), found: found.length, passes, top }
 }
 
 export function spread(update: TriggerMarketItem): string | undefined {

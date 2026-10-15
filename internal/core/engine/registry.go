@@ -139,7 +139,7 @@ func (r *Registry) Validate(w domain.Workflow) error {
 			triggers++
 		}
 
-		checkParams(&v, n, typ)
+		checkParams(&v, n, typ, trigger)
 		checkParamPorts(&v, n, typ)
 	}
 
@@ -169,7 +169,9 @@ func (r *Registry) Validate(w domain.Workflow) error {
 
 // checkParams reports missing required params, unknown params and values that do not
 // fit their spec.
-func checkParams(v *domain.ValidationError, n domain.NodeSpec, typ NodeType) {
+// checkParams reports missing, unknown and wrongly typed params. Expressions are checked
+// when worked out; triggers work none out, so theirs are checked as written.
+func checkParams(v *domain.ValidationError, n domain.NodeSpec, typ NodeType, trigger bool) {
 	declared := make(map[string]bool, len(typ.Params))
 
 	for _, spec := range typ.Params {
@@ -181,6 +183,10 @@ func checkParams(v *domain.ValidationError, n domain.NodeSpec, typ NodeType) {
 				v.Add(domain.Problem{NodeID: n.ID, Param: spec.Name, Message: fmt.Sprintf("node %q: missing required param %q", n.ID, spec.Name)})
 			}
 
+			continue
+		}
+
+		if !trigger && takesExpressions(typ, spec) && HasExpressions(value) {
 			continue
 		}
 

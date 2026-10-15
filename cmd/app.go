@@ -422,6 +422,7 @@ func (a *app) initEngine(ctx context.Context, pmc polymarket) error {
 
 	executor, err := engine.NewExecutor(a.util, a.registry,
 		engine.WithRecorder(executions), engine.WithNotifier(a.events), engine.WithNotifier(a.notify),
+		engine.WithEvaluator(a.code),
 		engine.WithWaits(waitRecords, func() engine.WaitLimits { return waitLimits(a.settings.Current()) }))
 	if err != nil {
 		return err

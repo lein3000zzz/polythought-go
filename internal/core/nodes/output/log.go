@@ -7,7 +7,6 @@ import (
 	"github.com/lein3000zzz/the-watchers/pkg/observability/logging"
 
 	"github.com/lein3000zzz/polythought-go/internal/core/engine"
-	"github.com/lein3000zzz/polythought-go/internal/core/nodes/fields"
 	"github.com/lein3000zzz/polythought-go/internal/core/nodes/shape"
 )
 
@@ -34,7 +33,7 @@ func (*Log) Type() engine.NodeType {
 		Items:       shape.Passed(),
 		Params: []engine.ParamSpec{
 			{
-				Name: "message", Label: "Message", Kind: engine.ParamString, Default: "Workflow item",
+				Name: "message", Label: "Message", Kind: engine.ParamString, Default: "Workflow item", Template: true,
 				Description: "{{field}} puts in an item's field, e.g. {{question}}.",
 			},
 		},
@@ -52,12 +51,12 @@ func (n *Log) Run(ctx context.Context, rc engine.RunContext, in engine.Ports) (e
 			return nil, err
 		}
 
-		message, err := p.String("message")
+		message, err := p.Template("message")
 		if err != nil {
 			return nil, err
 		}
 
-		n.log.Info(ctx, fields.Render(message, item.JSON),
+		n.log.Info(ctx, message.Render(item.JSON, engine.Same),
 			"workflow_id", rc.WorkflowID,
 			"execution_id", rc.ExecutionID,
 			"node_id", rc.NodeID,

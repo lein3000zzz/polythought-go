@@ -11,7 +11,6 @@ import (
 	"github.com/lein3000zzz/polythought-go/internal/core/domain"
 	"github.com/lein3000zzz/polythought-go/internal/core/engine"
 	"github.com/lein3000zzz/polythought-go/internal/core/nodes/credtypes"
-	"github.com/lein3000zzz/polythought-go/internal/core/nodes/fields"
 	"github.com/lein3000zzz/polythought-go/internal/core/nodes/shape"
 	"github.com/lein3000zzz/polythought-go/internal/core/ports"
 )
@@ -54,7 +53,7 @@ func (*Webhook) Type() engine.NodeType {
 				Description: "From the channel's integration settings in Discord or Slack.",
 			},
 			{
-				Name: "message", Label: "Message", Kind: engine.ParamString, Default: "Update from your Polythought workflow",
+				Name: "message", Template: true, Label: "Message", Kind: engine.ParamString, Default: "Update from your Polythought workflow",
 				Description: "{{field}} puts in an item's field, e.g. {{question}} or {{spread}}.",
 			},
 			{
@@ -74,8 +73,8 @@ func (*Webhook) Type() engine.NodeType {
 }
 
 type webhookConfig struct {
-	url, message, send, format string
-	header                     map[string]string
+	url, send, format string
+	header            map[string]string
 }
 
 func (n *Webhook) Run(ctx context.Context, rc engine.RunContext, in engine.Ports) (engine.Ports, error) {
@@ -104,7 +103,7 @@ func (n *Webhook) Run(ctx context.Context, rc engine.RunContext, in engine.Ports
 				continue
 			}
 
-			n.deliver(ctx, cfg, []engine.Item{item}, []engine.ItemRef{src}, out)
+			n.deliver(ctx, rc, cfg, []engine.Item{item}, []engine.ItemRef{src}, out)
 		}
 
 		return out, nil
@@ -115,14 +114,14 @@ func (n *Webhook) Run(ctx context.Context, rc engine.RunContext, in engine.Ports
 		srcs[i] = engine.ItemRef{Port: engine.DefaultPort, Index: i}
 	}
 
-	n.deliver(ctx, cfg, items, srcs, out)
+	n.deliver(ctx, rc, cfg, items, srcs, out)
 
 	return out, nil
 }
 
 // deliver sends items in one request and passes them on, or fails them all.
-func (n *Webhook) deliver(ctx context.Context, cfg webhookConfig, items []engine.Item, srcs []engine.ItemRef, out engine.Ports) {
-	body, err := webhookBody(cfg, items)
+func (n *Webhook) deliver(ctx context.Context, rc engine.RunContext, cfg webhookConfig, items []engine.Item, srcs []engine.ItemRef, out engine.Ports) {
+	body, err := webhookBody(rc, cfg, items, srcs)
 	if err == nil {
 		err = n.sender.Post(ctx, cfg.url, body, cfg.header)
 	}
@@ -137,7 +136,8 @@ func (n *Webhook) deliver(ctx context.Context, cfg webhookConfig, items []engine
 	}
 }
 
-// webhookSettings reads the settings once: they apply to the whole run.
+// webhookSettings reads the settings once, with the first item's values in any
+// expressions: they apply to the whole run. The message is filled in per item.
 func webhookSettings(rc engine.RunContext) (webhookConfig, error) {
 	p, err := rc.Params.Resolve(engine.ItemRef{Port: engine.DefaultPort})
 	if err != nil {
@@ -146,7 +146,7 @@ func webhookSettings(rc engine.RunContext) (webhookConfig, error) {
 
 	var cfg webhookConfig
 
-	for name, dst := range map[string]*string{"url": &cfg.url, "message": &cfg.message, "send": &cfg.send, "format": &cfg.format} {
+	for name, dst := range map[string]*string{"url": &cfg.url, "send": &cfg.send, "format": &cfg.format} {
 		if *dst, err = p.String(name); err != nil {
 			return webhookConfig{}, err
 		}
@@ -185,7 +185,7 @@ func (n *Webhook) header(ctx context.Context, rc engine.RunContext) (map[string]
 
 // webhookBody is {"content", "text"} for messages, read by Discord and Slack
 // respectively, or the item, or {"items": [...]}, for JSON.
-func webhookBody(cfg webhookConfig, items []engine.Item) ([]byte, error) {
+func webhookBody(rc engine.RunContext, cfg webhookConfig, items []engine.Item, srcs []engine.ItemRef) ([]byte, error) {
 	if cfg.format == "json" {
 		if len(items) == 1 && cfg.send == "each" {
 			return json.Marshal(items[0].JSON)
@@ -199,9 +199,9 @@ func webhookBody(cfg webhookConfig, items []engine.Item) ([]byte, error) {
 		return json.Marshal(map[string]any{"items": all})
 	}
 
-	lines := make([]string, len(items))
-	for i, it := range items {
-		lines[i] = fields.Render(cfg.message, it.JSON)
+	lines, err := engine.RenderEach(rc, "message", items, srcs, engine.Same)
+	if err != nil {
+		return nil, err
 	}
 
 	text := truncate(strings.Join(lines, "\n"), maxMessage)

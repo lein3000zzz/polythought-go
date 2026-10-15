@@ -196,3 +196,44 @@ func TestCompileCaches(t *testing.T) {
 	require.NoError(t, err)
 	assert.NotEqual(t, first.Hash, other.Hash)
 }
+
+func TestCompileExpression(t *testing.T) {
+	t.Parallel()
+
+	c := compiler(t)
+	ctx := context.Background()
+
+	for expr, want := range map[string]string{
+		"spread * 100":                 "spread * 100",
+		"(item.price as number) * 2":   "item.price * 2",
+		"outcomes[0]!.label ?? 'none'": `outcomes[0].label ?? "none"`,
+		"{ a: 1 }.a":                   "({ a: 1 }).a",
+		"x // a comment at the end":    "x",
+		"`${question} (${spread})`":    "`${question} (${spread})`",
+	} {
+		got, err := c.CompileExpression(ctx, expr)
+		require.NoError(t, err, expr)
+		assert.Equal(t, want, got, expr)
+	}
+
+	for expr, want := range map[string]domain.CodeProblem{
+		"a; b":         {Line: 1, Column: 2, Message: `Expected ")" but found ";"`},
+		"price *":      {Line: 1, Column: 8, Message: "Unexpected end of the expression"},
+		"x\n  + * 2":   {Line: 2, Column: 5, Message: `Unexpected "*"`},
+		"import('fs')": {}, // compiles: imports cannot run in the sandbox
+	} {
+		_, err := c.CompileExpression(ctx, expr)
+		if want.Message == "" {
+			require.NoError(t, err, expr)
+			continue
+		}
+
+		var ce *domain.CodeError
+		require.ErrorAs(t, err, &ce, expr)
+		assert.Equal(t, domain.CodeDidNotCompile, ce.Kind)
+		assert.Equal(t, want, ce.Problems[0], expr)
+	}
+
+	_, err := c.CompileExpression(ctx, strings.Repeat("x", tscompiler.MaxExpression+1))
+	require.ErrorContains(t, err, "more than the 16 KiB allowed")
+}

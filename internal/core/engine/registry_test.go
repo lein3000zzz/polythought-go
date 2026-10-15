@@ -176,6 +176,17 @@ func TestRegistryValidate(t *testing.T) {
 			wantErrIs:    engine.ErrInvalidParam,
 		},
 		{
+			name:     "an expression where a number goes",
+			workflow: domain.Workflow{Nodes: []domain.NodeSpec{trigger(), spec("if", "test.if", map[string]any{"threshold": "{{ params.least }}"})}},
+		},
+		{
+			name: "triggers work no expressions out",
+			workflow: domain.Workflow{Nodes: []domain.NodeSpec{
+				{ID: "trigger", Type: "test.trigger.timed", Params: map[string]any{"every": "{{ params.x }}"}},
+			}},
+			wantProblems: []string{`param "every" "{{ params.x }}" is not a positive duration`},
+		},
+		{
 			name: "error port with continueOnFail",
 			workflow: domain.Workflow{
 				Nodes: []domain.NodeSpec{

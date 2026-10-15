@@ -89,6 +89,9 @@ func testRegistry(t *testing.T) *engine.Registry {
 	r := engine.NewRegistry()
 
 	require.NoError(t, r.RegisterTrigger(fakeTrigger{typ: engine.NodeType{Name: "test.trigger", Outputs: mainPorts()}}))
+	require.NoError(t, r.RegisterTrigger(fakeTrigger{typ: engine.NodeType{
+		Name: "test.trigger.timed", Outputs: mainPorts(), Params: []engine.ParamSpec{{Name: "every", Kind: engine.ParamDuration}},
+	}}))
 
 	nodes := []fakeNode{
 		{

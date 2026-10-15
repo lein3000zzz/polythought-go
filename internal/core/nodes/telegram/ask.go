@@ -51,7 +51,7 @@ func (*Ask) Type() engine.NodeType {
 		OutputsParam: "buttons",
 		Params: []engine.ParamSpec{
 			{
-				Name: "message", Label: "Question", Kind: engine.ParamString, Default: "Go ahead?",
+				Name: "message", Template: true, Label: "Question", Kind: engine.ParamString, Default: "Go ahead?",
 				Description: "{{field}} puts in an item's field, e.g. {{question}}. Several items make a line each; one answer goes for all of them.",
 			},
 			{
@@ -84,7 +84,7 @@ func (n *Ask) Run(ctx context.Context, rc engine.RunContext, in engine.Ports) (e
 
 	var cfg sendConfig
 
-	for name, dst := range map[string]*string{"message": &cfg.message, "format": &cfg.format} {
+	for name, dst := range map[string]*string{"format": &cfg.format} {
 		if *dst, err = p.String(name); err != nil {
 			return nil, err
 		}
@@ -100,7 +100,12 @@ func (n *Ask) Run(ctx context.Context, rc engine.RunContext, in engine.Ports) (e
 		return nil, err
 	}
 
-	question, err := renderWithin(cfg, items, maxLength-closingRoom)
+	refs := make([]engine.ItemRef, len(items))
+	for i := range items {
+		refs[i] = engine.ItemRef{Port: engine.DefaultPort, Index: i}
+	}
+
+	question, err := render(rc, cfg, items, refs, maxLength-closingRoom)
 	if err != nil {
 		return nil, err
 	}

@@ -48,6 +48,9 @@ export type TimeText = string;
 
 /** A duration, like "30s", "5m" or "1h30m". */
 export type DurationText = string;
+
+/** A setting's value worked out per item: {{ }} around an expression, like "{{ params.max }}". */
+export type Expression = ` + "`{{${string}}}`" + `;
 `
 
 // NodeDeclarations declares, for every node type, its settings and the items it sends
@@ -129,7 +132,12 @@ func writeSettings(b *strings.Builder, t engine.TypeInfo) {
 			optional = ""
 		}
 
-		fmt.Fprintf(b, "    %s%s: %s;\n", property(p.Name), optional, paramType(p))
+		typ := paramType(p)
+		if !t.Trigger && engine.TakesExpressions(t.NodeType, p) && !strings.HasSuffix(typ, "string") {
+			typ += " | Expression" // text takes {{ }} as it is
+		}
+
+		fmt.Fprintf(b, "    %s%s: %s;\n", property(p.Name), optional, typ)
 	}
 
 	b.WriteString("}\n")
