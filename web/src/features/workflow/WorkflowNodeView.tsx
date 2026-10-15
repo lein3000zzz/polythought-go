@@ -25,8 +25,8 @@ export function WorkflowNodeView({ id, data, selected }: NodeProps<FlowNode>) {
   const Icon = !type ? TriangleAlert : type.trigger ? Zap : Box
 
   // React Flow measures handles when a node mounts; ports that come and go later, with
-  // "continue on failure", need a new measurement. Not on mount: an early update makes
-  // the initial fit-to-view look at this node alone.
+  // "continue on failure" or a setting that gives ports, need a new measurement. Not on
+  // mount: an early update makes the initial fit-to-view look at this node alone.
   const updateNodeInternals = useUpdateNodeInternals()
   const ports = `${inputs.join()}|${outputs.join()}`
   const measured = useRef(ports)
@@ -109,7 +109,11 @@ function Ports({
             port === errorPort && 'text-destructive',
           )}
         >
-          {labelled && port}
+          {labelled && (
+            <span className="max-w-36 truncate" title={port}>
+              {port}
+            </span>
+          )}
           {counts && (
             <span className="ml-1 font-medium text-foreground tabular-nums">
               {counts[port] ?? 0}

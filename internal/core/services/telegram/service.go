@@ -62,6 +62,8 @@ type Service struct {
 	menu  *Menu // nil until UseMenu
 	log   logging.Logger
 	now   func() time.Time
+
+	answers Answers // nil until UseAnswers
 }
 
 type Option func(*Service)
@@ -245,16 +247,30 @@ func (s *Service) Subscribe(owner domain.UserID, match func(text string) bool) (
 // MessageUser writes to the user's linked chat. A chat that blocked the bot is unlinked,
 // as if the user had unlinked it.
 func (s *Service) MessageUser(ctx context.Context, user domain.UserID, m ports.UserMessage) error {
+	_, err := s.send(ctx, user, ports.TelegramMessage{HTML: m.HTML, Buttons: m.Buttons, Silent: m.Silent, ReplyTo: m.ReplyTo})
+	return err
+}
+
+// chatOf is the user's link, or domain.ErrTelegramNotLinked.
+func (s *Service) chatOf(ctx context.Context, user domain.UserID) (domain.TelegramLink, error) {
 	link, err := s.links.ForUser(ctx, user)
 	if errors.Is(err, domain.ErrNotFound) {
-		return domain.ErrTelegramNotLinked
+		return domain.TelegramLink{}, domain.ErrTelegramNotLinked
 	}
 
+	return link, err
+}
+
+// send writes m to the user's linked chat.
+func (s *Service) send(ctx context.Context, user domain.UserID, m ports.TelegramMessage) (int, error) {
+	link, err := s.chatOf(ctx, user)
 	if err != nil {
-		return err
+		return 0, err
 	}
 
-	_, err = s.bot.Send(ctx, ports.TelegramMessage{ChatID: link.ChatID, HTML: m.HTML, Buttons: m.Buttons, Silent: m.Silent})
+	m.ChatID = link.ChatID
+
+	id, err := s.bot.Send(ctx, m)
 	if errors.Is(err, domain.ErrTelegramBlocked) {
 		if derr := s.links.Delete(ctx, user); derr != nil && !errors.Is(derr, domain.ErrNotFound) {
 			s.log.Warn(ctx, "Blocked Telegram chat not unlinked", logging.Err(derr))
@@ -263,7 +279,7 @@ func (s *Service) MessageUser(ctx context.Context, user domain.UserID, m ports.U
 		}
 	}
 
-	return err
+	return id, err
 }
 
 // link binds the Telegram user to the account whose code they sent.
@@ -333,6 +349,11 @@ func (s *Service) callback(ctx context.Context, cb ports.TelegramCallback) {
 
 	if user.Disabled() {
 		s.answer(ctx, cb.ID, textDisabled)
+		return
+	}
+
+	if strings.HasPrefix(cb.Data, dataAsk) {
+		s.answerQuestion(ctx, cb, user)
 		return
 	}
 

@@ -211,9 +211,11 @@ func TestPrefs(t *testing.T) {
 
 	got, err := s.Prefs(ctx, alice)
 	require.NoError(t, err)
-	require.Len(t, got, 1)
+	require.Len(t, got, 2)
 	assert.Equal(t, "workflow_failed", got[0].Key)
+	assert.Equal(t, "approval_waiting", got[1].Key)
 	assert.True(t, got[0].Enabled, "on by default")
+	assert.True(t, got[1].Enabled, "on by default")
 
 	pref, err := s.SetPref(ctx, alice, "workflow_failed", false)
 	require.NoError(t, err)
@@ -226,4 +228,47 @@ func TestPrefs(t *testing.T) {
 
 	_, err = s.SetPref(ctx, alice, "gossip", true)
 	require.ErrorIs(t, err, domain.ErrNotFound)
+}
+
+func TestRemindQuestion(t *testing.T) {
+	ctx := context.Background()
+
+	t.Run("replies to the question", func(t *testing.T) {
+		s, d := newService(t, "")
+
+		for _, left := range []time.Duration{15 * time.Minute, 20 * time.Second, 6 * time.Hour, 42 * time.Hour, 54 * time.Hour} {
+			require.NoError(t, s.RemindQuestion(ctx, "alice", 12, left))
+		}
+
+		texts := make([]string, len(d.messenger.sent))
+		for i, m := range d.messenger.sent {
+			assert.Equal(t, 12, m.ReplyTo)
+			assert.False(t, m.Silent)
+			texts[i] = m.HTML
+		}
+
+		assert.Equal(t, []string{
+			"⏳ This question is still waiting for your answer, for about 15 minutes more.",
+			"⏳ This question is still waiting for your answer, for about 1 minute more.",
+			"⏳ This question is still waiting for your answer, for about 6 hours more.",
+			"⏳ This question is still waiting for your answer, for about 42 hours more.",
+			"⏳ This question is still waiting for your answer, for about 2 days more.",
+		}, texts)
+	})
+
+	t.Run("not when switched off", func(t *testing.T) {
+		s, d := newService(t, "")
+		_, err := s.SetPref(ctx, alice, "approval_waiting", false)
+		require.NoError(t, err)
+
+		require.NoError(t, s.RemindQuestion(ctx, "alice", 12, time.Hour))
+		assert.Zero(t, d.messenger.count())
+	})
+
+	t.Run("nowhere to send it", func(t *testing.T) {
+		s, d := newService(t, "")
+		d.messenger.fail(domain.ErrTelegramNotLinked)
+
+		require.ErrorIs(t, s.RemindQuestion(ctx, "alice", 12, time.Hour), domain.ErrTelegramNotLinked)
+	})
 }

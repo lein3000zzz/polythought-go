@@ -704,6 +704,10 @@
                         "type": "array",
                         "uniqueItems": false
                     },
+                    "outputsParam": {
+                        "description": "OutputsParam names a list param whose values are more output ports, after outputs.",
+                        "type": "string"
+                    },
                     "params": {
                         "items": {
                             "$ref": "#/components/schemas/ParamSpec"

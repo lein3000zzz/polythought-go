@@ -34,6 +34,7 @@ type fakeBot struct {
 	mu      sync.Mutex
 	sent    []ports.TelegramMessage
 	edits   []ports.TelegramMessage
+	edited  []int // the IDs of the messages edited
 	answers []string
 	sendErr error
 }
@@ -49,11 +50,12 @@ func (b *fakeBot) Send(_ context.Context, m ports.TelegramMessage) (int, error) 
 	return len(b.sent), b.sendErr
 }
 
-func (b *fakeBot) Edit(_ context.Context, _ int, m ports.TelegramMessage) error {
+func (b *fakeBot) Edit(_ context.Context, id int, m ports.TelegramMessage) error {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 
 	b.edits = append(b.edits, m)
+	b.edited = append(b.edited, id)
 
 	return nil
 }
@@ -377,6 +379,9 @@ func TestMessageUser(t *testing.T) {
 
 		require.NoError(t, s.MessageUser(ctx, alice.ID, ports.UserMessage{HTML: "<b>Hi</b>", Silent: true}))
 		assert.Equal(t, ports.TelegramMessage{ChatID: 70, HTML: "<b>Hi</b>", Silent: true}, d.bot.last(t))
+
+		require.NoError(t, s.MessageUser(ctx, alice.ID, ports.UserMessage{HTML: "Still open", ReplyTo: 3}))
+		assert.Equal(t, ports.TelegramMessage{ChatID: 70, HTML: "Still open", ReplyTo: 3}, d.bot.last(t))
 	})
 
 	t.Run("nowhere to write to", func(t *testing.T) {

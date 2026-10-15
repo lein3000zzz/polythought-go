@@ -42,12 +42,15 @@ Under **Settings → Notifications**, choose what Polythought tells you about:
 - **A workflow fails**: a run of one of your workflows failed, with the reason. At most once
   an hour for each workflow; the next message says how many failures came in between. Runs
   you start by hand never notify: you see those yourself.
+- **A question waits for your answer**: a [question](#questions) is still unanswered with a
+  quarter of its time left. The bot replies to it once, saying how long it stays open.
+  Only for questions open 10 minutes or more.
 
 Notifications go to your linked chat. Without one, nothing is sent.
 
 ## In workflows
 
-Two nodes use your chat with the bot:
+Three nodes use your chat with the bot:
 
 - [Telegram message](/docs/reference/nodes/telegram/send/) sends items to you: one message
   listing them all, or one per item. `{{field}}` puts in an item's field. With the **html**
@@ -57,10 +60,31 @@ Two nodes use your chat with the bot:
   you send the bot a message. **Starts with** limits it to messages like `/report`; the item
   has the whole `text` and the `rest` after that start. A message that no workflow takes gets
   the bot's usual answer.
+- [Telegram question](/docs/reference/nodes/telegram/ask/) asks you something with buttons
+  and waits for your answer; see [Questions](#questions).
 
-Both reach only your own chat: a shared workflow that uses them writes to whoever uses it.
-The bot keeps `/start`, `/menu` and the section names for itself; those never start a
-workflow.
+They reach only your own chat: a shared workflow that uses them writes to, or asks, whoever
+uses it. The bot keeps `/start`, `/menu` and the section names for itself; those never start
+a workflow.
+
+### Questions
+
+A Telegram question sends you one message, with a button for each answer under it, and the
+execution [waits](/docs/guides/concepts/#waiting). Press a button and the items go on
+through the port of that button; the line from **Approve** carries on when you press
+Approve. If you don't answer within the **Timeout**, one hour unless you change it, they go
+through `timeout` instead.
+
+- **Buttons** lists the answers, one per line, up to 10. Each becomes an output port with the
+  same name, so the node shows where every answer leads.
+- **Question** is the message. `{{field}}` puts in an item's field; with several items,
+  each gets a line, and your one answer goes for them all.
+- Once answered, the message shows your answer in place of the buttons; when time runs out,
+  it says so.
+- Only you can answer, from your linked chat. A button of a question that was answered,
+  ran out of time or was cancelled says so and goes away.
+- A question waits at most as long as any wait may, 7 days unless an admin
+  [changed it](/docs/reference/settings/#executions).
 
 ## Unlinking
 

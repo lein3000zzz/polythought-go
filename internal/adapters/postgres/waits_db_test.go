@@ -19,6 +19,13 @@ import (
 // seedWaiting saves a workflow of owner with an execution waiting on it until until.
 func seedWaiting(t *testing.T, db *postgres.DB, owner domain.User, until time.Time) ports.WaitRecord {
 	t.Helper()
+
+	return seedAsked(t, db, owner, until, "")
+}
+
+// seedAsked is seedWaiting for a wait that takes answers with key.
+func seedAsked(t *testing.T, db *postgres.DB, owner domain.User, until time.Time, key string) ports.WaitRecord {
+	t.Helper()
 	ctx := context.Background()
 
 	w := newWorkflow(owner.ID, "waits")
@@ -33,7 +40,7 @@ func seedWaiting(t *testing.T, db *postgres.DB, owner domain.User, until time.Ti
 
 	rec := ports.WaitRecord{
 		ExecutionID: e.ID, WorkflowID: w.ID, OwnerID: owner.ID, NodeID: "pause",
-		Until: until, State: json.RawMessage(`{"pending":{"x":0.0200}}`), CreatedAt: at,
+		Until: until, Key: key, State: json.RawMessage(`{"pending":{"x":0.0200}}`), CreatedAt: at,
 	}
 	require.NoError(t, postgres.NewWaits(db).Add(ctx, rec))
 
@@ -90,6 +97,41 @@ func TestWaits(t *testing.T) {
 		n, err = repo.CountForOwner(ctx, alice.ID)
 		require.NoError(t, err)
 		assert.Zero(t, n)
+	})
+
+	t.Run("answered only with its key", func(t *testing.T) {
+		db := fresh(t)
+		repo := postgres.NewWaits(db)
+		alice := seedUser(t, db, "alice@example.com", domain.RoleUser)
+		bob := seedUser(t, db, "bob@example.com", domain.RoleUser)
+		asked := seedAsked(t, db, alice, at.Add(time.Hour), "k1")
+		timer := seedWaiting(t, db, alice, at.Add(time.Hour))
+
+		for _, try := range []struct {
+			owner domain.UserID
+			id    domain.ExecutionID
+			key   string
+		}{
+			{bob.ID, asked.ExecutionID, "k1"},
+			{alice.ID, asked.ExecutionID, "k0"},
+			{alice.ID, asked.ExecutionID, ""},
+			{alice.ID, timer.ExecutionID, ""},
+			{alice.ID, "not-an-id", "k1"},
+		} {
+			_, err := repo.TakeWithKey(ctx, try.owner, try.id, try.key)
+			require.ErrorIs(t, err, domain.ErrNotFound, "%+v", try)
+		}
+
+		got, err := repo.TakeWithKey(ctx, alice.ID, asked.ExecutionID, "k1")
+		require.NoError(t, err)
+		assert.Equal(t, "k1", got.Key)
+
+		_, err = repo.TakeWithKey(ctx, alice.ID, asked.ExecutionID, "k1")
+		require.ErrorIs(t, err, domain.ErrNotFound)
+
+		got, err = repo.Take(ctx, alice.ID, timer.ExecutionID)
+		require.NoError(t, err, "a cancel takes any wait")
+		assert.Empty(t, got.Key)
 	})
 
 	t.Run("due ones, earliest first, a few at a time", func(t *testing.T) {

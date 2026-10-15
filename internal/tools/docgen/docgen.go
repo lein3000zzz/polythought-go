@@ -153,7 +153,12 @@ func nodePage(t engine.TypeInfo, order int, credTypes []engine.CredentialType) s
 		fmt.Fprintf(&b, "| Inputs | %s |\n", portList(t.Inputs))
 	}
 
-	fmt.Fprintf(&b, "| Outputs | %s |\n", portList(t.Outputs))
+	outputs := portList(t.Outputs)
+	if t.OutputsParam != "" {
+		outputs += ", and one per value of " + paramLabel(t.NodeType, t.OutputsParam)
+	}
+
+	fmt.Fprintf(&b, "| Outputs | %s |\n", outputs)
 
 	if !t.Trigger {
 		b.WriteString("\nItems that fail stop the execution, unless **Continue on failure** is on: then " +
@@ -381,6 +386,17 @@ func firstSentence(s string) string {
 	}
 
 	return s
+}
+
+// paramLabel names a setting as its table does: **Label** (`name`).
+func paramLabel(t engine.NodeType, name string) string {
+	for _, p := range t.Params {
+		if p.Name == name && p.Label != "" {
+			return "**" + p.Label + "** (`" + name + "`)"
+		}
+	}
+
+	return "`" + name + "`"
 }
 
 func portList(names []string) string {

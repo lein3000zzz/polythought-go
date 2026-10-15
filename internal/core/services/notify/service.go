@@ -37,8 +37,16 @@ var WorkflowFailed = Kind{
 	Default: true,
 }
 
+var ApprovalWaiting = Kind{
+	Key:   "approval_waiting",
+	Label: "A question waits for your answer",
+	Description: "A Telegram question from one of your workflows is still unanswered with a quarter of its time left. " +
+		"Once per question, for questions open 10 minutes or more.",
+	Default: true,
+}
+
 // Kinds lists every kind, in the order Settings shows them.
-var Kinds = []Kind{WorkflowFailed}
+var Kinds = []Kind{WorkflowFailed, ApprovalWaiting}
 
 const (
 	failureCooldown = time.Hour
@@ -47,7 +55,10 @@ const (
 	maxCooldowns    = 4096
 )
 
-var _ ports.ExecutionNotifier = (*Service)(nil)
+var (
+	_ ports.ExecutionNotifier = (*Service)(nil)
+	_ ports.QuestionReminder  = (*Service)(nil)
+)
 
 type Service struct {
 	messenger ports.UserMessenger
@@ -235,6 +246,34 @@ func (s *Service) workflowFailed(ctx context.Context, f failure) {
 		s.log.Debug(ctx, "Failure not told: nowhere to send it", "user_id", f.owner)
 	default:
 		s.log.Warn(ctx, "Failure notification not sent", "user_id", f.owner, logging.Err(err))
+	}
+}
+
+// RemindQuestion replies to a question still open, unless the user switched that off.
+func (s *Service) RemindQuestion(ctx context.Context, user domain.UserID, messageID int, left time.Duration) error {
+	on, err := s.enabled(ctx, user, ApprovalWaiting)
+	if err != nil || !on {
+		return err
+	}
+
+	return s.messenger.MessageUser(ctx, user, ports.UserMessage{
+		HTML:    "⏳ This question is still waiting for your answer, for " + about(left) + " more.",
+		ReplyTo: messageID,
+	})
+}
+
+// about rounds d for people: about 15 minutes, about 2 hours, about 3 days.
+func about(d time.Duration) string {
+	switch {
+	case d < 90*time.Minute:
+		n := max(1, int(d.Round(time.Minute)/time.Minute))
+		return fmt.Sprintf("about %d %s", n, plural(n, "minute", "minutes"))
+	case d < 48*time.Hour:
+		n := int(d.Round(time.Hour) / time.Hour)
+		return fmt.Sprintf("about %d %s", n, plural(n, "hour", "hours"))
+	default:
+		n := int(d.Round(24*time.Hour) / (24 * time.Hour))
+		return fmt.Sprintf("about %d days", n)
 	}
 }
 

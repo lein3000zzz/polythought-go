@@ -58,6 +58,10 @@ func (r *Registry) register(typ NodeType, store func()) error {
 		return err
 	}
 
+	if err := checkOutputsParam(typ); err != nil {
+		return err
+	}
+
 	store()
 
 	return nil
@@ -105,6 +109,7 @@ func (r *Registry) Validate(w domain.Workflow) error {
 	var v domain.ValidationError
 
 	types := make(map[domain.NodeID]NodeType, len(w.Nodes))
+	outputs := make(map[domain.NodeID][]string, len(w.Nodes))
 	triggers := 0
 
 	for _, n := range w.Nodes {
@@ -120,12 +125,14 @@ func (r *Registry) Validate(w domain.Workflow) error {
 		}
 
 		types[n.ID] = typ
+		outputs[n.ID] = typ.OutputsOf(n.Params)
 
 		if trigger {
 			triggers++
 		}
 
 		checkParams(&v, n, typ)
+		checkParamPorts(&v, n, typ)
 	}
 
 	if triggers == 0 {
@@ -140,7 +147,7 @@ func (r *Registry) Validate(w domain.Workflow) error {
 			if spec, _ := w.Node(c.From); !spec.ContinueOnFail {
 				v.Add(domain.Problem{NodeID: c.From, Message: fmt.Sprintf("node %q: error port is connected but continueOnFail is off", c.From)})
 			}
-		} else if fromOK && !slices.Contains(from.Outputs, c.FromPort) {
+		} else if fromOK && !slices.Contains(outputs[c.From], c.FromPort) {
 			v.Add(domain.Problem{NodeID: c.From, Message: fmt.Sprintf("node %q (%s) has no output port %q", c.From, from.Name, c.FromPort)})
 		}
 

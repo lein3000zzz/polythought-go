@@ -183,6 +183,76 @@ describe('workflow editor', () => {
     expect(saves[0].nodes[1].continueOnFail).toBeUndefined()
   })
 
+  it('moves connections with a renamed button, and drops those of a removed one', async () => {
+    const saves = editing(
+      branching({
+        nodes: [
+          { id: 'manual', type: 'trigger.manual', position: { x: 0, y: 0 } },
+          { id: 'ask', type: 'telegram.ask', position: { x: 300, y: 0 } },
+          { id: 'log', type: 'output.log', position: { x: 600, y: 0 } },
+          { id: 'log2', type: 'output.log', position: { x: 600, y: 200 } },
+        ],
+        connections: [
+          { from: 'manual', fromPort: 'main', to: 'ask', toPort: 'main' },
+          { from: 'ask', fromPort: 'Yes', to: 'log', toPort: 'main' },
+          { from: 'ask', fromPort: 'No', to: 'log2', toPort: 'main' },
+        ],
+      }),
+    )
+    server.use(
+      http.get('/api/v1/node-types', () =>
+        HttpResponse.json({
+          nodeTypes: [
+            ...nodeTypes,
+            {
+              name: 'telegram.ask',
+              label: 'Telegram question',
+              trigger: false,
+              inputs: ['main'],
+              outputs: ['timeout'],
+              params: [
+                {
+                  name: 'buttons',
+                  label: 'Buttons',
+                  kind: 'list',
+                  required: false,
+                  default: ['Yes', 'No'],
+                },
+              ],
+              outputsParam: 'buttons',
+            },
+          ],
+        }),
+      ),
+    )
+    const { user } = renderApp('/workflows/wf-1')
+
+    await selectNode('ask')
+    const node = within(canvasNode('ask'))
+    expect(node.getByText('Yes')).toBeInTheDocument()
+
+    const buttons = settings().getByLabelText(/Buttons/)
+    expect(buttons).toHaveValue('Yes\nNo')
+
+    // Yes is typed over, letter by letter; then No goes.
+    await user.type(buttons, 'Approve', { initialSelectionStart: 0, initialSelectionEnd: 3 })
+    expect(node.getByText('Approve')).toBeInTheDocument()
+    expect(node.queryByText('Yes')).not.toBeInTheDocument()
+
+    await user.type(buttons, '{Backspace}', { initialSelectionStart: 7, initialSelectionEnd: 10 })
+    expect(buttons).toHaveValue('Approve')
+    expect(node.queryByText('No')).not.toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: 'Save' }))
+    await screen.findByText('Version 4')
+
+    expect(saves[0].nodes[1].params).toEqual({ buttons: ['Approve'] })
+    expect(saves[0].connections).toEqual([
+      { from: 'manual', fromPort: 'main', to: 'ask', toPort: 'main' },
+      { from: 'ask', fromPort: 'Approve', to: 'log', toPort: 'main' },
+    ])
+  })
+
   it('asks before leaving with unsaved changes', async () => {
     editing(branching())
     const { router, user } = renderApp('/workflows/wf-1')

@@ -187,6 +187,7 @@ func (a *app) init(ctx context.Context) error {
 	a.telegram.UseMenu(telegram.Menu{
 		Workflows: a.workflows, Wallets: a.wallets, Positions: pmc.reader, Notifications: a.notify,
 	})
+	a.telegram.UseAnswers(a.waits)
 
 	a.auth, err = auth.New(authConfig(a.settings.Current()), auth.Repositories{
 		Users:    postgres.NewUsers(a.db),
@@ -349,6 +350,8 @@ func (a *app) initEngine(ctx context.Context, pmc polymarket) error {
 		Credentials:   a.credentials,
 		Messenger:     a.telegram,
 		TelegramInbox: a.telegram,
+		Asker:         a.telegram,
+		Reminder:      a.notify,
 		Feed:          a.feed,
 		Logger:        a.util.Logger,
 		MinInterval:   current.Duration(config.KeyScheduleMinInterval),

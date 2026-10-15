@@ -63,6 +63,17 @@ func (r *repo) Take(_ context.Context, owner domain.UserID, id domain.ExecutionI
 	return got[0], nil
 }
 
+func (r *repo) TakeWithKey(_ context.Context, owner domain.UserID, id domain.ExecutionID, key string) (ports.WaitRecord, error) {
+	got := r.takeWhere(func(w ports.WaitRecord) bool {
+		return w.ExecutionID == id && w.OwnerID == owner && w.Key != "" && w.Key == key
+	})
+	if len(got) == 0 {
+		return ports.WaitRecord{}, domain.ErrNotFound
+	}
+
+	return got[0], nil
+}
+
 func (r *repo) TakeDue(_ context.Context, at time.Time, limit int) ([]ports.WaitRecord, error) {
 	n := 0
 
@@ -116,6 +127,15 @@ func (e *executor) Cancel(_ context.Context, rec ports.WaitRecord, reason string
 	return domain.Execution{ID: rec.ExecutionID, Status: domain.ExecutionCancelled, Error: reason}, nil
 }
 
+func (e *executor) resumption(id domain.ExecutionID) (engine.Resumption, bool) {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+
+	r, ok := e.continued[id]
+
+	return r, ok
+}
+
 func (e *executor) continuedCount() int {
 	e.mu.Lock()
 	defer e.mu.Unlock()
@@ -158,22 +178,44 @@ func TestTimer(t *testing.T) {
 func TestAnswersAndCancels(t *testing.T) {
 	ctx := context.Background()
 
-	t.Run("an answer carries on the owner's execution, once", func(t *testing.T) {
+	t.Run("an answer with the key carries on the owner's execution, once", func(t *testing.T) {
 		r := &repo{}
-		require.NoError(t, r.Add(ctx, waitRec("ex-1", now.Add(time.Hour))))
+		asked := waitRec("ex-1", now.Add(time.Hour))
+		asked.Key = "k1"
+		require.NoError(t, r.Add(ctx, asked))
+		require.NoError(t, r.Add(ctx, waitRec("ex-2", now.Add(time.Hour))))
+
 		ex := newExecutor()
 		s := waits.New(r, ex, logging.Noop())
 
-		_, err := s.Resume(ctx, "bob", "ex-1", map[string]any{"button": 0})
-		require.ErrorIs(t, err, domain.ErrNotFound)
+		require.ErrorIs(t, s.Answer(ctx, "bob", "ex-1", "k1", nil), domain.ErrNotFound, "someone else's")
+		require.ErrorIs(t, s.Answer(ctx, "alice", "ex-1", "k0", nil), domain.ErrNotFound, "an older question's")
+		require.ErrorIs(t, s.Answer(ctx, "alice", "ex-2", "", nil), domain.ErrNotFound, "one that takes no answers")
 
-		e, err := s.Resume(ctx, "alice", "ex-1", map[string]any{"button": 0})
-		require.NoError(t, err)
-		assert.Equal(t, domain.ExecutionSucceeded, e.Status)
-		assert.Equal(t, engine.Resumption{Payload: map[string]any{"button": 0}}, ex.continued["ex-1"])
+		require.NoError(t, s.Answer(ctx, "alice", "ex-1", "k1", map[string]any{"option": 0}))
+		require.Eventually(t, func() bool {
+			got, ok := ex.resumption("ex-1")
+			return ok && assert.ObjectsAreEqual(engine.Resumption{Payload: map[string]any{"option": 0}}, got)
+		}, time.Second, time.Millisecond)
 
-		_, err = s.Resume(ctx, "alice", "ex-1", nil)
-		require.ErrorIs(t, err, domain.ErrNotFound)
+		require.ErrorIs(t, s.Answer(ctx, "alice", "ex-1", "k1", nil), domain.ErrNotFound, "answered already")
+		assert.Equal(t, 1, r.left())
+	})
+
+	t.Run("no answers once stopped", func(t *testing.T) {
+		r := &repo{}
+		asked := waitRec("ex-1", now.Add(time.Hour))
+		asked.Key = "k1"
+		require.NoError(t, r.Add(ctx, asked))
+
+		s := waits.New(r, newExecutor(), logging.Noop(), waits.WithClock(func() time.Time { return now }))
+
+		stop, cancel := context.WithCancel(ctx)
+		cancel()
+		s.Run(stop)
+
+		require.ErrorIs(t, s.Answer(ctx, "alice", "ex-1", "k1", nil), waits.ErrStopped)
+		assert.Equal(t, 1, r.left(), "left for after the restart")
 	})
 
 	t.Run("cancelling one, or a workflow's", func(t *testing.T) {

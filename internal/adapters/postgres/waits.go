@@ -41,7 +41,7 @@ func (r *Waits) Add(ctx context.Context, w ports.WaitRecord) error {
 
 	_, err = table.Waits.INSERT(table.Waits.AllColumns).MODEL(model.Waits{
 		ExecutionID: eid, WorkflowID: wid, OwnerID: oid, NodeID: string(w.NodeID),
-		Until: w.Until, State: string(w.State), CreatedAt: w.CreatedAt,
+		Until: w.Until, Key: w.Key, State: string(w.State), CreatedAt: w.CreatedAt,
 	}).ExecContext(ctx, r.db.conn(ctx))
 
 	return err
@@ -64,6 +64,18 @@ func (r *Waits) CountForOwner(ctx context.Context, owner domain.UserID) (int, er
 }
 
 func (r *Waits) Take(ctx context.Context, owner domain.UserID, id domain.ExecutionID) (ports.WaitRecord, error) {
+	return r.takeOne(ctx, owner, id, nil)
+}
+
+func (r *Waits) TakeWithKey(ctx context.Context, owner domain.UserID, id domain.ExecutionID, key string) (ports.WaitRecord, error) {
+	if key == "" {
+		return ports.WaitRecord{}, domain.ErrNotFound
+	}
+
+	return r.takeOne(ctx, owner, id, table.Waits.Key.EQ(jet.String(key)))
+}
+
+func (r *Waits) takeOne(ctx context.Context, owner domain.UserID, id domain.ExecutionID, also jet.BoolExpression) (ports.WaitRecord, error) {
 	oid, err := parseID(owner)
 	if err != nil {
 		return ports.WaitRecord{}, err
@@ -74,7 +86,12 @@ func (r *Waits) Take(ctx context.Context, owner domain.UserID, id domain.Executi
 		return ports.WaitRecord{}, err
 	}
 
-	got, err := r.take(ctx, table.Waits.ExecutionID.EQ(jet.UUID(eid)).AND(table.Waits.OwnerID.EQ(jet.UUID(oid))))
+	where := table.Waits.ExecutionID.EQ(jet.UUID(eid)).AND(table.Waits.OwnerID.EQ(jet.UUID(oid)))
+	if also != nil {
+		where = where.AND(also)
+	}
+
+	got, err := r.take(ctx, where)
 	if err != nil {
 		return ports.WaitRecord{}, err
 	}
@@ -131,7 +148,7 @@ func (r *Waits) take(ctx context.Context, where jet.BoolExpression) ([]ports.Wai
 		out[i] = ports.WaitRecord{
 			ExecutionID: domain.ExecutionID(m.ExecutionID.String()), WorkflowID: domain.WorkflowID(m.WorkflowID.String()),
 			OwnerID: domain.UserID(m.OwnerID.String()), NodeID: domain.NodeID(m.NodeID),
-			Until: m.Until.UTC(), State: json.RawMessage(m.State), CreatedAt: m.CreatedAt.UTC(),
+			Until: m.Until.UTC(), Key: m.Key, State: json.RawMessage(m.State), CreatedAt: m.CreatedAt.UTC(),
 		}
 	}
 

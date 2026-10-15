@@ -20,4 +20,5 @@ type Waits struct {
 	Until       time.Time
 	State       string
 	CreatedAt   time.Time
+	Key         string
 }

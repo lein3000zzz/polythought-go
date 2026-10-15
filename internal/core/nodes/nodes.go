@@ -34,10 +34,12 @@ type Deps struct {
 	Feed         ports.MarketFeed       // optional: without it, trigger.market is not available
 	Logger       logging.Logger
 
-	// Messenger and TelegramInbox are optional: without them the Telegram nodes are not
-	// available.
+	// Messenger, TelegramInbox and Asker are optional: without them the Telegram nodes
+	// are not available. Without Reminder, questions get no reminders.
 	Messenger     ports.UserMessenger
 	TelegramInbox ports.TelegramInbox
+	Asker         ports.UserAsker
+	Reminder      ports.QuestionReminder
 
 	// MinInterval is the shortest interval schedules and market triggers may use. Zero
 	// means triggers.DefaultMinInterval.
@@ -60,7 +62,7 @@ func Register(r *engine.Registry, d Deps) error {
 		market = r.RegisterTrigger(triggers.NewMarket(d.Feed, minInterval))
 	}
 
-	var telegramSend, telegramTrigger error
+	var telegramSend, telegramTrigger, telegramAsk error
 	if d.Messenger != nil {
 		telegramSend = r.RegisterNode(telegram.NewSend(d.Messenger))
 	}
@@ -69,10 +71,15 @@ func Register(r *engine.Registry, d Deps) error {
 		telegramTrigger = r.RegisterTrigger(telegram.NewTrigger(d.TelegramInbox))
 	}
 
+	if d.Asker != nil {
+		telegramAsk = r.RegisterNode(telegram.NewAsk(d.Asker, d.Reminder, time.Now))
+	}
+
 	return errors.Join(
 		market,
 		telegramSend,
 		telegramTrigger,
+		telegramAsk,
 		r.RegisterTrigger(triggers.Manual{}),
 		r.RegisterTrigger(triggers.NewSchedule(minInterval)),
 		r.RegisterNode(markets2.NewMarkets(d.Markets)),

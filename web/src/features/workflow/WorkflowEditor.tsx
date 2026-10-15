@@ -66,8 +66,10 @@ import {
   defaultPort,
   edgeOf,
   errorPort,
+  followPorts,
   linkProblem,
   newNode,
+  paramPorts,
   sameDefinition,
   toDefinition,
   toFlow,
@@ -295,13 +297,24 @@ function Editor({ workflow, types, onReload }: Props) {
   }
 
   function changeParam(id: string, param: string, value: unknown) {
-    updateSpec(id, (spec) => ({
-      ...spec,
-      params: Object.fromEntries(
+    const paramsWith = (spec: NodeSpec) =>
+      Object.fromEntries(
         Object.entries({ ...spec.params, [param]: value }).filter(([, v]) => v !== undefined),
-      ),
-    }))
+      )
+
+    updateSpec(id, (spec) => ({ ...spec, params: paramsWith(spec) }))
     setProblems((ps) => ps.filter((p) => !(p.nodeId === id && p.param === param)))
+
+    // Connections follow the ports a setting gives, such as one per button.
+    const node = nodes.find((n) => n.id === id)
+    if (node?.data.type?.outputsParam === param) {
+      const before = paramPorts(node.data)
+      const after = paramPorts({
+        ...node.data,
+        spec: { ...node.data.spec, params: paramsWith(node.data.spec) },
+      })
+      setEdges((es) => followPorts(es, id, before, after))
+    }
   }
 
   function handleNodesChange(changes: NodeChange<FlowNode>[]) {

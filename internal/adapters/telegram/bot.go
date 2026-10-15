@@ -465,6 +465,10 @@ func (b *Bot) Send(ctx context.Context, m ports.TelegramMessage) (int, error) {
 		DisableNotification: m.Silent,
 	}
 
+	if m.ReplyTo != 0 {
+		params.ReplyParameters = &models.ReplyParameters{MessageID: m.ReplyTo, AllowSendingWithoutReply: true}
+	}
+
 	switch {
 	case len(m.Buttons) > 0:
 		params.ReplyMarkup = keyboard(m.Buttons)
@@ -486,7 +490,8 @@ func (b *Bot) Send(ctx context.Context, m ports.TelegramMessage) (int, error) {
 	return msg.ID, nil
 }
 
-// Edit replaces the text and buttons of a message the bot sent.
+// Edit replaces the text and buttons of a message the bot sent, or with no HTML only its
+// buttons. No buttons takes them away.
 func (b *Bot) Edit(ctx context.Context, messageID int, m ports.TelegramMessage) error {
 	cur := b.current()
 	if cur == nil {
@@ -497,18 +502,33 @@ func (b *Bot) Edit(ctx context.Context, messageID int, m ports.TelegramMessage) 
 		return err
 	}
 
-	params := &bot.EditMessageTextParams{
-		ChatID: m.ChatID, MessageID: messageID, Text: m.HTML, ParseMode: models.ParseModeHTML, LinkPreviewOptions: noPreview(),
-	}
+	var markup models.ReplyMarkup
 	if len(m.Buttons) > 0 {
-		params.ReplyMarkup = keyboard(m.Buttons)
+		markup = keyboard(m.Buttons)
 	}
 
-	_, err := retrying(ctx, func(ctx context.Context) (*models.Message, error) {
-		return call(ctx, b, "telegram.editMessageText", func(ctx context.Context) (*models.Message, error) {
-			return cur.tg.EditMessageText(ctx, params)
+	var err error
+
+	if m.HTML == "" {
+		_, err = retrying(ctx, func(ctx context.Context) (*models.Message, error) {
+			return call(ctx, b, "telegram.editMessageReplyMarkup", func(ctx context.Context) (*models.Message, error) {
+				return cur.tg.EditMessageReplyMarkup(ctx, &bot.EditMessageReplyMarkupParams{
+					ChatID: m.ChatID, MessageID: messageID, ReplyMarkup: markup,
+				})
+			})
 		})
-	})
+	} else {
+		params := &bot.EditMessageTextParams{
+			ChatID: m.ChatID, MessageID: messageID, Text: m.HTML, ParseMode: models.ParseModeHTML, LinkPreviewOptions: noPreview(),
+			ReplyMarkup: markup,
+		}
+
+		_, err = retrying(ctx, func(ctx context.Context) (*models.Message, error) {
+			return call(ctx, b, "telegram.editMessageText", func(ctx context.Context) (*models.Message, error) {
+				return cur.tg.EditMessageText(ctx, params)
+			})
+		})
+	}
 
 	// Pressing a button that leads to what is already shown is not a failure.
 	if err != nil && strings.Contains(err.Error(), "message is not modified") {

@@ -5,6 +5,7 @@ package waits
 
 import (
 	"context"
+	"errors"
 	"sync"
 	"time"
 
@@ -36,9 +37,13 @@ type Service struct {
 	slots chan struct{}
 	wg    sync.WaitGroup
 
-	mu   sync.Mutex
-	base context.Context // what carried-on executions run under; Run sets it
+	mu      sync.Mutex
+	base    context.Context // what carried-on executions run under; Run sets it
+	stopped bool            // Run returned: answers are not taken any more
 }
+
+// ErrStopped means the server is shutting down and takes no answers.
+var ErrStopped = errors.New("waits: shutting down")
 
 type Option func(*Service)
 
@@ -75,7 +80,13 @@ func (s *Service) Run(ctx context.Context) {
 	ticker := time.NewTicker(tick)
 	defer ticker.Stop()
 
-	defer s.wg.Wait()
+	defer func() {
+		s.mu.Lock()
+		s.stopped = true
+		s.mu.Unlock()
+
+		s.wg.Wait()
+	}()
 
 	for {
 		s.resumeDue(ctx)
@@ -131,30 +142,37 @@ func (s *Service) carryOn(ctx context.Context, rec ports.WaitRecord) {
 	}()
 }
 
-// Resume carries on one of owner's waiting executions with an answer, and returns it as
-// it stands when that is done: finished, or waiting again. One that already carried on,
-// or is someone else's, is domain.ErrNotFound.
-func (s *Service) Resume(ctx context.Context, owner domain.UserID, id domain.ExecutionID, payload map[string]any) (domain.Execution, error) {
-	rec, err := s.repo.Take(ctx, owner, id)
+// Answer carries on one of owner's executions that waits for an answer with key. It
+// returns once the wait is taken, so the answer counts, and carries on in the background.
+// One that carried on already, is someone else's, or waits with another key is
+// domain.ErrNotFound.
+func (s *Service) Answer(ctx context.Context, owner domain.UserID, id domain.ExecutionID, key string, payload map[string]any) error {
+	s.mu.Lock()
+	if s.stopped {
+		s.mu.Unlock()
+		return ErrStopped
+	}
+
+	s.wg.Add(1) // before Run waits for what it carried on
+	base := s.base
+	s.mu.Unlock()
+
+	rec, err := s.repo.TakeWithKey(ctx, owner, id, key)
 	if err != nil {
-		return domain.Execution{}, err
+		s.wg.Done()
+		return err
 	}
 
 	// Taken, it must carry on even if whoever answered goes away.
-	res, err := s.executor.Continue(s.runContext(), rec, engine.Resumption{Payload: payload})
-	if err != nil {
-		s.log.Error(ctx, "Waiting execution lost", "execution_id", id, logging.Err(err))
-		return domain.Execution{}, err
-	}
+	go func() {
+		defer s.wg.Done()
 
-	return res.Execution, nil
-}
+		if _, err := s.executor.Continue(base, rec, engine.Resumption{Payload: payload}); err != nil {
+			s.log.Error(base, "Waiting execution lost", "execution_id", id, logging.Err(err))
+		}
+	}()
 
-func (s *Service) runContext() context.Context {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-
-	return s.base
+	return nil
 }
 
 // Cancel ends one of owner's waiting executions as cancelled, for reason.

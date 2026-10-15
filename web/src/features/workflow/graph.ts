@@ -31,10 +31,62 @@ export function inputsOf(data: WorkflowNodeData): string[] {
 }
 
 export function outputsOf(data: WorkflowNodeData): string[] {
-  const outputs = [...(data.type?.outputs ?? [])]
+  const outputs = [...(data.type?.outputs ?? []), ...paramPorts(data)]
   if (data.spec.continueOnFail) outputs.push(errorPort)
 
   return unique([...outputs, ...data.extraOutputs])
+}
+
+/**
+ * The ports a node gets from the setting its type names in outputsParam, one per value,
+ * such as a button each; the setting's default when it is unset.
+ */
+export function paramPorts(data: Pick<WorkflowNodeData, 'spec' | 'type'>): string[] {
+  const name = data.type?.outputsParam
+  if (!name) return []
+
+  const value = data.spec.params?.[name] ?? data.type?.params.find((p) => p.name === name)?.default
+  if (!Array.isArray(value)) return []
+
+  return value.filter((v): v is string => typeof v === 'string' && v.trim() !== '')
+}
+
+/**
+ * Follows a change to the ports node gets from a setting. Values renamed in place, the
+ * count unchanged, take their connections along; connections from values that are gone
+ * go too, as there is no port left to draw them from.
+ */
+export function followPorts(
+  edges: readonly FlowEdge[],
+  node: string,
+  before: readonly string[],
+  after: readonly string[],
+): FlowEdge[] {
+  const renamed = new Map<string, string>()
+  if (before.length === after.length) {
+    before.forEach((port, i) => {
+      if (port !== after[i] && !renamed.has(port)) renamed.set(port, after[i])
+    })
+  }
+
+  const gone = new Set(before.filter((p) => !after.includes(p)))
+
+  const out = edges.flatMap((e): FlowEdge[] => {
+    const port = e.sourceHandle ?? defaultPort
+    if (e.source !== node) return [e]
+
+    const to = renamed.get(port)
+    if (to !== undefined) {
+      return [
+        edgeOf({ from: node, fromPort: to, to: e.target, toPort: e.targetHandle ?? defaultPort }),
+      ]
+    }
+
+    return gone.has(port) ? [] : [e]
+  })
+
+  // Two values renamed alike leave one connection where there were two.
+  return out.filter((e, i) => out.findIndex((o) => o.id === e.id) === i)
 }
 
 /**

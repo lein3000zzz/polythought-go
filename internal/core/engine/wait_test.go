@@ -30,7 +30,7 @@ func (pauser) Type() engine.NodeType {
 }
 
 func (pauser) Run(_ context.Context, _ engine.RunContext, in engine.Ports) (engine.Ports, error) {
-	return nil, &engine.Wait{Until: waitNow.Add(time.Hour), State: map[string]any{"count": len(in[engine.DefaultPort])}}
+	return nil, &engine.Wait{Until: waitNow.Add(time.Hour), Key: "k1", State: map[string]any{"count": len(in[engine.DefaultPort])}}
 }
 
 func (pauser) Resume(_ context.Context, _ engine.RunContext, in engine.Ports, r engine.Resumption) (engine.Ports, error) {
@@ -112,6 +112,18 @@ func (m *memWaits) Take(_ context.Context, owner domain.UserID, id domain.Execut
 	delete(m.recs, id)
 
 	return r, nil
+}
+
+func (m *memWaits) TakeWithKey(ctx context.Context, owner domain.UserID, id domain.ExecutionID, key string) (ports.WaitRecord, error) {
+	m.mu.Lock()
+	r, ok := m.recs[id]
+	m.mu.Unlock()
+
+	if !ok || key == "" || r.Key != key {
+		return ports.WaitRecord{}, domain.ErrNotFound
+	}
+
+	return m.Take(ctx, owner, id)
 }
 
 func (m *memWaits) TakeDue(context.Context, time.Time, int) ([]ports.WaitRecord, error) {
@@ -229,6 +241,7 @@ func TestWaitAndContinue(t *testing.T) {
 	assert.Equal(t, domain.NodeID("pause"), rec.NodeID)
 	assert.Equal(t, domain.WorkflowID("wf-1"), rec.WorkflowID)
 	assert.Equal(t, waitNow.Add(time.Hour), rec.Until)
+	assert.Equal(t, "k1", rec.Key)
 
 	res, err = ex.Continue(ctx, rec, engine.Resumption{Payload: map[string]any{"answer": "yes"}})
 	require.NoError(t, err)

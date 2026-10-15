@@ -24,6 +24,11 @@ both called `main`. Some have more: If sends each item out of `true` or `false`,
 on a comparison. A line connects one node's output port to another's input port, and every
 node connected to a port gets the items sent through it.
 
+A few nodes take some of their ports from a setting: a
+[Telegram question](/docs/reference/nodes/telegram/ask/) has a port for each of its buttons,
+named like the button, besides `timeout`. Renaming a button in the editor keeps its lines;
+removing one removes them.
+
 ## Triggers
 
 A workflow starts at a **trigger**, a node with no input:
@@ -59,9 +64,10 @@ port, so you can see what flowed through. Finished executions are deleted after 
 ## Waiting
 
 Some nodes pause the execution instead of finishing at once: [Wait](/docs/reference/nodes/logic/wait/)
-holds its items for a while or until a time of day. The execution then **waits**: it keeps
-nothing busy meanwhile, survives a restart of the server, and carries on from that node when
-the wait ends, with the nodes after it.
+holds its items for a while or until a time of day, and
+[Telegram question](/docs/reference/nodes/telegram/ask/) waits until you press one of its
+buttons. The execution then **waits**: it keeps nothing busy meanwhile, survives a restart
+of the server, and carries on from that node when the wait ends, with the nodes after it.
 
 - In the editor, a waiting execution says where it waits and until when, and
   **Cancel execution** ends it.

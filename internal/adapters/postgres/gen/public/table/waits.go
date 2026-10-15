@@ -24,6 +24,7 @@ type waitsTable struct {
 	Until       postgres.ColumnTimestampz
 	State       postgres.ColumnString
 	CreatedAt   postgres.ColumnTimestampz
+	Key         postgres.ColumnString
 
 	AllColumns     postgres.ColumnList
 	MutableColumns postgres.ColumnList
@@ -72,9 +73,10 @@ func newWaitsTableImpl(schemaName, tableName, alias string) waitsTable {
 		UntilColumn       = postgres.TimestampzColumn("until")
 		StateColumn       = postgres.StringColumn("state")
 		CreatedAtColumn   = postgres.TimestampzColumn("created_at")
-		allColumns        = postgres.ColumnList{ExecutionIDColumn, WorkflowIDColumn, OwnerIDColumn, NodeIDColumn, UntilColumn, StateColumn, CreatedAtColumn}
-		mutableColumns    = postgres.ColumnList{WorkflowIDColumn, OwnerIDColumn, NodeIDColumn, UntilColumn, StateColumn, CreatedAtColumn}
-		defaultColumns    = postgres.ColumnList{}
+		KeyColumn         = postgres.StringColumn("key")
+		allColumns        = postgres.ColumnList{ExecutionIDColumn, WorkflowIDColumn, OwnerIDColumn, NodeIDColumn, UntilColumn, StateColumn, CreatedAtColumn, KeyColumn}
+		mutableColumns    = postgres.ColumnList{WorkflowIDColumn, OwnerIDColumn, NodeIDColumn, UntilColumn, StateColumn, CreatedAtColumn, KeyColumn}
+		defaultColumns    = postgres.ColumnList{KeyColumn}
 	)
 
 	return waitsTable{
@@ -88,6 +90,7 @@ func newWaitsTableImpl(schemaName, tableName, alias string) waitsTable {
 		Until:       UntilColumn,
 		State:       StateColumn,
 		CreatedAt:   CreatedAtColumn,
+		Key:         KeyColumn,
 
 		AllColumns:     allColumns,
 		MutableColumns: mutableColumns,

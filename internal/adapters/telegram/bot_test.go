@@ -116,7 +116,7 @@ func (f *fakeAPI) serve(w http.ResponseWriter, r *http.Request) {
 	case "getUpdates":
 		result = "[" + strings.Join(f.updates, ",") + "]"
 		f.updates = nil
-	case "sendMessage", "editMessageText":
+	case "sendMessage", "editMessageText", "editMessageReplyMarkup":
 		f.nextID++
 		result = fmt.Sprintf(`{"message_id":%d,"date":1,"chat":{"id":%s,"type":"private"}}`, f.nextID, form["chat_id"])
 	default:
@@ -259,6 +259,14 @@ func TestSend(t *testing.T) {
 		assert.JSONEq(t, `{"remove_keyboard":true}`, sent[len(sent)-1]["reply_markup"])
 	})
 
+	t.Run("a reply", func(t *testing.T) {
+		_, err := b.Send(ctx, ports.TelegramMessage{ChatID: 42, HTML: "Still open", ReplyTo: 7})
+		require.NoError(t, err)
+
+		sent := api.called("sendMessage")
+		assert.JSONEq(t, `{"message_id":7,"allow_sending_without_reply":true}`, sent[len(sent)-1]["reply_parameters"])
+	})
+
 	t.Run("waits when asked to", func(t *testing.T) {
 		api.fail("sendMessage", `{"ok":false,"error_code":429,"description":"Too Many Requests","parameters":{"retry_after":1}}`)
 
@@ -283,6 +291,21 @@ func TestSend(t *testing.T) {
 		edits := api.called("editMessageText")
 		assert.Equal(t, "5", edits[len(edits)-1]["message_id"])
 		assert.Equal(t, "new", edits[len(edits)-1]["text"])
+		assert.JSONEq(t, `{"inline_keyboard":[[{"text":"x","callback_data":"y"}]]}`, edits[len(edits)-1]["reply_markup"])
+
+		require.NoError(t, b.Edit(ctx, 5, ports.TelegramMessage{ChatID: 42, HTML: "answered"}))
+		edits = api.called("editMessageText")
+		assert.NotContains(t, edits[len(edits)-1], "reply_markup", "no buttons takes them away")
+	})
+
+	t.Run("taking only the buttons away", func(t *testing.T) {
+		require.NoError(t, b.Edit(ctx, 6, ports.TelegramMessage{ChatID: 42}))
+
+		edits := api.called("editMessageReplyMarkup")
+		require.Len(t, edits, 1)
+		assert.Equal(t, "6", edits[0]["message_id"])
+		assert.NotContains(t, edits[0], "reply_markup")
+		assert.NotContains(t, edits[0], "text")
 	})
 
 	t.Run("answering a button", func(t *testing.T) {

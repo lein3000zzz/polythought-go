@@ -941,6 +941,8 @@ export interface components {
             label?: string;
             name: string;
             outputs: string[];
+            /** @description OutputsParam names a list param whose values are more output ports, after outputs. */
+            outputsParam?: string;
             params: components["schemas"]["ParamSpec"][];
             trigger: boolean;
         };

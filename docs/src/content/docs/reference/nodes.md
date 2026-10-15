@@ -56,4 +56,5 @@ Each node has a page with its settings. In the editor, the node list on the left
 
 | Node | Type | What it does |
 |---|---|---|
+| [Telegram question](/docs/reference/nodes/telegram/ask/) | `telegram.ask` | Asks you on Telegram, with a button per answer, and waits. |
 | [Telegram message](/docs/reference/nodes/telegram/send/) | `telegram.send` | Sends items to you on Telegram, in your chat with the instance's bot. |

@@ -41,6 +41,7 @@ func TestRegister(t *testing.T) {
 		{name: "top items", typ: "transform.top"},
 		{name: "keep fields", typ: "transform.pick"},
 		{name: "webhook", typ: "output.webhook"},
+		{name: "wait", typ: "logic.wait"},
 	}
 
 	registry := engine.NewRegistry()

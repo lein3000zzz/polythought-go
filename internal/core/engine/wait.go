@@ -38,6 +38,10 @@ const maxSnapshot = 4 << 20
 type Wait struct {
 	Until time.Time
 
+	// Key, when set, lets the wait be answered: an answer must bring it. Make it random
+	// for each question, so an answer to an earlier one cannot answer this.
+	Key string
+
 	// State is kept for the node's Resume. It goes through JSON.
 	State map[string]any
 }

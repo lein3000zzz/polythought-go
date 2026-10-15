@@ -91,7 +91,9 @@ export function NodePanel({ node, onChange, onParam, onDelete }: Props) {
         <ParamField
           key={p.name}
           spec={p}
-          value={params[p.name]}
+          // The ports' setting shows its default as text to edit, so renaming a value in
+          // place keeps its connections.
+          value={params[p.name] ?? (p.name === type?.outputsParam ? p.default : undefined)}
           onChange={(value) => onParam(p.name, value)}
           problem={problems
             .filter((pr) => pr.param === p.name)

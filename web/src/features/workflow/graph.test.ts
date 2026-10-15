@@ -5,10 +5,12 @@ import { workflow } from '@/test/fixtures'
 
 import {
   edgeOf,
+  followPorts,
   inputsOf,
   linkProblem,
   newNode,
   outputsOf,
+  paramPorts,
   sameDefinition,
   toDefinition,
   toFlow,
@@ -211,5 +213,78 @@ describe('linkProblem', () => {
     { name: 'back to an ancestor', link: link('c', 'main', 'a'), want: 'Workflows cannot loop' },
   ])('$name', ({ link, want }) => {
     expect(linkProblem(link, edges)).toBe(want)
+  })
+})
+
+describe('ports from a setting', () => {
+  const ask: NodeType = {
+    name: 'telegram.ask',
+    trigger: false,
+    inputs: ['main'],
+    outputs: ['timeout'],
+    params: [{ name: 'buttons', kind: 'list', required: false, default: ['Yes', 'No'] }],
+    outputsParam: 'buttons',
+  }
+  const data = (params?: Record<string, unknown>) => ({
+    spec: { id: 'ask', type: 'telegram.ask', params },
+    type: ask,
+    extraInputs: [],
+    extraOutputs: [],
+  })
+
+  it('gives a port per value, after the fixed ones', () => {
+    expect(outputsOf(data())).toEqual(['timeout', 'Yes', 'No'])
+    expect(outputsOf(data({ buttons: ['Buy', '', 'Skip'] }))).toEqual(['timeout', 'Buy', 'Skip'])
+    expect(paramPorts(data({ buttons: 'Buy' }))).toEqual([])
+    expect(paramPorts({ ...data(), type: types[1] })).toEqual([])
+  })
+
+  const edges = [
+    edgeOf({ from: 'ask', fromPort: 'Yes', to: 'buy', toPort: 'main' }),
+    edgeOf({ from: 'ask', fromPort: 'No', to: 'log', toPort: 'main' }),
+    edgeOf({ from: 'ask', fromPort: 'timeout', to: 'log', toPort: 'main' }),
+    edgeOf({ from: 'other', fromPort: 'Yes', to: 'log', toPort: 'main' }),
+  ]
+  const ports = (es: ReturnType<typeof followPorts>) =>
+    es.map((e) => `${e.source}.${e.sourceHandle}->${e.target}`)
+
+  it('moves connections with a renamed value', () => {
+    const moved = followPorts(edges, 'ask', ['Yes', 'No'], ['Approve', 'No'])
+
+    expect(ports(moved)).toEqual([
+      'ask.Approve->buy',
+      'ask.No->log',
+      'ask.timeout->log',
+      'other.Yes->log',
+    ])
+    expect(moved[0].id).toBe('ask.Approve->buy.main')
+  })
+
+  it('swaps connections when values swap', () => {
+    expect(ports(followPorts(edges, 'ask', ['Yes', 'No'], ['No', 'Yes']))).toEqual([
+      'ask.No->buy',
+      'ask.Yes->log',
+      'ask.timeout->log',
+      'other.Yes->log',
+    ])
+  })
+
+  it('drops connections from a value that is gone', () => {
+    expect(ports(followPorts(edges, 'ask', ['Yes', 'No'], ['No']))).toEqual([
+      'ask.No->log',
+      'ask.timeout->log',
+      'other.Yes->log',
+    ])
+  })
+
+  it('keeps one connection where renaming made two alike', () => {
+    const both = [...edges, edgeOf({ from: 'ask', fromPort: 'No', to: 'buy', toPort: 'main' })]
+
+    expect(ports(followPorts(both, 'ask', ['Yes', 'No'], ['No', 'No']))).toEqual([
+      'ask.No->buy',
+      'ask.No->log',
+      'ask.timeout->log',
+      'other.Yes->log',
+    ])
   })
 })

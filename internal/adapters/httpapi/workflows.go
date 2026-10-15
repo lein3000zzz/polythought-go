@@ -247,6 +247,8 @@ type nodeTypeDTO struct {
 	Inputs      []string   `json:"inputs"`
 	Outputs     []string   `json:"outputs"`
 	Params      []paramDTO `json:"params"`
+	// OutputsParam names a list param whose values are more output ports, after outputs.
+	OutputsParam string `json:"outputsParam,omitempty" validate:"optional"`
 } // @name NodeType
 
 type nodeTypeList struct {
@@ -271,7 +273,7 @@ func (s *Server) listNodeTypes(_ context.Context, c *app.RequestContext) {
 		dto := nodeTypeDTO{
 			Name: t.Name, Label: t.Label, Description: t.Description, Trigger: t.Trigger,
 			Inputs: nonNil(t.Inputs), Outputs: nonNil(t.Outputs),
-			Params: make([]paramDTO, len(t.Params)),
+			Params: make([]paramDTO, len(t.Params)), OutputsParam: t.OutputsParam,
 		}
 
 		for j, p := range t.Params {

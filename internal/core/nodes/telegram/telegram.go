@@ -138,6 +138,11 @@ func (n *Send) deliver(ctx context.Context, owner domain.UserID, cfg sendConfig,
 
 // render writes the message for items: one line per item, as HTML for Telegram.
 func render(cfg sendConfig, items []engine.Item) (string, error) {
+	return renderWithin(cfg, items, maxLength)
+}
+
+// renderWithin is render for a message of at most most characters.
+func renderWithin(cfg sendConfig, items []engine.Item, most int) (string, error) {
 	lines := make([]string, len(items))
 
 	if cfg.format == "html" {
@@ -146,8 +151,8 @@ func render(cfg sendConfig, items []engine.Item) (string, error) {
 		}
 
 		text := strings.Join(lines, "\n")
-		if utf8.RuneCountInString(text) > maxLength {
-			return "", fmt.Errorf("the message is longer than the %d characters Telegram allows", maxLength)
+		if utf8.RuneCountInString(text) > most {
+			return "", fmt.Errorf("the message is longer than the %d characters Telegram allows", most)
 		}
 
 		return text, nil
@@ -157,7 +162,7 @@ func render(cfg sendConfig, items []engine.Item) (string, error) {
 		lines[i] = fields.Render(cfg.message, it.JSON)
 	}
 
-	return html.EscapeString(truncate(strings.Join(lines, "\n"), maxLength)), nil
+	return html.EscapeString(truncate(strings.Join(lines, "\n"), most)), nil
 }
 
 func truncate(s string, most int) string {

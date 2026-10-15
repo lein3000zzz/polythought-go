@@ -21,6 +21,7 @@ type TelegramMessage struct {
 	HTML    string // Telegram's subset of HTML; escape everything that is not markup
 	Buttons [][]TelegramButton
 	Silent  bool // delivered without a sound; sending only
+	ReplyTo int  // the ID of a message in the chat this one replies to; sending only
 
 	// Keyboard replaces the keyboard under the chat's input field with these buttons,
 	// which send their text when pressed; RemoveKeyboard takes it away. Sending only, and
@@ -73,6 +74,7 @@ type TelegramStatus struct {
 type TelegramBot interface {
 	Status() TelegramStatus
 	Send(ctx context.Context, m TelegramMessage) (messageID int, err error)
+	// Edit replaces a message's text and buttons; with no HTML, only its buttons.
 	Edit(ctx context.Context, messageID int, m TelegramMessage) error
 	AnswerCallback(ctx context.Context, callbackID, text string) error
 }
@@ -99,12 +101,32 @@ type UserMessage struct {
 	HTML    string // Telegram's subset of HTML; escape everything that is not markup
 	Buttons [][]TelegramButton
 	Silent  bool // delivered without a sound
+	ReplyTo int  // the ID of an earlier message to the user this one replies to
 }
 
 // UserMessenger writes to users. One with nowhere to write to is
 // domain.ErrTelegramNotLinked.
 type UserMessenger interface {
 	MessageUser(ctx context.Context, user domain.UserID, m UserMessage) error
+}
+
+// Question asks a user to pick one of its options, to answer a waiting execution.
+type Question struct {
+	HTML    string // Telegram's subset of HTML; escape everything that is not markup
+	Options []string
+
+	// What a pick answers: the execution, through its wait's key.
+	ExecutionID domain.ExecutionID
+	Key         string
+}
+
+// UserAsker asks users questions they answer with a button. One with nowhere to ask is
+// domain.ErrTelegramNotLinked.
+type UserAsker interface {
+	// AskUser sends q and returns the ID of its message.
+	AskUser(ctx context.Context, user domain.UserID, q Question) (messageID int, err error)
+	// CloseQuestion replaces a question's text with html and takes its buttons away.
+	CloseQuestion(ctx context.Context, user domain.UserID, messageID int, html string) error
 }
 
 // TelegramInboxMessage is a message a linked user sent the bot.
