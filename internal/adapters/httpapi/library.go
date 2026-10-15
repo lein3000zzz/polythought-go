@@ -99,11 +99,17 @@ func toTemplateDTO(e library.Entry, withGraph bool) templateDTO {
 }
 
 func toParamDTO(p engine.ParamSpec) paramDTO {
-	return paramDTO{
+	dto := paramDTO{
 		Name: p.Name, Label: p.Label, Description: p.Description, Kind: string(p.Kind),
 		Required: p.Required, Default: p.Default, Options: p.Options, Sensitive: p.Sensitive,
-		CredentialType: p.CredentialType,
+		CredentialType: p.CredentialType, Field: p.Field,
 	}
+
+	for _, k := range p.FieldKinds {
+		dto.FieldKinds = append(dto.FieldKinds, string(k))
+	}
+
+	return dto
 }
 
 // listTemplates lists the built-in scenarios, on the first page, then members' shared

@@ -82,6 +82,7 @@ packages:
       pkgname: workflowsmocks
     interfaces:
       Validator: {}
+      FieldChecker: {}
       Executor: {}
       Supervisor: {}
       Waits: {}

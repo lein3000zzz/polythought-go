@@ -11,16 +11,18 @@ import { Textarea } from '@/components/ui/textarea'
 import type { FlowNode, NodeSpec } from './graph'
 import { ParamField } from './ParamField'
 import { fieldMessage, useNodeProblems } from './problems'
+import { fieldChoices, fieldProblem, type Shape } from './shapes'
 
 type Props = {
   node: FlowNode
+  received?: Shape // what its items look like, when known
   onChange: (patch: Partial<Pick<NodeSpec, 'name' | 'continueOnFail' | 'notes'>>) => void
   onParam: (name: string, value: unknown) => void
   onDelete: () => void
 }
 
 /** Settings of the selected node. Changes apply as they are made. */
-export function NodePanel({ node, onChange, onParam, onDelete }: Props) {
+export function NodePanel({ node, received, onChange, onParam, onDelete }: Props) {
   const { spec, type } = node.data
   const problems = useNodeProblems(node.id)
   const declared = type?.params ?? []
@@ -95,10 +97,13 @@ export function NodePanel({ node, onChange, onParam, onDelete }: Props) {
           // place keeps its connections.
           value={params[p.name] ?? (p.name === type?.outputsParam ? p.default : undefined)}
           onChange={(value) => onParam(p.name, value)}
-          problem={problems
-            .filter((pr) => pr.param === p.name)
-            .map(fieldMessage)
-            .join(' ')}
+          problem={
+            problems
+              .filter((pr) => pr.param === p.name)
+              .map(fieldMessage)
+              .join(' ') || fieldProblem(received, p, params[p.name] ?? p.default)
+          }
+          fields={p.field && received ? fieldChoices(received, p.fieldKinds) : undefined}
         />
       ))}
 

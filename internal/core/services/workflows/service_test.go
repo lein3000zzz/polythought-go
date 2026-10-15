@@ -504,3 +504,49 @@ func TestWaitingExecutions(t *testing.T) {
 		require.ErrorIs(t, err, domain.ErrNotWaiting)
 	})
 }
+
+func TestFieldChecks(t *testing.T) {
+	ctx := context.Background()
+	alice := auth.Principal{User: domain.User{ID: "u-1", Role: domain.RoleUser}}
+
+	withChecks := func(t *testing.T) (*workflows.Service, deps, *workflowsmocks.MockFieldChecker) {
+		t.Helper()
+
+		d := deps{
+			repo: portsmocks.NewMockWorkflowRepository(t), executions: portsmocks.NewMockExecutionRepository(t),
+			validator: workflowsmocks.NewMockValidator(t), executor: workflowsmocks.NewMockExecutor(t),
+			supervisor: workflowsmocks.NewMockSupervisor(t),
+		}
+		fc := workflowsmocks.NewMockFieldChecker(t)
+
+		svc := workflows.New(d.repo, d.executions, d.validator, d.executor, d.supervisor, logging.Noop(),
+			workflows.WithClock(func() time.Time { return now }), workflows.WithFieldChecks(fc))
+
+		return svc, d, fc
+	}
+
+	t.Run("saving checks field settings", func(t *testing.T) {
+		s, d, fc := withChecks(t)
+		problem := &domain.ValidationError{Problems: []domain.Problem{{NodeID: "tight", Param: "field", Message: `no field "bestbid"`}}}
+
+		d.repo.EXPECT().Count(mock.Anything, mock.Anything).Return(0, 0, nil)
+		d.validator.EXPECT().Validate(mock.Anything).Return(nil)
+		fc.EXPECT().CheckFields(mock.MatchedBy(func(w domain.Workflow) bool { return w.Name == "Spread watch" })).Return(problem)
+
+		_, err := s.Create(ctx, alice, def)
+		require.ErrorIs(t, err, problem)
+	})
+
+	t.Run("switching on does not: a workflow saved before keeps running", func(t *testing.T) {
+		s, d, _ := withChecks(t)
+
+		d.repo.EXPECT().Get(mock.Anything, domain.UserID("u-1"), domain.WorkflowID("wf-1")).Return(stored, nil)
+		d.repo.EXPECT().Count(mock.Anything, domain.UserID("u-1")).Return(1, 0, nil)
+		d.validator.EXPECT().Validate(mock.Anything).Return(nil)
+		d.repo.EXPECT().SetActive(mock.Anything, domain.UserID("u-1"), domain.WorkflowID("wf-1"), true, now).Return(nil)
+		d.supervisor.EXPECT().Start(mock.Anything).Once()
+
+		_, err := s.Activate(ctx, alice, "wf-1")
+		require.NoError(t, err)
+	})
+}

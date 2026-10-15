@@ -33,7 +33,7 @@ func (Filter) Type() engine.NodeType {
 		Items:   shape.Passed(),
 		Params: []engine.ParamSpec{
 			{
-				Name: "field", Label: "Field", Kind: engine.ParamString, Required: true,
+				Name: "field", Label: "Field", Kind: engine.ParamString, Required: true, Field: true,
 				Description: "The item field to test, e.g. spread, or outcomes.0.price for the first outcome's price.",
 			},
 			{Name: "operator", Label: "Test", Kind: engine.ParamString, Default: "gt", Options: filterOperators},

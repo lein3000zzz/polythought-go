@@ -22,7 +22,7 @@ Items that fail stop the execution, unless **Continue on failure** is on: then t
 
 | Setting | Kind | Required | Default | Description |
 |---|---|---|---|---|
-| Field (`field`) | text | yes |  | The item field to test, e.g. spread, or outcomes.0.price for the first outcome's price. |
+| Field (`field`) | text | yes |  | The item field to test, e.g. spread, or outcomes.0.price for the first outcome's price. Names a field of the items it receives; saving checks the items have it. |
 | Test (`operator`) | text | no | `gt` | One of `gt`, `gte`, `lt`, `lte`, `eq`, `neq`, `contains`, `notContains`, `exists`, `missing`. |
 | Value (`value`) | text | no |  | A number for the comparisons, text for contains (any case). Not used by exists and missing. |
 

@@ -22,7 +22,7 @@ Items that fail stop the execution, unless **Continue on failure** is on: then t
 
 | Setting | Kind | Required | Default | Description |
 |---|---|---|---|---|
-| Field (`field`) | text | yes |  | Item field to compare, e.g. bestBid. |
+| Field (`field`) | text | yes |  | Item field to compare, e.g. bestBid. Names a field of the items it receives, a number or decimal one; saving checks the items have it. |
 | Operator (`operator`) | text | no | `gt` | One of `gt`, `gte`, `lt`, `lte`, `eq`, `neq`. |
 | Value (`value`) | number | yes |  |  |
 

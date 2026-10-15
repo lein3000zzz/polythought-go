@@ -873,6 +873,27 @@
                     "description": {
                         "type": "string"
                     },
+                    "field": {
+                        "description": "Field marks a string, or each element of a list, as a path to a field of the items\nthe node receives, like spread or outcomes.0.price. FieldKinds, when present, are\nthe kinds that field may be.",
+                        "type": "boolean"
+                    },
+                    "fieldKinds": {
+                        "items": {
+                            "enum": [
+                                "text",
+                                "number",
+                                "decimal",
+                                "bool",
+                                "time",
+                                "list",
+                                "object",
+                                "any"
+                            ],
+                            "type": "string"
+                        },
+                        "type": "array",
+                        "uniqueItems": false
+                    },
                     "kind": {
                         "enum": [
                             "string",

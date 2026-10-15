@@ -39,6 +39,7 @@ func (Top) Type() engine.NodeType {
 		Params: []engine.ParamSpec{
 			{
 				Name: "field", Label: "Sort by", Kind: engine.ParamString, Required: true,
+				Field: true, FieldKinds: []engine.FieldKind{engine.FieldNumber, engine.FieldDecimal},
 				Description: "A numeric field, e.g. liquidity, volume24h or absChangePct.",
 			},
 			{Name: "order", Label: "Order", Kind: engine.ParamString, Default: "desc", Options: []string{"desc", "asc"}},
@@ -124,7 +125,7 @@ func (Pick) Type() engine.NodeType {
 		Items:       &engine.Items{Picked: "fields"},
 		Params: []engine.ParamSpec{
 			{
-				Name: "fields", Label: "Fields", Kind: engine.ParamList, Required: true,
+				Name: "fields", Label: "Fields", Kind: engine.ParamList, Required: true, Field: true,
 				Description: "One per line, e.g. question and spread. Paths like outcomes.0.price work too.",
 			},
 		},

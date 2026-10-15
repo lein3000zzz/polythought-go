@@ -238,6 +238,11 @@ type paramDTO struct {
 	// CredentialType is the kind of credential a credential param takes, one of the
 	// user's of that type.
 	CredentialType string `json:"credentialType,omitempty" validate:"optional"`
+	// Field marks a string, or each element of a list, as a path to a field of the items
+	// the node receives, like spread or outcomes.0.price. FieldKinds, when present, are
+	// the kinds that field may be.
+	Field      bool     `json:"field,omitempty" validate:"optional"`
+	FieldKinds []string `json:"fieldKinds,omitempty" validate:"optional" enums:"text,number,decimal,bool,time,list,object,any"`
 } // @name ParamSpec
 
 type nodeTypeDTO struct {

@@ -253,6 +253,109 @@ describe('workflow editor', () => {
     ])
   })
 
+  it('offers the fields of the items a node receives, and points at one they lack', async () => {
+    editing(
+      branching({
+        nodes: [
+          { id: 'markets', type: 'polymarket.feed', position: { x: 0, y: 0 } },
+          {
+            id: 'tight',
+            type: 'logic.if',
+            params: { field: 'spred', value: '0.02' },
+            position: { x: 300, y: 0 },
+          },
+          { id: 'keep', type: 'transform.pick', position: { x: 600, y: 0 } },
+        ],
+        connections: [
+          { from: 'markets', fromPort: 'main', to: 'tight', toPort: 'main' },
+          { from: 'tight', fromPort: 'true', to: 'keep', toPort: 'main' },
+        ],
+      }),
+    )
+    const field = (name: string, kind: 'text' | 'decimal', description?: string) => ({
+      name,
+      kind,
+      description,
+      optional: false,
+      nullable: false,
+    })
+    server.use(
+      http.get('/api/v1/node-types', () =>
+        HttpResponse.json({
+          nodeTypes: [
+            {
+              name: 'polymarket.feed',
+              trigger: true,
+              inputs: [],
+              outputs: ['main'],
+              params: [],
+              items: {
+                passed: false,
+                fields: [field('question', 'text', 'What it settles.'), field('spread', 'decimal')],
+              },
+            },
+            {
+              name: 'logic.if',
+              label: 'If',
+              trigger: false,
+              inputs: ['main'],
+              outputs: ['true', 'false'],
+              items: { passed: true, fields: [] },
+              params: [
+                {
+                  name: 'field',
+                  label: 'Field',
+                  kind: 'string',
+                  required: true,
+                  field: true,
+                  fieldKinds: ['number', 'decimal'],
+                },
+                { name: 'value', label: 'Value', kind: 'decimal', required: true },
+              ],
+            },
+            {
+              name: 'transform.pick',
+              label: 'Keep fields',
+              trigger: false,
+              inputs: ['main'],
+              outputs: ['main'],
+              items: { passed: false, picked: 'fields', fields: [] },
+              params: [
+                { name: 'fields', label: 'Fields', kind: 'list', required: true, field: true },
+              ],
+            },
+          ],
+        }),
+      ),
+    )
+    const { user } = renderApp('/workflows/wf-1')
+
+    await selectNode('tight')
+    const input = settings().getByLabelText(/Field/)
+
+    // Only numbers for If, offered as the input's suggestions.
+    const options = [...document.querySelectorAll(`#${input.getAttribute('list')} option`)]
+    expect(options.map((o) => o.getAttribute('value'))).toEqual(['spread'])
+
+    expect(
+      settings().getByText('The items it receives have no field "spred"; "spread"?'),
+    ).toBeInTheDocument()
+    await user.clear(input)
+    await user.type(input, 'question')
+    expect(
+      settings().getByText('Field "question" is text, and this takes number or decimal'),
+    ).toBeInTheDocument()
+    await user.clear(input)
+    await user.type(input, 'spread')
+    expect(settings().queryByText(/no field|this takes/)).not.toBeInTheDocument()
+
+    // Through If, Keep fields gets the same items, every field on offer.
+    await selectNode('keep')
+    await user.selectOptions(settings().getByLabelText('Add a field to Fields'), 'question')
+    await user.selectOptions(settings().getByLabelText('Add a field to Fields'), 'spread')
+    expect(settings().getByLabelText(/^Fields/)).toHaveValue('question\nspread')
+  })
+
   it('asks before leaving with unsaved changes', async () => {
     editing(branching())
     const { router, user } = renderApp('/workflows/wf-1')

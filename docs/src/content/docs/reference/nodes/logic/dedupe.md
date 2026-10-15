@@ -22,7 +22,7 @@ Items that fail stop the execution, unless **Continue on failure** is on: then t
 
 | Setting | Kind | Required | Default | Description |
 |---|---|---|---|---|
-| Identify items by (`field`) | text | no | `id` | The field that tells items apart, e.g. id, tokenId or txHash. |
+| Identify items by (`field`) | text | no | `id` | The field that tells items apart, e.g. id, tokenId or txHash. Names a field of the items it receives; saving checks the items have it. |
 | New again after (`forget`) | duration, e.g. `30s`, `5m`, `1h` | no | `24h` | How long an item counts as seen. |
 
 ## Items

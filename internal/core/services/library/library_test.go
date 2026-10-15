@@ -125,6 +125,7 @@ func TestBuiltinScenarios(t *testing.T) {
 			}
 
 			require.NoError(t, reg.Validate(w))
+			require.NoError(t, reg.CheckFields(w), "its field settings name fields its items have")
 		})
 	}
 }

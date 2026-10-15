@@ -119,6 +119,12 @@ type ParamSpec struct {
 
 	// CredentialType names the kind of credential a credential param asks for.
 	CredentialType string
+
+	// Field marks a text param, or each value of a list param, as a path to a field of
+	// the items the node receives, like spread or outcomes.0.price. FieldKinds, when
+	// set, are the kinds that field may be.
+	Field      bool
+	FieldKinds []FieldKind
 }
 
 // Personal reports whether the value belongs to whoever configured it, so sharing must

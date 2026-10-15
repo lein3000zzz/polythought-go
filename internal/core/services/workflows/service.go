@@ -66,7 +66,8 @@ type Service struct {
 	validator  Validator
 	executor   Executor
 	supervisor Supervisor
-	waits      Waits // optional: without it, nothing waits
+	waits      Waits        // optional: without it, nothing waits
+	fields     FieldChecker // optional: without it, field settings go unchecked
 	limits     func() Limits
 	log        logging.Logger
 	now        func() time.Time
@@ -80,6 +81,18 @@ func WithClock(now func() time.Time) Option {
 
 func WithLimits(l Limits) Option {
 	return func(s *Service) { s.limits = func() Limits { return l } }
+}
+
+// FieldChecker reports field settings that name a field the items there do not have, or
+// one of the wrong kind.
+type FieldChecker interface {
+	CheckFields(w domain.Workflow) error
+}
+
+// WithFieldChecks checks field settings when a workflow is saved. Only saving: a workflow
+// saved before keeps running, and the next edit points at the field.
+func WithFieldChecks(c FieldChecker) Option {
+	return func(s *Service) { s.fields = c }
 }
 
 // WithWaits cancels waiting executions when a workflow is switched off, and lets users
@@ -441,6 +454,12 @@ func (s *Service) apply(w *domain.Workflow, def Definition) error {
 
 	if err := s.validator.Validate(candidate); err != nil {
 		return err
+	}
+
+	if s.fields != nil {
+		if err := s.fields.CheckFields(candidate); err != nil {
+			return err
+		}
 	}
 
 	*w = candidate

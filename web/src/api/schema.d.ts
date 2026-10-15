@@ -987,6 +987,13 @@ export interface components {
             credentialType?: string;
             default?: unknown;
             description?: string;
+            /**
+             * @description Field marks a string, or each element of a list, as a path to a field of the items
+             *     the node receives, like spread or outcomes.0.price. FieldKinds, when present, are
+             *     the kinds that field may be.
+             */
+            field?: boolean;
+            fieldKinds?: ("text" | "number" | "decimal" | "bool" | "time" | "list" | "object" | "any")[];
             /** @enum {string} */
             kind: "string" | "number" | "decimal" | "bool" | "list" | "duration" | "wallet" | "tokens" | "credential";
             label?: string;

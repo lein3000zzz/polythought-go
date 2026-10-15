@@ -3,6 +3,7 @@ package engine
 import (
 	"errors"
 	"fmt"
+	"slices"
 )
 
 // FieldKind is what a field of an item holds, as JSON.
@@ -18,6 +19,8 @@ const (
 	FieldObject  FieldKind = "object" // its fields are Fields
 	FieldAny     FieldKind = "any"
 )
+
+var fieldKinds = []FieldKind{FieldText, FieldNumber, FieldDecimal, FieldBool, FieldTime, FieldList, FieldObject, FieldAny}
 
 // Field describes a field of the items a node emits.
 type Field struct {
@@ -80,6 +83,26 @@ func checkItems(typ NodeType) error {
 
 	if err := checkFields(it.Fields, ""); err != nil {
 		return fail("%v", err)
+	}
+
+	return nil
+}
+
+// checkFieldParams keeps field params to text and lists of text, of real kinds.
+func checkFieldParams(typ NodeType) error {
+	for _, p := range typ.Params {
+		switch {
+		case !p.Field && len(p.FieldKinds) > 0:
+			return fmt.Errorf("register node type %q: param %q has field kinds but names no field", typ.Name, p.Name)
+		case p.Field && p.Kind != ParamString && p.Kind != ParamList:
+			return fmt.Errorf("register node type %q: param %q names a field, so it is text or a list, not %s", typ.Name, p.Name, p.Kind)
+		}
+
+		for _, k := range p.FieldKinds {
+			if !slices.Contains(fieldKinds, k) {
+				return fmt.Errorf("register node type %q: param %q: no field kind %q", typ.Name, p.Name, k)
+			}
+		}
 	}
 
 	return nil

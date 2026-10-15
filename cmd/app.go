@@ -425,7 +425,7 @@ func (a *app) initEngine(ctx context.Context, pmc polymarket) error {
 
 	a.workflows = workflows.New(postgres.NewWorkflows(a.db), executions, a.registry, executor, a.supervisor, a.util.Logger,
 		workflows.WithLiveLimits(func() workflows.Limits { return workflowLimits(a.settings.Current()) }),
-		workflows.WithWaits(a.waits))
+		workflows.WithWaits(a.waits), workflows.WithFieldChecks(a.registry))
 
 	if a.library, err = library.New(postgres.NewTemplates(a.db), a.workflows, a.registry, a.util.Logger); err != nil {
 		return err

@@ -62,7 +62,7 @@ func (*Dedupe) Type() engine.NodeType {
 		Items:   shape.Passed(),
 		Params: []engine.ParamSpec{
 			{
-				Name: "field", Label: "Identify items by", Kind: engine.ParamString, Default: "id",
+				Name: "field", Label: "Identify items by", Kind: engine.ParamString, Default: "id", Field: true,
 				Description: "The field that tells items apart, e.g. id, tokenId or txHash.",
 			},
 			{

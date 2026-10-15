@@ -22,7 +22,7 @@ Items that fail stop the execution, unless **Continue on failure** is on: then t
 
 | Setting | Kind | Required | Default | Description |
 |---|---|---|---|---|
-| Sort by (`field`) | text | yes |  | A numeric field, e.g. liquidity, volume24h or absChangePct. |
+| Sort by (`field`) | text | yes |  | A numeric field, e.g. liquidity, volume24h or absChangePct. Names a field of the items it receives, a number or decimal one; saving checks the items have it. |
 | Order (`order`) | text | no | `desc` | One of `desc`, `asc`. |
 | Keep (`limit`) | whole number | no | `10` | How many items to keep. |
 

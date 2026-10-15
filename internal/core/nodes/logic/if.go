@@ -44,7 +44,10 @@ func (If) Type() engine.NodeType {
 		Outputs:     []string{PortTrue, PortFalse},
 		Items:       shape.Passed(),
 		Params: []engine.ParamSpec{
-			{Name: "field", Label: "Field", Description: "Item field to compare, e.g. bestBid.", Kind: engine.ParamString, Required: true},
+			{
+				Name: "field", Label: "Field", Description: "Item field to compare, e.g. bestBid.", Kind: engine.ParamString, Required: true,
+				Field: true, FieldKinds: []engine.FieldKind{engine.FieldNumber, engine.FieldDecimal},
+			},
 			{Name: "operator", Label: "Operator", Kind: engine.ParamString, Default: "gt", Options: operatorNames},
 			{Name: "value", Label: "Value", Kind: engine.ParamDecimal, Required: true},
 		},

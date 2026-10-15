@@ -15,6 +15,11 @@ list on the left, the canvas in the middle and the selected node's settings on t
 - **Remove a connection**: select it and press Delete or Backspace.
 - **Change a node**: select it. Its settings open on the right, with a description of each.
   Changes apply as you type. Settings left empty use their default, shown in grey.
+- **Fields**: settings that name a field of the items, like If's **Field**, offer the
+  fields of the items the node receives as you type, with what each holds: only numbers
+  where it compares numbers. A field the items do not have is marked at once, with the one
+  you probably meant, like `bestBid` for `bestbid`. After a node that does not say what it
+  sends, any field goes.
 - **Notes** on a node are for you: they show on the canvas and never change what it does.
 - **Continue on failure** sends items the node fails on to its `error` port instead of
   failing the execution; see [When items fail](/docs/guides/concepts/#when-items-fail).
@@ -22,8 +27,10 @@ list on the left, the canvas in the middle and the selected node's settings on t
 ## Saving
 
 Press **Save**, or Ctrl+S (⌘S on a Mac). Each save makes a new version, shown at the top.
-The server checks the whole workflow when you save: a setting that is missing or wrong is
-marked in red on its node, and nothing is saved until it is fixed.
+The server checks the whole workflow when you save: a setting that is missing or wrong,
+or a field the items do not have, is marked in red on its node, and nothing is saved until
+it is fixed. Workflows saved before keep running as they are; the field check applies the
+next time you save them.
 
 If the workflow changed elsewhere since you opened it, say in another tab, the save is
 refused rather than overwriting the other change. Reload to get the latest version.

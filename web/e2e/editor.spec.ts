@@ -47,6 +47,8 @@ test('building, saving and running a workflow', async ({ page }) => {
 test('the server points at what is wrong', async ({ page }) => {
   const id = await createWorkflow(page, unique('problems'), [
     { id: 'manual', type: 'trigger.manual' },
+    { id: 'markets', type: 'polymarket.markets' },
+    { id: 'books', type: 'polymarket.orderbook' },
     { id: 'tight', type: 'logic.if', params: { field: 'spread', value: '0.02' } },
   ])
 
@@ -88,4 +90,53 @@ test('a save based on an old version is refused', async ({ page, context }) => {
   await expect(dialog.getByText('This workflow changed elsewhere')).toBeVisible()
   await dialog.getByRole('button', { name: 'Reload' }).click()
   await expect(page.getByLabel('Workflow name')).toHaveValue('saved in another tab')
+})
+
+test('field settings offer the fields there, and saving checks them', async ({ page }) => {
+  const nodes = (field: string) => [
+    { id: 'manual', type: 'trigger.manual', position: { x: 0, y: 0 } },
+    { id: 'markets', type: 'polymarket.markets', position: { x: 300, y: 0 } },
+    { id: 'deep', type: 'logic.if', params: { field, value: '1000' }, position: { x: 600, y: 0 } },
+  ]
+  const connections = [
+    { from: 'manual', fromPort: 'main', to: 'markets', toPort: 'main' },
+    { from: 'markets', fromPort: 'main', to: 'deep', toPort: 'main' },
+  ]
+
+  // The API checks too: a field the items lack is refused, with the one meant.
+  const refused = await page.request.post('/api/v1/workflows', {
+    data: { name: unique('fields'), nodes: nodes('liquidty'), connections },
+  })
+  expect(refused.status()).toBe(400)
+  expect(await refused.text()).toContain('no field \\"liquidty\\"; \\"liquidity\\"?')
+
+  const created = await page.request.post('/api/v1/workflows', {
+    data: { name: unique('fields'), nodes: nodes('liquidity'), connections },
+  })
+  expect(created.status(), await created.text()).toBe(201)
+  const { id } = (await created.json()) as { id: string }
+
+  await page.goto(`/workflows/${id}`)
+  await canvasNode(page, 'deep').click()
+  const field = page.getByRole('complementary', { name: 'Settings' }).getByLabel(/Field/)
+
+  // If compares numbers: only the markets' numbers are offered.
+  const offered = await page
+    .locator(`#${await field.getAttribute('list')} option`)
+    .evaluateAll((options) => options.map((o) => o.getAttribute('value')))
+  expect(offered).toContain('volume24h')
+  expect(offered).toContain('outcomes.0.price')
+  expect(offered).not.toContain('question')
+
+  await field.fill('liquidty')
+  await expect(
+    page.getByText('The items it receives have no field "liquidty"; "liquidity"?'),
+  ).toBeVisible()
+
+  await page.getByRole('button', { name: 'Save', exact: true }).click()
+  await expect(page.getByText(/Not saved: the workflow has problems/)).toBeVisible()
+
+  await field.fill('volume24h')
+  await page.getByRole('button', { name: 'Save', exact: true }).click()
+  await expect(page.getByText('Version 2')).toBeVisible()
 })

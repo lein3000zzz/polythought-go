@@ -12,13 +12,15 @@ import { Textarea } from '@/components/ui/textarea'
 import { shortAddress } from '@/lib/format'
 
 import { chosen, parseText, textOf } from './params'
+import type { FieldChoice } from './shapes'
 
 type Props = {
   spec: ParamSpec
   value: unknown
   onChange: (value: unknown) => void
-  problem?: string // from the server's last look at the workflow
+  problem?: string // from the server's last look at the workflow, or the editor's own
   scope?: string // keeps input IDs apart when several nodes' fields share a form
+  fields?: FieldChoice[] // for a field param: the fields of the items there, when known
 }
 
 /** The input for one node param, chosen by its kind. */
@@ -48,11 +50,18 @@ function TextField({
   problem,
   scope,
   multiline,
+  fields,
 }: Props & { multiline?: boolean }) {
   // The text is kept as typed: a value that does not parse yet still shows.
   const [text, setText] = useState(() => textOf(value))
   const parsed = parseText(spec, text)
   const id = fieldId(spec, scope)
+  const choices = fields?.length ? fields : undefined
+
+  const change = (next: string) => {
+    setText(next)
+    onChange(parseText(spec, next).value)
+  }
 
   const inputProps = {
     id,
@@ -61,10 +70,7 @@ function TextField({
       spec.default !== undefined ? `Default: ${textOf(spec.default)}` : placeholders[spec.kind],
     'aria-invalid': Boolean(parsed.problem ?? problem) || undefined,
     'aria-describedby': `${id}-hint`,
-    onChange: (e: { target: { value: string } }) => {
-      setText(e.target.value)
-      onChange(parseText(spec, e.target.value).value)
-    },
+    onChange: (e: { target: { value: string } }) => change(e.target.value),
   }
 
   return (
@@ -76,11 +82,44 @@ function TextField({
           inputMode={
             spec.kind === 'number' ? 'numeric' : spec.kind === 'decimal' ? 'decimal' : undefined
           }
+          list={choices && `${id}-fields`}
           {...inputProps}
         />
       )}
+
+      {choices && !multiline && (
+        <datalist id={`${id}-fields`}>
+          {choices.map((f) => (
+            <option key={f.path} value={f.path} label={choiceLabel(f)} />
+          ))}
+        </datalist>
+      )}
+
+      {choices && multiline && (
+        <NativeSelect
+          className="w-full"
+          size="sm"
+          aria-label={`Add a field to ${spec.label || spec.name}`}
+          value=""
+          onChange={(e) =>
+            change(text.trim() ? `${text.trimEnd()}\n${e.target.value}` : e.target.value)
+          }
+        >
+          <NativeSelectOption value="">Add a field…</NativeSelectOption>
+          {choices.map((f) => (
+            <NativeSelectOption key={f.path} value={f.path}>
+              {f.path} · {choiceLabel(f)}
+            </NativeSelectOption>
+          ))}
+        </NativeSelect>
+      )}
     </Field>
   )
+}
+
+// choiceLabel says what a field holds: its kind, and what it is.
+function choiceLabel(f: FieldChoice): string {
+  return f.description ? `${f.kind}: ${f.description}` : f.kind
 }
 
 function SelectField({ spec, value, onChange, problem, scope }: Props) {

@@ -75,8 +75,11 @@ func TestWorkflowRoutes(t *testing.T) {
 						}}},
 					}}}, Trigger: true},
 					{NodeType: engine.NodeType{Name: "logic.if", Label: "If", Inputs: []string{"main"}, Outputs: []string{"true", "false"},
-						Params: []engine.ParamSpec{{Name: "operator", Kind: engine.ParamString, Default: "gt", Options: []string{"gt", "lt"}}},
-						Items:  &engine.Items{Passed: true}}},
+						Params: []engine.ParamSpec{
+							{Name: "operator", Kind: engine.ParamString, Default: "gt", Options: []string{"gt", "lt"}},
+							{Name: "field", Kind: engine.ParamString, Field: true, FieldKinds: []engine.FieldKind{engine.FieldNumber, engine.FieldDecimal}},
+						},
+						Items: &engine.Items{Passed: true}}},
 					{NodeType: engine.NodeType{Name: "output.webhook", Inputs: []string{"main"}, Outputs: []string{"main"},
 						Params: []engine.ParamSpec{{Name: "credential", Kind: engine.ParamCredential, CredentialType: "http.header"}}}},
 				})
@@ -89,6 +92,7 @@ func TestWorkflowRoutes(t *testing.T) {
 					`{"name":"outcomes","kind":"list","optional":false,"nullable":false,"of":{"name":"","kind":"object","optional":false,"nullable":false,` +
 					`"fields":[{"name":"price","kind":"decimal","optional":false,"nullable":true}]}}],"passed":false}`,
 				`"items":{"fields":[],"passed":true}`,
+				`{"name":"field","kind":"string","required":false,"field":true,"fieldKinds":["number","decimal"]}`,
 			},
 		},
 		{

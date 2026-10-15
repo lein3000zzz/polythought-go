@@ -14,6 +14,6 @@ export function useNodeProblems(nodeId: string): Problem[] {
  * showing next to that node's field.
  */
 export function fieldMessage(p: Problem): string {
-  const message = p.message.replace(/^node "[^"]*":\s*(param "[^"]*"\s*)?/, '')
+  const message = p.message.replace(/^node "[^"]*":\s*(param "[^"]*":?\s*)?/, '')
   return message.charAt(0).toUpperCase() + message.slice(1)
 }

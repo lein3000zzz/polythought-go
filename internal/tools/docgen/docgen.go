@@ -190,6 +190,10 @@ func nodePage(t engine.TypeInfo, order int, credTypes []engine.CredentialType) s
 			notes = append(notes, "One of "+codes(p.Options)+".")
 		}
 
+		if p.Field {
+			notes = append(notes, fieldNote(p))
+		}
+
 		if p.Personal() {
 			notes = append(notes, "Personal: sharing the workflow leaves it out.")
 		}
@@ -268,6 +272,25 @@ func fieldKind(f engine.Field) string {
 	}
 
 	return kind
+}
+
+// fieldNote says a param names fields of the items, which saving checks.
+func fieldNote(p engine.ParamSpec) string {
+	what := "Names a field of the items it receives"
+	if p.Kind == engine.ParamList {
+		what = "Each names a field of the items it receives"
+	}
+
+	if len(p.FieldKinds) > 0 {
+		kinds := make([]string, len(p.FieldKinds))
+		for i, k := range p.FieldKinds {
+			kinds[i] = kindName(k)
+		}
+
+		what += ", a " + strings.Join(kinds, " or ") + " one"
+	}
+
+	return what + "; saving checks the items have it."
 }
 
 func kindName(k engine.FieldKind) string {
