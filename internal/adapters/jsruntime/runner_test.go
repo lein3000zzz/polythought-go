@@ -437,3 +437,40 @@ func TestPrelude(t *testing.T) {
 	var ce *domain.CodeError
 	assert.False(t, errors.As(err, &ce), "not the code's failure")
 }
+
+func TestBytecode(t *testing.T) {
+	t.Parallel()
+
+	ctx := context.Background()
+
+	r, err := jsruntime.New(ctx, observability.NoopUtility(), jsruntime.Config{Prelude: `globalThis.answer = 42`})
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = r.Close(ctx) })
+
+	assert.Equal(t, int64(1), jsruntime.Compiles(r), "the prelude, once, at start")
+
+	for range 3 {
+		res, err := r.Run(ctx, ports.CodeJob{Source: `function run() { return answer }`, Entry: "run"})
+		require.NoError(t, err)
+		assert.Equal(t, "42", string(res.Output))
+	}
+
+	assert.Equal(t, int64(2), jsruntime.Compiles(r), "code, the first time it comes")
+
+	_, err = r.Run(ctx, ports.CodeJob{Source: "function run() {\n  throw new Error('here')\n}", Entry: "run"})
+	ce := codeErr(t, err, domain.CodeThrew)
+	assert.Contains(t, ce.Stack, "code.js:2", "stack traces still point at the code")
+
+	_, err = r.Run(ctx, ports.CodeJob{Source: `function run( {`, Entry: "run"})
+	codeErr(t, err, domain.CodeThrew)
+	assert.Equal(t, int64(4), jsruntime.Compiles(r))
+
+	_, err = r.Run(ctx, ports.CodeJob{Source: `function run( {`, Entry: "run"})
+	codeErr(t, err, domain.CodeThrew)
+	assert.Equal(t, int64(5), jsruntime.Compiles(r), "what does not compile is not kept")
+
+	t.Run("a prelude that does not compile stops the runner from starting", func(t *testing.T) {
+		_, err := jsruntime.New(ctx, observability.NoopUtility(), jsruntime.Config{Prelude: `const = 1`})
+		require.ErrorContains(t, err, "jsruntime: the prelude does not compile: SyntaxError")
+	})
+}

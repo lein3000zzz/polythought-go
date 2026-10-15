@@ -7,6 +7,10 @@
 // A prelude, the host's own script such as the SDK, runs first. run calls the entry with
 // the input parsed from JSON, lets the promise it may return settle, and keeps the result
 // as JSON; or keeps what went wrong.
+//
+// Scripts arrive as bytecode: the host compiles each once, with compile, and runs it as
+// often as it likes without parsing it again. Only bytecode this engine made is ever read;
+// reading any other is unsafe.
 
 #include <malloc.h>
 #include <stdint.h>
@@ -318,14 +322,24 @@ static int settle(JSContext *ctx, JSContext **failed)
     }
 }
 
-static int32_t call(JSContext *ctx, const char *prelude, int32_t prelude_len, const char *source,
-                    int32_t source_len, const char *entry, const char *input, int32_t input_len)
+// load runs a script's bytecode.
+static JSValue load(JSContext *ctx, const uint8_t *bytes, int32_t len)
+{
+    JSValue fn = JS_ReadObject(ctx, bytes, (size_t)len, JS_READ_OBJ_BYTECODE);
+
+    if (JS_IsException(fn))
+        return fn;
+    return JS_EvalFunction(ctx, fn);
+}
+
+static int32_t call(JSContext *ctx, const uint8_t *prelude, int32_t prelude_len, const uint8_t *code,
+                    int32_t code_len, const char *entry, const char *input, int32_t input_len)
 {
     JSValue v, global, fn, arg, ret, json;
     JSContext *failed;
 
     if (prelude_len > 0) {
-        v = JS_Eval(ctx, prelude, (size_t)prelude_len, "prelude.js", JS_EVAL_TYPE_GLOBAL);
+        v = load(ctx, prelude, prelude_len);
         if (JS_IsException(v)) {
             int32_t status = threw(ctx);
             return status == RUN_THREW ? RUN_PRELUDE_FAILED : status;
@@ -333,7 +347,7 @@ static int32_t call(JSContext *ctx, const char *prelude, int32_t prelude_len, co
         JS_FreeValue(ctx, v);
     }
 
-    v = JS_Eval(ctx, source, (size_t)source_len, "code.js", JS_EVAL_TYPE_GLOBAL);
+    v = load(ctx, code, code_len);
     if (JS_IsException(v))
         return threw(ctx);
     JS_FreeValue(ctx, v);
@@ -409,33 +423,68 @@ int32_t result_length(void)
     return result_len;
 }
 
-// run runs prelude, when not empty, then source, and calls source's function entry with
-// input. All four end with a NUL byte, past their lengths. memory_limit bounds the
-// engine's allocations; stack_size the stack JavaScript may use, below the engine's own.
-EXPORT("run")
-int32_t run(const char *prelude, int32_t prelude_len, const char *source, int32_t source_len,
-            const char *entry, const char *input, int32_t input_len, uint32_t memory_limit,
-            uint32_t stack_size)
+// start makes the runtime a compile or a run works in. memory_limit bounds the engine's
+// allocations; stack_size the stack JavaScript may use, below the engine's own.
+static JSContext *start(uint32_t memory_limit, uint32_t stack_size)
 {
     JSRuntime *rt;
-    JSContext *ctx;
-    int32_t status;
 
     mem_limit = memory_limit;
 
     rt = JS_NewRuntime2(&counted_malloc, NULL);
     if (!rt)
-        return RUN_OUT_OF_MEMORY;
+        return NULL;
     JS_SetMaxStackSize(rt, stack_size);
     JS_SetInterruptHandler(rt, on_interrupt, NULL);
 
-    ctx = JS_NewContext(rt);
+    return JS_NewContext(rt);
+}
+
+// compile turns source into bytecode for run, kept as the result; or keeps what did not
+// parse, as run would have thrown it. source ends with a NUL byte, past its length;
+// filename is how stack traces will name it.
+EXPORT("compile")
+int32_t compile(const char *source, int32_t source_len, const char *filename, uint32_t memory_limit,
+                uint32_t stack_size)
+{
+    JSContext *ctx = start(memory_limit, stack_size);
+    JSValue fn;
+    uint8_t *bytes;
+    size_t len;
+
+    if (!ctx)
+        return RUN_OUT_OF_MEMORY;
+
+    fn = JS_Eval(ctx, source, (size_t)source_len, filename, JS_EVAL_TYPE_GLOBAL | JS_EVAL_FLAG_COMPILE_ONLY);
+    if (JS_IsException(fn))
+        return threw(ctx);
+
+    bytes = JS_WriteObject(ctx, &len, fn, JS_WRITE_OBJ_BYTECODE);
+    if (!bytes)
+        return threw(ctx);
+    keep((const char *)bytes, len);
+
+    if (out_of_time)
+        return RUN_OUT_OF_TIME;
+    return ran_out ? RUN_OUT_OF_MEMORY : RUN_OK;
+}
+
+// run runs the bytecode of prelude, when there is any, and of code, and calls code's
+// function entry with input. entry and input end with a NUL byte, past their lengths.
+EXPORT("run")
+int32_t run(const uint8_t *prelude, int32_t prelude_len, const uint8_t *code, int32_t code_len,
+            const char *entry, const char *input, int32_t input_len, uint32_t memory_limit,
+            uint32_t stack_size)
+{
+    JSContext *ctx = start(memory_limit, stack_size);
+    int32_t status;
+
     if (!ctx)
         return RUN_OUT_OF_MEMORY;
     if (add_globals(ctx) < 0)
         return threw(ctx);
 
-    status = call(ctx, prelude, prelude_len, source, source_len, entry, input, input_len);
+    status = call(ctx, prelude, prelude_len, code, code_len, entry, input, input_len);
     if (out_of_time)
         return RUN_OUT_OF_TIME;
     if (ran_out)

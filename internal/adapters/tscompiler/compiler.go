@@ -22,6 +22,7 @@ import (
 
 	"github.com/lein3000zzz/polythought-go/internal/core/domain"
 	"github.com/lein3000zzz/polythought-go/internal/core/ports"
+	"github.com/lein3000zzz/polythought-go/internal/lru"
 )
 
 const (
@@ -48,7 +49,7 @@ const (
 var _ ports.CodeCompiler = (*Compiler)(nil)
 
 type Compiler struct {
-	cache *cache
+	cache *lru.Cache[string, string] // scripts by the source's hash
 	kit   *redkit.Kit
 	scope tracing.Scope
 }
@@ -66,7 +67,7 @@ func New(util *observability.Utility) (*Compiler, error) {
 	}
 
 	return &Compiler{
-		cache: newCache(cacheSize),
+		cache: lru.New[string, string](cacheSize),
 		kit:   kit,
 		scope: tracing.Scope{Manager: util.TracerManager, TracerName: tracerName},
 	}, nil
@@ -90,7 +91,7 @@ func (c *Compiler) Compile(ctx context.Context, source string) (code ports.Compi
 		sum := sha256.Sum256([]byte(source))
 		hash := hex.EncodeToString(sum[:])
 
-		script, cached := c.cache.get(hash)
+		script, cached := c.cache.Get(hash)
 		span.SetAttributes(attribute.Bool("code.cached", cached))
 
 		if !cached {
@@ -98,7 +99,7 @@ func (c *Compiler) Compile(ctx context.Context, source string) (code ports.Compi
 				return ports.CompiledCode{}, err
 			}
 
-			c.cache.put(hash, script)
+			c.cache.Put(hash, script)
 		}
 
 		return ports.CompiledCode{Script: script, Exports: ExportsGlobal, Hash: hash, Invoke: InvokeGlobal}, nil

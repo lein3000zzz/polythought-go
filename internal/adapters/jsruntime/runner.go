@@ -3,12 +3,17 @@
 // instance of the engine, with no files, network, environment or arguments: only the
 // time, random numbers, a console and the host calls its job answers. Limits bound its
 // memory, time, output and host calls, and the instance is thrown away after each run.
+//
+// Scripts run as bytecode the engine made of them: the prelude once, at start, and each
+// job's code the first time it comes, then kept by its hash. Parsing is the slow part of
+// a short run.
 package jsruntime
 
 import (
 	"bytes"
 	"context"
 	"crypto/rand"
+	"crypto/sha256"
 	_ "embed"
 	"encoding/json"
 	"errors"
@@ -16,6 +21,7 @@ import (
 	"regexp"
 	"runtime"
 	"strings"
+	"sync/atomic"
 	"time"
 
 	"github.com/lein3000zzz/the-watchers/pkg/observability"
@@ -29,6 +35,7 @@ import (
 
 	"github.com/lein3000zzz/polythought-go/internal/core/domain"
 	"github.com/lein3000zzz/polythought-go/internal/core/ports"
+	"github.com/lein3000zzz/polythought-go/internal/lru"
 )
 
 //go:embed engine/engine.wasm
@@ -52,6 +59,8 @@ const (
 	maxLogs     = 100
 	maxLogBytes = 2000
 	maxReport   = 64 << 10 // bytes of an error report read back
+
+	bytecodeCacheSize = 256 // scripts
 )
 
 // DefaultLimits are the limits without Config.Limits.
@@ -71,13 +80,15 @@ const (
 var _ ports.CodeRunner = (*Runner)(nil)
 
 type Runner struct {
-	rt      wazero.Runtime
-	engine  wazero.CompiledModule
-	slots   chan struct{}
-	prelude string
-	limits  func() ports.CodeLimits
-	kit     *redkit.Kit
-	scope   tracing.Scope
+	rt       wazero.Runtime
+	engine   wazero.CompiledModule
+	slots    chan struct{}
+	prelude  []byte                       // bytecode
+	bytecode *lru.Cache[[32]byte, []byte] // of job code, by the source's SHA-256
+	compiles atomic.Int64                 // scripts compiled, for tests
+	limits   func() ports.CodeLimits
+	kit      *redkit.Kit
+	scope    tracing.Scope
 }
 
 type Config struct {
@@ -154,7 +165,30 @@ func newRunner(ctx context.Context, rt wazero.Runtime, cfg Config) (*Runner, err
 		limits = func() ports.CodeLimits { return DefaultLimits }
 	}
 
-	return &Runner{rt: rt, engine: engine, slots: make(chan struct{}, n), prelude: cfg.Prelude, limits: limits}, nil
+	r := &Runner{
+		rt: rt, engine: engine, slots: make(chan struct{}, n), limits: limits,
+		bytecode: lru.New[[32]byte, []byte](bytecodeCacheSize),
+	}
+
+	if cfg.Prelude != "" {
+		ctx, cancel := context.WithTimeout(ctx, time.Minute)
+		defer cancel()
+
+		st := &state{limits: DefaultLimits}
+
+		code, err := r.compile(ctx, cfg.Prelude, "prelude.js", st)
+		if err == nil && code == nil {
+			err = thrown(st.result)
+		}
+
+		if err != nil {
+			return nil, fmt.Errorf("jsruntime: the prelude does not compile: %v", err) //nolint:errorlint // ours, not code's
+		}
+
+		r.prelude = code
+	}
+
+	return r, nil
 }
 
 // Close releases the engine. Runs still going end.
@@ -207,7 +241,11 @@ func (r *Runner) run(ctx context.Context, job ports.CodeJob) (ports.CodeResult, 
 	defer cancel()
 
 	st := &state{host: job.Host, limits: limits}
-	err := r.call(context.WithValue(runCtx, stateKey{}, st), job, st, r.prelude)
+
+	code, err := r.code(runCtx, job.Source, st)
+	if err == nil && code != nil {
+		err = r.call(context.WithValue(runCtx, stateKey{}, st), job, st, code)
+	}
 
 	res := ports.CodeResult{Logs: st.logs, HostCalls: st.calls}
 	if st.droppedLogs > 0 {
@@ -249,14 +287,63 @@ func (r *Runner) run(ctx context.Context, job ports.CodeJob) (ports.CodeResult, 
 	}
 }
 
-// call runs the job in a fresh instance of the engine, leaving the outcome in st.
-func (r *Runner) call(ctx context.Context, job ports.CodeJob, st *state, prelude string) error {
-	mod, err := r.rt.InstantiateModule(ctx, r.engine, wazero.NewModuleConfig().
-		WithName("").
-		WithStartFunctions("_initialize").
-		WithSysWalltime().
-		WithSysNanotime().
-		WithRandSource(rand.Reader))
+// code is the bytecode of source, made the first time it comes. Source that does not
+// compile is nil, with what went wrong in st as a run would leave it.
+func (r *Runner) code(ctx context.Context, source string, st *state) ([]byte, error) {
+	key := sha256.Sum256([]byte(source))
+	if code, ok := r.bytecode.Get(key); ok {
+		return code, nil
+	}
+
+	code, err := r.compile(ctx, source, "code.js", st)
+	if err == nil && code != nil {
+		r.bytecode.Put(key, code)
+	}
+
+	return code, err
+}
+
+// compile makes bytecode of source in an instance of its own, named filename in stack
+// traces. Source that does not compile is nil, with what went wrong in st.
+func (r *Runner) compile(ctx context.Context, source, filename string, st *state) ([]byte, error) {
+	r.compiles.Add(1)
+
+	mod, err := r.instance(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	defer func() { _ = mod.Close(context.Background()) }()
+
+	var ptrs [2]uint32
+
+	for i, b := range [][]byte{[]byte(source), []byte(filename)} {
+		if ptrs[i], err = place(ctx, mod, b); err != nil || ptrs[i] == 0 {
+			st.noRoom = ptrs[i] == 0 && err == nil
+			return nil, err
+		}
+	}
+
+	out, err := mod.ExportedFunction("compile").Call(ctx,
+		uint64(ptrs[0]), uint64(len(source)), uint64(ptrs[1]), uint64(min(st.limits.Memory, MaxMemory)), jsStack)
+	if err != nil {
+		return nil, err
+	}
+
+	st.status = uint32(out[0])
+
+	if st.status != runOK {
+		return nil, st.read(ctx, mod)
+	}
+
+	code, _, err := result(ctx, mod, MaxMemory)
+
+	return code, err
+}
+
+// call runs the job's code in a fresh instance of the engine, leaving the outcome in st.
+func (r *Runner) call(ctx context.Context, job ports.CodeJob, st *state, code []byte) error {
+	mod, err := r.instance(ctx)
 	if err != nil {
 		return err
 	}
@@ -270,7 +357,7 @@ func (r *Runner) call(ctx context.Context, job ports.CodeJob, st *state, prelude
 
 	var ptrs [4]uint32
 
-	for i, b := range [][]byte{[]byte(prelude), []byte(job.Source), []byte(job.Entry), input} {
+	for i, b := range [][]byte{r.prelude, code, []byte(job.Entry), input} {
 		if ptrs[i], err = place(ctx, mod, b); err != nil || ptrs[i] == 0 {
 			st.noRoom = ptrs[i] == 0 && err == nil
 			return err
@@ -278,7 +365,7 @@ func (r *Runner) call(ctx context.Context, job ports.CodeJob, st *state, prelude
 	}
 
 	out, err := mod.ExportedFunction("run").Call(ctx,
-		uint64(ptrs[0]), uint64(len(prelude)), uint64(ptrs[1]), uint64(len(job.Source)), uint64(ptrs[2]),
+		uint64(ptrs[0]), uint64(len(r.prelude)), uint64(ptrs[1]), uint64(len(code)), uint64(ptrs[2]),
 		uint64(ptrs[3]), uint64(len(input)), uint64(min(st.limits.Memory, MaxMemory)), jsStack)
 	if err != nil {
 		return err
@@ -287,6 +374,16 @@ func (r *Runner) call(ctx context.Context, job ports.CodeJob, st *state, prelude
 	st.status = uint32(out[0])
 
 	return st.read(ctx, mod)
+}
+
+// instance is a fresh instance of the engine, for one compile or one run.
+func (r *Runner) instance(ctx context.Context) (api.Module, error) {
+	return r.rt.InstantiateModule(ctx, r.engine, wazero.NewModuleConfig().
+		WithName("").
+		WithStartFunctions("_initialize").
+		WithSysWalltime().
+		WithSysNanotime().
+		WithRandSource(rand.Reader))
 }
 
 // place copies b into the instance, with a NUL byte after it, and says where; 0 when
@@ -332,35 +429,43 @@ type state struct {
 
 // read copies the result out, unless it is too big to keep.
 func (st *state) read(ctx context.Context, mod api.Module) error {
-	ptr, err := mod.ExportedFunction("result_ptr").Call(ctx)
-	if err != nil {
-		return err
-	}
-
-	n, err := mod.ExportedFunction("result_len").Call(ctx)
-	if err != nil {
-		return err
-	}
-
-	st.resultLen = int(uint32(n[0]))
-
 	most := maxReport
 	if st.status == runOK {
 		most = st.limits.Output
 	}
 
-	if st.status == runOK && st.resultLen > most {
-		return nil
+	data, total, err := result(ctx, mod, most)
+	st.resultLen = total
+
+	if st.status == runOK && total > most {
+		return err // too big to keep
 	}
 
-	b, ok := mod.Memory().Read(uint32(ptr[0]), uint32(min(st.resultLen, most)))
+	st.result = data
+
+	return err
+}
+
+// result copies out up to most bytes of what the engine kept, and says how long it is.
+func result(ctx context.Context, mod api.Module, most int) ([]byte, int, error) {
+	ptr, err := mod.ExportedFunction("result_ptr").Call(ctx)
+	if err != nil {
+		return nil, 0, err
+	}
+
+	n, err := mod.ExportedFunction("result_len").Call(ctx)
+	if err != nil {
+		return nil, 0, err
+	}
+
+	total := int(uint32(n[0]))
+
+	b, ok := mod.Memory().Read(uint32(ptr[0]), uint32(min(total, most)))
 	if !ok {
-		return errors.New("jsruntime: the result is outside the engine's memory")
+		return nil, total, errors.New("jsruntime: the result is outside the engine's memory")
 	}
 
-	st.result = bytes.Clone(b)
-
-	return nil
+	return bytes.Clone(b), total, nil
 }
 
 func stateOf(ctx context.Context) *state {
