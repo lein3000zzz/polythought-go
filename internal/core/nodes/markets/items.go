@@ -11,9 +11,10 @@ import (
 
 var ErrNoOutcomes = errors.New("item has no outcomes with token ids")
 
-// marketItem is the JSON shape of a market. Decimals and times stay typed: they marshal
-// to strings and RFC 3339, and engine.Params reads either form back.
-func marketItem(m domain.Market) map[string]any {
+// MarketItem is the JSON shape of a market, in items and in the SDK's answers. Decimals
+// and times stay typed: they marshal to strings and RFC 3339, and engine.Params reads
+// either form back.
+func MarketItem(m domain.Market) map[string]any {
 	outcomes := make([]any, len(m.Outcomes))
 	for i, o := range m.Outcomes {
 		outcomes[i] = map[string]any{
@@ -44,7 +45,7 @@ type outcomeRef struct {
 	label   string
 }
 
-// outcomesOf reads the outcomes of a market item. It accepts the shape marketItem builds
+// outcomesOf reads the outcomes of a market item. It accepts the shape MarketItem builds
 // and the same data after a JSON round trip.
 func outcomesOf(item engine.Item) ([]outcomeRef, error) {
 	raw, ok := item.JSON["outcomes"].([]any)

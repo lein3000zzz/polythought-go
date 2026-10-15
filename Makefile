@@ -158,8 +158,22 @@ web-api: ## Regenerate the UI's API types from api/openapi.json
 	$(PNPM) --dir web gen:api
 
 .PHONY: web-check
-web-check: ## UI typecheck, lint, format, API types up to date, tests
+web-check: sdk-types-check ## UI typecheck, lint, format, API and SDK types up to date, tests
 	$(PNPM) --dir web check
+
+SDK_DIR := internal/adapters/tscompiler/sdk
+
+.PHONY: sdk-types
+sdk-types: ## Type-check the code SDK and regenerate its declarations (sdk/types/sdk.d.ts)
+	$(PNPM) --dir web exec tsc -p ../$(SDK_DIR)/tsconfig.json
+
+.PHONY: sdk-types-check
+sdk-types-check: ## Fail if the code SDK does not type-check, is not formatted, or its declarations are stale
+	$(PNPM) --dir web exec prettier --config .prettierrc.json --check ../$(SDK_DIR)/sdk.ts ../$(SDK_DIR)/big.d.mts
+	@tmp="$$(mktemp -d)"; \
+	$(PNPM) --dir web exec tsc -p ../$(SDK_DIR)/tsconfig.json --outDir "$$tmp" && diff -u $(SDK_DIR)/types/sdk.d.ts "$$tmp/sdk.d.ts"; \
+	status=$$?; rm -rf "$$tmp"; \
+	if [ $$status -ne 0 ]; then echo "$(SDK_DIR)/types/sdk.d.ts is stale: run make sdk-types"; exit 1; fi
 
 .PHONY: web-build
 web-build: ## Build the UI into web/dist

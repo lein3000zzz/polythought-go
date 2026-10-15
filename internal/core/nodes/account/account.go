@@ -114,25 +114,31 @@ func (n *Positions) Run(ctx context.Context, rc engine.RunContext, in engine.Por
 		}
 
 		for _, pos := range page.Items {
-			out.Add(engine.DefaultPort, engine.Item{Source: []engine.ItemRef{src}, JSON: map[string]any{
-				"walletId":      string(w.ID),
-				"address":       string(w.Address),
-				"marketId":      string(pos.MarketID),
-				"tokenId":       string(pos.TokenID),
-				"title":         pos.Title,
-				"outcome":       pos.Outcome,
-				"size":          pos.Size,
-				"avgPrice":      pos.AvgPrice,
-				"currentPrice":  pos.CurrentPrice,
-				"value":         pos.Value,
-				"realizedPnl":   pos.RealizedPnL,
-				"unrealizedPnl": pos.UnrealizedPnL,
-				"redeemable":    pos.Redeemable,
-			}})
+			out.Add(engine.DefaultPort, engine.Item{Source: []engine.ItemRef{src}, JSON: PositionItem(w, pos)})
 		}
 
 		return nil
 	})
+}
+
+// PositionItem is the JSON shape of a position in one of the owner's wallets, in items and
+// in the SDK's answers.
+func PositionItem(w domain.Wallet, pos domain.Position) map[string]any {
+	return map[string]any{
+		"walletId":      string(w.ID),
+		"address":       string(w.Address),
+		"marketId":      string(pos.MarketID),
+		"tokenId":       string(pos.TokenID),
+		"title":         pos.Title,
+		"outcome":       pos.Outcome,
+		"size":          pos.Size,
+		"avgPrice":      pos.AvgPrice,
+		"currentPrice":  pos.CurrentPrice,
+		"value":         pos.Value,
+		"realizedPnl":   pos.RealizedPnL,
+		"unrealizedPnl": pos.UnrealizedPnL,
+		"redeemable":    pos.Redeemable,
+	}
 }
 
 // credentials resolves a wallet's credentials, telling "none stored" apart.

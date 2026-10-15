@@ -68,35 +68,48 @@ func (n *Search) Run(ctx context.Context, rc engine.RunContext, in engine.Ports)
 			return nil, err
 		}
 
-		page, err := n.events.ListEvents(ctx, ports.EventFilter{Title: query, Limit: limit, Closed: &closed})
+		found, err := SearchMarkets(ctx, n.events, query, limit, closed)
 		if err != nil {
 			out.Fail(item, src, err)
 			continue
 		}
 
-		found := 0
-
-	events:
-		for _, e := range page.Items {
-			for _, m := range e.Markets {
-				if found == limit {
-					break events
-				}
-
-				// An open event can hold markets that already closed, like past dates.
-				if !closed && m.Status != domain.MarketOpen {
-					continue
-				}
-
-				j := marketItem(m)
-				j["event"] = e.Title
-				j["eventSlug"] = e.Slug
-
-				out.Add(engine.DefaultPort, engine.Item{JSON: j, Source: []engine.ItemRef{src}})
-				found++
-			}
+		for _, j := range found {
+			out.Add(engine.DefaultPort, engine.Item{JSON: j, Source: []engine.ItemRef{src}})
 		}
 	}
 
 	return out, nil
+}
+
+// SearchMarkets finds up to limit markets by words in their event's title, open ones or
+// closed ones, shaped like MarketItem with their event's title and slug.
+func SearchMarkets(ctx context.Context, events ports.EventReader, query string, limit int, closed bool) ([]map[string]any, error) {
+	page, err := events.ListEvents(ctx, ports.EventFilter{Title: query, Limit: limit, Closed: &closed})
+	if err != nil {
+		return nil, err
+	}
+
+	found := make([]map[string]any, 0, limit)
+
+	for _, e := range page.Items {
+		for _, m := range e.Markets {
+			if len(found) == limit {
+				return found, nil
+			}
+
+			// An open event can hold markets that already closed, like past dates.
+			if !closed && m.Status != domain.MarketOpen {
+				continue
+			}
+
+			j := MarketItem(m)
+			j["event"] = e.Title
+			j["eventSlug"] = e.Slug
+
+			found = append(found, j)
+		}
+	}
+
+	return found, nil
 }

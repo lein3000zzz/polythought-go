@@ -4,8 +4,9 @@
 // thrown away, so nothing here frees what it allocates at the end.
 //
 // The code is a script that defines its entry function at the top, or in an object there.
-// run calls it with the input parsed from JSON, lets the promise it may return settle,
-// and keeps the result as JSON; or keeps what went wrong.
+// A prelude, the host's own script such as the SDK, runs first. run calls the entry with
+// the input parsed from JSON, lets the promise it may return settle, and keeps the result
+// as JSON; or keeps what went wrong.
 
 #include <malloc.h>
 #include <stdint.h>
@@ -35,6 +36,7 @@ enum {
     RUN_OUT_OF_TIME = 3,
     RUN_NO_ENTRY = 4,      // the entry is not a function
     RUN_PENDING = 5,       // it returned a promise that never settles
+    RUN_PRELUDE_FAILED = 6, // the result says how, as for RUN_THREW
 };
 
 // Memory: the engine's allocations count against a limit. Refusing one makes the engine
@@ -316,11 +318,20 @@ static int settle(JSContext *ctx, JSContext **failed)
     }
 }
 
-static int32_t call(JSContext *ctx, const char *source, int32_t source_len, const char *entry,
-                    const char *input, int32_t input_len)
+static int32_t call(JSContext *ctx, const char *prelude, int32_t prelude_len, const char *source,
+                    int32_t source_len, const char *entry, const char *input, int32_t input_len)
 {
     JSValue v, global, fn, arg, ret, json;
     JSContext *failed;
+
+    if (prelude_len > 0) {
+        v = JS_Eval(ctx, prelude, (size_t)prelude_len, "prelude.js", JS_EVAL_TYPE_GLOBAL);
+        if (JS_IsException(v)) {
+            int32_t status = threw(ctx);
+            return status == RUN_THREW ? RUN_PRELUDE_FAILED : status;
+        }
+        JS_FreeValue(ctx, v);
+    }
 
     v = JS_Eval(ctx, source, (size_t)source_len, "code.js", JS_EVAL_TYPE_GLOBAL);
     if (JS_IsException(v))
@@ -398,12 +409,13 @@ int32_t result_length(void)
     return result_len;
 }
 
-// run runs source and calls its function entry with input. source, entry and input end
-// with a NUL byte, past their lengths. memory_limit bounds the engine's allocations;
-// stack_size the stack JavaScript may use, below the engine's own.
+// run runs prelude, when not empty, then source, and calls source's function entry with
+// input. All four end with a NUL byte, past their lengths. memory_limit bounds the
+// engine's allocations; stack_size the stack JavaScript may use, below the engine's own.
 EXPORT("run")
-int32_t run(const char *source, int32_t source_len, const char *entry, const char *input,
-            int32_t input_len, uint32_t memory_limit, uint32_t stack_size)
+int32_t run(const char *prelude, int32_t prelude_len, const char *source, int32_t source_len,
+            const char *entry, const char *input, int32_t input_len, uint32_t memory_limit,
+            uint32_t stack_size)
 {
     JSRuntime *rt;
     JSContext *ctx;
@@ -423,7 +435,7 @@ int32_t run(const char *source, int32_t source_len, const char *entry, const cha
     if (add_globals(ctx) < 0)
         return threw(ctx);
 
-    status = call(ctx, source, source_len, entry, input, input_len);
+    status = call(ctx, prelude, prelude_len, source, source_len, entry, input, input_len);
     if (out_of_time)
         return RUN_OUT_OF_TIME;
     if (ran_out)

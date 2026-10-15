@@ -59,7 +59,7 @@ func (n *Markets) Run(ctx context.Context, rc engine.RunContext, in engine.Ports
 		}
 
 		for _, m := range page.Items {
-			out.Add(engine.DefaultPort, engine.Item{JSON: marketItem(m), Source: []engine.ItemRef{src}})
+			out.Add(engine.DefaultPort, engine.Item{JSON: MarketItem(m), Source: []engine.ItemRef{src}})
 		}
 	}
 

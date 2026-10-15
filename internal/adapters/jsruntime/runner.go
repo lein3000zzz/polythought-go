@@ -65,23 +65,29 @@ const (
 	runOutOfTime
 	runNoEntry
 	runPending
+	runPreludeFailed
 )
 
 var _ ports.CodeRunner = (*Runner)(nil)
 
 type Runner struct {
-	rt     wazero.Runtime
-	engine wazero.CompiledModule
-	slots  chan struct{}
-	limits func() ports.CodeLimits
-	kit    *redkit.Kit
-	scope  tracing.Scope
+	rt      wazero.Runtime
+	engine  wazero.CompiledModule
+	slots   chan struct{}
+	prelude string
+	limits  func() ports.CodeLimits
+	kit     *redkit.Kit
+	scope   tracing.Scope
 }
 
 type Config struct {
 	// Concurrency is how many runs may go at once; more wait their turn. Zero means one
 	// per CPU.
 	Concurrency int
+
+	// Prelude runs before every job's code, in the same instance: the host's own
+	// script, such as the SDK. Its allocations count against the job's memory.
+	Prelude string
 
 	// Limits are the most a run may use, and what it gets when its job sets no limit;
 	// a job may ask for less. Asked before every run, so changes apply at once. Nil, or
@@ -148,7 +154,7 @@ func newRunner(ctx context.Context, rt wazero.Runtime, cfg Config) (*Runner, err
 		limits = func() ports.CodeLimits { return DefaultLimits }
 	}
 
-	return &Runner{rt: rt, engine: engine, slots: make(chan struct{}, n), limits: limits}, nil
+	return &Runner{rt: rt, engine: engine, slots: make(chan struct{}, n), prelude: cfg.Prelude, limits: limits}, nil
 }
 
 // Close releases the engine. Runs still going end.
@@ -201,7 +207,7 @@ func (r *Runner) run(ctx context.Context, job ports.CodeJob) (ports.CodeResult, 
 	defer cancel()
 
 	st := &state{host: job.Host, limits: limits}
-	err := r.call(context.WithValue(runCtx, stateKey{}, st), job, st)
+	err := r.call(context.WithValue(runCtx, stateKey{}, st), job, st, r.prelude)
 
 	res := ports.CodeResult{Logs: st.logs, HostCalls: st.calls}
 	if st.droppedLogs > 0 {
@@ -236,13 +242,15 @@ func (r *Runner) run(ctx context.Context, job ports.CodeJob) (ports.CodeResult, 
 		return res, codeError(domain.CodeNoEntry, "the code defines no function named %s", job.Entry)
 	case runPending:
 		return res, codeError(domain.CodeNeverSettled, "the code returned a promise that never settles: there are no timers or events to wait for")
+	case runPreludeFailed:
+		return res, fmt.Errorf("jsruntime: the prelude failed: %v", thrown(st.result)) //nolint:errorlint // the host's failure, not the code's
 	default:
 		return res, codeError(domain.CodeCrashed, "the engine answered %d", st.status)
 	}
 }
 
 // call runs the job in a fresh instance of the engine, leaving the outcome in st.
-func (r *Runner) call(ctx context.Context, job ports.CodeJob, st *state) error {
+func (r *Runner) call(ctx context.Context, job ports.CodeJob, st *state, prelude string) error {
 	mod, err := r.rt.InstantiateModule(ctx, r.engine, wazero.NewModuleConfig().
 		WithName("").
 		WithStartFunctions("_initialize").
@@ -260,9 +268,9 @@ func (r *Runner) call(ctx context.Context, job ports.CodeJob, st *state) error {
 		input = []byte("null")
 	}
 
-	var ptrs [3]uint32
+	var ptrs [4]uint32
 
-	for i, b := range [][]byte{[]byte(job.Source), []byte(job.Entry), input} {
+	for i, b := range [][]byte{[]byte(prelude), []byte(job.Source), []byte(job.Entry), input} {
 		if ptrs[i], err = place(ctx, mod, b); err != nil || ptrs[i] == 0 {
 			st.noRoom = ptrs[i] == 0 && err == nil
 			return err
@@ -270,8 +278,8 @@ func (r *Runner) call(ctx context.Context, job ports.CodeJob, st *state) error {
 	}
 
 	out, err := mod.ExportedFunction("run").Call(ctx,
-		uint64(ptrs[0]), uint64(len(job.Source)), uint64(ptrs[1]), uint64(ptrs[2]), uint64(len(input)),
-		uint64(min(st.limits.Memory, MaxMemory)), jsStack)
+		uint64(ptrs[0]), uint64(len(prelude)), uint64(ptrs[1]), uint64(len(job.Source)), uint64(ptrs[2]),
+		uint64(ptrs[3]), uint64(len(input)), uint64(min(st.limits.Memory, MaxMemory)), jsStack)
 	if err != nil {
 		return err
 	}

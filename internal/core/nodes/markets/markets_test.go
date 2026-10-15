@@ -147,7 +147,7 @@ func TestMarketsNodeStopsWhenCancelled(t *testing.T) {
 func marketInput(markets ...domain.Market) engine.Ports {
 	items := make([]engine.Item, len(markets))
 	for i, m := range markets {
-		items[i] = engine.Item{JSON: marketItem(m)}
+		items[i] = engine.Item{JSON: MarketItem(m)}
 	}
 
 	return engine.Ports{engine.DefaultPort: items}
@@ -287,7 +287,7 @@ func TestOutcomesOf(t *testing.T) {
 	m := market("0xa", "t1", "t2")
 
 	roundTripped := func() engine.Item {
-		raw, err := json.Marshal(marketItem(m))
+		raw, err := json.Marshal(MarketItem(m))
 		require.NoError(t, err)
 
 		var j map[string]any
@@ -302,9 +302,9 @@ func TestOutcomesOf(t *testing.T) {
 		want    []outcomeRef
 		wantErr bool
 	}{
-		{name: "market item", item: engine.Item{JSON: marketItem(m)}, want: []outcomeRef{{"t1", "Yes"}, {"t2", "No"}}},
+		{name: "market item", item: engine.Item{JSON: MarketItem(m)}, want: []outcomeRef{{"t1", "Yes"}, {"t2", "No"}}},
 		{name: "after a json round trip", item: roundTripped(), want: []outcomeRef{{"t1", "Yes"}, {"t2", "No"}}},
-		{name: "outcomes without tokens", item: engine.Item{JSON: marketItem(domain.Market{Outcomes: []domain.Outcome{{Label: "Yes"}}})}, wantErr: true},
+		{name: "outcomes without tokens", item: engine.Item{JSON: MarketItem(domain.Market{Outcomes: []domain.Outcome{{Label: "Yes"}}})}, wantErr: true},
 		{name: "no outcomes field", item: engine.Item{JSON: map[string]any{}}, wantErr: true},
 		{name: "malformed outcome", item: engine.Item{JSON: map[string]any{"outcomes": []any{"nope"}}}, wantErr: true},
 	}

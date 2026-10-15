@@ -131,8 +131,8 @@ func bookItem(market engine.Item, o outcomeRef, b domain.OrderBook, depth int) m
 		"bestAsk":  nil,
 		"mid":      nil,
 		"spread":   nil,
-		"bidDepth": sumSize(b.Bids, depth),
-		"askDepth": sumSize(b.Asks, depth),
+		"bidDepth": SumSize(b.Bids, depth),
+		"askDepth": SumSize(b.Asks, depth),
 		"at":       b.At,
 	}
 
@@ -155,7 +155,8 @@ func bookItem(market engine.Item, o outcomeRef, b domain.OrderBook, depth int) m
 	return j
 }
 
-func sumSize(levels []domain.Level, depth int) decimal.Decimal {
+// SumSize is the size of the first depth levels of a book's side.
+func SumSize(levels []domain.Level, depth int) decimal.Decimal {
 	sum := decimal.Zero
 	for _, l := range levels[:min(depth, len(levels))] {
 		sum = sum.Add(l.Size)

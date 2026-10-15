@@ -17,6 +17,31 @@ type CompiledCode struct {
 	Script  string
 	Exports string // the global the exports go in
 	Hash    string // of the source
+
+	// Invoke is the SDK's function that calls an export with a CodeInvocation as the
+	// input: what a CodeJob of code using the SDK names as its entry.
+	Invoke string
+}
+
+// CodeInvocation is the input of CompiledCode.Invoke: an export of the code to call, with
+// its arguments, after which comes the context the SDK makes of Context.
+type CodeInvocation struct {
+	Exports string      `json:"exports"`
+	Export  string      `json:"export"`
+	Args    []any       `json:"args"`
+	Context CodeContext `json:"context"`
+}
+
+// CodeContext is what the SDK's context holds.
+type CodeContext struct {
+	Params    map[string]any `json:"params"`
+	Execution CodeExecution  `json:"execution"`
+}
+
+type CodeExecution struct {
+	ID         string    `json:"id"`
+	WorkflowID string    `json:"workflowId"`
+	StartedAt  time.Time `json:"startedAt"`
 }
 
 // Entry is what a CodeJob calls to run the export named name.

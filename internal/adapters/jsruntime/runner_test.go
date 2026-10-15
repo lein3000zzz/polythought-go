@@ -405,3 +405,35 @@ func TestConfiguredLimits(t *testing.T) {
 	require.NoError(t, err, "unset limits are the defaults")
 	assert.Equal(t, "1", string(res.Output))
 }
+
+func TestPrelude(t *testing.T) {
+	t.Parallel()
+
+	ctx := context.Background()
+
+	r, err := jsruntime.New(ctx, observability.NoopUtility(), jsruntime.Config{
+		Prelude: `globalThis.answer = 42; const hidden = __host; delete globalThis.__host; globalThis.ask = (n) => hidden(n)`,
+	})
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = r.Close(ctx) })
+
+	host := func(_ context.Context, name string, _ json.RawMessage) (json.RawMessage, error) {
+		return json.RawMessage(fmt.Sprintf("%q", name)), nil
+	}
+
+	res, err := r.Run(ctx, ports.CodeJob{
+		Source: `function run() { return [answer, typeof __host, ask("through the prelude")] }`, Entry: "run", Host: host,
+	})
+	require.NoError(t, err)
+	assert.JSONEq(t, `[42, "undefined", "through the prelude"]`, string(res.Output), "it runs first, and can keep things to itself")
+
+	broken, err := jsruntime.New(ctx, observability.NoopUtility(), jsruntime.Config{Prelude: `throw new Error("not today")`})
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = broken.Close(ctx) })
+
+	_, err = broken.Run(ctx, ports.CodeJob{Source: `function run() {}`, Entry: "run"})
+	require.EqualError(t, err, "jsruntime: the prelude failed: Error: not today")
+
+	var ce *domain.CodeError
+	assert.False(t, errors.As(err, &ce), "not the code's failure")
+}

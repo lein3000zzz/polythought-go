@@ -36,6 +36,9 @@ const (
 	// ExportsGlobal is where compiled code puts its exports.
 	ExportsGlobal = "__polythought_code"
 
+	// InvokeGlobal is the SDK's function that runs an export (sdk/sdk.ts).
+	InvokeGlobal = "__polythought_invoke"
+
 	// MaxSource is the largest source compiled, in bytes.
 	MaxSource = 256 << 10
 
@@ -98,7 +101,7 @@ func (c *Compiler) Compile(ctx context.Context, source string) (code ports.Compi
 			c.cache.put(hash, script)
 		}
 
-		return ports.CompiledCode{Script: script, Exports: ExportsGlobal, Hash: hash}, nil
+		return ports.CompiledCode{Script: script, Exports: ExportsGlobal, Hash: hash, Invoke: InvokeGlobal}, nil
 	})
 }
 
