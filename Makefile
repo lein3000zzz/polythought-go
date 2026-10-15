@@ -167,6 +167,16 @@ web-build: ## Build the UI into web/dist
 
 ## Docs site (docs/, needs Node 22)
 
+.PHONY: jsruntime-wasm
+jsruntime-wasm: ## Rebuild the JavaScript engine for user code from pinned QuickJS-NG sources (Docker)
+	sh internal/adapters/jsruntime/engine/build.sh
+
+.PHONY: jsruntime-check
+jsruntime-check: ## Fail if the committed JavaScript engine is not what its sources build (Docker)
+	@wasm=internal/adapters/jsruntime/engine/engine.wasm; before="$$(shasum -a 256 $$wasm)"; \
+	sh internal/adapters/jsruntime/engine/build.sh >/dev/null; \
+	if [ "$$before" != "$$(shasum -a 256 $$wasm)" ]; then echo "$$wasm was stale and has been rebuilt"; exit 1; fi
+
 .PHONY: docs-install
 docs-install: ## Install the docs site's dependencies
 	$(PNPM) --dir docs install --frozen-lockfile
