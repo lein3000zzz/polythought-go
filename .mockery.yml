@@ -95,6 +95,7 @@ packages:
       WalletService: {}
       WorkflowService: {}
       NodeTypes: {}
+      CodeTypes: {}
       EventService: {}
       LibraryService: {}
       SettingsService: {}

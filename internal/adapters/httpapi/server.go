@@ -85,6 +85,7 @@ type Services struct {
 	Wallets     WalletService
 	Workflows   WorkflowService
 	NodeTypes   NodeTypes
+	CodeTypes   CodeTypes
 	Events      EventService
 	Library     LibraryService
 	Settings    SettingsService
@@ -116,6 +117,7 @@ type Server struct {
 	wallets       WalletService
 	workflows     WorkflowService
 	nodeTypes     NodeTypes
+	codeTypes     CodeTypes
 	events        EventService
 	library       LibraryService
 	settings      SettingsService
@@ -177,6 +179,7 @@ func New(cfg Config, util *observability.Utility, services Services) (*Server, e
 		wallets:       services.Wallets,
 		workflows:     services.Workflows,
 		nodeTypes:     services.NodeTypes,
+		codeTypes:     services.CodeTypes,
 		events:        services.Events,
 		library:       services.Library,
 		settings:      services.Settings,
@@ -274,6 +277,7 @@ func (s *Server) routes() {
 	v1.PUT("/notifications/:key", s.requireAuth, s.setNotification)
 
 	v1.GET("/node-types", s.requireAuth, s.listNodeTypes)
+	v1.GET("/code/types", s.requireAuth, s.getCodeTypes)
 	v1.GET("/events", s.requireAuth, s.streamEvents)
 
 	wf := v1.Group("/workflows", s.requireAuth)

@@ -8,20 +8,30 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/lein3000zzz/the-watchers/pkg/observability/logging"
+
+	"github.com/lein3000zzz/polythought-go/internal/adapters/tscompiler"
 	"github.com/lein3000zzz/polythought-go/internal/core/engine"
+	"github.com/lein3000zzz/polythought-go/internal/core/nodes"
 )
 
 // The reference pages on disk must be what the code generates now.
 func TestReferenceIsCurrent(t *testing.T) {
 	dir := filepath.Join("..", "..", "..", "docs", "src", "content", "docs", "reference")
 
-	pages, err := build()
+	pages, types, err := build()
 	require.NoError(t, err)
 
 	for path, want := range pages {
 		got, err := os.ReadFile(filepath.Join(dir, path))
 		require.NoError(t, err, "%s is missing: run make docs-gen", path)
 		assert.Equal(t, want, string(got), "%s is stale: run make docs-gen", path)
+	}
+
+	for name, want := range types {
+		got, err := os.ReadFile(filepath.Join("..", "..", "..", typesDir, name))
+		require.NoError(t, err, "%s is missing: run make docs-gen", name)
+		assert.Equal(t, want, string(got), "%s is stale: run make docs-gen", name)
 	}
 
 	onDisk, err := generatedFiles(dir)
@@ -35,7 +45,7 @@ func TestReferenceIsCurrent(t *testing.T) {
 }
 
 func TestEveryNodeHasAPage(t *testing.T) {
-	pages, err := build()
+	pages, _, err := build()
 	require.NoError(t, err)
 
 	assert.Contains(t, pages, "nodes/triggers/market.md", "the market trigger is documented though it needs a feed")
@@ -43,6 +53,9 @@ func TestEveryNodeHasAPage(t *testing.T) {
 	assert.Contains(t, pages, "nodes.md")
 	assert.Contains(t, pages, "settings.md")
 	assert.Contains(t, pages["credential-types.md"], "Used by: [Webhook](/docs/reference/nodes/output/webhook/).")
+
+	assert.Contains(t, pages, "code-types.md")
+	assert.Contains(t, pages["code-types.md"], "export interface PolymarketMarketsItem {")
 
 	_, err = Generate([]engine.TypeInfo{{NodeType: engine.NodeType{Name: "mystery.box"}}}, nil, nil)
 	require.ErrorContains(t, err, `node type "mystery.box" fits no group`)
@@ -62,4 +75,18 @@ func TestText(t *testing.T) {
 	assert.Equal(t, "orderbook", slug("polymarket.orderbook"))
 	assert.Equal(t, `Bearer &lt;token&gt; \| more`, cell("Bearer <token> | more"))
 	assert.Equal(t, "http-header", anchor("HTTP header"))
+}
+
+func TestTypeNamesAreUnique(t *testing.T) {
+	registry := engine.NewRegistry()
+	require.NoError(t, nodes.Register(registry, nodes.Deps{
+		Feed: noFeed{}, Messenger: noTelegram{}, TelegramInbox: noTelegram{}, Asker: noTelegram{}, Logger: logging.Noop(),
+	}))
+
+	seen := map[string]string{}
+	for _, typ := range registry.Types() {
+		name := tscompiler.TypeName(typ.Name)
+		assert.Empty(t, seen[name], "%s and %s are both %s in TypeScript", seen[name], typ.Name, name)
+		seen[name] = typ.Name
+	}
 }

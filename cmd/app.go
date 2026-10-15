@@ -280,6 +280,16 @@ func waitLimits(s *settings.Snapshot) engine.WaitLimits {
 	}
 }
 
+// codeTypes declares what code is written against: the SDK and the node types, the same
+// for every user until custom nodes come.
+type codeTypes struct {
+	registry *engine.Registry
+}
+
+func (c codeTypes) Declarations(context.Context, auth.Principal) []ports.CodeFile {
+	return tscompiler.Declarations(c.registry.Types())
+}
+
 // codeLimits are the most one run of user code may use.
 func codeLimits(s *settings.Snapshot) ports.CodeLimits {
 	return ports.CodeLimits{

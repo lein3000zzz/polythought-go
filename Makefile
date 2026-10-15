@@ -168,8 +168,9 @@ sdk-types: ## Type-check the code SDK and regenerate its declarations (sdk/types
 	$(PNPM) --dir web exec tsc -p ../$(SDK_DIR)/tsconfig.json
 
 .PHONY: sdk-types-check
-sdk-types-check: ## Fail if the code SDK does not type-check, is not formatted, or its declarations are stale
-	$(PNPM) --dir web exec prettier --config .prettierrc.json --check ../$(SDK_DIR)/sdk.ts ../$(SDK_DIR)/big.d.mts
+sdk-types-check: ## Fail if the code SDK or the node declarations do not type-check, or the SDK's are stale
+	$(PNPM) --dir web exec prettier --config .prettierrc.json --check ../$(SDK_DIR)/sdk.ts ../$(SDK_DIR)/big.d.mts ../$(SDK_DIR)/types-example.ts
+	$(PNPM) --dir web exec tsc -p ../$(SDK_DIR)/tsconfig.types.json
 	@tmp="$$(mktemp -d)"; \
 	$(PNPM) --dir web exec tsc -p ../$(SDK_DIR)/tsconfig.json --outDir "$$tmp" && diff -u $(SDK_DIR)/types/sdk.d.ts "$$tmp/sdk.d.ts"; \
 	status=$$?; rm -rf "$$tmp"; \

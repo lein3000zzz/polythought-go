@@ -103,6 +103,38 @@
                 ],
                 "type": "object"
             },
+            "CodeFile": {
+                "properties": {
+                    "content": {
+                        "type": "string"
+                    },
+                    "path": {
+                        "description": "Path is the file's in the @polythought/sdk package, like index.d.ts.",
+                        "type": "string"
+                    }
+                },
+                "required": [
+                    "content",
+                    "path"
+                ],
+                "type": "object"
+            },
+            "CodeTypes": {
+                "properties": {
+                    "files": {
+                        "description": "Files of @polythought/sdk, for an editor to load as that package: index.d.ts\nexports the others.",
+                        "items": {
+                            "$ref": "#/components/schemas/CodeFile"
+                        },
+                        "type": "array",
+                        "uniqueItems": false
+                    }
+                },
+                "required": [
+                    "files"
+                ],
+                "type": "object"
+            },
             "Connection": {
                 "properties": {
                     "from": {
@@ -2479,6 +2511,45 @@
                 "summary": "Create an account",
                 "tags": [
                     "auth"
+                ]
+            }
+        },
+        "/code/types": {
+            "get": {
+                "operationId": "getCodeTypes",
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/CodeTypes"
+                                }
+                            }
+                        },
+                        "description": "OK"
+                    },
+                    "401": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "unauthenticated"
+                    }
+                },
+                "security": [
+                    {
+                        "SessionCookie": []
+                    },
+                    {
+                        "APIToken": []
+                    }
+                ],
+                "summary": "Types for code",
+                "tags": [
+                    "code"
                 ]
             }
         },

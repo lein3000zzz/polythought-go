@@ -53,7 +53,8 @@ func serve(ctx context.Context) error {
 		TrustedProxies: proxies,
 	}, a.util, httpapi.Services{
 		Auth: a.auth, Wallets: a.wallets, Workflows: a.workflows, NodeTypes: a.registry, Events: a.events,
-		Library: a.library, Settings: a.settings, Credentials: a.credentials,
+		CodeTypes: codeTypes{registry: a.registry},
+		Library:   a.library, Settings: a.settings, Credentials: a.credentials,
 		Telegram: a.telegram, TelegramWebhook: a.telegramBot, Notifications: a.notify,
 	})
 	if err != nil {

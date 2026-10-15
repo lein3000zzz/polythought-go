@@ -90,3 +90,9 @@ type CodeLog struct {
 	Level string // log, info, warn or error
 	Text  string
 }
+
+// CodeFile is a file of type declarations, by its path in the package an editor loads.
+type CodeFile struct {
+	Path    string
+	Content string
+}

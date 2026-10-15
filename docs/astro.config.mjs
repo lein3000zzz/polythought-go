@@ -30,6 +30,7 @@ export default defineConfig({
           items: [
             'reference/settings',
             'reference/credential-types',
+            'reference/code-types',
             {
               label: 'Nodes',
               items: [

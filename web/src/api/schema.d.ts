@@ -177,6 +177,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/code/types": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Types for code */
+        get: operations["getCodeTypes"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/credential-types": {
         parameters: {
             query?: never;
@@ -735,6 +752,18 @@ export interface components {
         ChangePasswordRequest: {
             currentPassword: string;
             newPassword: string;
+        };
+        CodeFile: {
+            content: string;
+            /** @description Path is the file's in the @polythought/sdk package, like index.d.ts. */
+            path: string;
+        };
+        CodeTypes: {
+            /**
+             * @description Files of @polythought/sdk, for an editor to load as that package: index.d.ts
+             *     exports the others.
+             */
+            files: components["schemas"]["CodeFile"][];
         };
         Connection: {
             from: string;
@@ -1844,6 +1873,35 @@ export interface operations {
             };
             /** @description rate_limited */
             429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    getCodeTypes: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CodeTypes"];
+                };
+            };
+            /** @description unauthenticated */
+            401: {
                 headers: {
                     [name: string]: unknown;
                 };

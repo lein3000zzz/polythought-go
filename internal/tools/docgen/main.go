@@ -1,6 +1,7 @@
 // Command docgen writes the reference pages of the docs site from the code: node types,
-// settings and credential types. Run with `make docs-gen`; a test fails when the pages
-// on disk are stale.
+// settings, credential types and the types for code, and the generated declarations of
+// @polythought/sdk next to the SDK. Run with `make docs-gen`; a test fails when the
+// files on disk are stale.
 package main
 
 import (
@@ -25,9 +26,10 @@ import (
 
 func main() {
 	dir := flag.String("dir", "docs/src/content/docs/reference", "the reference directory of the docs site")
+	typesDir := flag.String("types", typesDir, "where the SDK's declarations go")
 	flag.Parse()
 
-	pages, err := build()
+	pages, types, err := build()
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -35,10 +37,20 @@ func main() {
 	if err := write(*dir, pages); err != nil {
 		log.Fatal(err)
 	}
+
+	for name, content := range types {
+		if err := os.WriteFile(filepath.Join(*typesDir, name), []byte(content), 0o644); err != nil { //nolint:gosec // public
+			log.Fatal(err)
+		}
+	}
 }
 
-// build generates the pages from the node types and settings the server registers.
-func build() (Pages, error) {
+// typesDir is where the SDK's declarations are, from the repository's root.
+const typesDir = "internal/adapters/tscompiler/sdk/types"
+
+// build generates the pages and the declarations from the node types and settings the
+// server registers.
+func build() (Pages, map[string]string, error) {
 	registry := engine.NewRegistry()
 
 	// Only the types are read, so the nodes get no real dependencies; the market trigger
@@ -47,15 +59,20 @@ func build() (Pages, error) {
 		Feed: noFeed{}, Messenger: noTelegram{}, TelegramInbox: noTelegram{}, Asker: noTelegram{}, Logger: logging.Noop(),
 	})
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	specs, err := config.Settings()
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
-	return Generate(registry.Types(), registry.CredentialTypes(), specs.Specs())
+	pages, err := Generate(registry.Types(), registry.CredentialTypes(), specs.Specs())
+	if err != nil {
+		return nil, nil, err
+	}
+
+	return pages, TypeFiles(registry.Types()), nil
 }
 
 // write puts the pages under dir and removes generated pages that are no longer made.

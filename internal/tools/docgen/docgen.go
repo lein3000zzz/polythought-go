@@ -7,7 +7,9 @@ import (
 	"strings"
 	"time"
 
+	"github.com/lein3000zzz/polythought-go/internal/adapters/tscompiler"
 	"github.com/lein3000zzz/polythought-go/internal/core/engine"
+	"github.com/lein3000zzz/polythought-go/internal/core/ports"
 	"github.com/lein3000zzz/polythought-go/internal/core/services/settings"
 )
 
@@ -42,8 +44,48 @@ func Generate(nodes []engine.TypeInfo, credTypes []engine.CredentialType, specs 
 
 	pages["settings.md"] = settingsPage(specs)
 	pages["credential-types.md"] = credentialTypesPage(credTypes, nodes)
+	pages["code-types.md"] = codeTypesPage(tscompiler.Declarations(nodes))
 
 	return pages, nil
+}
+
+// TypeFiles are the declarations of @polythought/sdk that the code generates, by name,
+// for the SDK's types directory. sdk.d.ts is tsc's.
+func TypeFiles(nodes []engine.TypeInfo) map[string]string {
+	out := map[string]string{}
+
+	for _, f := range tscompiler.Declarations(nodes) {
+		if f.Path != "sdk.d.ts" {
+			out[f.Path] = f.Content
+		}
+	}
+
+	return out
+}
+
+// codeTypesPage publishes the declarations code is written against.
+func codeTypesPage(files []ports.CodeFile) string {
+	var b strings.Builder
+
+	frontmatter(&b, "Types for code",
+		"The TypeScript types code is written against: the SDK's, and every node's settings and items.", 0)
+
+	b.WriteString("Code imports everything from `@polythought/sdk`: the SDK's functions and types, and the " +
+		"types of every node's settings and items, named after its type: `polymarket.markets` gives " +
+		"`PolymarketMarketsSettings` and `PolymarketMarketsItem`.\n\n" +
+		"```ts\nimport { dec } from \"@polythought/sdk\"\nimport type { Context, PolymarketMarketsItem } from \"@polythought/sdk\"\n```\n\n" +
+		"Decimals are `DecimalText` and times `TimeText`: text, so they stay exact. `NodeTypes` names " +
+		"every node type's settings and items; a node that passes on what it receives says `\"received\"`.\n")
+
+	for _, part := range []struct{ title, file string }{{"Node types", "nodes.d.ts"}, {"The SDK", "sdk.d.ts"}} {
+		for _, f := range files {
+			if f.Path == part.file {
+				fmt.Fprintf(&b, "\n## %s\n\n`%s`\n\n```ts\n%s```\n", part.title, f.Path, f.Content)
+			}
+		}
+	}
+
+	return b.String()
 }
 
 func groupOf(t engine.TypeInfo) (dir, label string, ok bool) {
