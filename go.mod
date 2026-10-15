@@ -5,6 +5,7 @@ go 1.27.0
 require (
 	github.com/cloudwego/hertz v0.10.6
 	github.com/coder/websocket v1.8.15
+	github.com/evanw/esbuild v0.28.2
 	github.com/go-jet/jet/v2 v2.16.1
 	github.com/go-telegram/bot v1.27.0
 	github.com/google/uuid v1.6.0

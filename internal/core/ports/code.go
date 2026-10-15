@@ -6,6 +6,24 @@ import (
 	"time"
 )
 
+// CodeCompiler turns user TypeScript into a script for a CodeRunner. The code may import
+// only the SDK. Code that does not compile is a *domain.CodeError with its problems.
+type CodeCompiler interface {
+	Compile(ctx context.Context, source string) (CompiledCode, error)
+}
+
+// CompiledCode is a script that puts the module's exports in a global object.
+type CompiledCode struct {
+	Script  string
+	Exports string // the global the exports go in
+	Hash    string // of the source
+}
+
+// Entry is what a CodeJob calls to run the export named name.
+func (c CompiledCode) Entry(name string) string {
+	return c.Exports + "." + name
+}
+
 // CodeRunner runs user JavaScript in a sandbox: no files, network or environment, only
 // the host calls the job answers. Code that fails, by throwing or going past a limit, is
 // a *domain.CodeError; the logs come back either way.
@@ -14,8 +32,9 @@ type CodeRunner interface {
 }
 
 type CodeJob struct {
-	// Source is a script that defines the function named Entry at its top level. Run
-	// calls it with Input and waits for the promise it may return.
+	// Source is a script that defines the function Entry names, as a name at its top
+	// level or a path of names from one, like exports.run. Run calls it with Input and
+	// waits for the promise it may return.
 	Source string
 	Entry  string
 	Input  json.RawMessage

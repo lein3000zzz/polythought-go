@@ -58,6 +58,7 @@ func TestResults(t *testing.T) {
 	tests := []struct {
 		name   string
 		source string
+		entry  string // run when empty
 		input  string
 		want   string
 	}{
@@ -66,6 +67,7 @@ func TestResults(t *testing.T) {
 		{name: "no input", source: `function run(x) { return x }`, want: `null`},
 		{name: "nothing returned", source: `function run() {}`, want: `null`},
 		{name: "decimals stay text", source: `function run(x) { return x.price }`, input: `{"price":"0.0200"}`, want: `"0.0200"`},
+		{name: "an entry in an object", source: `var exports = {run: (x) => x * 2}`, entry: "exports.run", input: `21`, want: `42`},
 		{name: "modern JavaScript", source: `const run = (xs) => xs.map(({n}) => n ?? 0).toSorted((a, b) => b - a).at(0)`, input: `[{"n":2},{},{"n":5}]`, want: `5`},
 	}
 
@@ -73,7 +75,12 @@ func TestResults(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			res, err := run(t, tt.source, tt.input)
+			entry := tt.entry
+			if entry == "" {
+				entry = "run"
+			}
+
+			res, err := runner.Run(context.Background(), ports.CodeJob{Source: tt.source, Entry: entry, Input: json.RawMessage(tt.input)})
 			require.NoError(t, err)
 			assert.JSONEq(t, tt.want, string(res.Output))
 		})
@@ -123,7 +130,7 @@ func TestFailures(t *testing.T) {
 		t.Parallel()
 
 		_, err := runner.Run(context.Background(), ports.CodeJob{Source: `function run() {}`, Entry: "run()"})
-		require.ErrorContains(t, err, `entry "run()" is not a name`)
+		require.ErrorContains(t, err, `entry "run()" is not a name or a path of names`)
 
 		var ce *domain.CodeError
 		assert.False(t, errors.As(err, &ce))

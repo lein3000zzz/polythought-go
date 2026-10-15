@@ -3,9 +3,9 @@
 // No std or os module is built in. Each instance runs one piece of code once and is then
 // thrown away, so nothing here frees what it allocates at the end.
 //
-// The code is a script that defines its entry function at the top. run calls it with the
-// input parsed from JSON, lets the promise it may return settle, and keeps the result as
-// JSON; or keeps what went wrong.
+// The code is a script that defines its entry function at the top, or in an object there.
+// run calls it with the input parsed from JSON, lets the promise it may return settle,
+// and keeps the result as JSON; or keeps what went wrong.
 
 #include <malloc.h>
 #include <stdint.h>
@@ -327,7 +327,8 @@ static int32_t call(JSContext *ctx, const char *source, int32_t source_len, cons
         return threw(ctx);
     JS_FreeValue(ctx, v);
 
-    // By name, so a const or let at the top counts too. The host checked it is a name.
+    // By name, so a const or let at the top counts too, or a path of names like
+    // exports.run. The host checked it is one.
     fn = JS_Eval(ctx, entry, strlen(entry), "<entry>", JS_EVAL_TYPE_GLOBAL);
     if (JS_IsException(fn)) {
         if (out_of_time || ran_out)

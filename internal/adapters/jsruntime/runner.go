@@ -178,12 +178,13 @@ func (r *Runner) Run(ctx context.Context, job ports.CodeJob) (res ports.CodeResu
 	})
 }
 
-// entryName is what an entry may be: a name, which the engine evaluates to find it.
-var entryName = regexp.MustCompile(`^[A-Za-z_$][A-Za-z0-9_$]*$`)
+// entryName is what an entry may be: a name, or a path of names like exports.run, which
+// the engine evaluates to find it.
+var entryName = regexp.MustCompile(`^[A-Za-z_$][A-Za-z0-9_$]*(\.[A-Za-z_$][A-Za-z0-9_$]*)*$`)
 
 func (r *Runner) run(ctx context.Context, job ports.CodeJob) (ports.CodeResult, error) {
 	if !entryName.MatchString(job.Entry) {
-		return ports.CodeResult{}, fmt.Errorf("jsruntime: entry %q is not a name", job.Entry)
+		return ports.CodeResult{}, fmt.Errorf("jsruntime: entry %q is not a name or a path of names", job.Entry)
 	}
 
 	limits := bound(job.Limits, r.limits())
