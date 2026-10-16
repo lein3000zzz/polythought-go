@@ -47,6 +47,23 @@ alike, is refused when you save.
 Each run has limits an admin sets on the Config page: memory, time, the size of what it
 returns, and how many data requests it makes. Going over one stops the run of the node.
 
+## Who may write code
+
+An admin decides, with [Who may write code](/docs/reference/settings/#who-may-write-code) on
+the Config page:
+
+- **everyone**, the default;
+- **chosen**: admins, and the users an admin switched on in the **Code** column of
+  **Admin → Users**;
+- **off**: no one, admins included.
+
+Expressions are not code: they work for everyone either way.
+
+If you may not write code, the Code group of the node list is greyed out, and code nodes
+already in a workflow say *Code is off for you*. A workflow with code nodes cannot be
+saved. When one is triggered, it fails at once, before any node runs, and says why. It
+stays on, so once you may write code again it runs as before.
+
 ## When something goes wrong
 
 Saving compiles the code and points at what does not compile, with its line and column.

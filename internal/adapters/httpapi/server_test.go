@@ -169,7 +169,14 @@ func TestRoutes(t *testing.T) {
 			req:        request{method: "GET", path: "/api/v1/me", headers: cookie},
 			setup:      func(svc *httpapimocks.MockAuthService) { withSession(svc, alice) },
 			wantStatus: http.StatusOK,
-			wantBody:   []string{`"email":"alice@example.com"`},
+			wantBody:   []string{`"email":"alice@example.com"`, `"codeChosen":false`, `"mayWriteCode":false`},
+		},
+		{
+			name:       "me says an admin may write code while it is for chosen users",
+			req:        request{method: "GET", path: "/api/v1/me", headers: cookie},
+			setup:      func(svc *httpapimocks.MockAuthService) { withSession(svc, root) },
+			wantStatus: http.StatusOK,
+			wantBody:   []string{`"mayWriteCode":true`},
 		},
 		{
 			name: "stale cookie is cleared",
@@ -322,10 +329,26 @@ func TestRoutes(t *testing.T) {
 			setup: func(svc *httpapimocks.MockAuthService) {
 				withToken(svc, root)
 				svc.EXPECT().UpdateUser(mock.Anything, mock.Anything, domain.UserID("u-1"), mock.MatchedBy(func(u auth.UserUpdate) bool {
-					return u.Role != nil && *u.Role == domain.RoleAdmin && u.Disabled != nil && !*u.Disabled
+					return u.Role != nil && *u.Role == domain.RoleAdmin && u.Disabled != nil && !*u.Disabled && u.CodeChosen == nil
 				})).Return(alice, nil)
 			},
 			wantStatus: http.StatusOK,
+		},
+		{
+			name: "pick a user to write code",
+			req:  request{method: "PATCH", path: "/api/v1/admin/users/u-1", body: `{"codeChosen":true}`, headers: bearer},
+			setup: func(svc *httpapimocks.MockAuthService) {
+				withToken(svc, root)
+
+				chosen := alice
+				chosen.CodeChosen = true
+
+				svc.EXPECT().UpdateUser(mock.Anything, mock.Anything, domain.UserID("u-1"), mock.MatchedBy(func(u auth.UserUpdate) bool {
+					return u.CodeChosen != nil && *u.CodeChosen && u.Role == nil && u.Disabled == nil
+				})).Return(chosen, nil)
+			},
+			wantStatus: http.StatusOK,
+			wantBody:   []string{`"codeChosen":true`, `"mayWriteCode":true`},
 		},
 		{
 			name: "admin creates a user with the default role",
@@ -369,6 +392,7 @@ func TestRoutes(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			svc := httpapimocks.NewMockAuthService(t)
+			svc.EXPECT().CodeAccess().Return(domain.CodeChosen).Maybe()
 			tt.setup(svc)
 
 			w := tt.req.do(t, newServer(t, svc))

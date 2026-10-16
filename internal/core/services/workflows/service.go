@@ -69,6 +69,7 @@ type Service struct {
 	waits      Waits             // optional: without it, nothing waits
 	fields     FieldChecker      // optional: without it, field settings go unchecked
 	exprs      ExpressionChecker // optional: without it, expressions go unchecked
+	code       CodeAccessChecker // optional: without it, anyone may save code nodes
 	limits     func() Limits
 	log        logging.Logger
 	now        func() time.Time
@@ -105,6 +106,17 @@ type ExpressionChecker interface {
 // WithExpressionChecks checks expressions when a workflow is saved, like field settings.
 func WithExpressionChecks(c ExpressionChecker) Option {
 	return func(s *Service) { s.exprs = c }
+}
+
+// CodeAccessChecker reports the code nodes of a workflow whose owner may not write code,
+// as a *domain.ValidationError. Other errors are its own failing.
+type CodeAccessChecker interface {
+	CheckCodeAccess(ctx context.Context, w domain.Workflow) error
+}
+
+// WithCodeAccess refuses to save code nodes for a user who may not write code (D44).
+func WithCodeAccess(c CodeAccessChecker) Option {
+	return func(s *Service) { s.code = c }
 }
 
 // WithWaits cancels waiting executions when a workflow is switched off, and lets users
@@ -172,7 +184,7 @@ func (s *Service) Create(ctx context.Context, p auth.Principal, def Definition) 
 		UpdatedAt: now,
 	}
 
-	if err := s.apply(&w, def); err != nil {
+	if err := s.apply(ctx, &w, def); err != nil {
 		return domain.Workflow{}, err
 	}
 
@@ -205,7 +217,7 @@ func (s *Service) Update(ctx context.Context, p auth.Principal, id domain.Workfl
 		return domain.Workflow{}, domain.ErrConflict
 	}
 
-	if err := s.apply(&w, def); err != nil {
+	if err := s.apply(ctx, &w, def); err != nil {
 		return domain.Workflow{}, err
 	}
 
@@ -449,7 +461,7 @@ func (s *Service) PruneExecutions(ctx context.Context, retention time.Duration) 
 }
 
 // apply validates def and copies it onto w.
-func (s *Service) apply(w *domain.Workflow, def Definition) error {
+func (s *Service) apply(ctx context.Context, w *domain.Workflow, def Definition) error {
 	name := strings.TrimSpace(def.Name)
 	if name == "" || len(name) > maxName {
 		return fmt.Errorf("%w: name must be 1 to %d characters", domain.ErrInvalidInput, maxName)
@@ -477,6 +489,17 @@ func (s *Service) apply(w *domain.Workflow, def Definition) error {
 
 	if s.exprs != nil {
 		problems.Merge(s.exprs.CheckExpressions(candidate))
+	}
+
+	if s.code != nil {
+		err := s.code.CheckCodeAccess(ctx, candidate)
+
+		var refused *domain.ValidationError
+		if err != nil && !errors.As(err, &refused) {
+			return err
+		}
+
+		problems.Merge(err)
 	}
 
 	if err := problems.Err(); err != nil {

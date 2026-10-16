@@ -154,6 +154,7 @@ func TestTypes(t *testing.T) {
 	} {
 		typ := n.Type()
 		require.NoError(t, engine.NewRegistry().RegisterNode(n), typ.Name)
+		assert.True(t, typ.Code, "%s: the code switch covers it", typ.Name)
 
 		switch typ.Name {
 		case codenodes.FilterType, codenodes.RouteType:

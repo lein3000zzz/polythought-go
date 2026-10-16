@@ -56,6 +56,7 @@ func TestSettingsDefaults(t *testing.T) {
 		config.KeyExecutionRetention:  30 * 24 * time.Hour,
 		config.KeyMaxWaiting:          50,
 		config.KeyMaxWait:             7 * 24 * time.Hour,
+		config.KeyCodeAccess:          string(authCfg.CodeAccess),
 		config.KeyCodeMemory:          int(jsruntime.DefaultLimits.Memory >> 20),
 		config.KeyCodeTime:            jsruntime.DefaultLimits.Time,
 		config.KeyCodeOutput:          jsruntime.DefaultLimits.Output >> 10,
@@ -72,7 +73,7 @@ func TestSettingsDefaults(t *testing.T) {
 		assert.Equal(t, want, spec(t, key).Default, key)
 	}
 
-	assert.Len(t, registry(t).Specs(), 25, "every setting has a default checked above")
+	assert.Len(t, registry(t).Specs(), 26, "every setting has a default checked above")
 	assert.True(t, spec(t, config.KeyTelegramToken).Secret)
 }
 

@@ -158,6 +158,9 @@ type NodeType struct {
 	// Items describes what it emits; nil when nobody knows, as for code whose author did
 	// not say.
 	Items *Items
+
+	// Code says it runs code its owner wrote, which the admin's code switch covers.
+	Code bool
 }
 
 // Node is a step that transforms items. Per-item failures go to ErrorPort via Ports.Fail;

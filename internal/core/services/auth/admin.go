@@ -80,11 +80,12 @@ func (s *Service) ListUsers(ctx context.Context, actor Principal, f ports.PageFi
 
 // UserUpdate changes only the fields that are set.
 type UserUpdate struct {
-	Role     *domain.Role
-	Disabled *bool
+	Role       *domain.Role
+	Disabled   *bool
+	CodeChosen *bool // picked to write code, for code access "chosen"
 }
 
-// UpdateUser changes a user's role or disabled state. Disabling signs the user out
+// UpdateUser changes a user's role, disabled state or code access. Disabling signs the user out
 // everywhere. The last active admin cannot be demoted or disabled, so an instance can
 // never lock itself out.
 func (s *Service) UpdateUser(ctx context.Context, actor Principal, id domain.UserID, upd UserUpdate) (domain.User, error) {
@@ -116,6 +117,10 @@ func (s *Service) UpdateUser(ctx context.Context, actor Principal, id domain.Use
 
 		if upd.Role != nil {
 			user.Role = *upd.Role
+		}
+
+		if upd.CodeChosen != nil {
+			user.CodeChosen = *upd.CodeChosen
 		}
 
 		if upd.Disabled != nil {
@@ -151,7 +156,8 @@ func (s *Service) UpdateUser(ctx context.Context, actor Principal, id domain.Use
 		return domain.User{}, err
 	}
 
-	s.log.Info(ctx, "User updated", "actor_id", actor.User.ID, "user_id", id, "role", updated.Role, "disabled", updated.Disabled())
+	s.log.Info(ctx, "User updated", "actor_id", actor.User.ID, "user_id", id,
+		"role", updated.Role, "disabled", updated.Disabled(), "code_chosen", updated.CodeChosen)
 
 	// After the commit, so a running workflow never outlives a disable that went through.
 	// Asking to disable an already disabled user stops them again, which repairs a stop
@@ -209,4 +215,9 @@ func (s *Service) RegistrationMode() domain.RegistrationMode {
 // MinPasswordLength is the fewest characters a new password may have, for forms to say.
 func (s *Service) MinPasswordLength() int {
 	return s.config().MinPasswordLength
+}
+
+// CodeAccess says who may write code now.
+func (s *Service) CodeAccess() domain.CodeAccess {
+	return s.config().CodeAccess
 }

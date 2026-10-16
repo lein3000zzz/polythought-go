@@ -91,6 +91,7 @@ describe('expressions', () => {
   const node: NodeType = {
     name: 'n',
     trigger: false,
+    code: false,
     inputs: ['main'],
     outputs: ['main'],
     params: [],

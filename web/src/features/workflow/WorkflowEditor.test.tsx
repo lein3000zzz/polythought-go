@@ -6,7 +6,7 @@ import { describe, expect, it } from 'vitest'
 
 import type { Schemas } from '@/api/client'
 import { FakeEventSource } from '@/test/eventSource'
-import { apiError, branching, nodeTypes, signedIn } from '@/test/fixtures'
+import { alice, apiError, branching, nodeTypes, signedIn } from '@/test/fixtures'
 import { renderApp } from '@/test/render'
 import { server } from '@/test/server'
 
@@ -777,6 +777,71 @@ describe('node list', () => {
     await user.keyboard('{Escape}')
     expect(search).toHaveValue('')
     expect(nav().getByText('Log')).toBeInTheDocument()
+  })
+
+  describe('code nodes', () => {
+    const filter: Schemas['NodeType'] = {
+      name: 'code.filter',
+      label: 'Code: filter',
+      description: 'Keeps the items TypeScript says to keep.',
+      trigger: false,
+      code: true,
+      inputs: ['main'],
+      outputs: ['main'],
+      params: [],
+    }
+
+    function withCode(mayWriteCode: boolean) {
+      const flow = branching()
+      editing({
+        ...flow,
+        nodes: [...flow.nodes, { id: 'keep', type: 'code.filter', position: { x: 900, y: 0 } }],
+      })
+      server.use(
+        http.get('/api/v1/me', () => HttpResponse.json({ ...alice, mayWriteCode })),
+        http.get('/api/v1/node-types', () =>
+          HttpResponse.json({ nodeTypes: [...nodeTypes, filter] }),
+        ),
+      )
+    }
+
+    const nodesOnCanvas = () => document.querySelectorAll('.react-flow__node').length
+
+    it('are shown but not added when an admin turned code off', async () => {
+      withCode(false)
+      const { user } = renderApp('/workflows/wf-1')
+
+      const nav = within(await screen.findByRole('navigation', { name: 'Node types' }))
+      expect(nav.getByText('An admin has turned code off for you.')).toBeInTheDocument()
+      expect(nav.getByRole('button', { name: /Code: filter/ })).toBeDisabled()
+      expect(nav.getByRole('button', { name: /Log/ })).toBeEnabled()
+
+      // The one already there says so.
+      await waitFor(() => canvasNode('keep'))
+      expect(within(canvasNode('keep')).getByText('Code is off for you')).toBeInTheDocument()
+      expect(within(canvasNode('tight')).queryByText('Code is off for you')).not.toBeInTheDocument()
+
+      // Enter skips it.
+      const before = nodesOnCanvas()
+      await user.type(screen.getByRole('searchbox', { name: 'Search nodes' }), 'typescript')
+      await user.keyboard('{Enter}')
+      expect(nodesOnCanvas()).toBe(before)
+    })
+
+    it('are added for users who may write code', async () => {
+      withCode(true)
+      const { user } = renderApp('/workflows/wf-1')
+
+      const nav = within(await screen.findByRole('navigation', { name: 'Node types' }))
+      expect(nav.queryByText('An admin has turned code off for you.')).not.toBeInTheDocument()
+
+      await waitFor(() => canvasNode('keep'))
+      expect(within(canvasNode('keep')).queryByText('Code is off for you')).not.toBeInTheDocument()
+
+      const before = nodesOnCanvas()
+      await user.click(nav.getByRole('button', { name: /Code: filter/ }))
+      expect(nodesOnCanvas()).toBe(before + 1)
+    })
   })
 
   it('opens and focuses the search on /', async () => {

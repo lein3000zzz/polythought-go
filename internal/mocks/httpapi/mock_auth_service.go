@@ -251,6 +251,50 @@ func (_c *MockAuthService_ChangePassword_Call) RunAndReturn(run func(ctx context
 	return _c
 }
 
+// CodeAccess provides a mock function for the type MockAuthService
+func (_mock *MockAuthService) CodeAccess() domain.CodeAccess {
+	ret := _mock.Called()
+
+	if len(ret) == 0 {
+		panic("no return value specified for CodeAccess")
+	}
+
+	var r0 domain.CodeAccess
+	if returnFunc, ok := ret.Get(0).(func() domain.CodeAccess); ok {
+		r0 = returnFunc()
+	} else {
+		r0 = ret.Get(0).(domain.CodeAccess)
+	}
+	return r0
+}
+
+// MockAuthService_CodeAccess_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'CodeAccess'
+type MockAuthService_CodeAccess_Call struct {
+	*mock.Call
+}
+
+// CodeAccess is a helper method to define mock.On call
+func (_e *MockAuthService_Expecter) CodeAccess() *MockAuthService_CodeAccess_Call {
+	return &MockAuthService_CodeAccess_Call{Call: _e.mock.On("CodeAccess")}
+}
+
+func (_c *MockAuthService_CodeAccess_Call) Run(run func()) *MockAuthService_CodeAccess_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run()
+	})
+	return _c
+}
+
+func (_c *MockAuthService_CodeAccess_Call) Return(codeAccess domain.CodeAccess) *MockAuthService_CodeAccess_Call {
+	_c.Call.Return(codeAccess)
+	return _c
+}
+
+func (_c *MockAuthService_CodeAccess_Call) RunAndReturn(run func() domain.CodeAccess) *MockAuthService_CodeAccess_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // CreateAPIToken provides a mock function for the type MockAuthService
 func (_mock *MockAuthService) CreateAPIToken(ctx context.Context, p auth.Principal, name string, expiresAt time.Time) (string, domain.APIToken, error) {
 	ret := _mock.Called(ctx, p, name, expiresAt)

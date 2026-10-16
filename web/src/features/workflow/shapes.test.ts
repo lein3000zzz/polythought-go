@@ -25,6 +25,7 @@ const marketFields = [field('question', 'text'), field('price', 'decimal'), outc
 const type = (name: string, more: Partial<NodeType>): NodeType => ({
   name,
   trigger: false,
+  code: false,
   inputs: ['main'],
   outputs: ['main'],
   params: [],

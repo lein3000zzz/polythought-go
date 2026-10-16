@@ -58,6 +58,7 @@ type Executor struct {
 	waitLimits func() WaitLimits
 
 	evaluator Evaluator // works expressions out; nil: only plain fields
+	codeGate  CodeGate  // says who may run code; nil: everyone
 }
 
 type ExecutorOption func(*Executor)
@@ -164,7 +165,12 @@ func (e *Executor) Execute(
 	rest := slices.DeleteFunc(slices.Clone(order), func(id domain.NodeID) bool { return id == trigger })
 
 	return e.drive(ctx, x, func(ctx context.Context) error {
+		if err := e.checkCode(ctx, w); err != nil {
+			return err
+		}
+
 		x.start(trigger, output)
+
 		return x.runFrom(ctx, rest)
 	}), nil
 }
@@ -190,8 +196,12 @@ func (e *Executor) Continue(ctx context.Context, rec ports.WaitRecord, r Resumpt
 	r.State = snap.State
 
 	return e.drive(ctx, x, func(ctx context.Context) error {
-		// The node types may have changed since it paused.
+		// The node types, and who may run code, may have changed since it paused.
 		if err := e.registry.Validate(snap.Workflow); err != nil {
+			return err
+		}
+
+		if err := e.checkCode(ctx, snap.Workflow); err != nil {
 			return err
 		}
 

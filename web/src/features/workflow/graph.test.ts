@@ -19,9 +19,23 @@ import {
 import { columnWidth } from './layout'
 
 const types: NodeType[] = [
-  { name: 'trigger.manual', trigger: true, inputs: [], outputs: ['main'], params: [] },
-  { name: 'output.log', trigger: false, inputs: ['main'], outputs: ['main'], params: [] },
-  { name: 'logic.if', trigger: false, inputs: ['main'], outputs: ['true', 'false'], params: [] },
+  { name: 'trigger.manual', trigger: true, code: false, inputs: [], outputs: ['main'], params: [] },
+  {
+    name: 'output.log',
+    trigger: false,
+    code: false,
+    inputs: ['main'],
+    outputs: ['main'],
+    params: [],
+  },
+  {
+    name: 'logic.if',
+    trigger: false,
+    code: false,
+    inputs: ['main'],
+    outputs: ['true', 'false'],
+    params: [],
+  },
 ]
 
 const link = (source: string, sourceHandle: string, target: string, targetHandle = 'main') => ({
@@ -220,6 +234,7 @@ describe('ports from a setting', () => {
   const ask: NodeType = {
     name: 'telegram.ask',
     trigger: false,
+    code: false,
     inputs: ['main'],
     outputs: ['timeout'],
     params: [{ name: 'buttons', kind: 'list', required: false, default: ['Yes', 'No'] }],

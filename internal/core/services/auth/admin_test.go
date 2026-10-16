@@ -139,6 +139,16 @@ func TestUpdateUser(t *testing.T) {
 			check: func(t *testing.T, u domain.User) { assert.True(t, u.IsAdmin()) },
 		},
 		{
+			name: "pick a user to write code", actor: sessionPrincipal(admin), id: target.ID, upd: auth.UserUpdate{CodeChosen: flag(true)},
+			setup: func(d deps) {
+				d.users.EXPECT().ByID(mock.Anything, target.ID).Return(target, nil)
+				d.users.EXPECT().Update(mock.Anything, mock.MatchedBy(func(u domain.User) bool {
+					return u.CodeChosen && u.Role == domain.RoleUser && !u.Disabled()
+				})).Return(nil)
+			},
+			check: func(t *testing.T, u domain.User) { assert.True(t, u.CodeChosen) },
+		},
+		{
 			name: "disabling signs the user out and stops their workflows", actor: sessionPrincipal(admin), id: target.ID, upd: auth.UserUpdate{Disabled: flag(true)},
 			setup: func(d deps) {
 				d.users.EXPECT().ByID(mock.Anything, target.ID).Return(target, nil)

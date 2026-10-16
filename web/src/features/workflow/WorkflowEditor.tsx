@@ -29,6 +29,7 @@ import { useEffect, useEffectEvent, useMemo, useRef, useState } from 'react'
 import { Link, useBlocker, useNavigate } from 'react-router'
 import { toast } from 'sonner'
 
+import { useMe } from '@/api/auth'
 import {
   ApiError,
   errorMessage,
@@ -117,6 +118,7 @@ export function WorkflowEditor(props: Props) {
 
 function Editor({ workflow, types, onReload }: Props) {
   const navigate = useNavigate()
+  const { data: me } = useMe()
   const { screenToFlowPosition, deleteElements } = useReactFlow<FlowNode, FlowEdge>()
   const { theme } = useTheme()
   const canvas = useRef<HTMLDivElement>(null)
@@ -437,7 +439,12 @@ function Editor({ workflow, types, onReload }: Props) {
                   nodeListOpen ? 'opacity-100 delay-75' : 'opacity-0',
                 )}
               >
-                <Palette types={types} onAdd={(t) => addNode(t)} searchRef={search} />
+                <Palette
+                  types={types}
+                  onAdd={(t) => addNode(t)}
+                  searchRef={search}
+                  codeOff={me?.mayWriteCode === false}
+                />
               </div>
 
               {/* Pinned to the panel's edge, so it travels with it. */}

@@ -7,6 +7,7 @@ import { toast } from 'sonner'
 import { useCreateInvite, useCreateUser, useInvites, useUpdateUser, useUsers } from '@/api/admin'
 import { useAuthConfig, useMe, useMinPasswordLength } from '@/api/auth'
 import { errorMessage, type Schemas } from '@/api/client'
+import { useSettings } from '@/api/settings'
 import { AdminHeader } from '@/components/AdminHeader'
 import { ConfirmDialog } from '@/components/ConfirmDialog'
 import { ErrorAlert } from '@/components/ErrorAlert'
@@ -17,6 +18,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { NativeSelect, NativeSelectOption } from '@/components/ui/native-select'
 import { Skeleton } from '@/components/ui/skeleton'
+import { Switch } from '@/components/ui/switch'
 import {
   Table,
   TableBody,
@@ -28,6 +30,15 @@ import {
 import { formatDateTime } from '@/lib/format'
 
 type User = Schemas['User']
+
+type CodeAccess = 'everyone' | 'chosen' | 'off'
+
+// Who may write code, as the Code access setting on the Config page says.
+const codeAccessModes: Record<CodeAccess, string> = {
+  everyone: 'Everyone may write code.',
+  chosen: 'Admins may write code, and the users switched on below.',
+  off: 'Code is off for everyone, admins included.',
+}
 
 const registrationModes: Record<Schemas['AuthConfig']['registration'], string> = {
   open: 'Anyone can create an account.',
@@ -56,6 +67,21 @@ function UsersSection({ me }: { me: User }) {
   const update = useUpdateUser()
   const [change, setChange] = useState<{ user: User; patch: Schemas['UpdateUserRequest'] }>()
   const items = users.data?.pages.flatMap((page) => page.users) ?? []
+  const settings = useSettings()
+  const codeAccess = settings.data?.settings.find((s) => s.key === 'code.access')?.value as
+    CodeAccess | undefined
+
+  const chooseForCode = (user: User, chosen: boolean) =>
+    update.mutate(
+      { id: user.id, codeChosen: chosen },
+      {
+        onSuccess: () =>
+          toast.success(
+            chosen ? `${user.email} may write code` : `${user.email} may no longer write code`,
+          ),
+        onError: (error) => toast.error(errorMessage(error)),
+      },
+    )
 
   const confirmText = (user: User, patch: Schemas['UpdateUserRequest']) => {
     if (patch.disabled) {
@@ -79,6 +105,16 @@ function UsersSection({ me }: { me: User }) {
     <section className="flex flex-col gap-4">
       <h2 className="font-medium">Users</h2>
 
+      {codeAccess && (
+        <p className="text-sm text-muted-foreground">
+          {codeAccessModes[codeAccess]} Who may is set under Code on the{' '}
+          <Link to="/admin/config" className="underline underline-offset-4">
+            Config page
+          </Link>
+          .
+        </p>
+      )}
+
       <CreateUserForm />
 
       {users.isPending && <Skeleton className="h-32" />}
@@ -91,6 +127,7 @@ function UsersSection({ me }: { me: User }) {
               <TableHead>Email</TableHead>
               <TableHead>Role</TableHead>
               <TableHead>Status</TableHead>
+              <TableHead>Code</TableHead>
               <TableHead>Created</TableHead>
               <TableHead />
             </TableRow>
@@ -106,6 +143,21 @@ function UsersSection({ me }: { me: User }) {
                   <Badge variant={u.disabled ? 'destructive' : 'secondary'}>
                     {u.disabled ? 'Disabled' : 'Active'}
                   </Badge>
+                </TableCell>
+                <TableCell>
+                  {codeAccess === 'chosen' && u.role !== 'admin' ? (
+                    <Switch
+                      size="sm"
+                      checked={u.codeChosen}
+                      aria-label={`${u.email} may write code`}
+                      disabled={update.isPending}
+                      onCheckedChange={(chosen) => chooseForCode(u, chosen)}
+                    />
+                  ) : u.mayWriteCode ? (
+                    'Yes'
+                  ) : (
+                    'No'
+                  )}
                 </TableCell>
                 <TableCell>{formatDateTime(u.createdAt)}</TableCell>
                 <TableCell className="text-right">

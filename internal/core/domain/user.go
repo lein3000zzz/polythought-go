@@ -36,6 +36,31 @@ func (m RegistrationMode) Valid() bool {
 	return m == RegistrationOpen || m == RegistrationInvite || m == RegistrationClosed
 }
 
+// CodeAccess decides who may write code: code nodes and custom nodes, not expressions.
+type CodeAccess string
+
+const (
+	CodeEveryone CodeAccess = "everyone"
+	CodeChosen   CodeAccess = "chosen" // admins, and the users an admin picked
+	CodeOff      CodeAccess = "off"    // no one, admins included
+)
+
+func (m CodeAccess) Valid() bool {
+	return m == CodeEveryone || m == CodeChosen || m == CodeOff
+}
+
+// Allows says whether u may write code, and run the workflows that have it.
+func (m CodeAccess) Allows(u User) bool {
+	switch m {
+	case CodeEveryone:
+		return true
+	case CodeChosen:
+		return u.IsAdmin() || u.CodeChosen
+	default:
+		return false
+	}
+}
+
 var (
 	ErrEmailTaken         = errors.New("email already registered")
 	ErrInvalidEmail       = errors.New("invalid email")
@@ -49,6 +74,7 @@ var (
 	ErrRateLimited        = errors.New("too many attempts")
 	ErrLastAdmin          = errors.New("the last admin cannot be demoted or disabled")
 	ErrInvalidInput       = errors.New("invalid input")
+	ErrCodeOff            = errors.New("an admin has turned code off for you")
 )
 
 // User is an account. The password hash never leaves the auth service and its repository.
@@ -58,6 +84,7 @@ type User struct {
 	Role            Role
 	EmailVerifiedAt time.Time // zero until verified
 	DisabledAt      time.Time // zero while enabled
+	CodeChosen      bool      // an admin picked them to write code, for CodeChosen
 	CreatedAt       time.Time
 	UpdatedAt       time.Time
 }

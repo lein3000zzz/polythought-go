@@ -31,6 +31,7 @@ const tracerName = "github.com/lein3000zzz/polythought-go/internal/adapters/http
 type AuthService interface {
 	RegistrationMode() domain.RegistrationMode
 	MinPasswordLength() int
+	CodeAccess() domain.CodeAccess
 	Register(ctx context.Context, in auth.RegisterInput) (domain.User, error)
 	Login(ctx context.Context, in auth.LoginInput) (auth.LoginResult, error)
 	Logout(ctx context.Context, id domain.SessionID) error

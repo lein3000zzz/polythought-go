@@ -26,6 +26,7 @@ type usersTable struct {
 	DisabledAt      postgres.ColumnTimestampz
 	CreatedAt       postgres.ColumnTimestampz
 	UpdatedAt       postgres.ColumnTimestampz
+	CodeChosen      postgres.ColumnBool
 
 	AllColumns     postgres.ColumnList
 	MutableColumns postgres.ColumnList
@@ -76,9 +77,10 @@ func newUsersTableImpl(schemaName, tableName, alias string) usersTable {
 		DisabledAtColumn      = postgres.TimestampzColumn("disabled_at")
 		CreatedAtColumn       = postgres.TimestampzColumn("created_at")
 		UpdatedAtColumn       = postgres.TimestampzColumn("updated_at")
-		allColumns            = postgres.ColumnList{IDColumn, EmailColumn, EmailNormalizedColumn, PasswordHashColumn, RoleColumn, EmailVerifiedAtColumn, DisabledAtColumn, CreatedAtColumn, UpdatedAtColumn}
-		mutableColumns        = postgres.ColumnList{EmailColumn, EmailNormalizedColumn, PasswordHashColumn, RoleColumn, EmailVerifiedAtColumn, DisabledAtColumn, CreatedAtColumn, UpdatedAtColumn}
-		defaultColumns        = postgres.ColumnList{}
+		CodeChosenColumn      = postgres.BoolColumn("code_chosen")
+		allColumns            = postgres.ColumnList{IDColumn, EmailColumn, EmailNormalizedColumn, PasswordHashColumn, RoleColumn, EmailVerifiedAtColumn, DisabledAtColumn, CreatedAtColumn, UpdatedAtColumn, CodeChosenColumn}
+		mutableColumns        = postgres.ColumnList{EmailColumn, EmailNormalizedColumn, PasswordHashColumn, RoleColumn, EmailVerifiedAtColumn, DisabledAtColumn, CreatedAtColumn, UpdatedAtColumn, CodeChosenColumn}
+		defaultColumns        = postgres.ColumnList{CodeChosenColumn}
 	)
 
 	return usersTable{
@@ -94,6 +96,7 @@ func newUsersTableImpl(schemaName, tableName, alias string) usersTable {
 		DisabledAt:      DisabledAtColumn,
 		CreatedAt:       CreatedAtColumn,
 		UpdatedAt:       UpdatedAtColumn,
+		CodeChosen:      CodeChosenColumn,
 
 		AllColumns:     allColumns,
 		MutableColumns: mutableColumns,

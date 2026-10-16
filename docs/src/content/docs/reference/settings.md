@@ -171,6 +171,18 @@ How far ahead a wait may end. A node asking to wait longer fails.
 
 ## Code
 
+### Who may write code
+
+Code nodes run TypeScript users write: everyone may (everyone), admins and the users switched on for code on the Users page (chosen), or no one, admins included (off). Expressions are not code. A workflow with code nodes whose owner may not write code cannot be saved, and fails at once when it is triggered.
+
+| | |
+|---|---|
+| Key | `code.access` |
+| Environment variable | `POLYTHOUGHT_CODE_ACCESS` |
+| Kind | one of `everyone`, `chosen`, `off` |
+| Default | `everyone` |
+| Applies | at once |
+
 ### Memory per run (MiB)
 
 The most memory one run of user code may use. Running out stops the run.

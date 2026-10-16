@@ -15,6 +15,7 @@ const webhookType: Schemas['NodeType'] = {
   name: 'output.webhook',
   label: 'Webhook',
   trigger: false,
+  code: false,
   inputs: ['main'],
   outputs: ['main'],
   params: [{ name: 'url', label: 'Webhook URL', kind: 'string', required: true, sensitive: true }],

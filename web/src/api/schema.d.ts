@@ -984,6 +984,11 @@ export interface components {
             status: "succeeded" | "failed" | "skipped" | "waiting" | "cancelled";
         };
         NodeType: {
+            /**
+             * @description Code says it runs code its owner wrote: only users who may write code (the
+             *     mayWriteCode of /me) can save it.
+             */
+            code: boolean;
             description?: string;
             inputs: string[];
             /** @description Items describes what the node emits; absent when nobody knows. */
@@ -1193,6 +1198,7 @@ export interface components {
             };
         };
         UpdateUserRequest: {
+            codeChosen?: boolean;
             disabled?: boolean;
             /** @enum {string} */
             role?: "admin" | "user";
@@ -1215,12 +1221,22 @@ export interface components {
             };
         };
         User: {
+            /**
+             * @description CodeChosen says an admin picked them to write code, which counts while code access
+             *     is "chosen".
+             */
+            codeChosen: boolean;
             /** Format: date-time */
             createdAt: string;
             disabled: boolean;
             email: string;
             emailVerified: boolean;
             id: string;
+            /**
+             * @description MayWriteCode says whether they may write code now, as code access and CodeChosen
+             *     have it.
+             */
+            mayWriteCode: boolean;
             /** @enum {string} */
             role: "admin" | "user";
         };

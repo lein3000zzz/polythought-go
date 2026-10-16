@@ -1,6 +1,7 @@
 import { Handle, Position, useUpdateNodeInternals, type NodeProps } from '@xyflow/react'
 import { cn } from 'cn'
 import {
+  Ban,
   Box,
   CircleCheck,
   CircleMinus,
@@ -12,7 +13,10 @@ import {
 } from 'lucide-react'
 import { useEffect, useRef } from 'react'
 
+import { useMe } from '@/api/auth'
+
 import { defaultPort, errorPort, inputsOf, outputsOf, type FlowNode } from './graph'
+import { codeOffReason } from './Palette'
 import { useNodeProblems } from './problems'
 import { useNodeRun, type NodeRun } from './runs'
 
@@ -23,6 +27,8 @@ export function WorkflowNodeView({ id, data, selected }: NodeProps<FlowNode>) {
   const problems = useNodeProblems(id)
   const run = useNodeRun(id)
   const Icon = !type ? TriangleAlert : type.trigger ? Zap : Box
+  const { data: me } = useMe()
+  const codeOff = type?.code === true && me?.mayWriteCode === false
 
   // React Flow measures handles when a node mounts; ports that come and go later, with
   // "continue on failure" or a setting that gives ports, need a new measurement. Not on
@@ -70,6 +76,16 @@ export function WorkflowNodeView({ id, data, selected }: NodeProps<FlowNode>) {
       <div className="px-3 pt-1.5 text-xs text-muted-foreground">
         {type ? spec.type : `${spec.type} (unknown type)`}
       </div>
+
+      {codeOff && (
+        <p
+          className="flex items-center gap-1.5 px-3 pt-1 text-xs text-amber-600 dark:text-amber-500"
+          title={`${codeOffReason} A workflow with this node cannot be saved, and does not run.`}
+        >
+          <Ban className="size-3 shrink-0" />
+          Code is off for you
+        </p>
+      )}
 
       {spec.notes && (
         <p className="line-clamp-3 px-3 pt-1 text-xs text-foreground/80 italic" title={spec.notes}>

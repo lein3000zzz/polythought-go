@@ -257,6 +257,9 @@ type nodeTypeDTO struct {
 	OutputsParam string `json:"outputsParam,omitempty" validate:"optional"`
 	// Items describes what the node emits; absent when nobody knows.
 	Items *itemsDTO `json:"items,omitempty" validate:"optional"`
+	// Code says it runs code its owner wrote: only users who may write code (the
+	// mayWriteCode of /me) can save it.
+	Code bool `json:"code"`
 } // @name NodeType
 
 // itemsDTO describes the items a node emits on every output port: fields of its own, or
@@ -305,7 +308,7 @@ func (s *Server) listNodeTypes(_ context.Context, c *app.RequestContext) {
 			Name: t.Name, Label: t.Label, Description: t.Description, Trigger: t.Trigger,
 			Inputs: nonNil(t.Inputs), Outputs: nonNil(t.Outputs),
 			Params: make([]paramDTO, len(t.Params)), OutputsParam: t.OutputsParam,
-			Items: toItemsDTO(t.Items),
+			Items: toItemsDTO(t.Items), Code: t.Code,
 		}
 
 		for j, p := range t.Params {

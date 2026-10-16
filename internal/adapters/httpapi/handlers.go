@@ -17,21 +17,29 @@ import (
 )
 
 type userDTO struct {
-	ID            string    `json:"id"`
-	Email         string    `json:"email"`
-	Role          string    `json:"role" enums:"admin,user"`
-	EmailVerified bool      `json:"emailVerified"`
-	Disabled      bool      `json:"disabled"`
-	CreatedAt     time.Time `json:"createdAt" format:"date-time"`
+	ID            string `json:"id"`
+	Email         string `json:"email"`
+	Role          string `json:"role" enums:"admin,user"`
+	EmailVerified bool   `json:"emailVerified"`
+	Disabled      bool   `json:"disabled"`
+	// CodeChosen says an admin picked them to write code, which counts while code access
+	// is "chosen".
+	CodeChosen bool `json:"codeChosen"`
+	// MayWriteCode says whether they may write code now, as code access and CodeChosen
+	// have it.
+	MayWriteCode bool      `json:"mayWriteCode"`
+	CreatedAt    time.Time `json:"createdAt" format:"date-time"`
 } // @name User
 
-func toUserDTO(u domain.User) userDTO {
+func (s *Server) userDTO(u domain.User) userDTO {
 	return userDTO{
 		ID:            string(u.ID),
 		Email:         u.Email,
 		Role:          string(u.Role),
 		EmailVerified: !u.EmailVerifiedAt.IsZero(),
 		Disabled:      u.Disabled(),
+		CodeChosen:    u.CodeChosen,
+		MayWriteCode:  s.auth.CodeAccess().Allows(u),
 		CreatedAt:     u.CreatedAt,
 	}
 }
@@ -139,8 +147,9 @@ type createUserRequest struct {
 
 // updateUserRequest changes only the fields it carries.
 type updateUserRequest struct {
-	Role     *string `json:"role" validate:"optional" enums:"admin,user"`
-	Disabled *bool   `json:"disabled" validate:"optional"`
+	Role       *string `json:"role" validate:"optional" enums:"admin,user"`
+	Disabled   *bool   `json:"disabled" validate:"optional"`
+	CodeChosen *bool   `json:"codeChosen" validate:"optional"`
 } // @name UpdateUserRequest
 
 // decodeJSON reads the body strictly: unknown fields are an error, so typos in field
@@ -205,7 +214,7 @@ func (s *Server) register(ctx context.Context, c *app.RequestContext) {
 		return
 	}
 
-	c.JSON(http.StatusCreated, toUserDTO(user))
+	c.JSON(http.StatusCreated, s.userDTO(user))
 }
 
 // login starts a browser session.
@@ -238,7 +247,7 @@ func (s *Server) login(ctx context.Context, c *app.RequestContext) {
 	}
 
 	s.setSessionCookie(c, res.Token, res.Session.AbsoluteExpiresAt)
-	c.JSON(http.StatusOK, toUserDTO(res.User))
+	c.JSON(http.StatusOK, s.userDTO(res.User))
 }
 
 // logout ends the current session and clears its cookie.
@@ -277,7 +286,7 @@ func (s *Server) logout(ctx context.Context, c *app.RequestContext) {
 //	@Router		/me [get]
 func (s *Server) me(_ context.Context, c *app.RequestContext) {
 	p, _ := principal(c)
-	c.JSON(http.StatusOK, toUserDTO(p.User))
+	c.JSON(http.StatusOK, s.userDTO(p.User))
 }
 
 // changePassword ends every other session of the user.
@@ -446,7 +455,7 @@ func (s *Server) listUsers(ctx context.Context, c *app.RequestContext) {
 
 	out := userPage{Users: make([]userDTO, len(page.Items)), NextCursor: page.NextCursor}
 	for i, u := range page.Items {
-		out.Users[i] = toUserDTO(u)
+		out.Users[i] = s.userDTO(u)
 	}
 
 	c.JSON(http.StatusOK, out)
@@ -487,7 +496,7 @@ func (s *Server) createUser(ctx context.Context, c *app.RequestContext) {
 		return
 	}
 
-	c.JSON(http.StatusCreated, toUserDTO(user))
+	c.JSON(http.StatusCreated, s.userDTO(user))
 }
 
 // updateUser is admin only. The last active admin cannot be demoted or disabled.
@@ -514,7 +523,7 @@ func (s *Server) updateUser(ctx context.Context, c *app.RequestContext) {
 		return
 	}
 
-	upd := auth.UserUpdate{Disabled: req.Disabled}
+	upd := auth.UserUpdate{Disabled: req.Disabled, CodeChosen: req.CodeChosen}
 	if req.Role != nil {
 		role := domain.Role(*req.Role)
 		upd.Role = &role
@@ -528,7 +537,7 @@ func (s *Server) updateUser(ctx context.Context, c *app.RequestContext) {
 		return
 	}
 
-	c.JSON(http.StatusOK, toUserDTO(user))
+	c.JSON(http.StatusOK, s.userDTO(user))
 }
 
 // listInvites is admin only.

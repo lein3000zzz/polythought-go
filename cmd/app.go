@@ -269,8 +269,13 @@ func authConfig(s *settings.Snapshot) auth.Config {
 	cfg.SessionAbsoluteTTL = s.Duration(config.KeySessionAbsoluteTTL)
 	cfg.InviteTTL = s.Duration(config.KeyInviteTTL)
 	cfg.MinPasswordLength = s.Int(config.KeyMinPasswordLength)
+	cfg.CodeAccess = codeAccess(s)
 
 	return cfg
+}
+
+func codeAccess(s *settings.Snapshot) domain.CodeAccess {
+	return domain.CodeAccess(s.String(config.KeyCodeAccess))
 }
 
 func waitLimits(s *settings.Snapshot) engine.WaitLimits {
@@ -301,6 +306,16 @@ func (c expressionChecker) CheckExpressions(w domain.Workflow) error {
 	}))
 
 	return problems.Err()
+}
+
+// codeAccessChecker refuses code nodes in a workflow whose owner may not write code.
+type codeAccessChecker struct {
+	registry *engine.Registry
+	gate     engine.CodeGate
+}
+
+func (c codeAccessChecker) CheckCodeAccess(ctx context.Context, w domain.Workflow) error {
+	return c.registry.CheckCodeAccess(ctx, w, c.gate)
 }
 
 // codeTypes declares what code is written against: the SDK and the node types, the same
@@ -443,10 +458,14 @@ func (a *app) initEngine(ctx context.Context, pmc polymarket) error {
 	}
 
 	waitRecords := postgres.NewWaits(a.db)
+	codeGate := auth.CodeGate{
+		Users: postgres.NewUsers(a.db),
+		Mode:  func() domain.CodeAccess { return codeAccess(a.settings.Current()) },
+	}
 
 	executor, err := engine.NewExecutor(a.util, a.registry,
 		engine.WithRecorder(executions), engine.WithNotifier(a.events), engine.WithNotifier(a.notify),
-		engine.WithEvaluator(a.code),
+		engine.WithEvaluator(a.code), engine.WithCodeGate(codeGate),
 		engine.WithWaits(waitRecords, func() engine.WaitLimits { return waitLimits(a.settings.Current()) }))
 	if err != nil {
 		return err
@@ -461,7 +480,8 @@ func (a *app) initEngine(ctx context.Context, pmc polymarket) error {
 	a.workflows = workflows.New(postgres.NewWorkflows(a.db), executions, a.registry, executor, a.supervisor, a.util.Logger,
 		workflows.WithLiveLimits(func() workflows.Limits { return workflowLimits(a.settings.Current()) }),
 		workflows.WithWaits(a.waits), workflows.WithFieldChecks(a.registry),
-		workflows.WithExpressionChecks(expressionChecker{registry: a.registry, compiler: compiler}))
+		workflows.WithExpressionChecks(expressionChecker{registry: a.registry, compiler: compiler}),
+		workflows.WithCodeAccess(codeAccessChecker{registry: a.registry, gate: codeGate}))
 
 	if a.library, err = library.New(postgres.NewTemplates(a.db), a.workflows, a.registry, a.util.Logger); err != nil {
 		return err

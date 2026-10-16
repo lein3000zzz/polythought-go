@@ -70,10 +70,13 @@ func TestUsers(t *testing.T) {
 
 			assert.ErrorIs(t, users.SetPasswordHash(ctx, domain.UserID(newID()), "$x", at), domain.ErrNotFound)
 		}},
-		{"update writes role and disabled state", func(t *testing.T, db *postgres.DB, users *postgres.Users) {
+		{"update writes role, disabled state and code access", func(t *testing.T, db *postgres.DB, users *postgres.Users) {
 			u := seedUser(t, db, "bob@example.com", domain.RoleUser)
+			assert.False(t, u.CodeChosen)
+
 			u.Role = domain.RoleAdmin
 			u.DisabledAt = at.Add(time.Minute)
+			u.CodeChosen = true
 			u.UpdatedAt = at.Add(time.Minute)
 
 			require.NoError(t, users.Update(ctx, u))

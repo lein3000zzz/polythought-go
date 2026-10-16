@@ -791,6 +791,10 @@
             },
             "NodeType": {
                 "properties": {
+                    "code": {
+                        "description": "Code says it runs code its owner wrote: only users who may write code (the\nmayWriteCode of /me) can save it.",
+                        "type": "boolean"
+                    },
                     "description": {
                         "type": "string"
                     },
@@ -834,6 +838,7 @@
                     }
                 },
                 "required": [
+                    "code",
                     "inputs",
                     "name",
                     "outputs",
@@ -1430,6 +1435,9 @@
             },
             "UpdateUserRequest": {
                 "properties": {
+                    "codeChosen": {
+                        "type": "boolean"
+                    },
                     "disabled": {
                         "type": "boolean"
                     },
@@ -1494,6 +1502,10 @@
             },
             "User": {
                 "properties": {
+                    "codeChosen": {
+                        "description": "CodeChosen says an admin picked them to write code, which counts while code access\nis \"chosen\".",
+                        "type": "boolean"
+                    },
                     "createdAt": {
                         "format": "date-time",
                         "type": "string"
@@ -1510,6 +1522,10 @@
                     "id": {
                         "type": "string"
                     },
+                    "mayWriteCode": {
+                        "description": "MayWriteCode says whether they may write code now, as code access and CodeChosen\nhave it.",
+                        "type": "boolean"
+                    },
                     "role": {
                         "enum": [
                             "admin",
@@ -1519,11 +1535,13 @@
                     }
                 },
                 "required": [
+                    "codeChosen",
                     "createdAt",
                     "disabled",
                     "email",
                     "emailVerified",
                     "id",
+                    "mayWriteCode",
                     "role"
                 ],
                 "type": "object"

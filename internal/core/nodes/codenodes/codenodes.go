@@ -58,6 +58,13 @@ func NewAggregate(code ports.CodeCaller, log logging.Logger) *Node {
 }
 
 func (n *Node) Type() engine.NodeType {
+	t := n.typ()
+	t.Code = true
+
+	return t
+}
+
+func (n *Node) typ() engine.NodeType {
 	in := []string{engine.DefaultPort}
 
 	switch n.kind {

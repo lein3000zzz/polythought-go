@@ -2,6 +2,7 @@ package workflows_test
 
 import (
 	"context"
+	"errors"
 	"testing"
 	"time"
 
@@ -566,6 +567,57 @@ func TestFieldChecks(t *testing.T) {
 		var v *domain.ValidationError
 		require.ErrorAs(t, err, &v)
 		assert.Equal(t, []domain.Problem{field, expr}, v.Problems)
+	})
+
+	t.Run("and code access, with the other problems", func(t *testing.T) {
+		d := deps{
+			repo: portsmocks.NewMockWorkflowRepository(t), executions: portsmocks.NewMockExecutionRepository(t),
+			validator: workflowsmocks.NewMockValidator(t), executor: workflowsmocks.NewMockExecutor(t),
+			supervisor: workflowsmocks.NewMockSupervisor(t),
+		}
+		fc := workflowsmocks.NewMockFieldChecker(t)
+		cc := workflowsmocks.NewMockCodeAccessChecker(t)
+
+		s := workflows.New(d.repo, d.executions, d.validator, d.executor, d.supervisor, logging.Noop(),
+			workflows.WithFieldChecks(fc), workflows.WithCodeAccess(cc))
+
+		field := domain.Problem{NodeID: "tight", Param: "field", Message: `no field "bestbid"`}
+		off := domain.Problem{NodeID: "keep", Message: `node "keep": an admin has turned code off for you`, Err: domain.ErrCodeOff}
+
+		d.repo.EXPECT().Get(mock.Anything, domain.UserID("u-1"), domain.WorkflowID("wf-1")).Return(stored, nil)
+		d.validator.EXPECT().Validate(mock.Anything).Return(nil)
+		fc.EXPECT().CheckFields(mock.Anything).Return(&domain.ValidationError{Problems: []domain.Problem{field}})
+		cc.EXPECT().CheckCodeAccess(mock.Anything, mock.MatchedBy(func(w domain.Workflow) bool { return w.OwnerID == "u-1" })).
+			Return(&domain.ValidationError{Problems: []domain.Problem{off}})
+
+		_, err := s.Update(ctx, alice, "wf-1", 3, def)
+		require.ErrorIs(t, err, domain.ErrCodeOff)
+
+		var v *domain.ValidationError
+		require.ErrorAs(t, err, &v)
+		assert.Equal(t, []domain.Problem{field, off}, v.Problems)
+	})
+
+	t.Run("code access failing to tell is an error of its own, not a problem", func(t *testing.T) {
+		d := deps{
+			repo: portsmocks.NewMockWorkflowRepository(t), executions: portsmocks.NewMockExecutionRepository(t),
+			validator: workflowsmocks.NewMockValidator(t), executor: workflowsmocks.NewMockExecutor(t),
+			supervisor: workflowsmocks.NewMockSupervisor(t),
+		}
+		cc := workflowsmocks.NewMockCodeAccessChecker(t)
+
+		s := workflows.New(d.repo, d.executions, d.validator, d.executor, d.supervisor, logging.Noop(),
+			workflows.WithCodeAccess(cc))
+
+		failing := errors.New("db down")
+
+		d.repo.EXPECT().Count(mock.Anything, mock.Anything).Return(0, 0, nil)
+		d.validator.EXPECT().Validate(mock.Anything).Return(nil)
+		cc.EXPECT().CheckCodeAccess(mock.Anything, mock.Anything).Return(failing)
+
+		_, err := s.Create(ctx, alice, def)
+		require.ErrorIs(t, err, failing)
+		assert.NotErrorIs(t, err, domain.ErrInvalidWorkflow)
 	})
 
 	t.Run("switching on does not: a workflow saved before keeps running", func(t *testing.T) {

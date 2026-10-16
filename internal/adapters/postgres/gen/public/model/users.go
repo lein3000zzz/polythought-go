@@ -22,4 +22,5 @@ type Users struct {
 	DisabledAt      *time.Time
 	CreatedAt       time.Time
 	UpdatedAt       time.Time
+	CodeChosen      bool
 }

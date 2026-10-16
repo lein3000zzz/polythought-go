@@ -27,8 +27,11 @@ export function useUpdateSettings() {
     onSuccess: (data) => {
       queryClient.setQueryData(keys.settingList, data)
       void queryClient.invalidateQueries({ queryKey: keys.settingHistory })
-      // Sign-up and password forms read some settings from here.
+      // Sign-up and password forms read some settings from here, and whether one may write
+      // code depends on them.
       void queryClient.invalidateQueries({ queryKey: keys.authConfig })
+      void queryClient.invalidateQueries({ queryKey: keys.me })
+      void queryClient.invalidateQueries({ queryKey: keys.users })
     },
   })
 }

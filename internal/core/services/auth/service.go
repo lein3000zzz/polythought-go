@@ -33,6 +33,7 @@ type Config struct {
 	// TouchInterval limits how often a session or token records its use, to save writes.
 	TouchInterval     time.Duration
 	MinPasswordLength int
+	CodeAccess        domain.CodeAccess // who may write code
 }
 
 func DefaultConfig() Config {
@@ -43,6 +44,7 @@ func DefaultConfig() Config {
 		InviteTTL:          7 * 24 * time.Hour,
 		TouchInterval:      time.Minute,
 		MinPasswordLength:  12,
+		CodeAccess:         domain.CodeEveryone,
 	}
 }
 
@@ -99,6 +101,10 @@ func WithClock(now func() time.Time) Option {
 func New(cfg Config, repos Repositories, hasher ports.PasswordHasher, limiter ports.RateLimiter, log logging.Logger, opts ...Option) (*Service, error) {
 	if !cfg.Registration.Valid() {
 		return nil, fmt.Errorf("auth: invalid registration mode %q", cfg.Registration)
+	}
+
+	if !cfg.CodeAccess.Valid() {
+		return nil, fmt.Errorf("auth: invalid code access %q", cfg.CodeAccess)
 	}
 
 	dummy, err := hasher.Hash("polythought-dummy-password")

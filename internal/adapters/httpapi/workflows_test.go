@@ -82,6 +82,7 @@ func TestWorkflowRoutes(t *testing.T) {
 						Items: &engine.Items{Passed: true}}},
 					{NodeType: engine.NodeType{Name: "output.webhook", Inputs: []string{"main"}, Outputs: []string{"main"},
 						Params: []engine.ParamSpec{{Name: "credential", Kind: engine.ParamCredential, CredentialType: "http.header"}}}},
+					{NodeType: engine.NodeType{Name: "code.filter", Inputs: []string{"main"}, Outputs: []string{"main"}, Code: true}},
 				})
 			},
 			wantStatus: http.StatusOK,
@@ -93,6 +94,8 @@ func TestWorkflowRoutes(t *testing.T) {
 					`"fields":[{"name":"price","kind":"decimal","optional":false,"nullable":true}]}}],"passed":false}`,
 				`"items":{"fields":[],"passed":true}`,
 				`{"name":"field","kind":"string","required":false,"field":true,"fieldKinds":["number","decimal"]}`,
+				`"name":"code.filter","trigger":false,"inputs":["main"],"outputs":["main"],"params":[],"code":true`,
+				`"name":"logic.if","label":"If","trigger":false`,
 			},
 		},
 		{

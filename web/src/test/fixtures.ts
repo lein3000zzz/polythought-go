@@ -8,6 +8,8 @@ export const alice: Schemas['User'] = {
   role: 'user',
   emailVerified: false,
   disabled: false,
+  codeChosen: false,
+  mayWriteCode: true,
   createdAt: '2026-10-01T10:00:00Z',
 }
 
@@ -50,6 +52,7 @@ export const nodeTypes: Schemas['NodeType'][] = [
     name: 'trigger.manual',
     label: 'Manual',
     trigger: true,
+    code: false,
     inputs: [],
     outputs: ['main'],
     params: [],
@@ -59,6 +62,7 @@ export const nodeTypes: Schemas['NodeType'][] = [
     label: 'If',
     description: 'Compares a numeric field of each item with a value.',
     trigger: false,
+    code: false,
     inputs: ['main'],
     outputs: ['true', 'false'],
     params: [
@@ -78,6 +82,7 @@ export const nodeTypes: Schemas['NodeType'][] = [
     name: 'output.log',
     label: 'Log',
     trigger: false,
+    code: false,
     inputs: ['main'],
     outputs: ['main'],
     params: [{ name: 'message', label: 'Message', kind: 'string', required: false }],
@@ -86,6 +91,7 @@ export const nodeTypes: Schemas['NodeType'][] = [
     name: 'polymarket.balance',
     label: 'Balance',
     trigger: false,
+    code: false,
     inputs: ['main'],
     outputs: ['main'],
     params: [{ name: 'wallet', label: 'Wallet', kind: 'wallet', required: true }],

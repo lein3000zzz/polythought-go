@@ -24,6 +24,7 @@ const (
 	KeyExecutionRetention  = "executions.retention"
 	KeyMaxWaiting          = "executions.max_waiting_per_user"
 	KeyMaxWait             = "executions.max_wait"
+	KeyCodeAccess          = "code.access"
 	KeyCodeMemory          = "code.memory"
 	KeyCodeTime            = "code.time"
 	KeyCodeOutput          = "code.output"
@@ -124,6 +125,12 @@ func Settings() (*settings.Registry, error) {
 			Key: KeyMaxWait, Group: groupExecutions, Label: "Longest wait",
 			Description: "How far ahead a wait may end. A node asking to wait longer fails.",
 			Kind:        settings.KindDuration, Default: 7 * 24 * time.Hour, Check: atLeast(time.Minute),
+		},
+		settings.Spec{
+			Key: KeyCodeAccess, Group: groupCode, Label: "Who may write code",
+			Description: "Code nodes run TypeScript users write: everyone may (everyone), admins and the users switched on for code on the Users page (chosen), or no one, admins included (off). Expressions are not code. A workflow with code nodes whose owner may not write code cannot be saved, and fails at once when it is triggered.",
+			Kind:        settings.KindEnum, Default: string(domain.CodeEveryone),
+			Options: []string{string(domain.CodeEveryone), string(domain.CodeChosen), string(domain.CodeOff)},
 		},
 		settings.Spec{
 			Key: KeyCodeMemory, Group: groupCode, Label: "Memory per run (MiB)",

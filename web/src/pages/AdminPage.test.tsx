@@ -12,18 +12,43 @@ import { server } from '@/test/server'
 const root: Schemas['User'] = { ...alice, id: 'u-0', email: 'root@example.com', role: 'admin' }
 const asAdmin = http.get('/api/v1/me', () => HttpResponse.json(root))
 
-function admin(users: Schemas['User'][], invites: Schemas['Invite'][] = []) {
+function admin(
+  users: Schemas['User'][],
+  invites: Schemas['Invite'][] = [],
+  codeAccess: 'everyone' | 'chosen' | 'off' = 'everyone',
+) {
+  const access: Schemas['Setting'] = {
+    key: 'code.access',
+    group: 'Code',
+    label: 'Who may write code',
+    description: 'Who may write code.',
+    kind: 'enum',
+    options: ['everyone', 'chosen', 'off'],
+    secret: false,
+    isSet: codeAccess !== 'everyone',
+    apply: 'live',
+    value: codeAccess,
+    default: 'everyone',
+    source: 'database',
+    env: 'POLYTHOUGHT_CODE_ACCESS',
+    pending: false,
+  }
+
   server.use(
     asAdmin,
     registration('invite'),
     http.get('/api/v1/workflows', () => HttpResponse.json({ workflows: [] })),
     http.get('/api/v1/admin/users', () => HttpResponse.json({ users })),
     http.get('/api/v1/admin/invites', () => HttpResponse.json({ invites })),
+    http.get('/api/v1/admin/settings', () =>
+      HttpResponse.json({ settings: [access], restartPending: false }),
+    ),
   )
 }
 
+// The first cell names the user; the code switch's label names them too.
 const userRow = (email: string) =>
-  screen.getByRole('cell', { name: new RegExp(email) }).closest('tr')!
+  screen.getAllByRole('cell', { name: new RegExp(email) })[0].closest('tr')!
 
 describe('admin page', () => {
   it('is for admins only', async () => {
@@ -73,6 +98,58 @@ describe('admin page', () => {
       { email: 'bob@example.com', password: 'a long enough password', role: 'admin' },
       { disabled: true },
     ])
+  })
+
+  it('picks the users who may write code, while code is for chosen users', async () => {
+    const sent: unknown[] = []
+    admin([root, alice], [], 'chosen')
+    server.use(
+      http.patch('/api/v1/admin/users/u-1', async ({ request }) => {
+        sent.push(await request.json())
+        return HttpResponse.json({ ...alice, codeChosen: true, mayWriteCode: true })
+      }),
+    )
+    const { user } = renderApp('/admin')
+
+    expect(
+      await screen.findByText(/Admins may write code, and the users switched on below\./),
+    ).toBeInTheDocument()
+    await screen.findByText('alice@example.com')
+    expect(within(userRow('root@example.com')).getByText('Yes')).toBeInTheDocument()
+    expect(within(userRow('root@example.com')).queryByRole('switch')).not.toBeInTheDocument()
+
+    const chosen = within(userRow('alice@example.com')).getByRole('switch', {
+      name: 'alice@example.com may write code',
+    })
+    expect(chosen).not.toBeChecked()
+
+    await user.click(chosen)
+
+    expect(await screen.findByText('alice@example.com may write code')).toBeInTheDocument()
+    expect(sent).toEqual([{ codeChosen: true }])
+  })
+
+  it('says who may write code when it is not for chosen users', async () => {
+    admin(
+      [
+        { ...root, mayWriteCode: false },
+        { ...alice, codeChosen: true, mayWriteCode: false },
+      ],
+      [],
+      'off',
+    )
+    renderApp('/admin')
+
+    expect(
+      await screen.findByText(/Code is off for everyone, admins included\./),
+    ).toBeInTheDocument()
+    await screen.findByText('alice@example.com')
+    expect(screen.queryByRole('switch')).not.toBeInTheDocument()
+    expect(within(userRow('alice@example.com')).getByText('No')).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Config page' })).toHaveAttribute(
+      'href',
+      '/admin/config',
+    )
   })
 
   it('says why the last admin cannot be demoted', async () => {

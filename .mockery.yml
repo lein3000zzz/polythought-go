@@ -84,6 +84,7 @@ packages:
       Validator: {}
       FieldChecker: {}
       ExpressionChecker: {}
+      CodeAccessChecker: {}
       Executor: {}
       Supervisor: {}
       Waits: {}

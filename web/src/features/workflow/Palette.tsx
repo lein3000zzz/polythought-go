@@ -33,19 +33,25 @@ type Props = {
   onAdd: (type: NodeType) => void
   /** The search field, for a shortcut to focus it. */
   searchRef?: Ref<HTMLInputElement>
+  /** An admin has turned code off for the user: code nodes are shown but cannot be added. */
+  codeOff?: boolean
 }
+
+/** Why a code node cannot be added, when code is off for the user. */
+export const codeOffReason = 'An admin has turned code off for you.'
 
 /**
  * The node types to add: click to place one in view, or drag it to a spot. A search
  * above narrows the list; Enter adds the first match.
  */
-export function Palette({ types, onAdd, searchRef }: Props) {
+export function Palette({ types, onAdd, searchRef, codeOff = false }: Props) {
   const [query, setQuery] = useState('')
   const shown = groups(types).flatMap(([group, members]) => {
     const matching = members.filter((t) => matches(t, group, query))
     return matching.length > 0 ? [[group, matching] as const] : []
   })
-  const first = shown[0]?.[1][0]
+  const usable = (t: NodeType) => !(codeOff && t.code)
+  const first = shown.flatMap(([, members]) => members).find(usable)
 
   return (
     <div className="flex h-full flex-col">
@@ -90,8 +96,11 @@ export function Palette({ types, onAdd, searchRef }: Props) {
             {shown.map(([group, members]) => (
               <section key={group} className="flex flex-col gap-1">
                 <h2 className="px-2 text-xs font-medium text-muted-foreground">{group}</h2>
+                {codeOff && members.some((t) => t.code) && (
+                  <p className="px-2 text-xs text-muted-foreground">{codeOffReason}</p>
+                )}
                 {members.map((t) => (
-                  <NodeButton key={t.name} type={t} onAdd={onAdd} />
+                  <NodeButton key={t.name} type={t} onAdd={onAdd} disabled={!usable(t)} />
                 ))}
               </section>
             ))}
@@ -102,20 +111,29 @@ export function Palette({ types, onAdd, searchRef }: Props) {
   )
 }
 
-function NodeButton({ type: t, onAdd }: { type: NodeType; onAdd: (type: NodeType) => void }) {
+function NodeButton({
+  type: t,
+  onAdd,
+  disabled,
+}: {
+  type: NodeType
+  onAdd: (type: NodeType) => void
+  disabled: boolean
+}) {
   const Icon = t.trigger ? Zap : Box
 
   return (
     <button
       type="button"
-      draggable
+      draggable={!disabled}
+      disabled={disabled}
       onDragStart={(e) => {
         e.dataTransfer.setData(nodeTypeMime, t.name)
         e.dataTransfer.effectAllowed = 'move'
       }}
       onClick={() => onAdd(t)}
-      title={t.description}
-      className="flex items-start gap-2 rounded-md px-2 py-1.5 text-left text-sm hover:bg-muted"
+      title={disabled ? codeOffReason : t.description}
+      className="flex items-start gap-2 rounded-md px-2 py-1.5 text-left text-sm hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-transparent"
     >
       <Icon
         className={

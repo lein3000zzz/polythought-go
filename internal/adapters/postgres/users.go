@@ -47,6 +47,7 @@ func (r *Users) Create(ctx context.Context, u domain.User, passwordHash string) 
 		Role:            string(u.Role),
 		EmailVerifiedAt: timePtr(u.EmailVerifiedAt),
 		DisabledAt:      timePtr(u.DisabledAt),
+		CodeChosen:      u.CodeChosen,
 		CreatedAt:       u.CreatedAt,
 		UpdatedAt:       u.UpdatedAt,
 	}
@@ -121,8 +122,8 @@ func (r *Users) Update(ctx context.Context, u domain.User) error {
 	}
 
 	return affectedOne(table.Users.
-		UPDATE(table.Users.Role, table.Users.DisabledAt, table.Users.UpdatedAt).
-		SET(string(u.Role), timePtr(u.DisabledAt), u.UpdatedAt).
+		UPDATE(table.Users.Role, table.Users.DisabledAt, table.Users.CodeChosen, table.Users.UpdatedAt).
+		SET(string(u.Role), timePtr(u.DisabledAt), u.CodeChosen, u.UpdatedAt).
 		WHERE(table.Users.ID.EQ(jet.UUID(uid))).
 		ExecContext(ctx, r.db.conn(ctx)))
 }
@@ -217,6 +218,7 @@ func toUser(m model.Users) domain.User {
 		Role:            domain.Role(m.Role),
 		EmailVerifiedAt: timeOf(m.EmailVerifiedAt),
 		DisabledAt:      timeOf(m.DisabledAt),
+		CodeChosen:      m.CodeChosen,
 		CreatedAt:       m.CreatedAt.UTC(),
 		UpdatedAt:       m.UpdatedAt.UTC(),
 	}
