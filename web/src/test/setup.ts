@@ -3,7 +3,7 @@ import '@testing-library/jest-dom/vitest'
 import './media'
 
 import { cleanup } from '@testing-library/react'
-import { afterAll, afterEach } from 'vitest'
+import { afterAll, afterEach, vi } from 'vitest'
 
 import { setThemePreference } from '@/lib/theme'
 
@@ -16,6 +16,11 @@ import { server } from './server'
 server.listen({ onUnhandledFrame: 'error' })
 
 globalThis.EventSource = FakeEventSource as unknown as typeof EventSource
+
+// Monaco needs a real browser: code editors stay plain text here, which e2e tests go past.
+vi.mock('@/components/code/MonacoEditor', async () => ({
+  default: (await import('@/components/code/PlainEditor')).PlainEditor,
+}))
 
 afterEach(() => {
   cleanup()

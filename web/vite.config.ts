@@ -20,6 +20,8 @@ export default defineConfig({
   server: {
     proxy: { '/api': api, '/docs': docs },
   },
+  // Monaco's workers are modules that import others.
+  worker: { format: 'es' },
   build: {
     rolldownOptions: {
       output: {

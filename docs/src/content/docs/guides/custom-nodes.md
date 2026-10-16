@@ -20,8 +20,9 @@ the others another, with the threshold as a setting.
 5. Under **Outputs**, rename `main` to `wide` and add `tight`.
 6. Leave **Items** as **Passes on the items it gets**.
 
-The code on the right follows the form as you go, while you leave it as it is. Change
-it to:
+The code on the right follows the form as you go, while you leave it as it is. It is the
+same editor as for [code nodes](/docs/guides/code/#writing-it), which knows the SDK and
+the types of your nodes. Change it to:
 
 ```ts
 import { dec } from "@polythought/sdk"

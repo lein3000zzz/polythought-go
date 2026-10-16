@@ -3,6 +3,7 @@ import { useState, type ReactNode } from 'react'
 import type { ParamSpec } from '@/api/client'
 import { useCredentialList, useCredentialTypes } from '@/api/vault'
 import { useWallets } from '@/api/wallets'
+import { CodeEditor } from '@/components/code/CodeEditor'
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Input } from '@/components/ui/input'
@@ -70,7 +71,7 @@ function Control(props: Props) {
   if (spec.options?.length && spec.kind === 'list') return <ChecklistField {...props} />
   if (spec.options?.length) return <SelectField {...props} />
   if (spec.kind === 'list' || spec.kind === 'tokens') return <TextField {...props} multiline />
-  if (spec.kind === 'code') return <TextField {...props} multiline rows={14} />
+  if (spec.kind === 'code') return <CodeField {...props} />
 
   return <TextField {...props} />
 }
@@ -79,6 +80,22 @@ const placeholders: Partial<Record<ParamSpec['kind'], string>> = {
   duration: 'e.g. 30s, 5m, 1h',
   tokens: 'One token ID per line',
   list: 'One per line',
+}
+
+// CodeField is TypeScript, in Monaco once it loads.
+function CodeField({ spec, value, onChange, problem, scope, action }: Props) {
+  return (
+    <Field spec={spec} scope={scope} problem={problem} action={action}>
+      <CodeEditor
+        id={fieldId(spec, scope)}
+        label={spec.label || spec.name}
+        value={typeof value === 'string' ? value : textOf(spec.default ?? '')}
+        rows={16}
+        invalid={Boolean(problem)}
+        onChange={onChange}
+      />
+    </Field>
+  )
 }
 
 function TextField({

@@ -28,6 +28,13 @@ export function keep(item: PolymarketOrderbookItem, ctx: Context<{ least: string
 }
 ```
 
+## Writing it
+
+The **Code** setting is an editor that knows the SDK and your node types, your custom nodes
+included: it completes as you type, shows what a name is when you point at it, and
+underlines type errors, listing them under the code. Type errors do not stop saving: saving
+refuses only code that does not compile.
+
 ## What the code works with
 
 - **Items** are plain objects. Decimals in them, like prices, are text such as `"0.0200"`, so

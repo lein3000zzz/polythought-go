@@ -12,6 +12,7 @@ import {
   type BrokenWorkflow,
   type CustomNode,
 } from '@/api/customNodes'
+import { CodeEditor } from '@/components/code/CodeEditor'
 import { ConfirmDialog } from '@/components/ConfirmDialog'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
@@ -355,14 +356,14 @@ export function CustomNodeForm({ node }: { node?: CustomNode }) {
             from @polythought/sdk.
             {form.source === starter(form) && ' While you leave it as it is, it follows the form.'}
           </p>
-          <Textarea
+          <CodeEditor
             id="node-source"
-            rows={28}
-            spellCheck={false}
-            className="font-mono text-xs"
+            label="Code"
+            rows={30}
             value={form.source}
-            aria-invalid={at('source').length > 0 || undefined}
-            onChange={(e) => setForm((f) => ({ ...f, source: e.target.value }))}
+            readOnly={codeOff}
+            invalid={at('source').length > 0}
+            onChange={(source) => setForm((f) => ({ ...f, source }))}
           />
           <Problems messages={at('source')} />
         </section>
