@@ -462,6 +462,37 @@ func (s *Server) getWorkflow(ctx context.Context, c *app.RequestContext) {
 	c.JSON(http.StatusOK, toWorkflowDTO(w))
 }
 
+type workflowProblems struct {
+	// Problems are what saving the workflow as it is would refuse; empty when none.
+	Problems []problemDTO `json:"problems"`
+} // @name WorkflowProblems
+
+// checkWorkflow says what saving the workflow as it is would refuse, without saving:
+// what no longer holds since its node types changed, as when a custom node lost a port.
+//
+//	@Summary	Check a workflow
+//	@ID			checkWorkflow
+//	@Tags		workflows
+//	@Param		id	path		string	true	"Workflow ID"
+//	@Success	200	{object}	workflowProblems
+//	@Failure	401	{object}	errorBody	"unauthenticated"
+//	@Failure	404	{object}	errorBody	"not_found"
+//	@Security	SessionCookie
+//	@Security	APIToken
+//	@Router		/workflows/{id}/problems [get]
+func (s *Server) checkWorkflow(ctx context.Context, c *app.RequestContext) {
+	p, _ := principal(c)
+
+	problems, err := s.workflows.Check(ctx, p, domain.WorkflowID(c.Param("id")))
+	if err != nil {
+		s.fail(ctx, c, err)
+		return
+	}
+
+	out := workflowProblems{Problems: toProblemDTOs(&domain.ValidationError{Problems: problems})}
+	c.JSON(http.StatusOK, out)
+}
+
 // updateWorkflow replaces the definition. An active workflow restarts with it.
 //
 //	@Summary	Update a workflow

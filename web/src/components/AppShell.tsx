@@ -12,6 +12,7 @@ import { Toaster } from '@/components/ui/sonner'
 const navLinks = [
   ['/workflows', 'Workflows'],
   ['/library', 'Library'],
+  ['/nodes', 'Nodes'],
   ['/wallets', 'Wallets'],
   ['/credentials', 'Credentials'],
   ['/settings', 'Settings'],

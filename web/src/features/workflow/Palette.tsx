@@ -1,5 +1,6 @@
-import { Box, Search, Zap } from 'lucide-react'
+import { Box, Plus, Search, Zap } from 'lucide-react'
 import { useState, type Ref } from 'react'
+import { Link } from 'react-router'
 
 import type { NodeType } from '@/api/client'
 import { Input } from '@/components/ui/input'
@@ -14,6 +15,7 @@ const groupNames: Record<string, string> = {
   output: 'Output',
   telegram: 'Telegram',
   code: 'Code',
+  custom: 'Custom',
 }
 
 // Groups follow the way items flow: where they start, come from, are sorted out, go.
@@ -23,6 +25,7 @@ const groupOrder = [
   'Logic',
   'Transform',
   'Code',
+  'Custom',
   'Output',
   'Telegram',
   'Other',
@@ -46,9 +49,11 @@ export const codeOffReason = 'An admin has turned code off for you.'
  */
 export function Palette({ types, onAdd, searchRef, codeOff = false }: Props) {
   const [query, setQuery] = useState('')
+  // The Custom group is there to make one in even before there is one (D57).
+  const custom = !codeOff && !query.trim()
   const shown = groups(types).flatMap(([group, members]) => {
     const matching = members.filter((t) => matches(t, group, query))
-    return matching.length > 0 ? [[group, matching] as const] : []
+    return matching.length > 0 || (group === 'Custom' && custom) ? [[group, matching] as const] : []
   })
   const usable = (t: NodeType) => !(codeOff && t.code)
   const first = shown.flatMap(([, members]) => members).find(usable)
@@ -102,6 +107,15 @@ export function Palette({ types, onAdd, searchRef, codeOff = false }: Props) {
                 {members.map((t) => (
                   <NodeButton key={t.name} type={t} onAdd={onAdd} disabled={!usable(t)} />
                 ))}
+                {group === 'Custom' && custom && (
+                  <Link
+                    to="/nodes/new"
+                    className="flex items-center gap-2 rounded-md px-2 py-1.5 text-sm text-muted-foreground hover:bg-muted hover:text-foreground"
+                  >
+                    <Plus className="size-4 shrink-0" />
+                    New custom node…
+                  </Link>
+                )}
               </section>
             ))}
           </nav>
@@ -173,5 +187,5 @@ function groups(types: readonly NodeType[]): [string, NodeType[]][] {
     out.get(group)?.push(t)
   }
 
-  return [...out].filter(([, members]) => members.length > 0)
+  return [...out].filter(([group, members]) => members.length > 0 || group === 'Custom')
 }

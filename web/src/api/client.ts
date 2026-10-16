@@ -26,6 +26,8 @@ export class ApiError extends Error {
   readonly status: number
   readonly code: string
   readonly problems: Problem[]
+  /** The workflows a change to a custom node would break (code breaks_workflows). */
+  readonly workflows: Schemas['BrokenWorkflow'][]
 
   constructor(status: number, body: unknown) {
     const detail = errorDetail(body)
@@ -35,6 +37,7 @@ export class ApiError extends Error {
     this.status = status
     this.code = detail?.code ?? `http_${status}`
     this.problems = detail?.problems ?? []
+    this.workflows = detail?.workflows ?? []
   }
 }
 

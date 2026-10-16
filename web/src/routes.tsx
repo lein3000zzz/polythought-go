@@ -6,8 +6,10 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { AdminConfigPage } from '@/pages/AdminConfigPage'
 import { AdminPage } from '@/pages/AdminPage'
 import { CredentialsPage } from '@/pages/CredentialsPage'
+import { CustomNodePage } from '@/pages/CustomNodePage'
 import { LibraryPage } from '@/pages/LibraryPage'
 import { LoginPage } from '@/pages/LoginPage'
+import { NodesPage } from '@/pages/NodesPage'
 import { NotFoundPage } from '@/pages/NotFoundPage'
 import { RegisterPage } from '@/pages/RegisterPage'
 import { SettingsPage } from '@/pages/SettingsPage'
@@ -46,6 +48,9 @@ export const routes: RouteObject[] = [
             lazy: async () => ({ Component: (await import('@/pages/TemplatePage')).TemplatePage }),
             hydrateFallbackElement: editor.hydrateFallbackElement,
           },
+          { path: 'nodes', element: <NodesPage /> },
+          { path: 'nodes/new', element: <CustomNodePage /> },
+          { path: 'nodes/:id', element: <CustomNodePage /> },
           { path: 'wallets', element: <WalletsPage /> },
           { path: 'credentials', element: <CredentialsPage /> },
           { path: 'settings', element: <SettingsPage /> },

@@ -34,3 +34,12 @@ export function spread(update: TriggerMarketItem): string | undefined {
 export function keep(item: PolymarketOrderbookItem, ctx: Context<{ least: string }>): boolean {
   return item.spread !== null && dec(item.spread).lt(ctx.params.least ?? '0.02')
 }
+
+// The example in the custom nodes guide, whose run it is.
+export function runSplit(
+  items: PolymarketOrderbookItem[],
+  ctx: Context<{ threshold: string }>,
+): { wide: PolymarketOrderbookItem[]; tight: PolymarketOrderbookItem[] } {
+  const wide = items.filter((b) => b.spread !== null && dec(b.spread).gt(ctx.params.threshold))
+  return { wide, tight: items.filter((b) => !wide.includes(b)) }
+}

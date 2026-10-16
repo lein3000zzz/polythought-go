@@ -460,6 +460,62 @@ func (s *Service) PruneExecutions(ctx context.Context, retention time.Duration) 
 	return s.executions.DeleteFinishedBefore(ctx, s.now().Add(-retention))
 }
 
+// Check says what saving the workflow as it is would refuse, without saving: what no
+// longer holds since its node types changed, say (D60). None is an empty list.
+func (s *Service) Check(ctx context.Context, p auth.Principal, id domain.WorkflowID) ([]domain.Problem, error) {
+	w, err := s.repo.Get(ctx, p.User.ID, id)
+	if err != nil {
+		return nil, err
+	}
+
+	err = s.check(ctx, w)
+
+	var v *domain.ValidationError
+	if errors.As(err, &v) {
+		return v.Problems, nil
+	}
+
+	return []domain.Problem{}, err
+}
+
+// check runs the checks saving does. Their problems come back together as a
+// *domain.ValidationError, so one save says everything; a check failing to run is an
+// error of its own.
+func (s *Service) check(ctx context.Context, w domain.Workflow) error {
+	if err := s.validator.Validate(ctx, w); err != nil {
+		return err
+	}
+
+	var problems domain.ValidationError
+
+	checks := []func() error{}
+
+	if s.fields != nil {
+		checks = append(checks, func() error { return s.fields.CheckFields(ctx, w) })
+	}
+
+	if s.exprs != nil {
+		checks = append(checks, func() error { return s.exprs.CheckExpressions(ctx, w) })
+	}
+
+	if s.code != nil {
+		checks = append(checks, func() error { return s.code.CheckCodeAccess(ctx, w) })
+	}
+
+	for _, check := range checks {
+		err := check()
+
+		var found *domain.ValidationError
+		if err != nil && !errors.As(err, &found) {
+			return err
+		}
+
+		problems.Merge(err)
+	}
+
+	return problems.Err()
+}
+
 // apply validates def and copies it onto w.
 func (s *Service) apply(ctx context.Context, w *domain.Workflow, def Definition) error {
 	name := strings.TrimSpace(def.Name)
@@ -476,33 +532,7 @@ func (s *Service) apply(ctx context.Context, w *domain.Workflow, def Definition)
 	candidate.Nodes = def.Nodes
 	candidate.Connections = def.Connections
 
-	if err := s.validator.Validate(ctx, candidate); err != nil {
-		return err
-	}
-
-	// Both at once, so one save says everything.
-	var problems domain.ValidationError
-
-	if s.fields != nil {
-		problems.Merge(s.fields.CheckFields(ctx, candidate))
-	}
-
-	if s.exprs != nil {
-		problems.Merge(s.exprs.CheckExpressions(ctx, candidate))
-	}
-
-	if s.code != nil {
-		err := s.code.CheckCodeAccess(ctx, candidate)
-
-		var refused *domain.ValidationError
-		if err != nil && !errors.As(err, &refused) {
-			return err
-		}
-
-		problems.Merge(err)
-	}
-
-	if err := problems.Err(); err != nil {
+	if err := s.check(ctx, candidate); err != nil {
 		return err
 	}
 

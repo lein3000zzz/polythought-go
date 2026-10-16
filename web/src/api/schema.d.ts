@@ -721,6 +721,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/workflows/{id}/problems": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Check a workflow */
+        get: operations["checkWorkflow"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/workflows/{id}/run": {
         parameters: {
             query?: never;
@@ -1420,6 +1437,10 @@ export interface components {
             /** @description NextCursor is absent on the last page. */
             nextCursor?: string;
             workflows: components["schemas"]["Workflow"][];
+        };
+        WorkflowProblems: {
+            /** @description Problems are what saving the workflow as it is would refuse; empty when none. */
+            problems: components["schemas"]["Problem"][];
         };
     };
     responses: never;
@@ -3957,6 +3978,47 @@ export interface operations {
             };
             /** @description not_waiting */
             409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    checkWorkflow: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Workflow ID */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WorkflowProblems"];
+                };
+            };
+            /** @description unauthenticated */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description not_found */
+            404: {
                 headers: {
                     [name: string]: unknown;
                 };

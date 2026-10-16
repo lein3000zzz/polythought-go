@@ -100,6 +100,26 @@ func TestWorkflowRoutes(t *testing.T) {
 			},
 		},
 		{
+			name: "check what no longer holds, without saving",
+			req:  request{method: "GET", path: "/api/v1/workflows/wf-1/problems", headers: cookie},
+			setup: func(ws *httpapimocks.MockWorkflowService, _ *httpapimocks.MockNodeTypes) {
+				ws.EXPECT().Check(mock.Anything, mock.Anything, domain.WorkflowID("wf-1")).Return([]domain.Problem{
+					{NodeID: "split", Message: `node "split" (custom.spread-split) has no output port "wide"`},
+				}, nil)
+			},
+			wantStatus: http.StatusOK,
+			wantBody:   []string{`{"problems":[{"nodeId":"split","message":"node \"split\" (custom.spread-split) has no output port \"wide\""}]}`},
+		},
+		{
+			name: "check one that holds",
+			req:  request{method: "GET", path: "/api/v1/workflows/wf-1/problems", headers: cookie},
+			setup: func(ws *httpapimocks.MockWorkflowService, _ *httpapimocks.MockNodeTypes) {
+				ws.EXPECT().Check(mock.Anything, mock.Anything, domain.WorkflowID("wf-1")).Return([]domain.Problem{}, nil)
+			},
+			wantStatus: http.StatusOK,
+			wantBody:   []string{`{"problems":[]}`},
+		},
+		{
 			name: "create keeps numbers exact",
 			req:  request{method: "POST", path: "/api/v1/workflows", body: flowBody, headers: cookie},
 			setup: func(w *httpapimocks.MockWorkflowService, _ *httpapimocks.MockNodeTypes) {

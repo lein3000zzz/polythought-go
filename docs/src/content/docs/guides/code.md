@@ -15,7 +15,8 @@ works:
 | [Code: aggregate](/docs/reference/nodes/code/aggregate/) | `export function run(items, ctx)` | every item at once | one item, or `null` for none |
 
 Each node run calls your code once, in a sandbox: it has no files and no network, only
-what the SDK gives it.
+what the SDK gives it. For a node type of your own, with settings and outputs you choose,
+see [Write your first custom node](/docs/guides/custom-nodes/).
 
 ```ts
 import { dec, markets } from "@polythought/sdk"

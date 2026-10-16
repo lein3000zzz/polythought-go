@@ -200,6 +200,80 @@ func (_c *MockWorkflowService_CancelExecution_Call) RunAndReturn(run func(ctx co
 	return _c
 }
 
+// Check provides a mock function for the type MockWorkflowService
+func (_mock *MockWorkflowService) Check(ctx context.Context, p auth.Principal, id domain.WorkflowID) ([]domain.Problem, error) {
+	ret := _mock.Called(ctx, p, id)
+
+	if len(ret) == 0 {
+		panic("no return value specified for Check")
+	}
+
+	var r0 []domain.Problem
+	var r1 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context, auth.Principal, domain.WorkflowID) ([]domain.Problem, error)); ok {
+		return returnFunc(ctx, p, id)
+	}
+	if returnFunc, ok := ret.Get(0).(func(context.Context, auth.Principal, domain.WorkflowID) []domain.Problem); ok {
+		r0 = returnFunc(ctx, p, id)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).([]domain.Problem)
+		}
+	}
+	if returnFunc, ok := ret.Get(1).(func(context.Context, auth.Principal, domain.WorkflowID) error); ok {
+		r1 = returnFunc(ctx, p, id)
+	} else {
+		r1 = ret.Error(1)
+	}
+	return r0, r1
+}
+
+// MockWorkflowService_Check_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'Check'
+type MockWorkflowService_Check_Call struct {
+	*mock.Call
+}
+
+// Check is a helper method to define mock.On call
+//   - ctx context.Context
+//   - p auth.Principal
+//   - id domain.WorkflowID
+func (_e *MockWorkflowService_Expecter) Check(ctx any, p any, id any) *MockWorkflowService_Check_Call {
+	return &MockWorkflowService_Check_Call{Call: _e.mock.On("Check", ctx, p, id)}
+}
+
+func (_c *MockWorkflowService_Check_Call) Run(run func(ctx context.Context, p auth.Principal, id domain.WorkflowID)) *MockWorkflowService_Check_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		var arg1 auth.Principal
+		if args[1] != nil {
+			arg1 = args[1].(auth.Principal)
+		}
+		var arg2 domain.WorkflowID
+		if args[2] != nil {
+			arg2 = args[2].(domain.WorkflowID)
+		}
+		run(
+			arg0,
+			arg1,
+			arg2,
+		)
+	})
+	return _c
+}
+
+func (_c *MockWorkflowService_Check_Call) Return(problems []domain.Problem, err error) *MockWorkflowService_Check_Call {
+	_c.Call.Return(problems, err)
+	return _c
+}
+
+func (_c *MockWorkflowService_Check_Call) RunAndReturn(run func(ctx context.Context, p auth.Principal, id domain.WorkflowID) ([]domain.Problem, error)) *MockWorkflowService_Check_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // Create provides a mock function for the type MockWorkflowService
 func (_mock *MockWorkflowService) Create(ctx context.Context, p auth.Principal, def workflows.Definition) (domain.Workflow, error) {
 	ret := _mock.Called(ctx, p, def)

@@ -1,12 +1,15 @@
 /**
- * Query keys. Each family shares a prefix, "workflows", "wallets", "vault", "library" or
- * "admin", so one invalidation covers it. "vault" is the credentials page; a wallet's
- * Polymarket API credentials live under "wallets".
+ * Query keys. Each family shares a prefix, "workflows", "wallets", "vault", "library",
+ * "custom-nodes" or "admin", so one invalidation covers it. "vault" is the credentials
+ * page; a wallet's Polymarket API credentials live under "wallets".
  */
 export const keys = {
   me: ['me'],
   authConfig: ['auth-config'],
   nodeTypes: ['node-types'],
+  customNodes: ['custom-nodes'],
+  customNodeList: ['custom-nodes', 'list'],
+  customNode: (id: string) => ['custom-nodes', 'detail', id],
   tokens: ['tokens'],
   telegram: ['telegram'],
   notifications: ['notifications'],
@@ -28,6 +31,7 @@ export const keys = {
   workflows: ['workflows'],
   workflowList: ['workflows', 'list'],
   workflow: (id: string) => ['workflows', 'detail', id],
+  workflowProblems: (id: string) => ['workflows', 'problems', id],
   executions: (workflowId: string) => ['workflows', 'executions', workflowId],
   execution: (workflowId: string, id: string) => ['workflows', 'execution', workflowId, id],
 } as const

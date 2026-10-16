@@ -64,6 +64,7 @@ type WalletService interface {
 type WorkflowService interface {
 	Create(ctx context.Context, p auth.Principal, def workflows.Definition) (domain.Workflow, error)
 	Get(ctx context.Context, p auth.Principal, id domain.WorkflowID) (domain.Workflow, error)
+	Check(ctx context.Context, p auth.Principal, id domain.WorkflowID) ([]domain.Problem, error)
 	List(ctx context.Context, p auth.Principal, f ports.PageFilter) (ports.Page[domain.Workflow], error)
 	Update(ctx context.Context, p auth.Principal, id domain.WorkflowID, version int, def workflows.Definition) (domain.Workflow, error)
 	Delete(ctx context.Context, p auth.Principal, id domain.WorkflowID) error
@@ -297,6 +298,7 @@ func (s *Server) routes() {
 	wf.GET("", s.listWorkflows)
 	wf.POST("", s.createWorkflow)
 	wf.GET("/:id", s.getWorkflow)
+	wf.GET("/:id/problems", s.checkWorkflow)
 	wf.PUT("/:id", s.updateWorkflow)
 	wf.DELETE("/:id", s.deleteWorkflow)
 	wf.POST("/:id/activate", s.activateWorkflow)

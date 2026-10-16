@@ -1998,6 +1998,22 @@
                     "workflows"
                 ],
                 "type": "object"
+            },
+            "WorkflowProblems": {
+                "properties": {
+                    "problems": {
+                        "description": "Problems are what saving the workflow as it is would refuse; empty when none.",
+                        "items": {
+                            "$ref": "#/components/schemas/Problem"
+                        },
+                        "type": "array",
+                        "uniqueItems": false
+                    }
+                },
+                "required": [
+                    "problems"
+                ],
+                "type": "object"
             }
         },
         "securitySchemes": {
@@ -5517,6 +5533,66 @@
                 "summary": "Cancel a waiting execution",
                 "tags": [
                     "executions"
+                ]
+            }
+        },
+        "/workflows/{id}/problems": {
+            "get": {
+                "operationId": "checkWorkflow",
+                "parameters": [
+                    {
+                        "description": "Workflow ID",
+                        "in": "path",
+                        "name": "id",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/WorkflowProblems"
+                                }
+                            }
+                        },
+                        "description": "OK"
+                    },
+                    "401": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "unauthenticated"
+                    },
+                    "404": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "not_found"
+                    }
+                },
+                "security": [
+                    {
+                        "SessionCookie": []
+                    },
+                    {
+                        "APIToken": []
+                    }
+                ],
+                "summary": "Check a workflow",
+                "tags": [
+                    "workflows"
                 ]
             }
         },

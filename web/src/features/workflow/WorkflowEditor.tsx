@@ -44,6 +44,7 @@ import {
   useDeleteWorkflow,
   useSetActive,
   useUpdateWorkflow,
+  useWorkflowProblems,
 } from '@/api/workflows'
 import { ConfirmDialog } from '@/components/ConfirmDialog'
 import { Badge } from '@/components/ui/badge'
@@ -141,6 +142,16 @@ function Editor({ workflow, types, onReload }: Props) {
   // version loaded in the background is reported, never silently overwritten.
   const [version, setVersion] = useState(workflow?.version)
   const [problems, setProblems] = useState<Problem[]>([])
+  // Opening a workflow checks it as saving would (D60): what no longer holds since its
+  // node types changed, like a custom node that lost a port, is marked as a refused save
+  // marks it. Only the first answer counts, so a later look does not undo edits.
+  const opened = useWorkflowProblems(workflow?.id).data
+  const [openedWith, setOpenedWith] = useState<Problem[]>()
+  if (opened && openedWith === undefined) {
+    setOpenedWith(opened)
+    if (opened.length > 0) setProblems(opened)
+  }
+  const stale = (openedWith?.length ?? 0) > 0 && problems.length > 0
   const [conflict, setConflict] = useState(false)
   const [confirmDelete, setConfirmDelete] = useState(false)
   const [sharing, setSharing] = useState(false)
@@ -410,6 +421,16 @@ function Editor({ workflow, types, onReload }: Props) {
                 setPanelTab('settings')
               }}
             />
+          )}
+
+          {stale && !newer && (
+            <div
+              role="status"
+              className="border-b bg-amber-50 px-4 py-2 text-sm dark:bg-amber-950/40"
+            >
+              This workflow no longer matches its node types, such as a custom node that changed.
+              What no longer holds is marked in red; fix it and save.
+            </div>
           )}
 
           {newer && (

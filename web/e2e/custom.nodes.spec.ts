@@ -87,3 +87,47 @@ export function run(_items: unknown[], ctx: Context<{ threshold: string }>) {
   )
   expect((await page.request.get(`/api/v1/custom-nodes/${node.id}`)).status()).toBe(404)
 })
+
+test('a node made on its page is in the node list, and the editor marks what a change breaks', async ({
+  page,
+}) => {
+  const name = unique('pass')
+  const label = `Pass ${name}`
+
+  await page.goto('/nodes')
+  await page.getByRole('link', { name: 'New custom node' }).click()
+  await page.getByRole('textbox', { name: 'Name' }).fill(name)
+  await page.getByRole('textbox', { name: 'Label' }).fill(label)
+  // The starter passes the items on as it is: it works as made.
+  await page.getByRole('button', { name: 'Make the node' }).click()
+  await expect(page.getByText(`Made custom.${name}`)).toBeVisible()
+  await expect(page).toHaveURL(/\/nodes\/[0-9a-f-]+$/)
+  const nodeUrl = page.url()
+
+  const id = await createWorkflow(page, unique('custom'), [
+    { id: 'manual', type: 'trigger.manual' },
+    { id: 'pass', type: `custom.${name}` },
+    { id: 'log', type: 'output.log' },
+  ])
+
+  const run = await page.request.post(`/api/v1/workflows/${id}/run`)
+  expect(((await run.json()) as { status: string }).status).toBe('succeeded')
+
+  await page.goto(`/workflows/${id}`)
+  const list = page.getByRole('navigation', { name: 'Node types' })
+  await expect(list.getByRole('button', { name: new RegExp(label) })).toBeVisible()
+  await expect(list.getByRole('link', { name: /New custom node/ })).toBeVisible()
+  await expect(page.getByText(/no longer matches its node types/)).toBeHidden()
+
+  // Renaming its output breaks the connection to Log: asked first.
+  await page.goto(nodeUrl)
+  await page.getByRole('textbox', { name: 'Output 1' }).fill('out')
+  await page.getByRole('button', { name: 'Save' }).click()
+  const warning = page.getByRole('alertdialog', { name: 'This breaks a workflow' })
+  await expect(warning.getByText(`has no output port "main"`)).toBeVisible()
+  await warning.getByRole('button', { name: 'Save anyway' }).click()
+  await expect(page.getByText('Saved', { exact: true })).toBeVisible()
+
+  await page.goto(`/workflows/${id}`)
+  await expect(page.getByText(/no longer matches its node types/)).toBeVisible()
+})

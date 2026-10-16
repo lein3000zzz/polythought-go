@@ -644,3 +644,68 @@ func TestFieldChecks(t *testing.T) {
 		require.NoError(t, err)
 	})
 }
+
+// Check says what saving would refuse, without saving (D60).
+func TestCheck(t *testing.T) {
+	ctx := context.Background()
+
+	withChecks := func(t *testing.T) (*workflows.Service, deps, *workflowsmocks.MockFieldChecker) {
+		t.Helper()
+
+		d := deps{
+			repo: portsmocks.NewMockWorkflowRepository(t), executions: portsmocks.NewMockExecutionRepository(t),
+			validator: workflowsmocks.NewMockValidator(t), executor: workflowsmocks.NewMockExecutor(t),
+			supervisor: workflowsmocks.NewMockSupervisor(t),
+		}
+		fc := workflowsmocks.NewMockFieldChecker(t)
+
+		return workflows.New(d.repo, d.executions, d.validator, d.executor, d.supervisor, logging.Noop(),
+			workflows.WithFieldChecks(fc)), d, fc
+	}
+
+	t.Run("what no longer holds", func(t *testing.T) {
+		s, d, fc := withChecks(t)
+		gone := domain.Problem{NodeID: "tight", Param: "field", Message: `no field "spread"`}
+
+		d.repo.EXPECT().Get(mock.Anything, domain.UserID("u-1"), domain.WorkflowID("wf-1")).Return(stored, nil)
+		d.validator.EXPECT().Validate(mock.Anything, stored).Return(nil)
+		fc.EXPECT().CheckFields(mock.Anything, stored).Return(&domain.ValidationError{Problems: []domain.Problem{gone}})
+
+		problems, err := s.Check(ctx, alice, "wf-1")
+		require.NoError(t, err)
+		assert.Equal(t, []domain.Problem{gone}, problems)
+	})
+
+	t.Run("nothing, as an empty list", func(t *testing.T) {
+		s, d, fc := withChecks(t)
+
+		d.repo.EXPECT().Get(mock.Anything, mock.Anything, mock.Anything).Return(stored, nil)
+		d.validator.EXPECT().Validate(mock.Anything, stored).Return(nil)
+		fc.EXPECT().CheckFields(mock.Anything, stored).Return(nil)
+
+		problems, err := s.Check(ctx, alice, "wf-1")
+		require.NoError(t, err)
+		assert.Equal(t, []domain.Problem{}, problems)
+	})
+
+	t.Run("a check that cannot run is an error", func(t *testing.T) {
+		s, d, fc := withChecks(t)
+		failing := errors.New("db down")
+
+		d.repo.EXPECT().Get(mock.Anything, mock.Anything, mock.Anything).Return(stored, nil)
+		d.validator.EXPECT().Validate(mock.Anything, stored).Return(nil)
+		fc.EXPECT().CheckFields(mock.Anything, stored).Return(failing)
+
+		_, err := s.Check(ctx, alice, "wf-1")
+		require.ErrorIs(t, err, failing)
+	})
+
+	t.Run("someone else's is not found", func(t *testing.T) {
+		s, d, _ := withChecks(t)
+
+		d.repo.EXPECT().Get(mock.Anything, mock.Anything, mock.Anything).Return(domain.Workflow{}, domain.ErrNotFound)
+
+		_, err := s.Check(ctx, alice, "wf-9")
+		require.ErrorIs(t, err, domain.ErrNotFound)
+	})
+}

@@ -12,12 +12,14 @@ import { server } from '@/test/server'
 
 type Saved = Schemas['UpdateWorkflowRequest']
 
-// editing serves one workflow and records what the editor saves.
-function editing(workflow: Schemas['Workflow']) {
+// editing serves one workflow and records what the editor saves. Opening it finds
+// problems, none unless given.
+function editing(workflow: Schemas['Workflow'], problems: Schemas['Problem'][] = []) {
   const saves: Saved[] = []
 
   server.use(
     signedIn,
+    http.get('/api/v1/workflows/wf-1/problems', () => HttpResponse.json({ problems })),
     http.get('/api/v1/node-types', () => HttpResponse.json({ nodeTypes })),
     http.get('/api/v1/wallets', () => HttpResponse.json({ wallets: [] })),
     http.get('/api/v1/workflows/wf-1', () => HttpResponse.json(workflow)),
@@ -116,6 +118,24 @@ describe('workflow editor', () => {
     // Editing the value clears its problem.
     await user.type(settings().getByLabelText(/Value/), '1')
     expect(settings().queryByRole('alert')).not.toBeInTheDocument()
+  })
+
+  it('marks what no longer holds when opened, without saving', async () => {
+    editing(branching(), [
+      { nodeId: 'tight', message: 'node "tight" (logic.if) has no output port "true"' },
+    ])
+    renderApp('/workflows/wf-1')
+
+    expect(
+      await screen.findByText(/This workflow no longer matches its node types/),
+    ).toBeInTheDocument()
+    await waitFor(() =>
+      expect(canvasNode('tight').querySelector('[title]')).toHaveAttribute(
+        'title',
+        'node "tight" (logic.if) has no output port "true"',
+      ),
+    )
+    expect(screen.queryByText(/Unsaved changes/)).not.toBeInTheDocument()
   })
 
   it('offers to reload when someone else saved first', async () => {
@@ -815,6 +835,7 @@ describe('node list', () => {
       expect(nav.getByText('An admin has turned code off for you.')).toBeInTheDocument()
       expect(nav.getByRole('button', { name: /Code: filter/ })).toBeDisabled()
       expect(nav.getByRole('button', { name: /Log/ })).toBeEnabled()
+      expect(nav.queryByRole('link', { name: /New custom node/ })).not.toBeInTheDocument()
 
       // The one already there says so.
       await waitFor(() => canvasNode('keep'))
@@ -834,6 +855,10 @@ describe('node list', () => {
 
       const nav = within(await screen.findByRole('navigation', { name: 'Node types' }))
       expect(nav.queryByText('An admin has turned code off for you.')).not.toBeInTheDocument()
+      expect(nav.getByRole('link', { name: /New custom node/ })).toHaveAttribute(
+        'href',
+        '/nodes/new',
+      )
 
       await waitFor(() => canvasNode('keep'))
       expect(within(canvasNode('keep')).queryByText('Code is off for you')).not.toBeInTheDocument()

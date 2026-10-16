@@ -24,7 +24,24 @@ export function useWorkflow(id: string | undefined) {
   })
 }
 
-/** What can be placed in a workflow. It only changes when the server is upgraded. */
+/**
+ * What saving the workflow as it is would refuse, checked on the server without saving:
+ * what no longer holds since its node types changed. Disabled while id is undefined.
+ */
+export function useWorkflowProblems(id: string | undefined) {
+  return useQuery({
+    queryKey: keys.workflowProblems(id ?? ''),
+    queryFn: async () =>
+      (await call(api.GET('/workflows/{id}/problems', { params: { path: { id: id! } } }))).problems,
+    enabled: id !== undefined,
+    staleTime: 0,
+  })
+}
+
+/**
+ * What can be placed in the user's workflows: the built-in types, which change only when
+ * the server is upgraded, and their custom nodes, which refresh these when they change.
+ */
 export function useNodeTypes() {
   return useQuery({
     queryKey: keys.nodeTypes,
