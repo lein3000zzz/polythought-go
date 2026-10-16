@@ -105,7 +105,12 @@ func TakesExpressions(typ NodeType, spec ParamSpec) bool {
 }
 
 func takesExpressions(typ NodeType, spec ParamSpec) bool {
-	return spec.Kind != ParamWallet && spec.Kind != ParamCredential && !spec.Field && spec.Name != typ.OutputsParam
+	switch spec.Kind {
+	case ParamWallet, ParamCredential, ParamCode: // code's own {{ }} is code
+		return false
+	default:
+		return !spec.Field && spec.Name != typ.OutputsParam
+	}
 }
 
 // exprResolver works out a node's settings for each item.
@@ -451,6 +456,8 @@ func (r *Registry) CheckExpressions(w domain.Workflow, compile func(expr string)
 			case trigger:
 				problem("triggers work out no expressions: {{ }} would stay as written")
 				continue
+			case spec.Kind == ParamCode:
+				continue // {{ }} in code is the code's
 			case !takesExpressions(typ, spec):
 				problem("this setting takes no expressions: {{ }} would stay as written")
 				continue
@@ -468,6 +475,132 @@ func (r *Registry) CheckExpressions(w domain.Workflow, compile func(expr string)
 				if err := compile(expr); err != nil {
 					problem(fmt.Sprintf("{{ %s }}: %v", expr, err))
 				}
+			}
+		}
+	}
+
+	return v.Err()
+}
+
+// screened is what screen took out of a node's input: the items whose settings failed,
+// and, for each port, the index in the input of each item the node got.
+type screened struct {
+	failed []Item
+	kept   map[string][]int
+}
+
+// screen works each item's settings out before a node runs (D41). An item whose
+// expressions fail is kept back, to go to the error port like an item the node failed;
+// the node gets the others, and rc a resolver that reads its indexes as theirs.
+func screen(rc *RunContext, in Ports) (Ports, *screened) {
+	r, ok := rc.Params.(*exprResolver)
+	if !ok {
+		return in, nil
+	}
+
+	given := make(Ports, len(in))
+	s := &screened{kept: make(map[string][]int, len(in))}
+
+	for _, port := range slices.Sorted(maps.Keys(in)) {
+		for i, it := range in[port] {
+			src := ItemRef{Port: port, Index: i}
+
+			if _, err := r.Resolve(src); err != nil {
+				s.failed = append(s.failed, Item{JSON: it.JSON, Source: []ItemRef{src}, Err: err})
+				continue
+			}
+
+			given[port] = append(given[port], it)
+			s.kept[port] = append(s.kept[port], i)
+		}
+	}
+
+	if len(s.failed) == 0 {
+		return in, nil
+	}
+
+	rc.Params = remapped{inner: r, kept: s.kept}
+
+	return given, s
+}
+
+// restore turns the sources of what the node sent back into the indexes of its input,
+// and adds the items it never got to the error port.
+func (s *screened) restore(out Ports) Ports {
+	if s == nil {
+		return out
+	}
+
+	if out == nil {
+		out = Ports{}
+	}
+
+	for _, items := range out {
+		for i, it := range items {
+			if len(it.Source) == 0 {
+				continue
+			}
+
+			src := make([]ItemRef, len(it.Source))
+			for j, ref := range it.Source {
+				src[j] = s.original(ref)
+			}
+
+			items[i].Source = src
+		}
+	}
+
+	out.Add(ErrorPort, s.failed...)
+
+	return out
+}
+
+func (s *screened) original(ref ItemRef) ItemRef {
+	if kept := s.kept[ref.Port]; ref.Index >= 0 && ref.Index < len(kept) {
+		ref.Index = kept[ref.Index]
+	}
+
+	return ref
+}
+
+// remapped resolves the node's own indexes as those of its input.
+type remapped struct {
+	inner ParamResolver
+	kept  map[string][]int
+}
+
+func (m remapped) Resolve(src ItemRef) (Params, error) {
+	if kept := m.kept[src.Port]; src.Index >= 0 && src.Index < len(kept) {
+		src.Index = kept[src.Index]
+	} else {
+		src.Index = -1 // asked without an item
+	}
+
+	return m.inner.Resolve(src)
+}
+
+// CheckCode reports code settings whose code does not compile, as compile says, where it
+// does not. Saving asks this.
+func (r *Registry) CheckCode(w domain.Workflow, compile func(source string) error) error {
+	var v domain.ValidationError
+
+	for _, n := range w.Nodes {
+		typ, _, ok := r.Type(n.Type)
+		if !ok {
+			continue
+		}
+
+		for _, spec := range typ.Params {
+			source, isText := n.Params[spec.Name].(string)
+			if spec.Kind != ParamCode || !isText {
+				continue
+			}
+
+			if err := compile(source); err != nil {
+				v.Add(domain.Problem{
+					NodeID: n.ID, Param: spec.Name, Err: ErrInvalidParam,
+					Message: fmt.Sprintf("node %q: param %q: %v", n.ID, spec.Name, err),
+				})
 			}
 		}
 	}

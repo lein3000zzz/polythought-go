@@ -449,20 +449,20 @@ func (x *execution) runFrom(ctx context.Context, order []domain.NodeID) error {
 }
 
 func (x *execution) runNode(ctx context.Context, id domain.NodeID, in Ports) error {
-	return x.step(ctx, id, in, func(ctx context.Context, node Node, rc RunContext) (Ports, error) {
-		return node.Run(ctx, rc, in)
+	return x.step(ctx, id, in, func(ctx context.Context, node Node, rc RunContext, given Ports) (Ports, error) {
+		return node.Run(ctx, rc, given)
 	})
 }
 
 // resumeNode finishes the run of a node that waited.
 func (x *execution) resumeNode(ctx context.Context, id domain.NodeID, in Ports, r Resumption) error {
-	return x.step(ctx, id, in, func(ctx context.Context, node Node, rc RunContext) (Ports, error) {
+	return x.step(ctx, id, in, func(ctx context.Context, node Node, rc RunContext, given Ports) (Ports, error) {
 		resumer, ok := node.(Resumer)
 		if !ok {
 			return nil, ErrCannotWait
 		}
 
-		return resumer.Resume(ctx, rc, in, r)
+		return resumer.Resume(ctx, rc, given, r)
 	})
 }
 
@@ -472,7 +472,7 @@ func (x *execution) step(
 	ctx context.Context,
 	id domain.NodeID,
 	in Ports,
-	call func(context.Context, Node, RunContext) (Ports, error),
+	call func(context.Context, Node, RunContext, Ports) (Ports, error),
 ) (err error) {
 	spec, _ := x.workflow.Node(id)
 	node, _ := x.executor.registry.Node(spec.Type) // Validate guarantees non-trigger types are nodes
@@ -497,6 +497,7 @@ func (x *execution) step(
 
 		rc := RunContext{
 			ExecutionID: x.exec.ID,
+			StartedAt:   x.exec.StartedAt,
 			WorkflowID:  x.workflow.ID,
 			OwnerID:     x.workflow.OwnerID,
 			NodeID:      id,
@@ -505,7 +506,13 @@ func (x *execution) step(
 			}),
 		}
 
-		out, err := x.safeCall(ctx, id, func(ctx context.Context) (Ports, error) { return call(ctx, node, rc) })
+		// Items whose expressions fail go to the error port, as if the node failed them.
+		given, screened := screen(&rc, in)
+
+		out, err := x.safeCall(ctx, id, func(ctx context.Context) (Ports, error) { return call(ctx, node, rc, given) })
+		if err == nil {
+			out = screened.restore(out)
+		}
 
 		if errors.As(err, &wait) {
 			if _, ok := node.(Resumer); !ok {

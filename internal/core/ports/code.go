@@ -4,6 +4,8 @@ import (
 	"context"
 	"encoding/json"
 	"time"
+
+	"github.com/lein3000zzz/polythought-go/internal/core/domain"
 )
 
 // CodeCompiler turns user TypeScript into a script for a CodeRunner. The code may import
@@ -26,12 +28,40 @@ type CompiledCode struct {
 }
 
 // CodeInvocation is the input of CompiledCode.Invoke: an export of the code to call, with
-// its arguments, after which comes the context the SDK makes of Context.
+// its arguments, after which comes the context the SDK makes of Context. With Each, the
+// export is called once for every element of the first argument, and the output is a
+// CodeOutcome for each.
 type CodeInvocation struct {
 	Exports string      `json:"exports"`
 	Export  string      `json:"export"`
 	Args    []any       `json:"args"`
+	Each    bool        `json:"each,omitempty"`
 	Context CodeContext `json:"context"`
+}
+
+// CodeOutcome is what one call gave, called once for each element: its value, or what it
+// threw.
+type CodeOutcome struct {
+	Value json.RawMessage `json:"value"`
+	Error *string         `json:"error,omitempty"`
+}
+
+// CodeCaller calls an export of a user's code, with the SDK and its data requests for the
+// owner. Code that fails to compile or to run is a *domain.CodeError.
+type CodeCaller interface {
+	Call(ctx context.Context, c CodeCall) (CodeResult, error)
+}
+
+// CodeCall is one call of an export of some code.
+type CodeCall struct {
+	Owner     domain.UserID // whose data the SDK reaches
+	Source    string        // TypeScript
+	Export    string        // the function to call, like "run"
+	Args      []any         // its arguments, before the context
+	Each      bool          // call it once for each element of Args[0]; see CodeInvocation
+	Params    map[string]any
+	Execution CodeExecution
+	Limits    CodeLimits // zero: the configured ones
 }
 
 // CodeContext is what the SDK's context holds.

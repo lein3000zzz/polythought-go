@@ -1024,7 +1024,7 @@ export interface components {
             field?: boolean;
             fieldKinds?: ("text" | "number" | "decimal" | "bool" | "time" | "list" | "object" | "any")[];
             /** @enum {string} */
-            kind: "string" | "number" | "decimal" | "bool" | "list" | "duration" | "wallet" | "tokens" | "credential";
+            kind: "string" | "number" | "decimal" | "bool" | "list" | "duration" | "wallet" | "tokens" | "credential" | "code";
             label?: string;
             name: string;
             /** @description Options are the allowed values of a string, or of each element of a list. */

@@ -43,20 +43,11 @@ func New(compiler ports.CodeCompiler, runner ports.CodeRunner, data Data) *Servi
 	return &Service{compiler: compiler, runner: runner, data: data}
 }
 
-// Call is one run of an export of some code.
-type Call struct {
-	Owner     domain.UserID // whose data the SDK reaches
-	Source    string        // TypeScript
-	Export    string        // the function to call, like "run"
-	Args      []any         // its arguments, before the context
-	Params    map[string]any
-	Execution ports.CodeExecution
-	Limits    ports.CodeLimits // zero: the configured ones
-}
+var _ ports.CodeCaller = (*Service)(nil)
 
-// Run compiles the code and calls the export. The code failing to compile or to run is a
+// Call compiles the code and calls the export. The code failing to compile or to run is a
 // *domain.CodeError; the logs come back either way.
-func (s *Service) Run(ctx context.Context, c Call) (ports.CodeResult, error) {
+func (s *Service) Call(ctx context.Context, c ports.CodeCall) (ports.CodeResult, error) {
 	code, err := s.compiler.Compile(ctx, c.Source)
 	if err != nil {
 		return ports.CodeResult{}, err
@@ -73,7 +64,7 @@ func (s *Service) Run(ctx context.Context, c Call) (ports.CodeResult, error) {
 	}
 
 	input, err := json.Marshal(ports.CodeInvocation{
-		Exports: code.Exports, Export: c.Export, Args: args,
+		Exports: code.Exports, Export: c.Export, Args: args, Each: c.Each,
 		Context: ports.CodeContext{Params: params, Execution: c.Execution},
 	})
 	if err != nil {

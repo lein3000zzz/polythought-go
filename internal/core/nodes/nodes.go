@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/lein3000zzz/polythought-go/internal/core/nodes/account"
+	"github.com/lein3000zzz/polythought-go/internal/core/nodes/codenodes"
 	"github.com/lein3000zzz/polythought-go/internal/core/nodes/credtypes"
 	"github.com/lein3000zzz/polythought-go/internal/core/nodes/logic"
 	markets2 "github.com/lein3000zzz/polythought-go/internal/core/nodes/markets"
@@ -41,6 +42,9 @@ type Deps struct {
 	Asker         ports.UserAsker
 	Reminder      ports.QuestionReminder
 
+	// Code runs code nodes; optional: without it they are not available.
+	Code ports.CodeCaller
+
 	// MinInterval is the shortest interval schedules and market triggers may use. Zero
 	// means triggers.DefaultMinInterval.
 	MinInterval time.Duration
@@ -75,7 +79,18 @@ func Register(r *engine.Registry, d Deps) error {
 		telegramAsk = r.RegisterNode(telegram.NewAsk(d.Asker, d.Reminder, time.Now))
 	}
 
+	var code []error
+	if d.Code != nil {
+		for _, n := range []*codenodes.Node{
+			codenodes.NewTransform(d.Code, d.Logger), codenodes.NewFilter(d.Code, d.Logger),
+			codenodes.NewRoute(d.Code, d.Logger), codenodes.NewAggregate(d.Code, d.Logger),
+		} {
+			code = append(code, r.RegisterNode(n))
+		}
+	}
+
 	return errors.Join(
+		errors.Join(code...),
 		market,
 		telegramSend,
 		telegramTrigger,

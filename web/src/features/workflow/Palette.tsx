@@ -13,10 +13,20 @@ const groupNames: Record<string, string> = {
   transform: 'Transform',
   output: 'Output',
   telegram: 'Telegram',
+  code: 'Code',
 }
 
 // Groups follow the way items flow: where they start, come from, are sorted out, go.
-const groupOrder = ['Triggers', 'Polymarket', 'Logic', 'Transform', 'Output', 'Telegram', 'Other']
+const groupOrder = [
+  'Triggers',
+  'Polymarket',
+  'Logic',
+  'Transform',
+  'Code',
+  'Output',
+  'Telegram',
+  'Other',
+]
 
 type Props = {
   types: readonly NodeType[]

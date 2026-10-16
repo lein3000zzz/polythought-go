@@ -302,3 +302,36 @@ func TestCheckExpressions(t *testing.T) {
 		{ID: "n", Type: "t.expr", Params: map[string]any{"text": "no {{ expressions }} to fail"}},
 	}}, compile))
 }
+
+func TestCheckCode(t *testing.T) {
+	t.Parallel()
+
+	r := NewRegistry()
+	require.NoError(t, r.RegisterNode(stubNode{typ: NodeType{
+		Name: "t.code", Inputs: []string{DefaultPort}, Outputs: []string{DefaultPort},
+		Params: []ParamSpec{{Name: "source", Kind: ParamCode}, {Name: "note", Kind: ParamString}},
+	}}))
+
+	compile := func(source string) error {
+		if source == "broken" {
+			return errors.New("line 1, column 1: Unexpected \"broken\"")
+		}
+
+		return nil
+	}
+
+	w := domain.Workflow{Nodes: []domain.NodeSpec{
+		{ID: "a", Type: "t.code", Params: map[string]any{"source": "broken", "note": "broken"}},
+		{ID: "b", Type: "t.code", Params: map[string]any{"source": "export const run = () => [] // {{ not an expression }}"}},
+		{ID: "c", Type: "t.code"},
+	}}
+
+	err := r.CheckCode(w, compile)
+
+	var v *domain.ValidationError
+	require.ErrorAs(t, err, &v)
+	require.Len(t, v.Problems, 1, "only code is compiled; unset code is the starter")
+	assert.Equal(t, `node "a": param "source": line 1, column 1: Unexpected "broken"`, v.Problems[0].Message)
+
+	require.NoError(t, r.CheckExpressions(domain.Workflow{Nodes: w.Nodes[1:2]}, compile), "{{ }} in code is code")
+}

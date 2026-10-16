@@ -280,17 +280,27 @@ func waitLimits(s *settings.Snapshot) engine.WaitLimits {
 	}
 }
 
-// expressionChecker checks a workflow's expressions as saving does: each compiled.
+// expressionChecker checks a workflow's expressions and code as saving does: each
+// compiled.
 type expressionChecker struct {
 	registry *engine.Registry
 	compiler ports.CodeCompiler
 }
 
 func (c expressionChecker) CheckExpressions(w domain.Workflow) error {
-	return c.registry.CheckExpressions(w, func(expr string) error {
+	var problems domain.ValidationError
+
+	problems.Merge(c.registry.CheckExpressions(w, func(expr string) error {
 		_, err := c.compiler.CompileExpression(context.Background(), expr)
 		return err
-	})
+	}))
+
+	problems.Merge(c.registry.CheckCode(w, func(source string) error {
+		_, err := c.compiler.Compile(context.Background(), source)
+		return err
+	}))
+
+	return problems.Err()
 }
 
 // codeTypes declares what code is written against: the SDK and the node types, the same
@@ -417,6 +427,7 @@ func (a *app) initEngine(ctx context.Context, pmc polymarket) error {
 		TelegramInbox: a.telegram,
 		Asker:         a.telegram,
 		Reminder:      a.notify,
+		Code:          a.code,
 		Feed:          a.feed,
 		Logger:        a.util.Logger,
 		MinInterval:   current.Duration(config.KeyScheduleMinInterval),

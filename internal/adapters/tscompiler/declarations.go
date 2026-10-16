@@ -163,7 +163,7 @@ func paramType(p engine.ParamSpec) string {
 		return "DurationText"
 	case engine.ParamTokens:
 		return "string[]"
-	default: // wallets and credentials, by ID
+	default: // code, and wallets and credentials by ID
 		return "string"
 	}
 }

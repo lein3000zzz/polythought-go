@@ -58,3 +58,12 @@ Each node has a page with its settings. In the editor, the node list on the left
 |---|---|---|
 | [Telegram question](/docs/reference/nodes/telegram/ask/) | `telegram.ask` | Asks you on Telegram, with a button per answer, and waits. |
 | [Telegram message](/docs/reference/nodes/telegram/send/) | `telegram.send` | Sends items to you on Telegram, in your chat with the instance's bot. |
+
+## Code
+
+| Node | Type | What it does |
+|---|---|---|
+| [Code: aggregate](/docs/reference/nodes/code/aggregate/) | `code.aggregate` | Sums the items up with TypeScript: run(items, ctx) is called once with all of them and returns one item. |
+| [Code: filter](/docs/reference/nodes/code/filter/) | `code.filter` | Keeps the items TypeScript says to keep: keep(item, ctx) is called for each item and returns true to keep it. |
+| [Code: route](/docs/reference/nodes/code/route/) | `code.route` | Sends each item down the route TypeScript picks: route(item, ctx) is called for each item and returns one of the Routes. |
+| [Code: transform](/docs/reference/nodes/code/transform/) | `code.transform` | Turns the items into others with TypeScript: run(items, ctx) is called once with all of them and returns the items to send on. |

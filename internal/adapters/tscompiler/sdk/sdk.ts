@@ -227,12 +227,14 @@ interface Invocation {
   exports: string
   export: string
   args: Json[]
+  each?: boolean
   context: { params: Record<string, Json>; execution: Execution }
 }
 
 // invoke is what the runner calls: one of the code's exports, with its arguments and then
-// the context.
-function invoke(call: Invocation): unknown {
+// the context. With each, it is called once for each element of the first argument,
+// keeping each call's value or what it threw, so one element failing fails only itself.
+async function invoke(call: Invocation): Promise<unknown> {
   const fn = (g[call.exports] as Record<string, unknown> | undefined)?.[call.export]
   if (typeof fn !== 'function') {
     throw new Error(`the code exports no function named ${call.export}`)
@@ -244,7 +246,20 @@ function invoke(call: Invocation): unknown {
     log: (...values: unknown[]) => console.log(...values),
   })
 
-  return fn(...call.args, ctx)
+  if (!call.each) return fn(...call.args, ctx)
+
+  const [elements, ...rest] = call.args as [Json[], ...Json[]]
+  const out: { value?: unknown; error?: string }[] = []
+
+  for (const element of elements) {
+    try {
+      out.push({ value: (await fn(element, ...rest, ctx)) ?? null })
+    } catch (e) {
+      out.push({ error: String(e) })
+    }
+  }
+
+  return out
 }
 
 Object.defineProperty(globalThis, '__polythought_invoke', { value: invoke })

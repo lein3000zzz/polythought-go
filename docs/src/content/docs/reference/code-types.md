@@ -36,6 +36,47 @@ export type DurationText = string;
 /** A setting's value worked out per item: {{ }} around an expression, like "{{ params.max }}". */
 export type Expression = `{{${string}}}`;
 
+/** The settings of Code: aggregate (code.aggregate). */
+export interface CodeAggregateSettings {
+    /**
+     * TypeScript, importing only from @polythought/sdk: dec for exact prices, data requests, and the types of every node's items.
+     * @default "import type { Context, Item } from \"@polythought/sdk\"\n\n// Called once with every item; returns one item that sums them up.\nexport function run(items: Item[], ctx: Context): Item {\n  return { count: items.length }\n}\n"
+     */
+    source?: string;
+}
+
+/** The settings of Code: filter (code.filter). */
+export interface CodeFilterSettings {
+    /**
+     * TypeScript, importing only from @polythought/sdk: dec for exact prices, data requests, and the types of every node's items.
+     * @default "import type { Context, Item } from \"@polythought/sdk\"\n\n// Called for each item: true keeps it.\nexport function keep(item: Item, ctx: Context): boolean {\n  return item.question !== undefined\n}\n"
+     */
+    source?: string;
+}
+
+/** The settings of Code: route (code.route). */
+export interface CodeRouteSettings {
+    /**
+     * TypeScript, importing only from @polythought/sdk: dec for exact prices, data requests, and the types of every node's items.
+     * @default "import { dec } from \"@polythought/sdk\"\nimport type { Context, Item } from \"@polythought/sdk\"\n\n// Called for each item: returns the route it goes down, one of Routes.\nexport function route(item: Item, ctx: Context): string {\n  return dec(String(item.spread ?? 0)).gt(\"0.02\") ? \"wide\" : \"tight\"\n}\n"
+     */
+    source?: string;
+    /**
+     * One per line, up to 10. Each route is an output port of the same name.
+     * @default ["wide","tight"]
+     */
+    routes?: string[];
+}
+
+/** The settings of Code: transform (code.transform). */
+export interface CodeTransformSettings {
+    /**
+     * TypeScript, importing only from @polythought/sdk: dec for exact prices, data requests, and the types of every node's items.
+     * @default "import type { Context, Item } from \"@polythought/sdk\"\n\n// Called once with every item; returns the items to send on.\nexport function run(items: Item[], ctx: Context): Item[] {\n  return items.map((item) =\u003e ({ ...item, seenAt: ctx.execution.startedAt }))\n}\n"
+     */
+    source?: string;
+}
+
 /** The settings of Only new (logic.dedupe). */
 export interface LogicDedupeSettings {
     /**
@@ -607,6 +648,10 @@ export interface TriggerTelegramItem {
  * settings name.
  */
 export interface NodeTypes {
+    "code.aggregate": { settings: CodeAggregateSettings; items: Json };
+    "code.filter": { settings: CodeFilterSettings; items: "received" };
+    "code.route": { settings: CodeRouteSettings; items: "received" };
+    "code.transform": { settings: CodeTransformSettings; items: Json };
     "logic.dedupe": { settings: LogicDedupeSettings; items: "received" };
     "logic.filter": { settings: LogicFilterSettings; items: "received" };
     "logic.if": { settings: LogicIfSettings; items: "received" };

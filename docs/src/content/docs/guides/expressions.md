@@ -71,7 +71,9 @@ The editor marks `{{ }}` in these at once, and saving refuses it: it would stay 
 Saving checks that every expression compiles, and points at the problem:
 `{{ price * }}: line 1, column 8: Unexpected end of the expression`.
 
-An expression that throws while running fails the node, and so the run, naming the
-setting and the expression: `param "message": {{ nope() }}: ReferenceError: nope is not
-defined`. **Continue on failure** does not change that: it is for items a node fails one by
-one.
+An expression that throws while running fails its item, as a node fails items it cannot
+handle, with the setting and the expression in the error: `param "message": {{ nope() }}:
+ReferenceError: nope is not defined`. The node goes on with the other items. Then, as for
+any failed item, the run fails, unless the node has **Continue on failure** on: the item
+goes out of its `error` port instead, for you to handle however you like; see
+[When items fail](/docs/guides/concepts/#when-items-fail).

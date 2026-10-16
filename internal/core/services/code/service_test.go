@@ -61,7 +61,7 @@ func host(t *testing.T) (ports.CodeHost, data) {
 		Markets: d.markets, Events: d.events, OrderBooks: d.books, Wallets: d.wallets, Positions: d.positions,
 	})
 
-	_, err := s.Run(context.Background(), code.Call{Owner: "alice", Source: "src", Export: "run"})
+	_, err := s.Call(context.Background(), ports.CodeCall{Owner: "alice", Source: "src", Export: "run"})
 	require.NoError(t, err)
 
 	return r.job.Host, d
@@ -81,7 +81,7 @@ func TestRun(t *testing.T) {
 	r := &runner{}
 	s := code.New(compiler{}, r, code.Data{})
 
-	res, err := s.Run(context.Background(), code.Call{
+	res, err := s.Call(context.Background(), ports.CodeCall{
 		Owner: "alice", Source: "export const run = (n, ctx) => n", Export: "run",
 		Args:      []any{[]map[string]any{{"price": decimal.RequireFromString("0.0200"), "at": at}}},
 		Params:    map[string]any{"threshold": "0.02"},
@@ -104,7 +104,7 @@ func TestRun(t *testing.T) {
 	}`, string(r.job.Input), "decimals as text, times as RFC 3339")
 
 	t.Run("nothing to pass is empty, not null", func(t *testing.T) {
-		_, err := s.Run(context.Background(), code.Call{Owner: "alice", Source: "s", Export: "run"})
+		_, err := s.Call(context.Background(), ports.CodeCall{Owner: "alice", Source: "s", Export: "run"})
 		require.NoError(t, err)
 		assert.JSONEq(t, `{"exports":"__exports","export":"run","args":[],"context":{"params":{},"execution":{"id":"","workflowId":"","startedAt":"0001-01-01T00:00:00Z"}}}`, string(r.job.Input))
 	})
@@ -113,7 +113,7 @@ func TestRun(t *testing.T) {
 		r := &runner{}
 		compileErr := &domain.CodeError{Kind: domain.CodeDidNotCompile, Message: "line 1, column 1: nope"}
 
-		_, err := code.New(compiler{err: compileErr}, r, code.Data{}).Run(context.Background(), code.Call{Source: "?", Export: "run"})
+		_, err := code.New(compiler{err: compileErr}, r, code.Data{}).Call(context.Background(), ports.CodeCall{Source: "?", Export: "run"})
 		require.ErrorIs(t, err, compileErr)
 		assert.Empty(t, r.job.Source)
 	})

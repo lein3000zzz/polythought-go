@@ -70,6 +70,7 @@ function Control(props: Props) {
   if (spec.options?.length && spec.kind === 'list') return <ChecklistField {...props} />
   if (spec.options?.length) return <SelectField {...props} />
   if (spec.kind === 'list' || spec.kind === 'tokens') return <TextField {...props} multiline />
+  if (spec.kind === 'code') return <TextField {...props} multiline rows={14} />
 
   return <TextField {...props} />
 }
@@ -89,7 +90,8 @@ function TextField({
   multiline,
   fields,
   action,
-}: Props & { multiline?: boolean }) {
+  rows = 3,
+}: Props & { multiline?: boolean; rows?: number }) {
   // The text is kept as typed: a value that does not parse yet still shows.
   const [text, setText] = useState(() => textOf(value))
   const parsed = parseText(spec, text)
@@ -114,7 +116,7 @@ function TextField({
   return (
     <Field spec={spec} scope={scope} problem={parsed.problem ?? problem} action={action}>
       {multiline ? (
-        <Textarea rows={3} className="font-mono text-xs" {...inputProps} />
+        <Textarea rows={rows} spellCheck={false} className="font-mono text-xs" {...inputProps} />
       ) : (
         <Input
           inputMode={

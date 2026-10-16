@@ -936,7 +936,8 @@
                             "duration",
                             "wallet",
                             "tokens",
-                            "credential"
+                            "credential",
+                            "code"
                         ],
                         "type": "string"
                     },

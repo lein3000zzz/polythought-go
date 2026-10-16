@@ -63,13 +63,18 @@ func TestRegister(t *testing.T) {
 		all := engine.NewRegistry()
 		require.NoError(t, nodes.Register(all, nodes.Deps{
 			Logger: logging.Noop(), Feed: portsmocks.NewMockMarketFeed(t),
-			Messenger: telegramStub{}, TelegramInbox: telegramStub{}, Asker: telegramStub{},
+			Messenger: telegramStub{}, TelegramInbox: telegramStub{}, Asker: telegramStub{}, Code: codeStub{},
 		}))
 
 		types := all.Types()
-		assert.Len(t, types, 22)
+		assert.Len(t, types, 26)
 
 		for _, typ := range types {
+			if typ.Name == "code.transform" || typ.Name == "code.aggregate" {
+				assert.Nil(t, typ.Items, "%s: what code makes, nobody knows (D43)", typ.Name)
+				continue
+			}
+
 			assert.NotNil(t, typ.Items, typ.Name)
 		}
 	})
@@ -92,4 +97,10 @@ func (telegramStub) CloseQuestion(context.Context, domain.UserID, int, string) e
 
 func (telegramStub) Subscribe(domain.UserID, func(string) bool) (<-chan ports.TelegramInboxMessage, func()) {
 	return nil, func() {}
+}
+
+type codeStub struct{}
+
+func (codeStub) Call(context.Context, ports.CodeCall) (ports.CodeResult, error) {
+	return ports.CodeResult{}, nil
 }

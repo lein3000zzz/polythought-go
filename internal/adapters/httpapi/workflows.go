@@ -228,7 +228,7 @@ type paramDTO struct {
 	Name        string `json:"name"`
 	Label       string `json:"label,omitempty" validate:"optional"`
 	Description string `json:"description,omitempty" validate:"optional"`
-	Kind        string `json:"kind" enums:"string,number,decimal,bool,list,duration,wallet,tokens,credential"`
+	Kind        string `json:"kind" enums:"string,number,decimal,bool,list,duration,wallet,tokens,credential,code"`
 	Required    bool   `json:"required"`
 	Default     any    `json:"default,omitempty" validate:"optional"`
 	// Options are the allowed values of a string, or of each element of a list.

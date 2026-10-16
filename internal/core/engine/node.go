@@ -2,6 +2,7 @@ package engine
 
 import (
 	"context"
+	"time"
 
 	"github.com/lein3000zzz/polythought-go/internal/core/domain"
 )
@@ -70,6 +71,7 @@ type ParamResolver interface {
 
 type RunContext struct {
 	ExecutionID domain.ExecutionID
+	StartedAt   time.Time // the execution's
 	WorkflowID  domain.WorkflowID
 	OwnerID     domain.UserID // nodes act on this user's behalf, e.g. with their wallets
 	NodeID      domain.NodeID
@@ -98,6 +100,9 @@ const (
 	// ParamCredential is the ID of one of the owner's credentials, of the type the
 	// param's CredentialType names.
 	ParamCredential ParamKind = "credential"
+
+	// ParamCode is TypeScript, the code of a code node.
+	ParamCode ParamKind = "code"
 )
 
 // ParamSpec describes one parameter: how to read it, and how an editor should present it.

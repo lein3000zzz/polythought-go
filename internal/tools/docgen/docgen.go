@@ -28,6 +28,7 @@ var groups = []struct{ dir, label, prefix string }{
 	{"transform", "Transform", "transform"},
 	{"output", "Output", "output"},
 	{"telegram", "Telegram", "telegram"},
+	{"code", "Code", "code"},
 }
 
 // Pages are generated files by path, relative to the reference directory.
@@ -240,8 +241,19 @@ func nodePage(t engine.TypeInfo, order int, credTypes []engine.CredentialType) s
 			notes = append(notes, "Personal: sharing the workflow leaves it out.")
 		}
 
+		def := defaultOf(p.Default)
+		if p.Kind == engine.ParamCode && p.Default != nil {
+			def = "a starter, below"
+		}
+
 		fmt.Fprintf(&b, "| %s (`%s`) | %s | %s | %s | %s |\n",
-			cell(label), p.Name, paramKind(p, credTypes), required, defaultOf(p.Default), cell(strings.Join(nonEmpty(notes), " ")))
+			cell(label), p.Name, paramKind(p, credTypes), required, def, cell(strings.Join(nonEmpty(notes), " ")))
+	}
+
+	for _, p := range t.Params {
+		if starter, ok := p.Default.(string); ok && p.Kind == engine.ParamCode {
+			fmt.Fprintf(&b, "\n## Starter code\n\nWhat **%s** holds until you change it:\n\n```ts\n%s```\n", p.Label, starter)
+		}
 	}
 
 	writeItems(&b, t.NodeType)
@@ -364,6 +376,8 @@ func paramKind(p engine.ParamSpec, credTypes []engine.CredentialType) string {
 		return "one of your [wallets](" + base + "/guides/concepts/#wallets)"
 	case engine.ParamTokens:
 		return "list of token IDs"
+	case engine.ParamCode:
+		return "TypeScript; see [Code nodes](" + base + "/guides/code/)"
 	case engine.ParamCredential:
 		label := p.CredentialType
 

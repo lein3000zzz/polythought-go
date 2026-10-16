@@ -17,6 +17,7 @@ export default defineConfig({
             'guides/concepts',
             'guides/editor',
             'guides/expressions',
+            'guides/code',
             'guides/library',
             'guides/credentials',
             'guides/telegram',
@@ -37,7 +38,7 @@ export default defineConfig({
               items: [
                 { label: 'All nodes', slug: 'reference/nodes' },
                 // The groups of internal/tools/docgen, which writes these pages.
-                ...['Triggers', 'Polymarket', 'Logic', 'Transform', 'Output', 'Telegram'].map((label) => ({
+                ...['Triggers', 'Polymarket', 'Logic', 'Transform', 'Output', 'Telegram', 'Code'].map((label) => ({
                   label,
                   collapsed: true,
                   items: [{ autogenerate: { directory: `reference/nodes/${label.toLowerCase()}` } }],

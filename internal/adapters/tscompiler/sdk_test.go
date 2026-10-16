@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/lein3000zzz/the-watchers/pkg/observability"
+	"github.com/lein3000zzz/the-watchers/pkg/observability/logging"
 	"github.com/shopspring/decimal"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
@@ -22,6 +23,7 @@ import (
 	"github.com/lein3000zzz/polythought-go/internal/adapters/tscompiler"
 	"github.com/lein3000zzz/polythought-go/internal/core/domain"
 	"github.com/lein3000zzz/polythought-go/internal/core/engine"
+	"github.com/lein3000zzz/polythought-go/internal/core/nodes/codenodes"
 	"github.com/lein3000zzz/polythought-go/internal/core/ports"
 	"github.com/lein3000zzz/polythought-go/internal/core/services/code"
 	portsmocks "github.com/lein3000zzz/polythought-go/internal/mocks/ports"
@@ -44,7 +46,7 @@ func withSDK(t *testing.T, source string, args []any, data code.Data, limits por
 		require.NoError(t, err)
 	})
 
-	return code.New(compiler(t), sdkRunner, data).Run(context.Background(), code.Call{
+	return code.New(compiler(t), sdkRunner, data).Call(context.Background(), ports.CodeCall{
 		Owner: "alice", Source: source, Export: "run", Args: args,
 		Params:    map[string]any{"threshold": "0.02"},
 		Execution: ports.CodeExecution{ID: "ex-1", WorkflowID: "wf-1", StartedAt: time.Date(2026, 10, 15, 12, 0, 0, 0, time.UTC)},
@@ -323,4 +325,64 @@ func TestExpressionsEndToEnd(t *testing.T) {
 	assert.Equal(t, json.Number("50"), results[1][0].Value)
 	assert.Equal(t, "0.2", results[1][1].Value)
 	assert.Contains(t, results[1][11].Err, "TypeError", "each item on its own")
+}
+
+func TestCodeNodesEndToEnd(t *testing.T) {
+	t.Parallel()
+
+	_, err := withSDK(t, `export const run = () => null`, nil, code.Data{}, ports.CodeLimits{}) // starts the runner
+	require.NoError(t, err)
+
+	events := portsmocks.NewMockEventReader(t)
+	events.EXPECT().ListEvents(mock.Anything, mock.Anything).Return(ports.Page[domain.Event]{Items: []domain.Event{{
+		Markets: []domain.Market{{ID: "0x1", Question: "Found?", Status: domain.MarketOpen}},
+	}}}, nil).Maybe()
+
+	svc := code.New(compiler(t), sdkRunner, code.Data{Events: events})
+
+	runNode := func(t *testing.T, node *codenodes.Node, params map[string]any, items ...map[string]any) engine.Ports {
+		t.Helper()
+
+		in := engine.Ports{}
+		for _, it := range items {
+			in.Add(engine.DefaultPort, engine.Item{JSON: it})
+		}
+
+		out, err := node.Run(context.Background(), engine.RunContext{
+			ExecutionID: "ex-1", WorkflowID: "wf-1", OwnerID: "alice", StartedAt: time.Date(2026, 10, 16, 12, 0, 0, 0, time.UTC),
+			Params: engine.LiteralParams(node.Type(), params),
+		}, in)
+		require.NoError(t, err)
+
+		return out
+	}
+
+	t.Run("the starters run", func(t *testing.T) {
+		out := runNode(t, codenodes.NewTransform(svc, logging.Noop()), nil, map[string]any{"q": "A"})
+		assert.Equal(t, "2026-10-16T12:00:00Z", out[engine.DefaultPort][0].JSON["seenAt"])
+
+		out = runNode(t, codenodes.NewFilter(svc, logging.Noop()), nil, map[string]any{"question": "A"}, map[string]any{})
+		assert.Len(t, out[engine.DefaultPort], 1)
+
+		out = runNode(t, codenodes.NewRoute(svc, logging.Noop()), nil, map[string]any{"spread": "0.05"}, map[string]any{"spread": "0.01"})
+		assert.Len(t, out["wide"], 1)
+		assert.Len(t, out["tight"], 1)
+
+		out = runNode(t, codenodes.NewAggregate(svc, logging.Noop()), nil, map[string]any{}, map[string]any{}, map[string]any{})
+		assert.Equal(t, json.Number("3"), out[engine.DefaultPort][0].JSON["count"])
+	})
+
+	t.Run("one item throwing fails only itself, and code may wait for data", func(t *testing.T) {
+		out := runNode(t, codenodes.NewFilter(svc, logging.Noop()), map[string]any{"source": `
+			import { markets } from "@polythought/sdk"
+			export async function keep(item: { n: number }) {
+				if (item.n === 2) throw new RangeError("two")
+				const found = await markets.search("x")
+				return found.length === 1 && item.n > 1
+			}`}, map[string]any{"n": 1}, map[string]any{"n": 2}, map[string]any{"n": 3})
+
+		assert.Equal(t, 3, out[engine.DefaultPort][0].JSON["n"], "items pass on as they came")
+		require.Len(t, out[engine.ErrorPort], 1)
+		assert.EqualError(t, out[engine.ErrorPort][0].Err, "RangeError: two")
+	})
 }
