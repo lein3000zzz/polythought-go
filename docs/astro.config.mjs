@@ -16,6 +16,7 @@ export default defineConfig({
           items: [
             'guides/concepts',
             'guides/editor',
+            'guides/expressions',
             'guides/library',
             'guides/credentials',
             'guides/telegram',

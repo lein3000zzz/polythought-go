@@ -13,6 +13,8 @@ import (
 	"time"
 
 	"github.com/shopspring/decimal"
+
+	"github.com/lein3000zzz/polythought-go/internal/core/domain"
 )
 
 // Expressions (D38 to D40). Inside {{ }}, bare names are the item's fields, and item,
@@ -418,4 +420,57 @@ func describe(v any) string {
 	default:
 		return Format(x)
 	}
+}
+
+// CheckExpressions reports expressions a saved workflow would keep but could not use:
+// those that do not compile, as compile says, and any in a setting that takes none,
+// where {{ }} would stay as written. Plain paths need no compiling. Saving asks this.
+func (r *Registry) CheckExpressions(w domain.Workflow, compile func(expr string) error) error {
+	var v domain.ValidationError
+
+	for _, n := range w.Nodes {
+		typ, trigger, ok := r.Type(n.Type)
+		if !ok {
+			continue
+		}
+
+		for _, spec := range typ.Params {
+			value := n.Params[spec.Name]
+			if !HasExpressions(value) {
+				continue
+			}
+
+			problem := func(msg string) {
+				v.Add(domain.Problem{
+					NodeID: n.ID, Param: spec.Name, Err: ErrInvalidParam,
+					Message: fmt.Sprintf("node %q: param %q: %s", n.ID, spec.Name, msg),
+				})
+			}
+
+			switch {
+			case trigger:
+				problem("triggers work out no expressions: {{ }} would stay as written")
+				continue
+			case !takesExpressions(typ, spec):
+				problem("this setting takes no expressions: {{ }} would stay as written")
+				continue
+			}
+
+			seen := map[string]bool{}
+
+			for _, expr := range expressions(value) {
+				if seen[expr] || plain(expr) {
+					continue
+				}
+
+				seen[expr] = true
+
+				if err := compile(expr); err != nil {
+					problem(fmt.Sprintf("{{ %s }}: %v", expr, err))
+				}
+			}
+		}
+	}
+
+	return v.Err()
 }

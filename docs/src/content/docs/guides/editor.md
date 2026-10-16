@@ -20,6 +20,9 @@ list on the left, the canvas in the middle and the selected node's settings on t
   where it compares numbers. A field the items do not have is marked at once, with the one
   you probably meant, like `bestBid` for `bestbid`. After a node that does not say what it
   sends, any field goes.
+- **Expressions**: `{{ }}` in a setting is worked out for each item, like `{{ spread * 100 }}`;
+  switches and dropdowns take one through the **`{{ }}`** button by their name. See
+  [Expressions](/docs/guides/expressions/).
 - **Notes** on a node are for you: they show on the canvas and never change what it does.
 - **Continue on failure** sends items the node fails on to its `error` port instead of
   failing the execution; see [When items fail](/docs/guides/concepts/#when-items-fail).
@@ -27,8 +30,9 @@ list on the left, the canvas in the middle and the selected node's settings on t
 ## Saving
 
 Press **Save**, or Ctrl+S (⌘S on a Mac). Each save makes a new version, shown at the top.
-The server checks the whole workflow when you save: a setting that is missing or wrong,
-or a field the items do not have, is marked in red on its node, and nothing is saved until
+The server checks the whole workflow when you save: a setting that is missing or wrong, a
+field the items do not have, or an expression that does not compile, is marked in red on
+its node, and nothing is saved until
 it is fixed. Workflows saved before keep running as they are; the field check applies the
 next time you save them.
 

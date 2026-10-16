@@ -4,12 +4,15 @@ import (
 	"context"
 	"errors"
 	"html"
+	"strings"
 	"testing"
 	"time"
 
 	"github.com/shopspring/decimal"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/lein3000zzz/polythought-go/internal/core/domain"
 )
 
 // fakeEvaluator works out a few expressions in Go, and counts how often it is asked.
@@ -228,4 +231,74 @@ func TestResolveLeaves(t *testing.T) {
 		Resolve(ItemRef{Port: DefaultPort, Index: 9})
 	require.NoError(t, err)
 	assert.Equal(t, "0", none["text"], "asked without an item, the item is empty")
+}
+
+type stubNode struct{ typ NodeType }
+
+func (n stubNode) Type() NodeType { return n.typ }
+
+func (stubNode) Run(context.Context, RunContext, Ports) (Ports, error) { return nil, nil }
+
+type stubTrigger struct{ typ NodeType }
+
+func (t stubTrigger) Type() NodeType { return t.typ }
+
+func (stubTrigger) Start(context.Context, TriggerContext, Emit) error { return nil }
+
+func TestCheckExpressions(t *testing.T) {
+	t.Parallel()
+
+	r := NewRegistry()
+	require.NoError(t, r.RegisterNode(stubNode{typ: exprType}))
+	require.NoError(t, r.RegisterTrigger(stubTrigger{typ: NodeType{
+		Name: "t.trigger", Outputs: []string{DefaultPort}, Params: []ParamSpec{{Name: "startsWith", Kind: ParamString}},
+	}}))
+
+	var compiled []string
+	compile := func(expr string) error {
+		compiled = append(compiled, expr)
+		if strings.HasSuffix(expr, "*") {
+			return errors.New("line 1, column 8: Unexpected end of the expression")
+		}
+
+		return nil
+	}
+
+	w := domain.Workflow{Nodes: []domain.NodeSpec{
+		{ID: "go", Type: "t.trigger", Params: map[string]any{"startsWith": "{{ x }}"}},
+		{ID: "n", Type: "t.expr", Params: map[string]any{
+			"text":    "{{ question }} {{ spread * 100 }} {{ spread * 100 }}",
+			"message": "{{ price * }}",
+			"limit":   "{{ params.max + 1 }}",
+			"wallet":  "{{ w }}",
+			"field":   "{{ f }}",
+			"ports":   []any{"{{ p }}"},
+		}},
+	}}
+
+	err := r.CheckExpressions(w, compile)
+	require.ErrorIs(t, err, domain.ErrInvalidWorkflow)
+
+	var v *domain.ValidationError
+	require.ErrorAs(t, err, &v)
+
+	got := map[string]string{}
+	for _, p := range v.Problems {
+		got[string(p.NodeID)+"."+p.Param] = p.Message
+	}
+
+	assert.Equal(t, map[string]string{
+		"go.startsWith": `node "go": param "startsWith": triggers work out no expressions: {{ }} would stay as written`,
+		"n.message":     `node "n": param "message": {{ price * }}: line 1, column 8: Unexpected end of the expression`,
+		"n.wallet":      `node "n": param "wallet": this setting takes no expressions: {{ }} would stay as written`,
+		"n.field":       `node "n": param "field": this setting takes no expressions: {{ }} would stay as written`,
+		"n.ports":       `node "n": param "ports": this setting takes no expressions: {{ }} would stay as written`,
+	}, got)
+
+	assert.ElementsMatch(t, []string{"spread * 100", "price *", "params.max + 1"}, compiled,
+		"each once; plain fields need no compiling")
+
+	require.NoError(t, r.CheckExpressions(domain.Workflow{Nodes: []domain.NodeSpec{
+		{ID: "n", Type: "t.expr", Params: map[string]any{"text": "no {{ expressions }} to fail"}},
+	}}, compile))
 }

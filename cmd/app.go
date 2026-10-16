@@ -280,6 +280,19 @@ func waitLimits(s *settings.Snapshot) engine.WaitLimits {
 	}
 }
 
+// expressionChecker checks a workflow's expressions as saving does: each compiled.
+type expressionChecker struct {
+	registry *engine.Registry
+	compiler ports.CodeCompiler
+}
+
+func (c expressionChecker) CheckExpressions(w domain.Workflow) error {
+	return c.registry.CheckExpressions(w, func(expr string) error {
+		_, err := c.compiler.CompileExpression(context.Background(), expr)
+		return err
+	})
+}
+
 // codeTypes declares what code is written against: the SDK and the node types, the same
 // for every user until custom nodes come.
 type codeTypes struct {
@@ -436,7 +449,8 @@ func (a *app) initEngine(ctx context.Context, pmc polymarket) error {
 
 	a.workflows = workflows.New(postgres.NewWorkflows(a.db), executions, a.registry, executor, a.supervisor, a.util.Logger,
 		workflows.WithLiveLimits(func() workflows.Limits { return workflowLimits(a.settings.Current()) }),
-		workflows.WithWaits(a.waits), workflows.WithFieldChecks(a.registry))
+		workflows.WithWaits(a.waits), workflows.WithFieldChecks(a.registry),
+		workflows.WithExpressionChecks(expressionChecker{registry: a.registry, compiler: compiler}))
 
 	if a.library, err = library.New(postgres.NewTemplates(a.db), a.workflows, a.registry, a.util.Logger); err != nil {
 		return err

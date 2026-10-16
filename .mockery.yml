@@ -83,6 +83,7 @@ packages:
     interfaces:
       Validator: {}
       FieldChecker: {}
+      ExpressionChecker: {}
       Executor: {}
       Supervisor: {}
       Waits: {}

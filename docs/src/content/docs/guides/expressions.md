@@ -1,0 +1,77 @@
+---
+title: Expressions
+description: Settings worked out for each item, like {{ spread * 100 }} or {{ params.max }}.
+---
+
+A node's settings can hold `{{ }}`. What is inside is worked out for each item the node
+gets, so one setting can differ from item to item: a message that names each market, a
+limit taken from another setting.
+
+## Fields
+
+`{{question}}` puts in the item's `question` field. A path reaches inside it:
+`{{ outcomes.0.price }}` is the first outcome's price. A field the item does not have gives
+nothing.
+
+## Expressions
+
+Anything else between `{{ }}` is TypeScript; plain JavaScript works as it is. The item's
+fields are there by name, and three more names:
+
+| Expression | Gives |
+|---|---|
+| `{{ spread * 100 }}` | the item's `spread`, times 100 |
+| `{{ item.question.toUpperCase() }}` | `item` is the whole item |
+| `{{ params.least }}` | `params` are the node's settings, as you set them |
+| `{{ execution.id }}`, `{{ execution.startedAt }}` | the run |
+| `{{ dec(bestAsk).minus(bestBid) }}` | exact arithmetic on prices |
+| `` {{ `${question} (${outcomes.length} outcomes)` }} `` | text of your own |
+
+A field named `item`, `params` or `execution` is `item.params`, and so on.
+
+Prices and other decimals are text in items, like `"0.0200"`, so they stay exact.
+`spread * 100` turns them into floating-point numbers, fine for a message; `dec(spread)`
+keeps them exact, for comparing and computing prices.
+
+Expressions only work things out: they cannot fetch data or reach the network. Each node
+run works out all of its items at once, in the same sandbox as code, within the limits an
+admin sets on the Config page.
+
+## In settings that are not text
+
+A number, a duration, a choice or a true-or-false setting takes an expression when its whole
+value is one `{{ }}`: **Limit** `{{ params.max }}`, **Operator** `{{ params.urgent ? 'gt' :
+'gte' }}`. What it gives must suit the setting: a limit of `"lots"` fails the node with
+`{{ word }} gave "lots", which must be a whole number`. An expression that gives nothing
+leaves the setting's default.
+
+Switches and dropdowns cannot hold text, so press **`{{ }}`** next to the setting's name to
+write an expression instead; press it again to choose as before.
+
+Text around expressions makes text, which the setting then reads: `{{ minutes }}m` is a
+duration.
+
+## Messages
+
+The messages of Log, Webhook and the Telegram nodes are written once per item, with that
+item's values. In Telegram's **html** format the message's tags stay, and every value is
+escaped, so an item cannot change the formatting.
+
+## Where they do not work
+
+- Triggers: they run before there is an item.
+- Wallets and credentials.
+- Settings that name a field, like If's **Field**: they say where to look, not what to find.
+- The buttons of a Telegram question, which make the node's ports.
+
+The editor marks `{{ }}` in these at once, and saving refuses it: it would stay as written.
+
+## When something goes wrong
+
+Saving checks that every expression compiles, and points at the problem:
+`{{ price * }}: line 1, column 8: Unexpected end of the expression`.
+
+An expression that throws while running fails the node, and so the run, naming the
+setting and the expression: `param "message": {{ nope() }}: ReferenceError: nope is not
+defined`. **Continue on failure** does not change that: it is for items a node fails one by
+one.

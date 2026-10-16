@@ -82,3 +82,54 @@ describe('credential field', () => {
     expect(screen.getByRole('option', { name: 'Missing credential (c-9)' })).toBeInTheDocument()
   })
 })
+
+describe('expressions in switches and dropdowns', () => {
+  const choose = (extra: Partial<ParamSpec>, value: unknown, expressions = true) => {
+    const onChange = vi.fn()
+    render(
+      <ParamField
+        spec={{ name: 'mode', label: 'Mode', kind: 'string', required: false, ...extra }}
+        value={value}
+        onChange={onChange}
+        expressions={expressions}
+      />,
+    )
+
+    return { onChange, user: userEvent.setup() }
+  }
+
+  it('turns a dropdown into text for one, and back', async () => {
+    const { onChange, user } = choose({ options: ['fast', 'slow'] }, 'fast')
+    expect(screen.getByRole('combobox')).toHaveValue('fast')
+
+    await user.click(screen.getByRole('button', { name: 'Use an expression for Mode' }))
+    expect(onChange).toHaveBeenLastCalledWith(undefined)
+
+    // Pasted: user-event reads {{ as a typed {.
+    await user.click(screen.getByRole('textbox'))
+    await user.paste("{{ params.urgent ? 'fast' : 'slow' }}")
+    expect(onChange).toHaveBeenLastCalledWith("{{ params.urgent ? 'fast' : 'slow' }}")
+
+    await user.click(screen.getByRole('button', { name: 'Use an expression for Mode' }))
+    expect(screen.getByRole('combobox')).toBeInTheDocument()
+    expect(onChange).toHaveBeenLastCalledWith(undefined)
+  })
+
+  it('starts as text when the value is one', () => {
+    choose({ kind: 'bool' }, '{{ open }}')
+
+    expect(screen.getByRole('textbox')).toHaveValue('{{ open }}')
+    expect(screen.queryByRole('switch')).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Use an expression for Mode' })).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    )
+  })
+
+  it('offers none where the setting takes none', () => {
+    choose({ kind: 'bool' }, true, false)
+
+    expect(screen.getByRole('switch')).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /Use an expression/ })).not.toBeInTheDocument()
+  })
+})

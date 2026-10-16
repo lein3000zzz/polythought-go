@@ -3,6 +3,7 @@ import { useState, type ReactNode } from 'react'
 import type { ParamSpec } from '@/api/client'
 import { useCredentialList, useCredentialTypes } from '@/api/vault'
 import { useWallets } from '@/api/wallets'
+import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -11,7 +12,7 @@ import { Switch } from '@/components/ui/switch'
 import { Textarea } from '@/components/ui/textarea'
 import { shortAddress } from '@/lib/format'
 
-import { chosen, parseText, textOf } from './params'
+import { chosen, hasExpressions, parseText, textOf } from './params'
 import type { FieldChoice } from './shapes'
 
 type Props = {
@@ -21,10 +22,46 @@ type Props = {
   problem?: string // from the server's last look at the workflow, or the editor's own
   scope?: string // keeps input IDs apart when several nodes' fields share a form
   fields?: FieldChoice[] // for a field param: the fields of the items there, when known
+  expressions?: boolean // it takes {{ }}: switches and dropdowns offer a text field for one
+  action?: ReactNode // next to the label
 }
 
 /** The input for one node param, chosen by its kind. */
 export function ParamField(props: Props) {
+  const { spec, value, expressions, onChange } = props
+  // Switches and dropdowns can't hold an expression, so they turn into text for one.
+  const choice = spec.kind === 'bool' || Boolean(spec.options?.length)
+  const [asExpression, setAsExpression] = useState(() => hasExpressions(value))
+
+  if (!choice || !expressions) return <Control {...props} />
+
+  const toggle = (
+    <Button
+      type="button"
+      variant={asExpression ? 'secondary' : 'ghost'}
+      size="xs"
+      className="font-mono"
+      aria-pressed={asExpression}
+      aria-label={`Use an expression for ${spec.label || spec.name}`}
+      title={asExpression ? 'Back to choosing' : 'Use an expression, like {{ params.mode }}'}
+      onClick={() => {
+        setAsExpression(!asExpression)
+        onChange(undefined)
+      }}
+    >
+      {'{{ }}'}
+    </Button>
+  )
+
+  return asExpression ? (
+    <TextField {...props} value={hasExpressions(value) ? value : undefined} action={toggle} />
+  ) : (
+    <Control {...props} action={toggle} />
+  )
+}
+
+// Control is the input for a param's kind.
+function Control(props: Props) {
   const { spec } = props
 
   if (spec.kind === 'bool') return <BoolField {...props} />
@@ -51,6 +88,7 @@ function TextField({
   scope,
   multiline,
   fields,
+  action,
 }: Props & { multiline?: boolean }) {
   // The text is kept as typed: a value that does not parse yet still shows.
   const [text, setText] = useState(() => textOf(value))
@@ -74,7 +112,7 @@ function TextField({
   }
 
   return (
-    <Field spec={spec} scope={scope} problem={parsed.problem ?? problem}>
+    <Field spec={spec} scope={scope} problem={parsed.problem ?? problem} action={action}>
       {multiline ? (
         <Textarea rows={3} className="font-mono text-xs" {...inputProps} />
       ) : (
@@ -122,11 +160,11 @@ function choiceLabel(f: FieldChoice): string {
   return f.description ? `${f.kind}: ${f.description}` : f.kind
 }
 
-function SelectField({ spec, value, onChange, problem, scope }: Props) {
+function SelectField({ spec, value, onChange, problem, scope, action }: Props) {
   const current = typeof value === 'string' ? value : ''
 
   return (
-    <Field spec={spec} scope={scope} problem={problem}>
+    <Field spec={spec} scope={scope} problem={problem} action={action}>
       <NativeSelect
         id={fieldId(spec, scope)}
         className="w-full"
@@ -150,7 +188,7 @@ function SelectField({ spec, value, onChange, problem, scope }: Props) {
   )
 }
 
-function ChecklistField({ spec, value, onChange, problem, scope }: Props) {
+function ChecklistField({ spec, value, onChange, problem, scope, action }: Props) {
   const selected = chosen(spec, value)
 
   const toggle = (option: string, on: boolean) => {
@@ -161,7 +199,7 @@ function ChecklistField({ spec, value, onChange, problem, scope }: Props) {
   }
 
   return (
-    <Field spec={spec} scope={scope} problem={problem} group>
+    <Field spec={spec} scope={scope} problem={problem} action={action} group>
       <div className="flex flex-wrap gap-x-4 gap-y-2">
         {spec.options?.map((o) => {
           const id = `${fieldId(spec, scope)}-${o}`
@@ -183,11 +221,11 @@ function ChecklistField({ spec, value, onChange, problem, scope }: Props) {
   )
 }
 
-function BoolField({ spec, value, onChange, problem, scope }: Props) {
+function BoolField({ spec, value, onChange, problem, scope, action }: Props) {
   const checked = typeof value === 'boolean' ? value : spec.default === true
 
   return (
-    <Field spec={spec} scope={scope} problem={problem} inline>
+    <Field spec={spec} scope={scope} problem={problem} action={action} inline>
       <Switch id={fieldId(spec, scope)} checked={checked} onCheckedChange={onChange} />
     </Field>
   )
@@ -288,10 +326,11 @@ type FieldProps = {
   hint?: string
   inline?: boolean // label and control on one line, for switches
   group?: boolean // several controls, labelled as a group
+  action?: ReactNode // next to the label
   children: ReactNode
 }
 
-function Field({ spec, scope, problem, hint, inline, group, children }: FieldProps) {
+function Field({ spec, scope, problem, hint, inline, group, action, children }: FieldProps) {
   const id = fieldId(spec, scope)
   const label = (
     <span className="text-sm font-medium">
@@ -318,19 +357,38 @@ function Field({ spec, scope, problem, hint, inline, group, children }: FieldPro
   if (group) {
     return (
       <fieldset className="flex flex-col gap-2">
-        <legend className="mb-2">{label}</legend>
+        <legend className="mb-2 flex w-full items-center justify-between gap-2">
+          {label}
+          {action}
+        </legend>
         {children}
         {notes}
       </fieldset>
     )
   }
 
+  if (inline) {
+    return (
+      <div className="flex flex-col gap-2">
+        <div className="flex items-center justify-between gap-2">
+          <Label htmlFor={id}>{label}</Label>
+          <div className="flex items-center gap-2">
+            {action}
+            {children}
+          </div>
+        </div>
+        {notes}
+      </div>
+    )
+  }
+
   return (
     <div className="flex flex-col gap-2">
-      <div className={inline ? 'flex items-center justify-between gap-2' : 'contents'}>
+      <div className="flex items-center justify-between gap-2">
         <Label htmlFor={id}>{label}</Label>
-        {children}
+        {action}
       </div>
+      {children}
       {notes}
     </div>
   )

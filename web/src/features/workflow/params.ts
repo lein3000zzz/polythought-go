@@ -1,4 +1,4 @@
-import type { ParamSpec } from '@/api/client'
+import type { NodeType, ParamSpec } from '@/api/client'
 
 // Go's time.ParseDuration syntax without a sign: 30s, 1m30s, 1.5h.
 const duration = /^(\d+(\.\d+)?(ns|us|µs|ms|s|m|h))+$/
@@ -15,6 +15,12 @@ export type Parsed = { value: unknown; problem?: string }
 export function parseText(spec: ParamSpec, text: string): Parsed {
   const t = text.trim()
   if (t === '') return { value: undefined }
+
+  // Worked out per item: the server checks what it gives, as the setting's kind.
+  if (t.includes('{{') && spec.kind !== 'string') {
+    const whole = t.startsWith('{{') && t.endsWith('}}') && !t.includes('\n')
+    if (whole || (spec.kind !== 'list' && spec.kind !== 'tokens')) return { value: t }
+  }
 
   switch (spec.kind) {
     case 'number':
@@ -61,4 +67,48 @@ export function chosen(spec: ParamSpec, value: unknown): string[] {
   const list = Array.isArray(value) ? value : Array.isArray(spec.default) ? spec.default : []
 
   return (spec.options ?? []).filter((o) => list.includes(o))
+}
+
+/** Whether a value holds {{ }} with something inside, itself or in a list. */
+export function hasExpressions(value: unknown): boolean {
+  if (Array.isArray(value)) return value.some(hasExpressions)
+  if (typeof value !== 'string') return false
+
+  for (let at = value.indexOf('{{'); at >= 0; at = value.indexOf('{{', at)) {
+    const end = value.indexOf('}}', at + 2)
+    if (end < 0) return false
+    if (value.slice(at + 2, end).trim() !== '') return true
+
+    at = end + 2
+  }
+
+  return false
+}
+
+/**
+ * Whether a setting of a node takes expressions, as the server says: not a trigger's,
+ * nor wallets, credentials, field settings or the one that gives ports.
+ */
+export function takesExpressions(type: NodeType | undefined, spec: ParamSpec): boolean {
+  return (
+    !!type &&
+    !type.trigger &&
+    spec.kind !== 'wallet' &&
+    spec.kind !== 'credential' &&
+    !spec.field &&
+    spec.name !== type.outputsParam
+  )
+}
+
+/** What is wrong with {{ }} where it would stay as written, in the server's words. */
+export function expressionProblem(
+  type: NodeType | undefined,
+  spec: ParamSpec,
+  value: unknown,
+): string | undefined {
+  if (!type || !hasExpressions(value) || takesExpressions(type, spec)) return undefined
+
+  return type.trigger
+    ? 'Triggers work out no expressions: {{ }} would stay as written'
+    : 'This setting takes no expressions: {{ }} would stay as written'
 }

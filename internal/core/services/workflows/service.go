@@ -66,8 +66,9 @@ type Service struct {
 	validator  Validator
 	executor   Executor
 	supervisor Supervisor
-	waits      Waits        // optional: without it, nothing waits
-	fields     FieldChecker // optional: without it, field settings go unchecked
+	waits      Waits             // optional: without it, nothing waits
+	fields     FieldChecker      // optional: without it, field settings go unchecked
+	exprs      ExpressionChecker // optional: without it, expressions go unchecked
 	limits     func() Limits
 	log        logging.Logger
 	now        func() time.Time
@@ -93,6 +94,17 @@ type FieldChecker interface {
 // saved before keeps running, and the next edit points at the field.
 func WithFieldChecks(c FieldChecker) Option {
 	return func(s *Service) { s.fields = c }
+}
+
+// ExpressionChecker reports expressions that do not compile, and {{ }} in settings that
+// take none.
+type ExpressionChecker interface {
+	CheckExpressions(w domain.Workflow) error
+}
+
+// WithExpressionChecks checks expressions when a workflow is saved, like field settings.
+func WithExpressionChecks(c ExpressionChecker) Option {
+	return func(s *Service) { s.exprs = c }
 }
 
 // WithWaits cancels waiting executions when a workflow is switched off, and lets users
@@ -456,10 +468,19 @@ func (s *Service) apply(w *domain.Workflow, def Definition) error {
 		return err
 	}
 
+	// Both at once, so one save says everything.
+	var problems domain.ValidationError
+
 	if s.fields != nil {
-		if err := s.fields.CheckFields(candidate); err != nil {
-			return err
-		}
+		problems.Merge(s.fields.CheckFields(candidate))
+	}
+
+	if s.exprs != nil {
+		problems.Merge(s.exprs.CheckExpressions(candidate))
+	}
+
+	if err := problems.Err(); err != nil {
+		return err
 	}
 
 	*w = candidate

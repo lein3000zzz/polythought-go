@@ -10,6 +10,7 @@ import { Textarea } from '@/components/ui/textarea'
 
 import type { FlowNode, NodeSpec } from './graph'
 import { ParamField } from './ParamField'
+import { expressionProblem, takesExpressions } from './params'
 import { fieldMessage, useNodeProblems } from './problems'
 import { fieldChoices, fieldProblem, type Shape } from './shapes'
 
@@ -101,9 +102,12 @@ export function NodePanel({ node, received, onChange, onParam, onDelete }: Props
             problems
               .filter((pr) => pr.param === p.name)
               .map(fieldMessage)
-              .join(' ') || fieldProblem(received, p, params[p.name] ?? p.default)
+              .join(' ') ||
+            expressionProblem(type, p, params[p.name]) ||
+            fieldProblem(received, p, params[p.name] ?? p.default)
           }
           fields={p.field && received ? fieldChoices(received, p.fieldKinds) : undefined}
+          expressions={takesExpressions(type, p)}
         />
       ))}
 

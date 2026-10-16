@@ -15,7 +15,8 @@ in and send items out: Markets sends one item per market, Order books adds each 
 best prices to its item, Filter passes on only the items that match.
 
 A node's settings can use an item's fields. The Webhook node's message, for example, puts
-in a field with `{{question}}` or `{{spread}}`.
+in a field with `{{question}}` or `{{spread}}`, and `{{ spread * 100 }}` works it out; see
+[Expressions](/docs/guides/expressions/).
 
 Every node's page in the [reference](/docs/reference/nodes/) lists the fields of the items
 it sends out, or says it passes on the items it receives. Prices, sizes and other decimals

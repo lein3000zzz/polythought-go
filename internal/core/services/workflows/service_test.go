@@ -534,7 +534,38 @@ func TestFieldChecks(t *testing.T) {
 		fc.EXPECT().CheckFields(mock.MatchedBy(func(w domain.Workflow) bool { return w.Name == "Spread watch" })).Return(problem)
 
 		_, err := s.Create(ctx, alice, def)
-		require.ErrorIs(t, err, problem)
+
+		var v *domain.ValidationError
+		require.ErrorAs(t, err, &v)
+		assert.Equal(t, problem.Problems, v.Problems)
+	})
+
+	t.Run("and expressions, with every problem at once", func(t *testing.T) {
+		d := deps{
+			repo: portsmocks.NewMockWorkflowRepository(t), executions: portsmocks.NewMockExecutionRepository(t),
+			validator: workflowsmocks.NewMockValidator(t), executor: workflowsmocks.NewMockExecutor(t),
+			supervisor: workflowsmocks.NewMockSupervisor(t),
+		}
+		fc := workflowsmocks.NewMockFieldChecker(t)
+		ec := workflowsmocks.NewMockExpressionChecker(t)
+
+		s := workflows.New(d.repo, d.executions, d.validator, d.executor, d.supervisor, logging.Noop(),
+			workflows.WithFieldChecks(fc), workflows.WithExpressionChecks(ec))
+
+		field := domain.Problem{NodeID: "tight", Param: "field", Message: `no field "bestbid"`}
+		expr := domain.Problem{NodeID: "log", Param: "message", Message: `{{ price * }}: line 1, column 8: Unexpected end of the expression`}
+
+		d.repo.EXPECT().Count(mock.Anything, mock.Anything).Return(0, 0, nil)
+		d.validator.EXPECT().Validate(mock.Anything).Return(nil)
+		fc.EXPECT().CheckFields(mock.Anything).Return(&domain.ValidationError{Problems: []domain.Problem{field}})
+		ec.EXPECT().CheckExpressions(mock.Anything).Return(&domain.ValidationError{Problems: []domain.Problem{expr}})
+
+		_, err := s.Create(ctx, alice, def)
+		require.ErrorIs(t, err, domain.ErrInvalidWorkflow)
+
+		var v *domain.ValidationError
+		require.ErrorAs(t, err, &v)
+		assert.Equal(t, []domain.Problem{field, expr}, v.Problems)
 	})
 
 	t.Run("switching on does not: a workflow saved before keeps running", func(t *testing.T) {

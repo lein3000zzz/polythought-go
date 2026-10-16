@@ -1,8 +1,15 @@
 import { describe, expect, it } from 'vitest'
 
-import type { ParamSpec } from '@/api/client'
+import type { NodeType, ParamSpec } from '@/api/client'
 
-import { chosen, parseText, textOf } from './params'
+import {
+  chosen,
+  expressionProblem,
+  hasExpressions,
+  parseText,
+  takesExpressions,
+  textOf,
+} from './params'
 
 const spec = (kind: ParamSpec['kind'], extra: Partial<ParamSpec> = {}): ParamSpec => ({
   name: 'p',
@@ -41,6 +48,13 @@ describe('parseText', () => {
     { kind: 'tokens', text: '123\n 456 \n\n789', want: { value: ['123', '456', '789'] } },
     { kind: 'list', text: 'a, b,c', want: { value: ['a', 'b', 'c'] } },
     { kind: 'list', text: '\n', want: { value: undefined } },
+    // Expressions, worked out per item: the server checks what they give.
+    { kind: 'number', text: '{{ params.max }}', want: { value: '{{ params.max }}' } },
+    { kind: 'number', text: '{{ n }}0', want: { value: '{{ n }}0' } },
+    { kind: 'decimal', text: '{{ spread * 2 }}', want: { value: '{{ spread * 2 }}' } },
+    { kind: 'duration', text: '{{ wait }}s', want: { value: '{{ wait }}s' } },
+    { kind: 'list', text: '{{ tags }}', want: { value: '{{ tags }}' } },
+    { kind: 'list', text: 'a\n{{ b }}', want: { value: ['a', '{{ b }}'] } },
   ] as const)('$kind "$text"', ({ kind, text, want }) => {
     expect(parseText(spec(kind), text)).toEqual(want)
   })
@@ -70,5 +84,43 @@ describe('chosen', () => {
 
   it('drops values that are no longer offered', () => {
     expect(chosen(on, ['gossip', 'book'])).toEqual(['book'])
+  })
+})
+
+describe('expressions', () => {
+  const node: NodeType = {
+    name: 'n',
+    trigger: false,
+    inputs: ['main'],
+    outputs: ['main'],
+    params: [],
+    outputsParam: 'buttons',
+  }
+  const trigger: NodeType = { ...node, trigger: true, inputs: [] }
+
+  it('finds {{ }} in a value', () => {
+    expect(hasExpressions('Hi {{ question }}')).toBe(true)
+    expect(hasExpressions(['a', '{{b}}'])).toBe(true)
+    expect(hasExpressions('{{}} and {{ }}')).toBe(false)
+    expect(hasExpressions(3)).toBe(false)
+  })
+
+  it('knows which settings take them', () => {
+    expect(takesExpressions(node, spec('number'))).toBe(true)
+    expect(takesExpressions(node, spec('wallet'))).toBe(false)
+    expect(takesExpressions(node, spec('string', { field: true }))).toBe(false)
+    expect(takesExpressions(node, spec('list', { name: 'buttons' }))).toBe(false)
+    expect(takesExpressions(trigger, spec('string'))).toBe(false)
+  })
+
+  it('says where {{ }} would stay as written', () => {
+    expect(expressionProblem(trigger, spec('string'), '{{ x }}')).toBe(
+      'Triggers work out no expressions: {{ }} would stay as written',
+    )
+    expect(expressionProblem(node, spec('wallet'), '{{ x }}')).toBe(
+      'This setting takes no expressions: {{ }} would stay as written',
+    )
+    expect(expressionProblem(node, spec('number'), '{{ x }}')).toBeUndefined()
+    expect(expressionProblem(trigger, spec('string'), 'plain')).toBeUndefined()
   })
 })

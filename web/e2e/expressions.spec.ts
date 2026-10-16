@@ -1,4 +1,4 @@
-import { createWorkflow, expect, test, unique } from './fixtures'
+import { canvasNode, createWorkflow, expect, test, unique } from './fixtures'
 
 test('settings work their expressions out for each run, in the sandbox', async ({ page }) => {
   const run = async (message: string) => {
@@ -20,4 +20,32 @@ test('settings work their expressions out for each run, in the sandbox', async (
   const threw = await run('{{ nope() }}')
   expect(threw.status).toBe('failed')
   expect(threw.error).toContain('ReferenceError')
+})
+
+test('the editor takes expressions in any setting, and saving checks them', async ({ page }) => {
+  const id = await createWorkflow(page, unique('expressions'), [
+    { id: 'manual', type: 'trigger.manual' },
+    { id: 'markets', type: 'polymarket.markets' },
+    { id: 'top', type: 'transform.top', params: { field: 'liquidity' } },
+  ])
+
+  await page.goto(`/workflows/${id}`)
+  await canvasNode(page, 'top').click()
+  const settings = page.getByRole('complementary', { name: 'Settings' })
+
+  // A number takes one as typed; a dropdown through its button.
+  await settings.getByLabel(/^Keep/).fill('{{ params.field.length }}')
+  await expect(settings.getByText('Enter a whole number')).toHaveCount(0)
+
+  await settings.getByRole('button', { name: 'Use an expression for Order' }).click()
+  await settings.getByLabel(/^Order/).fill("{{ 'asc' }}")
+
+  await page.getByRole('button', { name: 'Save', exact: true }).click()
+  await expect(page.getByText('Version 2')).toBeVisible()
+
+  // One that does not compile is not saved.
+  await settings.getByLabel(/^Keep/).fill('{{ params.field.length + }}')
+  await page.getByRole('button', { name: 'Save', exact: true }).click()
+  await expect(page.getByText(/Not saved: the workflow has problems/)).toBeVisible()
+  await expect(settings.getByText(/Unexpected end of the expression/)).toBeVisible()
 })
