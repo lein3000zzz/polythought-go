@@ -1,4 +1,4 @@
-import { canvasNode, connect, createWorkflow, expect, test, unique } from './fixtures'
+import { canvasNode, connect, createWorkflow, expect, fillSetting, test, unique } from './fixtures'
 
 test('building, saving and running a workflow', async ({ page }) => {
   const name = unique('built')
@@ -21,7 +21,7 @@ test('building, saving and running a workflow', async ({ page }) => {
 
   const settings = page.getByRole('complementary', { name: 'Settings' })
   await canvasNode(page, 'log').click()
-  await settings.getByLabel(/Message/).fill('hello from e2e')
+  await fillSetting(settings, 'message', 'hello from e2e')
   await page.getByLabel('Workflow name').fill(name)
   await page.keyboard.press('ControlOrMeta+s')
 
@@ -55,15 +55,15 @@ test('the server points at what is wrong', async ({ page }) => {
   await page.goto(`/workflows/${id}`)
   await canvasNode(page, 'tight').click()
 
-  const value = page.getByRole('complementary', { name: 'Settings' }).getByLabel(/Value/)
-  await value.fill('lots')
+  const settings = page.getByRole('complementary', { name: 'Settings' })
+  await fillSetting(settings, 'value', 'lots')
   await expect(page.getByText('Enter a number')).toBeVisible()
 
   await page.getByRole('button', { name: 'Save', exact: true }).click()
   await expect(page.getByText(/Not saved: the workflow has problems/)).toBeVisible()
   await expect(canvasNode(page, 'tight').getByText('1')).toBeVisible()
 
-  await value.fill('0.05')
+  await fillSetting(settings, 'value', '0.05')
   await page.getByRole('button', { name: 'Save', exact: true }).click()
   await expect(page.getByText('Version 2')).toBeVisible()
 })

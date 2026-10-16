@@ -21,6 +21,10 @@ globalThis.EventSource = FakeEventSource as unknown as typeof EventSource
 vi.mock('@/components/code/MonacoEditor', async () => ({
   default: (await import('@/components/code/PlainEditor')).PlainEditor,
 }))
+// Settings that take expressions stay their plain input, without a load to remount it.
+vi.mock('@/components/code/ExpressionInput', () => ({
+  ExpressionInput: ({ fallback }: { fallback: unknown }) => fallback,
+}))
 
 afterEach(() => {
   cleanup()

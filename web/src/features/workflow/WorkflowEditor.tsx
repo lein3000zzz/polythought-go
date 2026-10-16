@@ -259,7 +259,7 @@ function Editor({ workflow, types, onReload }: Props) {
     if (e.key !== '/' || e.metaKey || e.ctrlKey || e.altKey) return
     if (
       e.target instanceof Element &&
-      e.target.closest('input, textarea, select, [contenteditable]')
+      e.target.closest('input, textarea, select, [contenteditable], .nokey')
     ) {
       return
     }

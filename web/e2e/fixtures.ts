@@ -1,4 +1,4 @@
-import { test as base, expect, type Page } from '@playwright/test'
+import { test as base, expect, type Locator, type Page } from '@playwright/test'
 
 export { expect }
 
@@ -100,4 +100,14 @@ export async function connect(page: Page, from: string, fromPort: string, to: st
 
 export function canvasNode(page: Page, id: string) {
   return page.locator(`.react-flow__node[data-id="${id}"]`)
+}
+
+/**
+ * Types text into one of the node panel's settings, by its name, replacing what is there:
+ * a plain input, or the one-line Monaco editor of a setting that takes expressions. Three
+ * clicks select its line in either.
+ */
+export async function fillSetting(panel: Locator, name: string, text: string) {
+  await panel.locator(`#param-${name}`).click({ clickCount: 3 })
+  await panel.page().keyboard.insertText(text)
 }

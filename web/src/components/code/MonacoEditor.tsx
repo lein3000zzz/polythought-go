@@ -56,6 +56,7 @@ export default function MonacoEditor({
       tabSize: 2,
       scrollBeyondLastLine: false,
       fixedOverflowWidgets: true,
+      editContext: false, // a hidden text area takes the typing (see ExpressionEditor)
     })
     editor.current = ed
 
@@ -98,7 +99,8 @@ export default function MonacoEditor({
         id={id}
         data-testid="monaco"
         style={{ height: rows * lineHeight + 8 }}
-        className={cn('overflow-hidden rounded-md border', invalid && 'border-destructive')}
+        // nokey: the canvas leaves its keys alone (see ExpressionEditor).
+        className={cn('nokey overflow-hidden rounded-md border', invalid && 'border-destructive')}
       />
       {errors.length > 0 && (
         <details className="text-xs">

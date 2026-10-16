@@ -4,6 +4,7 @@ import type { ParamSpec } from '@/api/client'
 import { useCredentialList, useCredentialTypes } from '@/api/vault'
 import { useWallets } from '@/api/wallets'
 import { CodeEditor } from '@/components/code/CodeEditor'
+import { ExpressionInput, type ExpressionScope } from '@/components/code/ExpressionInput'
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Input } from '@/components/ui/input'
@@ -24,6 +25,8 @@ type Props = {
   scope?: string // keeps input IDs apart when several nodes' fields share a form
   fields?: FieldChoice[] // for a field param: the fields of the items there, when known
   expressions?: boolean // it takes {{ }}: switches and dropdowns offer a text field for one
+  // What its expressions see, for completing and checking them; without it, plain text.
+  expressionScope?: ExpressionScope
   action?: ReactNode // next to the label
 }
 
@@ -106,6 +109,8 @@ function TextField({
   scope,
   multiline,
   fields,
+  expressions,
+  expressionScope,
   action,
   rows = 3,
 }: Props & { multiline?: boolean; rows?: number }) {
@@ -130,18 +135,35 @@ function TextField({
     onChange: (e: { target: { value: string } }) => change(e.target.value),
   }
 
+  const plain = multiline ? (
+    <Textarea rows={rows} spellCheck={false} className="font-mono text-xs" {...inputProps} />
+  ) : (
+    <Input
+      inputMode={
+        spec.kind === 'number' ? 'numeric' : spec.kind === 'decimal' ? 'decimal' : undefined
+      }
+      list={choices && `${id}-fields`}
+      {...inputProps}
+    />
+  )
+
   return (
     <Field spec={spec} scope={scope} problem={parsed.problem ?? problem} action={action}>
-      {multiline ? (
-        <Textarea rows={rows} spellCheck={false} className="font-mono text-xs" {...inputProps} />
-      ) : (
-        <Input
-          inputMode={
-            spec.kind === 'number' ? 'numeric' : spec.kind === 'decimal' ? 'decimal' : undefined
-          }
-          list={choices && `${id}-fields`}
-          {...inputProps}
+      {expressions && expressionScope ? (
+        <ExpressionInput
+          id={id}
+          value={text}
+          onChange={change}
+          label={spec.label || spec.name}
+          scope={expressionScope}
+          placeholder={inputProps.placeholder}
+          invalid={inputProps['aria-invalid']}
+          multiline={multiline}
+          rows={rows}
+          fallback={plain}
         />
+      ) : (
+        plain
       )}
 
       {choices && !multiline && (

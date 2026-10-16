@@ -1,6 +1,6 @@
 ---
 title: Expressions
-description: Settings worked out for each item, like {{ spread * 100 }} or {{ params.max }}.
+description: Settings worked out for each item, like {{ question }} or {{ params.max }}.
 ---
 
 A node's settings can hold `{{ }}`. What is inside is worked out for each item the node
@@ -20,7 +20,7 @@ fields are there by name, and three more names:
 
 | Expression | Gives |
 |---|---|
-| `{{ spread * 100 }}` | the item's `spread`, times 100 |
+| `{{ dec(spread).times(100) }}` | the item's `spread`, times 100, exactly |
 | `{{ item.question.toUpperCase() }}` | `item` is the whole item |
 | `{{ params.least }}` | `params` are the node's settings, as you set them |
 | `{{ execution.id }}`, `{{ execution.startedAt }}` | the run |
@@ -30,8 +30,9 @@ fields are there by name, and three more names:
 A field named `item`, `params` or `execution` is `item.params`, and so on.
 
 Prices and other decimals are text in items, like `"0.0200"`, so they stay exact.
-`spread * 100` turns them into floating-point numbers, fine for a message; `dec(spread)`
-keeps them exact, for comparing and computing prices.
+`dec(spread)` computes with them exactly, for comparing and computing prices;
+`Number(spread)` makes a floating-point number, fine for a message. `spread * 100` works
+too, but the editor underlines it: to TypeScript, a decimal is text.
 
 Expressions only work things out: they cannot fetch data or reach the network. Each node
 run works out all of its items at once, in the same sandbox as code, within the limits an
@@ -65,6 +66,14 @@ escaped, so an item cannot change the formatting.
 - The buttons of a Telegram question, which make the node's ports.
 
 The editor marks `{{ }}` in these at once, and saving refuses it: it would stay as written.
+
+## Writing them
+
+Inside `{{ }}` the editor completes as you type: the fields of the items there, with what
+each holds, and `item`, `params`, `execution` and `dec` with its methods. Press Ctrl+Space
+to see what can come where the cursor is. What TypeScript finds wrong is underlined, with
+what is wrong when you point at it, like a field the items do not have, or a decimal used as
+a number. That does not stop saving: the server's own check below does.
 
 ## When something goes wrong
 

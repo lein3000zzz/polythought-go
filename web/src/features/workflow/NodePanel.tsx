@@ -1,4 +1,5 @@
 import { CircleAlert, Trash2, X } from 'lucide-react'
+import { useMemo } from 'react'
 
 import type { Problem } from '@/api/client'
 import { Alert, AlertDescription } from '@/components/ui/alert'
@@ -30,6 +31,11 @@ export function NodePanel({ node, received, onChange, onParam, onDelete }: Props
   const params = spec.params ?? {}
   const unknown = Object.keys(params).filter((name) => !declared.some((p) => p.name === name))
   const nodeProblems = problems.filter((p) => !p.param || unknown.includes(p.param))
+  // What its settings' expressions see: the items it gets, and its settings.
+  const expressionScope = useMemo(
+    () => ({ item: received, settings: type?.params ?? [] }),
+    [received, type?.params],
+  )
 
   return (
     <div className="flex flex-col gap-5 p-4">
@@ -108,6 +114,7 @@ export function NodePanel({ node, received, onChange, onParam, onDelete }: Props
           }
           fields={p.field && received ? fieldChoices(received, p.fieldKinds) : undefined}
           expressions={takesExpressions(type, p)}
+          expressionScope={expressionScope}
         />
       ))}
 

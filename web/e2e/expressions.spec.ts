@@ -1,4 +1,4 @@
-import { canvasNode, createWorkflow, expect, test, unique } from './fixtures'
+import { canvasNode, createWorkflow, expect, fillSetting, test, unique } from './fixtures'
 
 test('settings work their expressions out for each run, in the sandbox', async ({ page }) => {
   const run = async (message: string) => {
@@ -34,17 +34,17 @@ test('the editor takes expressions in any setting, and saving checks them', asyn
   const settings = page.getByRole('complementary', { name: 'Settings' })
 
   // A number takes one as typed; a dropdown through its button.
-  await settings.getByLabel(/^Keep/).fill('{{ params.field.length }}')
+  await fillSetting(settings, 'limit', '{{ params.field.length }}')
   await expect(settings.getByText('Enter a whole number')).toHaveCount(0)
 
   await settings.getByRole('button', { name: 'Use an expression for Order' }).click()
-  await settings.getByLabel(/^Order/).fill("{{ 'asc' }}")
+  await fillSetting(settings, 'order', "{{ 'asc' }}")
 
   await page.getByRole('button', { name: 'Save', exact: true }).click()
   await expect(page.getByText('Version 2')).toBeVisible()
 
   // One that does not compile is not saved.
-  await settings.getByLabel(/^Keep/).fill('{{ params.field.length + }}')
+  await fillSetting(settings, 'limit', '{{ params.field.length + }}')
   await page.getByRole('button', { name: 'Save', exact: true }).click()
   await expect(page.getByText(/Not saved: the workflow has problems/)).toBeVisible()
   await expect(settings.getByText(/Unexpected end of the expression/)).toBeVisible()

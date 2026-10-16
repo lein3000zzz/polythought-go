@@ -20,9 +20,10 @@ list on the left, the canvas in the middle and the selected node's settings on t
   where it compares numbers. A field the items do not have is marked at once, with the one
   you probably meant, like `bestBid` for `bestbid`. After a node that does not say what it
   sends, any field goes.
-- **Expressions**: `{{ }}` in a setting is worked out for each item, like `{{ spread * 100 }}`;
-  switches and dropdowns take one through the **`{{ }}`** button by their name. See
-  [Expressions](/docs/guides/expressions/).
+- **Expressions**: `{{ }}` in a setting is worked out for each item, like
+  `{{ dec(spread).times(100) }}`; inside, the editor completes the fields there and
+  underlines what does not fit. Switches and dropdowns take one through the **`{{ }}`**
+  button by their name. See [Expressions](/docs/guides/expressions/).
 - **Notes** on a node are for you: they show on the canvas and never change what it does.
 - **Continue on failure** sends items the node fails on to its `error` port instead of
   failing the execution; see [When items fail](/docs/guides/concepts/#when-items-fail).
