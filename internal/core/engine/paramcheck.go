@@ -1,10 +1,20 @@
 package engine
 
 import (
+	"errors"
 	"fmt"
 	"slices"
 	"time"
 )
+
+// CheckValue says why value does not fit the setting, as saving checks it, or nil.
+func (spec ParamSpec) CheckValue(value any) error {
+	if msg := checkParam(spec, value); msg != "" {
+		return errors.New(msg)
+	}
+
+	return nil
+}
 
 // checkParam validates a configured value against its spec before anything runs, so a
 // mistyped value is reported when the workflow is saved rather than when it executes.

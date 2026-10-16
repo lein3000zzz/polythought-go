@@ -260,18 +260,9 @@ func TestExecuteRejects(t *testing.T) {
 		trigger  domain.NodeID
 		wantErr  error
 	}{
-		{name: "invalid workflow", workflow: domain.Workflow{}, trigger: "trigger", wantErr: domain.ErrInvalidWorkflow},
+		{name: "an empty workflow", workflow: domain.Workflow{}, trigger: "trigger", wantErr: engine.ErrNotTrigger},
 		{name: "start from a regular node", workflow: valid, trigger: "a", wantErr: engine.ErrNotTrigger},
 		{name: "start from an unknown node", workflow: valid, trigger: "ghost", wantErr: engine.ErrNotTrigger},
-		{
-			name: "a param of the wrong type is caught before running",
-			workflow: domain.Workflow{
-				Nodes:       []domain.NodeSpec{trigger(), spec("if", "test.if", map[string]any{"threshold": true})},
-				Connections: []domain.Connection{mainLink("trigger", "if")},
-			},
-			trigger: "trigger",
-			wantErr: engine.ErrInvalidParam,
-		},
 	}
 
 	for _, tt := range tests {
@@ -283,15 +274,79 @@ func TestExecuteRejects(t *testing.T) {
 	}
 }
 
+// A saved workflow that no longer holds, as when a custom node it uses changed, fails
+// where its owner sees it, before any node runs.
+func TestExecuteFailsWhatNoLongerHolds(t *testing.T) {
+	tests := []struct {
+		name      string
+		workflow  domain.Workflow
+		wantError string
+	}{
+		{
+			name: "a param of the wrong type",
+			workflow: domain.Workflow{
+				ID:          "wf",
+				Nodes:       []domain.NodeSpec{trigger(), spec("if", "test.if", map[string]any{"threshold": true})},
+				Connections: []domain.Connection{mainLink("trigger", "if")},
+			},
+			wantError: `node "if": param "threshold"`,
+		},
+		{
+			name: "a node type gone",
+			workflow: domain.Workflow{
+				ID:          "wf",
+				Nodes:       []domain.NodeSpec{trigger(), spec("split", "custom.split", nil)},
+				Connections: []domain.Connection{mainLink("trigger", "split")},
+			},
+			wantError: `node "split": unknown node type "custom.split"`,
+		},
+		{
+			name: "a port gone",
+			workflow: domain.Workflow{
+				ID:          "wf",
+				Nodes:       []domain.NodeSpec{trigger(), spec("a", "test.pass", nil), spec("b", "test.pass", nil)},
+				Connections: []domain.Connection{mainLink("trigger", "a"), link("a", "wide", "b", engine.DefaultPort)},
+			},
+			wantError: `node "a" (test.pass) has no output port "wide"`,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			saved := &saves{last: map[domain.ExecutionID]domain.Execution{}}
+
+			ex, err := engine.NewExecutor(observability.NoopUtility(), testRegistry(t),
+				engine.WithClock(tickingClock()),
+				engine.WithExecutionIDs(func() domain.ExecutionID { return "ex-1" }),
+				engine.WithRecorder(saved),
+			)
+			require.NoError(t, err)
+
+			res, err := ex.Execute(context.Background(), tt.workflow, "trigger", fired(item()))
+			require.NoError(t, err)
+
+			assert.Equal(t, domain.ExecutionFailed, res.Execution.Status)
+			assert.Contains(t, res.Execution.Error, tt.wantError)
+			assert.Empty(t, res.Execution.Runs, "no node ran, the trigger's included")
+			assert.Equal(t, domain.ExecutionFailed, saved.last["ex-1"].Status, "recorded")
+		})
+	}
+}
+
 func TestExecuteMetrics(t *testing.T) {
 	tests := []struct {
 		name           string
 		nodeType       string
+		wantLabel      string // the node type's operation, when not its name
 		wantExecStatus string
 		wantNodeStatus string
 	}{
 		{name: "success", nodeType: "test.pass", wantExecStatus: metrics.StatusSuccess, wantNodeStatus: metrics.StatusSuccess},
 		{name: "node failure", nodeType: "test.error", wantExecStatus: metrics.StatusError, wantNodeStatus: metrics.StatusError},
+		{
+			name: "custom nodes count together", nodeType: "custom.split", wantLabel: "custom",
+			wantExecStatus: metrics.StatusSuccess, wantNodeStatus: metrics.StatusSuccess,
+		},
 	}
 
 	for _, tt := range tests {
@@ -299,8 +354,13 @@ func TestExecuteMetrics(t *testing.T) {
 			execTotal := metricsmocks.NewMockCounter(t)
 			execTotal.EXPECT().Inc(metrics.Labels{"operation": "execute_workflow", "status": tt.wantExecStatus}).Return(nil).Once()
 
+			label := tt.nodeType
+			if tt.wantLabel != "" {
+				label = tt.wantLabel
+			}
+
 			nodeTotal := metricsmocks.NewMockCounter(t)
-			nodeTotal.EXPECT().Inc(metrics.Labels{"operation": tt.nodeType, "status": tt.wantNodeStatus}).Return(nil).Once()
+			nodeTotal.EXPECT().Inc(metrics.Labels{"operation": label, "status": tt.wantNodeStatus}).Return(nil).Once()
 
 			util := newMockedUtil(t, map[string]*metricsmocks.MockCounter{
 				"engine_executions/operations_total": execTotal,
@@ -312,7 +372,13 @@ func TestExecuteMetrics(t *testing.T) {
 				Connections: []domain.Connection{mainLink("trigger", "n")},
 			}
 
-			_, err := newExecutor(t, util).Execute(context.Background(), wf, "trigger", fired(item()))
+			r := testRegistry(t)
+			require.NoError(t, r.RegisterNode(splitter()))
+
+			ex, err := engine.NewExecutor(util, r)
+			require.NoError(t, err)
+
+			_, err = ex.Execute(context.Background(), wf, "trigger", fired(item()))
 			require.NoError(t, err)
 		})
 	}

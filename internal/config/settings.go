@@ -25,6 +25,7 @@ const (
 	KeyMaxWaiting          = "executions.max_waiting_per_user"
 	KeyMaxWait             = "executions.max_wait"
 	KeyCodeAccess          = "code.access"
+	KeyCustomNodes         = "code.custom_nodes_per_user"
 	KeyCodeMemory          = "code.memory"
 	KeyCodeTime            = "code.time"
 	KeyCodeOutput          = "code.output"
@@ -131,6 +132,11 @@ func Settings() (*settings.Registry, error) {
 			Description: "Code nodes run TypeScript users write: everyone may (everyone), admins and the users switched on for code on the Users page (chosen), or no one, admins included (off). Expressions are not code. A workflow with code nodes whose owner may not write code cannot be saved, and fails at once when it is triggered.",
 			Kind:        settings.KindEnum, Default: string(domain.CodeEveryone),
 			Options: []string{string(domain.CodeEveryone), string(domain.CodeChosen), string(domain.CodeOff)},
+		},
+		settings.Spec{
+			Key: KeyCustomNodes, Group: groupCode, Label: "Custom nodes per user",
+			Description: "The most custom nodes one user may define. Users above it keep theirs but cannot make more.",
+			Kind:        settings.KindInt, Default: 50, Check: between(1, 1_000),
 		},
 		settings.Spec{
 			Key: KeyCodeMemory, Group: groupCode, Label: "Memory per run (MiB)",

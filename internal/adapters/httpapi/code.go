@@ -10,9 +10,10 @@ import (
 	"github.com/lein3000zzz/polythought-go/internal/core/services/auth"
 )
 
-// CodeTypes are the declarations code is written against.
+// CodeTypes are the declarations a user's code is written against, their own node types
+// included.
 type CodeTypes interface {
-	Declarations(ctx context.Context, p auth.Principal) []ports.CodeFile
+	Declarations(ctx context.Context, p auth.Principal) ([]ports.CodeFile, error)
 }
 
 type codeFileDTO struct {
@@ -41,7 +42,11 @@ type codeTypesDTO struct {
 func (s *Server) getCodeTypes(ctx context.Context, c *app.RequestContext) {
 	p, _ := principal(c)
 
-	files := s.codeTypes.Declarations(ctx, p)
+	files, err := s.codeTypes.Declarations(ctx, p)
+	if err != nil {
+		s.fail(ctx, c, err)
+		return
+	}
 
 	out := codeTypesDTO{Files: make([]codeFileDTO, len(files))}
 	for i, f := range files {

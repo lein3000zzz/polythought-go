@@ -2,6 +2,7 @@ package library_test
 
 import (
 	"context"
+	"slices"
 	"testing"
 	"time"
 
@@ -13,6 +14,7 @@ import (
 	"github.com/lein3000zzz/polythought-go/internal/core/domain"
 	"github.com/lein3000zzz/polythought-go/internal/core/engine"
 	"github.com/lein3000zzz/polythought-go/internal/core/nodes"
+	"github.com/lein3000zzz/polythought-go/internal/core/nodes/customnodes"
 	"github.com/lein3000zzz/polythought-go/internal/core/ports"
 	"github.com/lein3000zzz/polythought-go/internal/core/services/auth"
 	"github.com/lein3000zzz/polythought-go/internal/core/services/library"
@@ -242,6 +244,35 @@ func TestShare(t *testing.T) {
 		}
 
 		assert.Equal(t, []string{"b.wallet", "h.url", "h.credential"}, inputs)
+	})
+
+	t.Run("and those of the sharer's custom nodes", func(t *testing.T) {
+		d := deps{repo: portsmocks.NewMockTemplateRepository(t), workflows: librarymocks.NewMockWorkflows(t)}
+
+		own, err := registry(t).With(customnodes.New(domain.CustomNode{
+			Name: "pings", Label: "Pings", Outputs: []string{"main"}, Items: domain.CustomItems{Passed: true},
+			Settings: []domain.CustomSetting{{Name: "wallet", Kind: "wallet"}, {Name: "every", Kind: "duration"}},
+		}, nil, nil))
+		require.NoError(t, err)
+
+		s, err := library.New(d.repo, d.workflows, registry(t), logging.Noop(), library.WithOwnTypes(own))
+		require.NoError(t, err)
+
+		mine := source
+		mine.Nodes = append(slices.Clone(source.Nodes), domain.NodeSpec{
+			ID: "p", Type: "custom.pings", Params: map[string]any{"wallet": "w-alice", "every": "1h"},
+		})
+
+		d.workflows.EXPECT().Get(ctx, alice, source.ID).Return(mine, nil)
+		d.repo.EXPECT().BySource(ctx, alice.User.ID, source.ID).Return(domain.Template{}, domain.ErrNotFound)
+		d.repo.EXPECT().CountByAuthor(ctx, alice.User.ID).Return(0, nil)
+		d.repo.EXPECT().Save(ctx, mock.Anything).RunAndReturn(func(_ context.Context, tpl domain.Template) (domain.Template, error) {
+			return tpl, nil
+		})
+
+		entry, err := s.Share(ctx, alice, source.ID, library.ShareInput{})
+		require.NoError(t, err)
+		assert.Equal(t, map[string]any{"every": "1h"}, entry.Nodes[3].Params, "the wallet stays home")
 	})
 
 	t.Run("sharing again updates the copy, whatever the allowance", func(t *testing.T) {

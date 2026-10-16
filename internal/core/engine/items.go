@@ -118,6 +118,11 @@ func hasParam(typ NodeType, name string, kind ParamKind) bool {
 	return false
 }
 
+// CheckFields says what is wrong with declared fields, as registering a type checks them.
+func CheckFields(fields []Field) error {
+	return checkFields(fields, "")
+}
+
 func checkFields(fields []Field, path string) error {
 	seen := make(map[string]bool, len(fields))
 

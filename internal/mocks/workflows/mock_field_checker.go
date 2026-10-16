@@ -5,6 +5,8 @@
 package workflowsmocks
 
 import (
+	"context"
+
 	"github.com/lein3000zzz/polythought-go/internal/core/domain"
 	mock "github.com/stretchr/testify/mock"
 )
@@ -46,16 +48,16 @@ func (_m *MockFieldChecker) EXPECT() *MockFieldChecker_Expecter {
 }
 
 // CheckFields provides a mock function for the type MockFieldChecker
-func (_mock *MockFieldChecker) CheckFields(w domain.Workflow) error {
-	ret := _mock.Called(w)
+func (_mock *MockFieldChecker) CheckFields(ctx context.Context, w domain.Workflow) error {
+	ret := _mock.Called(ctx, w)
 
 	if len(ret) == 0 {
 		panic("no return value specified for CheckFields")
 	}
 
 	var r0 error
-	if returnFunc, ok := ret.Get(0).(func(domain.Workflow) error); ok {
-		r0 = returnFunc(w)
+	if returnFunc, ok := ret.Get(0).(func(context.Context, domain.Workflow) error); ok {
+		r0 = returnFunc(ctx, w)
 	} else {
 		r0 = ret.Error(0)
 	}
@@ -68,19 +70,25 @@ type MockFieldChecker_CheckFields_Call struct {
 }
 
 // CheckFields is a helper method to define mock.On call
+//   - ctx context.Context
 //   - w domain.Workflow
-func (_e *MockFieldChecker_Expecter) CheckFields(w any) *MockFieldChecker_CheckFields_Call {
-	return &MockFieldChecker_CheckFields_Call{Call: _e.mock.On("CheckFields", w)}
+func (_e *MockFieldChecker_Expecter) CheckFields(ctx any, w any) *MockFieldChecker_CheckFields_Call {
+	return &MockFieldChecker_CheckFields_Call{Call: _e.mock.On("CheckFields", ctx, w)}
 }
 
-func (_c *MockFieldChecker_CheckFields_Call) Run(run func(w domain.Workflow)) *MockFieldChecker_CheckFields_Call {
+func (_c *MockFieldChecker_CheckFields_Call) Run(run func(ctx context.Context, w domain.Workflow)) *MockFieldChecker_CheckFields_Call {
 	_c.Call.Run(func(args mock.Arguments) {
-		var arg0 domain.Workflow
+		var arg0 context.Context
 		if args[0] != nil {
-			arg0 = args[0].(domain.Workflow)
+			arg0 = args[0].(context.Context)
+		}
+		var arg1 domain.Workflow
+		if args[1] != nil {
+			arg1 = args[1].(domain.Workflow)
 		}
 		run(
 			arg0,
+			arg1,
 		)
 	})
 	return _c
@@ -91,7 +99,7 @@ func (_c *MockFieldChecker_CheckFields_Call) Return(err error) *MockFieldChecker
 	return _c
 }
 
-func (_c *MockFieldChecker_CheckFields_Call) RunAndReturn(run func(w domain.Workflow) error) *MockFieldChecker_CheckFields_Call {
+func (_c *MockFieldChecker_CheckFields_Call) RunAndReturn(run func(ctx context.Context, w domain.Workflow) error) *MockFieldChecker_CheckFields_Call {
 	_c.Call.Return(run)
 	return _c
 }

@@ -105,3 +105,4 @@ packages:
       TelegramService: {}
       TelegramWebhook: {}
       NotificationService: {}
+      CustomNodeService: {}

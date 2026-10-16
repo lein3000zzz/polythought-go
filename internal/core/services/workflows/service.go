@@ -34,7 +34,7 @@ func DefaultLimits() Limits {
 
 // Validator checks a workflow against the registered node types.
 type Validator interface {
-	Validate(w domain.Workflow) error
+	Validate(ctx context.Context, w domain.Workflow) error
 }
 
 // Executor runs one execution.
@@ -88,7 +88,7 @@ func WithLimits(l Limits) Option {
 // FieldChecker reports field settings that name a field the items there do not have, or
 // one of the wrong kind.
 type FieldChecker interface {
-	CheckFields(w domain.Workflow) error
+	CheckFields(ctx context.Context, w domain.Workflow) error
 }
 
 // WithFieldChecks checks field settings when a workflow is saved. Only saving: a workflow
@@ -100,7 +100,7 @@ func WithFieldChecks(c FieldChecker) Option {
 // ExpressionChecker reports expressions that do not compile, and {{ }} in settings that
 // take none.
 type ExpressionChecker interface {
-	CheckExpressions(w domain.Workflow) error
+	CheckExpressions(ctx context.Context, w domain.Workflow) error
 }
 
 // WithExpressionChecks checks expressions when a workflow is saved, like field settings.
@@ -272,7 +272,7 @@ func (s *Service) Activate(ctx context.Context, p auth.Principal, id domain.Work
 	}
 
 	// Node types may have changed since the workflow was saved.
-	if err := s.validator.Validate(w); err != nil {
+	if err := s.validator.Validate(ctx, w); err != nil {
 		return domain.Workflow{}, err
 	}
 
@@ -364,6 +364,11 @@ func (s *Service) Run(ctx context.Context, p auth.Principal, id domain.WorkflowI
 		return domain.Execution{}, fmt.Errorf("%w: %q starts on market activity, which a run by hand cannot imitate; switch the workflow on instead", domain.ErrInvalidInput, trigger)
 	}
 
+	// A run that no longer holds is recorded as failed; by hand, say what to fix instead.
+	if err := s.validator.Validate(ctx, w); err != nil {
+		return domain.Execution{}, err
+	}
+
 	res, err := s.executor.Execute(ctx, w, trigger, output, engine.KeepSamples())
 	if err != nil {
 		return domain.Execution{}, err
@@ -433,8 +438,8 @@ func (s *Service) CancelExecution(ctx context.Context, p auth.Principal, id doma
 	return cancelled, err
 }
 
-// StartActive starts every active workflow; call it once on boot. Workflows that no
-// longer validate are logged and left stopped.
+// StartActive starts every active workflow; call it once on boot. One that no longer
+// validates starts too, so that its runs fail saying why, where its owner sees it (D50).
 func (s *Service) StartActive(ctx context.Context) error {
 	active, err := s.repo.ListActive(ctx)
 	if err != nil {
@@ -442,11 +447,6 @@ func (s *Service) StartActive(ctx context.Context) error {
 	}
 
 	for _, w := range active {
-		if err := s.validator.Validate(w); err != nil {
-			s.log.Error(ctx, "Active workflow is invalid, not started", "workflow_id", w.ID, "owner_id", w.OwnerID, logging.Err(err))
-			continue
-		}
-
 		s.supervisor.Start(w)
 	}
 
@@ -476,7 +476,7 @@ func (s *Service) apply(ctx context.Context, w *domain.Workflow, def Definition)
 	candidate.Nodes = def.Nodes
 	candidate.Connections = def.Connections
 
-	if err := s.validator.Validate(candidate); err != nil {
+	if err := s.validator.Validate(ctx, candidate); err != nil {
 		return err
 	}
 
@@ -484,11 +484,11 @@ func (s *Service) apply(ctx context.Context, w *domain.Workflow, def Definition)
 	var problems domain.ValidationError
 
 	if s.fields != nil {
-		problems.Merge(s.fields.CheckFields(candidate))
+		problems.Merge(s.fields.CheckFields(ctx, candidate))
 	}
 
 	if s.exprs != nil {
-		problems.Merge(s.exprs.CheckExpressions(candidate))
+		problems.Merge(s.exprs.CheckExpressions(ctx, candidate))
 	}
 
 	if s.code != nil {

@@ -289,7 +289,8 @@ type nodeTypeList struct {
 	NodeTypes []nodeTypeDTO `json:"nodeTypes"`
 } // @name NodeTypeList
 
-// listNodeTypes lists what can be placed in a workflow, for the editor's palette and forms.
+// listNodeTypes lists what can be placed in your workflows, for the editor's palette and
+// forms: the built-in types and your custom nodes.
 //
 //	@Summary	List node types
 //	@ID			listNodeTypes
@@ -299,8 +300,14 @@ type nodeTypeList struct {
 //	@Security	SessionCookie
 //	@Security	APIToken
 //	@Router		/node-types [get]
-func (s *Server) listNodeTypes(_ context.Context, c *app.RequestContext) {
-	types := s.nodeTypes.Types()
+func (s *Server) listNodeTypes(ctx context.Context, c *app.RequestContext) {
+	p, _ := principal(c)
+
+	types, err := s.nodeTypes.Types(ctx, p)
+	if err != nil {
+		s.fail(ctx, c, err)
+		return
+	}
 
 	out := nodeTypeList{NodeTypes: make([]nodeTypeDTO, len(types))}
 	for i, t := range types {

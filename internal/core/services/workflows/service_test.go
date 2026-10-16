@@ -78,7 +78,7 @@ func TestCreate(t *testing.T) {
 			name: "valid and inactive", def: def, limits: workflows.DefaultLimits(),
 			setup: func(d deps) {
 				d.repo.EXPECT().Count(mock.Anything, domain.UserID("u-1")).Return(0, 0, nil)
-				d.validator.EXPECT().Validate(mock.MatchedBy(func(w domain.Workflow) bool { return w.Name == "Spread watch" })).Return(nil)
+				d.validator.EXPECT().Validate(mock.Anything, mock.MatchedBy(func(w domain.Workflow) bool { return w.Name == "Spread watch" })).Return(nil)
 				d.repo.EXPECT().Create(mock.Anything, mock.MatchedBy(func(w domain.Workflow) bool {
 					return !w.Active && w.Version == 1 && w.OwnerID == "u-1" && w.CreatedAt.Equal(now) && w.ID != ""
 				})).Return(nil)
@@ -88,7 +88,7 @@ func TestCreate(t *testing.T) {
 			name: "invalid graph", def: def, limits: workflows.DefaultLimits(),
 			setup: func(d deps) {
 				d.repo.EXPECT().Count(mock.Anything, mock.Anything).Return(0, 0, nil)
-				d.validator.EXPECT().Validate(mock.Anything).Return(domain.ErrInvalidWorkflow)
+				d.validator.EXPECT().Validate(mock.Anything, mock.Anything).Return(domain.ErrInvalidWorkflow)
 			},
 			wantErr: domain.ErrInvalidWorkflow,
 		},
@@ -145,7 +145,7 @@ func TestUpdate(t *testing.T) {
 		{
 			name: "saves the next version", current: stored, version: 3,
 			setup: func(d deps) {
-				d.validator.EXPECT().Validate(mock.Anything).Return(nil)
+				d.validator.EXPECT().Validate(mock.Anything, mock.Anything).Return(nil)
 				d.repo.EXPECT().Update(mock.Anything, mock.MatchedBy(func(w domain.Workflow) bool {
 					return w.Version == 4 && w.UpdatedAt.Equal(now)
 				}), 3).Return(nil)
@@ -155,7 +155,7 @@ func TestUpdate(t *testing.T) {
 		{
 			name: "an active workflow restarts with the new definition", current: active(stored), version: 3,
 			setup: func(d deps) {
-				d.validator.EXPECT().Validate(mock.Anything).Return(nil)
+				d.validator.EXPECT().Validate(mock.Anything, mock.Anything).Return(nil)
 				d.repo.EXPECT().Update(mock.Anything, mock.Anything, 3).Return(nil)
 				d.supervisor.EXPECT().Start(mock.MatchedBy(func(w domain.Workflow) bool { return w.Version == 4 })).Once()
 			},
@@ -168,7 +168,7 @@ func TestUpdate(t *testing.T) {
 		{
 			name: "losing a race at the database is a conflict", current: stored, version: 3,
 			setup: func(d deps) {
-				d.validator.EXPECT().Validate(mock.Anything).Return(nil)
+				d.validator.EXPECT().Validate(mock.Anything, mock.Anything).Return(nil)
 				d.repo.EXPECT().Update(mock.Anything, mock.Anything, 3).Return(domain.ErrConflict)
 			},
 			wantErr: domain.ErrConflict,
@@ -211,7 +211,7 @@ func TestLifecycle(t *testing.T) {
 			setup: func(d deps) {
 				d.repo.EXPECT().Get(mock.Anything, mock.Anything, domain.WorkflowID("wf-1")).Return(stored, nil)
 				d.repo.EXPECT().Count(mock.Anything, mock.Anything).Return(3, 1, nil)
-				d.validator.EXPECT().Validate(stored).Return(nil)
+				d.validator.EXPECT().Validate(mock.Anything, stored).Return(nil)
 				d.repo.EXPECT().SetActive(mock.Anything, domain.UserID("u-1"), domain.WorkflowID("wf-1"), true, now).Return(nil)
 				d.supervisor.EXPECT().Start(active(stored)).Once()
 			},
@@ -236,7 +236,7 @@ func TestLifecycle(t *testing.T) {
 			name: "re-activating an active workflow skips the limit",
 			setup: func(d deps) {
 				d.repo.EXPECT().Get(mock.Anything, mock.Anything, mock.Anything).Return(active(stored), nil)
-				d.validator.EXPECT().Validate(mock.Anything).Return(nil)
+				d.validator.EXPECT().Validate(mock.Anything, mock.Anything).Return(nil)
 				d.repo.EXPECT().SetActive(mock.Anything, mock.Anything, mock.Anything, true, now).Return(nil)
 				d.supervisor.EXPECT().Start(mock.Anything).Once()
 			},
@@ -338,6 +338,7 @@ func TestRun(t *testing.T) {
 		name        string
 		workflow    domain.Workflow
 		trigger     domain.NodeID
+		invalid     error // what validating it says
 		wantTrigger domain.NodeID
 		wantOutput  engine.Ports
 		wantErr     error
@@ -350,12 +351,21 @@ func TestRun(t *testing.T) {
 		{name: "a named schedule", workflow: both, trigger: "every", wantTrigger: "every", wantOutput: tick},
 		{name: "market activity cannot be imitated", workflow: live, wantErr: domain.ErrInvalidInput},
 		{name: "nor named", workflow: live, trigger: "trades", wantErr: domain.ErrInvalidInput},
+		{
+			name: "one that no longer holds says what to fix", workflow: stored,
+			invalid: &domain.ValidationError{Problems: []domain.Problem{{NodeID: "log", Message: "gone"}}},
+			wantErr: domain.ErrInvalidWorkflow,
+		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			svc, d := newService(t, workflows.DefaultLimits())
 			d.repo.EXPECT().Get(mock.Anything, mock.Anything, mock.Anything).Return(tt.workflow, nil)
+
+			if tt.wantErr == nil || tt.invalid != nil {
+				d.validator.EXPECT().Validate(mock.Anything, tt.workflow).Return(tt.invalid)
+			}
 
 			if tt.wantErr == nil {
 				// One option: manual runs keep samples (engine.KeepSamples, tested in the engine).
@@ -376,15 +386,16 @@ func TestRun(t *testing.T) {
 	}
 }
 
+// Every active workflow starts, one that no longer validates too: its runs fail saying
+// why, where its owner sees it (D50).
 func TestStartActive(t *testing.T) {
 	valid, broken := active(stored), active(stored)
 	broken.ID = "wf-broken"
 
 	svc, d := newService(t, workflows.DefaultLimits())
 	d.repo.EXPECT().ListActive(mock.Anything).Return([]domain.Workflow{valid, broken}, nil)
-	d.validator.EXPECT().Validate(valid).Return(nil)
-	d.validator.EXPECT().Validate(broken).Return(domain.ErrInvalidWorkflow)
 	d.supervisor.EXPECT().Start(valid).Once()
+	d.supervisor.EXPECT().Start(broken).Once()
 
 	require.NoError(t, svc.StartActive(context.Background()))
 }
@@ -531,8 +542,8 @@ func TestFieldChecks(t *testing.T) {
 		problem := &domain.ValidationError{Problems: []domain.Problem{{NodeID: "tight", Param: "field", Message: `no field "bestbid"`}}}
 
 		d.repo.EXPECT().Count(mock.Anything, mock.Anything).Return(0, 0, nil)
-		d.validator.EXPECT().Validate(mock.Anything).Return(nil)
-		fc.EXPECT().CheckFields(mock.MatchedBy(func(w domain.Workflow) bool { return w.Name == "Spread watch" })).Return(problem)
+		d.validator.EXPECT().Validate(mock.Anything, mock.Anything).Return(nil)
+		fc.EXPECT().CheckFields(mock.Anything, mock.MatchedBy(func(w domain.Workflow) bool { return w.Name == "Spread watch" })).Return(problem)
 
 		_, err := s.Create(ctx, alice, def)
 
@@ -557,9 +568,9 @@ func TestFieldChecks(t *testing.T) {
 		expr := domain.Problem{NodeID: "log", Param: "message", Message: `{{ price * }}: line 1, column 8: Unexpected end of the expression`}
 
 		d.repo.EXPECT().Count(mock.Anything, mock.Anything).Return(0, 0, nil)
-		d.validator.EXPECT().Validate(mock.Anything).Return(nil)
-		fc.EXPECT().CheckFields(mock.Anything).Return(&domain.ValidationError{Problems: []domain.Problem{field}})
-		ec.EXPECT().CheckExpressions(mock.Anything).Return(&domain.ValidationError{Problems: []domain.Problem{expr}})
+		d.validator.EXPECT().Validate(mock.Anything, mock.Anything).Return(nil)
+		fc.EXPECT().CheckFields(mock.Anything, mock.Anything).Return(&domain.ValidationError{Problems: []domain.Problem{field}})
+		ec.EXPECT().CheckExpressions(mock.Anything, mock.Anything).Return(&domain.ValidationError{Problems: []domain.Problem{expr}})
 
 		_, err := s.Create(ctx, alice, def)
 		require.ErrorIs(t, err, domain.ErrInvalidWorkflow)
@@ -585,8 +596,8 @@ func TestFieldChecks(t *testing.T) {
 		off := domain.Problem{NodeID: "keep", Message: `node "keep": an admin has turned code off for you`, Err: domain.ErrCodeOff}
 
 		d.repo.EXPECT().Get(mock.Anything, domain.UserID("u-1"), domain.WorkflowID("wf-1")).Return(stored, nil)
-		d.validator.EXPECT().Validate(mock.Anything).Return(nil)
-		fc.EXPECT().CheckFields(mock.Anything).Return(&domain.ValidationError{Problems: []domain.Problem{field}})
+		d.validator.EXPECT().Validate(mock.Anything, mock.Anything).Return(nil)
+		fc.EXPECT().CheckFields(mock.Anything, mock.Anything).Return(&domain.ValidationError{Problems: []domain.Problem{field}})
 		cc.EXPECT().CheckCodeAccess(mock.Anything, mock.MatchedBy(func(w domain.Workflow) bool { return w.OwnerID == "u-1" })).
 			Return(&domain.ValidationError{Problems: []domain.Problem{off}})
 
@@ -612,7 +623,7 @@ func TestFieldChecks(t *testing.T) {
 		failing := errors.New("db down")
 
 		d.repo.EXPECT().Count(mock.Anything, mock.Anything).Return(0, 0, nil)
-		d.validator.EXPECT().Validate(mock.Anything).Return(nil)
+		d.validator.EXPECT().Validate(mock.Anything, mock.Anything).Return(nil)
 		cc.EXPECT().CheckCodeAccess(mock.Anything, mock.Anything).Return(failing)
 
 		_, err := s.Create(ctx, alice, def)
@@ -625,7 +636,7 @@ func TestFieldChecks(t *testing.T) {
 
 		d.repo.EXPECT().Get(mock.Anything, domain.UserID("u-1"), domain.WorkflowID("wf-1")).Return(stored, nil)
 		d.repo.EXPECT().Count(mock.Anything, domain.UserID("u-1")).Return(1, 0, nil)
-		d.validator.EXPECT().Validate(mock.Anything).Return(nil)
+		d.validator.EXPECT().Validate(mock.Anything, mock.Anything).Return(nil)
 		d.repo.EXPECT().SetActive(mock.Anything, domain.UserID("u-1"), domain.WorkflowID("wf-1"), true, now).Return(nil)
 		d.supervisor.EXPECT().Start(mock.Anything).Once()
 

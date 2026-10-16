@@ -72,10 +72,21 @@ func Passed() *engine.Items {
 // declare, or a value of another kind. Values may be typed, as nodes build them, or as
 // JSON reads them back: a decimal or a time as text.
 func Conforms(fields []engine.Field, item map[string]any) error {
-	return conforms(fields, item, "")
+	return walk{strict: true}.conforms(fields, item, "")
 }
 
-func conforms(fields []engine.Field, item map[string]any, path string) error {
+// Has reports a field the item lacks, or has of the wrong kind; fields beyond the ones
+// declared are fine. Custom nodes' items are held to what their owners declared this way.
+func Has(fields []engine.Field, item map[string]any) error {
+	return walk{}.conforms(fields, item, "")
+}
+
+// walk goes through an item along its declared fields; strict, it refuses others.
+type walk struct {
+	strict bool
+}
+
+func (w walk) conforms(fields []engine.Field, item map[string]any, path string) error {
 	declared := make(map[string]bool, len(fields))
 
 	for _, f := range fields {
@@ -90,9 +101,13 @@ func conforms(fields []engine.Field, item map[string]any, path string) error {
 			return fmt.Errorf("field %s%s is missing", path, f.Name)
 		}
 
-		if err := value(f, v, path+f.Name); err != nil {
+		if err := w.value(f, v, path+f.Name); err != nil {
 			return err
 		}
+	}
+
+	if !w.strict {
+		return nil
 	}
 
 	for _, name := range slices.Sorted(maps.Keys(item)) {
@@ -104,7 +119,7 @@ func conforms(fields []engine.Field, item map[string]any, path string) error {
 	return nil
 }
 
-func value(f engine.Field, v any, at string) error {
+func (w walk) value(f engine.Field, v any, at string) error {
 	if v == nil {
 		if f.Nullable || f.Kind == engine.FieldAny {
 			return nil
@@ -146,14 +161,14 @@ func value(f engine.Field, v any, at string) error {
 			ok = false
 		}
 	case engine.FieldList:
-		return list(f, v, at)
+		return w.list(f, v, at)
 	case engine.FieldObject:
 		m, isObject := v.(map[string]any)
 		if !isObject {
 			return fmt.Errorf("field %s is %T, not an object", at, v)
 		}
 
-		return conforms(f.Fields, m, at+".")
+		return w.conforms(f.Fields, m, at+".")
 	}
 
 	if !ok {
@@ -163,7 +178,7 @@ func value(f engine.Field, v any, at string) error {
 	return nil
 }
 
-func list(f engine.Field, v any, at string) error {
+func (w walk) list(f engine.Field, v any, at string) error {
 	var elems []any
 
 	switch l := v.(type) {
@@ -178,7 +193,7 @@ func list(f engine.Field, v any, at string) error {
 	}
 
 	for i, e := range elems {
-		if err := value(*f.Of, e, fmt.Sprintf("%s[%d]", at, i)); err != nil {
+		if err := w.value(*f.Of, e, fmt.Sprintf("%s[%d]", at, i)); err != nil {
 			return err
 		}
 	}

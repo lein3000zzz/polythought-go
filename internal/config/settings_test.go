@@ -13,6 +13,7 @@ import (
 	"github.com/lein3000zzz/polythought-go/internal/core/domain"
 	"github.com/lein3000zzz/polythought-go/internal/core/nodes/triggers"
 	"github.com/lein3000zzz/polythought-go/internal/core/services/auth"
+	"github.com/lein3000zzz/polythought-go/internal/core/services/customnodes"
 	"github.com/lein3000zzz/polythought-go/internal/core/services/settings"
 	"github.com/lein3000zzz/polythought-go/internal/core/services/workflows"
 )
@@ -57,6 +58,7 @@ func TestSettingsDefaults(t *testing.T) {
 		config.KeyMaxWaiting:          50,
 		config.KeyMaxWait:             7 * 24 * time.Hour,
 		config.KeyCodeAccess:          string(authCfg.CodeAccess),
+		config.KeyCustomNodes:         customnodes.DefaultLimits().PerUser,
 		config.KeyCodeMemory:          int(jsruntime.DefaultLimits.Memory >> 20),
 		config.KeyCodeTime:            jsruntime.DefaultLimits.Time,
 		config.KeyCodeOutput:          jsruntime.DefaultLimits.Output >> 10,
@@ -73,7 +75,7 @@ func TestSettingsDefaults(t *testing.T) {
 		assert.Equal(t, want, spec(t, key).Default, key)
 	}
 
-	assert.Len(t, registry(t).Specs(), 26, "every setting has a default checked above")
+	assert.Len(t, registry(t).Specs(), 27, "every setting has a default checked above")
 	assert.True(t, spec(t, config.KeyTelegramToken).Secret)
 }
 

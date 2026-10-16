@@ -75,9 +75,10 @@ type WorkflowService interface {
 	CancelExecution(ctx context.Context, p auth.Principal, id domain.WorkflowID, execID domain.ExecutionID) (domain.Execution, error)
 }
 
-// NodeTypes lists what the editor can place in a workflow.
+// NodeTypes lists what the editor can place in a user's workflow: the built-in types and
+// their custom nodes.
 type NodeTypes interface {
-	Types() []engine.TypeInfo
+	Types(ctx context.Context, p auth.Principal) ([]engine.TypeInfo, error)
 }
 
 // Services are the application services behind the API.
@@ -95,6 +96,7 @@ type Services struct {
 	// TelegramWebhook takes updates in webhook mode; nil when there is no bot.
 	TelegramWebhook TelegramWebhook
 	Notifications   NotificationService
+	CustomNodes     CustomNodeService
 }
 
 type Config struct {
@@ -119,6 +121,7 @@ type Server struct {
 	workflows     WorkflowService
 	nodeTypes     NodeTypes
 	codeTypes     CodeTypes
+	customNodes   CustomNodeService
 	events        EventService
 	library       LibraryService
 	settings      SettingsService
@@ -181,6 +184,7 @@ func New(cfg Config, util *observability.Utility, services Services) (*Server, e
 		workflows:     services.Workflows,
 		nodeTypes:     services.NodeTypes,
 		codeTypes:     services.CodeTypes,
+		customNodes:   services.CustomNodes,
 		events:        services.Events,
 		library:       services.Library,
 		settings:      services.Settings,
@@ -278,6 +282,14 @@ func (s *Server) routes() {
 	v1.PUT("/notifications/:key", s.requireAuth, s.setNotification)
 
 	v1.GET("/node-types", s.requireAuth, s.listNodeTypes)
+
+	cn := v1.Group("/custom-nodes", s.requireAuth)
+	cn.GET("", s.listCustomNodes)
+	cn.POST("", s.createCustomNode)
+	cn.GET("/:id", s.getCustomNode)
+	cn.PUT("/:id", s.updateCustomNode)
+	cn.DELETE("/:id", s.deleteCustomNode)
+
 	v1.GET("/code/types", s.requireAuth, s.getCodeTypes)
 	v1.GET("/events", s.requireAuth, s.streamEvents)
 

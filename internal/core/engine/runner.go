@@ -15,21 +15,27 @@ import (
 // Runner keeps a workflow live: it starts every trigger node and turns each emit into
 // an execution.
 type Runner struct {
-	registry *Registry
+	types    Catalog
 	executor *Executor
 	log      logging.Logger
 }
 
-func NewRunner(util *observability.Utility, registry *Registry, executor *Executor) *Runner {
-	return &Runner{registry: registry, executor: executor, log: util.Logger.With("component", "runner")}
+// NewRunner starts triggers as types has them for each workflow's owner; a *Registry
+// gives every owner its own.
+func NewRunner(util *observability.Utility, types Catalog, executor *Executor) *Runner {
+	return &Runner{types: types, executor: executor, log: util.Logger.With("component", "runner")}
 }
 
 // Run starts the triggers of w and blocks until ctx is done or every trigger has stopped.
 // It does not look at w.Active; deciding what to run is the caller's job. Executions from
 // one trigger never overlap: emit returns once its execution finishes.
+//
+// Saving checked the rest of the workflow. Should it no longer hold, say a custom node it
+// uses lost a port, each execution fails saying so, where its owner sees it.
 func (r *Runner) Run(ctx context.Context, w domain.Workflow) error {
-	if err := r.registry.Validate(w); err != nil {
-		return err
+	reg, err := r.types.For(ctx, w.OwnerID)
+	if err != nil {
+		return fmt.Errorf("the node types of the workflow's owner: %w", err)
 	}
 
 	var (
@@ -38,11 +44,15 @@ func (r *Runner) Run(ctx context.Context, w domain.Workflow) error {
 		errs []error
 	)
 
+	started := 0
+
 	for _, spec := range w.Nodes {
-		trigger, ok := r.registry.Trigger(spec.Type)
+		trigger, ok := reg.Trigger(spec.Type)
 		if !ok {
 			continue
 		}
+
+		started++
 
 		tc := TriggerContext{
 			WorkflowID: w.ID,
@@ -62,6 +72,10 @@ func (r *Runner) Run(ctx context.Context, w domain.Workflow) error {
 				mu.Unlock()
 			}
 		})
+	}
+
+	if started == 0 {
+		return fmt.Errorf("%w: no trigger node", domain.ErrInvalidWorkflow)
 	}
 
 	wg.Wait()

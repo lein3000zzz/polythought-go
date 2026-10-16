@@ -264,6 +264,43 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/custom-nodes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List your custom nodes */
+        get: operations["listCustomNodes"];
+        put?: never;
+        /** Create a custom node */
+        post: operations["createCustomNode"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/custom-nodes/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get a custom node */
+        get: operations["getCustomNode"];
+        /** Change a custom node */
+        put: operations["updateCustomNode"];
+        post?: never;
+        /** Delete a custom node */
+        delete: operations["deleteCustomNode"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/events": {
         parameters: {
             query?: never;
@@ -745,6 +782,11 @@ export interface components {
             /** @enum {string} */
             registration: "open" | "invite" | "closed";
         };
+        BrokenWorkflow: {
+            id: string;
+            name: string;
+            problems: components["schemas"]["Problem"][];
+        };
         CanvasPosition: {
             x: number;
             y: number;
@@ -849,6 +891,75 @@ export interface components {
             /** Format: date-time */
             updatedAt: string;
         };
+        CustomItems: {
+            fields: components["schemas"]["ItemField"][];
+            passed: boolean;
+        };
+        CustomNode: {
+            /** Format: date-time */
+            createdAt: string;
+            description?: string;
+            id: string;
+            items: components["schemas"]["CustomItems"];
+            label: string;
+            /**
+             * @description Name makes its type, custom.<name>: lowercase letters, digits and hyphens, starting
+             *     with a letter, up to 40. It cannot change.
+             */
+            name: string;
+            /** @description Outputs are its output ports, in order; it has one input, main. */
+            outputs: string[];
+            settings: components["schemas"]["CustomSetting"][];
+            /**
+             * @description Source is TypeScript exporting run(items, ctx), which gets every item at once and
+             *     returns the items, or with several outputs, { port: items }.
+             */
+            source: string;
+            /** @description Type is what workflows name it by: custom.<name>. */
+            type: string;
+            /** Format: date-time */
+            updatedAt: string;
+            version: number;
+        };
+        CustomNodeDefinition: {
+            description?: string;
+            items: components["schemas"]["CustomItems"];
+            label: string;
+            /**
+             * @description Name makes its type, custom.<name>: lowercase letters, digits and hyphens, starting
+             *     with a letter, up to 40. It cannot change.
+             */
+            name: string;
+            /** @description Outputs are its output ports, in order; it has one input, main. */
+            outputs: string[];
+            settings: components["schemas"]["CustomSetting"][];
+            /**
+             * @description Source is TypeScript exporting run(items, ctx), which gets every item at once and
+             *     returns the items, or with several outputs, { port: items }.
+             */
+            source: string;
+        };
+        CustomNodeList: {
+            customNodes: components["schemas"]["CustomNode"][];
+        };
+        CustomSetting: {
+            default?: unknown;
+            description?: string;
+            /**
+             * @description Field marks a string, or each element of a list, as a path to a field of the items
+             *     the node receives; FieldKinds, when present, are the kinds that field may be.
+             */
+            field?: boolean;
+            fieldKinds?: ("text" | "number" | "decimal" | "bool" | "time" | "list" | "object" | "any")[];
+            /** @enum {string} */
+            kind: "string" | "number" | "decimal" | "bool" | "duration" | "list" | "wallet";
+            label?: string;
+            /** @description Name is what code reads it as: ctx.params.<name>. */
+            name: string;
+            /** @description Options are the choices of a string, or of each element of a list. */
+            options?: string[];
+            required?: boolean;
+        };
         Error: {
             error: components["schemas"]["ErrorDetail"];
         };
@@ -859,9 +970,16 @@ export interface components {
             /**
              * @description Problems lists everything wrong with a submitted workflow (code invalid_workflow),
              *     with changed settings (code invalid_input, param is the setting's key) or with a
-             *     credential (code invalid_input, param is "name" or "values.<field>").
+             *     credential (code invalid_input, param is "name" or "values.<field>"), or with a
+             *     custom node (code invalid_input, param is the part of its form: "name",
+             *     "settings.0.default", "outputs.1", "items", "source").
              */
             problems?: components["schemas"]["Problem"][];
+            /**
+             * @description Workflows lists the workflows a change to a custom node would break (code
+             *     breaks_workflows), with what is wrong in each.
+             */
+            workflows?: components["schemas"]["BrokenWorkflow"][];
         };
         Execution: {
             durationMs: number;
@@ -1187,6 +1305,31 @@ export interface components {
             values?: {
                 [key: string]: string;
             };
+        };
+        UpdateCustomNodeRequest: {
+            /**
+             * @description Confirm makes a change that breaks workflows using the node, which is otherwise
+             *     refused with breaks_workflows saying which.
+             */
+            confirm?: boolean;
+            description?: string;
+            items: components["schemas"]["CustomItems"];
+            label: string;
+            /**
+             * @description Name makes its type, custom.<name>: lowercase letters, digits and hyphens, starting
+             *     with a letter, up to 40. It cannot change.
+             */
+            name: string;
+            /** @description Outputs are its output ports, in order; it has one input, main. */
+            outputs: string[];
+            settings: components["schemas"]["CustomSetting"][];
+            /**
+             * @description Source is TypeScript exporting run(items, ctx), which gets every item at once and
+             *     returns the items, or with several outputs, { port: items }.
+             */
+            source: string;
+            /** @description Version is the version the edit started from; a newer one on the server is a conflict. */
+            version: number;
         };
         UpdateSettingsRequest: {
             /**
@@ -2181,6 +2324,261 @@ export interface operations {
             };
             /** @description not_found */
             404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    listCustomNodes: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CustomNodeList"];
+                };
+            };
+            /** @description unauthenticated */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    createCustomNode: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description Definition */
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CustomNodeDefinition"];
+            };
+        };
+        responses: {
+            /** @description Created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CustomNode"];
+                };
+            };
+            /** @description invalid_input */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description unauthenticated */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description code_off: an admin has turned code off for you */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description custom_node_taken */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    getCustomNode: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Custom node ID */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CustomNode"];
+                };
+            };
+            /** @description unauthenticated */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description not_found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    updateCustomNode: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Custom node ID */
+                id: string;
+            };
+            cookie?: never;
+        };
+        /** @description Definition */
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateCustomNodeRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CustomNode"];
+                };
+            };
+            /** @description invalid_input */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description unauthenticated */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description code_off */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description not_found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description conflict, or breaks_workflows with the workflows */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    deleteCustomNode: {
+        parameters: {
+            query?: {
+                /** @description Delete it even if workflows use it */
+                confirm?: boolean;
+            };
+            header?: never;
+            path: {
+                /** @description Custom node ID */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No Content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description unauthenticated */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description not_found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description breaks_workflows with the workflows */
+            409: {
                 headers: {
                     [name: string]: unknown;
                 };

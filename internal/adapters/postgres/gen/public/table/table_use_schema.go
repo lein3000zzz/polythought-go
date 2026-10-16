@@ -12,6 +12,7 @@ package table
 func UseSchema(schema string) {
 	APITokens = APITokens.FromSchema(schema)
 	Credentials = Credentials.FromSchema(schema)
+	CustomNodes = CustomNodes.FromSchema(schema)
 	Executions = Executions.FromSchema(schema)
 	Invites = Invites.FromSchema(schema)
 	NotificationPrefs = NotificationPrefs.FromSchema(schema)

@@ -52,9 +52,9 @@ func serve(ctx context.Context) error {
 		PublicURL:      a.cfg.PublicURL,
 		TrustedProxies: proxies,
 	}, a.util, httpapi.Services{
-		Auth: a.auth, Wallets: a.wallets, Workflows: a.workflows, NodeTypes: a.registry, Events: a.events,
-		CodeTypes: codeTypes{registry: a.registry},
-		Library:   a.library, Settings: a.settings, Credentials: a.credentials,
+		Auth: a.auth, Wallets: a.wallets, Workflows: a.workflows, NodeTypes: nodeTypes{types: a.customNodes}, Events: a.events,
+		CodeTypes: codeTypes{types: a.customNodes}, CustomNodes: a.customNodes,
+		Library: a.library, Settings: a.settings, Credentials: a.credentials,
 		Telegram: a.telegram, TelegramWebhook: a.telegramBot, Notifications: a.notify,
 	})
 	if err != nil {

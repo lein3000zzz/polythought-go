@@ -49,7 +49,7 @@ func (_m *MockCodeTypes) EXPECT() *MockCodeTypes_Expecter {
 }
 
 // Declarations provides a mock function for the type MockCodeTypes
-func (_mock *MockCodeTypes) Declarations(ctx context.Context, p auth.Principal) []ports.CodeFile {
+func (_mock *MockCodeTypes) Declarations(ctx context.Context, p auth.Principal) ([]ports.CodeFile, error) {
 	ret := _mock.Called(ctx, p)
 
 	if len(ret) == 0 {
@@ -57,6 +57,10 @@ func (_mock *MockCodeTypes) Declarations(ctx context.Context, p auth.Principal) 
 	}
 
 	var r0 []ports.CodeFile
+	var r1 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context, auth.Principal) ([]ports.CodeFile, error)); ok {
+		return returnFunc(ctx, p)
+	}
 	if returnFunc, ok := ret.Get(0).(func(context.Context, auth.Principal) []ports.CodeFile); ok {
 		r0 = returnFunc(ctx, p)
 	} else {
@@ -64,7 +68,12 @@ func (_mock *MockCodeTypes) Declarations(ctx context.Context, p auth.Principal) 
 			r0 = ret.Get(0).([]ports.CodeFile)
 		}
 	}
-	return r0
+	if returnFunc, ok := ret.Get(1).(func(context.Context, auth.Principal) error); ok {
+		r1 = returnFunc(ctx, p)
+	} else {
+		r1 = ret.Error(1)
+	}
+	return r0, r1
 }
 
 // MockCodeTypes_Declarations_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'Declarations'
@@ -97,12 +106,12 @@ func (_c *MockCodeTypes_Declarations_Call) Run(run func(ctx context.Context, p a
 	return _c
 }
 
-func (_c *MockCodeTypes_Declarations_Call) Return(codeFiles []ports.CodeFile) *MockCodeTypes_Declarations_Call {
-	_c.Call.Return(codeFiles)
+func (_c *MockCodeTypes_Declarations_Call) Return(codeFiles []ports.CodeFile, err error) *MockCodeTypes_Declarations_Call {
+	_c.Call.Return(codeFiles, err)
 	return _c
 }
 
-func (_c *MockCodeTypes_Declarations_Call) RunAndReturn(run func(ctx context.Context, p auth.Principal) []ports.CodeFile) *MockCodeTypes_Declarations_Call {
+func (_c *MockCodeTypes_Declarations_Call) RunAndReturn(run func(ctx context.Context, p auth.Principal) ([]ports.CodeFile, error)) *MockCodeTypes_Declarations_Call {
 	_c.Call.Return(run)
 	return _c
 }

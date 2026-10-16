@@ -24,6 +24,7 @@ import (
 	"github.com/lein3000zzz/polythought-go/internal/core/domain"
 	"github.com/lein3000zzz/polythought-go/internal/core/engine"
 	"github.com/lein3000zzz/polythought-go/internal/core/nodes/codenodes"
+	"github.com/lein3000zzz/polythought-go/internal/core/nodes/customnodes"
 	"github.com/lein3000zzz/polythought-go/internal/core/ports"
 	"github.com/lein3000zzz/polythought-go/internal/core/services/code"
 	portsmocks "github.com/lein3000zzz/polythought-go/internal/mocks/ports"
@@ -384,5 +385,74 @@ func TestCodeNodesEndToEnd(t *testing.T) {
 		assert.Equal(t, 3, out[engine.DefaultPort][0].JSON["n"], "items pass on as they came")
 		require.Len(t, out[engine.ErrorPort], 1)
 		assert.EqualError(t, out[engine.ErrorPort][0].Err, "RangeError: two")
+	})
+}
+
+// A custom node's run gets every item and its settings, and returns the items by port.
+func TestCustomNodeEndToEnd(t *testing.T) {
+	t.Parallel()
+
+	_, err := withSDK(t, `export const run = () => null`, nil, code.Data{}, ports.CodeLimits{}) // starts the runner
+	require.NoError(t, err)
+
+	svc := code.New(compiler(t), sdkRunner, code.Data{})
+
+	runNode := func(t *testing.T, def domain.CustomNode, params map[string]any, items ...map[string]any) engine.Ports {
+		t.Helper()
+
+		node := customnodes.New(def, svc, logging.Noop())
+		require.NoError(t, engine.NewRegistry().RegisterNode(node))
+
+		in := engine.Ports{}
+		for _, it := range items {
+			in.Add(engine.DefaultPort, engine.Item{JSON: it})
+		}
+
+		out, err := node.Run(context.Background(), engine.RunContext{
+			ExecutionID: "ex-1", WorkflowID: "wf-1", OwnerID: "alice", StartedAt: time.Date(2026, 10, 16, 12, 0, 0, 0, time.UTC),
+			Params: engine.LiteralParams(node.Type(), params),
+		}, in)
+		require.NoError(t, err)
+
+		return out
+	}
+
+	split := domain.CustomNode{
+		Name: "spread-split", Label: "Spread split", Outputs: []string{"wide", "tight"},
+		Settings: []domain.CustomSetting{{Name: "threshold", Kind: "decimal", Default: "0.02"}},
+		Items:    domain.CustomItems{Passed: true},
+		Source: `
+			import { dec } from "@polythought/sdk"
+			import type { Context } from "@polythought/sdk"
+
+			type Book = { spread: string }
+
+			export function run(items: Book[], ctx: Context<{ threshold: string }>) {
+				const wide = items.filter((i) => dec(i.spread).gt(ctx.params.threshold))
+				return { wide, tight: items.filter((i) => !wide.includes(i)) }
+			}`,
+	}
+
+	t.Run("by port, with its settings", func(t *testing.T) {
+		out := runNode(t, split, map[string]any{"threshold": "0.03"},
+			map[string]any{"spread": "0.05"}, map[string]any{"spread": "0.01"}, map[string]any{"spread": "0.04"})
+
+		assert.Len(t, out["wide"], 2)
+		assert.Equal(t, "0.01", out["tight"][0].JSON["spread"])
+		assert.Empty(t, out[engine.ErrorPort])
+	})
+
+	t.Run("items not matching its fields fail every item it got", func(t *testing.T) {
+		summary := domain.CustomNode{
+			Name: "summary", Label: "Summary", Outputs: []string{"main"},
+			Items:  domain.CustomItems{Fields: []domain.CustomField{{Name: "count", Kind: "number"}}},
+			Source: `export function run(items: unknown[]) { return [{ count: items.length }, { total: 1 }] }`,
+		}
+
+		out := runNode(t, summary, nil, map[string]any{"q": "A"}, map[string]any{"q": "B"})
+
+		assert.Empty(t, out[engine.DefaultPort])
+		require.Len(t, out[engine.ErrorPort], 2)
+		assert.EqualError(t, out[engine.ErrorPort][0].Err, "what run returned item 1 does not match the node's fields: field count is missing")
 	})
 }

@@ -69,6 +69,7 @@ type Service struct {
 	repo      ports.TemplateRepository
 	workflows Workflows
 	types     NodeTypes
+	own       engine.Catalog // each sharer's types, their custom nodes included; types if not set
 	log       logging.Logger
 	now       func() time.Time
 
@@ -81,6 +82,12 @@ type Option func(*Service)
 // WithClock replaces time.Now, for tests.
 func WithClock(now func() time.Time) Option {
 	return func(s *Service) { s.now = now }
+}
+
+// WithOwnTypes takes a sharer's node types from c, so the personal settings of their
+// custom nodes, like a wallet, are left out of what they share too.
+func WithOwnTypes(c engine.Catalog) Option {
+	return func(s *Service) { s.own = c }
 }
 
 func New(repo ports.TemplateRepository, wf Workflows, types NodeTypes, log logging.Logger, opts ...Option) (*Service, error) {
@@ -211,11 +218,18 @@ func (s *Service) Share(ctx context.Context, p auth.Principal, workflowID domain
 		return Entry{}, err
 	}
 
+	types := s.types
+	if s.own != nil {
+		if types, err = s.own.For(ctx, p.User.ID); err != nil {
+			return Entry{}, err
+		}
+	}
+
 	now := s.now()
 	t := domain.Template{
 		ID: domain.TemplateID(uuid.Must(uuid.NewV7()).String()), AuthorID: p.User.ID, SourceID: w.ID,
 		Name: w.Name, Summary: summary, Description: description,
-		Nodes: s.withoutPersonal(w.Nodes), Connections: w.Connections,
+		Nodes: withoutPersonal(types, w.Nodes), Connections: w.Connections,
 		CreatedAt: now, UpdatedAt: now,
 	}
 
@@ -323,11 +337,11 @@ func (s *Service) inputs(t domain.Template) []Input {
 	return out
 }
 
-func (s *Service) withoutPersonal(nodes []domain.NodeSpec) []domain.NodeSpec {
+func withoutPersonal(types NodeTypes, nodes []domain.NodeSpec) []domain.NodeSpec {
 	out := make([]domain.NodeSpec, len(nodes))
 
 	for i, n := range nodes {
-		typ, _, ok := s.types.Type(n.Type)
+		typ, _, ok := types.Type(n.Type)
 		n.Params = maps.Clone(n.Params)
 
 		if ok {

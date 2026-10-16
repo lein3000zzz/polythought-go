@@ -57,12 +57,12 @@ func (r *Registry) CheckCodeAccess(ctx context.Context, w domain.Workflow, gate 
 
 // checkCode fails an execution of a workflow with code nodes whose owner may not run
 // code, before any node runs (D47).
-func (e *Executor) checkCode(ctx context.Context, w domain.Workflow) error {
+func (e *Executor) checkCode(ctx context.Context, reg *Registry, w domain.Workflow) error {
 	if e.codeGate == nil {
 		return nil
 	}
 
-	ids := e.registry.CodeNodes(w)
+	ids := reg.CodeNodes(w)
 	if len(ids) == 0 {
 		return nil
 	}

@@ -17,6 +17,7 @@ import (
 	"github.com/lein3000zzz/polythought-go/internal/core/domain"
 	"github.com/lein3000zzz/polythought-go/internal/core/engine"
 	"github.com/lein3000zzz/polythought-go/internal/core/ports"
+	"github.com/lein3000zzz/polythought-go/internal/core/services/auth"
 	"github.com/lein3000zzz/polythought-go/internal/core/services/workflows"
 	httpapimocks "github.com/lein3000zzz/polythought-go/internal/mocks/httpapi"
 )
@@ -67,7 +68,7 @@ func TestWorkflowRoutes(t *testing.T) {
 			name: "node types for the editor",
 			req:  request{method: "GET", path: "/api/v1/node-types", headers: cookie},
 			setup: func(_ *httpapimocks.MockWorkflowService, nt *httpapimocks.MockNodeTypes) {
-				nt.EXPECT().Types().Return([]engine.TypeInfo{
+				nt.EXPECT().Types(mock.Anything, mock.MatchedBy(func(p auth.Principal) bool { return p.User.ID == alice.ID })).Return([]engine.TypeInfo{
 					{NodeType: engine.NodeType{Name: "trigger.manual", Outputs: []string{"main"}, Items: &engine.Items{Fields: []engine.Field{
 						{Name: "side", Kind: engine.FieldText, Options: []string{"buy", "sell"}},
 						{Name: "outcomes", Kind: engine.FieldList, Of: &engine.Field{Kind: engine.FieldObject, Fields: []engine.Field{
@@ -83,7 +84,7 @@ func TestWorkflowRoutes(t *testing.T) {
 					{NodeType: engine.NodeType{Name: "output.webhook", Inputs: []string{"main"}, Outputs: []string{"main"},
 						Params: []engine.ParamSpec{{Name: "credential", Kind: engine.ParamCredential, CredentialType: "http.header"}}}},
 					{NodeType: engine.NodeType{Name: "code.filter", Inputs: []string{"main"}, Outputs: []string{"main"}, Code: true}},
-				})
+				}, nil)
 			},
 			wantStatus: http.StatusOK,
 			wantBody: []string{

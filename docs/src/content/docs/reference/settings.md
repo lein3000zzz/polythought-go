@@ -183,6 +183,18 @@ Code nodes run TypeScript users write: everyone may (everyone), admins and the u
 | Default | `everyone` |
 | Applies | at once |
 
+### Custom nodes per user
+
+The most custom nodes one user may define. Users above it keep theirs but cannot make more.
+
+| | |
+|---|---|
+| Key | `code.custom_nodes_per_user` |
+| Environment variable | `POLYTHOUGHT_CODE_CUSTOM_NODES_PER_USER` |
+| Kind | whole number |
+| Default | `50` |
+| Applies | at once |
+
 ### Memory per run (MiB)
 
 The most memory one run of user code may use. Running out stops the run.

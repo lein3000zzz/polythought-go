@@ -1,6 +1,7 @@
 package engine
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"maps"
@@ -73,6 +74,27 @@ func (r *Registry) register(typ NodeType, store func()) error {
 	store()
 
 	return nil
+}
+
+// With is a copy of r with nodes added, such as one owner's custom nodes; r is left as it
+// is.
+func (r *Registry) With(nodes ...Node) (*Registry, error) {
+	r.mu.RLock()
+	out := &Registry{nodes: maps.Clone(r.nodes), triggers: maps.Clone(r.triggers), credentials: maps.Clone(r.credentials)}
+	r.mu.RUnlock()
+
+	for _, n := range nodes {
+		if err := out.RegisterNode(n); err != nil {
+			return nil, err
+		}
+	}
+
+	return out, nil
+}
+
+// For gives r to every owner: a registry is the catalog of its own types.
+func (r *Registry) For(context.Context, domain.UserID) (*Registry, error) {
+	return r, nil
 }
 
 func (r *Registry) Node(name string) (Node, bool) {

@@ -45,6 +45,7 @@ type Result struct {
 // Executor runs one workflow execution at a time per call; calls may run concurrently.
 type Executor struct {
 	registry  *Registry
+	catalog   Catalog // the node types of each owner; the registry when not set
 	execKit   *redkit.Kit
 	nodeKit   *redkit.Kit
 	scope     tracing.Scope
@@ -123,6 +124,10 @@ func NewExecutor(util *observability.Utility, registry *Registry, opts ...Execut
 		opt(e)
 	}
 
+	if e.catalog == nil {
+		e.catalog = registry
+	}
+
 	return e, nil
 }
 
@@ -130,8 +135,10 @@ func NewExecutor(util *observability.Utility, registry *Registry, opts ...Execut
 // order; a node runs only if items reached it, others are recorded as skipped. A node
 // that waits pauses the execution: Execute returns it waiting, and Continue carries on.
 //
-// The returned error is for executions that could not start (invalid workflow, unknown
-// trigger). Failures while running are reported in Result.Execution, not as an error.
+// The returned error is for executions that could not start: an unknown trigger, or node
+// types that could not be read. Failures while running are reported in Result.Execution,
+// not as an error; so is a workflow that no longer holds together, as when a custom node
+// it uses lost a port it is connected to.
 func (e *Executor) Execute(
 	ctx context.Context,
 	w domain.Workflow,
@@ -144,34 +151,39 @@ func (e *Executor) Execute(
 		opt(&o)
 	}
 
-	if err := e.registry.Validate(w); err != nil {
-		return Result{}, err
+	reg, err := e.catalog.For(ctx, w.OwnerID)
+	if err != nil {
+		return Result{}, fmt.Errorf("engine: the node types of the workflow's owner: %w", err)
 	}
 
 	spec, _ := w.Node(trigger)
-	if _, isTrigger := e.registry.Trigger(spec.Type); !isTrigger {
+	if _, isTrigger := reg.Trigger(spec.Type); !isTrigger {
 		return Result{}, fmt.Errorf("%w: %q (%s)", ErrNotTrigger, trigger, spec.Type)
-	}
-
-	order, err := w.TopologicalOrder()
-	if err != nil {
-		return Result{}, err
 	}
 
 	exec := domain.NewExecution(e.newExecID(), w.ID, trigger, e.now())
 	exec.WorkflowVersion = w.Version
 
-	x := e.newExecution(w, &exec, o.samples)
-	rest := slices.DeleteFunc(slices.Clone(order), func(id domain.NodeID) bool { return id == trigger })
+	x := e.newExecution(w, &exec, o.samples, reg)
 
 	return e.drive(ctx, x, func(ctx context.Context) error {
-		if err := e.checkCode(ctx, w); err != nil {
+		// Saving checked it, but the node types may have changed since.
+		if err := reg.Validate(w); err != nil {
+			return err
+		}
+
+		if err := e.checkCode(ctx, reg, w); err != nil {
+			return err
+		}
+
+		order, err := w.TopologicalOrder()
+		if err != nil {
 			return err
 		}
 
 		x.start(trigger, output)
 
-		return x.runFrom(ctx, rest)
+		return x.runFrom(ctx, slices.DeleteFunc(order, func(id domain.NodeID) bool { return id == trigger }))
 	}), nil
 }
 
@@ -188,7 +200,10 @@ func (e *Executor) Continue(ctx context.Context, rec ports.WaitRecord, r Resumpt
 		return Result{}, err
 	}
 
-	x := e.newExecution(snap.Workflow, &snap.Execution, snap.Samples)
+	// Not reading the node types fails the execution rather than losing it.
+	reg, typesErr := e.catalog.For(ctx, snap.Workflow.OwnerID)
+
+	x := e.newExecution(snap.Workflow, &snap.Execution, snap.Samples, reg)
 	for id, in := range snap.Pending {
 		x.inputs[id] = in.ports()
 	}
@@ -196,12 +211,16 @@ func (e *Executor) Continue(ctx context.Context, rec ports.WaitRecord, r Resumpt
 	r.State = snap.State
 
 	return e.drive(ctx, x, func(ctx context.Context) error {
+		if typesErr != nil {
+			return fmt.Errorf("the node types of the workflow's owner: %w", typesErr)
+		}
+
 		// The node types, and who may run code, may have changed since it paused.
-		if err := e.registry.Validate(snap.Workflow); err != nil {
+		if err := reg.Validate(snap.Workflow); err != nil {
 			return err
 		}
 
-		if err := e.checkCode(ctx, snap.Workflow); err != nil {
+		if err := e.checkCode(ctx, reg, snap.Workflow); err != nil {
 			return err
 		}
 
@@ -247,9 +266,9 @@ func (e *Executor) Cancel(ctx context.Context, rec ports.WaitRecord, reason stri
 	return exec, nil
 }
 
-func (e *Executor) newExecution(w domain.Workflow, exec *domain.Execution, samples bool) *execution {
+func (e *Executor) newExecution(w domain.Workflow, exec *domain.Execution, samples bool, reg *Registry) *execution {
 	return &execution{
-		executor: e, workflow: w, exec: exec, samples: samples,
+		executor: e, registry: reg, workflow: w, exec: exec, samples: samples,
 		inputs:  make(map[domain.NodeID]Ports, len(w.Nodes)),
 		outputs: make(map[domain.NodeID]Ports, len(w.Nodes)),
 	}
@@ -410,6 +429,7 @@ func (e *Executor) logFinished(ctx context.Context, exec domain.Execution, cause
 // execution is the state of one Execute call.
 type execution struct {
 	executor *Executor
+	registry *Registry // the node types of the workflow's owner
 	workflow domain.Workflow
 	exec     *domain.Execution
 	samples  bool // keep the first items of each node's output
@@ -485,7 +505,7 @@ func (x *execution) step(
 	call func(context.Context, Node, RunContext, Ports) (Ports, error),
 ) (err error) {
 	spec, _ := x.workflow.Node(id)
-	node, _ := x.executor.registry.Node(spec.Type) // Validate guarantees non-trigger types are nodes
+	node, _ := x.registry.Node(spec.Type) // Validate guarantees non-trigger types are nodes
 	typ := node.Type()
 
 	run := domain.NodeRun{NodeID: id, StartedAt: x.executor.now(), Input: in.Counts()}
@@ -495,7 +515,7 @@ func (x *execution) step(
 
 	var wait *Wait
 
-	done := x.executor.nodeKit.Start(ctx, typ.Name)
+	done := x.executor.nodeKit.Start(ctx, metricName(typ))
 	defer func() { done(err == nil || wait != nil) }()
 
 	out, err := tracing.InScope(ctx, x.executor.scope, opRunNode, func(ctx context.Context, span trace.Span) (Ports, error) {

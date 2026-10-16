@@ -21,7 +21,7 @@ func TestCodeTypes(t *testing.T) {
 
 	types := httpapimocks.NewMockCodeTypes(t)
 	types.EXPECT().Declarations(mock.Anything, mock.MatchedBy(func(p auth.Principal) bool { return p.User.ID == alice.ID })).
-		Return([]ports.CodeFile{{Path: "index.d.ts", Content: `export * from "./sdk";`}})
+		Return([]ports.CodeFile{{Path: "index.d.ts", Content: `export * from "./sdk";`}}, nil)
 
 	srv, err := httpapi.New(httpapi.Config{PublicURL: publicURL}, observability.NoopUtility(),
 		httpapi.Services{Auth: authSvc, CodeTypes: types})

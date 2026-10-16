@@ -73,6 +73,29 @@
                 ],
                 "type": "object"
             },
+            "BrokenWorkflow": {
+                "properties": {
+                    "id": {
+                        "type": "string"
+                    },
+                    "name": {
+                        "type": "string"
+                    },
+                    "problems": {
+                        "items": {
+                            "$ref": "#/components/schemas/Problem"
+                        },
+                        "type": "array",
+                        "uniqueItems": false
+                    }
+                },
+                "required": [
+                    "id",
+                    "name",
+                    "problems"
+                ],
+                "type": "object"
+            },
             "CanvasPosition": {
                 "properties": {
                     "x": {
@@ -396,6 +419,217 @@
                 ],
                 "type": "object"
             },
+            "CustomItems": {
+                "properties": {
+                    "fields": {
+                        "items": {
+                            "$ref": "#/components/schemas/ItemField"
+                        },
+                        "type": "array",
+                        "uniqueItems": false
+                    },
+                    "passed": {
+                        "type": "boolean"
+                    }
+                },
+                "required": [
+                    "fields",
+                    "passed"
+                ],
+                "type": "object"
+            },
+            "CustomNode": {
+                "properties": {
+                    "createdAt": {
+                        "format": "date-time",
+                        "type": "string"
+                    },
+                    "description": {
+                        "type": "string"
+                    },
+                    "id": {
+                        "type": "string"
+                    },
+                    "items": {
+                        "$ref": "#/components/schemas/CustomItems"
+                    },
+                    "label": {
+                        "type": "string"
+                    },
+                    "name": {
+                        "description": "Name makes its type, custom.\u003cname\u003e: lowercase letters, digits and hyphens, starting\nwith a letter, up to 40. It cannot change.",
+                        "type": "string"
+                    },
+                    "outputs": {
+                        "description": "Outputs are its output ports, in order; it has one input, main.",
+                        "items": {
+                            "type": "string"
+                        },
+                        "type": "array",
+                        "uniqueItems": false
+                    },
+                    "settings": {
+                        "items": {
+                            "$ref": "#/components/schemas/CustomSetting"
+                        },
+                        "type": "array",
+                        "uniqueItems": false
+                    },
+                    "source": {
+                        "description": "Source is TypeScript exporting run(items, ctx), which gets every item at once and\nreturns the items, or with several outputs, { port: items }.",
+                        "type": "string"
+                    },
+                    "type": {
+                        "description": "Type is what workflows name it by: custom.\u003cname\u003e.",
+                        "type": "string"
+                    },
+                    "updatedAt": {
+                        "format": "date-time",
+                        "type": "string"
+                    },
+                    "version": {
+                        "type": "integer"
+                    }
+                },
+                "required": [
+                    "createdAt",
+                    "id",
+                    "items",
+                    "label",
+                    "name",
+                    "outputs",
+                    "settings",
+                    "source",
+                    "type",
+                    "updatedAt",
+                    "version"
+                ],
+                "type": "object"
+            },
+            "CustomNodeDefinition": {
+                "properties": {
+                    "description": {
+                        "type": "string"
+                    },
+                    "items": {
+                        "$ref": "#/components/schemas/CustomItems"
+                    },
+                    "label": {
+                        "type": "string"
+                    },
+                    "name": {
+                        "description": "Name makes its type, custom.\u003cname\u003e: lowercase letters, digits and hyphens, starting\nwith a letter, up to 40. It cannot change.",
+                        "type": "string"
+                    },
+                    "outputs": {
+                        "description": "Outputs are its output ports, in order; it has one input, main.",
+                        "items": {
+                            "type": "string"
+                        },
+                        "type": "array",
+                        "uniqueItems": false
+                    },
+                    "settings": {
+                        "items": {
+                            "$ref": "#/components/schemas/CustomSetting"
+                        },
+                        "type": "array",
+                        "uniqueItems": false
+                    },
+                    "source": {
+                        "description": "Source is TypeScript exporting run(items, ctx), which gets every item at once and\nreturns the items, or with several outputs, { port: items }.",
+                        "type": "string"
+                    }
+                },
+                "required": [
+                    "items",
+                    "label",
+                    "name",
+                    "outputs",
+                    "settings",
+                    "source"
+                ],
+                "type": "object"
+            },
+            "CustomNodeList": {
+                "properties": {
+                    "customNodes": {
+                        "items": {
+                            "$ref": "#/components/schemas/CustomNode"
+                        },
+                        "type": "array",
+                        "uniqueItems": false
+                    }
+                },
+                "required": [
+                    "customNodes"
+                ],
+                "type": "object"
+            },
+            "CustomSetting": {
+                "properties": {
+                    "default": {},
+                    "description": {
+                        "type": "string"
+                    },
+                    "field": {
+                        "description": "Field marks a string, or each element of a list, as a path to a field of the items\nthe node receives; FieldKinds, when present, are the kinds that field may be.",
+                        "type": "boolean"
+                    },
+                    "fieldKinds": {
+                        "items": {
+                            "enum": [
+                                "text",
+                                "number",
+                                "decimal",
+                                "bool",
+                                "time",
+                                "list",
+                                "object",
+                                "any"
+                            ],
+                            "type": "string"
+                        },
+                        "type": "array",
+                        "uniqueItems": false
+                    },
+                    "kind": {
+                        "enum": [
+                            "string",
+                            "number",
+                            "decimal",
+                            "bool",
+                            "duration",
+                            "list",
+                            "wallet"
+                        ],
+                        "type": "string"
+                    },
+                    "label": {
+                        "type": "string"
+                    },
+                    "name": {
+                        "description": "Name is what code reads it as: ctx.params.\u003cname\u003e.",
+                        "type": "string"
+                    },
+                    "options": {
+                        "description": "Options are the choices of a string, or of each element of a list.",
+                        "items": {
+                            "type": "string"
+                        },
+                        "type": "array",
+                        "uniqueItems": false
+                    },
+                    "required": {
+                        "type": "boolean"
+                    }
+                },
+                "required": [
+                    "kind",
+                    "name"
+                ],
+                "type": "object"
+            },
             "Error": {
                 "properties": {
                     "error": {
@@ -417,9 +651,17 @@
                         "type": "string"
                     },
                     "problems": {
-                        "description": "Problems lists everything wrong with a submitted workflow (code invalid_workflow),\nwith changed settings (code invalid_input, param is the setting's key) or with a\ncredential (code invalid_input, param is \"name\" or \"values.\u003cfield\u003e\").",
+                        "description": "Problems lists everything wrong with a submitted workflow (code invalid_workflow),\nwith changed settings (code invalid_input, param is the setting's key) or with a\ncredential (code invalid_input, param is \"name\" or \"values.\u003cfield\u003e\"), or with a\ncustom node (code invalid_input, param is the part of its form: \"name\",\n\"settings.0.default\", \"outputs.1\", \"items\", \"source\").",
                         "items": {
                             "$ref": "#/components/schemas/Problem"
+                        },
+                        "type": "array",
+                        "uniqueItems": false
+                    },
+                    "workflows": {
+                        "description": "Workflows lists the workflows a change to a custom node would break (code\nbreaks_workflows), with what is wrong in each.",
+                        "items": {
+                            "$ref": "#/components/schemas/BrokenWorkflow"
                         },
                         "type": "array",
                         "uniqueItems": false
@@ -1417,6 +1659,60 @@
                 },
                 "required": [
                     "name"
+                ],
+                "type": "object"
+            },
+            "UpdateCustomNodeRequest": {
+                "properties": {
+                    "confirm": {
+                        "description": "Confirm makes a change that breaks workflows using the node, which is otherwise\nrefused with breaks_workflows saying which.",
+                        "type": "boolean"
+                    },
+                    "description": {
+                        "type": "string"
+                    },
+                    "items": {
+                        "$ref": "#/components/schemas/CustomItems"
+                    },
+                    "label": {
+                        "type": "string"
+                    },
+                    "name": {
+                        "description": "Name makes its type, custom.\u003cname\u003e: lowercase letters, digits and hyphens, starting\nwith a letter, up to 40. It cannot change.",
+                        "type": "string"
+                    },
+                    "outputs": {
+                        "description": "Outputs are its output ports, in order; it has one input, main.",
+                        "items": {
+                            "type": "string"
+                        },
+                        "type": "array",
+                        "uniqueItems": false
+                    },
+                    "settings": {
+                        "items": {
+                            "$ref": "#/components/schemas/CustomSetting"
+                        },
+                        "type": "array",
+                        "uniqueItems": false
+                    },
+                    "source": {
+                        "description": "Source is TypeScript exporting run(items, ctx), which gets every item at once and\nreturns the items, or with several outputs, { port: items }.",
+                        "type": "string"
+                    },
+                    "version": {
+                        "description": "Version is the version the edit started from; a newer one on the server is a conflict.",
+                        "type": "integer"
+                    }
+                },
+                "required": [
+                    "items",
+                    "label",
+                    "name",
+                    "outputs",
+                    "settings",
+                    "source",
+                    "version"
                 ],
                 "type": "object"
             },
@@ -2931,6 +3227,355 @@
                 "summary": "Test a credential",
                 "tags": [
                     "credentials"
+                ]
+            }
+        },
+        "/custom-nodes": {
+            "get": {
+                "operationId": "listCustomNodes",
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/CustomNodeList"
+                                }
+                            }
+                        },
+                        "description": "OK"
+                    },
+                    "401": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "unauthenticated"
+                    }
+                },
+                "security": [
+                    {
+                        "SessionCookie": []
+                    },
+                    {
+                        "APIToken": []
+                    }
+                ],
+                "summary": "List your custom nodes",
+                "tags": [
+                    "custom-nodes"
+                ]
+            },
+            "post": {
+                "operationId": "createCustomNode",
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/CustomNodeDefinition",
+                                "summary": "body",
+                                "description": "Definition"
+                            }
+                        }
+                    },
+                    "description": "Definition",
+                    "required": true
+                },
+                "responses": {
+                    "201": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/CustomNode"
+                                }
+                            }
+                        },
+                        "description": "Created"
+                    },
+                    "400": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "invalid_input"
+                    },
+                    "401": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "unauthenticated"
+                    },
+                    "403": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "code_off: an admin has turned code off for you"
+                    },
+                    "409": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "custom_node_taken"
+                    }
+                },
+                "security": [
+                    {
+                        "SessionCookie": []
+                    },
+                    {
+                        "APIToken": []
+                    }
+                ],
+                "summary": "Create a custom node",
+                "tags": [
+                    "custom-nodes"
+                ]
+            }
+        },
+        "/custom-nodes/{id}": {
+            "delete": {
+                "operationId": "deleteCustomNode",
+                "parameters": [
+                    {
+                        "description": "Custom node ID",
+                        "in": "path",
+                        "name": "id",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "description": "Delete it even if workflows use it",
+                        "in": "query",
+                        "name": "confirm",
+                        "schema": {
+                            "type": "boolean"
+                        }
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "No Content"
+                    },
+                    "401": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "unauthenticated"
+                    },
+                    "404": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "not_found"
+                    },
+                    "409": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "breaks_workflows with the workflows"
+                    }
+                },
+                "security": [
+                    {
+                        "SessionCookie": []
+                    },
+                    {
+                        "APIToken": []
+                    }
+                ],
+                "summary": "Delete a custom node",
+                "tags": [
+                    "custom-nodes"
+                ]
+            },
+            "get": {
+                "operationId": "getCustomNode",
+                "parameters": [
+                    {
+                        "description": "Custom node ID",
+                        "in": "path",
+                        "name": "id",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/CustomNode"
+                                }
+                            }
+                        },
+                        "description": "OK"
+                    },
+                    "401": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "unauthenticated"
+                    },
+                    "404": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "not_found"
+                    }
+                },
+                "security": [
+                    {
+                        "SessionCookie": []
+                    },
+                    {
+                        "APIToken": []
+                    }
+                ],
+                "summary": "Get a custom node",
+                "tags": [
+                    "custom-nodes"
+                ]
+            },
+            "put": {
+                "operationId": "updateCustomNode",
+                "parameters": [
+                    {
+                        "description": "Custom node ID",
+                        "in": "path",
+                        "name": "id",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/UpdateCustomNodeRequest",
+                                "summary": "body",
+                                "description": "Definition"
+                            }
+                        }
+                    },
+                    "description": "Definition",
+                    "required": true
+                },
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/CustomNode"
+                                }
+                            }
+                        },
+                        "description": "OK"
+                    },
+                    "400": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "invalid_input"
+                    },
+                    "401": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "unauthenticated"
+                    },
+                    "403": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "code_off"
+                    },
+                    "404": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "not_found"
+                    },
+                    "409": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "conflict, or breaks_workflows with the workflows"
+                    }
+                },
+                "security": [
+                    {
+                        "SessionCookie": []
+                    },
+                    {
+                        "APIToken": []
+                    }
+                ],
+                "summary": "Change a custom node",
+                "tags": [
+                    "custom-nodes"
                 ]
             }
         },

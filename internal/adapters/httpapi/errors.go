@@ -28,8 +28,14 @@ type errorDetail struct {
 
 	// Problems lists everything wrong with a submitted workflow (code invalid_workflow),
 	// with changed settings (code invalid_input, param is the setting's key) or with a
-	// credential (code invalid_input, param is "name" or "values.<field>").
+	// credential (code invalid_input, param is "name" or "values.<field>"), or with a
+	// custom node (code invalid_input, param is the part of its form: "name",
+	// "settings.0.default", "outputs.1", "items", "source").
 	Problems []problemDTO `json:"problems,omitempty" validate:"optional"`
+
+	// Workflows lists the workflows a change to a custom node would break (code
+	// breaks_workflows), with what is wrong in each.
+	Workflows []brokenWorkflowDTO `json:"workflows,omitempty" validate:"optional"`
 } // @name ErrorDetail
 
 // problemDTO points at the node and parameter a problem is about, when it is about one,
@@ -67,6 +73,7 @@ var errorMapping = []struct {
 	{domain.ErrWeakPassword, http.StatusBadRequest, "weak_password"},
 	{domain.ErrInvalidInvite, http.StatusBadRequest, "invalid_invite"},
 	{domain.ErrInvalidWorkflow, http.StatusBadRequest, "invalid_workflow"},
+	{domain.ErrCodeOff, http.StatusForbidden, "code_off"},
 	{domain.ErrCredentialsRejected, http.StatusBadRequest, "credentials_rejected"},
 	{domain.ErrInvalidCredentials, http.StatusUnauthorized, "invalid_credentials"},
 	{domain.ErrUnauthenticated, http.StatusUnauthorized, "unauthenticated"},
@@ -77,6 +84,8 @@ var errorMapping = []struct {
 	{domain.ErrEmailTaken, http.StatusConflict, "email_taken"},
 	{domain.ErrWalletExists, http.StatusConflict, "wallet_exists"},
 	{domain.ErrCredentialExists, http.StatusConflict, "credential_exists"},
+	{domain.ErrCustomNodeTaken, http.StatusConflict, "custom_node_taken"},
+	{domain.ErrBreaksWorkflows, http.StatusConflict, "breaks_workflows"},
 	{domain.ErrLastAdmin, http.StatusConflict, "last_admin"},
 	{domain.ErrConflict, http.StatusConflict, "conflict"},
 	{domain.ErrNotWaiting, http.StatusConflict, "not_waiting"},
@@ -97,7 +106,9 @@ func (s *Server) fail(ctx context.Context, c *app.RequestContext, err error) {
 
 	for _, m := range errorMapping {
 		if errors.Is(err, m.err) {
-			c.JSON(m.status, errorBody{Error: errorDetail{Code: m.code, Message: err.Error(), Problems: toProblemDTOs(err)}})
+			c.JSON(m.status, errorBody{Error: errorDetail{
+				Code: m.code, Message: err.Error(), Problems: toProblemDTOs(err), Workflows: toBrokenWorkflowDTOs(err),
+			}})
 			return
 		}
 	}

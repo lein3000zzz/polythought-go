@@ -71,8 +71,26 @@ func TestConforms(t *testing.T) {
 			err := shape.Conforms(fields, item)
 			require.Error(t, err)
 			assert.Contains(t, err.Error(), tt.want)
+
+			// Has is the same, but for fields beyond the declared ones.
+			if tt.want == "field spread is not declared" {
+				assert.NoError(t, shape.Has(fields, item))
+			} else {
+				assert.EqualError(t, shape.Has(fields, item), err.Error())
+			}
 		})
 	}
+
+	t.Run("has fields beyond, nested too", func(t *testing.T) {
+		t.Parallel()
+
+		item := typed()
+		item["spread"] = "0.01"
+		item["outcomes"] = []any{map[string]any{"label": "Yes", "price": "0.4", "tokenId": "1"}}
+
+		assert.NoError(t, shape.Has(fields, item))
+		assert.EqualError(t, shape.Conforms(fields, item), "field outcomes[0].tokenId is not declared")
+	})
 }
 
 func TestCheck(t *testing.T) {

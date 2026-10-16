@@ -29,6 +29,7 @@ import (
 	"github.com/lein3000zzz/polythought-go/internal/core/services/auth"
 	"github.com/lein3000zzz/polythought-go/internal/core/services/code"
 	"github.com/lein3000zzz/polythought-go/internal/core/services/credentials"
+	"github.com/lein3000zzz/polythought-go/internal/core/services/customnodes"
 	"github.com/lein3000zzz/polythought-go/internal/core/services/events"
 	"github.com/lein3000zzz/polythought-go/internal/core/services/feed"
 	"github.com/lein3000zzz/polythought-go/internal/core/services/library"
@@ -102,6 +103,7 @@ type app struct {
 	feed        *feed.Hub
 	events      *events.Hub
 	library     *library.Service
+	customNodes *customnodes.Service
 	credentials *credentials.Service
 	telegramBot *tgadapter.Bot
 	telegram    *telegram.Service
@@ -278,6 +280,10 @@ func codeAccess(s *settings.Snapshot) domain.CodeAccess {
 	return domain.CodeAccess(s.String(config.KeyCodeAccess))
 }
 
+func customNodeLimits(s *settings.Snapshot) customnodes.Limits {
+	return customnodes.Limits{PerUser: s.Int(config.KeyCustomNodes)}
+}
+
 func waitLimits(s *settings.Snapshot) engine.WaitLimits {
 	return engine.WaitLimits{
 		MaxWaiting: s.Int(config.KeyMaxWaiting),
@@ -285,47 +291,91 @@ func waitLimits(s *settings.Snapshot) engine.WaitLimits {
 	}
 }
 
-// expressionChecker checks a workflow's expressions and code as saving does: each
-// compiled.
-type expressionChecker struct {
-	registry *engine.Registry
+// workflowChecks checks a workflow as saving does, with the node types of its owner: the
+// built-in ones and their custom nodes.
+type workflowChecks struct {
+	types    engine.Catalog
 	compiler ports.CodeCompiler
+	gate     engine.CodeGate
 }
 
-func (c expressionChecker) CheckExpressions(w domain.Workflow) error {
+func (c workflowChecks) Validate(ctx context.Context, w domain.Workflow) error {
+	reg, err := c.types.For(ctx, w.OwnerID)
+	if err != nil {
+		return err
+	}
+
+	return reg.Validate(w)
+}
+
+func (c workflowChecks) CheckFields(ctx context.Context, w domain.Workflow) error {
+	reg, err := c.types.For(ctx, w.OwnerID)
+	if err != nil {
+		return err
+	}
+
+	return reg.CheckFields(w)
+}
+
+// CheckExpressions checks the workflow's expressions and code: each compiled.
+func (c workflowChecks) CheckExpressions(ctx context.Context, w domain.Workflow) error {
+	reg, err := c.types.For(ctx, w.OwnerID)
+	if err != nil {
+		return err
+	}
+
 	var problems domain.ValidationError
 
-	problems.Merge(c.registry.CheckExpressions(w, func(expr string) error {
-		_, err := c.compiler.CompileExpression(context.Background(), expr)
+	problems.Merge(reg.CheckExpressions(w, func(expr string) error {
+		_, err := c.compiler.CompileExpression(ctx, expr)
 		return err
 	}))
 
-	problems.Merge(c.registry.CheckCode(w, func(source string) error {
-		_, err := c.compiler.Compile(context.Background(), source)
+	problems.Merge(reg.CheckCode(w, func(source string) error {
+		_, err := c.compiler.Compile(ctx, source)
 		return err
 	}))
 
 	return problems.Err()
 }
 
-// codeAccessChecker refuses code nodes in a workflow whose owner may not write code.
-type codeAccessChecker struct {
-	registry *engine.Registry
-	gate     engine.CodeGate
+// CheckCodeAccess refuses code nodes in a workflow whose owner may not write code.
+func (c workflowChecks) CheckCodeAccess(ctx context.Context, w domain.Workflow) error {
+	reg, err := c.types.For(ctx, w.OwnerID)
+	if err != nil {
+		return err
+	}
+
+	return reg.CheckCodeAccess(ctx, w, c.gate)
 }
 
-func (c codeAccessChecker) CheckCodeAccess(ctx context.Context, w domain.Workflow) error {
-	return c.registry.CheckCodeAccess(ctx, w, c.gate)
+// nodeTypes lists the node types a user may place: the built-in ones and their own.
+type nodeTypes struct {
+	types engine.Catalog
 }
 
-// codeTypes declares what code is written against: the SDK and the node types, the same
-// for every user until custom nodes come.
+func (n nodeTypes) Types(ctx context.Context, p auth.Principal) ([]engine.TypeInfo, error) {
+	reg, err := n.types.For(ctx, p.User.ID)
+	if err != nil {
+		return nil, err
+	}
+
+	return reg.Types(), nil
+}
+
+// codeTypes declares what a user's code is written against: the SDK and the node types
+// they may use, their own included.
 type codeTypes struct {
-	registry *engine.Registry
+	types engine.Catalog
 }
 
-func (c codeTypes) Declarations(context.Context, auth.Principal) []ports.CodeFile {
-	return tscompiler.Declarations(c.registry.Types())
+func (c codeTypes) Declarations(ctx context.Context, p auth.Principal) ([]ports.CodeFile, error) {
+	reg, err := c.types.For(ctx, p.User.ID)
+	if err != nil {
+		return nil, err
+	}
+
+	return tscompiler.Declarations(reg.Types()), nil
 }
 
 // codeLimits are the most one run of user code may use.
@@ -463,9 +513,14 @@ func (a *app) initEngine(ctx context.Context, pmc polymarket) error {
 		Mode:  func() domain.CodeAccess { return codeAccess(a.settings.Current()) },
 	}
 
+	// Each owner's workflows use the built-in types and their own custom nodes.
+	a.customNodes = customnodes.New(postgres.NewCustomNodes(a.db), postgres.NewWorkflows(a.db), a.registry,
+		a.code, compiler, codeGate, a.util.Logger,
+		customnodes.WithLiveLimits(func() customnodes.Limits { return customNodeLimits(a.settings.Current()) }))
+
 	executor, err := engine.NewExecutor(a.util, a.registry,
 		engine.WithRecorder(executions), engine.WithNotifier(a.events), engine.WithNotifier(a.notify),
-		engine.WithEvaluator(a.code), engine.WithCodeGate(codeGate),
+		engine.WithEvaluator(a.code), engine.WithCodeGate(codeGate), engine.WithCatalog(a.customNodes),
 		engine.WithWaits(waitRecords, func() engine.WaitLimits { return waitLimits(a.settings.Current()) }))
 	if err != nil {
 		return err
@@ -474,16 +529,18 @@ func (a *app) initEngine(ctx context.Context, pmc polymarket) error {
 	// Executions that wait carry on from here, which serve runs.
 	a.waits = waits.New(waitRecords, executor, a.util.Logger)
 
-	a.supervisor = engine.NewSupervisor(ctx, engine.NewRunner(a.util, a.registry, executor), a.util.Logger)
+	a.supervisor = engine.NewSupervisor(ctx, engine.NewRunner(a.util, a.customNodes, executor), a.util.Logger)
 	a.util.OnShutdown(a.supervisor.Shutdown)
 
-	a.workflows = workflows.New(postgres.NewWorkflows(a.db), executions, a.registry, executor, a.supervisor, a.util.Logger,
-		workflows.WithLiveLimits(func() workflows.Limits { return workflowLimits(a.settings.Current()) }),
-		workflows.WithWaits(a.waits), workflows.WithFieldChecks(a.registry),
-		workflows.WithExpressionChecks(expressionChecker{registry: a.registry, compiler: compiler}),
-		workflows.WithCodeAccess(codeAccessChecker{registry: a.registry, gate: codeGate}))
+	checks := workflowChecks{types: a.customNodes, compiler: compiler, gate: codeGate}
 
-	if a.library, err = library.New(postgres.NewTemplates(a.db), a.workflows, a.registry, a.util.Logger); err != nil {
+	a.workflows = workflows.New(postgres.NewWorkflows(a.db), executions, checks, executor, a.supervisor, a.util.Logger,
+		workflows.WithLiveLimits(func() workflows.Limits { return workflowLimits(a.settings.Current()) }),
+		workflows.WithWaits(a.waits), workflows.WithFieldChecks(checks),
+		workflows.WithExpressionChecks(checks), workflows.WithCodeAccess(checks))
+
+	if a.library, err = library.New(postgres.NewTemplates(a.db), a.workflows, a.registry, a.util.Logger,
+		library.WithOwnTypes(a.customNodes)); err != nil {
 		return err
 	}
 

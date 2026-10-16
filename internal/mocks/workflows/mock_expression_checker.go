@@ -5,6 +5,8 @@
 package workflowsmocks
 
 import (
+	"context"
+
 	"github.com/lein3000zzz/polythought-go/internal/core/domain"
 	mock "github.com/stretchr/testify/mock"
 )
@@ -46,16 +48,16 @@ func (_m *MockExpressionChecker) EXPECT() *MockExpressionChecker_Expecter {
 }
 
 // CheckExpressions provides a mock function for the type MockExpressionChecker
-func (_mock *MockExpressionChecker) CheckExpressions(w domain.Workflow) error {
-	ret := _mock.Called(w)
+func (_mock *MockExpressionChecker) CheckExpressions(ctx context.Context, w domain.Workflow) error {
+	ret := _mock.Called(ctx, w)
 
 	if len(ret) == 0 {
 		panic("no return value specified for CheckExpressions")
 	}
 
 	var r0 error
-	if returnFunc, ok := ret.Get(0).(func(domain.Workflow) error); ok {
-		r0 = returnFunc(w)
+	if returnFunc, ok := ret.Get(0).(func(context.Context, domain.Workflow) error); ok {
+		r0 = returnFunc(ctx, w)
 	} else {
 		r0 = ret.Error(0)
 	}
@@ -68,19 +70,25 @@ type MockExpressionChecker_CheckExpressions_Call struct {
 }
 
 // CheckExpressions is a helper method to define mock.On call
+//   - ctx context.Context
 //   - w domain.Workflow
-func (_e *MockExpressionChecker_Expecter) CheckExpressions(w any) *MockExpressionChecker_CheckExpressions_Call {
-	return &MockExpressionChecker_CheckExpressions_Call{Call: _e.mock.On("CheckExpressions", w)}
+func (_e *MockExpressionChecker_Expecter) CheckExpressions(ctx any, w any) *MockExpressionChecker_CheckExpressions_Call {
+	return &MockExpressionChecker_CheckExpressions_Call{Call: _e.mock.On("CheckExpressions", ctx, w)}
 }
 
-func (_c *MockExpressionChecker_CheckExpressions_Call) Run(run func(w domain.Workflow)) *MockExpressionChecker_CheckExpressions_Call {
+func (_c *MockExpressionChecker_CheckExpressions_Call) Run(run func(ctx context.Context, w domain.Workflow)) *MockExpressionChecker_CheckExpressions_Call {
 	_c.Call.Run(func(args mock.Arguments) {
-		var arg0 domain.Workflow
+		var arg0 context.Context
 		if args[0] != nil {
-			arg0 = args[0].(domain.Workflow)
+			arg0 = args[0].(context.Context)
+		}
+		var arg1 domain.Workflow
+		if args[1] != nil {
+			arg1 = args[1].(domain.Workflow)
 		}
 		run(
 			arg0,
+			arg1,
 		)
 	})
 	return _c
@@ -91,7 +99,7 @@ func (_c *MockExpressionChecker_CheckExpressions_Call) Return(err error) *MockEx
 	return _c
 }
 
-func (_c *MockExpressionChecker_CheckExpressions_Call) RunAndReturn(run func(w domain.Workflow) error) *MockExpressionChecker_CheckExpressions_Call {
+func (_c *MockExpressionChecker_CheckExpressions_Call) RunAndReturn(run func(ctx context.Context, w domain.Workflow) error) *MockExpressionChecker_CheckExpressions_Call {
 	_c.Call.Return(run)
 	return _c
 }
