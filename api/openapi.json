@@ -1554,6 +1554,14 @@
                         "type": "array",
                         "uniqueItems": false
                     },
+                    "customNodes": {
+                        "description": "CustomNodes are the custom nodes it brings, code included, as their author had them\nwhen sharing: using it copies them. With one template, not with the list.",
+                        "items": {
+                            "$ref": "#/components/schemas/TemplateCustomNode"
+                        },
+                        "type": "array",
+                        "uniqueItems": false
+                    },
                     "description": {
                         "type": "string"
                     },
@@ -1607,6 +1615,61 @@
                     "name",
                     "nodeTypes",
                     "summary"
+                ],
+                "type": "object"
+            },
+            "TemplateCustomNode": {
+                "properties": {
+                    "description": {
+                        "type": "string"
+                    },
+                    "items": {
+                        "$ref": "#/components/schemas/CustomItems"
+                    },
+                    "label": {
+                        "type": "string"
+                    },
+                    "name": {
+                        "description": "Name makes its type, custom.\u003cname\u003e: lowercase letters, digits and hyphens, starting\nwith a letter, up to 40. It cannot change.",
+                        "type": "string"
+                    },
+                    "nodeType": {
+                        "$ref": "#/components/schemas/NodeType",
+                        "description": "NodeType describes it as the node list describes types, for drawing the template."
+                    },
+                    "outputs": {
+                        "description": "Outputs are its output ports, in order; it has one input, main.",
+                        "items": {
+                            "type": "string"
+                        },
+                        "type": "array",
+                        "uniqueItems": false
+                    },
+                    "settings": {
+                        "items": {
+                            "$ref": "#/components/schemas/CustomSetting"
+                        },
+                        "type": "array",
+                        "uniqueItems": false
+                    },
+                    "source": {
+                        "description": "Source is TypeScript exporting run(items, ctx), which gets every item at once and\nreturns the items, or with several outputs, { port: items }.",
+                        "type": "string"
+                    },
+                    "type": {
+                        "description": "Type is what the template's nodes name it by: custom.\u003cname\u003e.",
+                        "type": "string"
+                    }
+                },
+                "required": [
+                    "items",
+                    "label",
+                    "name",
+                    "nodeType",
+                    "outputs",
+                    "settings",
+                    "source",
+                    "type"
                 ],
                 "type": "object"
             },

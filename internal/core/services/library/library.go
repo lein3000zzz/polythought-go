@@ -17,6 +17,7 @@ import (
 
 	"github.com/lein3000zzz/polythought-go/internal/core/domain"
 	"github.com/lein3000zzz/polythought-go/internal/core/engine"
+	"github.com/lein3000zzz/polythought-go/internal/core/nodes/customnodes"
 	"github.com/lein3000zzz/polythought-go/internal/core/ports"
 	"github.com/lein3000zzz/polythought-go/internal/core/services/auth"
 	"github.com/lein3000zzz/polythought-go/internal/core/services/workflows"
@@ -53,6 +54,9 @@ type Entry struct {
 
 	Mine   bool    // shared by this member
 	Inputs []Input // what using it asks for
+
+	// CustomTypes are the node types of the custom nodes it brings, for drawing it.
+	CustomTypes []engine.NodeType
 }
 
 type ShareInput struct {
@@ -70,6 +74,7 @@ type Service struct {
 	workflows Workflows
 	types     NodeTypes
 	own       engine.Catalog // each sharer's types, their custom nodes included; types if not set
+	custom    CustomNodes    // bundles and copies custom nodes; none if not set
 	log       logging.Logger
 	now       func() time.Time
 
@@ -193,8 +198,21 @@ func (s *Service) Use(ctx context.Context, p auth.Principal, id domain.TemplateI
 		name = t.Name
 	}
 
+	// The custom nodes it brings first: the workflow's nodes name them.
+	renamed, made, err := s.copyCustomNodes(ctx, p, t.CustomNodes)
+	if err != nil {
+		return domain.Workflow{}, err
+	}
+
+	for i, n := range nodes {
+		if to, ok := renamed[n.Type]; ok {
+			nodes[i].Type = to
+		}
+	}
+
 	w, err := s.workflows.Create(ctx, p, workflows.Definition{Name: name, Nodes: nodes, Connections: t.Connections})
 	if err != nil {
+		s.removeCopies(ctx, p, made)
 		return domain.Workflow{}, err
 	}
 
@@ -225,11 +243,16 @@ func (s *Service) Share(ctx context.Context, p auth.Principal, workflowID domain
 		}
 	}
 
+	bundled, err := s.bundle(ctx, p, w.Nodes)
+	if err != nil {
+		return Entry{}, err
+	}
+
 	now := s.now()
 	t := domain.Template{
 		ID: domain.TemplateID(uuid.Must(uuid.NewV7()).String()), AuthorID: p.User.ID, SourceID: w.ID,
 		Name: w.Name, Summary: summary, Description: description,
-		Nodes: withoutPersonal(types, w.Nodes), Connections: w.Connections,
+		Nodes: withoutPersonal(types, w.Nodes), Connections: w.Connections, CustomNodes: bundled,
 		CreatedAt: now, UpdatedAt: now,
 	}
 
@@ -307,7 +330,13 @@ func (s *Service) template(ctx context.Context, id domain.TemplateID) (domain.Te
 }
 
 func (s *Service) entry(p auth.Principal, t domain.Template) Entry {
-	return Entry{Template: t, Mine: !t.BuiltIn() && t.AuthorID == p.User.ID, Inputs: s.inputs(t)}
+	e := Entry{Template: t, Mine: !t.BuiltIn() && t.AuthorID == p.User.ID, Inputs: s.inputs(t)}
+
+	for _, n := range t.CustomNodes {
+		e.CustomTypes = append(e.CustomTypes, customnodes.TypeOf(n))
+	}
+
+	return e
 }
 
 // inputs lists the settings a template needs and does not have: required, without a
@@ -317,8 +346,10 @@ func (s *Service) entry(p auth.Principal, t domain.Template) Entry {
 func (s *Service) inputs(t domain.Template) []Input {
 	var out []Input
 
+	types := s.typesOf(t)
+
 	for _, n := range t.Nodes {
-		typ, _, ok := s.types.Type(n.Type)
+		typ, _, ok := types.Type(n.Type)
 		if !ok {
 			continue
 		}

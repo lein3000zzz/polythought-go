@@ -4,7 +4,13 @@ import { Link, useNavigate, useParams } from 'react-router'
 import { toast } from 'sonner'
 
 import { useMe } from '@/api/auth'
-import { ApiError, errorMessage, type NodeType, type WorkflowNode } from '@/api/client'
+import {
+  ApiError,
+  errorMessage,
+  type NodeType,
+  type Schemas,
+  type WorkflowNode,
+} from '@/api/client'
 import { useDeleteTemplate, useTemplate, useUseTemplate, type Template } from '@/api/library'
 import { useNodeTypes } from '@/api/workflows'
 import { ConfirmDialog } from '@/components/ConfirmDialog'
@@ -27,6 +33,8 @@ import { ParamField } from '@/features/workflow/ParamField'
 import { textOf } from '@/features/workflow/params'
 import { fieldMessage } from '@/features/workflow/problems'
 import { TemplateCanvas } from '@/features/workflow/TemplateCanvas'
+
+type TemplateCustomNode = Schemas['TemplateCustomNode']
 
 /** One library entry: what it does, what it looks like, and a way to start from it. */
 export function TemplatePage() {
@@ -75,7 +83,12 @@ export function TemplatePage() {
   }
 
   const t = template.data
-  const types = nodeTypes.data
+  const brought = t.customNodes ?? []
+  // The custom nodes it brings are drawn as it has them, not as yours of the same name.
+  const types = [
+    ...brought.map((c) => c.nodeType),
+    ...nodeTypes.data.filter((x) => !brought.some((c) => c.type === x.name)),
+  ]
   const node = t.nodes?.find((n) => n.id === selected)
   const canDelete = !t.builtIn && (t.mine || me?.role === 'admin')
 
@@ -109,6 +122,7 @@ export function TemplatePage() {
             <NodeAbout
               node={node}
               type={types.find((x) => x.name === node.type)}
+              brought={brought.find((c) => c.type === node.type)}
               onBack={() => setSelected(undefined)}
             />
           ) : (
@@ -130,6 +144,7 @@ export function TemplatePage() {
                   </ul>
                 </div>
               )}
+              {brought.length > 0 && <Brings nodes={brought} />}
               <p className="text-xs text-muted-foreground">
                 Click a node on the right to see what it does and how it is set.
               </p>
@@ -165,13 +180,68 @@ export function TemplatePage() {
   )
 }
 
+// Brings shows the custom nodes a shared workflow brings, code included, before anyone
+// uses it (D62): the code runs for whoever does.
+function Brings({ nodes }: { nodes: TemplateCustomNode[] }) {
+  return (
+    <section aria-label="Custom nodes it brings" className="flex flex-col gap-2 text-sm">
+      <p className="font-medium">Custom nodes it brings</p>
+      <p className="text-xs text-muted-foreground">
+        Using it copies them into your Nodes, under a new name if one of yours by that name differs;
+        one of yours just like it is used as it is. Their code runs for you, so read it first.
+      </p>
+      {nodes.map((n) => (
+        <CustomNodeAbout key={n.type} node={n} />
+      ))}
+    </section>
+  )
+}
+
+function CustomNodeAbout({ node, open }: { node: TemplateCustomNode; open?: boolean }) {
+  return (
+    <details className="rounded-lg border p-3" open={open}>
+      <summary className="cursor-pointer">
+        <span className="font-medium">{node.label}</span>{' '}
+        <span className="font-mono text-xs text-muted-foreground">{node.type}</span>
+      </summary>
+      <div className="mt-2 flex flex-col gap-2 text-xs">
+        {node.description && <p>{node.description}</p>}
+        <p>
+          <span className="text-muted-foreground">Settings: </span>
+          {node.settings.length > 0
+            ? node.settings.map((s) => `${s.name} (${s.kind})`).join(', ')
+            : 'none'}
+        </p>
+        <p>
+          <span className="text-muted-foreground">Outputs: </span>
+          {node.outputs.join(', ')}
+        </p>
+        <p>
+          <span className="text-muted-foreground">Items: </span>
+          {node.items.passed
+            ? 'the ones it gets, passed on'
+            : `its own, with ${node.items.fields.map((f) => f.name).join(', ') || 'no fields'}`}
+        </p>
+        <pre
+          aria-label={`Code of ${node.label}`}
+          className="max-h-80 overflow-auto rounded-md bg-muted p-2 font-mono"
+        >
+          {node.source}
+        </pre>
+      </div>
+    </details>
+  )
+}
+
 function NodeAbout({
   node,
   type,
+  brought,
   onBack,
 }: {
   node: WorkflowNode
   type?: NodeType
+  brought?: TemplateCustomNode
   onBack: () => void
 }) {
   const params = node.params ?? {}
@@ -191,6 +261,7 @@ function NodeAbout({
       </div>
       {node.notes && <p className="whitespace-pre-line">{node.notes}</p>}
       {type?.description && <p className="text-muted-foreground">{type.description}</p>}
+      {brought && <CustomNodeAbout node={brought} open />}
 
       {type && type.params.length > 0 && (
         <dl className="flex flex-col gap-2">

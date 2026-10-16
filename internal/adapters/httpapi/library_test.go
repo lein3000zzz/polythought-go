@@ -14,6 +14,7 @@ import (
 	"github.com/lein3000zzz/polythought-go/internal/adapters/httpapi"
 	"github.com/lein3000zzz/polythought-go/internal/core/domain"
 	"github.com/lein3000zzz/polythought-go/internal/core/engine"
+	"github.com/lein3000zzz/polythought-go/internal/core/nodes/customnodes"
 	"github.com/lein3000zzz/polythought-go/internal/core/ports"
 	"github.com/lein3000zzz/polythought-go/internal/core/services/library"
 	httpapimocks "github.com/lein3000zzz/polythought-go/internal/mocks/httpapi"
@@ -67,6 +68,28 @@ func TestLibraryRoutes(t *testing.T) {
 			wantBody: []string{
 				`"notes":"Every 5 minutes"`, `"connections":[{"from":"every"`,
 				`"inputs":[{"nodeId":"chat","param":{"name":"url","label":"Webhook URL","kind":"string","required":true,"sensitive":true}}]`,
+			},
+		},
+		{
+			name: "one template comes with the custom nodes it brings, code included",
+			req:  request{method: "GET", path: "/api/v1/library/tpl-1", headers: cookie},
+			setup: func(l *httpapimocks.MockLibraryService) {
+				def := domain.CustomNode{
+					Name: "split", Label: "Split", Outputs: []string{"wide", "tight"},
+					Settings: []domain.CustomSetting{{Name: "threshold", Label: "threshold", Kind: "decimal", Default: "0.02"}},
+					Items:    domain.CustomItems{Passed: true}, Source: "export function run(items) { return { wide: items } }",
+				}
+				shared := library.Entry{
+					Template:    domain.Template{ID: "tpl-1", AuthorID: "u-2", Name: "Spread watch", CustomNodes: []domain.CustomNode{def}},
+					CustomTypes: []engine.NodeType{customnodes.TypeOf(def)},
+				}
+				l.EXPECT().Get(mock.Anything, mock.Anything, domain.TemplateID("tpl-1")).Return(shared, nil)
+			},
+			wantStatus: http.StatusOK,
+			wantBody: []string{
+				`"customNodes":[{"name":"split","label":"Split"`,
+				`"source":"export function run(items) { return { wide: items } }","type":"custom.split"`,
+				`"nodeType":{"name":"custom.split","label":"Split","trigger":false,"inputs":["main"],"outputs":["wide","tight"]`,
 			},
 		},
 		{

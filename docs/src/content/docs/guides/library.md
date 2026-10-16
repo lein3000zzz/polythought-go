@@ -13,6 +13,12 @@ Open one to read what it does and see its nodes; select a node to see how it is 
 know, such as a wallet or a webhook URL; optional ones, like a credential, can be left empty.
 The copy starts switched off, so you can change anything before you turn it on.
 
+A shared workflow may bring [custom nodes](/docs/guides/custom-nodes/) its author made. Its
+page lists them, code included: that code runs for you, so read it first. Using it copies
+them into your **Nodes**. One of yours with the same name and the same definition is used
+as it is; one that differs stays as it is, and the copy takes the next free name, like
+`spread-split-2`, which the new workflow uses. Making custom nodes takes code access.
+
 The scenarios that come with Polythought:
 
 - **Your first workflow**: search live markets and watch items pass from node to node.
@@ -31,6 +37,9 @@ Personal settings stay with you. Sharing leaves out your wallets, credentials an
 like webhook URLs, which often contain a secret token. Whoever uses the copy is asked for
 their own.
 
-The library keeps a copy as it was when you shared it: later changes to your workflow do
-not reach it until you share again, which replaces the copy. You can share up to 20
+The custom nodes the workflow uses go with it, as they are when you share: their settings,
+outputs and code, which everyone can read.
+
+The library keeps a copy as it was when you shared it: later changes to your workflow, or
+to its custom nodes, do not reach it until you share again, which replaces the copy. You can share up to 20
 workflows, and remove one from the library on its page.

@@ -24,7 +24,7 @@ export function useTemplate(id: string) {
   })
 }
 
-/** Starts a new workflow from a template. */
+/** Starts a new workflow from a template, copying the custom nodes it brings. */
 export function useUseTemplate(id: string) {
   const queryClient = useQueryClient()
 
@@ -34,6 +34,8 @@ export function useUseTemplate(id: string) {
     onSuccess: (w: Workflow) => {
       queryClient.setQueryData(keys.workflow(w.id), w)
       void queryClient.invalidateQueries({ queryKey: keys.workflowList })
+      void queryClient.invalidateQueries({ queryKey: keys.customNodes })
+      void queryClient.invalidateQueries({ queryKey: keys.nodeTypes })
     },
   })
 }

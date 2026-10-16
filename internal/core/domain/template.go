@@ -18,6 +18,10 @@ type Template struct {
 	Nodes       []NodeSpec
 	Connections []Connection
 
+	// CustomNodes are the custom nodes its nodes use, as their author had them when sharing:
+	// using it copies them (A3, D61). Only their definitions count, not their IDs.
+	CustomNodes []CustomNode
+
 	CreatedAt time.Time
 	UpdatedAt time.Time
 }

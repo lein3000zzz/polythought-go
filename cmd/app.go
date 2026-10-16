@@ -540,7 +540,7 @@ func (a *app) initEngine(ctx context.Context, pmc polymarket) error {
 		workflows.WithExpressionChecks(checks), workflows.WithCodeAccess(checks))
 
 	if a.library, err = library.New(postgres.NewTemplates(a.db), a.workflows, a.registry, a.util.Logger,
-		library.WithOwnTypes(a.customNodes)); err != nil {
+		library.WithOwnTypes(a.customNodes), library.WithCustomNodes(a.customNodes)); err != nil {
 		return err
 	}
 

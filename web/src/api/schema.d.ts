@@ -1290,6 +1290,11 @@ export interface components {
             /** @description BuiltIn scenarios ship with Polythought; the others are members' shared workflows. */
             builtIn: boolean;
             connections?: components["schemas"]["Connection"][];
+            /**
+             * @description CustomNodes are the custom nodes it brings, code included, as their author had them
+             *     when sharing: using it copies them. With one template, not with the list.
+             */
+            customNodes?: components["schemas"]["TemplateCustomNode"][];
             description: string;
             id: string;
             inputs: components["schemas"]["TemplateInput"][];
@@ -1303,6 +1308,28 @@ export interface components {
             summary: string;
             /** Format: date-time */
             updatedAt?: string;
+        };
+        TemplateCustomNode: {
+            description?: string;
+            items: components["schemas"]["CustomItems"];
+            label: string;
+            /**
+             * @description Name makes its type, custom.<name>: lowercase letters, digits and hyphens, starting
+             *     with a letter, up to 40. It cannot change.
+             */
+            name: string;
+            /** @description NodeType describes it as the node list describes types, for drawing the template. */
+            nodeType: components["schemas"]["NodeType"];
+            /** @description Outputs are its output ports, in order; it has one input, main. */
+            outputs: string[];
+            settings: components["schemas"]["CustomSetting"][];
+            /**
+             * @description Source is TypeScript exporting run(items, ctx), which gets every item at once and
+             *     returns the items, or with several outputs, { port: items }.
+             */
+            source: string;
+            /** @description Type is what the template's nodes name it by: custom.<name>. */
+            type: string;
         };
         TemplateInput: {
             nodeId: string;

@@ -161,6 +161,69 @@ describe('library', () => {
     expect(about.getByText('You fill this in')).toBeInTheDocument()
   })
 
+  it('shows the custom nodes a shared workflow brings, code included, drawn as it has them', async () => {
+    const splitType: Schemas['NodeType'] = {
+      name: 'custom.split',
+      label: 'Split',
+      trigger: false,
+      code: true,
+      inputs: ['main'],
+      outputs: ['wide', 'tight'],
+      params: [{ name: 'threshold', label: 'threshold', kind: 'decimal', required: false }],
+    }
+    const brings: Template = {
+      ...mineShared,
+      id: 'tpl-2',
+      name: 'Spread watch',
+      mine: false,
+      nodeTypes: ['trigger.manual', 'custom.split'],
+      nodes: [
+        { id: 'manual', type: 'trigger.manual', position: { x: 0, y: 0 } },
+        { id: 'split', type: 'custom.split', position: { x: 300, y: 0 } },
+      ],
+      connections: [{ from: 'manual', fromPort: 'main', to: 'split', toPort: 'main' }],
+      customNodes: [
+        {
+          type: 'custom.split',
+          nodeType: splitType,
+          name: 'split',
+          label: 'Split',
+          settings: [{ name: 'threshold', kind: 'decimal', default: '0.02' }],
+          outputs: ['wide', 'tight'],
+          items: { passed: true, fields: [] },
+          source: 'export function run(items) { return { wide: items } }',
+        },
+      ],
+    }
+    library([brings])
+    // The viewer has a custom.split of their own, which this is not.
+    server.use(
+      http.get('/api/v1/node-types', () =>
+        HttpResponse.json({
+          nodeTypes: [...nodeTypes, { ...splitType, label: 'Mine', outputs: ['main'] }],
+        }),
+      ),
+    )
+    renderApp('/library/tpl-2')
+
+    const about = within(await screen.findByRole('complementary', { name: 'About' }))
+    const brought = within(about.getByRole('region', { name: 'Custom nodes it brings' }))
+    expect(brought.getByText('custom.split')).toBeInTheDocument()
+    expect(brought.getByText('threshold (decimal)')).toBeInTheDocument()
+    expect(brought.getByLabelText('Code of Split')).toHaveTextContent('return { wide: items }')
+
+    const node = await waitFor(() => {
+      const el = document.querySelector<HTMLElement>('.react-flow__node[data-id="split"]')
+      if (!el) throw new Error('not drawn yet')
+      return el
+    })
+    expect(within(node).getByText('Split')).toBeInTheDocument()
+    expect(within(node).queryByText('Mine')).not.toBeInTheDocument()
+
+    fireEvent.click(node)
+    expect(about.getByLabelText('Code of Split')).toBeVisible()
+  })
+
   it('lets you remove what you shared', async () => {
     let removed = false
     library()

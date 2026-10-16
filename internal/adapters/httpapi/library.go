@@ -45,8 +45,21 @@ type templateDTO struct {
 	// Nodes and connections come with one template, not with the list.
 	Nodes       []nodeDTO       `json:"nodes,omitempty" validate:"optional"`
 	Connections []connectionDTO `json:"connections,omitempty" validate:"optional"`
-	UpdatedAt   *time.Time      `json:"updatedAt,omitempty" validate:"optional" format:"date-time"`
+	// CustomNodes are the custom nodes it brings, code included, as their author had them
+	// when sharing: using it copies them. With one template, not with the list.
+	CustomNodes []templateCustomNodeDTO `json:"customNodes,omitempty" validate:"optional"`
+	UpdatedAt   *time.Time              `json:"updatedAt,omitempty" validate:"optional" format:"date-time"`
 } // @name Template
+
+// templateCustomNodeDTO is a custom node a shared workflow brings.
+type templateCustomNodeDTO struct {
+	customDefinitionDTO
+
+	// Type is what the template's nodes name it by: custom.<name>.
+	Type string `json:"type"`
+	// NodeType describes it as the node list describes types, for drawing the template.
+	NodeType nodeTypeDTO `json:"nodeType"`
+} // @name TemplateCustomNode
 
 type templatePage struct {
 	Templates []templateDTO `json:"templates"`
@@ -92,6 +105,14 @@ func toTemplateDTO(e library.Entry, withGraph bool) templateDTO {
 		out.Connections = make([]connectionDTO, len(e.Connections))
 		for i, c := range e.Connections {
 			out.Connections[i] = connectionDTO{From: string(c.From), FromPort: c.FromPort, To: string(c.To), ToPort: c.ToPort}
+		}
+
+		for i, n := range e.CustomNodes {
+			out.CustomNodes = append(out.CustomNodes, templateCustomNodeDTO{
+				customDefinitionDTO: toCustomNodeDTO(n).customDefinitionDTO,
+				Type:                e.CustomTypes[i].Name,
+				NodeType:            toNodeTypeDTO(engine.TypeInfo{NodeType: e.CustomTypes[i]}),
+			})
 		}
 	}
 

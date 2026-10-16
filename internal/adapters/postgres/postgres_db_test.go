@@ -30,7 +30,7 @@ func TestMigrate(t *testing.T) {
 		name        string
 		wantApplied []int64
 	}{
-		{name: "fresh database gets every migration", wantApplied: []int64{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12}},
+		{name: "fresh database gets every migration", wantApplied: []int64{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13}},
 		{name: "second run is a no-op", wantApplied: []int64{}},
 	}
 

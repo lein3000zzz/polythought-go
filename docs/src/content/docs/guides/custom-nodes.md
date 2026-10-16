@@ -92,6 +92,12 @@ first lists them and what breaks. Going ahead, they fail when they run until you
 them; opening one marks what no longer holds. Deleting a node that workflows use asks the
 same way.
 
+## Sharing it
+
+Sharing a workflow that uses a custom node to the [library](/docs/guides/library/) brings
+the node along, code included, as it is then. Whoever uses the workflow gets a copy of the
+node of their own, renamed if they have a different one by its name.
+
 ## Who may, and how many
 
 Custom nodes are code: an admin decides who may make them, as for

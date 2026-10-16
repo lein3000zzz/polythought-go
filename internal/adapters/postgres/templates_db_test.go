@@ -25,7 +25,16 @@ func newTemplate(author domain.UserID, source domain.WorkflowID, name string) do
 			{ID: "tight", Type: "logic.filter", Params: map[string]any{"field": "spread", "value": json.Number("0.02")}},
 		},
 		Connections: []domain.Connection{{From: "manual", FromPort: "main", To: "tight", ToPort: "main"}},
-		CreatedAt:   at, UpdatedAt: at,
+		CustomNodes: []domain.CustomNode{{
+			Name: "split", Label: "Split", Description: "Wide or tight.",
+			Settings: []domain.CustomSetting{{Name: "threshold", Label: "threshold", Kind: "decimal", Default: json.Number("0.0200")}},
+			Outputs:  []string{"wide", "tight"},
+			Items: domain.CustomItems{Fields: []domain.CustomField{
+				{Name: "best", Kind: "object", Nullable: true, Fields: []domain.CustomField{{Name: "price", Kind: "decimal", Fields: []domain.CustomField{}}}},
+			}},
+			Source: "export function run(items) { return { wide: items } }",
+		}},
+		CreatedAt: at, UpdatedAt: at,
 	}
 }
 
@@ -36,7 +45,7 @@ func TestTemplates(t *testing.T) {
 		name string
 		run  func(t *testing.T, db *postgres.DB, repo *postgres.Templates, author domain.User, source domain.Workflow)
 	}{
-		{"round trip keeps the graph, notes and exact numbers", func(t *testing.T, _ *postgres.DB, repo *postgres.Templates, author domain.User, source domain.Workflow) {
+		{"round trip keeps the graph, notes, custom nodes and exact numbers", func(t *testing.T, _ *postgres.DB, repo *postgres.Templates, author domain.User, source domain.Workflow) {
 			tpl := newTemplate(author.ID, source.ID, "spreads")
 
 			saved, err := repo.Save(ctx, tpl)
@@ -56,6 +65,7 @@ func TestTemplates(t *testing.T) {
 			require.NoError(t, err)
 
 			again := newTemplate(author.ID, source.ID, "v2") // a new ID, as a caller that did not look first would send
+			again.CustomNodes = nil
 			again.UpdatedAt = at.Add(time.Hour)
 			again.CreatedAt = at.Add(time.Hour)
 
@@ -63,6 +73,7 @@ func TestTemplates(t *testing.T) {
 			require.NoError(t, err)
 			assert.Equal(t, first.ID, saved.ID, "the copy keeps its ID")
 			assert.Equal(t, "v2", saved.Name)
+			assert.Equal(t, []domain.CustomNode{}, saved.CustomNodes, "and its custom nodes")
 			assert.Equal(t, at, saved.CreatedAt, "and when it was first shared")
 			assert.Equal(t, at.Add(time.Hour), saved.UpdatedAt)
 

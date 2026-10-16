@@ -4,6 +4,7 @@ import { toast } from 'sonner'
 
 import { errorMessage, type Workflow } from '@/api/client'
 import { useDeleteTemplate, useShareWorkflow, useSharedCopy, type Template } from '@/api/library'
+import { useNodeTypes } from '@/api/workflows'
 import { ErrorAlert } from '@/components/ErrorAlert'
 import { Button } from '@/components/ui/button'
 import {
@@ -63,6 +64,11 @@ function ShareForm({ workflow, dirty, existing, onClose }: FormProps) {
   const remove = useDeleteTemplate()
   const [summary, setSummary] = useState(existing?.summary ?? '')
   const [description, setDescription] = useState(existing?.description ?? '')
+  const types = useNodeTypes().data ?? []
+  // The custom nodes it uses go with it, code included (D62).
+  const custom = [...new Set(workflow.nodes.map((n) => n.type))]
+    .filter((type) => type.startsWith('custom.'))
+    .map((type) => types.find((t) => t.name === type)?.label ?? type)
 
   return (
     <>
@@ -97,6 +103,14 @@ function ShareForm({ workflow, dirty, existing, onClose }: FormProps) {
         {dirty && (
           <p className="rounded-md bg-amber-50 p-2 text-sm dark:bg-amber-950/40">
             This shares the last saved version. Save first to include your latest changes.
+          </p>
+        )}
+
+        {custom.length > 0 && (
+          <p className="rounded-md bg-muted/60 p-2 text-sm">
+            It brings your custom {custom.length === 1 ? 'node' : 'nodes'} {custom.join(', ')}:
+            their settings, outputs and code go with it as they are now, for whoever uses it to
+            copy.
           </p>
         )}
 

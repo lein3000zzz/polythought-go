@@ -22,4 +22,5 @@ type Templates struct {
 	Definition       string
 	CreatedAt        time.Time
 	UpdatedAt        time.Time
+	CustomNodes      string
 }

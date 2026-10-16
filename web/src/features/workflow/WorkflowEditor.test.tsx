@@ -704,6 +704,42 @@ describe('notes and sharing', () => {
     expect(shared).toEqual({ summary: 'Short', description: 'Long' })
   })
 
+  it('says the custom nodes it uses go with it, code included', async () => {
+    const flow = branching()
+    editing({
+      ...flow,
+      nodes: [...flow.nodes, { id: 'split', type: 'custom.split', position: { x: 900, y: 0 } }],
+    })
+    server.use(
+      http.get('/api/v1/node-types', () =>
+        HttpResponse.json({
+          nodeTypes: [
+            ...nodeTypes,
+            {
+              name: 'custom.split',
+              label: 'Spread split',
+              trigger: false,
+              code: true,
+              inputs: ['main'],
+              outputs: ['main'],
+              params: [],
+            },
+          ],
+        }),
+      ),
+      http.get('/api/v1/workflows/wf-1/share', () => apiError(404, 'not_found', 'not found')),
+    )
+    const { user } = renderApp('/workflows/wf-1')
+
+    await user.click(await screen.findByRole('button', { name: 'More actions' }))
+    await user.click(await screen.findByRole('menuitem', { name: /Share to library/ }))
+
+    const dialog = within(await screen.findByRole('dialog'))
+    expect(
+      dialog.getByText(/It brings your custom node Spread split: their settings, outputs and code/),
+    ).toBeInTheDocument()
+  })
+
   it('updates or removes a copy shared before, warning about unsaved changes', async () => {
     let removed = false
     editing(branching())

@@ -311,21 +311,25 @@ func (s *Server) listNodeTypes(ctx context.Context, c *app.RequestContext) {
 
 	out := nodeTypeList{NodeTypes: make([]nodeTypeDTO, len(types))}
 	for i, t := range types {
-		dto := nodeTypeDTO{
-			Name: t.Name, Label: t.Label, Description: t.Description, Trigger: t.Trigger,
-			Inputs: nonNil(t.Inputs), Outputs: nonNil(t.Outputs),
-			Params: make([]paramDTO, len(t.Params)), OutputsParam: t.OutputsParam,
-			Items: toItemsDTO(t.Items), Code: t.Code,
-		}
-
-		for j, p := range t.Params {
-			dto.Params[j] = toParamDTO(p)
-		}
-
-		out.NodeTypes[i] = dto
+		out.NodeTypes[i] = toNodeTypeDTO(t)
 	}
 
 	c.JSON(http.StatusOK, out)
+}
+
+func toNodeTypeDTO(t engine.TypeInfo) nodeTypeDTO {
+	dto := nodeTypeDTO{
+		Name: t.Name, Label: t.Label, Description: t.Description, Trigger: t.Trigger,
+		Inputs: nonNil(t.Inputs), Outputs: nonNil(t.Outputs),
+		Params: make([]paramDTO, len(t.Params)), OutputsParam: t.OutputsParam,
+		Items: toItemsDTO(t.Items), Code: t.Code,
+	}
+
+	for j, p := range t.Params {
+		dto.Params[j] = toParamDTO(p)
+	}
+
+	return dto
 }
 
 func toItemsDTO(it *engine.Items) *itemsDTO {

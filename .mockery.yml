@@ -76,6 +76,7 @@ packages:
       pkgname: librarymocks
     interfaces:
       Workflows: {}
+      CustomNodes: {}
   github.com/lein3000zzz/polythought-go/internal/core/services/workflows:
     config:
       dir: internal/mocks/workflows

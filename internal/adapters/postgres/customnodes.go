@@ -197,13 +197,7 @@ func toCustomNodeModel(n domain.CustomNode) (model.CustomNodes, error) {
 		return model.CustomNodes{}, err
 	}
 
-	settings := make([]settingDoc, len(n.Settings))
-	for i, s := range n.Settings {
-		settings[i] = settingDoc{
-			Name: s.Name, Label: s.Label, Description: s.Description, Kind: s.Kind, Required: s.Required,
-			Default: s.Default, Options: s.Options, Field: s.Field, FieldKinds: s.FieldKinds,
-		}
-	}
+	settings := settingDocs(n.Settings)
 
 	outputs := n.Outputs
 	if outputs == nil {
@@ -263,22 +257,95 @@ func toCustomNode(m model.CustomNodes) (domain.CustomNode, error) {
 		}
 	}
 
-	n := domain.CustomNode{
+	return domain.CustomNode{
 		ID: domain.CustomNodeID(m.ID.String()), OwnerID: domain.UserID(m.OwnerID.String()),
 		Name: m.Name, Label: m.Label, Description: m.Description,
-		Settings: make([]domain.CustomSetting, len(settings)), Outputs: outputs,
+		Settings: customSettings(settings), Outputs: outputs,
 		Items:  domain.CustomItems{Passed: items.Passed, Fields: customFields(items.Fields)},
 		Source: m.Source, Version: int(m.Version), CreatedAt: m.CreatedAt.UTC(), UpdatedAt: m.UpdatedAt.UTC(),
-	}
+	}, nil
+}
+
+func settingDocs(settings []domain.CustomSetting) []settingDoc {
+	out := make([]settingDoc, len(settings))
 
 	for i, s := range settings {
-		n.Settings[i] = domain.CustomSetting{
+		out[i] = settingDoc{
 			Name: s.Name, Label: s.Label, Description: s.Description, Kind: s.Kind, Required: s.Required,
 			Default: s.Default, Options: s.Options, Field: s.Field, FieldKinds: s.FieldKinds,
 		}
 	}
 
-	return n, nil
+	return out
+}
+
+func customSettings(docs []settingDoc) []domain.CustomSetting {
+	out := make([]domain.CustomSetting, len(docs))
+
+	for i, s := range docs {
+		out[i] = domain.CustomSetting{
+			Name: s.Name, Label: s.Label, Description: s.Description, Kind: s.Kind, Required: s.Required,
+			Default: s.Default, Options: s.Options, Field: s.Field, FieldKinds: s.FieldKinds,
+		}
+	}
+
+	return out
+}
+
+// customNodeDoc is a custom node's definition as a template keeps it.
+type customNodeDoc struct {
+	Name        string       `json:"name"`
+	Label       string       `json:"label"`
+	Description string       `json:"description,omitempty"`
+	Settings    []settingDoc `json:"settings"`
+	Outputs     []string     `json:"outputs"`
+	Items       itemsDoc     `json:"items"`
+	Source      string       `json:"source"`
+}
+
+func encodeCustomNodes(nodes []domain.CustomNode) (string, error) {
+	docs := make([]customNodeDoc, len(nodes))
+
+	for i, n := range nodes {
+		outputs := n.Outputs
+		if outputs == nil {
+			outputs = []string{}
+		}
+
+		docs[i] = customNodeDoc{
+			Name: n.Name, Label: n.Label, Description: n.Description, Settings: settingDocs(n.Settings),
+			Outputs: outputs, Items: itemsDoc{Passed: n.Items.Passed, Fields: fieldDocs(n.Items.Fields)},
+			Source: n.Source,
+		}
+	}
+
+	b, err := json.Marshal(docs)
+
+	return string(b), err
+}
+
+// decodeCustomNodes keeps numbers in defaults as json.Number, as custom nodes do.
+func decodeCustomNodes(raw string) ([]domain.CustomNode, error) {
+	var docs []customNodeDoc
+
+	dec := json.NewDecoder(bytes.NewReader([]byte(raw)))
+	dec.UseNumber()
+
+	if err := dec.Decode(&docs); err != nil {
+		return nil, fmt.Errorf("postgres: decode custom nodes: %w", err)
+	}
+
+	out := make([]domain.CustomNode, len(docs))
+
+	for i, d := range docs {
+		out[i] = domain.CustomNode{
+			Name: d.Name, Label: d.Label, Description: d.Description, Settings: customSettings(d.Settings),
+			Outputs: d.Outputs, Items: domain.CustomItems{Passed: d.Items.Passed, Fields: customFields(d.Items.Fields)},
+			Source: d.Source,
+		}
+	}
+
+	return out, nil
 }
 
 func customFields(docs []fieldDoc) []domain.CustomField {

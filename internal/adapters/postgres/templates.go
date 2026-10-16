@@ -42,6 +42,7 @@ func (r *Templates) Save(ctx context.Context, t domain.Template) (domain.Templat
 			tt.Summary.SET(tt.EXCLUDED.Summary),
 			tt.Description.SET(tt.EXCLUDED.Description),
 			tt.Definition.SET(tt.EXCLUDED.Definition),
+			tt.CustomNodes.SET(tt.EXCLUDED.CustomNodes),
 			tt.UpdatedAt.SET(tt.EXCLUDED.UpdatedAt),
 		)).
 		RETURNING(tt.AllColumns).
@@ -173,9 +174,14 @@ func toTemplateModel(t domain.Template) (model.Templates, error) {
 		return model.Templates{}, err
 	}
 
+	custom, err := encodeCustomNodes(t.CustomNodes)
+	if err != nil {
+		return model.Templates{}, err
+	}
+
 	m := model.Templates{
 		ID: id, AuthorID: author, Name: t.Name, Summary: t.Summary, Description: t.Description,
-		Definition: def, CreatedAt: t.CreatedAt, UpdatedAt: t.UpdatedAt,
+		Definition: def, CustomNodes: custom, CreatedAt: t.CreatedAt, UpdatedAt: t.UpdatedAt,
 	}
 
 	if t.SourceID != "" {
@@ -196,10 +202,15 @@ func toTemplate(m model.Templates) (domain.Template, error) {
 		return domain.Template{}, err
 	}
 
+	custom, err := decodeCustomNodes(m.CustomNodes)
+	if err != nil {
+		return domain.Template{}, err
+	}
+
 	t := domain.Template{
 		ID: domain.TemplateID(m.ID.String()), AuthorID: domain.UserID(m.AuthorID.String()),
 		Name: m.Name, Summary: m.Summary, Description: m.Description,
-		Nodes: nodes, Connections: conns,
+		Nodes: nodes, Connections: conns, CustomNodes: custom,
 		CreatedAt: m.CreatedAt.UTC(), UpdatedAt: m.UpdatedAt.UTC(),
 	}
 

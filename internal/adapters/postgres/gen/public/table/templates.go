@@ -26,6 +26,7 @@ type templatesTable struct {
 	Definition       postgres.ColumnString
 	CreatedAt        postgres.ColumnTimestampz
 	UpdatedAt        postgres.ColumnTimestampz
+	CustomNodes      postgres.ColumnString
 
 	AllColumns     postgres.ColumnList
 	MutableColumns postgres.ColumnList
@@ -76,9 +77,10 @@ func newTemplatesTableImpl(schemaName, tableName, alias string) templatesTable {
 		DefinitionColumn       = postgres.StringColumn("definition")
 		CreatedAtColumn        = postgres.TimestampzColumn("created_at")
 		UpdatedAtColumn        = postgres.TimestampzColumn("updated_at")
-		allColumns             = postgres.ColumnList{IDColumn, AuthorIDColumn, SourceWorkflowIDColumn, NameColumn, SummaryColumn, DescriptionColumn, DefinitionColumn, CreatedAtColumn, UpdatedAtColumn}
-		mutableColumns         = postgres.ColumnList{AuthorIDColumn, SourceWorkflowIDColumn, NameColumn, SummaryColumn, DescriptionColumn, DefinitionColumn, CreatedAtColumn, UpdatedAtColumn}
-		defaultColumns         = postgres.ColumnList{SummaryColumn, DescriptionColumn}
+		CustomNodesColumn      = postgres.StringColumn("custom_nodes")
+		allColumns             = postgres.ColumnList{IDColumn, AuthorIDColumn, SourceWorkflowIDColumn, NameColumn, SummaryColumn, DescriptionColumn, DefinitionColumn, CreatedAtColumn, UpdatedAtColumn, CustomNodesColumn}
+		mutableColumns         = postgres.ColumnList{AuthorIDColumn, SourceWorkflowIDColumn, NameColumn, SummaryColumn, DescriptionColumn, DefinitionColumn, CreatedAtColumn, UpdatedAtColumn, CustomNodesColumn}
+		defaultColumns         = postgres.ColumnList{SummaryColumn, DescriptionColumn, CustomNodesColumn}
 	)
 
 	return templatesTable{
@@ -94,6 +96,7 @@ func newTemplatesTableImpl(schemaName, tableName, alias string) templatesTable {
 		Definition:       DefinitionColumn,
 		CreatedAt:        CreatedAtColumn,
 		UpdatedAt:        UpdatedAtColumn,
+		CustomNodes:      CustomNodesColumn,
 
 		AllColumns:     allColumns,
 		MutableColumns: mutableColumns,

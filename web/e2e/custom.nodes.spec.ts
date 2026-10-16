@@ -1,4 +1,4 @@
-import { createWorkflow, expect, test, unique } from './fixtures'
+import { createWorkflow, expect, signedOut, signIn, test, unique } from './fixtures'
 
 type Execution = {
   status: string
@@ -130,4 +130,81 @@ test('a node made on its page is in the node list, and the editor marks what a c
 
   await page.goto(`/workflows/${id}`)
   await expect(page.getByText(/no longer matches its node types/)).toBeVisible()
+})
+
+test('sharing a workflow brings its custom nodes; using it copies them, renamed if need be', async ({
+  page,
+  browser,
+}) => {
+  const name = unique('shared')
+  const definition = (source: string) => ({
+    name,
+    label: 'Shared pass',
+    settings: [],
+    outputs: ['main'],
+    items: { passed: true, fields: [] },
+    source,
+  })
+  const passing = 'export function run(items: unknown[]) { return items }'
+
+  expect(
+    (await page.request.post('/api/v1/custom-nodes', { data: definition(passing) })).status(),
+  ).toBe(201)
+
+  const id = await createWorkflow(page, unique('brings'), [
+    { id: 'manual', type: 'trigger.manual' },
+    { id: 'pass', type: `custom.${name}` },
+  ])
+  const shared = await page.request.put(`/api/v1/workflows/${id}/share`, {
+    data: { summary: 'Brings a node', description: '' },
+  })
+  expect(shared.status(), await shared.text()).toBe(200)
+  const template = (await shared.json()) as { id: string }
+
+  // Anyone reads its code before using it (D62).
+  await page.goto(`/library/${template.id}`)
+  const brought = page.getByRole('region', { name: 'Custom nodes it brings' })
+  await expect(brought.getByText(`custom.${name}`)).toBeVisible()
+  await brought.getByText('Shared pass').click()
+  await expect(brought.getByLabel('Code of Shared pass')).toContainText('return items')
+
+  // Someone else, with a different node of that name, uses it.
+  const person = { email: `${unique('user')}@e2e.test`, password: 'user-password-123' }
+  expect((await page.request.post('/api/v1/admin/users', { data: person })).status()).toBe(201)
+
+  const theirs = await browser.newContext({ storageState: signedOut })
+  const them = await theirs.newPage()
+  await signIn(them, person)
+
+  const mine = 'export function run() { return [] }'
+  expect(
+    (await them.request.post('/api/v1/custom-nodes', { data: definition(mine) })).status(),
+  ).toBe(201)
+
+  const used = await them.request.post(`/api/v1/library/${template.id}/use`, { data: {} })
+  expect(used.status(), await used.text()).toBe(201)
+  const workflow = (await used.json()) as { id: string; nodes: { id: string; type: string }[] }
+  expect(workflow.nodes.find((n) => n.id === 'pass')?.type).toBe(`custom.${name}-2`)
+
+  const list = (await (await them.request.get('/api/v1/custom-nodes')).json()) as {
+    customNodes: { name: string; source: string }[]
+  }
+  expect(list.customNodes.map((n) => [n.name, n.source])).toEqual([
+    [name, mine],
+    [`${name}-2`, passing],
+  ])
+
+  const run = await them.request.post(`/api/v1/workflows/${workflow.id}/run`)
+  expect(((await run.json()) as { status: string }).status).toBe('succeeded')
+
+  // Using it again makes no more copies: the one they have is the same.
+  const again = await them.request.post(`/api/v1/library/${template.id}/use`, { data: {} })
+  const second = (await again.json()) as { nodes: { id: string; type: string }[] }
+  expect(second.nodes.find((n) => n.id === 'pass')?.type).toBe(`custom.${name}-2`)
+  const after = (await (await them.request.get('/api/v1/custom-nodes')).json()) as {
+    customNodes: unknown[]
+  }
+  expect(after.customNodes).toHaveLength(2)
+
+  await theirs.close()
 })
