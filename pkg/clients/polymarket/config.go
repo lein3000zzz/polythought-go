@@ -10,6 +10,10 @@ const (
 	DefaultClobURL     = "https://clob.polymarket.com"
 	DefaultDataURL     = "https://data-api.polymarket.com"
 	DefaultMarketWSURL = "wss://ws-subscriptions-clob.polymarket.com/ws/market"
+
+	// DefaultActivityWSURL is the real-time data service, whose activity topic carries every
+	// trade on Polymarket. The topic is no longer documented, but works (2026-10).
+	DefaultActivityWSURL = "wss://ws-live-data.polymarket.com"
 )
 
 // Default request rates sit at the strictest endpoint each client uses
@@ -94,6 +98,45 @@ func (c StreamConfig) withDefaults() StreamConfig {
 
 	if c.PingInterval <= 0 {
 		c.PingInterval = defaultPingInterval
+	}
+
+	if c.ReconnectMin <= 0 {
+		c.ReconnectMin = defaultReconnectMin
+	}
+
+	if c.ReconnectMax < c.ReconnectMin {
+		c.ReconnectMax = max(defaultReconnectMax, c.ReconnectMin)
+	}
+
+	return c
+}
+
+// ActivityStreamConfig configures the activity stream, every trade on Polymarket as it
+// happens.
+type ActivityStreamConfig struct {
+	URL          string
+	BufferSize   int           // events channel capacity, 0 => 4096; newer events are dropped when full
+	PingInterval time.Duration // 0 => 5s
+	Silence      time.Duration // 0 => 15s; nothing for this long forces a reconnect, as the stream can freeze
+	ReconnectMin time.Duration // 0 => 1s
+	ReconnectMax time.Duration // 0 => 30s
+}
+
+func (c ActivityStreamConfig) withDefaults() ActivityStreamConfig {
+	if c.URL == "" {
+		c.URL = DefaultActivityWSURL
+	}
+
+	if c.BufferSize <= 0 {
+		c.BufferSize = 4096
+	}
+
+	if c.PingInterval <= 0 {
+		c.PingInterval = 5 * time.Second
+	}
+
+	if c.Silence <= 0 {
+		c.Silence = 15 * time.Second
 	}
 
 	if c.ReconnectMin <= 0 {

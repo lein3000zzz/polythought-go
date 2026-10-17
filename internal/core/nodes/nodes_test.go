@@ -3,6 +3,7 @@ package nodes_test
 import (
 	"context"
 	"testing"
+	"time"
 
 	"github.com/lein3000zzz/polythought-go/internal/core/nodes"
 	"github.com/lein3000zzz/the-watchers/pkg/observability/logging"
@@ -62,12 +63,12 @@ func TestRegister(t *testing.T) {
 	t.Run("every type says what it emits", func(t *testing.T) {
 		all := engine.NewRegistry()
 		require.NoError(t, nodes.Register(all, nodes.Deps{
-			Logger: logging.Noop(), Feed: portsmocks.NewMockMarketFeed(t),
+			Logger: logging.Noop(), Feed: portsmocks.NewMockMarketFeed(t), Traders: tradersStub{},
 			Messenger: telegramStub{}, TelegramInbox: telegramStub{}, Asker: telegramStub{}, Code: codeStub{},
 		}))
 
 		types := all.Types()
-		assert.Len(t, types, 26)
+		assert.Len(t, types, 27)
 
 		for _, typ := range types {
 			if typ.Name == "code.transform" || typ.Name == "code.aggregate" {
@@ -103,4 +104,10 @@ type codeStub struct{}
 
 func (codeStub) Call(context.Context, ports.CodeCall) (ports.CodeResult, error) {
 	return ports.CodeResult{}, nil
+}
+
+type tradersStub struct{}
+
+func (tradersStub) Follow(context.Context, []domain.WalletAddress, time.Time) (ports.TraderSubscription, error) {
+	return nil, nil //nolint:nilnil // never called: only the types are read
 }

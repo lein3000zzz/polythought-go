@@ -157,7 +157,8 @@ func TestUpdate(t *testing.T) {
 			setup: func(d deps) {
 				d.validator.EXPECT().Validate(mock.Anything, mock.Anything).Return(nil)
 				d.repo.EXPECT().Update(mock.Anything, mock.Anything, 3).Return(nil)
-				d.supervisor.EXPECT().Start(mock.MatchedBy(func(w domain.Workflow) bool { return w.Version == 4 })).Once()
+				// It was running: its triggers may catch up on what they missed.
+				d.supervisor.EXPECT().Resume(mock.MatchedBy(func(w domain.Workflow) bool { return w.Version == 4 })).Once()
 			},
 		},
 		{
@@ -394,8 +395,8 @@ func TestStartActive(t *testing.T) {
 
 	svc, d := newService(t, workflows.DefaultLimits())
 	d.repo.EXPECT().ListActive(mock.Anything).Return([]domain.Workflow{valid, broken}, nil)
-	d.supervisor.EXPECT().Start(valid).Once()
-	d.supervisor.EXPECT().Start(broken).Once()
+	d.supervisor.EXPECT().Resume(valid).Once() // they ran before the server stopped
+	d.supervisor.EXPECT().Resume(broken).Once()
 
 	require.NoError(t, svc.StartActive(context.Background()))
 }

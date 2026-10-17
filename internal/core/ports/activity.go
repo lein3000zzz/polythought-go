@@ -15,6 +15,10 @@ type TradeFilter struct {
 	Until     time.Time
 	Limit     int
 	Cursor    string
+
+	// Makers includes the wallet's resting orders that filled, which are left out
+	// otherwise: only the orders it placed against the book.
+	Makers bool
 }
 
 type PositionFilter struct {

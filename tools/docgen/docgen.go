@@ -229,9 +229,13 @@ func nodePage(t engine.TypeInfo, order int, credTypes []engine.CredentialType) s
 			continue
 		}
 
-		fmt.Fprintf(&b, "\n### %s columns\n\nEach row of **%s** has these cells. Only the whole table takes "+
-			"an [expression](%s/guides/expressions/), not its cells.\n\n"+
-			"| Column | Kind | Required | Default | Description |\n|---|---|---|---|---|\n", labelOf(p), labelOf(p), base)
+		fmt.Fprintf(&b, "\n### %s columns\n\nEach row of **%s** has these cells.", labelOf(p), labelOf(p))
+
+		if !t.Trigger { // a trigger's settings take no expressions at all
+			fmt.Fprintf(&b, " Only the whole table takes an [expression](%s/guides/expressions/), not its cells.", base)
+		}
+
+		b.WriteString("\n\n| Column | Kind | Required | Default | Description |\n|---|---|---|---|---|\n")
 
 		for _, c := range p.Columns {
 			writeParamRow(&b, c, credTypes)

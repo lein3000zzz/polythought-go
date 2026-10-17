@@ -289,6 +289,10 @@ func TestCheckParams(t *testing.T) {
 	}{
 		{name: "an address", params: map[string]any{"who": alice}},
 		{name: "not an address", params: map[string]any{"who": "0x5f3c"}, problem: `param "who" "0x5f3c" is not an address: 0x and 40 hex digits`},
+		{
+			name: "an address with a typo", params: map[string]any{"who": "0x5f3C00000000000000000000000000000000a1b2"},
+			problem: `"0x5f3C00000000000000000000000000000000a1b2" has a typo: its mixed case does not match its checksum`,
+		},
 		{name: "a table", params: map[string]any{"traders": []any{
 			row(nil), row(map[string]any{"label": "Bob", "on": false, "size": "0.5", "side": "buy"}),
 		}}},

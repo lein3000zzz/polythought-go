@@ -7,6 +7,8 @@ import (
 	"regexp"
 	"slices"
 	"time"
+
+	"github.com/lein3000zzz/polythought-go/internal/core/domain"
 )
 
 var address = regexp.MustCompile(`^0x[0-9a-fA-F]{40}$`)
@@ -80,6 +82,10 @@ func checkParam(spec ParamSpec, value any) string {
 
 		if !address.MatchString(s) {
 			return fmt.Sprintf("%q is not an address: 0x and 40 hex digits", s)
+		}
+
+		if _, err := domain.ParseAddress(s); err != nil {
+			return fmt.Sprintf("%q has a typo: its mixed case does not match its checksum", s)
 		}
 
 	case ParamTable:

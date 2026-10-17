@@ -42,6 +42,7 @@ func (r *Reader) ListMarkets(ctx context.Context, f ports.MarketFilter) (ports.P
 		TagIDs:       f.TagIDs,
 		ConditionIDs: toStrings(f.MarketIDs),
 		Slugs:        f.Slugs,
+		TokenIDs:     toStrings(f.TokenIDs),
 	})
 	if err != nil {
 		return ports.Page[domain.Market]{}, err
@@ -121,7 +122,13 @@ func (r *Reader) OrderBooks(ctx context.Context, tokenIDs ...domain.TokenID) ([]
 }
 
 func (r *Reader) Trades(ctx context.Context, f ports.TradeFilter) (ports.Page[domain.Trade], error) {
+	var takerOnly *bool
+	if f.Makers {
+		takerOnly = new(false)
+	}
+
 	page, err := r.data.Trades(ctx, pm.TradesQuery{
+		TakerOnly:  takerOnly,
 		User:       string(f.Wallet),
 		Conditions: toStrings(f.MarketIDs),
 		Side:       fromSide(f.Side),

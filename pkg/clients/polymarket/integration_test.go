@@ -298,3 +298,46 @@ func TestLiveStream(t *testing.T) {
 
 	require.FailNow(t, "stream closed before a book snapshot arrived")
 }
+
+// The activity topic is no longer documented: this says when it stops working as read.
+func TestLiveActivity(t *testing.T) {
+	ctx, cancel := context.WithTimeout(context.Background(), liveTimeout)
+	defer cancel()
+
+	stream, err := NewActivityStreamClient(observability.NoopUtility(), ActivityStreamConfig{})
+	require.NoError(t, err)
+
+	done := make(chan error, 1)
+	go func() { done <- stream.Run(ctx) }()
+
+	var trades, matched int
+
+	for trades < 20 || matched < 1 {
+		select {
+		case ev := <-stream.Events():
+			tr, ok := ev.(ActivityTrade)
+			if !ok {
+				continue
+			}
+
+			if tr.Type == ActivityOrdersMatched {
+				matched++
+				continue
+			}
+
+			trades++
+
+			assert.Regexp(t, `^0x[0-9a-fA-F]{40}$`, tr.ProxyWallet)
+			assert.NotEmpty(t, tr.TransactionHash)
+			assert.NotEmpty(t, tr.Asset)
+			assert.True(t, tr.Size.IsPositive(), "a fill has shares")
+			assert.Positive(t, tr.Timestamp)
+			assert.Contains(t, []Side{SideBuy, SideSell}, tr.Side)
+		case <-ctx.Done():
+			require.FailNow(t, "too little activity", "%d trades, %d matched orders", trades, matched)
+		}
+	}
+
+	cancel()
+	require.NoError(t, <-done)
+}

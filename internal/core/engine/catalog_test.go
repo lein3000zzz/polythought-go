@@ -150,11 +150,11 @@ func TestRunnerTakesTheOwnersTriggers(t *testing.T) {
 
 	runner := engine.NewRunner(observability.NoopUtility(), cat, ex)
 
-	err = runner.Run(t.Context(), domain.Workflow{OwnerID: "alice", Nodes: []domain.NodeSpec{spec("a", "test.pass", nil)}})
+	err = runner.Run(t.Context(), domain.Workflow{OwnerID: "alice", Nodes: []domain.NodeSpec{spec("a", "test.pass", nil)}}, false)
 	require.ErrorIs(t, err, domain.ErrInvalidWorkflow)
 	assert.ErrorContains(t, err, "no trigger node")
 
 	err = engine.NewRunner(observability.NoopUtility(), owners{err: errors.New("db down")}, ex).
-		Run(t.Context(), domain.Workflow{OwnerID: "alice"})
+		Run(t.Context(), domain.Workflow{OwnerID: "alice"}, false)
 	assert.ErrorContains(t, err, "the node types of the workflow's owner: db down")
 }

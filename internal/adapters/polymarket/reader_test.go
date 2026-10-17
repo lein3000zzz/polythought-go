@@ -43,13 +43,14 @@ func TestReader(t *testing.T) {
 			setup: func(m clientMocks) {
 				m.gamma.EXPECT().ListMarkets(mock.Anything, pm.MarketsQuery{
 					Limit: 10, AfterCursor: "cur", Closed: &closed,
-					TagIDs: []string{"tag"}, ConditionIDs: []string{"0xa", "0xb"}, Slugs: []string{"s"},
+					TagIDs: []string{"tag"}, ConditionIDs: []string{"0xa", "0xb"}, Slugs: []string{"s"}, TokenIDs: []string{"t1"},
 				}).Return(pm.Page[pm.Market]{Items: []pm.Market{apiMarket}, NextCursor: "next"}, nil)
 			},
 			call: func(ctx context.Context, r *Reader) (any, error) {
 				return r.ListMarkets(ctx, ports.MarketFilter{
 					Limit: 10, Cursor: "cur", Closed: &closed,
 					MarketIDs: []domain.MarketID{"0xa", "0xb"}, Slugs: []string{"s"}, TagIDs: []string{"tag"},
+					TokenIDs: []domain.TokenID{"t1"},
 				})
 			},
 			want: ports.Page[domain.Market]{Items: []domain.Market{toMarket(apiMarket)}, NextCursor: "next"},
@@ -154,22 +155,24 @@ func TestReader(t *testing.T) {
 			name: "trades map filter and rows",
 			setup: func(m clientMocks) {
 				m.data.EXPECT().Trades(mock.Anything, pm.TradesQuery{
-					User: "0xw", Conditions: []string{"0xc"}, Side: pm.SideSell,
+					User: "0xw", Conditions: []string{"0xc"}, Side: pm.SideSell, TakerOnly: new(false),
 					Start: since.Unix(), End: until.Unix(), Limit: 3, Cursor: "c",
 				}).Return(pm.Page[pm.Trade]{Items: []pm.Trade{{
 					ProxyWallet: "0xw", Side: pm.SideSell, TokenID: "t1", ConditionID: "0xc",
 					Price: dec("0.5"), Size: dec("10"), Timestamp: 1791450374, Outcome: "No", TransactionHash: "0xh",
+					Title: "Will it?", Slug: "will-it", EventSlug: "it", Name: "BOOOST",
 				}}, NextCursor: "n"}, nil)
 			},
 			call: func(ctx context.Context, r *Reader) (any, error) {
 				return r.Trades(ctx, ports.TradeFilter{
 					Wallet: "0xw", MarketIDs: []domain.MarketID{"0xc"}, Side: domain.SideSell,
-					Since: since, Until: until, Limit: 3, Cursor: "c",
+					Since: since, Until: until, Limit: 3, Cursor: "c", Makers: true,
 				})
 			},
 			want: ports.Page[domain.Trade]{Items: []domain.Trade{{
 				MarketID: "0xc", TokenID: "t1", Outcome: "No", Side: domain.SideSell, Price: dec("0.5"), Size: dec("10"),
 				Wallet: "0xw", At: time.Unix(1791450374, 0).UTC(), TxHash: "0xh",
+				Title: "Will it?", Slug: "will-it", EventSlug: "it", Name: "BOOOST",
 			}}, NextCursor: "n"},
 		},
 		{

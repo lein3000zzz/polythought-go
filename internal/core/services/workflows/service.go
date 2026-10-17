@@ -51,6 +51,8 @@ type Executor interface {
 // Supervisor keeps active workflows running.
 type Supervisor interface {
 	Start(w domain.Workflow)
+	// Resume starts a workflow that was running before, so its triggers may catch up.
+	Resume(w domain.Workflow)
 	Stop(id domain.WorkflowID)
 }
 
@@ -229,7 +231,7 @@ func (s *Service) Update(ctx context.Context, p auth.Principal, id domain.Workfl
 	}
 
 	if w.Active {
-		s.supervisor.Start(w)
+		s.supervisor.Resume(w) // it was running: the new version picks up where it stopped
 	}
 
 	s.log.Info(ctx, "Workflow updated", "user_id", p.User.ID, "workflow_id", w.ID, "version", w.Version)
@@ -447,7 +449,7 @@ func (s *Service) StartActive(ctx context.Context) error {
 	}
 
 	for _, w := range active {
-		s.supervisor.Start(w)
+		s.supervisor.Resume(w)
 	}
 
 	s.log.Info(ctx, "Active workflows started", "count", len(active))

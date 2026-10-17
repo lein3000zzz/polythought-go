@@ -67,7 +67,7 @@ func demo(ctx context.Context, args []string) error {
 		return err
 	}
 
-	return engine.NewRunner(util, registry, executor).Run(ctx, wf)
+	return engine.NewRunner(util, registry, executor).Run(ctx, wf, false)
 }
 
 // demoWorkflow fetches open markets, summarises their order books and logs tight and

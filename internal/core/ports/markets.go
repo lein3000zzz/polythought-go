@@ -13,6 +13,7 @@ type MarketFilter struct {
 	MarketIDs []domain.MarketID
 	Slugs     []string
 	TagIDs    []string
+	TokenIDs  []domain.TokenID // the markets of these outcome tokens
 }
 
 type EventFilter struct {

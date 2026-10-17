@@ -74,6 +74,12 @@ func serve(ctx context.Context) error {
 		}
 	}()
 
+	go func() {
+		if err := a.traders.Run(ctx); err != nil {
+			log.Error(ctx, "Trader feed stopped", logging.Err(err))
+		}
+	}()
+
 	// The bot follows its settings: a change restarts it, not the server.
 	telegramDone := make(chan struct{})
 

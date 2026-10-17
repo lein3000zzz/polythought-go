@@ -18,10 +18,12 @@ import (
 	portsmocks "github.com/lein3000zzz/polythought-go/internal/mocks/ports"
 )
 
-// lifeTrigger reports when it starts and stops, and which owner it ran for.
+// lifeTrigger reports when it starts and stops, which owner it ran for, and whether it
+// was resumed.
 type lifeTrigger struct {
 	started chan domain.UserID
 	stopped chan struct{}
+	resumed *atomic.Bool
 }
 
 func (lifeTrigger) Type() engine.NodeType {
@@ -29,6 +31,7 @@ func (lifeTrigger) Type() engine.NodeType {
 }
 
 func (l lifeTrigger) Start(ctx context.Context, tc engine.TriggerContext, _ engine.Emit) error {
+	l.resumed.Store(tc.Resumed)
 	l.started <- tc.OwnerID
 	<-ctx.Done()
 	l.stopped <- struct{}{}
@@ -65,6 +68,15 @@ func TestSupervisor(t *testing.T) {
 
 			assert.Equal(t, domain.UserID("alice"), receive(t, life.started, "start"))
 			assert.True(t, s.Running("wf"))
+		}},
+		{"resuming tells the triggers, starting does not", func(t *testing.T, s *engine.Supervisor, life lifeTrigger) {
+			s.Resume(lifeWorkflow("wf", "alice"))
+			receive(t, life.started, "resume")
+			assert.True(t, life.resumed.Load(), "it ran before: it may catch up")
+
+			s.Start(lifeWorkflow("wf", "alice"))
+			receive(t, life.started, "start")
+			assert.False(t, life.resumed.Load())
 		}},
 		{"starting again replaces the old run first", func(t *testing.T, s *engine.Supervisor, life lifeTrigger) {
 			s.Start(lifeWorkflow("wf", "alice"))
@@ -112,7 +124,7 @@ func TestSupervisor(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			life := lifeTrigger{started: make(chan domain.UserID, 4), stopped: make(chan struct{}, 4)}
+			life := lifeTrigger{started: make(chan domain.UserID, 4), stopped: make(chan struct{}, 4), resumed: new(atomic.Bool)}
 
 			registry := testRegistry(t)
 			require.NoError(t, registry.RegisterTrigger(life))

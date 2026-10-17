@@ -32,7 +32,7 @@ func NewRunner(util *observability.Utility, types Catalog, executor *Executor) *
 //
 // Saving checked the rest of the workflow. Should it no longer hold, say a custom node it
 // uses lost a port, each execution fails saying so, where its owner sees it.
-func (r *Runner) Run(ctx context.Context, w domain.Workflow) error {
+func (r *Runner) Run(ctx context.Context, w domain.Workflow, resumed bool) error {
 	reg, err := r.types.For(ctx, w.OwnerID)
 	if err != nil {
 		return fmt.Errorf("the node types of the workflow's owner: %w", err)
@@ -59,6 +59,7 @@ func (r *Runner) Run(ctx context.Context, w domain.Workflow) error {
 			OwnerID:    w.OwnerID,
 			NodeID:     spec.ID,
 			Params:     newLiteralResolver(trigger.Type(), spec.Params).params,
+			Resumed:    resumed,
 		}
 
 		wg.Go(func() {

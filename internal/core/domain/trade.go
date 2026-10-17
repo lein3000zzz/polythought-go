@@ -24,6 +24,11 @@ type Trade struct {
 	Wallet   WalletAddress
 	At       time.Time
 	TxHash   string
+
+	Title     string // the market's question
+	Slug      string
+	EventSlug string
+	Name      string // the wallet's name on Polymarket, if it has one
 }
 
 type Position struct {

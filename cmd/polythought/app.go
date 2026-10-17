@@ -36,6 +36,7 @@ import (
 	"github.com/lein3000zzz/polythought-go/internal/core/services/notify"
 	"github.com/lein3000zzz/polythought-go/internal/core/services/settings"
 	"github.com/lein3000zzz/polythought-go/internal/core/services/telegram"
+	"github.com/lein3000zzz/polythought-go/internal/core/services/traders"
 	"github.com/lein3000zzz/polythought-go/internal/core/services/waits"
 	"github.com/lein3000zzz/polythought-go/internal/core/services/wallets"
 	"github.com/lein3000zzz/polythought-go/internal/core/services/workflows"
@@ -102,6 +103,7 @@ type app struct {
 	registry    *engine.Registry
 	supervisor  *engine.Supervisor
 	feed        *feed.Hub
+	traders     *traders.Hub
 	events      *events.Hub
 	library     *library.Service
 	customNodes *customnodes.Service
@@ -499,6 +501,18 @@ func (a *app) initEngine(ctx context.Context, pmc polymarket) error {
 		return err
 	}
 
+	// Every trade on Polymarket, while anyone follows a trader, with the Data API
+	// filling gaps (D87); serve runs it too.
+	activityClient, err := pm.NewActivityStreamClient(a.util, pm.ActivityStreamConfig{})
+	if err != nil {
+		return err
+	}
+
+	a.traders, err = traders.NewHub(a.util, pmadapter.NewActivity(activityClient), pmc.reader, pmc.reader, traders.Config{})
+	if err != nil {
+		return err
+	}
+
 	a.registry = engine.NewRegistry()
 
 	// The vault reads credential types from the registry, which nodes.Register fills.
@@ -528,6 +542,7 @@ func (a *app) initEngine(ctx context.Context, pmc polymarket) error {
 		Reminder:      a.notify,
 		Code:          a.code,
 		Feed:          a.feed,
+		Traders:       a.traders,
 		Logger:        a.util.Logger,
 		MinInterval:   current.Duration(config.KeyScheduleMinInterval),
 	})

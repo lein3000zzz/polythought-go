@@ -14,6 +14,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/lein3000zzz/the-watchers/pkg/observability/logging"
 
@@ -73,10 +74,10 @@ const typesDir = "internal/adapters/tscompiler/sdk/types"
 func build() (Pages, map[string]string, error) {
 	registry := engine.NewRegistry()
 
-	// Only the types are read, so the nodes get no real dependencies; the market trigger
-	// registers only with a feed, and the Telegram nodes only with the bot.
+	// Only the types are read, so the nodes get no real dependencies; the market and
+	// wallet triggers register only with a feed, and the Telegram nodes only with the bot.
 	err := nodes.Register(registry, nodes.Deps{
-		Feed: noFeed{}, Messenger: noTelegram{}, TelegramInbox: noTelegram{}, Asker: noTelegram{}, Code: noCode{},
+		Feed: noFeed{}, Traders: noTraders{}, Messenger: noTelegram{}, TelegramInbox: noTelegram{}, Asker: noTelegram{}, Code: noCode{},
 		Logger: logging.Noop(),
 	})
 	if err != nil {
@@ -163,6 +164,12 @@ func generatedFiles(dir string) (map[string]bool, error) {
 type noFeed struct{}
 
 func (noFeed) Subscribe(context.Context, []domain.TokenID) (ports.FeedSubscription, error) {
+	return nil, nil //nolint:nilnil // never called: only the node types are read
+}
+
+type noTraders struct{}
+
+func (noTraders) Follow(context.Context, []domain.WalletAddress, time.Time) (ports.TraderSubscription, error) {
 	return nil, nil //nolint:nilnil // never called: only the node types are read
 }
 

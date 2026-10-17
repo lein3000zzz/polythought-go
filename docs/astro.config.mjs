@@ -23,6 +23,7 @@ export default defineConfig({
             'guides/library',
             'guides/credentials',
             'guides/telegram',
+            'guides/follow-traders',
           ],
         },
         {

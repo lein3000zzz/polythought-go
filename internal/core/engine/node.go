@@ -83,6 +83,12 @@ type TriggerContext struct {
 	OwnerID    domain.UserID
 	NodeID     domain.NodeID
 	Params     Params // resolved once, there is no input item
+
+	// Resumed says the workflow was running before this start, which picks it up again:
+	// the server started, or the workflow was saved while active. A trigger that can
+	// look back may catch up on what happened meanwhile; on a first start there is
+	// nothing to catch up on.
+	Resumed bool
 }
 
 type ParamKind string

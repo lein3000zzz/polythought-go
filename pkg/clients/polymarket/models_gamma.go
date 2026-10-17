@@ -104,6 +104,7 @@ type MarketsQuery struct {
 	TagIDs       []string
 	ConditionIDs []string
 	Slugs        []string
+	TokenIDs     []string // the markets of these outcome tokens
 }
 
 // EventsQuery maps to GET /events/keyset.

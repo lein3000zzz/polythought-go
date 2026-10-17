@@ -1,6 +1,7 @@
 package polymarket
 
 import (
+	"regexp"
 	"sort"
 	"strconv"
 	"strings"
@@ -131,7 +132,24 @@ func toTrade(t pm.Trade) domain.Trade {
 		Wallet:   domain.WalletAddress(t.ProxyWallet),
 		At:       time.Unix(t.Timestamp, 0).UTC(),
 		TxHash:   t.TransactionHash,
+
+		Title:     t.Title,
+		Slug:      t.Slug,
+		EventSlug: t.EventSlug,
+		Name:      traderName(t.Name, t.Pseudonym),
 	}
+}
+
+// placeholderName is the name a profile without a username gets: its address and a time.
+var placeholderName = regexp.MustCompile(`^0x[0-9a-fA-F]{40}-\d+$`)
+
+// traderName is a wallet's name on Polymarket: its username, else its pseudonym.
+func traderName(name, pseudonym string) string {
+	if name == "" || placeholderName.MatchString(name) {
+		return pseudonym
+	}
+
+	return name
 }
 
 func toPosition(p pm.Position) domain.Position {

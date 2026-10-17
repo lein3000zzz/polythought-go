@@ -45,6 +45,46 @@ func (_m *MockSupervisor) EXPECT() *MockSupervisor_Expecter {
 	return &MockSupervisor_Expecter{mock: &_m.Mock}
 }
 
+// Resume provides a mock function for the type MockSupervisor
+func (_mock *MockSupervisor) Resume(w domain.Workflow) {
+	_mock.Called(w)
+	return
+}
+
+// MockSupervisor_Resume_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'Resume'
+type MockSupervisor_Resume_Call struct {
+	*mock.Call
+}
+
+// Resume is a helper method to define mock.On call
+//   - w domain.Workflow
+func (_e *MockSupervisor_Expecter) Resume(w any) *MockSupervisor_Resume_Call {
+	return &MockSupervisor_Resume_Call{Call: _e.mock.On("Resume", w)}
+}
+
+func (_c *MockSupervisor_Resume_Call) Run(run func(w domain.Workflow)) *MockSupervisor_Resume_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 domain.Workflow
+		if args[0] != nil {
+			arg0 = args[0].(domain.Workflow)
+		}
+		run(
+			arg0,
+		)
+	})
+	return _c
+}
+
+func (_c *MockSupervisor_Resume_Call) Return() *MockSupervisor_Resume_Call {
+	_c.Call.Return()
+	return _c
+}
+
+func (_c *MockSupervisor_Resume_Call) RunAndReturn(run func(w domain.Workflow)) *MockSupervisor_Resume_Call {
+	_c.Run(run)
+	return _c
+}
+
 // Start provides a mock function for the type MockSupervisor
 func (_mock *MockSupervisor) Start(w domain.Workflow) {
 	_mock.Called(w)

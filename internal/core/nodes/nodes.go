@@ -33,6 +33,7 @@ type Deps struct {
 	Webhooks     ports.WebhookSender
 	Credentials  ports.CredentialReader // optional: without it, nodes cannot use credentials
 	Feed         ports.MarketFeed       // optional: without it, trigger.market is not available
+	Traders      ports.TraderFeed       // optional: without it, trigger.walletActivity is not available
 	Logger       logging.Logger
 
 	// Messenger, TelegramInbox and Asker are optional: without them the Telegram nodes
@@ -61,9 +62,13 @@ func Register(r *engine.Registry, d Deps) error {
 		return err
 	}
 
-	var market error
+	var market, wallet error
 	if d.Feed != nil {
 		market = r.RegisterTrigger(triggers.NewMarket(d.Feed, minInterval))
+	}
+
+	if d.Traders != nil {
+		wallet = r.RegisterTrigger(triggers.NewWalletActivity(d.Traders, d.Logger, time.Now))
 	}
 
 	var telegramSend, telegramTrigger, telegramAsk error
@@ -92,6 +97,7 @@ func Register(r *engine.Registry, d Deps) error {
 	return errors.Join(
 		errors.Join(code...),
 		market,
+		wallet,
 		telegramSend,
 		telegramTrigger,
 		telegramAsk,

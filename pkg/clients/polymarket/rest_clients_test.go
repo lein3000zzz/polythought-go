@@ -83,10 +83,10 @@ func TestRESTRequests(t *testing.T) {
 			call: func(ctx context.Context, c restClients) (any, error) {
 				return c.gamma.ListMarkets(ctx, MarketsQuery{
 					Limit: 5, AfterCursor: "abc", Closed: &closed,
-					TagIDs: []string{"1", "2"}, ConditionIDs: []string{"0xc"}, Slugs: []string{"a", "b"},
+					TagIDs: []string{"1", "2"}, ConditionIDs: []string{"0xc"}, Slugs: []string{"a", "b"}, TokenIDs: []string{"t1"},
 				})
 			},
-			wantURI: "/markets/keyset?after_cursor=abc&closed=false&condition_ids=0xc&limit=5&slug=a&slug=b&tag_id=1&tag_id=2",
+			wantURI: "/markets/keyset?after_cursor=abc&clob_token_ids=t1&closed=false&condition_ids=0xc&limit=5&slug=a&slug=b&tag_id=1&tag_id=2",
 			check: func(t *testing.T, result any) {
 				page := result.(Page[Market])
 				assert.NotEmpty(t, page.Items)

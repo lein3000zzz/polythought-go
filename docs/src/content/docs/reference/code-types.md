@@ -642,6 +642,85 @@ export interface TriggerTelegramItem {
     receivedAt: TimeText;
 }
 
+/** The settings of Wallet activity (trigger.walletActivity). */
+export interface TriggerWalletActivitySettings {
+    /** A row a trader: their trades start the workflow while their row is on. A table: a row each. */
+    traders: {
+        /** Who they are to you. */
+        label: string;
+        /** Their Polymarket wallet: the address in their profile's link. A Polygon address: 0x and 40 hex digits. */
+        address: string;
+        /**
+         * Off, their trades are not followed.
+         * @default true
+         */
+        on?: boolean;
+        /** Scales what Copy sizing works out for their trades; empty is 1. */
+        scale?: DecimalText | number;
+        /** The most dollars a copy of one of their trades may spend; empty leaves it to the Risk guard. */
+        maxDollars?: DecimalText | number;
+    }[];
+    /**
+     * @default ["buy","sell"]
+     */
+    sides?: ("buy" | "sell")[];
+    /**
+     * Trades worth fewer dollars are skipped.
+     * @default "0"
+     */
+    least?: DecimalText | number;
+    /**
+     * After the server restarts or the trade stream drops, trades missed meanwhile still start the workflow if they are younger than this, up to an hour; older ones are skipped.
+     * @default "2m"
+     */
+    catchUp?: DurationText;
+}
+
+/** An item Wallet activity (trigger.walletActivity) sends on. */
+export interface TriggerWalletActivityItem {
+    /** Whose trade it is: their row of Traders. */
+    trader: {
+        /** Their label. */
+        label: string;
+        /** Their wallet. */
+        address: string;
+        /** Their name on Polymarket. */
+        name: string | null;
+        /** Size ×: what Copy sizing works out is scaled by it. */
+        scale: DecimalText | null;
+        /** Max $: the most a copy may spend. */
+        maxDollars: DecimalText | null;
+    };
+    /** Whether they bought or sold. */
+    side: "buy" | "sell";
+    /** taker: their order met the book; maker: a resting order of theirs filled. Null when the source did not say. */
+    role: "taker" | "maker" | null;
+    /** The outcome's token ID. */
+    tokenId: string;
+    /** The market's condition ID. */
+    marketId: string | null;
+    /** The market's question. */
+    question: string | null;
+    /** The outcome, like Yes. */
+    outcome: string | null;
+    /** The market's slug. */
+    slug: string | null;
+    /** Its event's slug. */
+    eventSlug: string | null;
+    /** Shares traded, all its fills together. */
+    shares: DecimalText;
+    /** The average price per share. */
+    price: DecimalText;
+    /** Dollars traded: shares times their prices. */
+    dollars: DecimalText;
+    /** How many fills it took. */
+    fills: number;
+    /** The transaction. */
+    txHash: string;
+    /** When it happened. */
+    at: TimeText;
+}
+
 /**
  * Every node type by name: its settings, and the items it sends on. "received" means
  * the items it was given, as they are; "picked", those with only the fields its
@@ -827,6 +906,13 @@ export interface NodeTypes {
     "trigger.telegram": {
         settings: TriggerTelegramSettings;
         items: TriggerTelegramItem;
+        trigger: true;
+        inputs: never;
+        outputs: "main";
+    };
+    "trigger.walletActivity": {
+        settings: TriggerWalletActivitySettings;
+        items: TriggerWalletActivityItem;
         trigger: true;
         inputs: never;
         outputs: "main";

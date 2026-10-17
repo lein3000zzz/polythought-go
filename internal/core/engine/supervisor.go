@@ -39,6 +39,16 @@ func NewSupervisor(root context.Context, runner *Runner, log logging.Logger) *Su
 // Start runs w until Stop or shutdown, replacing a previous run of the same workflow.
 // It returns once the old run has stopped, so two versions never run side by side.
 func (s *Supervisor) Start(w domain.Workflow) {
+	s.start(w, false)
+}
+
+// Resume starts a workflow that was running before, as at a server start or when it is
+// saved while active, so its triggers may catch up on what they missed meanwhile.
+func (s *Supervisor) Resume(w domain.Workflow) {
+	s.start(w, true)
+}
+
+func (s *Supervisor) start(w domain.Workflow, resumed bool) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -51,12 +61,12 @@ func (s *Supervisor) Start(w domain.Workflow) {
 	s.wg.Go(func() {
 		defer close(r.done)
 
-		if err := s.runner.Run(ctx, w); err != nil {
+		if err := s.runner.Run(ctx, w, resumed); err != nil {
 			s.log.Error(ctx, "Workflow stopped with an error", "workflow_id", w.ID, "owner_id", w.OwnerID, logging.Err(err))
 		}
 	})
 
-	s.log.Info(s.root, "Workflow started", "workflow_id", w.ID, "version", w.Version)
+	s.log.Info(s.root, "Workflow started", "workflow_id", w.ID, "version", w.Version, "resumed", resumed)
 }
 
 // Stop ends a workflow's run and waits for it. Stopping a workflow that is not running

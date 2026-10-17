@@ -114,7 +114,7 @@ func TestText(t *testing.T) {
 func TestTypeNamesAreUnique(t *testing.T) {
 	registry := engine.NewRegistry()
 	require.NoError(t, nodes.Register(registry, nodes.Deps{
-		Feed: noFeed{}, Messenger: noTelegram{}, TelegramInbox: noTelegram{}, Asker: noTelegram{}, Code: noCode{},
+		Feed: noFeed{}, Traders: noTraders{}, Messenger: noTelegram{}, TelegramInbox: noTelegram{}, Asker: noTelegram{}, Code: noCode{},
 		Logger: logging.Noop(),
 	}))
 

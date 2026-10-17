@@ -127,7 +127,7 @@ func TestRunner(t *testing.T) {
 			defer cancel()
 
 			done := make(chan error, 1)
-			go func() { done <- runner.Run(ctx, tt.workflow) }()
+			go func() { done <- runner.Run(ctx, tt.workflow, false) }()
 
 			require.Eventually(t, func() bool { return runs.Load() >= tt.wantRuns }, waitFor, time.Millisecond)
 
