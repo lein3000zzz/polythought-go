@@ -127,6 +127,32 @@ export default workflow("Spread watch", (w) => {
     })
   })
 
+  it('prints a table a row per line', () => {
+    const code = roundTrip({
+      name: 'Copy',
+      nodes: [
+        {
+          id: 'copy',
+          type: 'test.copy',
+          params: {
+            traders: [
+              { label: 'Alice', address: '0x5f3c00000000000000000000000000000000a1b2' },
+              { label: 'Bob', address: '0x91d000000000000000000000000000000000c7e4', on: false },
+            ],
+          },
+        },
+      ],
+      connections: [],
+    })
+
+    expect(code).toContain(`  const copy = w.node("copy", "test.copy", {
+    traders: [
+      { label: "Alice", address: "0x5f3c00000000000000000000000000000000a1b2" },
+      { label: "Bob", address: "0x91d000000000000000000000000000000000c7e4", on: false },
+    ],
+  })`)
+  })
+
   it('names variables after IDs, apart from each other and from the words of JavaScript', () => {
     const code = roundTrip({
       name: 'w',

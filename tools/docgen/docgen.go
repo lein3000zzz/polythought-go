@@ -220,36 +220,22 @@ func nodePage(t engine.TypeInfo, order int, credTypes []engine.CredentialType) s
 	b.WriteString("\n## Settings\n\n| Setting | Kind | Required | Default | Description |\n|---|---|---|---|---|\n")
 
 	for _, p := range t.Params {
-		label := p.Label
-		if label == "" {
-			label = p.Name
+		writeParamRow(&b, p, credTypes)
+	}
+
+	// A table's columns, each like a setting of every row.
+	for _, p := range t.Params {
+		if p.Kind != engine.ParamTable {
+			continue
 		}
 
-		required := "no"
-		if p.Required {
-			required = "yes"
-		}
+		fmt.Fprintf(&b, "\n### %s columns\n\nEach row of **%s** has these cells. Only the whole table takes "+
+			"an [expression](%s/guides/expressions/), not its cells.\n\n"+
+			"| Column | Kind | Required | Default | Description |\n|---|---|---|---|---|\n", labelOf(p), labelOf(p), base)
 
-		notes := []string{p.Description}
-		if len(p.Options) > 0 {
-			notes = append(notes, "One of "+codes(p.Options)+".")
+		for _, c := range p.Columns {
+			writeParamRow(&b, c, credTypes)
 		}
-
-		if p.Field {
-			notes = append(notes, fieldNote(p))
-		}
-
-		if p.Personal() {
-			notes = append(notes, "Personal: sharing the workflow leaves it out.")
-		}
-
-		def := defaultOf(p.Default)
-		if p.Kind == engine.ParamCode && p.Default != nil {
-			def = "a starter, below"
-		}
-
-		fmt.Fprintf(&b, "| %s (`%s`) | %s | %s | %s | %s |\n",
-			cell(label), p.Name, paramKind(p, credTypes), required, def, cell(strings.Join(nonEmpty(notes), " ")))
 	}
 
 	for _, p := range t.Params {
@@ -349,6 +335,43 @@ func fieldNote(p engine.ParamSpec) string {
 	return what + "; saving checks the items have it."
 }
 
+// writeParamRow writes a row of a settings table, or of a table's columns.
+func writeParamRow(b *strings.Builder, p engine.ParamSpec, credTypes []engine.CredentialType) {
+	required := "no"
+	if p.Required {
+		required = "yes"
+	}
+
+	notes := []string{p.Description}
+	if len(p.Options) > 0 {
+		notes = append(notes, "One of "+codes(p.Options)+".")
+	}
+
+	if p.Field {
+		notes = append(notes, fieldNote(p))
+	}
+
+	if p.Personal() {
+		notes = append(notes, "Personal: sharing the workflow leaves it out.")
+	}
+
+	def := defaultOf(p.Default)
+	if p.Kind == engine.ParamCode && p.Default != nil {
+		def = "a starter, below"
+	}
+
+	fmt.Fprintf(b, "| %s (`%s`) | %s | %s | %s | %s |\n",
+		cell(labelOf(p)), p.Name, paramKind(p, credTypes), required, def, cell(strings.Join(nonEmpty(notes), " ")))
+}
+
+func labelOf(p engine.ParamSpec) string {
+	if p.Label == "" {
+		return p.Name
+	}
+
+	return p.Label
+}
+
 func kindName(k engine.FieldKind) string {
 	switch k {
 	case engine.FieldBool:
@@ -378,6 +401,10 @@ func paramKind(p engine.ParamSpec, credTypes []engine.CredentialType) string {
 		return "one of your [wallets](" + base + "/guides/concepts/#wallets)"
 	case engine.ParamTokens:
 		return "list of token IDs"
+	case engine.ParamAddress:
+		return "address: `0x` and 40 hex digits"
+	case engine.ParamTable:
+		return "table, its columns below"
 	case engine.ParamCode:
 		return "TypeScript; see [Code nodes](" + base + "/guides/code/)"
 	case engine.ParamCredential:

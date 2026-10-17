@@ -73,6 +73,7 @@ var exprType = NodeType{
 		{Name: "wallet", Kind: ParamWallet},
 		{Name: "field", Kind: ParamString, Field: true},
 		{Name: "ports", Kind: ParamList},
+		{Name: "rows", Kind: ParamTable, Columns: []ParamSpec{{Name: "label", Kind: ParamString, Required: true}}},
 	},
 }
 
@@ -162,6 +163,27 @@ func mustInt(t *testing.T, p Params, name string) int {
 	require.NoError(t, err)
 
 	return n
+}
+
+func TestResolveTable(t *testing.T) {
+	t.Parallel()
+
+	rows := []any{map[string]any{"label": "Alice"}}
+
+	p, err := resolver(t, &fakeEvaluator{}, map[string]any{"rows": "{{ traders }}"}, map[string]any{"traders": rows}).
+		Resolve(at(0))
+	require.NoError(t, err)
+	assert.Equal(t, rows, p["rows"], "the whole table, worked out (D82)")
+
+	_, err = resolver(t, &fakeEvaluator{}, map[string]any{"rows": "{{ traders }}"}, map[string]any{"traders": "Alice"}).
+		Resolve(at(0))
+	require.EqualError(t, err, `param "rows": {{ traders }} gave "Alice", which must be a table: a list of rows`)
+
+	cells := []any{map[string]any{"label": "{{ question }}"}}
+	p, err = resolver(t, &fakeEvaluator{}, map[string]any{"rows": cells}, map[string]any{"question": "BTC?"}).
+		Resolve(at(0))
+	require.NoError(t, err)
+	assert.Equal(t, cells, p["rows"], "cells are plain values")
 }
 
 func TestResolveTemplate(t *testing.T) {

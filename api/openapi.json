@@ -1144,6 +1144,14 @@
             },
             "ParamSpec": {
                 "properties": {
+                    "columns": {
+                        "description": "Columns are the cells of each row of a table, in order, keyed by name: text, a\nwhole number, a decimal, true or false, or an address, text with options being one\nof a few choices. Only the whole table takes an expression.",
+                        "items": {
+                            "$ref": "#/components/schemas/ParamSpec"
+                        },
+                        "type": "array",
+                        "uniqueItems": false
+                    },
                     "credentialType": {
                         "description": "CredentialType is the kind of credential a credential param takes, one of the\nuser's of that type.",
                         "type": "string"
@@ -1183,6 +1191,8 @@
                             "duration",
                             "wallet",
                             "tokens",
+                            "address",
+                            "table",
                             "credential",
                             "code"
                         ],

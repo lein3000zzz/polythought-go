@@ -1168,6 +1168,12 @@ export interface components {
         };
         ParamSpec: {
             /**
+             * @description Columns are the cells of each row of a table, in order, keyed by name: text, a
+             *     whole number, a decimal, true or false, or an address, text with options being one
+             *     of a few choices. Only the whole table takes an expression.
+             */
+            columns?: components["schemas"]["ParamSpec"][];
+            /**
              * @description CredentialType is the kind of credential a credential param takes, one of the
              *     user's of that type.
              */
@@ -1182,7 +1188,7 @@ export interface components {
             field?: boolean;
             fieldKinds?: ("text" | "number" | "decimal" | "bool" | "time" | "list" | "object" | "any")[];
             /** @enum {string} */
-            kind: "string" | "number" | "decimal" | "bool" | "list" | "duration" | "wallet" | "tokens" | "credential" | "code";
+            kind: "string" | "number" | "decimal" | "bool" | "list" | "duration" | "wallet" | "tokens" | "address" | "table" | "credential" | "code";
             label?: string;
             name: string;
             /** @description Options are the allowed values of a string, or of each element of a list. */

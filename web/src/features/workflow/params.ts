@@ -4,6 +4,7 @@ import type { NodeType, ParamSpec } from '@/api/client'
 const duration = /^(\d+(\.\d+)?(ns|us|µs|ms|s|m|h))+$/
 const wholeNumber = /^-?\d+$/
 const decimal = /^-?(\d+(\.\d*)?|\.\d+)$/
+const address = /^0x[0-9a-fA-F]{40}$/
 
 export type Parsed = { value: unknown; problem?: string }
 
@@ -37,6 +38,11 @@ export function parseText(spec: ParamSpec, text: string): Parsed {
       return duration.test(t) && /[1-9]/.test(t)
         ? { value: t }
         : { value: t, problem: 'Enter a duration like 30s, 5m or 1h30m' }
+
+    case 'address':
+      return address.test(t)
+        ? { value: t }
+        : { value: t, problem: 'Enter an address: 0x and 40 hex digits' }
 
     case 'list':
     case 'tokens': {

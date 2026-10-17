@@ -130,6 +130,10 @@ func toParamDTO(p engine.ParamSpec) paramDTO {
 		dto.FieldKinds = append(dto.FieldKinds, string(k))
 	}
 
+	for _, c := range p.Columns {
+		dto.Columns = append(dto.Columns, toParamDTO(c))
+	}
+
 	return dto
 }
 

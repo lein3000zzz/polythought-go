@@ -34,6 +34,13 @@ func TestNodeDeclarations(t *testing.T) {
 				{Name: "on", Kind: engine.ParamList, Default: []any{"trade"}, Options: []string{"trade", "book"}},
 				{Name: "least", Kind: engine.ParamDecimal, Description: "Ignore smaller */ ones."},
 				{Name: "field", Kind: engine.ParamString, Field: true, Required: true},
+				{Name: "who", Kind: engine.ParamAddress},
+				{Name: "traders", Kind: engine.ParamTable, Columns: []engine.ParamSpec{
+					{Name: "label", Kind: engine.ParamString, Required: true, Description: "Who they are to you."},
+					{Name: "address", Kind: engine.ParamAddress, Required: true},
+					{Name: "on", Kind: engine.ParamBool, Default: true},
+					{Name: "side", Kind: engine.ParamString, Options: []string{"buy", "sell"}},
+				}},
 			},
 			Items: &engine.Items{Fields: []engine.Field{
 				{Name: "side", Kind: engine.FieldText, Options: []string{"buy", "sell"}, Description: "Who took."},
@@ -64,6 +71,14 @@ func TestNodeDeclarations(t *testing.T) {
 		"    /**\n     * @default [\"trade\"]\n     */\n    on?: (\"trade\" | \"book\")[] | Expression;\n",
 		"    /** Ignore smaller *\\/ ones. */\n    least?: DecimalText | number | Expression;\n",
 		"    /** A field of the items it receives. */\n    field: string;\n",
+		"    /** A Polygon address: 0x and 40 hex digits. */\n    who?: string;\n",
+		// The whole table takes an expression; its cells are plain values (D82).
+		"    /** A table: a row each. */\n    traders?: {\n" +
+			"        /** Who they are to you. */\n        label: string;\n" +
+			"        /** A Polygon address: 0x and 40 hex digits. */\n        address: string;\n" +
+			"        /**\n         * @default true\n         */\n        on?: boolean;\n" +
+			"        side?: \"buy\" | \"sell\";\n" +
+			"    }[] | Expression;\n",
 		"/** An item Quote (test.quote) sends on. */\nexport interface TestQuoteItem {\n" +
 			"    /** Who took. */\n    side: \"buy\" | \"sell\";\n" +
 			"    bid: DecimalText | null;\n" +

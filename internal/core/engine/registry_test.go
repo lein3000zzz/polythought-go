@@ -51,6 +51,24 @@ func TestRegistryRegister(t *testing.T) {
 			},
 			wantErr: true,
 		},
+		{
+			name:     "a table",
+			register: withTable(engine.ParamSpec{Name: "label", Kind: engine.ParamString, Options: []string{"a", "b"}}),
+		},
+		{name: "a table without columns", register: withTable(), wantErr: true},
+		{name: "a column of a kind cells do not hold", register: withTable(engine.ParamSpec{Name: "w", Kind: engine.ParamWallet}), wantErr: true},
+		{name: "a column named twice", register: withTable(engine.ParamSpec{Name: "a", Kind: engine.ParamBool}, engine.ParamSpec{Name: "a", Kind: engine.ParamBool}), wantErr: true},
+		{name: "an unnamed column", register: withTable(engine.ParamSpec{Kind: engine.ParamBool}), wantErr: true},
+		{name: "choices of a number column", register: withTable(engine.ParamSpec{Name: "n", Kind: engine.ParamNumber, Options: []string{"1"}}), wantErr: true},
+		{
+			name: "columns on a param that is not a table",
+			register: func(r *engine.Registry) error {
+				return r.RegisterNode(fakeNode{typ: engine.NodeType{Name: "test.cols", Params: []engine.ParamSpec{
+					{Name: "s", Kind: engine.ParamString, Columns: []engine.ParamSpec{{Name: "a", Kind: engine.ParamBool}}},
+				}}})
+			},
+			wantErr: true,
+		},
 	}
 
 	for _, tt := range tests {
@@ -63,6 +81,15 @@ func TestRegistryRegister(t *testing.T) {
 				require.NoError(t, err)
 			}
 		})
+	}
+}
+
+// withTable registers a node type with a table of these columns.
+func withTable(columns ...engine.ParamSpec) func(r *engine.Registry) error {
+	return func(r *engine.Registry) error {
+		return r.RegisterNode(fakeNode{typ: engine.NodeType{Name: "test.table", Params: []engine.ParamSpec{
+			{Name: "rows", Kind: engine.ParamTable, Columns: columns},
+		}}})
 	}
 }
 
@@ -234,7 +261,25 @@ func TestCheckParams(t *testing.T) {
 			{Name: "wallet", Kind: engine.ParamWallet},
 			{Name: "tokens", Kind: engine.ParamTokens},
 			{Name: "key", Kind: engine.ParamCredential, CredentialType: "test.key"},
+			{Name: "who", Kind: engine.ParamAddress},
+			{Name: "traders", Kind: engine.ParamTable, Columns: []engine.ParamSpec{
+				{Name: "label", Label: "Label", Kind: engine.ParamString, Required: true},
+				{Name: "address", Label: "Address", Kind: engine.ParamAddress, Required: true},
+				{Name: "on", Label: "On", Kind: engine.ParamBool, Default: true},
+				{Name: "size", Label: "Size", Kind: engine.ParamDecimal},
+				{Name: "side", Label: "Side", Kind: engine.ParamString, Options: []string{"buy", "sell"}},
+			}},
 		},
+	}
+
+	alice := "0x5f3c00000000000000000000000000000000a1b2"
+	row := func(cells map[string]any) map[string]any {
+		out := map[string]any{"label": "Alice", "address": alice}
+		for k, v := range cells {
+			out[k] = v
+		}
+
+		return out
 	}
 
 	tests := []struct {
@@ -242,6 +287,22 @@ func TestCheckParams(t *testing.T) {
 		params  map[string]any
 		problem string // "" means valid
 	}{
+		{name: "an address", params: map[string]any{"who": alice}},
+		{name: "not an address", params: map[string]any{"who": "0x5f3c"}, problem: `param "who" "0x5f3c" is not an address: 0x and 40 hex digits`},
+		{name: "a table", params: map[string]any{"traders": []any{
+			row(nil), row(map[string]any{"label": "Bob", "on": false, "size": "0.5", "side": "buy"}),
+		}}},
+		{name: "a table with no rows", params: map[string]any{"traders": []any{}}},
+		{name: "a cell left out for its default", params: map[string]any{"traders": []any{row(map[string]any{"on": nil})}}},
+		{name: "not a table", params: map[string]any{"traders": "Alice"}, problem: `param "traders" must be a table: a list of rows`},
+		{name: "a row that is not one", params: map[string]any{"traders": []any{"Alice"}}, problem: `param "traders" in row 1: must be a row of cells`},
+		{name: "a required cell missing", params: map[string]any{"traders": []any{row(nil), map[string]any{"label": "Bob"}}}, problem: `param "traders" in row 2: Address is missing`},
+		{name: "a cell of the wrong kind", params: map[string]any{"traders": []any{row(map[string]any{"size": "lots"})}}, problem: `param "traders" in row 1: Size must be a number`},
+		{name: "a cell not an address", params: map[string]any{"traders": []any{row(map[string]any{"address": "alice.eth"})}}, problem: `param "traders" in row 1: Address "alice.eth" is not an address`},
+		{name: "a choice outside the list", params: map[string]any{"traders": []any{row(map[string]any{"side": "hold"})}}, problem: `param "traders" in row 1: Side "hold" is not one of [buy sell]`},
+		{name: "a cell with no column", params: map[string]any{"traders": []any{row(map[string]any{"colour": "red"})}}, problem: `param "traders" in row 1: there is no column "colour"`},
+		{name: "a cell's {{ }} is text", params: map[string]any{"traders": []any{row(map[string]any{"label": "{{ name }}"})}}},
+		{name: "too many rows", params: map[string]any{"traders": make([]any, engine.MaxRows+1)}, problem: `param "traders" has 501 rows, more than the 500 allowed`},
 		{name: "valid values", params: map[string]any{
 			"op": "gt", "on": []any{"trade"}, "every": "5s", "flag": true, "n": 3, "wallet": "w-1", "tokens": []any{"t1"},
 			"key": "cred-1",

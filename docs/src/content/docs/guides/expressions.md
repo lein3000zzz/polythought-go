@@ -47,7 +47,9 @@ value is one `{{ }}`: **Limit** `{{ params.max }}`, **Operator** `{{ params.urge
 leaves the setting's default.
 
 Switches and dropdowns cannot hold text, so press **`{{ }}`** next to the setting's name to
-write an expression instead; press it again to choose as before.
+write an expression instead; press it again to choose as before. A table takes one the same
+way, for the whole table: it must give a list of rows, each as the table's columns say. Its
+cells are plain values, `{{ }}` and all.
 
 Text around expressions makes text, which the setting then reads: `{{ minutes }}m` is a
 duration.

@@ -228,7 +228,7 @@ type paramDTO struct {
 	Name        string `json:"name"`
 	Label       string `json:"label,omitempty" validate:"optional"`
 	Description string `json:"description,omitempty" validate:"optional"`
-	Kind        string `json:"kind" enums:"string,number,decimal,bool,list,duration,wallet,tokens,credential,code"`
+	Kind        string `json:"kind" enums:"string,number,decimal,bool,list,duration,wallet,tokens,address,table,credential,code"`
 	Required    bool   `json:"required"`
 	Default     any    `json:"default,omitempty" validate:"optional"`
 	// Options are the allowed values of a string, or of each element of a list.
@@ -243,6 +243,10 @@ type paramDTO struct {
 	// the kinds that field may be.
 	Field      bool     `json:"field,omitempty" validate:"optional"`
 	FieldKinds []string `json:"fieldKinds,omitempty" validate:"optional" enums:"text,number,decimal,bool,time,list,object,any"`
+	// Columns are the cells of each row of a table, in order, keyed by name: text, a
+	// whole number, a decimal, true or false, or an address, text with options being one
+	// of a few choices. Only the whole table takes an expression.
+	Columns []paramDTO `json:"columns,omitempty" validate:"optional"`
 } // @name ParamSpec
 
 type nodeTypeDTO struct {

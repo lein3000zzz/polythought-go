@@ -26,6 +26,9 @@ list on the left, the canvas in the middle and the selected node's settings on t
   `{{ dec(spread).times(100) }}`; inside, the editor completes the fields there and
   underlines what does not fit. Switches and dropdowns take one through the **`{{ }}`**
   button by their name. See [Expressions](/docs/guides/expressions/).
+- **Tables**: a setting with a row each, like a list of traders, shows how many rows it has;
+  **Edit** opens them in a table to add, change, reorder and remove rows. Each column says
+  what its cells take, and a cell left empty takes the column's default.
 - **Notes** on a node are for you: they show on the canvas and never change what it does.
 - **Continue on failure** sends items the node fails on to its `error` port instead of
   failing the execution; see [When items fail](/docs/guides/concepts/#when-items-fail).

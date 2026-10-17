@@ -101,6 +101,10 @@ function paramType(s: ParamSpec): string {
     case 'list':
     case 'tokens':
       return 'string[]'
+    case 'table':
+      return `{ ${(s.columns ?? [])
+        .map((c) => `${identifier(c.name) ? c.name : JSON.stringify(c.name)}?: ${paramType(c)}`)
+        .join('; ')} }[]`
     default:
       return s.options?.length ? s.options.map((o) => JSON.stringify(o)).join(' | ') : 'string'
   }

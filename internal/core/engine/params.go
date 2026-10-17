@@ -47,6 +47,59 @@ func (r literalResolver) Resolve(ItemRef) (Params, error) {
 	return maps.Clone(r.params), nil
 }
 
+// Table reads a table param (D80): its rows, each a Params of its cells, with the
+// columns' defaults where a cell is empty. A table not set has no rows.
+func (p Params) Table(name string, columns []ParamSpec) ([]Params, error) {
+	v, ok := p[name]
+	if !ok || v == nil {
+		return nil, nil
+	}
+
+	var rows []map[string]any
+
+	switch x := v.(type) {
+	case []any:
+		for _, r := range x {
+			row, ok := r.(map[string]any)
+			if !ok {
+				return nil, invalid(name, v, "a table")
+			}
+
+			rows = append(rows, row)
+		}
+	case []map[string]any:
+		rows = x
+	case []Params:
+		for _, r := range x {
+			rows = append(rows, r)
+		}
+	default:
+		return nil, invalid(name, v, "a table")
+	}
+
+	out := make([]Params, len(rows))
+
+	for i, row := range rows {
+		cells := make(Params, len(columns)+len(row))
+
+		for _, col := range columns {
+			if col.Default != nil {
+				cells[col.Name] = col.Default
+			}
+		}
+
+		for k, cell := range row {
+			if cell != nil {
+				cells[k] = cell
+			}
+		}
+
+		out[i] = cells
+	}
+
+	return out, nil
+}
+
 func (p Params) get(name string) (any, error) {
 	v, ok := p[name]
 	if !ok || v == nil {

@@ -89,7 +89,18 @@ function ordered(params: Record<string, unknown>, type: NodeType | undefined): E
 
 function broken(entries: Entry[]): string {
   const inner = indent + indent
-  return `{\n${entries.map(([k, v]) => `${inner}${key(k)}: ${value(v)},`).join('\n')}\n${indent}}`
+  return `{\n${entries.map(([k, v]) => `${inner}${key(k)}: ${brokenValue(v, inner)},`).join('\n')}\n${indent}}`
+}
+
+// A table, a list of rows, goes a row per line; anything else as it is.
+function brokenValue(v: unknown, at: string): string {
+  const rows =
+    Array.isArray(v) &&
+    v.length > 0 &&
+    v.every((r) => r !== null && typeof r === 'object' && !Array.isArray(r))
+  if (!rows) return value(v)
+
+  return `[\n${v.map((r) => `${at}${indent}${value(r)},`).join('\n')}\n${at}]`
 }
 
 function object(entries: Entry[]): string {

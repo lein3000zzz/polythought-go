@@ -1,7 +1,8 @@
 import { QueryClientProvider } from '@tanstack/react-query'
-import { render, screen } from '@testing-library/react'
+import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { http, HttpResponse } from 'msw'
+import { useState } from 'react'
 import { describe, expect, it, vi } from 'vitest'
 
 import { createQueryClient } from '@/api/queryClient'
@@ -131,5 +132,118 @@ describe('expressions in switches and dropdowns', () => {
 
     expect(screen.getByRole('switch')).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: /Use an expression/ })).not.toBeInTheDocument()
+  })
+})
+
+describe('table field', () => {
+  const traders: ParamSpec = {
+    name: 'traders',
+    label: 'Traders',
+    kind: 'table',
+    required: false,
+    columns: [
+      { name: 'label', label: 'Label', kind: 'string', required: true },
+      { name: 'address', label: 'Address', kind: 'address', required: true },
+      { name: 'on', label: 'On', kind: 'bool', required: false, default: true },
+      { name: 'side', label: 'Side', kind: 'string', required: false, options: ['buy', 'sell'] },
+      { name: 'size', label: 'Size', kind: 'decimal', required: false },
+    ],
+  }
+
+  const alice = '0x5f3c00000000000000000000000000000000a1b2'
+  const bob = '0x91d000000000000000000000000000000000c7e4'
+  const carol = '0x0b7a000000000000000000000000000000009f00'
+
+  // table renders the field with its value kept, as the node panel keeps it.
+  function table(initial: unknown, expressions = false) {
+    const changes: unknown[] = []
+
+    function Harness() {
+      const [value, setValue] = useState(initial)
+
+      return (
+        <ParamField
+          spec={traders}
+          value={value}
+          expressions={expressions}
+          onChange={(v) => {
+            changes.push(v)
+            setValue(v)
+          }}
+        />
+      )
+    }
+
+    render(<Harness />)
+
+    return { changes, user: userEvent.setup() }
+  }
+
+  it('sums the rows up, and edits them in a dialog', async () => {
+    const { changes, user } = table([
+      { label: 'Alice', address: alice },
+      { label: 'Bob', address: bob, on: false },
+    ])
+
+    expect(screen.getByText('2 rows: Alice, Bob')).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Edit traders' }))
+
+    const dialog = within(screen.getByRole('dialog', { name: 'Traders' }))
+    expect(dialog.getByRole('textbox', { name: 'Label, row 1' })).toHaveValue('Alice')
+    expect(dialog.getByRole('checkbox', { name: 'On, row 1' })).toBeChecked() // its default
+    expect(dialog.getByRole('checkbox', { name: 'On, row 2' })).not.toBeChecked()
+
+    await user.click(dialog.getByRole('button', { name: 'Add a row' }))
+    await user.type(dialog.getByRole('textbox', { name: 'Label, row 3' }), 'Carol')
+    await user.type(dialog.getByRole('textbox', { name: 'Address, row 3' }), '0x12')
+    expect(dialog.getByRole('alert')).toHaveTextContent(
+      'Row 3, Address: Enter an address: 0x and 40 hex digits',
+    )
+
+    await user.clear(dialog.getByRole('textbox', { name: 'Address, row 3' }))
+    await user.type(dialog.getByRole('textbox', { name: 'Address, row 3' }), carol)
+    expect(dialog.queryByRole('alert')).not.toBeInTheDocument()
+
+    await user.selectOptions(dialog.getByRole('combobox', { name: 'Side, row 3' }), 'sell')
+    await user.type(dialog.getByRole('textbox', { name: 'Size, row 3' }), '0.5')
+    await user.click(dialog.getByRole('button', { name: 'Move row 3 up' }))
+    await user.click(dialog.getByRole('button', { name: 'Remove row 1' }))
+
+    // What was typed moves with its row.
+    expect(dialog.getByRole('textbox', { name: 'Label, row 1' })).toHaveValue('Carol')
+    expect(changes.at(-1)).toEqual([
+      { label: 'Carol', address: carol, side: 'sell', size: '0.5' },
+      { label: 'Bob', address: bob, on: false },
+    ])
+
+    await user.click(dialog.getByRole('button', { name: 'Done' }))
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+    expect(screen.getByText('2 rows: Carol, Bob')).toBeInTheDocument()
+  })
+
+  it('points at required cells left empty, and keeps no rows as unset', async () => {
+    const { changes, user } = table(undefined)
+
+    expect(screen.getByText('No rows yet')).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Edit traders' }))
+
+    const dialog = within(screen.getByRole('dialog'))
+    await user.click(dialog.getByRole('button', { name: 'Add a row' }))
+    expect(dialog.getByRole('alert')).toHaveTextContent('Row 1: Label is required')
+    expect(dialog.getByRole('alert')).toHaveTextContent('Row 1: Address is required')
+
+    await user.click(dialog.getByRole('button', { name: 'Remove row 1' }))
+    expect(changes.at(-1)).toBeUndefined()
+  })
+
+  it('takes the whole table as an expression', async () => {
+    const { changes, user } = table([{ label: 'Alice', address: alice }], true)
+
+    await user.click(screen.getByRole('button', { name: 'Use an expression for Traders' }))
+    await user.click(screen.getByRole('textbox'))
+    await user.paste('{{ params.traders }}')
+
+    expect(changes.at(-1)).toBe('{{ params.traders }}')
+    expect(screen.queryByRole('button', { name: 'Edit traders' })).not.toBeInTheDocument()
   })
 })

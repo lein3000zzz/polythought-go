@@ -3,9 +3,13 @@ package engine
 import (
 	"errors"
 	"fmt"
+	"maps"
+	"regexp"
 	"slices"
 	"time"
 )
+
+var address = regexp.MustCompile(`^0x[0-9a-fA-F]{40}$`)
 
 // CheckValue says why value does not fit the setting, as saving checks it, or nil.
 func (spec ParamSpec) CheckValue(value any) error {
@@ -67,9 +71,108 @@ func checkParam(spec ParamSpec, value any) string {
 				return msg
 			}
 		}
+
+	case ParamAddress:
+		s, err := p.String(spec.Name)
+		if err != nil {
+			return "must be an address"
+		}
+
+		if !address.MatchString(s) {
+			return fmt.Sprintf("%q is not an address: 0x and 40 hex digits", s)
+		}
+
+	case ParamTable:
+		return checkTable(spec, value)
 	}
 
 	return ""
+}
+
+// checkTableParams checks a node type's tables when it registers: columns only on tables,
+// and of the kinds cells hold (D80), each named once.
+func checkTableParams(typ NodeType) error {
+	for _, p := range typ.Params {
+		if p.Kind != ParamTable {
+			if len(p.Columns) > 0 {
+				return fmt.Errorf("register node type %q: param %q has columns but is not a table", typ.Name, p.Name)
+			}
+
+			continue
+		}
+
+		if len(p.Columns) == 0 {
+			return fmt.Errorf("register node type %q: table %q has no columns", typ.Name, p.Name)
+		}
+
+		seen := map[string]bool{}
+
+		for _, c := range p.Columns {
+			switch {
+			case c.Name == "" || seen[c.Name]:
+				return fmt.Errorf("register node type %q: table %q: column %q is unnamed or named twice", typ.Name, p.Name, c.Name)
+			case !slices.Contains(CellKinds, c.Kind):
+				return fmt.Errorf("register node type %q: table %q: column %q cannot be %s", typ.Name, p.Name, c.Name, c.Kind)
+			case len(c.Options) > 0 && c.Kind != ParamString:
+				return fmt.Errorf("register node type %q: table %q: only text columns have choices, not %q", typ.Name, p.Name, c.Name)
+			}
+
+			seen[c.Name] = true
+		}
+	}
+
+	return nil
+}
+
+// checkTable checks every row of a table param: each cell as its column's kind, required
+// ones there, no others.
+func checkTable(spec ParamSpec, value any) string {
+	rows, ok := value.([]any)
+	if !ok {
+		return "must be a table: a list of rows"
+	}
+
+	if len(rows) > MaxRows {
+		return fmt.Sprintf("has %d rows, more than the %d allowed", len(rows), MaxRows)
+	}
+
+	for i, r := range rows {
+		row, ok := r.(map[string]any)
+		if !ok {
+			return fmt.Sprintf("in row %d: must be a row of cells", i+1)
+		}
+
+		for _, col := range spec.Columns {
+			cell := row[col.Name]
+			if cell == nil {
+				if col.Required && col.Default == nil {
+					return fmt.Sprintf("in row %d: %s is missing", i+1, columnName(col))
+				}
+
+				continue
+			}
+
+			if msg := checkParam(col, cell); msg != "" {
+				return fmt.Sprintf("in row %d: %s %s", i+1, columnName(col), msg)
+			}
+		}
+
+		for _, key := range slices.Sorted(maps.Keys(row)) {
+			if !slices.ContainsFunc(spec.Columns, func(c ParamSpec) bool { return c.Name == key }) {
+				return fmt.Sprintf("in row %d: there is no column %q", i+1, key)
+			}
+		}
+	}
+
+	return ""
+}
+
+func columnName(col ParamSpec) string {
+	if col.Label != "" {
+		return col.Label
+	}
+
+	return col.Name
 }
 
 func checkOption(spec ParamSpec, s string) string {

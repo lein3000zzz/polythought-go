@@ -138,31 +138,68 @@ func writeSettings(b *strings.Builder, t engine.TypeInfo) {
 			doc = append(doc, fmt.Sprintf("The ID of one of your credentials of type %s.", p.CredentialType))
 		case p.Kind == engine.ParamTokens:
 			doc = append(doc, "Outcome token IDs.")
+		case p.Kind == engine.ParamAddress:
+			doc = append(doc, addressDoc)
+		case p.Kind == engine.ParamTable:
+			doc = append(doc, "A table: a row each.")
 		}
 
-		var tags []string
-		if p.Default != nil {
-			if d, err := json.Marshal(p.Default); err == nil {
-				tags = append(tags, "@default "+string(d))
-			}
-		}
-
-		writeDoc(b, "    ", strings.TrimSpace(strings.Join(doc, " ")), tags...)
-
-		optional := "?"
-		if p.Required && p.Default == nil {
-			optional = ""
-		}
+		writeDoc(b, "    ", strings.TrimSpace(strings.Join(doc, " ")), defaultTag(p)...)
 
 		typ := paramType(p)
 		if !t.Trigger && engine.TakesExpressions(t.NodeType, p) && !strings.HasSuffix(typ, "string") {
 			typ += " | Expression" // text takes {{ }} as it is
 		}
 
-		fmt.Fprintf(b, "    %s%s: %s;\n", property(p.Name), optional, typ)
+		fmt.Fprintf(b, "    %s%s: %s;\n", property(p.Name), optionalMark(p), typ)
 	}
 
 	b.WriteString("}\n")
+}
+
+const addressDoc = "A Polygon address: 0x and 40 hex digits."
+
+func optionalMark(p engine.ParamSpec) string {
+	if p.Required && p.Default == nil {
+		return ""
+	}
+
+	return "?"
+}
+
+func defaultTag(p engine.ParamSpec) []string {
+	if p.Default == nil {
+		return nil
+	}
+
+	d, err := json.Marshal(p.Default)
+	if err != nil {
+		return nil
+	}
+
+	return []string{"@default " + string(d)}
+}
+
+// rowType is the type of a table's rows: an object of its cells, each as its column
+// says, plain values (D82).
+func rowType(p engine.ParamSpec) string {
+	var b strings.Builder
+
+	b.WriteString("{\n")
+
+	for _, c := range p.Columns {
+		doc := c.Description
+		if c.Kind == engine.ParamAddress {
+			doc = strings.TrimSpace(doc + " " + addressDoc)
+		}
+
+		writeDoc(&b, "        ", doc, defaultTag(c)...)
+		fmt.Fprintf(&b, "        %s%s: %s;\n", property(c.Name), optionalMark(c), paramType(c))
+	}
+
+	b.WriteString("    }[]")
+
+	return b.String()
 }
 
 func paramType(p engine.ParamSpec) string {
@@ -185,7 +222,9 @@ func paramType(p engine.ParamSpec) string {
 		return "DurationText"
 	case engine.ParamTokens:
 		return "string[]"
-	default: // code, and wallets and credentials by ID
+	case engine.ParamTable:
+		return rowType(p)
+	default: // code, addresses, and wallets and credentials by ID
 		return "string"
 	}
 }

@@ -85,3 +85,49 @@ func TestParamsGetters(t *testing.T) {
 		})
 	}
 }
+
+func TestParamsTable(t *testing.T) {
+	columns := []engine.ParamSpec{
+		{Name: "label", Kind: engine.ParamString},
+		{Name: "on", Kind: engine.ParamBool, Default: true},
+	}
+
+	t.Run("rows as JSON gives them, defaults where a cell is empty", func(t *testing.T) {
+		rows, err := engine.Params{"t": []any{
+			map[string]any{"label": "Alice"},
+			map[string]any{"label": "Bob", "on": false},
+			map[string]any{"label": "Carol", "on": nil},
+		}}.Table("t", columns)
+		require.NoError(t, err)
+
+		assert.Equal(t, []engine.Params{
+			{"label": "Alice", "on": true},
+			{"label": "Bob", "on": false},
+			{"label": "Carol", "on": true},
+		}, rows)
+
+		on, err := rows[1].Bool("on")
+		require.NoError(t, err)
+		assert.False(t, on, "each row reads as params do")
+	})
+
+	t.Run("rows as Go makes them", func(t *testing.T) {
+		rows, err := engine.Params{"t": []map[string]any{{"label": "Alice"}}}.Table("t", columns)
+		require.NoError(t, err)
+		assert.Equal(t, []engine.Params{{"label": "Alice", "on": true}}, rows)
+	})
+
+	t.Run("a table not set has no rows", func(t *testing.T) {
+		rows, err := engine.Params{}.Table("t", columns)
+		require.NoError(t, err)
+		assert.Empty(t, rows)
+	})
+
+	t.Run("something else", func(t *testing.T) {
+		_, err := engine.Params{"t": "Alice"}.Table("t", columns)
+		require.ErrorIs(t, err, engine.ErrInvalidParam)
+
+		_, err = engine.Params{"t": []any{"Alice"}}.Table("t", columns)
+		require.ErrorIs(t, err, engine.ErrInvalidParam)
+	})
+}

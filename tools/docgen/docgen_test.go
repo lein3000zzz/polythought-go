@@ -125,3 +125,20 @@ func TestTypeNamesAreUnique(t *testing.T) {
 		seen[name] = typ.Name
 	}
 }
+
+func TestTablePage(t *testing.T) {
+	page := nodePage(engine.TypeInfo{NodeType: engine.NodeType{
+		Name: "test.copy", Label: "Copy", Description: "Copies traders.", Inputs: []string{"main"}, Outputs: []string{"main"},
+		Params: []engine.ParamSpec{{Name: "traders", Label: "Traders", Kind: engine.ParamTable, Columns: []engine.ParamSpec{
+			{Name: "address", Label: "Address", Kind: engine.ParamAddress, Required: true, Description: "Their wallet."},
+			{Name: "side", Label: "Side", Kind: engine.ParamString, Options: []string{"buy", "sell"}},
+			{Name: "on", Label: "On", Kind: engine.ParamBool, Default: true},
+		}}},
+	}}, 1, nil)
+
+	assert.Contains(t, page, "| Traders (`traders`) | table, its columns below | no |  |  |")
+	assert.Contains(t, page, "### Traders columns\n\nEach row of **Traders** has these cells.")
+	assert.Contains(t, page, "| Address (`address`) | address: `0x` and 40 hex digits | yes |  | Their wallet. |")
+	assert.Contains(t, page, "| Side (`side`) | text | no |  | One of `buy`, `sell`. |")
+	assert.Contains(t, page, "| On (`on`) | true or false | no | `true` |  |")
+}

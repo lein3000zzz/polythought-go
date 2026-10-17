@@ -16,6 +16,8 @@ import { shortAddress } from '@/lib/format'
 
 import { chosen, hasExpressions, parseText, textOf } from './params'
 import type { FieldChoice } from './shapes'
+import { rowsOf } from './table'
+import { TableDialog } from './TableDialog'
 
 type Props = {
   spec: ParamSpec
@@ -33,8 +35,9 @@ type Props = {
 /** The input for one node param, chosen by its kind. */
 export function ParamField(props: Props) {
   const { spec, value, expressions, onChange } = props
-  // Switches and dropdowns can't hold an expression, so they turn into text for one.
-  const choice = spec.kind === 'bool' || Boolean(spec.options?.length)
+  // Switches, dropdowns and tables can't hold an expression, so they turn into text for
+  // one: a table as a whole (D82).
+  const choice = spec.kind === 'bool' || spec.kind === 'table' || Boolean(spec.options?.length)
   const [asExpression, setAsExpression] = useState(() => hasExpressions(value))
 
   if (!choice || !expressions) return <Control {...props} />
@@ -75,6 +78,7 @@ function Control(props: Props) {
   if (spec.options?.length) return <SelectField {...props} />
   if (spec.kind === 'list' || spec.kind === 'tokens') return <TextField {...props} multiline />
   if (spec.kind === 'code') return <CodeField {...props} />
+  if (spec.kind === 'table') return <TableField {...props} />
 
   return <TextField {...props} />
 }
@@ -83,6 +87,47 @@ const placeholders: Partial<Record<ParamSpec['kind'], string>> = {
   duration: 'e.g. 30s, 5m, 1h',
   tokens: 'One token ID per line',
   list: 'One per line',
+  address: '0x…',
+}
+
+// TableField sums a table up, with a button to its rows (D81).
+function TableField({ spec, value, onChange, problem, scope, action }: Props) {
+  const [open, setOpen] = useState(false)
+  const rows = rowsOf(value)
+  const label = spec.label || spec.name
+  const first = spec.columns?.[0]
+  const names = first ? rows.map((r) => textOf(r[first.name])).filter(Boolean) : []
+
+  let summary = rows.length === 1 ? '1 row' : `${rows.length} rows`
+  if (rows.length === 0) summary = 'No rows yet'
+  else if (names.length > 0)
+    summary += `: ${names.slice(0, 3).join(', ')}${names.length > 3 ? ', …' : ''}`
+
+  return (
+    <Field spec={spec} scope={scope} problem={problem} action={action} group>
+      <div className="flex items-center justify-between gap-2">
+        <span className="min-w-0 truncate text-sm text-muted-foreground">{summary}</span>
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          aria-invalid={Boolean(problem) || undefined}
+          onClick={() => setOpen(true)}
+        >
+          Edit {/^.[a-z]/.test(label) ? label[0].toLowerCase() + label.slice(1) : label}
+        </Button>
+      </div>
+      {open && (
+        <TableDialog
+          spec={spec}
+          value={value}
+          onChange={onChange}
+          onClose={() => setOpen(false)}
+          problem={problem}
+        />
+      )}
+    </Field>
+  )
 }
 
 // CodeField is TypeScript, in Monaco once it loads.

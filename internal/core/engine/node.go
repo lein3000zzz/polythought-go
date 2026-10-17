@@ -96,6 +96,11 @@ const (
 	ParamDuration ParamKind = "duration" // a Go duration string: "30s", "5m"
 	ParamWallet   ParamKind = "wallet"   // the ID of one of the owner's wallets
 	ParamTokens   ParamKind = "tokens"   // a list of token IDs
+	ParamAddress  ParamKind = "address"  // a Polygon address: 0x and 40 hex digits
+
+	// ParamTable is a list of rows, each an object of the cells its Columns describe
+	// (D80): a trader per row, say.
+	ParamTable ParamKind = "table"
 
 	// ParamCredential is the ID of one of the owner's credentials, of the type the
 	// param's CredentialType names.
@@ -134,7 +139,18 @@ type ParamSpec struct {
 	// Template marks a text param the node fills in itself, per item, with
 	// Params.Template, so it can escape the values: a message in HTML, say.
 	Template bool
+
+	// Columns are the cells of each row of a table param, in order, keyed by Name. Each
+	// is a kind a cell can hold (CellKinds), with Options for one of a few choices.
+	// Cells are plain values: only the whole table takes an expression (D82).
+	Columns []ParamSpec
 }
+
+// CellKinds are the kinds a table's columns may be (D80).
+var CellKinds = []ParamKind{ParamString, ParamNumber, ParamDecimal, ParamBool, ParamAddress}
+
+// MaxRows is the most rows a table param may have.
+const MaxRows = 500
 
 // Personal reports whether the value belongs to whoever configured it, so sharing must
 // leave it out.
