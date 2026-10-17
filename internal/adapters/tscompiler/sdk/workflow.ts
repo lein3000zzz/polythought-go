@@ -13,9 +13,10 @@
  *     tight.port("true").to(log)
  *   })
  *
- * Settings are typed by node type, and so are port names (D73). The Code tab runs this
- * and puts the workflow it gives on the canvas (D66). This file is the package too: the
- * editor loads it as @polythought/workflow, with the user's node types.
+ * Settings are typed by node type, and so are port names (D73). This file is the package
+ * wherever workflow code is: the editor loads it as @polythought/workflow, with the
+ * user's node types, and the server bundles it with the code it runs for the Code tab's
+ * Apply (D74), whose workflow goes on the canvas (D66).
  */
 import type { NodeTypes } from '@polythought/sdk'
 

@@ -35,8 +35,8 @@ var (
 	sdkRunner *jsruntime.Runner
 )
 
-// withSDK runs source's export run through the code service, with the SDK and data.
-func withSDK(t *testing.T, source string, args []any, data code.Data, limits ports.CodeLimits) (ports.CodeResult, error) {
+// withSDKRunner is a runner with the SDK as its prelude, as the server's.
+func withSDKRunner(t *testing.T) *jsruntime.Runner {
 	t.Helper()
 
 	sdkOnce.Do(func() {
@@ -47,7 +47,14 @@ func withSDK(t *testing.T, source string, args []any, data code.Data, limits por
 		require.NoError(t, err)
 	})
 
-	return code.New(compiler(t), sdkRunner, data).Call(context.Background(), ports.CodeCall{
+	return sdkRunner
+}
+
+// withSDK runs source's export run through the code service, with the SDK and data.
+func withSDK(t *testing.T, source string, args []any, data code.Data, limits ports.CodeLimits) (ports.CodeResult, error) {
+	t.Helper()
+
+	return code.New(compiler(t), withSDKRunner(t), data).Call(context.Background(), ports.CodeCall{
 		Owner: "alice", Source: source, Export: "run", Args: args,
 		Params:    map[string]any{"threshold": "0.02"},
 		Execution: ports.CodeExecution{ID: "ex-1", WorkflowID: "wf-1", StartedAt: time.Date(2026, 10, 15, 12, 0, 0, 0, time.UTC)},

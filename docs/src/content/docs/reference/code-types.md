@@ -12,7 +12,7 @@ import { dec } from "@polythought/sdk"
 import type { Context, PolymarketMarketsItem } from "@polythought/sdk"
 ```
 
-Decimals are `DecimalText` and times `TimeText`: text, so they stay exact. `NodeTypes` names every node type's settings and items; a node that passes on what it receives says `"received"`.
+Decimals are `DecimalText` and times `TimeText`: text, so they stay exact. `NodeTypes` names every node type's settings and items, whether it is a trigger, and its inputs and outputs, which [workflow code](/docs/guides/workflow-code/) is typed by; a node that passes on what it receives says `"received"`.
 
 ## Node types
 

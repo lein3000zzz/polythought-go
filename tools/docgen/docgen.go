@@ -76,7 +76,9 @@ func codeTypesPage(files []ports.CodeFile) string {
 		"`PolymarketMarketsSettings` and `PolymarketMarketsItem`.\n\n" +
 		"```ts\nimport { dec } from \"@polythought/sdk\"\nimport type { Context, PolymarketMarketsItem } from \"@polythought/sdk\"\n```\n\n" +
 		"Decimals are `DecimalText` and times `TimeText`: text, so they stay exact. `NodeTypes` names " +
-		"every node type's settings and items; a node that passes on what it receives says `\"received\"`.\n")
+		"every node type's settings and items, whether it is a trigger, and its inputs and outputs, which " +
+		"[workflow code](/docs/guides/workflow-code/) is typed by; a node that passes on what it receives " +
+		"says `\"received\"`.\n")
 
 	for _, part := range []struct{ title, file string }{{"Node types", "nodes.d.ts"}, {"The SDK", "sdk.d.ts"}} {
 		for _, f := range files {

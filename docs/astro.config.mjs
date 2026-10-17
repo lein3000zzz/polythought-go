@@ -19,6 +19,7 @@ export default defineConfig({
             'guides/expressions',
             'guides/code',
             'guides/custom-nodes',
+            'guides/workflow-code',
             'guides/library',
             'guides/credentials',
             'guides/telegram',

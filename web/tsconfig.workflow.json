@@ -9,7 +9,7 @@
     "types": []
   },
   "include": [
-    "src/features/workflowcode/workflow.ts",
+    "../internal/adapters/tscompiler/sdk/workflow.ts",
     "src/features/workflowcode/workflow.types.ts"
   ],
   "exclude": []

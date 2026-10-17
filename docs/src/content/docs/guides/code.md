@@ -16,7 +16,8 @@ works:
 
 Each node run calls your code once, in a sandbox: it has no files and no network, only
 what the SDK gives it. For a node type of your own, with settings and outputs you choose,
-see [Write your first custom node](/docs/guides/custom-nodes/).
+see [Write your first custom node](/docs/guides/custom-nodes/); for a whole workflow as
+code, [Workflows as code](/docs/guides/workflow-code/).
 
 ```ts
 import { dec, markets } from "@polythought/sdk"
@@ -69,7 +70,7 @@ Expressions are not code: they work for everyone either way.
 
 If you may not write code, the Code group of the node list is greyed out, and code nodes
 already in a workflow say *Code is off for you*. A workflow with code nodes cannot be
-saved. When one is triggered, it fails at once, before any node runs, and says why. It
+saved, and the editor's Code view shows a workflow's code without applying it. When one is triggered, it fails at once, before any node runs, and says why. It
 stays on, so once you may write code again it runs as before.
 
 ## When something goes wrong

@@ -194,6 +194,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/code/workflow": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Run workflow code */
+        post: operations["runWorkflowCode"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/credential-types": {
         parameters: {
             query?: never;
@@ -987,9 +1004,10 @@ export interface components {
             /**
              * @description Problems lists everything wrong with a submitted workflow (code invalid_workflow),
              *     with changed settings (code invalid_input, param is the setting's key) or with a
-             *     credential (code invalid_input, param is "name" or "values.<field>"), or with a
+             *     credential (code invalid_input, param is "name" or "values.<field>"), with a
              *     custom node (code invalid_input, param is the part of its form: "name",
-             *     "settings.0.default", "outputs.1", "items", "source").
+             *     "settings.0.default", "outputs.1", "items", "source"), or with workflow code that
+             *     does not compile (code invalid_code, with line and column).
              */
             problems?: components["schemas"]["Problem"][];
             /**
@@ -1174,6 +1192,9 @@ export interface components {
             sensitive?: boolean;
         };
         Problem: {
+            column?: number;
+            /** @description Line and Column are where in the code a problem is, from 1, columns in characters. */
+            line?: number;
             message: string;
             nodeId?: string;
             param?: string;
@@ -1454,6 +1475,20 @@ export interface components {
             /** Format: date-time */
             updatedAt: string;
             version: number;
+        };
+        WorkflowCode: {
+            /**
+             * @description Workflow is what the code builds. Code says nothing of positions: every node's is
+             *     0, 0, for the editor to place.
+             */
+            workflow: components["schemas"]["WorkflowDefinition"];
+        };
+        WorkflowCodeRequest: {
+            /**
+             * @description Source is TypeScript whose default export is a workflow made with
+             *     @polythought/workflow.
+             */
+            source: string;
         };
         WorkflowDefinition: {
             connections: components["schemas"]["Connection"][];
@@ -2109,6 +2144,58 @@ export interface operations {
             };
             /** @description unauthenticated */
             401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    runWorkflowCode: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description The code */
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["WorkflowCodeRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WorkflowCode"];
+                };
+            };
+            /** @description invalid_code */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description unauthenticated */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description code_off: an admin has turned code off for you */
+            403: {
                 headers: {
                     [name: string]: unknown;
                 };

@@ -26,7 +26,9 @@
       "@/*": ["./src/*"],
       // The SDK's types, with the built-in node types, for @polythought/workflow; in the
       // editor, Monaco loads the user's own.
-      "@polythought/sdk": ["../internal/adapters/tscompiler/sdk/types/index.d.ts"]
+      "@polythought/sdk": ["../internal/adapters/tscompiler/sdk/types/index.d.ts"],
+      // The builder of workflow code, beside the SDK, where the server embeds it (D74).
+      "@polythought/workflow": ["../internal/adapters/tscompiler/sdk/workflow.ts"]
     }
   },
   "include": ["src"],

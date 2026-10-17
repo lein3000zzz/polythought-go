@@ -12,13 +12,21 @@ const api = process.env.POLYTHOUGHT_API_URL ?? 'http://localhost:8080'
 // The docs, from `make docs-dev`, under the same origin too.
 const docs = process.env.POLYTHOUGHT_DOCS_URL ?? 'http://localhost:4321'
 
+// The builder of workflow code lives beside the SDK, where the server embeds it (D74).
+const sdk = path.resolve(import.meta.dirname, '../internal/adapters/tscompiler/sdk')
+
 export default defineConfig({
   plugins: [react(), tailwindcss()],
   resolve: {
-    alias: { '@': path.resolve(import.meta.dirname, 'src') },
+    alias: [
+      { find: '@', replacement: path.resolve(import.meta.dirname, 'src') },
+      // With ?raw too, for the editor's copy of it.
+      { find: /^@polythought\/workflow(?=$|\?)/, replacement: path.join(sdk, 'workflow.ts') },
+    ],
   },
   server: {
     proxy: { '/api': api, '/docs': docs },
+    fs: { allow: ['.', sdk] },
   },
   // Monaco's workers are modules that import others.
   worker: { format: 'es' },

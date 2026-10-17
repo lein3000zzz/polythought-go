@@ -1,12 +1,14 @@
 // Package tscompiler turns user TypeScript into JavaScript for the runtime, with esbuild.
-// Code may import only the SDK, which the runtime provides as a global: nothing from npm,
-// the file system or the network gets in. Compiled code is cached in memory by the
-// source's hash; compiling again after a restart takes a millisecond.
+// Code may import only the SDK, which the runtime provides as a global, and workflow code
+// the builder too, bundled from the binary: nothing from npm, the file system or the
+// network gets in. Compiled code is cached in memory by the source's hash; compiling
+// again after a restart takes a millisecond.
 package tscompiler
 
 import (
 	"context"
 	"crypto/sha256"
+	_ "embed"
 	"encoding/hex"
 	"errors"
 	"fmt"
@@ -26,13 +28,22 @@ import (
 )
 
 const (
-	tracerName = "github.com/lein3000zzz/polythought-go/internal/adapters/tscompiler"
-	opCompile  = "tscompiler.Compile"
+	tracerName        = "github.com/lein3000zzz/polythought-go/internal/adapters/tscompiler"
+	opCompile         = "tscompiler.Compile"
+	opCompileWorkflow = "tscompiler.CompileWorkflow"
 
 	// SDKModule is the one module code may import. It reads SDKGlobal, which the
 	// runtime sets.
 	SDKModule = "@polythought/sdk"
 	SDKGlobal = "__polythought_sdk"
+
+	// WorkflowModule is the builder of workflow code (D64), which only workflow code may
+	// import.
+	WorkflowModule = "@polythought/workflow"
+
+	// WorkflowEntry is the function compiled workflow code defines, which returns the
+	// code's default export: the workflow.
+	WorkflowEntry = "__polythought_workflow"
 
 	// ExportsGlobal is where compiled code puts its exports.
 	ExportsGlobal = "__polythought_code"
@@ -49,6 +60,11 @@ const (
 	// MaxExpression is the longest expression compiled, in bytes.
 	MaxExpression = 16 << 10
 )
+
+// The builder, sdk/workflow.ts: the editor loads the same file as @polythought/workflow.
+//
+//go:embed sdk/workflow.ts
+var workflowSource string
 
 var _ ports.CodeCompiler = (*Compiler)(nil)
 
@@ -79,12 +95,22 @@ func New(util *observability.Utility) (*Compiler, error) {
 	}, nil
 }
 
-func (c *Compiler) Compile(ctx context.Context, source string) (code ports.CompiledCode, err error) {
-	done := c.kit.Start(ctx, opCompile)
+func (c *Compiler) Compile(ctx context.Context, source string) (ports.CompiledCode, error) {
+	return c.compileCached(ctx, opCompile, source, false)
+}
+
+// CompileWorkflow compiles workflow code (D74) as Compile does code nodes', with the
+// builder bundled in as WorkflowModule. Its Invoke is WorkflowEntry.
+func (c *Compiler) CompileWorkflow(ctx context.Context, source string) (ports.CompiledCode, error) {
+	return c.compileCached(ctx, opCompileWorkflow, source, true)
+}
+
+func (c *Compiler) compileCached(ctx context.Context, op, source string, workflow bool) (code ports.CompiledCode, err error) {
+	done := c.kit.Start(ctx, op)
 
 	defer func() { done(err == nil || isCodeError(err)) }() // code that does not compile is not the compiler failing
 
-	return tracing.InScope(ctx, c.scope, opCompile, func(_ context.Context, span trace.Span) (ports.CompiledCode, error) {
+	return tracing.InScope(ctx, c.scope, op, func(_ context.Context, span trace.Span) (ports.CompiledCode, error) {
 		span.SetAttributes(attribute.Int("code.size", len(source)))
 
 		if len(source) > MaxSource {
@@ -97,23 +123,28 @@ func (c *Compiler) Compile(ctx context.Context, source string) (code ports.Compi
 		sum := sha256.Sum256([]byte(source))
 		hash := hex.EncodeToString(sum[:])
 
-		script, cached := c.cache.Get(hash)
-		span.SetAttributes(attribute.Bool("code.cached", cached))
+		key, invoke := hash, InvokeGlobal
+		if workflow {
+			key, invoke = "workflow:"+hash, WorkflowEntry // the same source, another script
+		}
+
+		script, cached := c.cache.Get(key)
+		span.SetAttributes(attribute.Bool("code.cached", cached), attribute.Bool("code.workflow", workflow))
 
 		if !cached {
-			if script, err = compile(source); err != nil {
+			if script, err = compile(source, workflow); err != nil {
 				return ports.CompiledCode{}, err
 			}
 
-			c.cache.Put(hash, script)
+			c.cache.Put(key, script)
 		}
 
-		return ports.CompiledCode{Script: script, Exports: ExportsGlobal, Hash: hash, Invoke: InvokeGlobal}, nil
+		return ports.CompiledCode{Script: script, Exports: ExportsGlobal, Hash: hash, Invoke: invoke}, nil
 	})
 }
 
-func compile(source string) (string, error) {
-	result := api.Build(api.BuildOptions{
+func compile(source string, workflow bool) (string, error) {
+	opts := api.BuildOptions{
 		Stdin:      &api.StdinOptions{Contents: source, Loader: api.LoaderTS, Sourcefile: "code.ts"},
 		Bundle:     true,
 		Format:     api.FormatIIFE,
@@ -127,7 +158,17 @@ func compile(source string) (string, error) {
 		LogLevel:      api.LogLevelSilent,
 		Write:         false,
 		Plugins:       []api.Plugin{onlySDK},
-	})
+	}
+
+	if workflow {
+		opts.Plugins = []api.Plugin{withWorkflow}
+		// Code that exports nothing leaves the global undefined.
+		opts.Footer = map[string]string{
+			"js": "function " + WorkflowEntry + "() { return globalThis." + ExportsGlobal + "?.default; }",
+		}
+	}
+
+	result := api.Build(opts)
 
 	if len(result.Errors) > 0 {
 		return "", problems(source, result.Errors)
@@ -191,25 +232,48 @@ func (c *Compiler) CompileExpression(_ context.Context, expr string) (string, er
 	return js, nil
 }
 
-// onlySDK refuses every import but the SDK's, which becomes the global the runtime sets.
-// Every path goes through it, so esbuild never looks for a file.
-var onlySDK = api.Plugin{
-	Name: "only-sdk",
-	Setup: func(b api.PluginBuild) {
-		b.OnResolve(api.OnResolveOptions{Filter: ".*"}, func(args api.OnResolveArgs) (api.OnResolveResult, error) {
-			if args.Path != SDKModule {
-				return api.OnResolveResult{}, fmt.Errorf("only %s can be imported, not %q", SDKModule, args.Path)
-			}
+// onlySDK refuses every import but the SDK's, which becomes the global the runtime sets;
+// withWorkflow lets the builder in too, from the binary. Every path goes through them,
+// so esbuild never looks for a file.
+var (
+	onlySDK      = imports(false)
+	withWorkflow = imports(true)
+)
 
-			return api.OnResolveResult{Path: SDKModule, Namespace: "sdk"}, nil
-		})
+func imports(workflow bool) api.Plugin {
+	allowed := SDKModule
+	if workflow {
+		allowed = SDKModule + " and " + WorkflowModule
+	}
 
-		b.OnLoad(api.OnLoadOptions{Filter: ".*", Namespace: "sdk"}, func(api.OnLoadArgs) (api.OnLoadResult, error) {
-			contents := "module.exports = globalThis." + SDKGlobal
+	return api.Plugin{
+		Name: "imports",
+		Setup: func(b api.PluginBuild) {
+			b.OnResolve(api.OnResolveOptions{Filter: ".*"}, func(args api.OnResolveArgs) (api.OnResolveResult, error) {
+				switch {
+				case args.Path == SDKModule:
+					return api.OnResolveResult{Path: SDKModule, Namespace: "sdk"}, nil
+				case args.Path == WorkflowModule && workflow:
+					return api.OnResolveResult{Path: WorkflowModule, Namespace: "workflow"}, nil
+				default:
+					return api.OnResolveResult{}, fmt.Errorf("only %s can be imported, not %q", allowed, args.Path)
+				}
+			})
 
-			return api.OnLoadResult{Contents: &contents, Loader: api.LoaderJS}, nil
-		})
-	},
+			b.OnLoad(api.OnLoadOptions{Filter: ".*", Namespace: "sdk"}, func(api.OnLoadArgs) (api.OnLoadResult, error) {
+				contents := "module.exports = globalThis." + SDKGlobal
+
+				return api.OnLoadResult{Contents: &contents, Loader: api.LoaderJS}, nil
+			})
+
+			// Its own import of the SDK is of types only, which esbuild drops.
+			b.OnLoad(api.OnLoadOptions{Filter: ".*", Namespace: "workflow"}, func(api.OnLoadArgs) (api.OnLoadResult, error) {
+				contents := workflowSource
+
+				return api.OnLoadResult{Contents: &contents, Loader: api.LoaderTS}, nil
+			})
+		},
+	}
 }
 
 // problems describes what did not compile, where. Columns count characters, as an

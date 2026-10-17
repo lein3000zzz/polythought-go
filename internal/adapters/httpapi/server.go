@@ -84,16 +84,17 @@ type NodeTypes interface {
 
 // Services are the application services behind the API.
 type Services struct {
-	Auth        AuthService
-	Wallets     WalletService
-	Workflows   WorkflowService
-	NodeTypes   NodeTypes
-	CodeTypes   CodeTypes
-	Events      EventService
-	Library     LibraryService
-	Settings    SettingsService
-	Credentials CredentialService
-	Telegram    TelegramService
+	Auth         AuthService
+	Wallets      WalletService
+	Workflows    WorkflowService
+	NodeTypes    NodeTypes
+	CodeTypes    CodeTypes
+	WorkflowCode WorkflowCode
+	Events       EventService
+	Library      LibraryService
+	Settings     SettingsService
+	Credentials  CredentialService
+	Telegram     TelegramService
 	// TelegramWebhook takes updates in webhook mode; nil when there is no bot.
 	TelegramWebhook TelegramWebhook
 	Notifications   NotificationService
@@ -122,6 +123,7 @@ type Server struct {
 	workflows     WorkflowService
 	nodeTypes     NodeTypes
 	codeTypes     CodeTypes
+	workflowCode  WorkflowCode
 	customNodes   CustomNodeService
 	events        EventService
 	library       LibraryService
@@ -185,6 +187,7 @@ func New(cfg Config, util *observability.Utility, services Services) (*Server, e
 		workflows:     services.Workflows,
 		nodeTypes:     services.NodeTypes,
 		codeTypes:     services.CodeTypes,
+		workflowCode:  services.WorkflowCode,
 		customNodes:   services.CustomNodes,
 		events:        services.Events,
 		library:       services.Library,
@@ -292,6 +295,7 @@ func (s *Server) routes() {
 	cn.DELETE("/:id", s.deleteCustomNode)
 
 	v1.GET("/code/types", s.requireAuth, s.getCodeTypes)
+	v1.POST("/code/workflow", s.requireAuth, s.postWorkflowCode)
 	v1.GET("/events", s.requireAuth, s.streamEvents)
 
 	wf := v1.Group("/workflows", s.requireAuth)

@@ -5,6 +5,8 @@ description: Build a workflow, run it and see what each node did.
 
 Open **Workflows** and press **New workflow**, or open one you have. The editor has the node
 list on the left, the canvas in the middle and the selected node's settings on the right.
+**Code**, at the top, shows the whole workflow as TypeScript to edit instead; see
+[Workflows as code](/docs/guides/workflow-code/).
 
 ## Building
 

@@ -12,6 +12,9 @@ import (
 // only the SDK. Code that does not compile is a *domain.CodeError with its problems.
 type CodeCompiler interface {
 	Compile(ctx context.Context, source string) (CompiledCode, error)
+	// CompileWorkflow compiles workflow code (D74), which may import the builder,
+	// @polythought/workflow, too.
+	CompileWorkflow(ctx context.Context, source string) (CompiledCode, error)
 	// CompileExpression turns one TypeScript expression, as in {{ }}, into JavaScript.
 	CompileExpression(ctx context.Context, expr string) (string, error)
 }
@@ -22,8 +25,9 @@ type CompiledCode struct {
 	Exports string // the global the exports go in
 	Hash    string // of the source
 
-	// Invoke is the SDK's function that calls an export with a CodeInvocation as the
-	// input: what a CodeJob of code using the SDK names as its entry.
+	// Invoke is what a CodeJob of the code names as its entry. For code nodes, the SDK's
+	// function that calls an export with a CodeInvocation as the input; for workflow
+	// code, a function that returns its default export.
 	Invoke string
 }
 

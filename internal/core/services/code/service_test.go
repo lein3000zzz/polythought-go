@@ -30,11 +30,23 @@ func (c compiler) CompileExpression(_ context.Context, expr string) (string, err
 	return expr, c.err
 }
 
-// runner keeps the job it was given.
-type runner struct{ job ports.CodeJob }
+func (c compiler) CompileWorkflow(_ context.Context, source string) (ports.CompiledCode, error) {
+	return ports.CompiledCode{Script: "workflow: " + source, Exports: "__exports", Invoke: "__workflow", Hash: "h"}, c.err
+}
+
+// runner keeps the job it was given, and returns output, or "ok".
+type runner struct {
+	job    ports.CodeJob
+	output string
+}
 
 func (r *runner) Run(_ context.Context, job ports.CodeJob) (ports.CodeResult, error) {
 	r.job = job
+
+	if r.output != "" {
+		return ports.CodeResult{Output: json.RawMessage(r.output)}, nil
+	}
+
 	return ports.CodeResult{Output: json.RawMessage(`"ok"`)}, nil
 }
 

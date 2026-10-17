@@ -17,9 +17,10 @@ server.listen({ onUnhandledFrame: 'error' })
 
 globalThis.EventSource = FakeEventSource as unknown as typeof EventSource
 
-// Monaco needs a real browser: code editors stay plain text here, which e2e tests go past.
-vi.mock('@/components/code/MonacoEditor', async () => ({
-  default: (await import('@/components/code/PlainEditor')).PlainEditor,
+// Monaco needs a real browser: code editors stay plain text here, which e2e tests go past,
+// without a load to remount them mid-typing.
+vi.mock('@/components/code/CodeEditor', async () => ({
+  CodeEditor: (await import('@/components/code/PlainEditor')).PlainEditor,
 }))
 // Settings that take expressions stay their plain input, without a load to remount it.
 vi.mock('@/components/code/ExpressionInput', () => ({

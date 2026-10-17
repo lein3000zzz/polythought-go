@@ -28,9 +28,10 @@ type errorDetail struct {
 
 	// Problems lists everything wrong with a submitted workflow (code invalid_workflow),
 	// with changed settings (code invalid_input, param is the setting's key) or with a
-	// credential (code invalid_input, param is "name" or "values.<field>"), or with a
+	// credential (code invalid_input, param is "name" or "values.<field>"), with a
 	// custom node (code invalid_input, param is the part of its form: "name",
-	// "settings.0.default", "outputs.1", "items", "source").
+	// "settings.0.default", "outputs.1", "items", "source"), or with workflow code that
+	// does not compile (code invalid_code, with line and column).
 	Problems []problemDTO `json:"problems,omitempty" validate:"optional"`
 
 	// Workflows lists the workflows a change to a custom node would break (code
@@ -41,8 +42,11 @@ type errorDetail struct {
 // problemDTO points at the node and parameter a problem is about, when it is about one,
 // so an editor can highlight them.
 type problemDTO struct {
-	NodeID  string `json:"nodeId,omitempty" validate:"optional"`
-	Param   string `json:"param,omitempty" validate:"optional"`
+	NodeID string `json:"nodeId,omitempty" validate:"optional"`
+	Param  string `json:"param,omitempty" validate:"optional"`
+	// Line and Column are where in the code a problem is, from 1, columns in characters.
+	Line    int    `json:"line,omitempty" validate:"optional"`
+	Column  int    `json:"column,omitempty" validate:"optional"`
 	Message string `json:"message"`
 } // @name Problem
 

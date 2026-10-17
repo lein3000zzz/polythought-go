@@ -983,3 +983,190 @@ describe('waiting executions', () => {
     ).toBeInTheDocument()
   })
 })
+
+describe('workflow as code', () => {
+  // What the server builds of the code: branching with tight's value changed and a node
+  // after log. Code says nothing of positions.
+  const built: Schemas['WorkflowDefinition'] = {
+    name: 'Spread watch',
+    nodes: [
+      { id: 'manual', type: 'trigger.manual', position: { x: 0, y: 0 } },
+      {
+        id: 'tight',
+        type: 'logic.if',
+        params: { field: 'spread', value: '0.05' },
+        position: { x: 0, y: 0 },
+      },
+      { id: 'log', type: 'output.log', position: { x: 0, y: 0 } },
+      { id: 'more', type: 'output.log', params: { message: 'more' }, position: { x: 0, y: 0 } },
+    ],
+    connections: [
+      ...branching().connections,
+      { from: 'log', fromPort: 'main', to: 'more', toPort: 'main' },
+    ],
+  }
+
+  // running answers the code the editor runs, and records it.
+  function running(answer = () => HttpResponse.json({ workflow: built })) {
+    const sources: string[] = []
+
+    server.use(
+      http.post('/api/v1/code/workflow', async ({ request }) => {
+        sources.push(((await request.json()) as { source: string }).source)
+        return answer()
+      }),
+    )
+
+    return sources
+  }
+
+  const codeBox = () => screen.getByRole<HTMLTextAreaElement>('textbox', { name: 'Workflow code' })
+
+  async function editCode(user: ReturnType<typeof renderApp>['user']) {
+    await waitFor(() => canvasNode('tight'))
+    await user.click(screen.getByRole('tab', { name: 'Code' }))
+    await user.type(codeBox(), '{Enter}// more')
+  }
+
+  it('prints the workflow, and applies its code to the canvas, nodes keeping their place', async () => {
+    const saves = editing(branching())
+    const sources = running()
+    const { user } = renderApp('/workflows/wf-1')
+
+    await waitFor(() => canvasNode('tight'))
+    await user.click(screen.getByRole('tab', { name: 'Code' }))
+
+    expect(codeBox().value).toContain(
+      'const tight = w.node("tight", "logic.if", { field: "spread", value: "0.02" })',
+    )
+    expect(codeBox().value).toContain('tight.port("true").to(log)')
+    expect(screen.getByText('The canvas shows this code.')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Apply' })).toBeDisabled()
+
+    await user.type(codeBox(), '{Enter}// more')
+    expect(screen.getByText(/Not applied yet/)).toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: 'Apply' }))
+    expect(await screen.findByText('The canvas shows this code.')).toBeInTheDocument()
+    expect(sources).toHaveLength(1)
+    expect(sources[0].endsWith('})\n\n// more')).toBe(true)
+    expect(screen.getByText(/Unsaved changes/)).toBeInTheDocument()
+
+    await user.click(screen.getByRole('tab', { name: 'Canvas' }))
+    expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument()
+    await waitFor(() => canvasNode('more'))
+
+    await user.click(screen.getByRole('button', { name: 'Save' }))
+    expect(await screen.findByText('Version 4')).toBeInTheDocument()
+    expect(saves[0].nodes.map((n) => [n.id, n.position])).toEqual([
+      ['manual', { x: 0, y: 0 }],
+      ['tight', { x: 300, y: 0 }],
+      ['log', { x: 600, y: 0 }],
+      ['more', { x: 900, y: 0 }], // new: after the node feeding it
+    ])
+    expect(saves[0].nodes[1].params).toEqual({ field: 'spread', value: '0.05' })
+  })
+
+  it('asks before leaving the code unapplied: apply, discard or keep editing', async () => {
+    editing(branching())
+    const sources = running()
+    const { user } = renderApp('/workflows/wf-1')
+
+    await editCode(user)
+    await user.click(screen.getByRole('tab', { name: 'Canvas' }))
+
+    let dialog = await screen.findByRole('alertdialog')
+    expect(dialog).toHaveTextContent('Apply your code?')
+    await user.click(within(dialog).getByRole('button', { name: 'Keep editing' }))
+    expect(codeBox().value).toContain('// more')
+
+    await user.click(screen.getByRole('tab', { name: 'Canvas' }))
+    dialog = await screen.findByRole('alertdialog')
+    await user.click(within(dialog).getByRole('button', { name: 'Discard' }))
+    await waitFor(() => canvasNode('tight'))
+    expect(() => canvasNode('more')).toThrow()
+    expect(sources).toHaveLength(0)
+    expect(screen.queryByText(/Unsaved changes/)).not.toBeInTheDocument()
+
+    await editCode(user)
+    await user.click(screen.getByRole('tab', { name: 'Canvas' }))
+    dialog = await screen.findByRole('alertdialog')
+    await user.click(within(dialog).getByRole('button', { name: 'Apply' }))
+    await waitFor(() => canvasNode('more'))
+    expect(sources).toHaveLength(1)
+  })
+
+  it('applies the code before saving it', async () => {
+    const saves = editing(branching())
+    const sources = running()
+    const { user } = renderApp('/workflows/wf-1')
+
+    await editCode(user)
+    await user.click(screen.getByRole('button', { name: 'Save' }))
+
+    expect(await screen.findByText('Version 4')).toBeInTheDocument()
+    expect(sources).toHaveLength(1)
+    expect(saves[0].nodes.map((n) => n.id)).toEqual(['manual', 'tight', 'log', 'more'])
+    expect(screen.getByText('The canvas shows this code.')).toBeInTheDocument()
+  })
+
+  it('says why code was not applied, and where, and does not save it', async () => {
+    const saves = editing(branching())
+    running(() =>
+      HttpResponse.json(
+        {
+          error: {
+            code: 'invalid_code',
+            message: 'line 4, column 9: Expected ")" but found "}"',
+            problems: [{ line: 4, column: 9, message: 'Expected ")" but found "}"' }],
+          },
+        },
+        { status: 400 },
+      ),
+    )
+    const { user } = renderApp('/workflows/wf-1')
+
+    await editCode(user)
+    await user.click(screen.getByRole('button', { name: 'Save' }))
+
+    expect(await screen.findByText(/^Not applied: line 4, column 9/)).toBeInTheDocument()
+    expect(screen.getByText('4:9 Expected ")" but found "}"')).toBeInTheDocument()
+    expect(screen.getByText(/Not applied yet/)).toBeInTheDocument()
+    expect(saves).toHaveLength(0)
+
+    // Editing the code clears what was wrong with it.
+    await user.type(codeBox(), ' ')
+    expect(screen.queryByText(/^Not applied: line 4/)).not.toBeInTheDocument()
+  })
+
+  it('shows the code to read when an admin turned code off, Apply off', async () => {
+    editing(branching())
+    server.use(http.get('/api/v1/me', () => HttpResponse.json({ ...alice, mayWriteCode: false })))
+    const { user } = renderApp('/workflows/wf-1')
+
+    await waitFor(() => canvasNode('tight'))
+    await user.click(screen.getByRole('tab', { name: 'Code' }))
+
+    expect(codeBox().value).toContain('w.trigger("manual", "trigger.manual")')
+    expect(codeBox()).toHaveAttribute('readonly')
+    expect(screen.getByRole('button', { name: 'Apply' })).toBeDisabled()
+    expect(screen.getByText(/An admin has turned code off for you/)).toBeInTheDocument()
+  })
+
+  it('leaving the page with the code unapplied applies and saves it, if asked', async () => {
+    const saves = editing(branching())
+    const sources = running()
+    const { router, user } = renderApp('/workflows/wf-1')
+
+    await editCode(user)
+    await user.click(within(screen.getByRole('main')).getByRole('link', { name: 'Workflows' }))
+
+    const dialog = await screen.findByRole('alertdialog')
+    expect(dialog).toHaveTextContent('Apply your code and save?')
+    await user.click(within(dialog).getByRole('button', { name: 'Apply and save' }))
+
+    await waitFor(() => expect(router.state.location.pathname).toBe('/workflows'))
+    expect(sources).toHaveLength(1)
+    expect(saves[0].nodes.map((n) => n.id)).toContain('more')
+  })
+})

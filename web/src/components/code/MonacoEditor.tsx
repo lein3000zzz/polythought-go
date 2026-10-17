@@ -11,6 +11,9 @@ const lineHeight = 18
 
 type TypeError = { line: number; column: number; message: string }
 
+// The owner of the markers the server's problems become; the rest are TypeScript's.
+const serverOwner = 'server'
+
 /** The Monaco editor of CodeEditor, loaded on first use. */
 export default function MonacoEditor({
   id,
@@ -18,8 +21,11 @@ export default function MonacoEditor({
   onChange,
   label,
   rows,
+  fill,
   readOnly,
   invalid,
+  markers,
+  typeErrorNote = 'saving still works, as the server refuses only code that does not compile',
 }: CodeEditorProps) {
   const host = useRef<HTMLDivElement>(null)
   const editor = useRef<monaco.editor.IStandaloneCodeEditor>(null)
@@ -67,7 +73,7 @@ export default function MonacoEditor({
       setErrors(
         monaco.editor
           .getModelMarkers({ resource: model.uri })
-          .filter((m) => m.severity === monaco.MarkerSeverity.Error)
+          .filter((m) => m.severity === monaco.MarkerSeverity.Error && m.owner !== serverOwner)
           .map((m) => ({ line: m.startLineNumber, column: m.startColumn, message: m.message })),
       )
     })
@@ -89,24 +95,51 @@ export default function MonacoEditor({
     }
   }, [value])
 
+  // Underlined from where each is to the end of the word there.
+  useEffect(() => {
+    const model = editor.current?.getModel()
+    if (!model) return
+
+    monaco.editor.setModelMarkers(
+      model,
+      serverOwner,
+      (markers ?? []).map((m) => {
+        const line = Math.min(Math.max(m.line, 1), model.getLineCount())
+        const word = model.getWordAtPosition({ lineNumber: line, column: m.column })
+
+        return {
+          severity: monaco.MarkerSeverity.Error,
+          message: m.message,
+          startLineNumber: line,
+          startColumn: m.column,
+          endLineNumber: line,
+          endColumn: word ? word.endColumn : m.column + 1,
+        }
+      }),
+    )
+  }, [markers])
+
   useEffect(() => monaco.editor.setTheme(theme === 'dark' ? 'vs-dark' : 'vs'), [theme])
   useEffect(() => editor.current?.updateOptions({ readOnly }), [readOnly])
 
   return (
-    <div className="flex flex-col gap-1.5">
+    <div className={cn('flex flex-col gap-1.5', fill && 'h-full')}>
       <div
         ref={host}
         id={id}
         data-testid="monaco"
-        style={{ height: rows * lineHeight + 8 }}
+        style={fill ? undefined : { height: rows * lineHeight + 8 }}
         // nokey: the canvas leaves its keys alone (see ExpressionEditor).
-        className={cn('nokey overflow-hidden rounded-md border', invalid && 'border-destructive')}
+        className={cn(
+          'nokey overflow-hidden rounded-md border',
+          fill && 'min-h-0 flex-1',
+          invalid && 'border-destructive',
+        )}
       />
       {errors.length > 0 && (
         <details className="text-xs">
           <summary className="cursor-pointer text-amber-700 dark:text-amber-500">
-            {errors.length === 1 ? '1 type error' : `${errors.length} type errors`}: saving still
-            works, as the server refuses only code that does not compile
+            {errors.length === 1 ? '1 type error' : `${errors.length} type errors`}: {typeErrorNote}
           </summary>
           <ul className="mt-1 flex flex-col gap-0.5 font-mono">
             {errors.map((e, i) => (

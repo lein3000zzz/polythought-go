@@ -18,6 +18,9 @@ type Props = {
   destructive?: boolean
   onConfirm: () => void
   onCancel: () => void
+  // A third choice, between the two.
+  alternative?: string
+  onAlternative?: () => void
 }
 
 export function ConfirmDialog({
@@ -29,6 +32,8 @@ export function ConfirmDialog({
   destructive,
   onConfirm,
   onCancel,
+  alternative,
+  onAlternative,
 }: Props) {
   return (
     <AlertDialog open={open} onOpenChange={(isOpen) => !isOpen && onCancel()}>
@@ -39,6 +44,11 @@ export function ConfirmDialog({
         </AlertDialogHeader>
         <AlertDialogFooter>
           <AlertDialogCancel>{cancel}</AlertDialogCancel>
+          {alternative && (
+            <AlertDialogAction variant="outline" onClick={onAlternative}>
+              {alternative}
+            </AlertDialogAction>
+          )}
           <AlertDialogAction variant={destructive ? 'destructive' : 'default'} onClick={onConfirm}>
             {confirm}
           </AlertDialogAction>

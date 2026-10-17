@@ -1,3 +1,5 @@
+import { cn } from 'cn'
+
 import { Textarea } from '@/components/ui/textarea'
 
 import type { CodeEditorProps } from './CodeEditor'
@@ -12,6 +14,7 @@ export function PlainEditor({
   onChange,
   label,
   rows,
+  fill,
   readOnly,
   invalid,
 }: CodeEditorProps) {
@@ -20,7 +23,7 @@ export function PlainEditor({
       id={id}
       rows={rows}
       spellCheck={false}
-      className="font-mono text-xs"
+      className={cn('font-mono text-xs', fill && 'h-full resize-none')}
       value={value}
       readOnly={readOnly}
       aria-label={id ? undefined : label}

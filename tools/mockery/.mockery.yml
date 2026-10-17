@@ -99,6 +99,7 @@ packages:
       WorkflowService: {}
       NodeTypes: {}
       CodeTypes: {}
+      WorkflowCode: {}
       EventService: {}
       LibraryService: {}
       SettingsService: {}

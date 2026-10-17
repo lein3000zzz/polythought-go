@@ -132,6 +132,10 @@ func (compiler) Compile(_ context.Context, source string) (ports.CompiledCode, e
 
 func (compiler) CompileExpression(context.Context, string) (string, error) { return "", nil }
 
+func (compiler) CompileWorkflow(context.Context, string) (ports.CompiledCode, error) {
+	return ports.CompiledCode{}, nil
+}
+
 type gate struct{ off bool }
 
 func (g gate) CodeAllowed(context.Context, domain.UserID) (bool, error) { return !g.off, nil }

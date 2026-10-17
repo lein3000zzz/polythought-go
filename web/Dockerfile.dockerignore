@@ -1,8 +1,9 @@
 # The web image is built from the repository root (see web/Dockerfile), and needs only
-# the app and the docs.
+# the app, the docs and the builder of workflow code.
 *
 !web
 !docs
+!internal/adapters/tscompiler/sdk/workflow.ts
 web/node_modules
 web/dist
 web/test-results

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { workflow } from './workflow'
+import { workflow } from '@polythought/workflow'
 
 describe('workflow code', () => {
   it('gives the graph: nodes as declared, connections as made', () => {

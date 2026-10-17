@@ -1,6 +1,6 @@
 // What the types of @polythought/workflow allow and refuse, checked by tsc (D73). Not run:
 // each @ts-expect-error fails the check when its line stops being an error.
-import { workflow } from './workflow'
+import { workflow } from '@polythought/workflow'
 
 export default workflow('Spread watch', (w) => {
   const manual = w.trigger('manual', 'trigger.manual')

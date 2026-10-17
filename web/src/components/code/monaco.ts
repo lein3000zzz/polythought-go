@@ -13,7 +13,7 @@ import {
 import EditorWorker from 'monaco-editor/editor/editor.worker?worker'
 import TypeScriptWorker from 'monaco-editor/language/typescript/ts.worker?worker'
 
-import workflowSource from '@/features/workflowcode/workflow.ts?raw'
+import workflowSource from '@polythought/workflow?raw'
 
 self.MonacoEnvironment = {
   getWorker: (_id, label) =>

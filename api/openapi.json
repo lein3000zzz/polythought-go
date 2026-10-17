@@ -651,7 +651,7 @@
                         "type": "string"
                     },
                     "problems": {
-                        "description": "Problems lists everything wrong with a submitted workflow (code invalid_workflow),\nwith changed settings (code invalid_input, param is the setting's key) or with a\ncredential (code invalid_input, param is \"name\" or \"values.\u003cfield\u003e\"), or with a\ncustom node (code invalid_input, param is the part of its form: \"name\",\n\"settings.0.default\", \"outputs.1\", \"items\", \"source\").",
+                        "description": "Problems lists everything wrong with a submitted workflow (code invalid_workflow),\nwith changed settings (code invalid_input, param is the setting's key) or with a\ncredential (code invalid_input, param is \"name\" or \"values.\u003cfield\u003e\"), with a\ncustom node (code invalid_input, param is the part of its form: \"name\",\n\"settings.0.default\", \"outputs.1\", \"items\", \"source\"), or with workflow code that\ndoes not compile (code invalid_code, with line and column).",
                         "items": {
                             "$ref": "#/components/schemas/Problem"
                         },
@@ -1219,6 +1219,13 @@
             },
             "Problem": {
                 "properties": {
+                    "column": {
+                        "type": "integer"
+                    },
+                    "line": {
+                        "description": "Line and Column are where in the code a problem is, from 1, columns in characters.",
+                        "type": "integer"
+                    },
                     "message": {
                         "type": "string"
                     },
@@ -2014,6 +2021,30 @@
                     "nodes",
                     "updatedAt",
                     "version"
+                ],
+                "type": "object"
+            },
+            "WorkflowCode": {
+                "properties": {
+                    "workflow": {
+                        "$ref": "#/components/schemas/WorkflowDefinition",
+                        "description": "Workflow is what the code builds. Code says nothing of positions: every node's is\n0, 0, for the editor to place."
+                    }
+                },
+                "required": [
+                    "workflow"
+                ],
+                "type": "object"
+            },
+            "WorkflowCodeRequest": {
+                "properties": {
+                    "source": {
+                        "description": "Source is TypeScript whose default export is a workflow made with\n@polythought/workflow.",
+                        "type": "string"
+                    }
+                },
+                "required": [
+                    "source"
                 ],
                 "type": "object"
             },
@@ -2943,6 +2974,78 @@
                     }
                 ],
                 "summary": "Types for code",
+                "tags": [
+                    "code"
+                ]
+            }
+        },
+        "/code/workflow": {
+            "post": {
+                "operationId": "runWorkflowCode",
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/WorkflowCodeRequest",
+                                "summary": "body",
+                                "description": "The code"
+                            }
+                        }
+                    },
+                    "description": "The code",
+                    "required": true
+                },
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/WorkflowCode"
+                                }
+                            }
+                        },
+                        "description": "OK"
+                    },
+                    "400": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "invalid_code"
+                    },
+                    "401": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "unauthenticated"
+                    },
+                    "403": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "code_off: an admin has turned code off for you"
+                    }
+                },
+                "security": [
+                    {
+                        "SessionCookie": []
+                    },
+                    {
+                        "APIToken": []
+                    }
+                ],
+                "summary": "Run workflow code",
                 "tags": [
                     "code"
                 ]

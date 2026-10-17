@@ -30,6 +30,7 @@ import { Link, useBlocker, useNavigate } from 'react-router'
 import { toast } from 'sonner'
 
 import { useMe } from '@/api/auth'
+import { useRunWorkflowCode } from '@/api/code'
 import {
   ApiError,
   errorMessage,
@@ -60,6 +61,9 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Switch } from '@/components/ui/switch'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
+import { CodeView, type ApplyFailure } from '@/features/workflowcode/CodeView'
+import { place } from '@/features/workflowcode/place'
+import { printWorkflow } from '@/features/workflowcode/print'
 import { formatDateTime, formatDuration, formatTime } from '@/lib/format'
 import { useStoredFlag } from '@/lib/storage'
 import { useTheme } from '@/lib/theme'
@@ -173,6 +177,16 @@ function Editor({ workflow, types, onReload }: Props) {
   )
   const kept = inspected.data?.runs.some((r) => r.samples !== undefined) ?? false
 
+  // The workflow as code (D76), printed when the Code view opens. base is the code the
+  // canvas has: text that differs is not applied yet (D77).
+  const [view, setView] = useState<'canvas' | 'code'>('canvas')
+  const [code, setCode] = useState({ text: '', base: '' })
+  const [applyFailure, setApplyFailure] = useState<ApplyFailure>()
+  const [askApply, setAskApply] = useState(false) // on leaving the Code view
+  const runCode = useRunWorkflowCode()
+  const unapplied = view === 'code' && code.text !== code.base
+  const codeOff = me?.mayWriteCode === false
+
   const definition = useMemo(() => toDefinition(name, nodes, edges), [name, nodes, edges])
   // What the items look like where each node receives them, for its field settings.
   const shapes = useMemo(() => receivedShapes(nodes, edges), [nodes, edges])
@@ -186,11 +200,21 @@ function Editor({ workflow, types, onReload }: Props) {
   const run = useRunWorkflow(workflow?.id ?? '')
   const saving = create.isPending || update.isPending
 
-  /** Saves the workflow and reports whether it was saved. */
-  async function save(): Promise<boolean> {
-    if (saving) return false
+  /**
+   * Saves the workflow and reports whether it was saved. Code not applied yet is applied
+   * first (D77). Staying, a new workflow does not move to its own page.
+   */
+  async function save({ stay = false } = {}): Promise<boolean> {
+    if (saving || runCode.isPending) return false
 
-    const sent = definition
+    let sent = definition
+    if (unapplied) {
+      const applied = await apply()
+      if (!applied) return false
+
+      if (workflow && sameDefinition(applied, saved ?? initial.definition)) return true
+      sent = applied
+    }
 
     try {
       const w = workflow
@@ -202,7 +226,7 @@ function Editor({ workflow, types, onReload }: Props) {
       setVersion(w.version)
       setProblems([])
 
-      if (!workflow) {
+      if (!workflow && !stay) {
         leaving.current = true
         void navigate(`/workflows/${w.id}`, { replace: true })
       }
@@ -215,6 +239,7 @@ function Editor({ workflow, types, onReload }: Props) {
         setConflict(true)
       } else if (error instanceof ApiError && error.problems.length > 0) {
         setProblems(error.problems)
+        setView('canvas') // where they are marked; the code is applied
         toast.error('Not saved: the workflow has problems, marked in red.')
       } else {
         toast.error(errorMessage(error))
@@ -224,9 +249,76 @@ function Editor({ workflow, types, onReload }: Props) {
     }
   }
 
+  /**
+   * Runs the code on the server and puts the workflow it builds on the canvas, as unsaved
+   * changes (D66): nodes the canvas has keep their place. Gives the new definition, or
+   * nothing when the code was refused, saying why under it.
+   */
+  async function apply(): Promise<Definition | undefined> {
+    const text = code.text
+
+    try {
+      const built = place(
+        await runCode.mutateAsync(text),
+        new Map(nodes.map((n) => [n.id, n.position])),
+      )
+      const flow = toFlow(built, types)
+
+      setNodes(flow.nodes)
+      setEdges(flow.edges)
+      setName(built.name)
+      setProblems([])
+      setApplyFailure(undefined)
+      setCode((c) => ({ ...c, base: text }))
+
+      return toDefinition(built.name, flow.nodes, flow.edges)
+    } catch (error) {
+      setApplyFailure({
+        message: error instanceof ApiError ? error.message : errorMessage(error),
+        problems:
+          error instanceof ApiError
+            ? error.problems.flatMap((p) =>
+                p.line ? [{ line: p.line, column: p.column ?? 1, message: p.message }] : [],
+              )
+            : [],
+      })
+      toast.error('Not applied: the code has a problem, shown under it.')
+
+      return undefined
+    }
+  }
+
+  function showCode() {
+    const text = printWorkflow(definition, types)
+    setCode({ text, base: text })
+    setApplyFailure(undefined)
+    setView('code')
+  }
+
+  function showCanvas() {
+    if (unapplied) setAskApply(true)
+    else setView('canvas')
+  }
+
+  async function applyAndShowCanvas() {
+    setAskApply(false)
+    if (await apply()) setView('canvas')
+  }
+
+  // Leaving the page with code not applied: it is kept only once saved (D78).
+  async function applyAndLeave() {
+    const to = blocker.location
+    blocker.reset?.()
+
+    if (to && (await save({ stay: true }))) {
+      leaving.current = true
+      void navigate(to)
+    }
+  }
+
   /** Runs the saved workflow, saving unsaved changes first, and shows the result. */
   async function runNow() {
-    if (dirty && !(await save())) return
+    if ((dirty || unapplied) && !(await save())) return
 
     run.mutate(undefined, {
       onSuccess: (e) => {
@@ -256,7 +348,7 @@ function Editor({ workflow, types, onReload }: Props) {
 
   // "/" searches the node list, opening it if need be, unless the focus is in a field.
   const onSearchKey = useEffectEvent((e: KeyboardEvent) => {
-    if (e.key !== '/' || e.metaKey || e.ctrlKey || e.altKey) return
+    if (view !== 'canvas' || e.key !== '/' || e.metaKey || e.ctrlKey || e.altKey) return
     if (
       e.target instanceof Element &&
       e.target.closest('input, textarea, select, [contenteditable], .nokey')
@@ -274,21 +366,22 @@ function Editor({ workflow, types, onReload }: Props) {
     return () => window.removeEventListener('keydown', onSearchKey)
   }, [])
 
-  // Closing or reloading the tab with unsaved changes asks first.
+  // Closing or reloading the tab with unsaved changes, or code not applied, asks first.
+  const unsaved = dirty || unapplied
   useEffect(() => {
-    if (!dirty) return
+    if (!unsaved) return
 
     const warn = (e: BeforeUnloadEvent) => e.preventDefault()
     window.addEventListener('beforeunload', warn)
 
     return () => window.removeEventListener('beforeunload', warn)
-  }, [dirty])
+  }, [unsaved])
 
   // So does leaving for another page of the app. Signing out is not held up: the
   // session is gone either way.
   const blocker = useBlocker(
     ({ currentLocation, nextLocation }) =>
-      dirty &&
+      unsaved &&
       !leaving.current &&
       currentLocation.pathname !== nextLocation.pathname &&
       nextLocation.pathname !== '/login',
@@ -399,8 +492,8 @@ function Editor({ workflow, types, onReload }: Props) {
             name={name}
             onName={setName}
             version={version}
-            dirty={dirty}
-            saving={saving}
+            dirty={unsaved}
+            saving={saving || runCode.isPending}
             onSave={() => void save()}
             running={run.isPending}
             onRun={() => void runNow()}
@@ -408,6 +501,8 @@ function Editor({ workflow, types, onReload }: Props) {
             onToggleExecutions={() => setShowExecutions((s) => !s)}
             onShare={() => setSharing(true)}
             onDelete={() => setConfirmDelete(true)}
+            view={view}
+            onView={(v) => (v === 'code' ? showCode() : showCanvas())}
           />
 
           {workflow && inspected.data && (
@@ -442,125 +537,145 @@ function Editor({ workflow, types, onReload }: Props) {
             </div>
           )}
 
-          <div className="flex min-h-0 flex-1">
-            {/* The list keeps its width inside a panel that narrows to a rail: it slides
+          {view === 'code' ? (
+            <div className="min-h-0 flex-1">
+              <CodeView
+                value={code.text}
+                onChange={(text) => {
+                  setCode((c) => ({ ...c, text }))
+                  setApplyFailure(undefined)
+                }}
+                onApply={() => void apply()}
+                applying={runCode.isPending}
+                applied={!unapplied}
+                failure={applyFailure}
+                codeOff={codeOff}
+              />
+            </div>
+          ) : (
+            <div className="flex min-h-0 flex-1">
+              {/* The list keeps its width inside a panel that narrows to a rail: it slides
                 under the edge rather than re-wrapping, and fades as it goes. */}
-            <aside
-              aria-label="Node list"
-              className={cn(
-                'relative shrink-0 overflow-hidden border-r transition-[width] duration-200 ease-out motion-reduce:transition-none',
-                nodeListOpen ? 'w-60' : 'w-11',
-              )}
-            >
-              <div
-                inert={!nodeListOpen}
-                aria-hidden={!nodeListOpen}
+              <aside
+                aria-label="Node list"
                 className={cn(
-                  'flex h-full w-60 flex-col transition-opacity duration-150 motion-reduce:transition-none',
-                  nodeListOpen ? 'opacity-100 delay-75' : 'opacity-0',
+                  'relative shrink-0 overflow-hidden border-r transition-[width] duration-200 ease-out motion-reduce:transition-none',
+                  nodeListOpen ? 'w-60' : 'w-11',
                 )}
               >
-                <Palette
-                  types={types}
-                  onAdd={(t) => addNode(t)}
-                  searchRef={search}
-                  codeOff={me?.mayWriteCode === false}
-                />
-              </div>
-
-              {/* Pinned to the panel's edge, so it travels with it. */}
-              <div className="absolute top-1.5 right-1.5">
-                <PanelToggle open={nodeListOpen} onToggle={() => setNodeListOpen(!nodeListOpen)} />
-              </div>
-            </aside>
-
-            <div className="flex min-w-0 flex-1 flex-col">
-              <div
-                ref={canvas}
-                className="min-h-0 flex-1"
-                onDragOver={(e) => {
-                  if (e.dataTransfer.types.includes(nodeTypeMime)) {
-                    e.preventDefault()
-                    e.dataTransfer.dropEffect = 'move'
-                  }
-                }}
-                onDrop={(e) => {
-                  const type = types.find((t) => t.name === e.dataTransfer.getData(nodeTypeMime))
-                  if (!type) return
-
-                  e.preventDefault()
-                  const p = screenToFlowPosition({ x: e.clientX, y: e.clientY })
-                  addNode(type, { x: p.x - nodeOffset.x, y: p.y - nodeOffset.y })
-                }}
-              >
-                <ReactFlow
-                  colorMode={theme}
-                  nodes={nodes}
-                  edges={edges}
-                  nodeTypes={nodeTypes}
-                  onNodesChange={handleNodesChange}
-                  onEdgesChange={onEdgesChange}
-                  onConnect={onConnect}
-                  isValidConnection={isValidConnection}
-                  deleteKeyCode={['Backspace', 'Delete']}
-                  fitView
-                  fitViewOptions={fitViewOptions}
+                <div
+                  inert={!nodeListOpen}
+                  aria-hidden={!nodeListOpen}
+                  className={cn(
+                    'flex h-full w-60 flex-col transition-opacity duration-150 motion-reduce:transition-none',
+                    nodeListOpen ? 'opacity-100 delay-75' : 'opacity-0',
+                  )}
                 >
-                  <Background />
-                  <Controls fitViewOptions={fitViewOptions} showInteractive={false} />
-                </ReactFlow>
+                  <Palette
+                    types={types}
+                    onAdd={(t) => addNode(t)}
+                    searchRef={search}
+                    codeOff={me?.mayWriteCode === false}
+                  />
+                </div>
+
+                {/* Pinned to the panel's edge, so it travels with it. */}
+                <div className="absolute top-1.5 right-1.5">
+                  <PanelToggle
+                    open={nodeListOpen}
+                    onToggle={() => setNodeListOpen(!nodeListOpen)}
+                  />
+                </div>
+              </aside>
+
+              <div className="flex min-w-0 flex-1 flex-col">
+                <div
+                  ref={canvas}
+                  className="min-h-0 flex-1"
+                  onDragOver={(e) => {
+                    if (e.dataTransfer.types.includes(nodeTypeMime)) {
+                      e.preventDefault()
+                      e.dataTransfer.dropEffect = 'move'
+                    }
+                  }}
+                  onDrop={(e) => {
+                    const type = types.find((t) => t.name === e.dataTransfer.getData(nodeTypeMime))
+                    if (!type) return
+
+                    e.preventDefault()
+                    const p = screenToFlowPosition({ x: e.clientX, y: e.clientY })
+                    addNode(type, { x: p.x - nodeOffset.x, y: p.y - nodeOffset.y })
+                  }}
+                >
+                  <ReactFlow
+                    colorMode={theme}
+                    nodes={nodes}
+                    edges={edges}
+                    nodeTypes={nodeTypes}
+                    onNodesChange={handleNodesChange}
+                    onEdgesChange={onEdgesChange}
+                    onConnect={onConnect}
+                    isValidConnection={isValidConnection}
+                    deleteKeyCode={['Backspace', 'Delete']}
+                    fitView
+                    fitViewOptions={fitViewOptions}
+                  >
+                    <Background />
+                    <Controls fitViewOptions={fitViewOptions} showInteractive={false} />
+                  </ReactFlow>
+                </div>
+
+                {workflow && showExecutions && (
+                  <ExecutionsPanel
+                    workflowId={workflow.id}
+                    selected={shownId}
+                    onSelect={(id) => {
+                      setFollow(false)
+                      setInspectedId(id)
+                      setPanelTab('output')
+                    }}
+                    follow={follow}
+                    onFollow={setFollow}
+                    onClose={() => setShowExecutions(false)}
+                  />
+                )}
               </div>
 
-              {workflow && showExecutions && (
-                <ExecutionsPanel
-                  workflowId={workflow.id}
-                  selected={shownId}
-                  onSelect={(id) => {
-                    setFollow(false)
-                    setInspectedId(id)
-                    setPanelTab('output')
-                  }}
-                  follow={follow}
-                  onFollow={setFollow}
-                  onClose={() => setShowExecutions(false)}
-                />
-              )}
+              <aside className="w-80 shrink-0 overflow-y-auto border-l" aria-label="Settings">
+                {selectedNode && runs && (
+                  <div className="flex gap-1 border-b p-2" role="tablist">
+                    {(['settings', 'output'] as const).map((tab) => (
+                      <Button
+                        key={tab}
+                        role="tab"
+                        aria-selected={panelTab === tab}
+                        variant={panelTab === tab ? 'secondary' : 'ghost'}
+                        size="sm"
+                        onClick={() => setPanelTab(tab)}
+                      >
+                        {tab === 'settings' ? 'Settings' : 'Output'}
+                      </Button>
+                    ))}
+                  </div>
+                )}
+
+                {selectedNode && runs && panelTab === 'output' ? (
+                  <RunOutput key={selectedNode.id} run={runs.get(selectedNode.id)} kept={kept} />
+                ) : selectedNode ? (
+                  <NodePanel
+                    key={selectedNode.id}
+                    node={selectedNode}
+                    received={shapes.get(selectedNode.id)}
+                    onChange={(patch) => changeNode(selectedNode.id, patch)}
+                    onParam={(param, value) => changeParam(selectedNode.id, param, value)}
+                    onDelete={() => void deleteElements({ nodes: [{ id: selectedNode.id }] })}
+                  />
+                ) : (
+                  <WorkflowPanel problems={problems} />
+                )}
+              </aside>
             </div>
-
-            <aside className="w-80 shrink-0 overflow-y-auto border-l" aria-label="Settings">
-              {selectedNode && runs && (
-                <div className="flex gap-1 border-b p-2" role="tablist">
-                  {(['settings', 'output'] as const).map((tab) => (
-                    <Button
-                      key={tab}
-                      role="tab"
-                      aria-selected={panelTab === tab}
-                      variant={panelTab === tab ? 'secondary' : 'ghost'}
-                      size="sm"
-                      onClick={() => setPanelTab(tab)}
-                    >
-                      {tab === 'settings' ? 'Settings' : 'Output'}
-                    </Button>
-                  ))}
-                </div>
-              )}
-
-              {selectedNode && runs && panelTab === 'output' ? (
-                <RunOutput key={selectedNode.id} run={runs.get(selectedNode.id)} kept={kept} />
-              ) : selectedNode ? (
-                <NodePanel
-                  key={selectedNode.id}
-                  node={selectedNode}
-                  received={shapes.get(selectedNode.id)}
-                  onChange={(patch) => changeNode(selectedNode.id, patch)}
-                  onParam={(param, value) => changeParam(selectedNode.id, param, value)}
-                  onDelete={() => void deleteElements({ nodes: [{ id: selectedNode.id }] })}
-                />
-              ) : (
-                <WorkflowPanel problems={problems} />
-              )}
-            </aside>
-          </div>
+          )}
 
           <ConfirmDialog
             open={conflict}
@@ -573,7 +688,34 @@ function Editor({ workflow, types, onReload }: Props) {
           />
 
           <ConfirmDialog
-            open={blocker.state === 'blocked'}
+            open={askApply}
+            title="Apply your code?"
+            description="It is not on the canvas yet. Discarding it leaves the canvas as it is."
+            confirm="Apply"
+            alternative="Discard"
+            cancel="Keep editing"
+            onConfirm={() => void applyAndShowCanvas()}
+            onAlternative={() => {
+              setAskApply(false)
+              setView('canvas')
+            }}
+            onCancel={() => setAskApply(false)}
+          />
+
+          <ConfirmDialog
+            open={blocker.state === 'blocked' && unapplied}
+            title="Apply your code and save?"
+            description="Your code is not applied, so it is neither on the canvas nor saved. Discarding leaves without it, and without the canvas's unsaved changes."
+            confirm="Apply and save"
+            alternative="Discard"
+            cancel="Stay"
+            onConfirm={() => void applyAndLeave()}
+            onAlternative={() => blocker.proceed?.()}
+            onCancel={() => blocker.reset?.()}
+          />
+
+          <ConfirmDialog
+            open={blocker.state === 'blocked' && !unapplied}
             title="Leave without saving?"
             description="Your changes to this workflow have not been saved."
             confirm="Leave"
@@ -586,7 +728,7 @@ function Editor({ workflow, types, onReload }: Props) {
           {workflow && (
             <ShareDialog
               workflow={workflow}
-              dirty={dirty}
+              dirty={unsaved}
               open={sharing}
               onClose={() => setSharing(false)}
             />
@@ -645,6 +787,8 @@ type HeaderProps = {
   onToggleExecutions: () => void
   onShare: () => void
   onDelete: () => void
+  view: 'canvas' | 'code'
+  onView: (view: 'canvas' | 'code') => void
 }
 
 function Header({
@@ -661,6 +805,8 @@ function Header({
   onToggleExecutions,
   onShare,
   onDelete,
+  view,
+  onView,
 }: HeaderProps) {
   return (
     <header className="flex items-center gap-3 border-b px-4 py-2">
@@ -691,7 +837,23 @@ function Header({
       </span>
 
       <div className="ml-auto flex items-center gap-3">
-        {workflow && (
+        <div role="tablist" aria-label="View" className="flex rounded-md border p-0.5">
+          {(['canvas', 'code'] as const).map((v) => (
+            <Button
+              key={v}
+              role="tab"
+              aria-selected={view === v}
+              variant={view === v ? 'secondary' : 'ghost'}
+              size="sm"
+              className="h-7"
+              onClick={() => view !== v && onView(v)}
+            >
+              {v === 'canvas' ? 'Canvas' : 'Code'}
+            </Button>
+          ))}
+        </div>
+
+        {workflow && view === 'canvas' && (
           <Button
             variant={showExecutions ? 'secondary' : 'ghost'}
             aria-pressed={showExecutions}

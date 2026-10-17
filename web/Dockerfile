@@ -6,13 +6,15 @@
 
 FROM node:22-alpine AS app
 
-WORKDIR /src
+WORKDIR /src/web
 RUN corepack enable
 
 COPY web/package.json web/pnpm-lock.yaml ./
 RUN --mount=type=cache,target=/root/.local/share/pnpm/store pnpm install --frozen-lockfile
 
 # The API types are committed (src/api/schema.d.ts), so the build does not need the spec.
+# The builder of workflow code lives beside the SDK, where the server embeds it.
+COPY internal/adapters/tscompiler/sdk/workflow.ts /src/internal/adapters/tscompiler/sdk/
 COPY web/ ./
 RUN pnpm exec vite build
 
@@ -33,5 +35,5 @@ FROM caddy:2-alpine
 
 COPY web/Caddyfile /etc/caddy/Caddyfile
 COPY --from=docs /src/csp.caddy /etc/caddy/docs-csp.caddy
-COPY --from=app /src/dist /srv
+COPY --from=app /src/web/dist /srv
 COPY --from=docs /src/dist /srv/docs

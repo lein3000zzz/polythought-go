@@ -111,6 +111,7 @@ type app struct {
 	notify      *notify.Service
 	waits       *waits.Service
 	code        *code.Service
+	codeGate    auth.CodeGate
 
 	restartOnce sync.Once
 	restartc    chan struct{} // closed when an admin asked for a restart
@@ -391,6 +392,26 @@ func (c codeTypes) Declarations(ctx context.Context, p auth.Principal) ([]ports.
 	return tscompiler.Declarations(reg.Types()), nil
 }
 
+// workflowCode runs workflow code for the Code tab's Apply (D74), for those who may write
+// code (D75).
+type workflowCode struct {
+	code *code.Service
+	gate engine.CodeGate
+}
+
+func (w workflowCode) Build(ctx context.Context, p auth.Principal, source string) (domain.Workflow, error) {
+	allowed, err := w.gate.CodeAllowed(ctx, p.User.ID)
+	if err != nil {
+		return domain.Workflow{}, err
+	}
+
+	if !allowed {
+		return domain.Workflow{}, domain.ErrCodeOff
+	}
+
+	return w.code.Workflow(ctx, source)
+}
+
 // codeLimits are the most one run of user code may use.
 func codeLimits(s *settings.Snapshot) ports.CodeLimits {
 	return ports.CodeLimits{
@@ -525,6 +546,7 @@ func (a *app) initEngine(ctx context.Context, pmc polymarket) error {
 		Users: postgres.NewUsers(a.db),
 		Mode:  func() domain.CodeAccess { return codeAccess(a.settings.Current()) },
 	}
+	a.codeGate = codeGate
 
 	// Each owner's workflows use the built-in types and their own custom nodes.
 	a.customNodes = customnodes.New(postgres.NewCustomNodes(a.db), postgres.NewWorkflows(a.db), a.registry,
