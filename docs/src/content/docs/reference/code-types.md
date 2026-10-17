@@ -645,35 +645,192 @@ export interface TriggerTelegramItem {
 /**
  * Every node type by name: its settings, and the items it sends on. "received" means
  * the items it was given, as they are; "picked", those with only the fields its
- * settings name.
+ * settings name. Then whether it starts workflows, and the names of its input and
+ * output ports; a type whose ports a setting makes takes any name beside its own.
  */
 export interface NodeTypes {
-    "code.aggregate": { settings: CodeAggregateSettings; items: Json };
-    "code.filter": { settings: CodeFilterSettings; items: "received" };
-    "code.route": { settings: CodeRouteSettings; items: "received" };
-    "code.transform": { settings: CodeTransformSettings; items: Json };
-    "logic.dedupe": { settings: LogicDedupeSettings; items: "received" };
-    "logic.filter": { settings: LogicFilterSettings; items: "received" };
-    "logic.if": { settings: LogicIfSettings; items: "received" };
-    "logic.wait": { settings: LogicWaitSettings; items: "received" };
-    "output.log": { settings: OutputLogSettings; items: "received" };
-    "output.webhook": { settings: OutputWebhookSettings; items: "received" };
-    "polymarket.balance": { settings: PolymarketBalanceSettings; items: PolymarketBalanceItem };
-    "polymarket.markets": { settings: PolymarketMarketsSettings; items: PolymarketMarketsItem };
-    "polymarket.orderbook": { settings: PolymarketOrderbookSettings; items: PolymarketOrderbookItem };
-    "polymarket.orders": { settings: PolymarketOrdersSettings; items: PolymarketOrdersItem };
-    "polymarket.positions": { settings: PolymarketPositionsSettings; items: PolymarketPositionsItem };
-    "polymarket.priceChange": { settings: PolymarketPriceChangeSettings; items: PolymarketPriceChangeItem };
-    "polymarket.search": { settings: PolymarketSearchSettings; items: PolymarketSearchItem };
-    "polymarket.trades": { settings: PolymarketTradesSettings; items: PolymarketTradesItem };
-    "telegram.ask": { settings: TelegramAskSettings; items: "received" };
-    "telegram.send": { settings: TelegramSendSettings; items: "received" };
-    "transform.pick": { settings: TransformPickSettings; items: "picked" };
-    "transform.top": { settings: TransformTopSettings; items: "received" };
-    "trigger.manual": { settings: TriggerManualSettings; items: TriggerManualItem };
-    "trigger.market": { settings: TriggerMarketSettings; items: TriggerMarketItem };
-    "trigger.schedule": { settings: TriggerScheduleSettings; items: TriggerScheduleItem };
-    "trigger.telegram": { settings: TriggerTelegramSettings; items: TriggerTelegramItem };
+    "code.aggregate": {
+        settings: CodeAggregateSettings;
+        items: Json;
+        trigger: false;
+        inputs: "main";
+        outputs: "main";
+    };
+    "code.filter": {
+        settings: CodeFilterSettings;
+        items: "received";
+        trigger: false;
+        inputs: "main";
+        outputs: "main";
+    };
+    "code.route": {
+        settings: CodeRouteSettings;
+        items: "received";
+        trigger: false;
+        inputs: "main";
+        outputs: (string & {});
+    };
+    "code.transform": {
+        settings: CodeTransformSettings;
+        items: Json;
+        trigger: false;
+        inputs: "main";
+        outputs: "main";
+    };
+    "logic.dedupe": {
+        settings: LogicDedupeSettings;
+        items: "received";
+        trigger: false;
+        inputs: "main";
+        outputs: "main";
+    };
+    "logic.filter": {
+        settings: LogicFilterSettings;
+        items: "received";
+        trigger: false;
+        inputs: "main";
+        outputs: "main";
+    };
+    "logic.if": {
+        settings: LogicIfSettings;
+        items: "received";
+        trigger: false;
+        inputs: "main";
+        outputs: "true" | "false";
+    };
+    "logic.wait": {
+        settings: LogicWaitSettings;
+        items: "received";
+        trigger: false;
+        inputs: "main";
+        outputs: "main";
+    };
+    "output.log": {
+        settings: OutputLogSettings;
+        items: "received";
+        trigger: false;
+        inputs: "main";
+        outputs: "main";
+    };
+    "output.webhook": {
+        settings: OutputWebhookSettings;
+        items: "received";
+        trigger: false;
+        inputs: "main";
+        outputs: "main";
+    };
+    "polymarket.balance": {
+        settings: PolymarketBalanceSettings;
+        items: PolymarketBalanceItem;
+        trigger: false;
+        inputs: "main";
+        outputs: "main";
+    };
+    "polymarket.markets": {
+        settings: PolymarketMarketsSettings;
+        items: PolymarketMarketsItem;
+        trigger: false;
+        inputs: "main";
+        outputs: "main";
+    };
+    "polymarket.orderbook": {
+        settings: PolymarketOrderbookSettings;
+        items: PolymarketOrderbookItem;
+        trigger: false;
+        inputs: "main";
+        outputs: "main";
+    };
+    "polymarket.orders": {
+        settings: PolymarketOrdersSettings;
+        items: PolymarketOrdersItem;
+        trigger: false;
+        inputs: "main";
+        outputs: "main";
+    };
+    "polymarket.positions": {
+        settings: PolymarketPositionsSettings;
+        items: PolymarketPositionsItem;
+        trigger: false;
+        inputs: "main";
+        outputs: "main";
+    };
+    "polymarket.priceChange": {
+        settings: PolymarketPriceChangeSettings;
+        items: PolymarketPriceChangeItem;
+        trigger: false;
+        inputs: "main";
+        outputs: "main";
+    };
+    "polymarket.search": {
+        settings: PolymarketSearchSettings;
+        items: PolymarketSearchItem;
+        trigger: false;
+        inputs: "main";
+        outputs: "main";
+    };
+    "polymarket.trades": {
+        settings: PolymarketTradesSettings;
+        items: PolymarketTradesItem;
+        trigger: false;
+        inputs: "main";
+        outputs: "main";
+    };
+    "telegram.ask": {
+        settings: TelegramAskSettings;
+        items: "received";
+        trigger: false;
+        inputs: "main";
+        outputs: "timeout" | (string & {});
+    };
+    "telegram.send": {
+        settings: TelegramSendSettings;
+        items: "received";
+        trigger: false;
+        inputs: "main";
+        outputs: "main";
+    };
+    "transform.pick": {
+        settings: TransformPickSettings;
+        items: "picked";
+        trigger: false;
+        inputs: "main";
+        outputs: "main";
+    };
+    "transform.top": {
+        settings: TransformTopSettings;
+        items: "received";
+        trigger: false;
+        inputs: "main";
+        outputs: "main";
+    };
+    "trigger.manual": {
+        settings: TriggerManualSettings;
+        items: TriggerManualItem;
+        trigger: true;
+        inputs: never;
+        outputs: "main";
+    };
+    "trigger.market": {
+        settings: TriggerMarketSettings;
+        items: TriggerMarketItem;
+        trigger: true;
+        inputs: never;
+        outputs: "main";
+    };
+    "trigger.schedule": {
+        settings: TriggerScheduleSettings;
+        items: TriggerScheduleItem;
+        trigger: true;
+        inputs: never;
+        outputs: "main";
+    };
+    "trigger.telegram": {
+        settings: TriggerTelegramSettings;
+        items: TriggerTelegramItem;
+        trigger: true;
+        inputs: never;
+        outputs: "main";
+    };
 }
 ```
 

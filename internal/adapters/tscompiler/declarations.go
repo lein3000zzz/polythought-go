@@ -70,7 +70,9 @@ func NodeDeclarations(types []engine.TypeInfo) string {
 
 	b.WriteString("\n/**\n * Every node type by name: its settings, and the items it sends on. \"received\" means\n" +
 		" * the items it was given, as they are; \"picked\", those with only the fields its\n" +
-		" * settings name.\n */\nexport interface NodeTypes {\n")
+		" * settings name. Then whether it starts workflows, and the names of its input and\n" +
+		" * output ports; a type whose ports a setting makes takes any name beside its own.\n" +
+		" */\nexport interface NodeTypes {\n")
 
 	for _, t := range sorted {
 		items := "Json"
@@ -85,12 +87,32 @@ func NodeDeclarations(types []engine.TypeInfo) string {
 			items = TypeName(t.Name) + "Item"
 		}
 
-		fmt.Fprintf(&b, "    %s: { settings: %sSettings; items: %s };\n", quote(t.Name), TypeName(t.Name), items)
+		outputs := portNames(t.Outputs)
+		if t.OutputsParam != "" {
+			outputs = strings.TrimPrefix(outputs+" | (string & {})", "never | ")
+		}
+
+		fmt.Fprintf(&b, "    %s: {\n        settings: %sSettings;\n        items: %s;\n        trigger: %t;\n        inputs: %s;\n        outputs: %s;\n    };\n",
+			quote(t.Name), TypeName(t.Name), items, t.Trigger, portNames(t.Inputs), outputs)
 	}
 
 	b.WriteString("}\n")
 
 	return b.String()
+}
+
+// portNames is a union of port names, or never for none.
+func portNames(names []string) string {
+	if len(names) == 0 {
+		return "never"
+	}
+
+	quoted := make([]string, len(names))
+	for i, n := range names {
+		quoted[i] = quote(n)
+	}
+
+	return strings.Join(quoted, " | ")
 }
 
 func writeSettings(b *strings.Builder, t engine.TypeInfo) {

@@ -13,6 +13,8 @@ import {
 import EditorWorker from 'monaco-editor/editor/editor.worker?worker'
 import TypeScriptWorker from 'monaco-editor/language/typescript/ts.worker?worker'
 
+import workflowSource from '@/features/workflowcode/workflow.ts?raw'
+
 self.MonacoEnvironment = {
   getWorker: (_id, label) =>
     label === 'typescript' || label === 'javascript' ? new TypeScriptWorker() : new EditorWorker(),
@@ -31,10 +33,12 @@ typescriptDefaults.setCompilerOptions({
 typescriptDefaults.setEagerModelSync(true)
 
 const sdkRoot = 'file:///node_modules/@polythought/sdk'
+const workflowRoot = 'file:///node_modules/@polythought/workflow'
 
 /**
  * Makes files the @polythought/sdk package code imports: the SDK's declarations and the
- * user's node types, from the server. Replaces what was there before.
+ * user's node types, from the server. Replaces what was there before. Beside it is
+ * @polythought/workflow, the builder of workflows as code (D64), typed by those node types.
  */
 export function setSdk(files: readonly { path: string; content: string }[]) {
   typescriptDefaults.setExtraLibs([
@@ -43,6 +47,11 @@ export function setSdk(files: readonly { path: string; content: string }[]) {
       content: JSON.stringify({ name: '@polythought/sdk', types: 'index.d.ts' }),
     },
     ...files.map((f) => ({ filePath: `${sdkRoot}/${f.path}`, content: f.content })),
+    {
+      filePath: `${workflowRoot}/package.json`,
+      content: JSON.stringify({ name: '@polythought/workflow', types: 'index.ts' }),
+    },
+    { filePath: `${workflowRoot}/index.ts`, content: workflowSource },
   ])
 }
 

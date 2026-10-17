@@ -1,0 +1,16 @@
+{
+  // @polythought/workflow as the editor checks it (components/code/monaco.ts), against the
+  // SDK's types: strict, and without the DOM. workflow.types.ts holds what must not compile.
+  "extends": "./tsconfig.app.json",
+  "compilerOptions": {
+    "tsBuildInfoFile": "./node_modules/.tmp/tsconfig.workflow.tsbuildinfo",
+    "strict": true,
+    "lib": ["ES2023"],
+    "types": []
+  },
+  "include": [
+    "src/features/workflowcode/workflow.ts",
+    "src/features/workflowcode/workflow.types.ts"
+  ],
+  "exclude": []
+}

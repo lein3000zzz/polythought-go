@@ -10,6 +10,17 @@ test('the server hands the editor the types code is written against', async ({ p
   const nodes = files[2].content
   expect(nodes).toContain('export interface PolymarketMarketsItem {')
   expect(nodes).toContain('export interface TelegramAskSettings {')
-  expect(nodes).toContain('"logic.if": { settings: LogicIfSettings; items: "received" };')
+  expect(nodes).toContain(
+    [
+      '    "logic.if": {',
+      '        settings: LogicIfSettings;',
+      '        items: "received";',
+      '        trigger: false;',
+      '        inputs: "main";',
+      '        outputs: "true" | "false";',
+      '    };',
+    ].join('\n'),
+  )
+  expect(nodes).toContain('        outputs: "timeout" | (string & {});') // telegram.ask's buttons
   expect(files[1].content).toContain('export declare function dec(n: DecimalLike): Decimal;')
 })

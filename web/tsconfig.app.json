@@ -22,7 +22,12 @@
     "erasableSyntaxOnly": true,
     "noFallthroughCasesInSwitch": true,
 
-    "paths": { "@/*": ["./src/*"] }
+    "paths": {
+      "@/*": ["./src/*"],
+      // The SDK's types, with the built-in node types, for @polythought/workflow; in the
+      // editor, Monaco loads the user's own.
+      "@polythought/sdk": ["../internal/adapters/tscompiler/sdk/types/index.d.ts"]
+    }
   },
   "include": ["src"],
   "exclude": ["src/test", "src/**/*.test.ts", "src/**/*.test.tsx"]

@@ -12,6 +12,9 @@
     },
     {
       "path": "./tsconfig.e2e.json"
+    },
+    {
+      "path": "./tsconfig.workflow.json"
     }
   ],
   "compilerOptions": {

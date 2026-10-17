@@ -49,6 +49,11 @@ func TestNodeDeclarations(t *testing.T) {
 		{NodeType: engine.NodeType{Name: "test.pass", Inputs: []string{"main"}, Items: &engine.Items{Passed: true}}},
 		{NodeType: engine.NodeType{Name: "test.empty", Items: &engine.Items{}}},
 		{NodeType: engine.NodeType{Name: "test.unknown"}},
+		{NodeType: engine.NodeType{Name: "test.start", Outputs: []string{"main"}}, Trigger: true},
+		{NodeType: engine.NodeType{
+			Name: "test.ask", Inputs: []string{"main", "b"}, Outputs: []string{"timeout"}, OutputsParam: "buttons",
+			Params: []engine.ParamSpec{{Name: "buttons", Kind: engine.ParamList}},
+		}},
 	}
 
 	got := tscompiler.NodeDeclarations(types)
@@ -68,9 +73,30 @@ func TestNodeDeclarations(t *testing.T) {
 			"    \"odd-name\": Json;\n}\n",
 		"export type TestEmptySettings = Record<string, never>;",
 		"export type TestEmptyItem = Record<string, never>;",
-		`    "test.pass": { settings: TestPassSettings; items: "received" };`,
-		`    "test.quote": { settings: TestQuoteSettings; items: TestQuoteItem };`,
-		`    "test.unknown": { settings: TestUnknownSettings; items: Json };`,
+		`    "test.pass": {
+        settings: TestPassSettings;
+        items: "received";
+        trigger: false;
+        inputs: "main";
+        outputs: never;
+    };`,
+		`    "test.quote": {
+        settings: TestQuoteSettings;
+        items: TestQuoteItem;
+        trigger: false;
+        inputs: never;
+        outputs: "main";
+    };`,
+		`    "test.unknown": {
+        settings: TestUnknownSettings;
+        items: Json;`,
+		`    "test.start": {
+        settings: TestStartSettings;
+        items: Json;
+        trigger: true;`,
+		// Ports a setting makes take any name; the known ones still complete.
+		`        inputs: "main" | "b";
+        outputs: "timeout" | (string & {});`,
 	} {
 		assert.Contains(t, got, want)
 	}
