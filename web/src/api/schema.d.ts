@@ -738,6 +738,57 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/workflows/{id}/holdings": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List holdings */
+        get: operations["listHoldings"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/workflows/{id}/orders": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List orders */
+        get: operations["listOrders"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/workflows/{id}/paper-account": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Paper account */
+        get: operations["getPaperAccount"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/workflows/{id}/problems": {
         parameters: {
             query?: never;
@@ -1046,6 +1097,26 @@ export interface components {
             /** @description NextCursor is absent on the last page. */
             nextCursor?: string;
         };
+        Holding: {
+            /**
+             * @description Cost is what the shares held cost, fees included; Realized is the profit or loss
+             *     of those sold.
+             */
+            cost: string;
+            marketId?: string;
+            /** @enum {string} */
+            mode: "paper" | "live";
+            realized: string;
+            shares: string;
+            tokenId: string;
+            trader?: string;
+            traderLabel?: string;
+            /** Format: date-time */
+            updatedAt: string;
+        };
+        HoldingList: {
+            holdings: components["schemas"]["Holding"][];
+        };
         Invite: {
             /** @description Code is the secret, present only in the response that creates it. */
             code?: string;
@@ -1165,6 +1236,61 @@ export interface components {
         };
         NotificationList: {
             notifications: components["schemas"]["Notification"][];
+        };
+        Order: {
+            /** Format: date-time */
+            at: string;
+            dollars?: string;
+            executionId?: string;
+            fills: components["schemas"]["OrderFill"][];
+            id: string;
+            marketId?: string;
+            /** @enum {string} */
+            mode: "paper" | "live";
+            nodeId: string;
+            postOnly: boolean;
+            /** @description Price is the limit: the most a buy pays per share, the least a sell takes. */
+            price: string;
+            reason?: string;
+            /** @description Shares asked for, or for a buy of dollars, Dollars. */
+            shares?: string;
+            /** @enum {string} */
+            side: "buy" | "sell";
+            /** @enum {string} */
+            status: "filled" | "partial" | "unfilled" | "refused";
+            tokenId: string;
+            /**
+             * @description Trader is the wallet whose trade it copies, with their label then; absent for an
+             *     order copied from no one.
+             */
+            trader?: string;
+            traderLabel?: string;
+            /** @enum {string} */
+            type: "FOK" | "FAK" | "GTC" | "GTD";
+        };
+        OrderFill: {
+            dollars: string;
+            /** @description in dollars, on top of a buy, out of a sell */
+            fee: string;
+            price: string;
+            shares: string;
+        };
+        OrderPage: {
+            nextCursor?: string;
+            orders: components["schemas"]["Order"][];
+        };
+        PaperAccount: {
+            /** @example 989.65 */
+            cash: string;
+            /**
+             * @description Open is false until the workflow's first paper order; the rest is then what an
+             *     account would start with.
+             */
+            open: boolean;
+            /** Format: date-time */
+            startedAt?: string;
+            /** @example 1000 */
+            startedWith: string;
         };
         ParamSpec: {
             /**
@@ -4098,6 +4224,143 @@ export interface operations {
             };
             /** @description not_waiting */
             409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    listHoldings: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Workflow ID */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HoldingList"];
+                };
+            };
+            /** @description unauthenticated */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description not_found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    listOrders: {
+        parameters: {
+            query?: {
+                /** @description Page size */
+                limit?: number;
+                /** @description nextCursor of the previous page */
+                cursor?: string;
+            };
+            header?: never;
+            path: {
+                /** @description Workflow ID */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OrderPage"];
+                };
+            };
+            /** @description invalid_input */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description unauthenticated */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description not_found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    getPaperAccount: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Workflow ID */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PaperAccount"];
+                };
+            };
+            /** @description unauthenticated */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description not_found */
+            404: {
                 headers: {
                     [name: string]: unknown;
                 };

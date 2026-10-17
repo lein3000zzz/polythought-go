@@ -769,6 +769,67 @@
                 ],
                 "type": "object"
             },
+            "Holding": {
+                "properties": {
+                    "cost": {
+                        "description": "Cost is what the shares held cost, fees included; Realized is the profit or loss\nof those sold.",
+                        "type": "string"
+                    },
+                    "marketId": {
+                        "type": "string"
+                    },
+                    "mode": {
+                        "enum": [
+                            "paper",
+                            "live"
+                        ],
+                        "type": "string"
+                    },
+                    "realized": {
+                        "type": "string"
+                    },
+                    "shares": {
+                        "type": "string"
+                    },
+                    "tokenId": {
+                        "type": "string"
+                    },
+                    "trader": {
+                        "type": "string"
+                    },
+                    "traderLabel": {
+                        "type": "string"
+                    },
+                    "updatedAt": {
+                        "format": "date-time",
+                        "type": "string"
+                    }
+                },
+                "required": [
+                    "cost",
+                    "mode",
+                    "realized",
+                    "shares",
+                    "tokenId",
+                    "updatedAt"
+                ],
+                "type": "object"
+            },
+            "HoldingList": {
+                "properties": {
+                    "holdings": {
+                        "items": {
+                            "$ref": "#/components/schemas/Holding"
+                        },
+                        "type": "array",
+                        "uniqueItems": false
+                    }
+                },
+                "required": [
+                    "holdings"
+                ],
+                "type": "object"
+            },
             "Invite": {
                 "properties": {
                     "code": {
@@ -1139,6 +1200,174 @@
                 },
                 "required": [
                     "notifications"
+                ],
+                "type": "object"
+            },
+            "Order": {
+                "properties": {
+                    "at": {
+                        "format": "date-time",
+                        "type": "string"
+                    },
+                    "dollars": {
+                        "type": "string"
+                    },
+                    "executionId": {
+                        "type": "string"
+                    },
+                    "fills": {
+                        "items": {
+                            "$ref": "#/components/schemas/OrderFill"
+                        },
+                        "type": "array",
+                        "uniqueItems": false
+                    },
+                    "id": {
+                        "type": "string"
+                    },
+                    "marketId": {
+                        "type": "string"
+                    },
+                    "mode": {
+                        "enum": [
+                            "paper",
+                            "live"
+                        ],
+                        "type": "string"
+                    },
+                    "nodeId": {
+                        "type": "string"
+                    },
+                    "postOnly": {
+                        "type": "boolean"
+                    },
+                    "price": {
+                        "description": "Price is the limit: the most a buy pays per share, the least a sell takes.",
+                        "type": "string"
+                    },
+                    "reason": {
+                        "type": "string"
+                    },
+                    "shares": {
+                        "description": "Shares asked for, or for a buy of dollars, Dollars.",
+                        "type": "string"
+                    },
+                    "side": {
+                        "enum": [
+                            "buy",
+                            "sell"
+                        ],
+                        "type": "string"
+                    },
+                    "status": {
+                        "enum": [
+                            "filled",
+                            "partial",
+                            "unfilled",
+                            "refused"
+                        ],
+                        "type": "string"
+                    },
+                    "tokenId": {
+                        "type": "string"
+                    },
+                    "trader": {
+                        "description": "Trader is the wallet whose trade it copies, with their label then; absent for an\norder copied from no one.",
+                        "type": "string"
+                    },
+                    "traderLabel": {
+                        "type": "string"
+                    },
+                    "type": {
+                        "enum": [
+                            "FOK",
+                            "FAK",
+                            "GTC",
+                            "GTD"
+                        ],
+                        "type": "string"
+                    }
+                },
+                "required": [
+                    "at",
+                    "fills",
+                    "id",
+                    "mode",
+                    "nodeId",
+                    "postOnly",
+                    "price",
+                    "side",
+                    "status",
+                    "tokenId",
+                    "type"
+                ],
+                "type": "object"
+            },
+            "OrderFill": {
+                "properties": {
+                    "dollars": {
+                        "type": "string"
+                    },
+                    "fee": {
+                        "description": "in dollars, on top of a buy, out of a sell",
+                        "type": "string"
+                    },
+                    "price": {
+                        "type": "string"
+                    },
+                    "shares": {
+                        "type": "string"
+                    }
+                },
+                "required": [
+                    "dollars",
+                    "fee",
+                    "price",
+                    "shares"
+                ],
+                "type": "object"
+            },
+            "OrderPage": {
+                "properties": {
+                    "nextCursor": {
+                        "type": "string"
+                    },
+                    "orders": {
+                        "items": {
+                            "$ref": "#/components/schemas/Order"
+                        },
+                        "type": "array",
+                        "uniqueItems": false
+                    }
+                },
+                "required": [
+                    "orders"
+                ],
+                "type": "object"
+            },
+            "PaperAccount": {
+                "properties": {
+                    "cash": {
+                        "example": "989.65",
+                        "type": "string"
+                    },
+                    "open": {
+                        "description": "Open is false until the workflow's first paper order; the rest is then what an\naccount would start with.",
+                        "type": "boolean"
+                    },
+                    "startedAt": {
+                        "format": "date-time",
+                        "type": "string"
+                    },
+                    "startedWith": {
+                        "example": "1000",
+                        "type": "string"
+                    }
+                },
+                "required": [
+                    "cash",
+                    "open",
+                    "startedWith"
                 ],
                 "type": "object"
             },
@@ -5710,6 +5939,213 @@
                 "summary": "Cancel a waiting execution",
                 "tags": [
                     "executions"
+                ]
+            }
+        },
+        "/workflows/{id}/holdings": {
+            "get": {
+                "operationId": "listHoldings",
+                "parameters": [
+                    {
+                        "description": "Workflow ID",
+                        "in": "path",
+                        "name": "id",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/HoldingList"
+                                }
+                            }
+                        },
+                        "description": "OK"
+                    },
+                    "401": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "unauthenticated"
+                    },
+                    "404": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "not_found"
+                    }
+                },
+                "security": [
+                    {
+                        "SessionCookie": []
+                    },
+                    {
+                        "APIToken": []
+                    }
+                ],
+                "summary": "List holdings",
+                "tags": [
+                    "trading"
+                ]
+            }
+        },
+        "/workflows/{id}/orders": {
+            "get": {
+                "operationId": "listOrders",
+                "parameters": [
+                    {
+                        "description": "Workflow ID",
+                        "in": "path",
+                        "name": "id",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "description": "Page size",
+                        "in": "query",
+                        "name": "limit",
+                        "schema": {
+                            "minimum": 1,
+                            "type": "integer"
+                        }
+                    },
+                    {
+                        "description": "nextCursor of the previous page",
+                        "in": "query",
+                        "name": "cursor",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/OrderPage"
+                                }
+                            }
+                        },
+                        "description": "OK"
+                    },
+                    "400": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "invalid_input"
+                    },
+                    "401": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "unauthenticated"
+                    },
+                    "404": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "not_found"
+                    }
+                },
+                "security": [
+                    {
+                        "SessionCookie": []
+                    },
+                    {
+                        "APIToken": []
+                    }
+                ],
+                "summary": "List orders",
+                "tags": [
+                    "trading"
+                ]
+            }
+        },
+        "/workflows/{id}/paper-account": {
+            "get": {
+                "operationId": "getPaperAccount",
+                "parameters": [
+                    {
+                        "description": "Workflow ID",
+                        "in": "path",
+                        "name": "id",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/PaperAccount"
+                                }
+                            }
+                        },
+                        "description": "OK"
+                    },
+                    "401": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "unauthenticated"
+                    },
+                    "404": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "not_found"
+                    }
+                },
+                "security": [
+                    {
+                        "SessionCookie": []
+                    },
+                    {
+                        "APIToken": []
+                    }
+                ],
+                "summary": "Paper account",
+                "tags": [
+                    "trading"
                 ]
             }
         },

@@ -64,6 +64,7 @@ func TestSettingsDefaults(t *testing.T) {
 		config.KeyCodeOutput:          jsruntime.DefaultLimits.Output >> 10,
 		config.KeyCodeHostCalls:       jsruntime.DefaultLimits.HostCalls,
 		config.KeyCodeConcurrency:     0,
+		config.KeyPaperBalance:        1000,
 		config.KeyTrustedProxies:      []string{},
 		config.KeyWebhookAllowPrivate: false,
 		config.KeyLogLevel:            "info",
@@ -75,7 +76,7 @@ func TestSettingsDefaults(t *testing.T) {
 		assert.Equal(t, want, spec(t, key).Default, key)
 	}
 
-	assert.Len(t, registry(t).Specs(), 27, "every setting has a default checked above")
+	assert.Len(t, registry(t).Specs(), 28, "every setting has a default checked above")
 	assert.True(t, spec(t, config.KeyTelegramToken).Secret)
 }
 

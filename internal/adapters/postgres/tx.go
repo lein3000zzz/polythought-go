@@ -63,12 +63,21 @@ func (db *DB) WithinTx(ctx context.Context, fn func(ctx context.Context) error) 
 	return fn(context.WithValue(ctx, txKey{}, tx))
 }
 
-const uniqueViolation = "23505"
+const (
+	uniqueViolation = "23505"
+	checkViolation  = "23514"
+)
 
 func isUniqueViolation(err error, constraint string) bool {
 	var pgErr *pgconn.PgError
 
 	return errors.As(err, &pgErr) && pgErr.Code == uniqueViolation && (constraint == "" || pgErr.ConstraintName == constraint)
+}
+
+// isCheckViolation reports a CHECK constraint refusing a row, like a balance below zero.
+func isCheckViolation(err error) bool {
+	var pgErr *pgconn.PgError
+	return errors.As(err, &pgErr) && pgErr.Code == checkViolation
 }
 
 // notFound maps jet's empty-result error to domain.ErrNotFound.

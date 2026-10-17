@@ -208,3 +208,20 @@ func mapSlice[S, D any](in []S, f func(S) D) []D {
 func mapPage[S, D any](p pm.Page[S], f func(S) D) ports.Page[D] {
 	return ports.Page[D]{Items: mapSlice(p.Items, f), NextCursor: p.NextCursor}
 }
+
+var _ ports.TradingRulesReader = (*Reader)(nil)
+
+// TradingRules reads the CLOB's market info: tick size, minimum size and fee schedule.
+func (r *Reader) TradingRules(ctx context.Context, market domain.MarketID) (domain.TradingRules, error) {
+	info, err := r.clob.GetMarketInfo(ctx, string(market))
+	if err != nil {
+		return domain.TradingRules{}, err
+	}
+
+	return domain.TradingRules{
+		MarketID:     market,
+		TickSize:     info.MinTickSize,
+		MinOrderSize: info.MinOrderSize,
+		Fees:         domain.FeeSchedule{Rate: info.Fees.Rate, Exponent: info.Fees.Exponent},
+	}, nil
+}

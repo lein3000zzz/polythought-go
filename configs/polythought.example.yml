@@ -153,6 +153,13 @@ code:
   # Environment: POLYTHOUGHT_CODE_CONCURRENCY.
   # concurrency: 0
 
+trading:
+
+  # What a workflow's paper account starts with, in dollars: its paper buys spend it and
+  # its sells add to it. Accounts already open keep theirs.
+  # Environment: POLYTHOUGHT_TRADING_PAPER_BALANCE.
+  # paper_balance: 1000
+
 webhook:
 
   # Let workflows post to addresses inside the server's network, such as a service on

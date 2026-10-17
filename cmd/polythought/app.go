@@ -12,6 +12,7 @@ import (
 	"github.com/lein3000zzz/the-watchers/pkg/observability/logging/slogging"
 	"github.com/lein3000zzz/the-watchers/pkg/observability/metrics/prommetrics"
 	"github.com/lein3000zzz/the-watchers/pkg/observability/tracing/oteltracing"
+	"github.com/shopspring/decimal"
 
 	"github.com/lein3000zzz/polythought-go/internal/adapters/crypto"
 	"github.com/lein3000zzz/polythought-go/internal/adapters/jsruntime"
@@ -37,6 +38,7 @@ import (
 	"github.com/lein3000zzz/polythought-go/internal/core/services/settings"
 	"github.com/lein3000zzz/polythought-go/internal/core/services/telegram"
 	"github.com/lein3000zzz/polythought-go/internal/core/services/traders"
+	"github.com/lein3000zzz/polythought-go/internal/core/services/trading"
 	"github.com/lein3000zzz/polythought-go/internal/core/services/waits"
 	"github.com/lein3000zzz/polythought-go/internal/core/services/wallets"
 	"github.com/lein3000zzz/polythought-go/internal/core/services/workflows"
@@ -104,6 +106,7 @@ type app struct {
 	supervisor  *engine.Supervisor
 	feed        *feed.Hub
 	traders     *traders.Hub
+	trading     *trading.Service
 	events      *events.Hub
 	library     *library.Service
 	customNodes *customnodes.Service
@@ -588,6 +591,16 @@ func (a *app) initEngine(ctx context.Context, pmc polymarket) error {
 		workflows.WithLiveLimits(func() workflows.Limits { return workflowLimits(a.settings.Current()) }),
 		workflows.WithWaits(a.waits), workflows.WithFieldChecks(checks),
 		workflows.WithExpressionChecks(checks), workflows.WithCodeAccess(checks))
+
+	// Orders, on paper for now: simulated against the live book, a paper account per
+	// workflow (D89 to D92).
+	a.trading = trading.New(trading.Deps{
+		Ledger: postgres.NewLedger(a.db), Books: pmc.reader, Rules: pmc.reader, Markets: pmc.reader,
+		Workflows: a.workflows, Logger: a.util.Logger,
+		PaperBalance: func() decimal.Decimal {
+			return decimal.NewFromInt(int64(a.settings.Current().Int(config.KeyPaperBalance)))
+		},
+	})
 
 	if a.library, err = library.New(postgres.NewTemplates(a.db), a.workflows, a.registry, a.util.Logger,
 		library.WithOwnTypes(a.customNodes), library.WithCustomNodes(a.customNodes)); err != nil {

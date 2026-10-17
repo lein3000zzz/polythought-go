@@ -184,6 +184,20 @@ func TestReader(t *testing.T) {
 			want: ports.Page[domain.Trade]{Items: []domain.Trade{}},
 		},
 		{
+			name: "trading rules from the CLOB's market info",
+			setup: func(m clientMocks) {
+				m.clob.EXPECT().GetMarketInfo(mock.Anything, "0xc").Return(pm.MarketInfo{
+					ConditionID: "0xc", MinTickSize: dec("0.01"), MinOrderSize: dec("5"),
+					Fees: pm.MarketInfoFees{Rate: dec("0.04"), Exponent: dec("1"), TakerOnly: true},
+				}, nil)
+			},
+			call: func(ctx context.Context, r *Reader) (any, error) { return r.TradingRules(ctx, "0xc") },
+			want: domain.TradingRules{
+				MarketID: "0xc", TickSize: dec("0.01"), MinOrderSize: dec("5"),
+				Fees: domain.FeeSchedule{Rate: dec("0.04"), Exponent: dec("1")},
+			},
+		},
+		{
 			name: "positions",
 			setup: func(m clientMocks) {
 				m.data.EXPECT().Positions(mock.Anything, pm.PositionsQuery{User: "0xw", Limit: 2}).

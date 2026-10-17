@@ -90,6 +90,7 @@ type Services struct {
 	NodeTypes    NodeTypes
 	CodeTypes    CodeTypes
 	WorkflowCode WorkflowCode
+	Trading      TradingService
 	Events       EventService
 	Library      LibraryService
 	Settings     SettingsService
@@ -124,6 +125,7 @@ type Server struct {
 	nodeTypes     NodeTypes
 	codeTypes     CodeTypes
 	workflowCode  WorkflowCode
+	trading       TradingService
 	customNodes   CustomNodeService
 	events        EventService
 	library       LibraryService
@@ -188,6 +190,7 @@ func New(cfg Config, util *observability.Utility, services Services) (*Server, e
 		nodeTypes:     services.NodeTypes,
 		codeTypes:     services.CodeTypes,
 		workflowCode:  services.WorkflowCode,
+		trading:       services.Trading,
 		customNodes:   services.CustomNodes,
 		events:        services.Events,
 		library:       services.Library,
@@ -311,6 +314,9 @@ func (s *Server) routes() {
 	wf.GET("/:id/executions", s.listExecutions)
 	wf.GET("/:id/executions/:eid", s.getExecution)
 	wf.POST("/:id/executions/:eid/cancel", s.cancelExecution)
+	wf.GET("/:id/paper-account", s.getPaperAccount)
+	wf.GET("/:id/orders", s.listOrders)
+	wf.GET("/:id/holdings", s.listHoldings)
 	wf.GET("/:id/share", s.getSharedCopy)
 	wf.PUT("/:id/share", s.shareWorkflow)
 

@@ -255,6 +255,20 @@ How many runs of user code may go at the same time; the others wait their turn. 
 | Default | `0` |
 | Applies | after a restart |
 
+## Trading
+
+### Paper balance ($)
+
+What a workflow's paper account starts with, in dollars: its paper buys spend it and its sells add to it. Accounts already open keep theirs.
+
+| | |
+|---|---|
+| Key | `trading.paper_balance` |
+| Environment variable | `POLYTHOUGHT_TRADING_PAPER_BALANCE` |
+| Kind | whole number |
+| Default | `1000` |
+| Applies | at once |
+
 ## Network
 
 ### Trusted proxies

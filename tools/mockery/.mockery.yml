@@ -100,6 +100,7 @@ packages:
       NodeTypes: {}
       CodeTypes: {}
       WorkflowCode: {}
+      TradingService: {}
       EventService: {}
       LibraryService: {}
       SettingsService: {}

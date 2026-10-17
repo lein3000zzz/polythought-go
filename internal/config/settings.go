@@ -31,6 +31,7 @@ const (
 	KeyCodeOutput          = "code.output"
 	KeyCodeHostCalls       = "code.host_calls"
 	KeyCodeConcurrency     = "code.concurrency"
+	KeyPaperBalance        = "trading.paper_balance"
 	KeyTrustedProxies      = "http.trusted_proxies"
 	KeyWebhookAllowPrivate = "webhook.allow_private"
 	KeyLogLevel            = "log.level"
@@ -45,6 +46,7 @@ const (
 	groupWorkflows  = "Workflows"
 	groupExecutions = "Executions"
 	groupCode       = "Code"
+	groupTrading    = "Trading"
 	groupNetwork    = "Network"
 	groupLogging    = "Logging"
 	groupTelegram   = "Telegram"
@@ -163,6 +165,11 @@ func Settings() (*settings.Registry, error) {
 			Description: "How many runs of user code may go at the same time; the others wait their turn. 0 means one per CPU of the server.",
 			Kind:        settings.KindInt, Default: 0, Check: between(0, 256),
 			Apply: settings.ApplyRestart,
+		},
+		settings.Spec{
+			Key: KeyPaperBalance, Group: groupTrading, Label: "Paper balance ($)",
+			Description: "What a workflow's paper account starts with, in dollars: its paper buys spend it and its sells add to it. Accounts already open keep theirs.",
+			Kind:        settings.KindInt, Default: 1000, Check: between(1, 10_000_000),
 		},
 		settings.Spec{
 			Key: KeyTrustedProxies, Group: groupNetwork, Label: "Trusted proxies",
