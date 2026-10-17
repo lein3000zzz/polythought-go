@@ -1,6 +1,6 @@
 GO            ?= go
 GOLANGCI_LINT ?= $(GO) run github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.14.0
-MOCKERY       ?= $(GO) run github.com/vektra/mockery/v3@v3.8.0
+MOCKERY       ?= $(GO) run github.com/vektra/mockery/v3@v3.8.0 --config tools/mockery/.mockery.yml
 SWAG          ?= $(GO) run github.com/swaggo/swag/v2/cmd/swag@v2.0.0-rc6
 # The pnpm version is pinned in web/package.json; corepack (bundled with Node) fetches it.
 PNPM          ?= COREPACK_ENABLE_DOWNLOAD_PROMPT=0 corepack pnpm
@@ -8,10 +8,10 @@ PNPM          ?= COREPACK_ENABLE_DOWNLOAD_PROMPT=0 corepack pnpm
 INTEGRATION_TAG := integration
 DB_TAG          := db
 COVER_PROFILE   := coverage.out
-COMPOSE         := docker compose -f deploy/docker-compose.yml
+COMPOSE         := docker compose -f deployments/docker-compose.yml
 APP_COMPOSE     := $(COMPOSE) --env-file .env --profile app
 DEV_DATABASE    := postgres://polythought:polythought@localhost:5432/polythought?sslmode=disable
-E2E_COMPOSE     := docker compose -p polythought-e2e -f deploy/docker-compose.yml -f deploy/docker-compose.e2e.yml --profile app
+E2E_COMPOSE     := docker compose -p polythought-e2e -f deployments/docker-compose.yml -f deployments/docker-compose.e2e.yml --profile app
 API_SPEC        := api/openapi.json
 
 # swag writes swagger.json into a directory; the targets move it to API_SPEC.
@@ -36,7 +36,7 @@ run: ## Run the API on :8080 with settings from .env, for the UI from make web-d
 	@set -a; . ./.env; set +a; \
 	POLYTHOUGHT_DATABASE_URL="$${POLYTHOUGHT_DATABASE_URL:-$(DEV_DATABASE)}" \
 	POLYTHOUGHT_PUBLIC_URL="$${POLYTHOUGHT_PUBLIC_URL:-http://localhost:5173}" \
-	$(GO) run -tags stdjson ./cmd serve
+	$(GO) run -tags stdjson ./cmd/polythought serve
 
 .PHONY: up
 up: ## Run everything in Docker at http://localhost:3000 with settings from .env (Ctrl+C stops)
@@ -49,7 +49,7 @@ down: ## Stop everything make up or make db-up started (data is kept in a volume
 
 .PHONY: demo
 demo: ## Run the spread-watch demo workflow against live Polymarket
-	$(GO) run ./cmd demo
+	$(GO) run ./cmd/polythought demo
 
 ## Static checks
 
@@ -100,7 +100,7 @@ cover: ## Unit test coverage summary (writes coverage.out)
 ## Database
 
 .PHONY: db-up
-db-up: ## Start the local Postgres from deploy/docker-compose.yml
+db-up: ## Start the local Postgres from deployments/docker-compose.yml
 	$(COMPOSE) up -d --wait
 
 .PHONY: db-down
@@ -109,12 +109,12 @@ db-down: ## Stop the local Postgres (data is kept in a volume)
 
 .PHONY: db-gen
 db-gen: ## Regenerate go-jet code from the migrations (Docker)
-	$(GO) run ./internal/tools/dbgen
+	$(GO) run ./tools/dbgen
 
 ## Generated code and fixtures
 
 .PHONY: mocks
-mocks: ## Regenerate mocks from .mockery.yml
+mocks: ## Regenerate mocks from tools/mockery/.mockery.yml
 	$(MOCKERY)
 
 .PHONY: mocks-check
@@ -141,7 +141,7 @@ api-check: ## Fail if api/openapi.json is stale
 
 .PHONY: fixtures
 fixtures: ## Refresh client test fixtures from live Polymarket (network)
-	$(GO) run ./internal/tools/fixtures
+	$(GO) run ./tools/fixtures
 
 ## Web UI (web/, needs Node 22)
 
@@ -206,7 +206,7 @@ docs-build: ## Build the docs into docs/dist, with their Content-Security-Policy
 
 .PHONY: docs-gen
 docs-gen: ## Regenerate the docs' reference pages from the code (a test fails when they are stale)
-	$(GO) run ./internal/tools/docgen
+	$(GO) run ./tools/docgen
 
 .PHONY: e2e
 e2e: ## Browser tests against a throwaway stack in Docker (UI on :3100, removed afterwards)

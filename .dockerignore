@@ -1,7 +1,7 @@
 .git
 .idea
 api
-deploy
+deployments
 web
 docs
 coverage.out

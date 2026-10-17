@@ -398,8 +398,8 @@ func settingsPage(specs []settings.Spec) string {
 
 	frontmatter(&b, "Settings", "Every setting of the instance, with its default and environment variable.", 0)
 	b.WriteString("Admins change these on **Admin → Config** while the server runs. A setting set by its " +
-		"environment variable where the server starts cannot be changed there: the variable wins. " +
-		"How the two fit together is in [Configuration](" + base + "/self-hosting/configuration/).\n")
+		"environment variable, or in the config file under its key, cannot be changed there: the variable, " +
+		"then the file, wins. How they fit together is in [Configuration](" + base + "/self-hosting/configuration/).\n")
 
 	var group string
 

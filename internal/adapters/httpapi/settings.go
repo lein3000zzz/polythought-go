@@ -37,9 +37,9 @@ type settingDTO struct {
 	// duration as text like "168h", or a list of text. Both are null for a secret.
 	Value   any `json:"value"`
 	Default any `json:"default"`
-	// Source is where the value comes from. One set by the environment variable Env
-	// cannot be changed here.
-	Source string `json:"source" enums:"default,database,environment"`
+	// Source is where the value comes from. One set by the environment variable Env, or in
+	// the config file under Key, cannot be changed here.
+	Source string `json:"source" enums:"default,database,file,environment"`
 	Env    string `json:"env"`
 	// Pending is set on a changed setting that waits for a restart.
 	Pending bool `json:"pending"`

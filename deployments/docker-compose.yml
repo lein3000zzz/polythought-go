@@ -23,6 +23,7 @@ services:
     profiles: [app]
     build:
       context: ..
+      dockerfile: deployments/Dockerfile
     depends_on:
       postgres:
         condition: service_healthy

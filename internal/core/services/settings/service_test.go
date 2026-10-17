@@ -130,7 +130,7 @@ func load(t *testing.T, repo *memRepo, vars map[string]string, opts ...settings.
 
 	s := settings.New(registry(t), repo, box{}, append([]settings.Option{settings.WithClock(func() time.Time { return now })}, opts...)...)
 
-	warnings, err := s.Load(context.Background(), env(vars))
+	warnings, err := s.Load(context.Background(), env(vars), nil)
 	require.NoError(t, err)
 	require.Empty(t, warnings)
 
@@ -176,6 +176,41 @@ func TestLoadLayers(t *testing.T) {
 	assert.Panics(t, func() { cur.Bool("no.such") })
 }
 
+// The config file sits between what is saved and the environment (D69), and locks what
+// it sets, as the environment does.
+func TestLoadFile(t *testing.T) {
+	t.Parallel()
+
+	s := settings.New(registry(t), newRepo(saved(keyRegistration, `"open"`), saved(keyMaxWorkflows, `5`)), box{},
+		settings.WithClock(func() time.Time { return now }))
+
+	warnings, err := s.Load(context.Background(), env(map[string]string{"POLYTHOUGHT_LOG_FORMAT": "json"}), map[string]any{
+		keyRegistration: "closed", // over a saved value
+		keyLogFormat:    "text",   // under the environment
+		keyRetention:    "48h",    // over the default
+	})
+	require.NoError(t, err)
+	require.Empty(t, warnings)
+
+	cur := s.Current()
+	assert.Equal(t, "closed", cur.String(keyRegistration))
+	assert.Equal(t, settings.SourceFile, cur.Source(keyRegistration))
+	assert.Equal(t, "json", cur.String(keyLogFormat), "the environment beats the file")
+	assert.Equal(t, settings.SourceEnvironment, cur.Source(keyLogFormat))
+	assert.Equal(t, 48*time.Hour, cur.Duration(keyRetention))
+	assert.Equal(t, 5, cur.Int(keyMaxWorkflows), "untouched by the file")
+	assert.True(t, settings.SourceFile.Locked())
+
+	err = s.Update(context.Background(), root, map[string]json.RawMessage{keyRegistration: json.RawMessage(`"invite"`)})
+	assert.ErrorContains(t, err, "set in the config file as auth.registration; change it there")
+
+	_, err = settings.New(registry(t), newRepo(), box{}).Load(context.Background(), env(nil), map[string]any{
+		keyRegistration: "sometimes", "no.such": 1,
+	})
+	assert.ErrorContains(t, err, `config file: auth.registration: "sometimes" is not one of open, invite, closed`)
+	assert.ErrorContains(t, err, "config file: no setting no.such")
+}
+
 func TestLoadEnvironmentErrors(t *testing.T) {
 	t.Parallel()
 
@@ -184,7 +219,7 @@ func TestLoadEnvironmentErrors(t *testing.T) {
 	_, err := s.Load(context.Background(), env(map[string]string{
 		"POLYTHOUGHT_REGISTRATION":           "sometimes",
 		"POLYTHOUGHT_WORKFLOWS_MAX_PER_USER": "0",
-	}))
+	}), nil)
 	require.Error(t, err)
 	assert.ErrorContains(t, err, `POLYTHOUGHT_REGISTRATION: "sometimes" is not one of open, invite, closed`)
 	assert.ErrorContains(t, err, "POLYTHOUGHT_WORKFLOWS_MAX_PER_USER: must be at least 1")
@@ -196,7 +231,7 @@ func TestLoadRepositoryError(t *testing.T) {
 	repo := newRepo()
 	repo.err = errors.New("down")
 
-	_, err := settings.New(registry(t), repo, box{}).Load(context.Background(), env(nil))
+	_, err := settings.New(registry(t), repo, box{}).Load(context.Background(), env(nil), nil)
 	assert.ErrorContains(t, err, "down")
 }
 
@@ -215,7 +250,7 @@ func TestLoadIgnoresBadSavedValues(t *testing.T) {
 
 	s := settings.New(registry(t), repo, box{})
 
-	warnings, err := s.Load(context.Background(), env(nil))
+	warnings, err := s.Load(context.Background(), env(nil), nil)
 	require.NoError(t, err)
 	assert.Len(t, warnings, 6)
 

@@ -41,9 +41,9 @@ Everything else, such as who may sign up, is set by admins on the **Config** pag
 
 ## On a server
 
-The Compose file in `deploy/` suits a single machine. Before others use it:
+The Compose file in `deployments/` suits a single machine. Before others use it:
 
-- **Address.** Set `POLYTHOUGHT_PUBLIC_URL` in `deploy/docker-compose.yml` to the address
+- **Address.** Set `POLYTHOUGHT_PUBLIC_URL` in `deployments/docker-compose.yml` to the address
   people use, such as `https://polythought.example.com`. Only that origin may make changes
   with a signed-in session, and an `https` address makes the session cookie secure.
 - **HTTPS.** Put a proxy that handles TLS in front of the `web` container, or give Caddy your
@@ -54,19 +54,22 @@ The Compose file in `deploy/` suits a single machine. Before others use it:
 
 ## Environment variables
 
-These are read when the server starts and cannot be changed on the Config page:
+These are read when the server starts and cannot be changed on the Config page. Each can
+also go in the [config file](/docs/self-hosting/configuration/#the-config-file), under the
+key in brackets; the variable wins.
 
 | Variable | Default | What it is |
 |---|---|---|
-| `POLYTHOUGHT_DATABASE_URL` | required | PostgreSQL connection URL, e.g. `postgres://user:pass@host:5432/db?sslmode=disable`. |
-| `POLYTHOUGHT_SECRET_KEYS` | required | Keys for secrets at rest, `id:base64key`, comma-separated; see [Keys](#keys). |
-| `POLYTHOUGHT_AUTO_MIGRATE` | `true` | Update the database schema when the server starts. |
-| `POLYTHOUGHT_HTTP_ADDR` | `:8080` | Where the API listens. |
-| `POLYTHOUGHT_PUBLIC_URL` | `http://localhost:8080` | The address people use; see above. |
-| `POLYTHOUGHT_ADMIN_EMAIL`, `POLYTHOUGHT_ADMIN_PASSWORD` | none | The first admin, created when there is no admin. Set both or neither. |
+| `POLYTHOUGHT_DATABASE_URL` (`database.url`) | required | PostgreSQL connection URL, e.g. `postgres://user:pass@host:5432/db?sslmode=disable`. |
+| `POLYTHOUGHT_SECRET_KEYS` (`secrets.keys`) | required | Keys for secrets at rest, `id:base64key`, comma-separated; see [Keys](#keys). |
+| `POLYTHOUGHT_AUTO_MIGRATE` (`database.auto_migrate`) | `true` | Update the database schema when the server starts. |
+| `POLYTHOUGHT_HTTP_ADDR` (`http.addr`) | `:8080` | Where the API listens. |
+| `POLYTHOUGHT_PUBLIC_URL` (`http.public_url`) | `http://localhost:8080` | The address people use; see above. |
+| `POLYTHOUGHT_ADMIN_EMAIL`, `POLYTHOUGHT_ADMIN_PASSWORD` (`admin.email`, `admin.password`) | none | The first admin, created when there is no admin. Set both or neither. |
+| `POLYTHOUGHT_CONFIG` | `configs/polythought.yml`, if there | The config file; `--config` does the same. |
 
-Every other setting can also be set by an environment variable, which then locks it on the
-Config page; see [Configuration](/docs/self-hosting/configuration/).
+Every other setting can also be set by an environment variable or in the config file, which
+then locks it on the Config page; see [Configuration](/docs/self-hosting/configuration/).
 
 ## Keys
 
@@ -84,7 +87,7 @@ Admins can promote users on **Admin → Users**. To create one from the command 
 password read from standard input:
 
 ```sh
-printf '%s' "$PASSWORD" | docker compose -f deploy/docker-compose.yml --env-file .env \
+printf '%s' "$PASSWORD" | docker compose -f deployments/docker-compose.yml --env-file .env \
   --profile app run --rm -T api admin create -email someone@example.com
 ```
 

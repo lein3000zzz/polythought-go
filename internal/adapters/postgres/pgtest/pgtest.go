@@ -9,7 +9,7 @@ import (
 	tcpostgres "github.com/testcontainers/testcontainers-go/modules/postgres"
 )
 
-// Image matches deploy/docker-compose.yml.
+// Image matches deployments/docker-compose.yml.
 const Image = "postgres:17-alpine"
 
 // Container is a running database; Terminate removes it.

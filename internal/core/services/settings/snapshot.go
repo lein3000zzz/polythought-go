@@ -8,8 +8,15 @@ type Source string
 const (
 	SourceDefault     Source = "default"
 	SourceDatabase    Source = "database"
+	SourceFile        Source = "file" // the config file (D69)
 	SourceEnvironment Source = "environment"
 )
+
+// Locked says whether the Config page can change a setting from this source: not one the
+// environment or the config file sets, which win over it.
+func (s Source) Locked() bool {
+	return s == SourceEnvironment || s == SourceFile
+}
 
 // Snapshot is the settings at one moment. It never changes: a change makes a new one.
 type Snapshot struct {

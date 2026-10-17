@@ -43,6 +43,26 @@ func main() {
 			log.Fatal(err)
 		}
 	}
+
+	example, err := exampleFile()
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	if err := os.WriteFile(exampleConfigPath, []byte(example), 0o644); err != nil { //nolint:gosec // public
+		log.Fatal(err)
+	}
+}
+
+// exampleFile is the example config file, of the bootstrap values and the settings the
+// server reads.
+func exampleFile() (string, error) {
+	specs, err := config.Settings()
+	if err != nil {
+		return "", err
+	}
+
+	return exampleConfig(config.Bootstrap, specs.Specs()), nil
 }
 
 // typesDir is where the SDK's declarations are, from the repository's root.

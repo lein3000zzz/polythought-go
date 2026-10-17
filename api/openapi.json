@@ -1364,10 +1364,11 @@
                         "type": "boolean"
                     },
                     "source": {
-                        "description": "Source is where the value comes from. One set by the environment variable Env\ncannot be changed here.",
+                        "description": "Source is where the value comes from. One set by the environment variable Env, or in\nthe config file under Key, cannot be changed here.",
                         "enum": [
                             "default",
                             "database",
+                            "file",
                             "environment"
                         ],
                         "type": "string"

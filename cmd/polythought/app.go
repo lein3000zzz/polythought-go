@@ -91,6 +91,7 @@ const restartDelay = 300 * time.Millisecond
 // app is everything the server and the operator tools share.
 type app struct {
 	cfg         config.Config
+	file        config.File // the config file's values, for the settings' file layer
 	util        *observability.Utility
 	db          *postgres.DB
 	box         ports.SecretBox
@@ -116,7 +117,19 @@ type app struct {
 }
 
 func newApp(ctx context.Context) (*app, error) {
-	cfg, err := config.Load(os.Getenv)
+	registry, err := config.Settings()
+	if err != nil {
+		return nil, err
+	}
+
+	path, required := config.FilePath(configPath, os.Getenv)
+
+	file, err := config.ReadFile(path, required, registry)
+	if err != nil {
+		return nil, err
+	}
+
+	cfg, err := config.Load(os.Getenv, file)
 	if err != nil {
 		return nil, fmt.Errorf("config:\n%w", err)
 	}
@@ -127,7 +140,7 @@ func newApp(ctx context.Context) (*app, error) {
 		return nil, err
 	}
 
-	a := &app{cfg: cfg, db: db, restartc: make(chan struct{})}
+	a := &app{cfg: cfg, file: file, db: db, restartc: make(chan struct{})}
 
 	if err := a.init(ctx); err != nil {
 		if a.util != nil {
@@ -231,7 +244,7 @@ func (a *app) initSettings(ctx context.Context, box ports.SecretBox) error {
 
 	a.settings = settings.New(registry, postgres.NewSettings(a.db), box, settings.WithRestarter(a.requestRestart))
 
-	warnings, err := a.settings.Load(ctx, os.Getenv)
+	warnings, err := a.settings.Load(ctx, os.Getenv, a.file.Settings())
 	if err != nil {
 		return fmt.Errorf("settings:\n%w", err)
 	}

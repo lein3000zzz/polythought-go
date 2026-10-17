@@ -1226,11 +1226,11 @@ export interface components {
             /** @description Secret values are write-only: value is null and isSet says whether one is saved. */
             secret: boolean;
             /**
-             * @description Source is where the value comes from. One set by the environment variable Env
-             *     cannot be changed here.
+             * @description Source is where the value comes from. One set by the environment variable Env, or in
+             *     the config file under Key, cannot be changed here.
              * @enum {string}
              */
-            source: "default" | "database" | "environment";
+            source: "default" | "database" | "file" | "environment";
             /**
              * @description Value and Default are typed by kind: text, a whole number, true or false, a
              *     duration as text like "168h", or a list of text. Both are null for a secret.

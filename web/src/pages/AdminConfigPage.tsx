@@ -166,9 +166,14 @@ function Config() {
   )
 }
 
+/** Whether the environment or the config file sets it, which the page cannot change. */
+function locked(s: Setting): boolean {
+  return s.source === 'environment' || s.source === 'file'
+}
+
 /** Whether a draft value would change what is saved. */
 function isChange(s: Setting, draft: unknown): boolean {
-  if (s.source === 'environment') return false
+  if (locked(s)) return false
   if (draft === null) return s.secret ? s.isSet : s.source === 'database'
 
   return s.secret || JSON.stringify(draft) !== JSON.stringify(s.value)
@@ -215,14 +220,14 @@ type RowProps = {
 }
 
 function SettingRow({ setting: s, draft, hasDraft, problem, onChange, onReset }: RowProps) {
-  const locked = s.source === 'environment'
+  const isLocked = locked(s)
   // A setting at its default shows the default as a placeholder, so typing sets it.
   const value = hasDraft ? (draft ?? undefined) : s.source === 'default' ? undefined : s.value
-  const resettable = !locked && draft !== null && (s.secret ? s.isSet : s.source === 'database')
+  const resettable = !isLocked && draft !== null && (s.secret ? s.isSet : s.source === 'database')
 
   return (
     <div className="flex flex-col gap-2">
-      <fieldset disabled={locked} className="min-w-0">
+      <fieldset disabled={isLocked} className="min-w-0">
         {s.secret ? (
           <SecretField setting={s} draft={draft} problem={problem} onChange={onChange} />
         ) : (
@@ -238,18 +243,24 @@ function SettingRow({ setting: s, draft, hasDraft, problem, onChange, onReset }:
       </fieldset>
 
       <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-        {locked ? (
+        {isLocked ? (
           <Badge variant="secondary">
             <Lock />
-            Set by {s.env}
+            {s.source === 'file' ? 'Set in the config file' : `Set by ${s.env}`}
           </Badge>
         ) : (
           <Badge variant="outline">{s.source === 'database' ? 'Saved' : 'Default'}</Badge>
         )}
-        {locked && <span>Change it in the server's environment.</span>}
+        {isLocked && (
+          <span>
+            {s.source === 'file'
+              ? `Change ${s.key} in the server's config file.`
+              : "Change it in the server's environment."}
+          </span>
+        )}
         {s.apply === 'restart' && !s.pending && <span>Applies after a restart.</span>}
         {s.pending && <Badge variant="outline">Waiting for a restart</Badge>}
-        {hasDraft && draft === null && !locked && <span>Resets to the default when saved.</span>}
+        {hasDraft && draft === null && !isLocked && <span>Resets to the default when saved.</span>}
         {resettable && (
           <Button variant="ghost" size="xs" onClick={onReset}>
             <RotateCcw />

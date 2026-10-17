@@ -82,6 +82,14 @@ const logFormat = setting({
   default: 'text',
   apply: 'restart',
 })
+const shortestPassword = setting({
+  key: 'auth.min_password_length',
+  label: 'Shortest password',
+  kind: 'int',
+  value: 16,
+  default: 12,
+  source: 'file',
+})
 const token = setting({
   key: 'telegram.token',
   group: 'Telegram',
@@ -93,7 +101,16 @@ const token = setting({
   source: 'database',
 })
 
-const all = [registrationMode, idle, maxWorkflows, proxies, allowPrivate, logFormat, token]
+const all = [
+  registrationMode,
+  idle,
+  shortestPassword,
+  maxWorkflows,
+  proxies,
+  allowPrivate,
+  logFormat,
+  token,
+]
 
 function config(settings: Schemas['Setting'][] = all, restartPending = false) {
   server.use(
@@ -145,6 +162,13 @@ describe('admin config page', () => {
     expect(screen.getByText('Set by POLYTHOUGHT_REGISTRATION')).toBeInTheDocument()
 
     expect(screen.getByLabelText('Idle sign-out')).toHaveValue('24h')
+    // Set in the config file: the same, and it says where.
+    expect(screen.getByLabelText('Shortest password')).toBeDisabled()
+    expect(screen.getByLabelText('Shortest password')).toHaveValue('16')
+    expect(screen.getByText('Set in the config file')).toBeInTheDocument()
+    expect(
+      screen.getByText("Change auth.min_password_length in the server's config file."),
+    ).toBeInTheDocument()
     // At its default: the default is the placeholder, so typing sets a value.
     expect(screen.getByLabelText('Workflows per user')).toHaveValue('')
     expect(screen.getByLabelText('Workflows per user')).toHaveAttribute(

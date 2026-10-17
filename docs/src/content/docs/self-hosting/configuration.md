@@ -1,11 +1,14 @@
 ---
 title: Configuration
-description: The Config page, environment variables, and restarting.
+description: The Config page, the config file, environment variables, and restarting.
 ---
 
 Most of Polythought is set on the **Config** page, by admins, while it runs. A few things
-the server needs before it can reach its database are set only in the environment; those
-are listed in [Install](/docs/self-hosting/install/#environment-variables).
+the server needs before it can reach its database are set in the environment or the config
+file; those are listed in [Install](/docs/self-hosting/install/#environment-variables).
+
+A value comes from the first of these that has one: an environment variable, the config
+file, what an admin saved on the Config page, the default.
 
 ## The Config page
 
@@ -16,6 +19,7 @@ value comes from:
 - **Saved**: an admin saved a value on this page. **Reset to default** removes it.
 - **Set by `POLYTHOUGHT_…`**: an environment variable sets it. It cannot be changed here; see
   below.
+- **Set in the config file**: the config file sets it. It cannot be changed here either.
 
 Change what you need and press **Save**. If a value is wrong, it is marked and nothing is
 saved. Most settings apply at once. The few that apply after a restart say so; once one of
@@ -26,13 +30,36 @@ Secret values are never recorded, only that they changed.
 
 All settings, with their defaults, are in the [settings reference](/docs/reference/settings/).
 
+## The config file
+
+A YAML file can hold the same values: the bootstrap ones and any setting, each under its key,
+nested at its dots. `auth.registration` is:
+
+```yaml
+auth:
+  registration: invite
+```
+
+The server reads `configs/polythought.yml` when it is there, or the file `--config` or
+`POLYTHOUGHT_CONFIG` names, which must then exist: `polythought --config
+/etc/polythought.yml serve`. `configs/polythought.example.yml` lists every value it may hold,
+at its default, with what each is; copy it to start. A key the server does not know, or a
+value that does not fit, stops it from starting, with a message naming it.
+
+A setting the file sets is locked on the Config page, as one an environment variable sets,
+which suits settings you manage with your deployment. An environment variable wins over the
+file. Secrets, like the master keys and the admin's password, are better kept in the
+environment than in a file.
+
+With Docker, mount the file into the `api` container and point `POLYTHOUGHT_CONFIG` at it.
+
 ## Environment variables
 
 Every setting also has an environment variable, named in the reference. A variable that is
-set wins over the Config page and locks the setting there, which suits settings you manage
-with your deployment. An empty variable counts as not set.
+set wins over the config file and the Config page, and locks the setting there. An empty
+variable counts as not set.
 
-With Docker Compose, `deploy/docker-compose.yml` passes some variables through from `.env`;
+With Docker Compose, `deployments/docker-compose.yml` passes some variables through from `.env`;
 add others under the `api` service's `environment`.
 
 A variable with a bad value stops the server from starting, with a message naming it. A

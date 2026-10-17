@@ -30,6 +30,7 @@ type Service struct {
 	restart  func(by domain.User)
 
 	defaults map[string]any
+	file     map[string]any // the config file's, read once like the environment
 	env      map[string]any // read once: the environment cannot change while the server runs
 
 	mu    sync.Mutex // serialises changes and guards saved and subs
@@ -60,6 +61,7 @@ func New(registry *Registry, repo ports.SettingsRepository, box ports.SecretBox,
 		box:      box,
 		now:      func() time.Time { return time.Now().UTC().Truncate(time.Microsecond) },
 		defaults: make(map[string]any),
+		file:     make(map[string]any),
 		env:      make(map[string]any),
 		saved:    make(map[string]any),
 	}
@@ -75,15 +77,33 @@ func New(registry *Registry, repo ports.SettingsRepository, box ports.SecretBox,
 	return s
 }
 
-// Load reads the environment through getenv, normally os.Getenv, and the saved values.
-// Call it once, before anything reads the settings.
+// Load reads the environment through getenv, normally os.Getenv, file, the config file's
+// values by key (D69), and the saved values. Call it once, before anything reads the
+// settings. The environment wins, then the file, then what is saved, then the default.
 //
-// A bad environment variable is an error, so the server does not start with a typo. A
+// A bad environment variable or file value is an error, so the server does not start
+// with a typo. A
 // saved value that no longer passes validation, say after an upgrade made a rule
 // stricter, is ignored and reported in warnings: it must not keep the server from
 // starting, and an admin can fix it on the Config page.
-func (s *Service) Load(ctx context.Context, getenv func(string) string) (warnings []error, err error) {
+func (s *Service) Load(ctx context.Context, getenv func(string) string, file map[string]any) (warnings []error, err error) {
 	var errs []error
+
+	for _, key := range slices.Sorted(maps.Keys(file)) {
+		spec, ok := s.registry.Spec(key)
+		if !ok {
+			errs = append(errs, fmt.Errorf("config file: no setting %s", key))
+			continue
+		}
+
+		v, err := spec.Parse(file[key])
+		if err != nil {
+			errs = append(errs, fmt.Errorf("config file: %s: %w", key, err))
+			continue
+		}
+
+		s.file[key] = v
+	}
 
 	for _, spec := range s.registry.Specs() {
 		raw := getenv(spec.EnvName())
@@ -174,7 +194,7 @@ func aad(key string) []byte {
 func (s *Service) build() *Snapshot {
 	k := koanf.New(".")
 
-	for _, layer := range []map[string]any{s.defaults, s.saved, s.env} {
+	for _, layer := range []map[string]any{s.defaults, s.saved, s.file, s.env} {
 		_ = k.Load(confmap.Provider(layer, "."), nil) // a map provider cannot fail
 	}
 
@@ -186,6 +206,8 @@ func (s *Service) build() *Snapshot {
 		switch {
 		case has(s.env, spec.Key):
 			snap.sources[spec.Key] = SourceEnvironment
+		case has(s.file, spec.Key):
+			snap.sources[spec.Key] = SourceFile
 		case has(s.saved, spec.Key):
 			snap.sources[spec.Key] = SourceDatabase
 		default:
@@ -336,8 +358,11 @@ func (s *Service) prepare(ctx context.Context, key string, value json.RawMessage
 		return nil, errors.New("no such setting")
 	}
 
-	if cur.sources[key] == SourceEnvironment {
+	switch cur.sources[key] {
+	case SourceEnvironment:
 		return nil, fmt.Errorf("set by the environment variable %s; change it there", spec.EnvName())
+	case SourceFile:
+		return nil, fmt.Errorf("set in the config file as %s; change it there", spec.Key)
 	}
 
 	v, reset, err := parseChange(spec, value)

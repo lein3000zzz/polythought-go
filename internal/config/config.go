@@ -1,7 +1,7 @@
 // Package config loads the bootstrap configuration, what the server needs before it can
-// reach its database, from POLYTHOUGHT_* environment variables. Everything else is a
-// setting (see Settings), which an admin can change on the Config page unless an
-// environment variable sets it.
+// reach its database, from POLYTHOUGHT_* environment variables and a YAML config file
+// (D69), the environment winning. Everything else is a setting (see Settings), which an
+// admin can change on the Config page unless the environment or the file sets it.
 package config
 
 import (
@@ -35,24 +35,43 @@ type Config struct {
 	AdminPassword string
 }
 
-// Load reads the configuration through getenv, normally os.Getenv, and reports every
-// problem at once.
-func Load(getenv func(string) string) (Config, error) {
+// Load reads the configuration through getenv, normally os.Getenv, then file, a config
+// file's values, and reports every problem at once.
+func Load(getenv func(string) string, file File) (Config, error) {
 	var (
 		cfg  Config
 		errs []error
 	)
 
-	env := func(name string) string { return strings.TrimSpace(getenv(prefix + name)) }
+	keys := make(map[string]string, len(Bootstrap))
+	for _, b := range Bootstrap {
+		keys[b.Env] = b.Key
+	}
+
+	// raw is a value as written: the environment's, else the file's.
+	raw := func(name string) string {
+		if v := getenv(prefix + name); strings.TrimSpace(v) != "" {
+			return v
+		}
+
+		return file.text(keys[prefix+name])
+	}
+
+	env := func(name string) string { return strings.TrimSpace(raw(name)) }
+
+	// where names both places a value can come from, for errors.
+	where := func(name string) string {
+		return fmt.Sprintf("%s%s (or %s in the config file)", prefix, name, keys[prefix+name])
+	}
 
 	fail := func(name, format string, args ...any) {
-		errs = append(errs, fmt.Errorf("%s%s: "+format, append([]any{prefix, name}, args...)...))
+		errs = append(errs, fmt.Errorf("%s: "+format, append([]any{where(name)}, args...)...))
 	}
 
 	required := func(name string) string {
 		v := env(name)
 		if v == "" {
-			errs = append(errs, fmt.Errorf("%s%s is required", prefix, name))
+			errs = append(errs, fmt.Errorf("%s is required", where(name)))
 		}
 
 		return v
@@ -88,10 +107,10 @@ func Load(getenv func(string) string) (Config, error) {
 	cfg.PublicURL = withDefault("PUBLIC_URL", "http://localhost:8080")
 
 	cfg.AdminEmail = env("ADMIN_EMAIL")
-	cfg.AdminPassword = getenv(prefix + "ADMIN_PASSWORD") // not trimmed: spaces may be part of it
+	cfg.AdminPassword = raw("ADMIN_PASSWORD") // not trimmed: spaces may be part of it
 
 	if (cfg.AdminEmail == "") != (cfg.AdminPassword == "") {
-		errs = append(errs, fmt.Errorf("%sADMIN_EMAIL and %sADMIN_PASSWORD must be set together", prefix, prefix))
+		errs = append(errs, fmt.Errorf("%s and %s must be set together", where("ADMIN_EMAIL"), where("ADMIN_PASSWORD")))
 	}
 
 	return cfg, errors.Join(errs...)

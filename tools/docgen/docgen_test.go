@@ -3,6 +3,7 @@ package main
 import (
 	"os"
 	"path/filepath"
+	"regexp"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -11,13 +12,14 @@ import (
 	"github.com/lein3000zzz/the-watchers/pkg/observability/logging"
 
 	"github.com/lein3000zzz/polythought-go/internal/adapters/tscompiler"
+	"github.com/lein3000zzz/polythought-go/internal/config"
 	"github.com/lein3000zzz/polythought-go/internal/core/engine"
 	"github.com/lein3000zzz/polythought-go/internal/core/nodes"
 )
 
 // The reference pages on disk must be what the code generates now.
 func TestReferenceIsCurrent(t *testing.T) {
-	dir := filepath.Join("..", "..", "..", "docs", "src", "content", "docs", "reference")
+	dir := filepath.Join("..", "..", "docs", "src", "content", "docs", "reference")
 
 	pages, types, err := build()
 	require.NoError(t, err)
@@ -29,7 +31,7 @@ func TestReferenceIsCurrent(t *testing.T) {
 	}
 
 	for name, want := range types {
-		got, err := os.ReadFile(filepath.Join("..", "..", "..", typesDir, name))
+		got, err := os.ReadFile(filepath.Join("..", "..", typesDir, name))
 		require.NoError(t, err, "%s is missing: run make docs-gen", name)
 		assert.Equal(t, want, string(got), "%s is stale: run make docs-gen", name)
 	}
@@ -42,6 +44,38 @@ func TestReferenceIsCurrent(t *testing.T) {
 		require.NoError(t, err)
 		assert.Contains(t, pages, filepath.ToSlash(rel), "%s is no longer generated: run make docs-gen", rel)
 	}
+}
+
+// So must the example config file, which must also be one the server reads.
+func TestExampleConfigIsCurrent(t *testing.T) {
+	want, err := exampleFile()
+	require.NoError(t, err)
+
+	path := filepath.Join("..", "..", exampleConfigPath)
+
+	got, err := os.ReadFile(path)
+	require.NoError(t, err, "%s is missing: run make docs-gen", exampleConfigPath)
+	assert.Equal(t, want, string(got), "%s is stale: run make docs-gen", exampleConfigPath)
+
+	reg, err := config.Settings()
+	require.NoError(t, err)
+
+	file, err := config.ReadFile(path, true, reg)
+	require.NoError(t, err)
+	assert.Empty(t, file, "everything in it is commented out")
+
+	// With every value uncommented, it is still one the server takes.
+	uncommented := filepath.Join(t.TempDir(), "polythought.yml")
+	require.NoError(t, os.WriteFile(uncommented, []byte(uncomment(want)), 0o600))
+
+	file, err = config.ReadFile(uncommented, true, reg)
+	require.NoError(t, err)
+	assert.Len(t, file, len(config.Bootstrap)+len(reg.Specs()))
+}
+
+// uncomment turns the example's commented values back on: its "  # name: value" lines.
+func uncomment(example string) string {
+	return regexp.MustCompile(`(?m)^  # ([a-z_]+: )`).ReplaceAllString(example, "  $1")
 }
 
 func TestEveryNodeHasAPage(t *testing.T) {
