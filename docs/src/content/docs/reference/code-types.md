@@ -577,6 +577,24 @@ export interface TradingPlaceOrderSettings {
     type?: "FAK" | "FOK" | Expression;
 }
 
+/** The settings of Risk guard (trading.riskGuard). */
+export interface TradingRiskGuardSettings {
+    /** The most one copy spends. */
+    maxPerCopy?: DecimalText | number | Expression;
+    /** The most the workflow holds in one market, at cost, all traders' copies together. */
+    maxPerMarket?: DecimalText | number | Expression;
+    /** The most the workflow's buys spend in 24 hours. */
+    maxPerDay?: DecimalText | number | Expression;
+    /** Buys at a lower price are blocked. */
+    minPrice?: DecimalText | number | Expression;
+    /** Buys at a higher price are blocked. */
+    maxPrice?: DecimalText | number | Expression;
+    /** Buys only in markets with one of these tags, like Politics; empty: any. */
+    categories?: string[] | Expression;
+    /** No buys in markets with any of these tags, like Sports. */
+    notCategories?: string[] | Expression;
+}
+
 /** The settings of Keep fields (transform.pick). */
 export interface TransformPickSettings {
     /** One per line, e.g. question and spread. Paths like outcomes.0.price work too. A field of the items it receives. */
@@ -929,6 +947,13 @@ export interface NodeTypes {
         trigger: false;
         inputs: "main";
         outputs: "main" | "missed";
+    };
+    "trading.riskGuard": {
+        settings: TradingRiskGuardSettings;
+        items: "received";
+        trigger: false;
+        inputs: "main";
+        outputs: "main" | "blocked";
     };
     "transform.pick": {
         settings: TransformPickSettings;

@@ -46,6 +46,7 @@ type Market struct {
 	Volume24h       decimal.Decimal
 	Liquidity       decimal.Decimal
 	EndsAt          time.Time
+	Tags            []string // what it is about, like Politics or Crypto
 }
 
 type Outcome struct {

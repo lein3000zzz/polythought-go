@@ -36,6 +36,7 @@ type Market struct {
 	OneDayPriceChange     decimal.Decimal              `json:"oneDayPriceChange"`
 	OrderPriceMinTickSize decimal.Decimal              `json:"orderPriceMinTickSize"`
 	OrderMinSize          decimal.Decimal              `json:"orderMinSize"`
+	Tags                  []Tag                        `json:"tags"` // only with MarketsQuery.IncludeTags
 }
 
 // TokenIDs returns the tradable IDs. v2 markets use positionIds, v1 use clobTokenIds.
@@ -105,6 +106,7 @@ type MarketsQuery struct {
 	ConditionIDs []string
 	Slugs        []string
 	TokenIDs     []string // the markets of these outcome tokens
+	IncludeTags  bool     // their tags too, which say what they are about
 }
 
 // EventsQuery maps to GET /events/keyset.

@@ -2,6 +2,7 @@ package ports
 
 import (
 	"context"
+	"time"
 
 	"github.com/shopspring/decimal"
 
@@ -30,6 +31,9 @@ type Ledger interface {
 	// Holding is ErrNotFound for a position never held.
 	Holding(ctx context.Context, key domain.HoldingKey) (domain.Holding, error)
 	Holdings(ctx context.Context, workflow domain.WorkflowID) ([]domain.Holding, error)
+
+	// Spent is what a workflow's buys in a mode spent since then, fees included.
+	Spent(ctx context.Context, workflow domain.WorkflowID, mode domain.TradingMode, since time.Time) (decimal.Decimal, error)
 
 	// Record adds an order with its fills and, with a change, what it did: in one
 	// transaction, so the books always add up.

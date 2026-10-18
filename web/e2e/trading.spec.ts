@@ -63,3 +63,39 @@ test('a paper order fills against the live book, and the workflow keeps its book
   await expect(list.getByText('Copy sizing', { exact: true })).toBeVisible()
   await expect(list.getByText('Place order', { exact: true })).toBeVisible()
 })
+
+test('the risk guard makes a copy over its cap smaller before it is placed', async ({ page }) => {
+  const id = await createWorkflow(page, unique('guarded'), [
+    { id: 'manual', type: 'trigger.manual' },
+    { id: 'markets', type: 'polymarket.markets', params: { limit: 1 } },
+    {
+      // A copy as Copy sizing makes one, of $50.
+      id: 'copy',
+      type: 'code.transform',
+      params: {
+        source: `export function run(items: any[]) {
+  return items.map((m) => ({
+    copy: { side: "buy", tokenId: m.outcomes[0].tokenId, marketId: m.id, price: "0.99", dollars: "50", shares: null, type: "FAK" },
+  }))
+}`,
+      },
+    },
+    { id: 'guard', type: 'trading.riskGuard', params: { maxPerCopy: '20' } },
+    { id: 'buy', type: 'trading.placeOrder' },
+  ])
+
+  const res = await page.request.post(`/api/v1/workflows/${id}/run`)
+  expect(res.status()).toBe(200)
+  expect(((await res.json()) as { status: string }).status).toBe('succeeded')
+
+  const books = (await (await page.request.get(`/api/v1/workflows/${id}/orders`)).json()) as {
+    orders: { status: string; dollars: string; fills: { dollars: string }[] }[]
+  }
+  expect(books.orders).toHaveLength(1)
+  expect(books.orders[0].dollars).toBe('20')
+  expect(['filled', 'partial']).toContain(books.orders[0].status)
+
+  const spent = books.orders[0].fills.reduce((sum, f) => sum + Number(f.dollars), 0)
+  expect(spent).toBeGreaterThan(0)
+  expect(spent).toBeLessThanOrEqual(20)
+})

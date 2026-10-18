@@ -58,7 +58,7 @@ func TestReader(t *testing.T) {
 		{
 			name: "get market finds an open market in one lookup",
 			setup: func(m clientMocks) {
-				m.gamma.EXPECT().ListMarkets(mock.Anything, pm.MarketsQuery{ConditionIDs: []string{"0xc"}, Limit: 1}).
+				m.gamma.EXPECT().ListMarkets(mock.Anything, pm.MarketsQuery{ConditionIDs: []string{"0xc"}, Limit: 1, IncludeTags: true}).
 					Return(pm.Page[pm.Market]{Items: []pm.Market{apiMarket}}, nil).Once()
 			},
 			call: func(ctx context.Context, r *Reader) (any, error) { return r.GetMarket(ctx, "0xc") },
@@ -67,9 +67,9 @@ func TestReader(t *testing.T) {
 		{
 			name: "get market retries a miss among closed markets",
 			setup: func(m clientMocks) {
-				m.gamma.EXPECT().ListMarkets(mock.Anything, pm.MarketsQuery{ConditionIDs: []string{"0xc"}, Limit: 1}).
+				m.gamma.EXPECT().ListMarkets(mock.Anything, pm.MarketsQuery{ConditionIDs: []string{"0xc"}, Limit: 1, IncludeTags: true}).
 					Return(pm.Page[pm.Market]{}, nil).Once()
-				m.gamma.EXPECT().ListMarkets(mock.Anything, pm.MarketsQuery{ConditionIDs: []string{"0xc"}, Closed: &closed, Limit: 1}).
+				m.gamma.EXPECT().ListMarkets(mock.Anything, pm.MarketsQuery{ConditionIDs: []string{"0xc"}, Closed: &closed, Limit: 1, IncludeTags: true}).
 					Return(pm.Page[pm.Market]{Items: []pm.Market{apiMarket}}, nil).Once()
 			},
 			call: func(ctx context.Context, r *Reader) (any, error) { return r.GetMarket(ctx, "0xc") },

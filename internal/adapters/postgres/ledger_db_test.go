@@ -5,6 +5,7 @@ package postgres_test
 import (
 	"context"
 	"testing"
+	"time"
 
 	"github.com/shopspring/decimal"
 	"github.com/stretchr/testify/assert"
@@ -135,5 +136,19 @@ func TestLedger(t *testing.T) {
 		holdings, err := ledger.Holdings(ctx, w.ID)
 		require.NoError(t, err)
 		assert.Len(t, holdings, 1)
+	})
+
+	t.Run("what buys spent since a time, fees in, sells and refused orders out", func(t *testing.T) {
+		spent, err := ledger.Spent(ctx, w.ID, domain.ModePaper, at.Add(-time.Hour))
+		require.NoError(t, err)
+		assert.Equal(t, "10.34339", spent.String(), "the filled buy's 10.3328 and 0.01059 in fees")
+
+		spent, err = ledger.Spent(ctx, w.ID, domain.ModePaper, at.Add(time.Hour))
+		require.NoError(t, err)
+		assert.True(t, spent.IsZero(), "nothing since")
+
+		spent, err = ledger.Spent(ctx, w.ID, domain.ModeLive, at.Add(-time.Hour))
+		require.NoError(t, err)
+		assert.True(t, spent.IsZero(), "nor live")
 	})
 }

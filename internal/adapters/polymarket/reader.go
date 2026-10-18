@@ -59,7 +59,7 @@ func (r *Reader) GetMarket(ctx context.Context, id domain.MarketID) (domain.Mark
 	closed := true
 
 	for _, filter := range []*bool{nil, &closed} {
-		page, err := r.gamma.ListMarkets(ctx, pm.MarketsQuery{ConditionIDs: []string{string(id)}, Closed: filter, Limit: 1})
+		page, err := r.gamma.ListMarkets(ctx, pm.MarketsQuery{ConditionIDs: []string{string(id)}, Closed: filter, Limit: 1, IncludeTags: true})
 		if err != nil {
 			return domain.Market{}, err
 		}

@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"maps"
+	"time"
 
 	"github.com/shopspring/decimal"
 
@@ -36,11 +37,12 @@ var (
 	hundredth = decimal.RequireFromString("0.01")
 )
 
-// Books is what Copy sizing reads of a workflow's books.
+// Books is what the trading nodes read of a workflow's books.
 type Books interface {
 	PaperAccount(ctx context.Context, workflow domain.WorkflowID) (domain.PaperAccount, error)
 	Holding(ctx context.Context, key domain.HoldingKey) (domain.Holding, error)
 	Holdings(ctx context.Context, workflow domain.WorkflowID) ([]domain.Holding, error)
+	Spent(ctx context.Context, workflow domain.WorkflowID, mode domain.TradingMode, since time.Time) (decimal.Decimal, error)
 }
 
 // Sources are where Copy sizing looks things up.

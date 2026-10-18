@@ -3,10 +3,11 @@ title: Copy traders
 description: Follow Polymarket traders and copy their trades, on paper, as they make them.
 ---
 
-A copytrading workflow is three nodes in a row: **Wallet activity** follows the traders,
-**Copy sizing** works out a copy of each of their trades, and **Place order** places it.
-Orders are on paper for now: they fill against the live order book, out of a paper
-account of the workflow's own, and spend no real money.
+A copytrading workflow is a few nodes in a row: **Wallet activity** follows the traders,
+**Copy sizing** works out a copy of each of their trades, **Risk guard** holds the copies
+to your limits, and **Place order** places them. Orders are on paper for now: they fill
+against the live order book, out of a paper account of the workflow's own, and spend no
+real money.
 
 ## Follow the traders
 
@@ -82,6 +83,27 @@ that price at once, and the rest is cancelled.
 A trade it cannot copy goes out of `skipped`, with why in `skipped.reason`: nothing held
 copying them to sell, or a copy under the market's least order, which is skipped rather than
 made bigger than its sizing says.
+
+## Guard them
+
+[Risk guard](/docs/reference/nodes/trading/risk-guard/), between Copy sizing and Place
+order, holds copies of buys to the limits you set; a limit left empty does not apply.
+
+| Setting | Holds a copy to |
+|---|---|
+| **Max $ a copy** | the most one copy spends |
+| **Max $ a market** | the most the workflow holds in one market, at cost, all traders' copies together: selling makes room again |
+| **Max $ a day** | the most its buys spend in any 24 hours |
+| **Least price**, **Most price** | buys at prices within them |
+| **Only categories**, **Not categories** | markets with one of these tags, or none of them, like `Politics` or `Sports` |
+
+A copy over a cap goes ahead smaller, as much as the cap leaves: `guard` on the item says
+from what and why. A copy a limit stops, or one a cap would leave under the market's least
+order, goes out of `blocked`, with why in `blocked.reason`. Copies in one run count against
+the ones after them.
+
+Sells always go ahead: they lower what is at risk, so a copy is never stuck in a position
+the guard let it into.
 
 ## Place them
 

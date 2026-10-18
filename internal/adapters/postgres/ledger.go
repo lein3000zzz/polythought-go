@@ -3,10 +3,12 @@ package postgres
 import (
 	"context"
 	"errors"
+	"time"
 
 	jet "github.com/go-jet/jet/v2/postgres"
 	"github.com/go-jet/jet/v2/qrm"
 	"github.com/google/uuid"
+	"github.com/shopspring/decimal"
 
 	"github.com/lein3000zzz/polythought-go/internal/adapters/postgres/gen/public/model"
 	"github.com/lein3000zzz/polythought-go/internal/adapters/postgres/gen/public/table"
@@ -116,6 +118,32 @@ func (r *Ledger) Holdings(ctx context.Context, workflow domain.WorkflowID) ([]do
 	}
 
 	return out, nil
+}
+
+func (r *Ledger) Spent(ctx context.Context, workflow domain.WorkflowID, mode domain.TradingMode, since time.Time) (decimal.Decimal, error) {
+	wid, err := parseID(workflow)
+	if err != nil {
+		return decimal.Zero, err
+	}
+
+	o, f := table.Orders, table.OrderFills
+
+	var row struct {
+		Spent decimal.Decimal `alias:"spent"`
+	}
+
+	err = jet.SELECT(jet.COALESCE(jet.SUM(f.Dollars.ADD(f.Fee)), jet.Decimal("0")).AS("spent")).
+		FROM(f.INNER_JOIN(o, o.ID.EQ(f.OrderID))).
+		WHERE(o.WorkflowID.EQ(jet.UUID(wid)).
+			AND(o.Mode.EQ(jet.String(string(mode)))).
+			AND(o.Side.EQ(jet.String(string(domain.SideBuy)))).
+			AND(o.CreatedAt.GT_EQ(jet.TimestampzT(since)))).
+		QueryContext(ctx, r.db.conn(ctx), &row)
+	if err != nil {
+		return decimal.Zero, err
+	}
+
+	return row.Spent, nil
 }
 
 func (r *Ledger) Record(ctx context.Context, o domain.PlacedOrder, change *ports.LedgerChange) error {

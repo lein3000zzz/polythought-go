@@ -102,6 +102,7 @@ func Register(r *engine.Registry, d Deps) error {
 				Books: d.Books, Rules: d.TradingRules, Markets: d.Markets, Positions: d.Positions,
 				Portfolios: d.Portfolios, PaperBalance: d.PaperBalance,
 			})),
+			r.RegisterNode(trading.NewRiskGuard(d.Books, d.TradingRules, d.Markets, time.Now)),
 			r.RegisterNode(trading.NewPlaceOrder(d.Orders)),
 		)
 	}

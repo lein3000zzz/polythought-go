@@ -71,6 +71,10 @@ func (c *DefaultGammaClient) ListMarkets(ctx context.Context, q MarketsQuery) (_
 		addAll(params, "slug", q.Slugs)
 		addAll(params, "clob_token_ids", q.TokenIDs)
 
+		if q.IncludeTags {
+			params.Set("include_tag", "true")
+		}
+
 		var resp struct {
 			Markets    []Market `json:"markets"`
 			NextCursor string   `json:"next_cursor"`

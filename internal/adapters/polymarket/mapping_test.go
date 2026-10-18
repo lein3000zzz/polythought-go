@@ -221,3 +221,10 @@ func TestToMarketAndEvent(t *testing.T) {
 		})
 	}
 }
+
+func TestToMarketTags(t *testing.T) {
+	m := toMarket(pm.Market{ConditionID: "0xc", Tags: []pm.Tag{{ID: "2", Label: "Politics", Slug: "politics"}, {Label: "World"}}})
+	assert.Equal(t, []string{"Politics", "World"}, m.Tags)
+
+	assert.Nil(t, toMarket(pm.Market{ConditionID: "0xc"}).Tags, "not asked for, or none")
+}

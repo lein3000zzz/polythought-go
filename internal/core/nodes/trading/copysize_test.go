@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"testing"
+	"time"
 
 	"github.com/shopspring/decimal"
 	"github.com/stretchr/testify/assert"
@@ -29,10 +30,13 @@ func address(lower string) domain.WalletAddress {
 
 var alice = address("0x5f3c00000000000000000000000000000000a1b2")
 
-// books is a workflow's books: a paper account, if open, and holdings.
+// books is a workflow's books: a paper account, if open, holdings, and what its buys
+// spent of late.
 type books struct {
 	account  *domain.PaperAccount
 	holdings []domain.Holding
+	spent    string
+	since    *time.Time // what Spent was asked
 }
 
 func (b books) PaperAccount(context.Context, domain.WorkflowID) (domain.PaperAccount, error) {
@@ -57,6 +61,18 @@ func (b books) Holdings(context.Context, domain.WorkflowID) ([]domain.Holding, e
 	return b.holdings, nil
 }
 
+func (b books) Spent(_ context.Context, _ domain.WorkflowID, _ domain.TradingMode, since time.Time) (decimal.Decimal, error) {
+	if b.since != nil {
+		*b.since = since
+	}
+
+	if b.spent == "" {
+		return decimal.Zero, nil
+	}
+
+	return d(b.spent), nil
+}
+
 type rules struct{}
 
 func (rules) TradingRules(_ context.Context, m domain.MarketID) (domain.TradingRules, error) {
@@ -73,7 +89,11 @@ func (markets) ListMarkets(_ context.Context, f ports.MarketFilter) (ports.Page[
 	return ports.Page[domain.Market]{}, nil
 }
 
-func (markets) GetMarket(context.Context, domain.MarketID) (domain.Market, error) {
+func (markets) GetMarket(_ context.Context, id domain.MarketID) (domain.Market, error) {
+	if id == "0xm" {
+		return domain.Market{ID: id, Tags: []string{"Politics", "World"}}, nil
+	}
+
 	return domain.Market{}, domain.ErrNotFound
 }
 

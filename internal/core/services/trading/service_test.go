@@ -80,6 +80,10 @@ func (l *ledger) Holdings(context.Context, domain.WorkflowID) ([]domain.Holding,
 	return out, nil
 }
 
+func (l *ledger) Spent(context.Context, domain.WorkflowID, domain.TradingMode, time.Time) (decimal.Decimal, error) {
+	return decimal.Zero, nil
+}
+
 func (l *ledger) Record(_ context.Context, o domain.PlacedOrder, c *ports.LedgerChange) error {
 	l.mu.Lock()
 	defer l.mu.Unlock()

@@ -28,7 +28,21 @@ func toMarket(m pm.Market) domain.Market {
 		Volume24h:       m.Volume24hr,
 		Liquidity:       m.LiquidityNum,
 		EndsAt:          parseTime(m.EndDate),
+		Tags:            tagLabels(m.Tags),
 	}
+}
+
+func tagLabels(tags []pm.Tag) []string {
+	if len(tags) == 0 {
+		return nil
+	}
+
+	out := make([]string, len(tags))
+	for i, t := range tags {
+		out[i] = t.Label
+	}
+
+	return out
 }
 
 // toOutcomes zips labels, token IDs and prices. Markets without an order book have no
