@@ -243,6 +243,8 @@ type paramDTO struct {
 	// the kinds that field may be.
 	Field      bool     `json:"field,omitempty" validate:"optional"`
 	FieldKinds []string `json:"fieldKinds,omitempty" validate:"optional" enums:"text,number,decimal,bool,time,list,object,any"`
+	// Input, for a field, is the input port whose items it names; absent for main.
+	Input string `json:"input,omitempty" validate:"optional"`
 	// Columns are the cells of each row of a table, in order, keyed by name: text, a
 	// whole number, a decimal, true or false, or an address, text with options being one
 	// of a few choices. Only the whole table takes an expression.
@@ -270,13 +272,17 @@ type nodeTypeDTO struct {
 
 // itemsDTO describes the items a node emits on every output port: fields of its own, or
 // the items it received, whole or with only the fields a list param names, or an item for
-// each entry of the list a field param names, with the item's other fields. The error
-// port carries the items received.
+// each entry of the list a field param names, with the item's other fields. Merged names
+// the param saying how a node combines its two inputs (both, either, onlyA, onlyOne or
+// join), joinedAs the one naming the field that holds the second's item in a join. The
+// error port carries the items received.
 type itemsDTO struct {
-	Fields []fieldDTO `json:"fields"`
-	Passed bool       `json:"passed"`
-	Picked string     `json:"picked,omitempty" validate:"optional"`
-	Split  string     `json:"split,omitempty" validate:"optional"`
+	Fields   []fieldDTO `json:"fields"`
+	Passed   bool       `json:"passed"`
+	Picked   string     `json:"picked,omitempty" validate:"optional"`
+	Split    string     `json:"split,omitempty" validate:"optional"`
+	Merged   string     `json:"merged,omitempty" validate:"optional"`
+	JoinedAs string     `json:"joinedAs,omitempty" validate:"optional"`
 } // @name NodeItems
 
 type fieldDTO struct {
@@ -345,7 +351,10 @@ func toItemsDTO(it *engine.Items) *itemsDTO {
 		return nil
 	}
 
-	return &itemsDTO{Fields: toFieldDTOs(it.Fields), Passed: it.Passed, Picked: it.Picked, Split: it.Split}
+	return &itemsDTO{
+		Fields: toFieldDTOs(it.Fields), Passed: it.Passed, Picked: it.Picked, Split: it.Split,
+		Merged: it.Merged, JoinedAs: it.JoinedAs,
+	}
 }
 
 func toFieldDTOs(fields []engine.Field) []fieldDTO {

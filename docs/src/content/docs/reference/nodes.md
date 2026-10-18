@@ -37,6 +37,7 @@ Each node has a page with its settings. In the editor, the node list on the left
 | [Only new](/docs/reference/nodes/logic/dedupe/) | `logic.dedupe` | Passes an item only the first time it shows up, so an alert fires once instead of on every run. |
 | [Filter](/docs/reference/nodes/logic/filter/) | `logic.filter` | Keeps the items that pass its tests and drops the others: a number compared with a value, text that contains a value, or a field being there at all. |
 | [If](/docs/reference/nodes/logic/if/) | `logic.if` | Tests each item and routes it to true or false: a number compared with a value, text that contains a value, or a field being there at all. |
+| [Merge](/docs/reference/nodes/logic/merge/) | `logic.merge` | Combines the items of two branches, A and B, matched on a field: those in both, in either, only in A or in only one, or A's with B's item added. |
 | [Switch](/docs/reference/nodes/logic/switch/) | `logic.switch` | Sends each item out of the port of the first rule it passes, each rule a test like If's; the items no rule takes leave from other. |
 | [Wait](/docs/reference/nodes/logic/wait/) | `logic.wait` | Holds the items for a while, or until a time of day, then passes them on. |
 

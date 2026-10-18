@@ -135,6 +135,7 @@ func Register(r *engine.Registry, d Deps) error {
 		r.RegisterNode(logic.If{}),
 		r.RegisterNode(logic.Filter{}),
 		r.RegisterNode(logic.Switch{}),
+		r.RegisterNode(logic.Merge{}),
 		r.RegisterNode(logic.NewDedupe()),
 		r.RegisterNode(logic.NewWait(time.Now)),
 		r.RegisterNode(transform.Top{}),

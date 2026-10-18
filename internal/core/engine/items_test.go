@@ -40,10 +40,11 @@ func TestRegisterItems(t *testing.T) {
 			}}),
 		},
 		{name: "split", typ: node(engine.Items{Split: "list"})},
-		{name: "both kinds", typ: node(engine.Items{Passed: true, Picked: "fields"}), wantErr: "passed whole, picked or split: one of them"},
+		{name: "both kinds", typ: node(engine.Items{Passed: true, Picked: "fields"}), wantErr: "passed whole, picked, split or merged: one of them"},
 		{name: "split and picked", typ: node(engine.Items{Split: "list", Picked: "fields"}), wantErr: "one of them"},
 		{name: "split and own", typ: node(engine.Items{Split: "list", Fields: []engine.Field{text("x")}}), wantErr: "not both"},
 		{name: "split by no field", typ: node(engine.Items{Split: "one"}), wantErr: `split by "one", which is not a field param`},
+		{name: "merged from one input", typ: node(engine.Items{Merged: "one", JoinedAs: "one"}), wantErr: "merged from 1 inputs, not two"},
 		{name: "received, with fields added", typ: node(engine.Items{Passed: true, Fields: []engine.Field{text("x")}})},
 		{name: "picked and own", typ: node(engine.Items{Picked: "fields", Fields: []engine.Field{text("x")}}), wantErr: "not both"},
 		{

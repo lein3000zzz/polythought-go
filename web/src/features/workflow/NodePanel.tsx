@@ -1,7 +1,7 @@
 import { CircleAlert, Trash2, X } from 'lucide-react'
 import { useMemo } from 'react'
 
-import type { Problem } from '@/api/client'
+import type { ParamSpec, Problem } from '@/api/client'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -17,17 +17,20 @@ import { fieldChoices, fieldProblem, type Shape } from './shapes'
 
 type Props = {
   node: FlowNode
-  received?: Shape // what its items look like, when known
+  received?: Shape // what its main input's items look like, when known
+  inputs?: ReadonlyMap<string, Shape> // what each input's look like
   onChange: (patch: Partial<Pick<NodeSpec, 'name' | 'continueOnFail' | 'notes'>>) => void
   onParam: (name: string, value: unknown) => void
   onDelete: () => void
 }
 
 /** Settings of the selected node. Changes apply as they are made. */
-export function NodePanel({ node, received, onChange, onParam, onDelete }: Props) {
+export function NodePanel({ node, received, inputs, onChange, onParam, onDelete }: Props) {
   const { spec, type } = node.data
   const problems = useNodeProblems(node.id)
   const declared = type?.params ?? []
+  // A field setting names a field of the items on its input: main unless it says.
+  const shapeOf = (p: ParamSpec) => (p.input ? inputs?.get(p.input) : received)
   const params = spec.params ?? {}
   const unknown = Object.keys(params).filter((name) => !declared.some((p) => p.name === name))
   const nodeProblems = problems.filter((p) => !p.param || unknown.includes(p.param))
@@ -110,9 +113,9 @@ export function NodePanel({ node, received, onChange, onParam, onDelete }: Props
               .map(fieldMessage)
               .join(' ') ||
             expressionProblem(type, p, params[p.name]) ||
-            fieldProblem(received, p, params[p.name] ?? p.default)
+            fieldProblem(shapeOf(p), p, params[p.name] ?? p.default)
           }
-          fields={p.field && received ? fieldChoices(received, p.fieldKinds) : undefined}
+          fields={p.field && shapeOf(p) ? fieldChoices(shapeOf(p)!, p.fieldKinds) : undefined}
           expressions={takesExpressions(type, p)}
           expressionScope={expressionScope}
         />

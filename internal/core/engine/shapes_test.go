@@ -308,3 +308,63 @@ func TestRegisterFieldParams(t *testing.T) {
 		assert.Contains(t, err.Error(), tc.want)
 	}
 }
+
+func TestMergedShapes(t *testing.T) {
+	r := shapesRegistry(t)
+	ab := []string{"a", "b"}
+
+	require.NoError(t, r.RegisterNode(fakeNode{typ: engine.NodeType{
+		Name: "t.merge", Inputs: ab, Outputs: mainPorts(), Items: &engine.Items{Merged: "mode", JoinedAs: "as"},
+		Params: []engine.ParamSpec{
+			{Name: "mode", Kind: engine.ParamString, Default: engine.MergeBoth},
+			{Name: "field", Kind: engine.ParamString, Field: true, Input: "a"},
+			{Name: "fieldB", Kind: engine.ParamString, Field: true, Input: "b"},
+			{Name: "as", Kind: engine.ParamString, Default: "b"},
+		},
+	}}))
+
+	bad := engine.NodeType{
+		Name: "t.badinput", Inputs: mainPorts(), Outputs: mainPorts(),
+		Params: []engine.ParamSpec{{Name: "f", Kind: engine.ParamString, Field: true, Input: "b"}},
+	}
+	require.ErrorContains(t, r.RegisterNode(fakeNode{typ: bad}), `names a field of input "b", which it does not have`)
+
+	// Markets into a, their own items into b.
+	w := func(params map[string]any) domain.Workflow {
+		return domain.Workflow{
+			Nodes: []domain.NodeSpec{
+				{ID: "m", Type: "t.markets"}, {ID: "own", Type: "t.own"},
+				{ID: "x", Type: "t.merge", Params: params}, {ID: "after", Type: "t.pass"},
+			},
+			Connections: []domain.Connection{
+				{From: "m", FromPort: engine.DefaultPort, To: "own", ToPort: engine.DefaultPort},
+				{From: "m", FromPort: engine.DefaultPort, To: "x", ToPort: "a"},
+				{From: "own", FromPort: engine.DefaultPort, To: "x", ToPort: "b"},
+				{From: "x", FromPort: engine.DefaultPort, To: "after", ToPort: engine.DefaultPort},
+			},
+		}
+	}
+
+	ports := r.ReceivedPorts(w(nil))
+	assert.Equal(t, []string{"question", "price", "outcomes"}, names(ports["x"]["a"]))
+	assert.Equal(t, []string{"price", "n"}, names(ports["x"]["b"]))
+	assert.Equal(t, []string{"question", "price", "outcomes"}, names(ports["after"][engine.DefaultPort]), "both: A's")
+
+	either := r.ReceivedPorts(w(map[string]any{"mode": engine.MergeEither}))["after"][engine.DefaultPort]
+	assert.Equal(t, []string{"question", "price", "outcomes", "n"}, names(either), "A's or B's")
+	assert.True(t, either[3].Optional)
+
+	joined := r.Received(w(map[string]any{"mode": engine.MergeJoin, "as": "theirs"}))["after"]
+	require.Len(t, joined, 4)
+	assert.Equal(t, engine.Field{Name: "theirs", Kind: engine.FieldObject, Fields: []engine.Field{
+		{Name: "price", Kind: engine.FieldNumber}, {Name: "n", Kind: engine.FieldNumber},
+	}}, joined[3], "B's item under its own field")
+
+	t.Run("each field setting is checked against its own input", func(t *testing.T) {
+		require.NoError(t, r.CheckFields(w(map[string]any{"field": "question", "fieldB": "n"})))
+
+		err := r.CheckFields(w(map[string]any{"field": "n", "fieldB": "question"}))
+		require.ErrorContains(t, err, `param "field": the items it receives have no field "n"`)
+		require.ErrorContains(t, err, `param "fieldB": the items it receives have no field "question"`)
+	})
+}

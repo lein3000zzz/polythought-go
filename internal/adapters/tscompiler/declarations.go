@@ -71,7 +71,8 @@ func NodeDeclarations(types []engine.TypeInfo) string {
 	b.WriteString("\n/**\n * Every node type by name: its settings, and the items it sends on. \"received\" means\n" +
 		" * the items it was given, as they are; \"picked\", those with only the fields its\n" +
 		" * settings name; \"split\", an item for each entry of the list its settings name, with\n" +
-		" * the other fields. Then whether it starts workflows, and the names of its input and\n" +
+		" * the other fields; \"merged\", those of its two inputs, as its settings combine them.\n" +
+		" * Then whether it starts workflows, and the names of its input and\n" +
 		" * output ports; a type whose ports a setting makes takes any name beside its own.\n" +
 		" */\nexport interface NodeTypes {\n")
 
@@ -86,6 +87,8 @@ func NodeDeclarations(types []engine.TypeInfo) string {
 			items = `"picked"`
 		case it.Split != "":
 			items = `"split"`
+		case it.Merged != "":
+			items = `"merged"`
 		default:
 			items = TypeName(t.Name) + "Item"
 		}
@@ -133,6 +136,8 @@ func writeSettings(b *strings.Builder, t engine.TypeInfo) {
 		doc := []string{p.Description}
 
 		switch {
+		case p.Field && p.Input != "":
+			doc = append(doc, "A field of the items it receives on "+p.Input+".")
 		case p.Field:
 			doc = append(doc, "A field of the items it receives.")
 		case p.Kind == engine.ParamWallet:

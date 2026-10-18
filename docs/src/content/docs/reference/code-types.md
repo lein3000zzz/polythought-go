@@ -147,6 +147,24 @@ export interface LogicIfSettings {
     match?: "all" | "any" | "none" | "one" | Expression;
 }
 
+/** The settings of Merge (logic.merge). */
+export interface LogicMergeSettings {
+    /**
+     * both: A's items with a match in B (AND). either: A's and B's, once per key (OR). onlyA: A's without a match (NOT). onlyOne: those of A or B with no match in the other (XOR). join: A's with a match, B's item added.
+     * @default "both"
+     */
+    mode?: "both" | "either" | "onlyA" | "onlyOne" | "join" | Expression;
+    /** The field that matches A's items with B's, e.g. tokenId. A field of the items it receives on a. */
+    field: string;
+    /** B's field to match with A's, when it is named otherwise. Empty: the same as A's. A field of the items it receives on b. */
+    fieldB?: string;
+    /**
+     * For join: the field of A's item that holds B's matching item.
+     * @default "b"
+     */
+    joinedAs?: string;
+}
+
 /** The settings of Switch (logic.switch). */
 export interface LogicSwitchSettings {
     /** A row each, tried in order: the port it sends to, and its test. Each port shows on the node. A table: a row each. */
@@ -847,7 +865,8 @@ export interface TriggerWalletActivityItem {
  * Every node type by name: its settings, and the items it sends on. "received" means
  * the items it was given, as they are; "picked", those with only the fields its
  * settings name; "split", an item for each entry of the list its settings name, with
- * the other fields. Then whether it starts workflows, and the names of its input and
+ * the other fields; "merged", those of its two inputs, as its settings combine them.
+ * Then whether it starts workflows, and the names of its input and
  * output ports; a type whose ports a setting makes takes any name beside its own.
  */
 export interface NodeTypes {
@@ -899,6 +918,13 @@ export interface NodeTypes {
         trigger: false;
         inputs: "main";
         outputs: "true" | "false";
+    };
+    "logic.merge": {
+        settings: LogicMergeSettings;
+        items: "merged";
+        trigger: false;
+        inputs: "a" | "b";
+        outputs: "main";
     };
     "logic.switch": {
         settings: LogicSwitchSettings;

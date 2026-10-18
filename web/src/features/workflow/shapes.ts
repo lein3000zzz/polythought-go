@@ -22,24 +22,45 @@ export function receivedShapes(
   nodes: readonly FlowNode[],
   edges: readonly FlowEdge[],
 ): Map<string, Shape> {
-  const received = new Map<string, Shape>()
+  const ports = receivedPorts(nodes, edges)
+
+  return new Map(nodes.map((n) => [n.id, ports.get(n.id)?.get(defaultPort)]))
+}
+
+/** For each node, the shape of the items each of its inputs receives. */
+export function receivedPorts(
+  nodes: readonly FlowNode[],
+  edges: readonly FlowEdge[],
+): Map<string, Map<string, Shape>> {
+  const received = new Map<string, Map<string, Shape>>()
   const emitted = new Map<string, Shape>()
 
   for (const node of topological(nodes, edges)) {
-    const from = edges
-      .filter((e) => e.target === node.id && (e.targetHandle ?? defaultPort) === defaultPort)
-      .map((e) =>
-        (e.sourceHandle ?? defaultPort) === errorPort
-          ? received.get(e.source) // failed items are the ones received
-          : emitted.get(e.source),
-      )
+    const from = new Map<string, Shape[]>()
 
-    const shape = merge(from)
-    received.set(node.id, shape)
-    emitted.set(node.id, emits(node.data, shape))
+    for (const e of edges.filter((e) => e.target === node.id)) {
+      const port = e.targetHandle ?? defaultPort
+      const shape =
+        (e.sourceHandle ?? defaultPort) === errorPort
+          ? failed(received.get(e.source)) // the ones received
+          : emitted.get(e.source)
+      from.set(port, [...(from.get(port) ?? []), shape])
+    }
+
+    const ports = new Map([...from].map(([port, shapes]) => [port, merge(shapes)]))
+    received.set(node.id, ports)
+    emitted.set(node.id, emits(node.data, ports))
   }
 
   return received
+}
+
+/** The shape of the items a node fails: those of its inputs. */
+function failed(ports?: Map<string, Shape>): Shape {
+  if (!ports || ports.size === 0) return undefined
+  if (ports.size === 1) return [...ports.values()][0]
+
+  return merge([...ports.keys()].sort().map((p) => ports.get(p)))
 }
 
 // topological orders nodes so each comes after the ones that feed it. The editor allows
@@ -69,9 +90,11 @@ function topological(nodes: readonly FlowNode[], edges: readonly FlowEdge[]): Fl
   return out
 }
 
-function emits(data: WorkflowNodeData, received: Shape): Shape {
+function emits(data: WorkflowNodeData, ports: Map<string, Shape>): Shape {
   const items = data.type?.items
+  const received = ports.get(defaultPort)
   if (!items) return undefined
+  if (items.merged) return merged(data, ports)
   // Passed on, with the fields it adds.
   if (items.passed) {
     if (!received || items.fields.length === 0) return received
@@ -99,6 +122,42 @@ function emits(data: WorkflowNodeData, received: Shape): Shape {
   }
 
   return [...items.fields] // known, even with no fields
+}
+
+/** A setting as set, or its default. */
+function settingOf(data: WorkflowNodeData, name: string): unknown {
+  return data.spec.params?.[name] ?? data.type?.params.find((p) => p.name === name)?.default
+}
+
+/**
+ * What a node that merges two inputs sends (D119): A's items, A's or B's, or A's with
+ * B's item under a field of its own.
+ */
+function merged(data: WorkflowNodeData, ports: Map<string, Shape>): Shape {
+  const [inA, inB] = data.type?.inputs ?? []
+  const a = ports.get(inA)
+  const b = ports.get(inB)
+
+  switch (settingOf(data, data.type?.items?.merged ?? '')) {
+    case 'both':
+    case 'onlyA':
+      return a
+    case 'either':
+    case 'onlyOne':
+      return merge([a, b])
+    case 'join': {
+      const name = settingOf(data, data.type?.items?.joinedAs ?? '')
+      if (!a || typeof name !== 'string' || name === '' || name.includes('{{')) return undefined
+
+      const joined: ItemField = b
+        ? { name, kind: 'object', optional: false, nullable: false, fields: b }
+        : { name, kind: 'any', optional: false, nullable: false }
+
+      return [...a.filter((f) => f.name !== name), joined]
+    }
+  }
+
+  return undefined
 }
 
 /**

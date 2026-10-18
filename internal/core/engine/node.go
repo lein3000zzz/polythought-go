@@ -142,6 +142,9 @@ type ParamSpec struct {
 	Field      bool
 	FieldKinds []FieldKind
 
+	// Input, for a field param, is the input port whose items it names; empty for main.
+	Input string
+
 	// Template marks a text param the node fills in itself, per item, with
 	// Params.Template, so it can escape the values: a message in HTML, say.
 	Template bool

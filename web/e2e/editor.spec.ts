@@ -272,3 +272,71 @@ test('a switch has a port per rule, and its lines stay with their rules', async 
   await expect(settings.getByText(/^main · \d+ items/)).toBeVisible()
   await expect(settings.getByText(/"tokenId":/).first()).toBeVisible() // an outcome's, at the top
 })
+
+test('a merge combines two branches, each field picker offering its own', async ({ page }) => {
+  const created = await page.request.post('/api/v1/workflows', {
+    data: {
+      name: unique('merge'),
+      nodes: [
+        { id: 'manual', type: 'trigger.manual', position: { x: 0, y: 0 } },
+        {
+          id: 'markets',
+          type: 'polymarket.markets',
+          params: { limit: 5 },
+          position: { x: 300, y: 0 },
+        },
+        {
+          id: 'top',
+          type: 'transform.top',
+          params: { field: 'liquidity', limit: 2 },
+          position: { x: 600, y: 200 },
+        },
+        {
+          id: 'pick',
+          type: 'transform.pick',
+          params: { fields: ['id', 'liquidity'] },
+          position: { x: 900, y: 200 },
+        },
+        { id: 'merge', type: 'logic.merge', params: { field: 'id' }, position: { x: 1200, y: 0 } },
+      ],
+      connections: [
+        { from: 'manual', fromPort: 'main', to: 'markets', toPort: 'main' },
+        { from: 'markets', fromPort: 'main', to: 'merge', toPort: 'a' },
+        { from: 'markets', fromPort: 'main', to: 'top', toPort: 'main' },
+        { from: 'top', fromPort: 'main', to: 'pick', toPort: 'main' },
+        { from: 'pick', fromPort: 'main', to: 'merge', toPort: 'b' },
+      ],
+    },
+  })
+  expect(created.status(), await created.text()).toBe(201)
+  const { id } = (await created.json()) as { id: string }
+
+  await page.goto(`/workflows/${id}`)
+  await canvasNode(page, 'merge').click()
+  const settings = page.getByRole('complementary', { name: 'Settings' })
+  const offered = async (label: RegExp) => {
+    const list = await settings.getByLabel(label).getAttribute('list')
+    return page
+      .locator(`#${list} option`)
+      .evaluateAll((options) => options.map((o) => o.getAttribute('value')))
+  }
+
+  expect(await offered(/^A's field/)).toContain('question')
+  expect(await offered(/^B's field/)).toEqual(['id', 'liquidity'])
+
+  // Both: the two with the most liquidity. Only A: the other three.
+  const run = async (count: number) => {
+    await page.getByRole('button', { name: 'Run', exact: true }).click()
+    await expect(canvasNode(page, 'merge').getByLabel('Succeeded')).toBeVisible()
+    await canvasNode(page, 'merge').click()
+    await expect(settings.getByText(new RegExp(`^main · ${count} items`))).toBeVisible()
+  }
+
+  await run(2)
+
+  await page.getByRole('tab', { name: 'Settings' }).click()
+  await settings.getByLabel('Keep', { exact: true }).selectOption('onlyA')
+  await page.getByRole('button', { name: 'Save', exact: true }).click()
+  await expect(page.getByText('Version 2')).toBeVisible()
+  await run(3)
+})

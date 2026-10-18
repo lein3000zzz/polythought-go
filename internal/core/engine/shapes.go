@@ -2,6 +2,7 @@ package engine
 
 import (
 	"fmt"
+	"maps"
 	"slices"
 	"strconv"
 	"strings"
@@ -13,51 +14,87 @@ import (
 // nobody knows, as after code whose author did not say.
 type Shape []Field
 
-// Received works out, for each node, the shape of the items its main input receives,
-// following the items from the triggers: nodes say what they emit, pass on what they
-// receive, or pick from it. Where several connections meet, a field only some of them
-// carry is optional, and one unknown makes the whole unknown. Nodes nothing reaches, and
-// workflows that do not order, are unknown.
+// Received works out, for each node, the shape of the items its main input receives;
+// see ReceivedPorts.
 func (r *Registry) Received(w domain.Workflow) map[domain.NodeID]Shape {
+	ports := r.ReceivedPorts(w)
+	out := make(map[domain.NodeID]Shape, len(ports))
+
+	for id, in := range ports {
+		out[id] = in[DefaultPort]
+	}
+
+	return out
+}
+
+// ReceivedPorts works out, for each node, the shape of the items each of its inputs
+// receives, following the items from the triggers: nodes say what they emit, pass on what
+// they receive, or pick from it. Where several connections meet, a field only some of
+// them carry is optional, and one unknown makes the whole unknown. Inputs nothing
+// reaches, and workflows that do not order, are unknown.
+func (r *Registry) ReceivedPorts(w domain.Workflow) map[domain.NodeID]map[string]Shape {
 	order, err := w.TopologicalOrder()
 	if err != nil {
 		return nil
 	}
 
-	received := make(map[domain.NodeID]Shape, len(order))
+	received := make(map[domain.NodeID]map[string]Shape, len(order))
 	emitted := make(map[domain.NodeID]Shape, len(order))
 
 	for _, id := range order {
 		spec, _ := w.Node(id)
 
-		var from []Shape
+		from := map[string][]Shape{}
 
 		for _, c := range w.Incoming(id) {
-			if c.ToPort != DefaultPort {
-				continue
-			}
-
 			if c.FromPort == ErrorPort {
-				from = append(from, received[c.From]) // failed items are the ones received
+				from[c.ToPort] = append(from[c.ToPort], failed(received[c.From])) // the ones received
 			} else {
-				from = append(from, emitted[c.From])
+				from[c.ToPort] = append(from[c.ToPort], emitted[c.From])
 			}
 		}
 
-		received[id] = merge(from)
+		in := make(map[string]Shape, len(from))
+		for port, shapes := range from {
+			in[port] = merge(shapes)
+		}
+
+		received[id] = in
 
 		if typ, _, ok := r.Type(spec.Type); ok {
-			emitted[id] = emits(typ, spec, received[id])
+			emitted[id] = emits(typ, spec, in)
 		}
 	}
 
 	return received
 }
 
-func emits(typ NodeType, spec domain.NodeSpec, in Shape) Shape {
+// failed is the shape of the items a node fails: those of its inputs.
+func failed(in map[string]Shape) Shape {
+	if len(in) == 1 {
+		for _, s := range in {
+			return s
+		}
+	}
+
+	ports := slices.Sorted(maps.Keys(in))
+	shapes := make([]Shape, len(ports))
+
+	for i, p := range ports {
+		shapes[i] = in[p]
+	}
+
+	return merge(shapes)
+}
+
+func emits(typ NodeType, spec domain.NodeSpec, ports map[string]Shape) Shape {
+	in := ports[DefaultPort]
+
 	switch it := typ.Items; {
 	case it == nil:
 		return nil
+	case it.Merged != "":
+		return merged(typ, spec, ports)
 	case it.Passed:
 		return added(in, it.Fields)
 	case it.Picked != "":
@@ -115,6 +152,52 @@ func pick(in Shape, paths []string) Shape {
 	}
 
 	return out
+}
+
+// merged is what a node with Items.Merged sends: A's items, A's or B's, or A's with B's
+// item under JoinedAs.
+func merged(typ NodeType, spec domain.NodeSpec, ports map[string]Shape) Shape {
+	a, b := ports[typ.Inputs[0]], ports[typ.Inputs[1]]
+	setting := func(name string) string {
+		s, _ := Params{name: settingOf(typ, spec, name)}.String(name)
+		return s
+	}
+
+	switch setting(typ.Items.Merged) {
+	case MergeBoth, MergeOnlyA:
+		return a
+	case MergeEither, MergeOnlyOne:
+		return merge([]Shape{a, b})
+	case MergeJoin:
+		name := setting(typ.Items.JoinedAs)
+		if a == nil || name == "" || HasExpressions(name) {
+			return nil
+		}
+
+		joined := Field{Name: name, Kind: FieldAny}
+		if b != nil {
+			joined = Field{Name: name, Kind: FieldObject, Fields: b}
+		}
+
+		return added(a, []Field{joined})
+	}
+
+	return nil
+}
+
+// settingOf is a node's param as set, or its default.
+func settingOf(typ NodeType, spec domain.NodeSpec, name string) any {
+	if v, ok := spec.Params[name]; ok && v != nil {
+		return v
+	}
+
+	for _, p := range typ.Params {
+		if p.Name == name {
+			return p.Default
+		}
+	}
+
+	return nil
 }
 
 // split is an item of each entry of the list at path (Items.Split): an object's fields
@@ -282,15 +365,13 @@ func (s Shape) Paths() []string {
 // checked. Saving a workflow asks this; running one does not, so a workflow saved before
 // keeps running.
 func (r *Registry) CheckFields(w domain.Workflow) error {
-	received := r.Received(w)
+	received := r.ReceivedPorts(w)
 
 	var v domain.ValidationError
 
 	for _, n := range w.Nodes {
 		typ, _, ok := r.Type(n.Type)
-		in := received[n.ID]
-
-		if !ok || in == nil {
+		if !ok {
 			continue
 		}
 
@@ -300,7 +381,13 @@ func (r *Registry) CheckFields(w domain.Workflow) error {
 				value = spec.Default // what runs when it is not set
 			}
 
-			if !spec.Field || value == nil {
+			port := spec.Input
+			if port == "" {
+				port = DefaultPort
+			}
+
+			in := received[n.ID][port]
+			if !spec.Field || value == nil || in == nil {
 				continue
 			}
 

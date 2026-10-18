@@ -92,7 +92,7 @@ import { nodeTypeMime, Palette } from './Palette'
 import { ProblemsContext } from './problems'
 import { RunOutput } from './RunOutput'
 import { RunsContext } from './runs'
-import { receivedShapes } from './shapes'
+import { receivedPorts } from './shapes'
 import { ShareDialog } from './ShareDialog'
 import { WorkflowNodeView } from './WorkflowNodeView'
 
@@ -199,7 +199,7 @@ function Editor({ workflow, types, onReload }: Props) {
 
   const definition = useMemo(() => toDefinition(name, nodes, edges), [name, nodes, edges])
   // What the items look like where each node receives them, for its field settings.
-  const shapes = useMemo(() => receivedShapes(nodes, edges), [nodes, edges])
+  const shapes = useMemo(() => receivedPorts(nodes, edges), [nodes, edges])
   const dirty = !sameDefinition(definition, saved ?? initial.definition)
   const selected = nodes.filter((n) => n.selected)
   const selectedNode = selected.length === 1 ? selected[0] : undefined
@@ -681,7 +681,8 @@ function Editor({ workflow, types, onReload }: Props) {
                   <NodePanel
                     key={selectedNode.id}
                     node={selectedNode}
-                    received={shapes.get(selectedNode.id)}
+                    received={shapes.get(selectedNode.id)?.get(defaultPort)}
+                    inputs={shapes.get(selectedNode.id)}
                     onChange={(patch) => changeNode(selectedNode.id, patch)}
                     onParam={(param, value) => changeParam(selectedNode.id, param, value)}
                     onDelete={() => void deleteElements({ nodes: [{ id: selectedNode.id }] })}

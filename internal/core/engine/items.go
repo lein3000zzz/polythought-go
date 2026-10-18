@@ -51,12 +51,32 @@ type Items struct {
 	// with the other fields of the item it came from (D132). An object's fields go at the
 	// top, winning a clash; anything else takes the list's place.
 	Split string
+
+	// Merged names the text param that says how the node combines the items of its two
+	// inputs, one of the Merge ways (D119); JoinedAs, the one naming the field that holds
+	// the second input's item in a join.
+	Merged   string
+	JoinedAs string
 }
 
-// Received reports whether the items are the ones the node receives: whole, picked or
-// split.
+// The ways a node with Items.Merged combines its two inputs, A and B, matched on a key:
+// A's items with a match in B, A's and B's once per key, A's without a match, the items
+// of one with no match in the other, or A's with a match, B's item added (D119).
+const (
+	MergeBoth    = "both"
+	MergeEither  = "either"
+	MergeOnlyA   = "onlyA"
+	MergeOnlyOne = "onlyOne"
+	MergeJoin    = "join"
+)
+
+// MergeWays lists them in the order an editor offers them.
+var MergeWays = []string{MergeBoth, MergeEither, MergeOnlyA, MergeOnlyOne, MergeJoin}
+
+// Received reports whether the items are the ones the node receives: whole, picked,
+// split or merged.
 func (it Items) Received() bool {
-	return it.Passed || it.Picked != "" || it.Split != ""
+	return it.Passed || it.Picked != "" || it.Split != "" || it.Merged != ""
 }
 
 var errItems = errors.New("items")
@@ -74,7 +94,7 @@ func checkItems(typ NodeType) error {
 	}
 
 	ways := 0
-	for _, way := range []bool{it.Passed, it.Picked != "", it.Split != ""} {
+	for _, way := range []bool{it.Passed, it.Picked != "", it.Split != "", it.Merged != ""} {
 		if way {
 			ways++
 		}
@@ -82,9 +102,9 @@ func checkItems(typ NodeType) error {
 
 	switch {
 	case ways > 1:
-		return fail("passed whole, picked or split: one of them")
-	case (it.Picked != "" || it.Split != "") && len(it.Fields) > 0:
-		return fail("picked or split, or fields of its own, not both")
+		return fail("passed whole, picked, split or merged: one of them")
+	case (it.Picked != "" || it.Split != "" || it.Merged != "") && len(it.Fields) > 0:
+		return fail("picked, split or merged, or fields of its own, not both")
 	case it.Received() && len(typ.Inputs) == 0:
 		return fail("a node without inputs receives no items")
 	}
@@ -98,6 +118,15 @@ func checkItems(typ NodeType) error {
 	if it.Split != "" {
 		if !slices.ContainsFunc(typ.Params, func(p ParamSpec) bool { return p.Name == it.Split && p.Field && p.Kind == ParamString }) {
 			return fail("split by %q, which is not a field param", it.Split)
+		}
+	}
+
+	if it.Merged != "" {
+		switch {
+		case len(typ.Inputs) != 2:
+			return fail("merged from %d inputs, not two", len(typ.Inputs))
+		case !hasParam(typ, it.Merged, ParamString) || !hasParam(typ, it.JoinedAs, ParamString):
+			return fail("merged by %q and joined as %q, which are not both text params", it.Merged, it.JoinedAs)
 		}
 	}
 
@@ -116,6 +145,8 @@ func checkFieldParams(typ NodeType) error {
 			return fmt.Errorf("register node type %q: param %q has field kinds but names no field", typ.Name, p.Name)
 		case p.Field && p.Kind != ParamString && p.Kind != ParamList:
 			return fmt.Errorf("register node type %q: param %q names a field, so it is text or a list, not %s", typ.Name, p.Name, p.Kind)
+		case p.Input != "" && (!p.Field || !slices.Contains(typ.Inputs, p.Input)):
+			return fmt.Errorf("register node type %q: param %q names a field of input %q, which it does not have", typ.Name, p.Name, p.Input)
 		}
 
 		for _, k := range p.FieldKinds {

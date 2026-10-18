@@ -64,6 +64,26 @@ passes takes it, and items no rule takes leave from `other`. A Switch with `pric
 are plain values too, and one that cannot use an item's field fails the item, as there is
 no telling where it goes.
 
+## Merging branches
+
+A port can feed several nodes, splitting the items into branches;
+[Merge](/docs/reference/nodes/logic/merge/) brings two back together. It has two inputs, `a`
+and `b`, and matches their items on a field: **A's field**, and **B's field** when B names it
+otherwise. **Keep** says what goes on:
+
+| Keep | What goes on |
+|---|---|
+| `both` | A's items with a match in B (AND) |
+| `either` | A's and B's, once per key (OR) |
+| `onlyA` | A's items without a match in B (NOT) |
+| `onlyOne` | the items of A or B with no match in the other (XOR) |
+| `join` | A's items with a match, each with B's first matching item under `b` |
+
+An item without the field matches nothing. Both branches start from the same trigger, so
+Merge combines the items of one run: copies of a trade only in outcomes a wallet already
+holds, say, are the trades on `a` and the wallet's [Positions](/docs/reference/nodes/polymarket/positions/)
+on `b`, matched on `tokenId`, keeping `both`.
+
 ## Triggers
 
 A workflow starts at a **trigger**, a node with no input:

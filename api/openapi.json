@@ -1124,6 +1124,12 @@
                         "type": "array",
                         "uniqueItems": false
                     },
+                    "joinedAs": {
+                        "type": "string"
+                    },
+                    "merged": {
+                        "type": "string"
+                    },
                     "passed": {
                         "type": "boolean"
                     },
@@ -1526,6 +1532,10 @@
                         },
                         "type": "array",
                         "uniqueItems": false
+                    },
+                    "input": {
+                        "description": "Input, for a field, is the input port whose items it names; absent for main.",
+                        "type": "string"
                     },
                     "kind": {
                         "enum": [

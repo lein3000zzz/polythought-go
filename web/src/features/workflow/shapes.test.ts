@@ -3,7 +3,14 @@ import { describe, expect, it } from 'vitest'
 import type { NodeType } from '@/api/client'
 
 import { edgeOf, type FlowNode } from './graph'
-import { fieldChoices, fieldProblem, lookup, receivedShapes, type ItemField } from './shapes'
+import {
+  fieldChoices,
+  fieldProblem,
+  lookup,
+  receivedPorts,
+  receivedShapes,
+  type ItemField,
+} from './shapes'
 
 const field = (
   name: string,
@@ -59,6 +66,14 @@ const types: Record<string, NodeType> = {
   split: type('t.split', {
     items: { fields: [], passed: false, split: 'field' },
     params: [{ name: 'field', kind: 'string', required: true, field: true }],
+  }),
+  merge: type('t.merge', {
+    inputs: ['a', 'b'],
+    items: { fields: [], passed: false, merged: 'mode', joinedAs: 'as' },
+    params: [
+      { name: 'mode', kind: 'string', required: false, default: 'both' },
+      { name: 'as', kind: 'string', required: false, default: 'b' },
+    ],
   }),
   tokens: type('t.tokens', {
     trigger: true,
@@ -169,6 +184,38 @@ describe('receivedShapes', () => {
     ])
     expect(shapes.get('v')).toEqual([field('question', 'text'), field('tokens', 'text')])
     expect(shapes.get('x')).toBeUndefined()
+  })
+
+  it('knows each input of a merge, and what it sends as it combines them', () => {
+    const merged = (params?: Record<string, unknown>) => {
+      const nodes = [
+        node('m', types.markets),
+        node('own', types.own),
+        node('x', types.merge, params),
+        node('after', types.pass),
+      ]
+      const edges = [
+        link('m', 'own'),
+        edgeOf({ from: 'm', fromPort: 'main', to: 'x', toPort: 'a' }),
+        edgeOf({ from: 'own', fromPort: 'main', to: 'x', toPort: 'b' }),
+        link('x', 'after'),
+      ]
+
+      return {
+        ports: receivedPorts(nodes, edges),
+        after: receivedShapes(nodes, edges).get('after'),
+      }
+    }
+
+    const { ports, after } = merged()
+    expect(names(ports.get('x')?.get('a'))).toEqual(['question', 'price', 'outcomes'])
+    expect(names(ports.get('x')?.get('b'))).toEqual(['price', 'n'])
+    expect(names(after)).toEqual(['question', 'price', 'outcomes'])
+
+    expect(names(merged({ mode: 'either' }).after)).toEqual(['question', 'price', 'outcomes', 'n'])
+    expect(merged({ mode: 'join', as: 'theirs' }).after?.at(-1)).toEqual(
+      field('theirs', 'object', { fields: [field('price', 'number'), field('n', 'number')] }),
+    )
   })
 
   it('makes optional what only some connections carry', () => {

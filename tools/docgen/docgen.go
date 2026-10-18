@@ -283,6 +283,12 @@ func writeItems(b *strings.Builder, t engine.NodeType) {
 	case it.Picked != "":
 		fmt.Fprintf(b, "The items it receives, with only the fields %s names.\n", paramLabel(t, it.Picked))
 		return
+	case it.Merged != "":
+		fmt.Fprintf(b, "The items of its inputs, as %s combines them: A's alone for `both` and `onlyA`, A's "+
+			"and B's for `either` and `onlyOne`, and for `join` A's, each with B's matching item under the "+
+			"field %s names.\n", paramLabel(t, it.Merged), paramLabel(t, it.JoinedAs))
+
+		return
 	case it.Split != "":
 		fmt.Fprintf(b, "An item for each entry of the list %s names, with the other fields of the item it "+
 			"came from. An entry's own fields go at the top, in place of any of the same name; an entry that "+
@@ -346,6 +352,10 @@ func fieldNote(p engine.ParamSpec) string {
 	what := "Names a field of the items it receives"
 	if p.Kind == engine.ParamList {
 		what = "Each names a field of the items it receives"
+	}
+
+	if p.Input != "" {
+		what += " on `" + p.Input + "`"
 	}
 
 	if len(p.FieldKinds) > 0 {

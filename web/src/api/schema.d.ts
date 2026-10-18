@@ -1260,6 +1260,8 @@ export interface components {
         };
         NodeItems: {
             fields: components["schemas"]["ItemField"][];
+            joinedAs?: string;
+            merged?: string;
             passed: boolean;
             picked?: string;
             split?: string;
@@ -1410,6 +1412,8 @@ export interface components {
              */
             field?: boolean;
             fieldKinds?: ("text" | "number" | "decimal" | "bool" | "time" | "list" | "object" | "any")[];
+            /** @description Input, for a field, is the input port whose items it names; absent for main. */
+            input?: string;
             /** @enum {string} */
             kind: "string" | "number" | "decimal" | "bool" | "list" | "duration" | "wallet" | "tokens" | "address" | "table" | "credential" | "code";
             label?: string;
