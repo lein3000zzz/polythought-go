@@ -127,9 +127,14 @@ function inputSummary(t: Template): string | undefined {
     ...new Set(
       t.inputs
         .filter((i) => i.param.required)
-        .map((i) =>
-          i.param.kind === 'wallet' ? 'a wallet' : `a ${lowerFirst(i.param.label ?? i.param.name)}`,
-        ),
+        .map((i) => {
+          const what = lowerFirst(i.param.label ?? i.param.name)
+
+          if (i.param.kind === 'wallet') return 'a wallet'
+          if (i.param.kind === 'table') return what // rows of them: "traders"
+
+          return `a ${what}`
+        }),
     ),
   ]
 

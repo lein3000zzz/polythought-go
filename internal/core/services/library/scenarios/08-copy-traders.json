@@ -1,0 +1,41 @@
+{
+  "id": "copy-traders",
+  "name": "Copy traders",
+  "summary": "Follow Polymarket traders and copy each of their trades on paper, $10 a buy, within limits you set.",
+  "description": "Copytrading makes the trades other traders make, as they make them. Polymarket wallets are public, so you can follow anyone: a trader's address is in the link of their profile, polymarket.com/profile/0x….\n\nThis workflow copies each trade of the traders you follow, a few seconds after it: $10 for each of their buys, and for a sell, the same share of what it holds copying them. Risk guard keeps the copies within limits: at most $50 in one market and $200 a day, and no buys under 0.05 or over 0.95, where a market is all but decided.\n\nIt trades on paper: orders fill against the live order book, out of a paper account of the workflow's own, and spend no real money.\n\n- Fill in the traders to follow, then switch Active on.\n- The Trading view shows how it does: each trader's profit and loss, what it holds, and every order.\n- To be asked on Telegram before each copy, use Copy traders with approval instead.",
+  "nodes": [
+    {
+      "id": "watch",
+      "type": "trigger.walletActivity",
+      "name": "Traders to follow",
+      "notes": "Starts the workflow with each trade one of your traders makes. Switch a trader off in the table to stop copying them and keep their row.",
+      "position": { "x": 0, "y": 0 }
+    },
+    {
+      "id": "size",
+      "type": "trading.copySize",
+      "params": { "sizing": "fixed", "dollars": "10" },
+      "notes": "Works out the order that copies the trade: $10 for a buy, the same share of what it holds for a sell, at their price or at most 2 cents worse. A trade it cannot copy, like a sell of something it never bought, goes out of skipped.",
+      "position": { "x": 300, "y": 0 }
+    },
+    {
+      "id": "guard",
+      "type": "trading.riskGuard",
+      "params": { "maxPerMarket": "50", "maxPerDay": "200", "minPrice": "0.05", "maxPrice": "0.95" },
+      "notes": "Keeps buys within your limits: $50 in one market, $200 a day, prices from 0.05 to 0.95. A copy over a cap goes ahead smaller; one a limit stops goes out of blocked. Sells always go ahead.",
+      "position": { "x": 600, "y": 0 }
+    },
+    {
+      "id": "place",
+      "type": "trading.placeOrder",
+      "params": { "from": "copy" },
+      "notes": "Places the copy on paper, against the live order book: what the book has within the price fills at once, the rest is cancelled. Orders that did not fill go out of missed.",
+      "position": { "x": 900, "y": 0 }
+    }
+  ],
+  "connections": [
+    { "from": "watch", "fromPort": "main", "to": "size", "toPort": "main" },
+    { "from": "size", "fromPort": "main", "to": "guard", "toPort": "main" },
+    { "from": "guard", "fromPort": "main", "to": "place", "toPort": "main" }
+  ]
+}

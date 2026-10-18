@@ -90,6 +90,26 @@ describe('library', () => {
     expect(within(shared).getByText('Runs on its own')).toBeInTheDocument()
   })
 
+  it('says a table it asks for as what its rows are', async () => {
+    library([
+      {
+        ...mineShared,
+        id: 'copy-traders',
+        name: 'Copy traders',
+        mine: false,
+        inputs: [
+          {
+            nodeId: 'watch',
+            param: { name: 'traders', label: 'Traders', kind: 'table', required: true },
+          },
+        ],
+      },
+    ])
+    renderApp('/library')
+
+    expect(await screen.findByText('Asks for traders')).toBeInTheDocument()
+  })
+
   it('makes a workflow from a scenario with the values it asks for', async () => {
     const sent: unknown[] = []
     library()

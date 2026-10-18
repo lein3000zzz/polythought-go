@@ -9,6 +9,13 @@ to your limits, and **Place order** places them. Orders are on paper for now: th
 against the live order book, out of a paper account of the workflow's own, and spend no
 real money.
 
+The [library](/docs/guides/library/) has it ready to use: **Copy traders** copies $10 of
+each buy, at most $50 in a market and $200 a day, and asks only for the traders to follow.
+**Copy traders with approval** does the same, but first asks you on
+[Telegram](/docs/guides/telegram/), with **Copy** and **Skip**, and tells you how each copy
+you approved went. Answer within 2 minutes; after that the copy is dropped, as the price
+may have moved.
+
 ## Follow the traders
 
 The [Wallet activity](/docs/reference/nodes/triggers/wallet-activity/) trigger follows

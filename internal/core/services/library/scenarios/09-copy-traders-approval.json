@@ -1,0 +1,82 @@
+{
+  "id": "copy-traders-approval",
+  "name": "Copy traders with approval",
+  "summary": "Copy Polymarket traders on paper, asked first on Telegram: Copy or Skip, each trade.",
+  "description": "Like Copy traders, this workflow follows the traders you pick and copies their trades on paper, $10 a buy, within the same limits. But before each copy, the bot asks you on Telegram: who traded what, and what the copy would spend.\n\n- Press Copy to place it, or Skip to let it go. Answer within 2 minutes: after that the price may have moved, and the copy is dropped.\n- Risk guard then checks the limits, at most $50 in one market and $200 a day, and no buys under 0.05 or over 0.95, so they hold however long you take to answer.\n- The bot tells you how each copy you approved went: what it bought or sold and for how much, or why it was not copied.\n\nLink Telegram in Settings first: without a linked chat, the question cannot be asked and the run fails. Then fill in the traders to follow and switch Active on. The Trading view shows each trader's profit and loss, what it holds, and every order.",
+  "nodes": [
+    {
+      "id": "watch",
+      "type": "trigger.walletActivity",
+      "name": "Traders to follow",
+      "notes": "Starts the workflow with each trade one of your traders makes. Switch a trader off in the table to stop copying them and keep their row.",
+      "position": { "x": 0, "y": 0 }
+    },
+    {
+      "id": "size",
+      "type": "trading.copySize",
+      "params": { "sizing": "fixed", "dollars": "10" },
+      "notes": "Works out the order that copies the trade: $10 for a buy, the same share of what it holds for a sell, at their price or at most 2 cents worse. A trade it cannot copy, like a sell of something it never bought, goes out of skipped.",
+      "position": { "x": 300, "y": 0 }
+    },
+    {
+      "id": "ask",
+      "type": "telegram.ask",
+      "name": "Copy it?",
+      "params": {
+        "message": "{{trader.label}} {{ side === 'buy' ? 'bought' : 'sold' }} ${{ Number(dollars).toFixed(2) }} of {{outcome}} in “{{question}}” at {{price}}.\nCopy: {{ copy.side === 'buy' ? 'buy $' + Number(copy.dollars).toFixed(2) : 'sell ' + Number(copy.shares).toFixed(2) + ' shares' }} at {{copy.price}}?",
+        "format": "text",
+        "buttons": ["Copy", "Skip"],
+        "timeout": "2m"
+      },
+      "notes": "Asks you on Telegram before each copy, and waits for your answer. Copy goes on to place it; Skip, or no answer within 2 minutes, drops it: by then the price may have moved.",
+      "position": { "x": 600, "y": 0 }
+    },
+    {
+      "id": "guard",
+      "type": "trading.riskGuard",
+      "params": { "maxPerMarket": "50", "maxPerDay": "200", "minPrice": "0.05", "maxPrice": "0.95" },
+      "notes": "Keeps buys within your limits: $50 in one market, $200 a day, prices from 0.05 to 0.95. After the question, so the limits are checked right before placing. A copy over a cap goes ahead smaller; one a limit stops goes out of blocked.",
+      "position": { "x": 900, "y": 0 }
+    },
+    {
+      "id": "place",
+      "type": "trading.placeOrder",
+      "params": { "from": "copy" },
+      "notes": "Places the copy on paper, against the live order book: what the book has within the price fills at once, the rest is cancelled. Orders that did not fill go out of missed.",
+      "position": { "x": 1200, "y": 0 }
+    },
+    {
+      "id": "copied",
+      "type": "telegram.send",
+      "name": "Copied",
+      "params": {
+        "message": "Copied {{trader.label}}: {{ copy.side === 'buy' ? 'bought' : 'sold' }} {{ Number(order.shares).toFixed(2) }} shares of {{outcome}} in “{{question}}” for ${{ Number(order.dollars).toFixed(2) }}.",
+        "format": "text",
+        "send": "each"
+      },
+      "notes": "Tells you what the copy bought or sold, and for how much.",
+      "position": { "x": 1500, "y": 0 }
+    },
+    {
+      "id": "notCopied",
+      "type": "telegram.send",
+      "name": "Not copied",
+      "params": {
+        "message": "Not copied, {{trader.label}}'s trade in “{{question}}”: {{ item.blocked ? item.blocked.reason : item.order.reason }}",
+        "format": "text",
+        "send": "each"
+      },
+      "notes": "Tells you why a copy you approved did not go through: Risk guard blocked it (blocked.reason), or the order did not fill (order.reason).",
+      "position": { "x": 1500, "y": 200 }
+    }
+  ],
+  "connections": [
+    { "from": "watch", "fromPort": "main", "to": "size", "toPort": "main" },
+    { "from": "size", "fromPort": "main", "to": "ask", "toPort": "main" },
+    { "from": "ask", "fromPort": "Copy", "to": "guard", "toPort": "main" },
+    { "from": "guard", "fromPort": "main", "to": "place", "toPort": "main" },
+    { "from": "guard", "fromPort": "blocked", "to": "notCopied", "toPort": "main" },
+    { "from": "place", "fromPort": "main", "to": "copied", "toPort": "main" },
+    { "from": "place", "fromPort": "missed", "to": "notCopied", "toPort": "main" }
+  ]
+}

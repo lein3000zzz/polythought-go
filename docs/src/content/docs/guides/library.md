@@ -27,6 +27,8 @@ The scenarios that come with Polythought:
 - **Large trades**: list trades of $1,000 or more in the markets you follow.
 - **Alerts in Discord or Slack**: get a chat message when an outcome becomes 80% likely.
 - **Your positions** and **Low balance warning**: read your own wallet's positions and balance.
+- **Copy traders** and **Copy traders with approval**: follow Polymarket traders and copy
+  their trades on paper; the second asks you on Telegram before each copy.
 
 ## Sharing your own
 

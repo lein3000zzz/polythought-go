@@ -53,3 +53,57 @@ test('a shared workflow keeps wallets and webhook URLs private', async ({ page }
   await page.getByRole('button', { name: 'Use this' }).click()
   await expect(page.getByRole('dialog').getByLabel(/Webhook URL/)).toHaveValue('')
 })
+
+test('Copy traders asks for the traders and becomes a copytrading workflow', async ({ page }) => {
+  const alice = '0x5f3C00000000000000000000000000000000A1b2' // checksummed
+
+  await page.goto('/library')
+  const approval = page.getByRole('link').filter({ hasText: 'Copy traders with approval' })
+  await expect(approval.getByText('Asks for traders')).toBeVisible()
+
+  const card = page.getByRole('link').filter({ hasText: 'Follow Polymarket traders and copy' })
+  await expect(card.getByText('Asks for traders')).toBeVisible()
+  await expect(card.getByText('Runs on its own')).toBeVisible()
+  await card.click()
+
+  const about = page.getByRole('complementary', { name: 'About' })
+  await expect(about.getByText('You fill in')).toBeVisible()
+  await expect(about.getByRole('listitem').filter({ hasText: /^Traders$/ })).toBeVisible()
+
+  const name = unique('copy')
+  await page.getByRole('button', { name: 'Use this' }).click()
+  const use = page.getByRole('dialog', { name: 'Make it yours' })
+  await use.getByLabel('Name').fill(name)
+
+  // Without traders, the workflow is not made, and the dialog says why.
+  await use.getByRole('button', { name: 'Create workflow' }).click()
+  await expect(use.getByText('Missing required param "traders"')).toBeVisible()
+  await expect(page).toHaveURL(/\/library\//)
+
+  await use.getByRole('button', { name: 'Edit traders' }).click()
+  const traders = page.getByRole('dialog', { name: 'Traders' })
+  await traders.getByRole('button', { name: 'Add a row' }).click()
+  await traders.getByRole('textbox', { name: 'Label, row 1' }).fill('Alice')
+  await traders.getByRole('textbox', { name: 'Address, row 1' }).fill(alice)
+  await traders.getByRole('button', { name: 'Done' }).click()
+  await expect(use.getByText('1 row: Alice')).toBeVisible()
+  await use.getByRole('button', { name: 'Create workflow' }).click()
+
+  await expect(page).toHaveURL(/\/workflows\/[0-9a-f-]{36}$/)
+  await expect(page.getByLabel('Workflow name')).toHaveValue(name)
+  await expect(page.getByText('Inactive')).toBeVisible()
+  await expect(page.getByRole('tab', { name: 'Trading' })).toBeVisible()
+
+  const id = page.url().split('/').pop()!
+  const saved = (await (await page.request.get(`/api/v1/workflows/${id}`)).json()) as {
+    nodes: { type: string; params?: Record<string, unknown> }[]
+  }
+  expect(saved.nodes.map((n) => n.type)).toEqual([
+    'trigger.walletActivity',
+    'trading.copySize',
+    'trading.riskGuard',
+    'trading.placeOrder',
+  ])
+  expect(saved.nodes[0].params?.traders).toEqual([{ label: 'Alice', address: alice }])
+  expect(saved.nodes[2].params).toMatchObject({ maxPerMarket: '50', maxPerDay: '200' })
+})

@@ -46,10 +46,37 @@ func registry(t *testing.T) *engine.Registry {
 		Wallets:      portsmocks.NewMockWalletDirectory(t),
 		Webhooks:     portsmocks.NewMockWebhookSender(t),
 		Feed:         portsmocks.NewMockMarketFeed(t),
+		Traders:      noTraders{},
+		Messenger:    noTelegram{},
+		Asker:        noTelegram{},
+		Orders:       noOrders{},
+		Books:        noBooks{},
 		Logger:       logging.Noop(),
 	}))
 
 	return r
+}
+
+// Stand-ins for what the copytrading and Telegram nodes use: only their types are read.
+type (
+	noTraders  struct{}
+	noTelegram struct{}
+	noOrders   struct{}
+	noBooks    struct{ ports.Ledger }
+)
+
+func (noTraders) Follow(context.Context, []domain.WalletAddress, time.Time) (ports.TraderSubscription, error) {
+	return nil, nil //nolint:nilnil // never called
+}
+
+func (noTelegram) MessageUser(context.Context, domain.UserID, ports.UserMessage) error { return nil }
+
+func (noTelegram) AskUser(context.Context, domain.UserID, ports.Question) (int, error) { return 0, nil }
+
+func (noTelegram) CloseQuestion(context.Context, domain.UserID, int, string) error { return nil }
+
+func (noOrders) Place(context.Context, domain.OrderRequest) (domain.PlacedOrder, error) {
+	return domain.PlacedOrder{}, nil
 }
 
 type deps struct {
@@ -81,6 +108,8 @@ func placeholder(p engine.ParamSpec) any {
 		return 1
 	case engine.ParamBool:
 		return true
+	case engine.ParamTable:
+		return []any{map[string]any{"label": "Alice", "address": "0x5aAeb6053F3E94C9b9A09f33669435E7Ef1BeAed"}}
 	default:
 		return "https://chat.example/hook"
 	}
