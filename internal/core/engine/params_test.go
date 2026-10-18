@@ -86,6 +86,32 @@ func TestParamsGetters(t *testing.T) {
 	}
 }
 
+func TestParamsText(t *testing.T) {
+	params := engine.Params{
+		"str": "SNOW", "json": json.Number("0.02"), "dec": decimal.RequireFromString("1.50"),
+		"float": 0.5, "int": 1000, "bool": true,
+	}
+
+	for name, want := range map[string]string{"str": "SNOW", "json": "0.02", "dec": "1.5", "float": "0.5", "int": "1000"} {
+		got, err := params.Text(name)
+		require.NoError(t, err, name)
+		assert.Equal(t, want, got, name)
+	}
+
+	_, err := params.Text("bool")
+	require.ErrorIs(t, err, engine.ErrInvalidParam)
+
+	_, err = params.Text("absent")
+	require.ErrorIs(t, err, engine.ErrMissingParam)
+
+	text := engine.ParamSpec{Name: "v", Kind: engine.ParamString}
+	require.Error(t, text.CheckValue(5), "plain text takes no number")
+
+	text.Numbers = true
+	require.NoError(t, text.CheckValue(5))
+	require.Error(t, text.CheckValue(true))
+}
+
 func TestParamsTable(t *testing.T) {
 	columns := []engine.ParamSpec{
 		{Name: "label", Kind: engine.ParamString},

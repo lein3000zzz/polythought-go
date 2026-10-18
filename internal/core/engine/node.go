@@ -146,6 +146,10 @@ type ParamSpec struct {
 	// Params.Template, so it can escape the values: a message in HTML, say.
 	Template bool
 
+	// Numbers lets a text param hold a number too, which the node reads as its text with
+	// Params.Text: a value compared as a number or as text, say.
+	Numbers bool
+
 	// Columns are the cells of each row of a table param, in order, keyed by Name. Each
 	// is a kind a cell can hold (CellKinds), with Options for one of a few choices.
 	// Cells are plain values: only the whole table takes an expression (D82).

@@ -27,13 +27,32 @@ are text, like `"0.0200"`, so they stay exact; times are text too, like
 
 Nodes take items in and send them out through **ports**. Most have one input and one output,
 both called `main`. Some have more: If sends each item out of `true` or `false`, depending
-on a comparison. A line connects one node's output port to another's input port, and every
+on its [tests](#testing-items). A line connects one node's output port to another's input port, and every
 node connected to a port gets the items sent through it.
 
 A few nodes take some of their ports from a setting: a
 [Telegram question](/docs/reference/nodes/telegram/ask/) has a port for each of its buttons,
 named like the button, besides `timeout`. Renaming a button in the editor keeps its lines;
 removing one removes them.
+
+## Testing items
+
+[If](/docs/reference/nodes/logic/if/) and [Filter](/docs/reference/nodes/logic/filter/) test
+each item: a number compared with a value, like `spread` `lt` `0.02`; text that contains a
+value, in any case; or a field being there at all, `exists` or `missing`. **More tests** adds
+more, a row each, and **Match** says how they count together:
+
+| Match | The item passes when |
+|---|---|
+| `all` | every test passes (AND) |
+| `any` | one or more do (OR) |
+| `none` | not one does (NOT) |
+| `one` | exactly one does (XOR) |
+
+The first test takes expressions: `{{ bestAsk }}` as its value compares one field with
+another. The rows of More tests are plain values. A field a test cannot use, like text
+where a number is needed, fails the item, whatever the other tests say: it stops the
+execution, or with **Continue on failure** on, leaves on the `error` port.
 
 ## Triggers
 

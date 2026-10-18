@@ -3,7 +3,6 @@ package logic
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/lein3000zzz/polythought-go/internal/core/engine"
 	"github.com/lein3000zzz/polythought-go/internal/core/nodes/shape"
@@ -18,39 +17,20 @@ const (
 
 var _ engine.Node = If{}
 
-// operators maps an operator name to the comparison results that satisfy it.
-var operators = map[string]func(cmp int) bool{
-	"gt":  func(c int) bool { return c > 0 },
-	"gte": func(c int) bool { return c >= 0 },
-	"lt":  func(c int) bool { return c < 0 },
-	"lte": func(c int) bool { return c <= 0 },
-	"eq":  func(c int) bool { return c == 0 },
-	"neq": func(c int) bool { return c != 0 },
-}
-
-// operatorNames lists the operators in the order an editor offers them.
-var operatorNames = []string{"gt", "gte", "lt", "lte", "eq", "neq"}
-
-// If compares a numeric field of each item with a value and routes it to "true" or
-// "false". A missing or null field is false; a non-numeric one fails the item.
+// If tests each item and routes it to "true" or "false", by the tests Filter has
+// (tests.go). A field one cannot test fails the item.
 type If struct{}
 
 func (If) Type() engine.NodeType {
 	return engine.NodeType{
-		Name:        IfType,
-		Label:       "If",
-		Description: "Compares a numeric field of each item with a value and routes the item to true or false.",
-		Inputs:      []string{engine.DefaultPort},
-		Outputs:     []string{PortTrue, PortFalse},
-		Items:       shape.Passed(),
-		Params: []engine.ParamSpec{
-			{
-				Name: "field", Label: "Field", Description: "Item field to compare, e.g. bestBid.", Kind: engine.ParamString, Required: true,
-				Field: true, FieldKinds: []engine.FieldKind{engine.FieldNumber, engine.FieldDecimal},
-			},
-			{Name: "operator", Label: "Operator", Kind: engine.ParamString, Default: "gt", Options: operatorNames},
-			{Name: "value", Label: "Value", Kind: engine.ParamDecimal, Required: true},
-		},
+		Name:  IfType,
+		Label: "If",
+		Description: "Tests each item and routes it to true or false: a number compared with a value, text " +
+			"that contains a value, or a field being there at all. Several tests count together as Match says.",
+		Inputs:  []string{engine.DefaultPort},
+		Outputs: []string{PortTrue, PortFalse},
+		Items:   shape.Passed(),
+		Params:  testParams(),
 	}
 }
 
@@ -60,64 +40,28 @@ func (If) Run(_ context.Context, rc engine.RunContext, in engine.Ports) (engine.
 	for i, item := range in[engine.DefaultPort] {
 		src := engine.ItemRef{Port: engine.DefaultPort, Index: i}
 
-		matched, err := evaluate(rc, src, item)
+		p, err := rc.Params.Resolve(src)
 		if err != nil {
 			return nil, err
 		}
 
-		switch {
-		case matched.err != nil:
-			out.Fail(item, src, matched.err)
-		case matched.ok:
-			out.Add(PortTrue, engine.Item{JSON: item.JSON, Source: []engine.ItemRef{src}})
-		default:
-			out.Add(PortFalse, engine.Item{JSON: item.JSON, Source: []engine.ItemRef{src}})
+		ok, itemErr, err := passes(p, item)
+		if err != nil {
+			return nil, err
 		}
+
+		port := PortFalse
+		if ok {
+			port = PortTrue
+		}
+
+		if itemErr != nil {
+			out.Fail(item, src, itemErr)
+			continue
+		}
+
+		out.Add(port, engine.Item{JSON: item.JSON, Source: []engine.ItemRef{src}})
 	}
 
 	return out, nil
-}
-
-type outcome struct {
-	ok  bool
-	err error // the item's own problem, routed to the error port
-}
-
-// evaluate returns an error only for bad configuration, which fails the node.
-func evaluate(rc engine.RunContext, src engine.ItemRef, item engine.Item) (outcome, error) {
-	p, err := rc.Params.Resolve(src)
-	if err != nil {
-		return outcome{}, err
-	}
-
-	field, err := p.String("field")
-	if err != nil {
-		return outcome{}, err
-	}
-
-	op, err := p.String("operator")
-	if err != nil {
-		return outcome{}, err
-	}
-
-	satisfies, known := operators[op]
-	if !known {
-		return outcome{}, fmt.Errorf("%w %q: unknown operator %q", engine.ErrInvalidParam, "operator", op)
-	}
-
-	value, err := p.Decimal("value")
-	if err != nil {
-		return outcome{}, err
-	}
-
-	if item.JSON[field] == nil {
-		return outcome{}, nil
-	}
-
-	got, err := engine.Params(item.JSON).Decimal(field)
-	if err != nil {
-		return outcome{err: fmt.Errorf("field %q: %w", field, err)}, nil
-	}
-
-	return outcome{ok: satisfies(got.Cmp(value))}, nil
 }

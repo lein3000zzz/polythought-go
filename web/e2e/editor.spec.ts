@@ -53,19 +53,59 @@ test('the server points at what is wrong', async ({ page }) => {
   ])
 
   await page.goto(`/workflows/${id}`)
-  await canvasNode(page, 'tight').click()
+  await canvasNode(page, 'markets').click()
 
   const settings = page.getByRole('complementary', { name: 'Settings' })
-  await fillSetting(settings, 'value', 'lots')
-  await expect(page.getByText('Enter a number')).toBeVisible()
+  await fillSetting(settings, 'limit', 'lots')
+  await expect(page.getByText('Enter a whole number')).toBeVisible()
 
   await page.getByRole('button', { name: 'Save', exact: true }).click()
   await expect(page.getByText(/Not saved: the workflow has problems/)).toBeVisible()
-  await expect(canvasNode(page, 'tight').getByText('1')).toBeVisible()
+  await expect(canvasNode(page, 'markets').getByText('1')).toBeVisible()
 
-  await fillSetting(settings, 'value', '0.05')
+  await fillSetting(settings, 'limit', '5')
   await page.getByRole('button', { name: 'Save', exact: true }).click()
   await expect(page.getByText('Version 2')).toBeVisible()
+})
+
+test('a filter takes more tests, and Match says how they count', async ({ page }) => {
+  const id = await createWorkflow(page, unique('tests'), [
+    { id: 'manual', type: 'trigger.manual' },
+    { id: 'markets', type: 'polymarket.markets' },
+    { id: 'books', type: 'polymarket.orderbook' },
+    {
+      id: 'pick',
+      type: 'logic.filter',
+      params: { field: 'spread', operator: 'lt', value: '0.02' },
+    },
+  ])
+
+  await page.goto(`/workflows/${id}`)
+  await canvasNode(page, 'pick').click()
+
+  const settings = page.getByRole('complementary', { name: 'Settings' })
+  await settings.getByRole('button', { name: 'Edit more tests' }).click()
+  const dialog = page.getByRole('dialog', { name: 'More tests' })
+  await dialog.getByRole('button', { name: 'Add a row' }).click()
+  await dialog.getByRole('textbox', { name: 'Field, row 1' }).fill('question')
+  await dialog.getByRole('combobox', { name: 'Test, row 1' }).selectOption('contains')
+  await dialog.getByRole('textbox', { name: 'Value, row 1' }).fill('bitcoin')
+  await dialog.getByRole('button', { name: 'Done' }).click()
+  await settings.getByLabel('Match', { exact: true }).selectOption('any')
+
+  await page.getByRole('button', { name: 'Save', exact: true }).click()
+  await expect(page.getByText('Version 2')).toBeVisible()
+
+  const saved = (await (await page.request.get(`/api/v1/workflows/${id}`)).json()) as {
+    nodes: { id: string; params?: Record<string, unknown> }[]
+  }
+  expect(saved.nodes.find((n) => n.id === 'pick')?.params).toEqual({
+    field: 'spread',
+    operator: 'lt',
+    value: '0.02',
+    tests: [{ field: 'question', operator: 'contains', value: 'bitcoin' }],
+    match: 'any',
+  })
 })
 
 test('a save based on an old version is refused', async ({ page, context }) => {
@@ -96,7 +136,7 @@ test('field settings offer the fields there, and saving checks them', async ({ p
   const nodes = (field: string) => [
     { id: 'manual', type: 'trigger.manual', position: { x: 0, y: 0 } },
     { id: 'markets', type: 'polymarket.markets', position: { x: 300, y: 0 } },
-    { id: 'deep', type: 'logic.if', params: { field, value: '1000' }, position: { x: 600, y: 0 } },
+    { id: 'deep', type: 'transform.top', params: { field }, position: { x: 600, y: 0 } },
   ]
   const connections = [
     { from: 'manual', fromPort: 'main', to: 'markets', toPort: 'main' },
@@ -118,9 +158,9 @@ test('field settings offer the fields there, and saving checks them', async ({ p
 
   await page.goto(`/workflows/${id}`)
   await canvasNode(page, 'deep').click()
-  const field = page.getByRole('complementary', { name: 'Settings' }).getByLabel(/Field/)
+  const field = page.getByRole('complementary', { name: 'Settings' }).getByLabel(/^Sort by/)
 
-  // If compares numbers: only the markets' numbers are offered.
+  // Top sorts by a number: only the markets' numbers are offered.
   const offered = await page
     .locator(`#${await field.getAttribute('list')} option`)
     .evaluateAll((options) => options.map((o) => o.getAttribute('value')))

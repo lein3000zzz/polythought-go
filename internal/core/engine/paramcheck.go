@@ -30,9 +30,14 @@ func checkParam(spec ParamSpec, value any) string {
 
 	switch spec.Kind {
 	case ParamString, ParamWallet, ParamCredential, ParamCode:
-		s, err := p.String(spec.Name)
+		read, want := p.String, "must be a string"
+		if spec.Numbers && spec.Kind == ParamString {
+			read, want = p.Text, "must be text or a number"
+		}
+
+		s, err := read(spec.Name)
 		if err != nil {
-			return "must be a string"
+			return want
 		}
 
 		return checkOption(spec, s)

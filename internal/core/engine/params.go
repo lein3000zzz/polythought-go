@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"maps"
 	"math"
+	"strconv"
 	"time"
 
 	"github.com/shopspring/decimal"
@@ -125,6 +126,31 @@ func (p Params) String(name string) (string, error) {
 	}
 
 	return s, nil
+}
+
+// Text is a text param as it is, or a number it holds as its text (ParamSpec.Numbers).
+func (p Params) Text(name string) (string, error) {
+	v, err := p.get(name)
+	if err != nil {
+		return "", err
+	}
+
+	switch t := v.(type) {
+	case string:
+		return t, nil
+	case json.Number:
+		return t.String(), nil
+	case decimal.Decimal:
+		return t.String(), nil
+	case float64:
+		return strconv.FormatFloat(t, 'f', -1, 64), nil
+	case int:
+		return strconv.Itoa(t), nil
+	case int64:
+		return strconv.FormatInt(t, 10), nil
+	}
+
+	return "", invalid(name, v, "text or a number")
 }
 
 func (p Params) Bool(name string) (bool, error) {

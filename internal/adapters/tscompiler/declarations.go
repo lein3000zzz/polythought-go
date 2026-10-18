@@ -205,6 +205,10 @@ func rowType(p engine.ParamSpec) string {
 func paramType(p engine.ParamSpec) string {
 	switch p.Kind {
 	case engine.ParamString:
+		if p.Numbers {
+			return union(p.Options, "string") + " | number"
+		}
+
 		return union(p.Options, "string")
 	case engine.ParamNumber:
 		return "number"

@@ -100,18 +100,51 @@ export interface LogicFilterSettings {
      */
     operator?: "gt" | "gte" | "lt" | "lte" | "eq" | "neq" | "contains" | "notContains" | "exists" | "missing" | Expression;
     /** A number for the comparisons, text for contains (any case). Not used by exists and missing. */
-    value?: string;
+    value?: string | number | Expression;
+    /** More tests like the first, a row each. Match says how they count together. A table: a row each. */
+    tests?: {
+        /** The item field to test. */
+        field: string;
+        /**
+         * @default "gt"
+         */
+        operator?: "gt" | "gte" | "lt" | "lte" | "eq" | "neq" | "contains" | "notContains" | "exists" | "missing";
+        /** A number for the comparisons, text for contains (any case). Not used by exists and missing. */
+        value?: string | number;
+    }[] | Expression;
+    /**
+     * all: every test passes (AND). any: one or more do (OR). none: not one does (NOT). one: exactly one does (XOR).
+     * @default "all"
+     */
+    match?: "all" | "any" | "none" | "one" | Expression;
 }
 
 /** The settings of If (logic.if). */
 export interface LogicIfSettings {
-    /** Item field to compare, e.g. bestBid. A field of the items it receives. */
+    /** The item field to test, e.g. spread, or outcomes.0.price for the first outcome's price. A field of the items it receives. */
     field: string;
     /**
      * @default "gt"
      */
-    operator?: "gt" | "gte" | "lt" | "lte" | "eq" | "neq" | Expression;
-    value: DecimalText | number | Expression;
+    operator?: "gt" | "gte" | "lt" | "lte" | "eq" | "neq" | "contains" | "notContains" | "exists" | "missing" | Expression;
+    /** A number for the comparisons, text for contains (any case). Not used by exists and missing. */
+    value?: string | number | Expression;
+    /** More tests like the first, a row each. Match says how they count together. A table: a row each. */
+    tests?: {
+        /** The item field to test. */
+        field: string;
+        /**
+         * @default "gt"
+         */
+        operator?: "gt" | "gte" | "lt" | "lte" | "eq" | "neq" | "contains" | "notContains" | "exists" | "missing";
+        /** A number for the comparisons, text for contains (any case). Not used by exists and missing. */
+        value?: string | number;
+    }[] | Expression;
+    /**
+     * all: every test passes (AND). any: one or more do (OR). none: not one does (NOT). one: exactly one does (XOR).
+     * @default "all"
+     */
+    match?: "all" | "any" | "none" | "one" | Expression;
 }
 
 /** The settings of Wait (logic.wait). */

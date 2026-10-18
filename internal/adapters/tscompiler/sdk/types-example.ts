@@ -18,7 +18,7 @@ export async function run(items: PolymarketMarketsItem[], ctx: Context<{ least: 
     limit: '{{ params.max }}',
   }
 
-  const deep = items.filter((m) => dec(m.liquidity).gt(settings.value) && m.status === 'open')
+  const deep = items.filter((m) => dec(m.liquidity).gt(settings.value ?? 0) && m.status === 'open')
   const found = await markets.search(ctx.params.least)
 
   return { tokens: deep.map((m) => m.outcomes[0].tokenId), found: found.length, passes, top }

@@ -35,8 +35,8 @@ Each node has a page with its settings. In the editor, the node list on the left
 | Node | Type | What it does |
 |---|---|---|
 | [Only new](/docs/reference/nodes/logic/dedupe/) | `logic.dedupe` | Passes an item only the first time it shows up, so an alert fires once instead of on every run. |
-| [Filter](/docs/reference/nodes/logic/filter/) | `logic.filter` | Keeps the items whose field passes a test and drops the others: a number compared with a value, text that contains a value, or a field being there at all. |
-| [If](/docs/reference/nodes/logic/if/) | `logic.if` | Compares a numeric field of each item with a value and routes the item to true or false. |
+| [Filter](/docs/reference/nodes/logic/filter/) | `logic.filter` | Keeps the items that pass its tests and drops the others: a number compared with a value, text that contains a value, or a field being there at all. |
+| [If](/docs/reference/nodes/logic/if/) | `logic.if` | Tests each item and routes it to true or false: a number compared with a value, text that contains a value, or a field being there at all. |
 | [Wait](/docs/reference/nodes/logic/wait/) | `logic.wait` | Holds the items for a while, or until a time of day, then passes them on. |
 
 ## Transform

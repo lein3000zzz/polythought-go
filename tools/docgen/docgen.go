@@ -397,6 +397,10 @@ func kindName(k engine.FieldKind) string {
 func paramKind(p engine.ParamSpec, credTypes []engine.CredentialType) string {
 	switch p.Kind {
 	case engine.ParamString:
+		if p.Numbers {
+			return "text or a number"
+		}
+
 		return "text"
 	case engine.ParamNumber:
 		return "whole number"
