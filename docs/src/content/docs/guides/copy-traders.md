@@ -31,6 +31,9 @@ after it, with the trade as its item.
    - **Size ×** scales the copies of their buys, `0.5` for half; **Max $** is the most a
      copy of one of their buys spends. Empty, they leave the copy as Copy sizing works it
      out.
+   - **Take %** copies only a share of their buys: `30` copies about 3 in 10. Each trade
+     is decided by its transaction, so a re-run decides it the same way. Their sells are
+     always copied, so a copy never outstays their position.
 3. Save, and switch the workflow **Active**.
 
 ### What a trade is
@@ -88,8 +91,13 @@ tick: a copy of a buy at 0.503 is placed at up to 0.52. It fills what the book h
 that price at once, and the rest is cancelled.
 
 A trade it cannot copy goes out of `skipped`, with why in `skipped.reason`: nothing held
-copying them to sell, or a copy under the market's least order, which is skipped rather than
-made bigger than its sizing says.
+copying them to sell; a copy under the market's least order, which is skipped rather than
+made bigger than its sizing says; or a buy their **Take %** leaves out.
+
+To copy at most so many of a trader's trades, put a
+[Throttle](/docs/reference/nodes/logic/throttle/) after Copy sizing: **At most** `3` **In**
+`24h`, **Count per** `trader.address`. Copies over it leave from `limited`. It remembers
+across restarts, so a restart does not make room.
 
 ## Guard them
 

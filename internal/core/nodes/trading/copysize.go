@@ -13,6 +13,7 @@ import (
 
 	"github.com/lein3000zzz/polythought-go/internal/core/domain"
 	"github.com/lein3000zzz/polythought-go/internal/core/engine"
+	"github.com/lein3000zzz/polythought-go/internal/core/nodes/chance"
 	"github.com/lein3000zzz/polythought-go/internal/core/nodes/shape"
 	"github.com/lein3000zzz/polythought-go/internal/core/ports"
 )
@@ -168,6 +169,11 @@ func (c *CopySize) size(ctx context.Context, rc engine.RunContext, p engine.Para
 	slippage, err := p.Decimal("slippage")
 	if err != nil {
 		return nil, "", err
+	}
+
+	// A share of their buys (D141); their sells always, so no copy outstays theirs.
+	if t.side == domain.SideBuy && t.take != nil && !chance.Taken(rc.WorkflowID, rc.NodeID, t.txHash, *t.take) {
+		return nil, fmt.Sprintf("not taken: %s's Take %% is %s", t.label, t.take), nil
 	}
 
 	if t.marketID == "" {
@@ -383,8 +389,10 @@ type trade struct {
 	dollars, shares decimal.Decimal
 	trader          domain.WalletAddress
 	label           string
+	txHash          string
 	scale           *decimal.Decimal
 	maxDollars      *decimal.Decimal
+	take            *decimal.Decimal
 }
 
 var errNotATrade = errors.New("not a trade of Wallet activity: Copy sizing copies those")
@@ -405,6 +413,8 @@ func readTrade(j map[string]any) (trade, error) {
 
 	market, _ := item.String("marketId")
 	t.marketID = domain.MarketID(market)
+
+	t.txHash, _ = item.String("txHash")
 
 	if t.price, err = item.Decimal("price"); err != nil {
 		return t, errNotATrade
@@ -436,7 +446,7 @@ func readTrade(j map[string]any) (trade, error) {
 
 	t.label, _ = row.String("label")
 
-	for name, to := range map[string]**decimal.Decimal{"scale": &t.scale, "maxDollars": &t.maxDollars} {
+	for name, to := range map[string]**decimal.Decimal{"scale": &t.scale, "maxDollars": &t.maxDollars, "take": &t.take} {
 		if row[name] == nil {
 			continue
 		}

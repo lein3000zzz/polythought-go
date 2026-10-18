@@ -106,7 +106,7 @@ func traders(rows ...map[string]any) []any {
 func TestWalletActivity(t *testing.T) {
 	params := map[string]any{
 		"traders": traders(
-			map[string]any{"label": "Alice", "address": aliceLower, "scale": "0.5"},
+			map[string]any{"label": "Alice", "address": aliceLower, "scale": "0.5", "take": "30"},
 			map[string]any{"label": "Bob", "address": bobLower, "on": false},
 			map[string]any{"label": "Alice again", "address": string(checksummed(t, aliceLower))},
 		),
@@ -132,7 +132,7 @@ func TestWalletActivity(t *testing.T) {
 
 	assert.Equal(t, map[string]any{
 		"label": "Alice", "address": string(checksummed(t, aliceLower)), "name": "BOOOST",
-		"scale": dec("0.5"), "maxDollars": nil,
+		"scale": dec("0.5"), "maxDollars": nil, "take": dec("30"),
 	}, items[0].JSON["trader"], "the first row of a wallet counts")
 	assert.Equal(t, "buy", items[0].JSON["side"])
 	assert.Equal(t, "taker", items[0].JSON["role"])

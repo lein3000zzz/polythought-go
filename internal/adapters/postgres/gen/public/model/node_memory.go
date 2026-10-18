@@ -18,4 +18,5 @@ type NodeMemory struct {
 	Key        string    `sql:"primary_key"`
 	At         time.Time
 	ExpiresAt  time.Time
+	Member     string `sql:"primary_key"`
 }

@@ -35,6 +35,7 @@ Each row of **Traders** has these cells.
 | On (`on`) | true or false | no | `true` | Off, their trades are not followed. |
 | Size × (`scale`) | number | no |  | Scales what Copy sizing works out for their trades; empty is 1. |
 | Max $ (`maxDollars`) | number | no |  | The most dollars a copy of one of their trades may spend; empty leaves it to the Risk guard. |
+| Take % (`take`) | number | no |  | The share of their buys Copy sizing copies, each the same way every time: 30 is about 3 in 10. Empty copies them all. |
 
 ## Items
 
@@ -48,6 +49,7 @@ Each item has these fields. Decimals are text, so they stay exact; times are RFC
 | `trader.name` | text; or null | Their name on Polymarket. |
 | `trader.scale` | decimal; or null | Size ×: what Copy sizing works out is scaled by it. |
 | `trader.maxDollars` | decimal; or null | Max $: the most a copy may spend. |
+| `trader.take` | decimal; or null | Take %: the share of their buys copied. |
 | `side` | text, one of `buy`, `sell` | Whether they bought or sold. |
 | `role` | text, one of `taker`, `maker`; or null | taker: their order met the book; maker: a resting order of theirs filled. Null when the source did not say. |
 | `tokenId` | text | The outcome's token ID. |

@@ -109,3 +109,57 @@ func TestNodeMemory(t *testing.T) {
 		assert.Zero(t, swept)
 	})
 }
+
+func TestNodeMemoryAdmit(t *testing.T) {
+	ctx := context.Background()
+
+	db := fresh(t)
+	mem := postgres.NewNodeMemory(db)
+	alice := seedUser(t, db, "alice@example.com", domain.RoleUser)
+
+	w := newWorkflow(alice.ID, "throttled")
+	require.NoError(t, postgres.NewWorkflows(db).Create(ctx, w))
+
+	now := time.Date(2026, 10, 18, 12, 0, 0, 0, time.UTC)
+	day := 24 * time.Hour
+	admit := func(key string, at time.Time, members ...string) []string {
+		t.Helper()
+
+		got, err := mem.Admit(ctx, w.ID, "throttle", key, members, 3, at.Add(-day), at, at.Add(day))
+		require.NoError(t, err)
+
+		return got
+	}
+
+	assert.Equal(t, []string{"m1", "m2"}, admit("alice", now, "m1", "m2"))
+	assert.Equal(t, []string{"m3"}, admit("alice", now.Add(time.Hour), "m3", "m4"), "three in 24 hours")
+	assert.Empty(t, admit("alice", now.Add(2*time.Hour), "m5"))
+	assert.Equal(t, []string{"b1"}, admit("bob", now, "b1"), "each key counts for itself")
+
+	assert.Equal(t, []string{"m6", "m7"}, admit("alice", now.Add(day+30*time.Minute), "m6", "m7", "m8"),
+		"a day after the first two, they no longer count")
+
+	n, err := mem.Count(ctx, w.ID, "throttle", now.Add(day+30*time.Minute))
+	require.NoError(t, err)
+	assert.Equal(t, 3, n, "m3, m6 and m7: the rest expired")
+
+	t.Run("two at once fill the last places once", func(t *testing.T) {
+		results := make(chan []string, 2)
+
+		for _, member := range []string{"x", "y"} {
+			go func() {
+				got, err := mem.Admit(ctx, w.ID, "throttle", "carol", []string{member + "1", member + "2"}, 3, now.Add(-day), now, now.Add(day))
+				assert.NoError(t, err)
+				results <- got
+			}()
+		}
+
+		assert.Len(t, append(<-results, <-results...), 3)
+	})
+
+	t.Run("only new's keys and throttle's entries live side by side", func(t *testing.T) {
+		fresh, err := mem.Remember(ctx, w.ID, "throttle", []string{"alice"}, now, now.Add(day))
+		require.NoError(t, err)
+		assert.Equal(t, []string{"alice"}, fresh, "a key alone is another entry than its members")
+	})
+}

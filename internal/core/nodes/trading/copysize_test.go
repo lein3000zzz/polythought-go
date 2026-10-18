@@ -3,6 +3,7 @@ package trading_test
 import (
 	"context"
 	"errors"
+	"fmt"
 	"testing"
 	"time"
 
@@ -272,6 +273,32 @@ func TestCopySizingSkipsAndFails(t *testing.T) {
 	t.Run("what it cannot look up fails the item", func(t *testing.T) {
 		port, _ := sized(t, books{}, theirs{}, map[string]any{"sizing": "proportional"}, tradeItem(domain.SideBuy, "0.5", "100", "200", nil))
 		assert.Equal(t, engine.ErrorPort, port)
+	})
+
+	t.Run("a share of the trader's buys, by their Take % (D141)", func(t *testing.T) {
+		copiedBuys := 0
+
+		for i := range 200 {
+			item := tradeItem(domain.SideBuy, "0.5", "100", "200", map[string]any{"take": d("30")})
+			item.JSON["txHash"] = fmt.Sprintf("0xtx%d", i)
+
+			port, j := sized(t, books{}, theirs{}, nil, item)
+			if port == engine.DefaultPort {
+				copiedBuys++
+				continue
+			}
+
+			require.Equal(t, trading.PortSkipped, port)
+			assert.Equal(t, "not taken: Alice's Take % is 30", j["skipped"].(map[string]any)["reason"])
+		}
+
+		assert.InDelta(t, 60, copiedBuys, 25, "about 3 in 10")
+
+		item := tradeItem(domain.SideSell, "0.5", "100", "200", map[string]any{"take": d("0")})
+		item.JSON["txHash"] = "0xtx1"
+
+		_, j := sized(t, books{}, theirs{}, nil, item)
+		assert.NotContains(t, j["skipped"].(map[string]any)["reason"], "not taken", "sells are always copied")
 	})
 
 	t.Run("an item that is no trade fails", func(t *testing.T) {

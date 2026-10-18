@@ -12,14 +12,20 @@ import (
 
 var _ ports.NodeMemory = (*memory)(nil)
 
-// memory is node memory in a map: workflow/node/key to when it expires.
+// memory is node memory in maps: workflow/node/key to when it expires, and to the
+// entries Admit let in.
 type memory struct {
-	mu   sync.Mutex
-	keys map[string]time.Time
-	err  error
+	mu      sync.Mutex
+	keys    map[string]time.Time
+	entries map[string][]entry
+	err     error
 }
 
-func newMemory() *memory { return &memory{keys: map[string]time.Time{}} }
+type entry struct{ at, until time.Time }
+
+func newMemory() *memory {
+	return &memory{keys: map[string]time.Time{}, entries: map[string][]entry{}}
+}
 
 func memKey(wf domain.WorkflowID, node domain.NodeID, k string) string {
 	return string(wf) + "/" + string(node) + "/" + k
@@ -47,6 +53,30 @@ func (m *memory) Remember(_ context.Context, wf domain.WorkflowID, node domain.N
 	return fresh, nil
 }
 
+func (m *memory) Admit(_ context.Context, wf domain.WorkflowID, node domain.NodeID, key string, members []string, limit int, since, now, expires time.Time) ([]string, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	if m.err != nil {
+		return nil, m.err
+	}
+
+	held := 0
+
+	for _, e := range m.entries[memKey(wf, node, key)] {
+		if e.at.After(since) && e.until.After(now) {
+			held++
+		}
+	}
+
+	admitted := members[:max(0, min(limit-held, len(members)))]
+	for range admitted {
+		m.entries[memKey(wf, node, key)] = append(m.entries[memKey(wf, node, key)], entry{at: now, until: expires})
+	}
+
+	return admitted, nil
+}
+
 func (m *memory) Count(_ context.Context, wf domain.WorkflowID, node domain.NodeID, now time.Time) (int, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
@@ -56,6 +86,14 @@ func (m *memory) Count(_ context.Context, wf domain.WorkflowID, node domain.Node
 	for k, until := range m.keys {
 		if strings.HasPrefix(k, memKey(wf, node, "")) && until.After(now) {
 			n++
+		}
+	}
+
+	for k, es := range m.entries {
+		for _, e := range es {
+			if strings.HasPrefix(k, memKey(wf, node, "")) && e.until.After(now) {
+				n++
+			}
 		}
 	}
 

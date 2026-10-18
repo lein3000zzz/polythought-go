@@ -144,6 +144,17 @@ export interface LogicMergeSettings {
     joinedAs?: string;
 }
 
+/** The settings of Sample (logic.sample). */
+export interface LogicSampleSettings {
+    /** The share to take, 0 to 100: 30 is about 3 in 10. */
+    chance: DecimalText | number | Expression;
+    /**
+     * The field that tells items apart, e.g. txHash for trades or id: an item with the same value gets the same answer, on a re-run too. A field of the items it receives.
+     * @default "txHash"
+     */
+    field?: string;
+}
+
 /** The settings of Switch (logic.switch). */
 export interface LogicSwitchSettings {
     /** A row each, tried in order: the port it sends to, and its test. Each port shows on the node. A table: a row each. */
@@ -159,6 +170,19 @@ export interface LogicSwitchSettings {
         /** A number for the comparisons, text for is and contains (any case). Not used by exists and missing. */
         value?: string | number;
     }[];
+}
+
+/** The settings of Throttle (logic.throttle). */
+export interface LogicThrottleSettings {
+    /** How many items may go on in a period. */
+    limit: number | Expression;
+    /**
+     * The period they count over, back from each item: 24h is any 24 hours.
+     * @default "24h"
+     */
+    per?: DurationText | Expression;
+    /** Counts each value of this field on its own, e.g. trader.address for each trader. Empty: all items together. A field of the items it receives. */
+    field?: string;
 }
 
 /** The settings of Wait (logic.wait). */
@@ -778,6 +802,8 @@ export interface TriggerWalletActivitySettings {
         scale?: DecimalText | number;
         /** The most dollars a copy of one of their trades may spend; empty leaves it to the Risk guard. */
         maxDollars?: DecimalText | number;
+        /** The share of their buys Copy sizing copies, each the same way every time: 30 is about 3 in 10. Empty copies them all. */
+        take?: DecimalText | number;
     }[];
     /**
      * @default ["buy","sell"]
@@ -809,6 +835,8 @@ export interface TriggerWalletActivityItem {
         scale: DecimalText | null;
         /** Max $: the most a copy may spend. */
         maxDollars: DecimalText | null;
+        /** Take %: the share of their buys copied. */
+        take: DecimalText | null;
     };
     /** Whether they bought or sold. */
     side: "buy" | "sell";
@@ -905,12 +933,26 @@ export interface NodeTypes {
         inputs: "a" | "b";
         outputs: "main";
     };
+    "logic.sample": {
+        settings: LogicSampleSettings;
+        items: "received";
+        trigger: false;
+        inputs: "main";
+        outputs: "main" | "rest";
+    };
     "logic.switch": {
         settings: LogicSwitchSettings;
         items: "received";
         trigger: false;
         inputs: "main";
         outputs: "other" | (string & {});
+    };
+    "logic.throttle": {
+        settings: LogicThrottleSettings;
+        items: "received";
+        trigger: false;
+        inputs: "main";
+        outputs: "main" | "limited";
     };
     "logic.wait": {
         settings: LogicWaitSettings;

@@ -377,3 +377,42 @@ test('only new remembers across runs, says how much, and forgets', async ({ page
 
   await run('Succeeded') // new again
 })
+
+test('throttle counts across runs, and sample splits the rest', async ({ page }) => {
+  const id = await createWorkflow(page, unique('thin'), [
+    { id: 'manual', type: 'trigger.manual' },
+    { id: 'markets', type: 'polymarket.markets', params: { limit: 5 } },
+    { id: 'throttle', type: 'logic.throttle', params: { limit: 2, per: '24h' } },
+    { id: 'sample', type: 'logic.sample', params: { chance: 50, field: 'id' } },
+  ])
+
+  await page.goto(`/workflows/${id}`)
+  const settings = page.getByRole('complementary', { name: 'Settings' })
+  const counts = async (node: string) => {
+    await canvasNode(page, node).click()
+    await expect(settings.getByRole('heading', { level: 3 }).first()).toBeVisible()
+    const headings = await settings.getByRole('heading', { level: 3 }).allTextContents()
+
+    return Object.fromEntries(
+      headings.map((h) => {
+        const [port, rest] = h.split(' · ')
+        return [port, Number.parseInt(rest)]
+      }),
+    )
+  }
+
+  await page.getByRole('button', { name: 'Run', exact: true }).click()
+  await expect(canvasNode(page, 'sample').getByLabel('Succeeded')).toBeVisible()
+  expect(await counts('throttle')).toEqual({ main: 2, limited: 3 })
+
+  const split = await counts('sample')
+  expect((split.main ?? 0) + (split.rest ?? 0)).toBe(2)
+
+  // The two it let through count for a day.
+  await page.getByRole('button', { name: 'Run', exact: true }).click()
+  await expect(canvasNode(page, 'sample').getByLabel('Skipped')).toBeVisible()
+  expect(await counts('throttle')).toEqual({ limited: 5 })
+
+  await page.getByRole('tab', { name: 'Settings' }).click()
+  await expect(settings.getByText('Remembers 2 items')).toBeVisible()
+})

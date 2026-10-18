@@ -22,6 +22,7 @@ type nodeMemoryTable struct {
 	Key        postgres.ColumnString
 	At         postgres.ColumnTimestampz
 	ExpiresAt  postgres.ColumnTimestampz
+	Member     postgres.ColumnString
 
 	AllColumns     postgres.ColumnList
 	MutableColumns postgres.ColumnList
@@ -68,9 +69,10 @@ func newNodeMemoryTableImpl(schemaName, tableName, alias string) nodeMemoryTable
 		KeyColumn        = postgres.StringColumn("key")
 		AtColumn         = postgres.TimestampzColumn("at")
 		ExpiresAtColumn  = postgres.TimestampzColumn("expires_at")
-		allColumns       = postgres.ColumnList{WorkflowIDColumn, NodeIDColumn, KeyColumn, AtColumn, ExpiresAtColumn}
+		MemberColumn     = postgres.StringColumn("member")
+		allColumns       = postgres.ColumnList{WorkflowIDColumn, NodeIDColumn, KeyColumn, AtColumn, ExpiresAtColumn, MemberColumn}
 		mutableColumns   = postgres.ColumnList{AtColumn, ExpiresAtColumn}
-		defaultColumns   = postgres.ColumnList{}
+		defaultColumns   = postgres.ColumnList{MemberColumn}
 	)
 
 	return nodeMemoryTable{
@@ -82,6 +84,7 @@ func newNodeMemoryTableImpl(schemaName, tableName, alias string) nodeMemoryTable
 		Key:        KeyColumn,
 		At:         AtColumn,
 		ExpiresAt:  ExpiresAtColumn,
+		Member:     MemberColumn,
 
 		AllColumns:     allColumns,
 		MutableColumns: mutableColumns,

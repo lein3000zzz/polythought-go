@@ -38,7 +38,9 @@ Each node has a page with its settings. In the editor, the node list on the left
 | [Filter](/docs/reference/nodes/logic/filter/) | `logic.filter` | Keeps the items that pass its tests and drops the others: a number compared with a value, text that contains a value, or a field being there at all. |
 | [If](/docs/reference/nodes/logic/if/) | `logic.if` | Tests each item and routes it to true or false: a number compared with a value, text that contains a value, or a field being there at all. |
 | [Merge](/docs/reference/nodes/logic/merge/) | `logic.merge` | Combines the items of two branches, A and B, matched on a field: those in both, in either, only in A or in only one, or A's with B's item added. |
+| [Sample](/docs/reference/nodes/logic/sample/) | `logic.sample` | Takes about a share of the items, each the same way every time: at 30, about 3 in 10 go on, and the rest leave from rest. |
 | [Switch](/docs/reference/nodes/logic/switch/) | `logic.switch` | Sends each item out of the port of the first rule it passes, each rule a test like If's; the items no rule takes leave from other. |
+| [Throttle](/docs/reference/nodes/logic/throttle/) | `logic.throttle` | Lets at most so many items through in a period, like 3 copies of a trader a day, counted per value of a field or all together; the rest leave from limited. |
 | [Wait](/docs/reference/nodes/logic/wait/) | `logic.wait` | Holds the items for a while, or until a time of day, then passes them on. |
 
 ## Transform

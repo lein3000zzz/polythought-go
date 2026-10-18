@@ -58,7 +58,7 @@ func (r *NodeMemory) Remember(ctx context.Context, wf domain.WorkflowID, node do
 		var got []model.NodeMemory
 
 		err := m.INSERT(m.AllColumns).MODELS(rows).
-			ON_CONFLICT(m.WorkflowID, m.NodeID, m.Key).
+			ON_CONFLICT(m.WorkflowID, m.NodeID, m.Key, m.Member).
 			DO_UPDATE(jet.SET(m.At.SET(m.EXCLUDED.At), m.ExpiresAt.SET(m.EXCLUDED.ExpiresAt)).
 				WHERE(m.ExpiresAt.LT_EQ(m.EXCLUDED.At))).
 			RETURNING(m.Key).
@@ -88,24 +88,81 @@ func (r *NodeMemory) Remember(ctx context.Context, wf domain.WorkflowID, node do
 	return fresh, err
 }
 
-// trim forgets the oldest keys of a node past the limit (D138): those older than the
-// last it keeps, newest first, of the same age the ones after it by key.
+func (r *NodeMemory) Admit(ctx context.Context, wf domain.WorkflowID, node domain.NodeID, key string, members []string, limit int, since, now, expires time.Time) ([]string, error) {
+	wid, err := parseID(wf)
+	if err != nil {
+		return nil, err
+	}
+
+	if len(members) == 0 {
+		return nil, nil
+	}
+
+	m := table.NodeMemory
+
+	var admitted []string
+
+	err = r.db.WithinTx(ctx, func(ctx context.Context) error {
+		// One count at a time per key, so two runs at once cannot both fill the last place.
+		lock := string(wf) + "\x1f" + string(node) + "\x1f" + key
+		if _, err := r.db.conn(ctx).ExecContext(ctx, "SELECT pg_advisory_xact_lock(hashtextextended($1, 0))", lock); err != nil {
+			return err
+		}
+
+		var held struct{ Count int64 }
+
+		err := jet.SELECT(jet.COUNT(jet.STAR).AS("count")).FROM(m).
+			WHERE(r.ofNode(wid, node).AND(m.Key.EQ(jet.String(key))).
+				AND(m.At.GT(jet.TimestampzT(since))).AND(m.ExpiresAt.GT(jet.TimestampzT(now)))).
+			QueryContext(ctx, r.db.conn(ctx), &held)
+		if err != nil {
+			return err
+		}
+
+		room := limit - int(held.Count)
+		if room <= 0 {
+			return nil
+		}
+
+		admitted = members[:min(room, len(members))]
+
+		rows := make([]model.NodeMemory, len(admitted))
+		for i, member := range admitted {
+			rows[i] = model.NodeMemory{WorkflowID: wid, NodeID: string(node), Key: key, Member: member, At: now, ExpiresAt: expires}
+		}
+
+		if _, err := m.INSERT(m.AllColumns).MODELS(rows).ON_CONFLICT(m.WorkflowID, m.NodeID, m.Key, m.Member).DO_NOTHING().
+			ExecContext(ctx, r.db.conn(ctx)); err != nil {
+			return err
+		}
+
+		return r.trim(ctx, wid, node)
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	return admitted, nil
+}
+
+// trim forgets the oldest entries of a node past the limit (D138): those older than the
+// last it keeps, newest first, of the same age the ones after it by key and member.
 func (r *NodeMemory) trim(ctx context.Context, wid uuid.UUID, node domain.NodeID) error {
 	m := table.NodeMemory
 
 	var last []model.NodeMemory
 
-	err := m.SELECT(m.At, m.Key).FROM(m).
+	err := m.SELECT(m.At, m.Key, m.Member).FROM(m).
 		WHERE(r.ofNode(wid, node)).
-		ORDER_BY(m.At.DESC(), m.Key.DESC()).
+		ORDER_BY(m.At.DESC(), m.Key.DESC(), m.Member.DESC()).
 		OFFSET(ports.MaxRemembered-1).LIMIT(1).
 		QueryContext(ctx, r.db.conn(ctx), &last)
 	if err != nil || len(last) == 0 {
 		return err // within the limit
 	}
 
-	at, key := jet.TimestampzT(last[0].At), jet.String(last[0].Key)
-	older := m.At.LT(at).OR(m.At.EQ(at).AND(m.Key.LT(key)))
+	at, key, member := jet.TimestampzT(last[0].At), jet.String(last[0].Key), jet.String(last[0].Member)
+	older := m.At.LT(at).OR(m.At.EQ(at).AND(m.Key.LT(key).OR(m.Key.EQ(key).AND(m.Member.LT(member)))))
 
 	_, err = m.DELETE().WHERE(r.ofNode(wid, node).AND(older)).ExecContext(ctx, r.db.conn(ctx))
 

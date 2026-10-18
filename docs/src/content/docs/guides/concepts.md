@@ -84,11 +84,23 @@ Merge combines the items of one run: copies of a trade only in outcomes a wallet
 holds, say, are the trades on `a` and the wallet's [Positions](/docs/reference/nodes/polymarket/positions/)
 on `b`, matched on `tokenId`, keeping `both`.
 
+## Thinning out items
+
+[Sample](/docs/reference/nodes/logic/sample/) takes about a share of the items: at **Chance %**
+`30`, about 3 in 10 go on, and the rest leave from `rest`. Each item is decided by a field,
+**Decide by**, a trade's `txHash` unless you say: the same item gets the same answer every
+time, a re-run or a restart too, and two Sample nodes take different ones.
+
+[Throttle](/docs/reference/nodes/logic/throttle/) lets at most so many items through in a
+period, **At most** `3` **In** `24h`, counted per value of **Count per**, like
+`trader.address`, or all together when it is empty. A period is any stretch of that length
+back from each item, not a calendar day. Items over the limit leave from `limited`.
+
 ## Memory
 
 A few nodes remember what they saw, across runs and server restarts:
 [Only new](/docs/reference/nodes/logic/dedupe/) remembers the items it has let through, each
-until **New again after** has gone by. Memory belongs to the node in its workflow. Runs
+until **New again after** has gone by, and Throttle the items it counts, for its period. Memory belongs to the node in its workflow. Runs
 started by hand count too; it is kept when the node's settings change; and it goes with the
 node when the node, or its workflow, is deleted. A node remembers at most 10,000 items:
 past that, the oldest are forgotten first.

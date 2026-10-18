@@ -36,6 +36,11 @@ var traderColumns = []engine.ParamSpec{
 		Name: "maxDollars", Label: "Max $", Kind: engine.ParamDecimal,
 		Description: "The most dollars a copy of one of their trades may spend; empty leaves it to the Risk guard.",
 	},
+	{
+		Name: "take", Label: "Take %", Kind: engine.ParamDecimal,
+		Description: "The share of their buys Copy sizing copies, each the same way every time: 30 is about 3 in 10. " +
+			"Empty copies them all.",
+	},
 }
 
 var sides = []string{string(domain.SideBuy), string(domain.SideSell)}
@@ -91,6 +96,7 @@ func traderTradeFields() []engine.Field {
 				opt(shape.Text("name", "Their name on Polymarket.")),
 				opt(shape.Decimal("scale", "Size ×: what Copy sizing works out is scaled by it.")),
 				opt(shape.Decimal("maxDollars", "Max $: the most a copy may spend.")),
+				opt(shape.Decimal("take", "Take %: the share of their buys copied.")),
 			},
 		},
 		shape.OneOf("side", "Whether they bought or sold.", sides...),
@@ -115,6 +121,7 @@ type followed struct {
 	label         string
 	address       domain.WalletAddress
 	scale, maxUSD *decimal.Decimal
+	take          *decimal.Decimal
 }
 
 type walletConfig struct {
@@ -225,7 +232,7 @@ func tradeItem(tr followed, t domain.TraderTrade) map[string]any {
 	return map[string]any{
 		"trader": map[string]any{
 			"label": tr.label, "address": string(tr.address), "name": orNil(t.Name),
-			"scale": decOrNil(tr.scale), "maxDollars": decOrNil(tr.maxUSD),
+			"scale": decOrNil(tr.scale), "maxDollars": decOrNil(tr.maxUSD), "take": decOrNil(tr.take),
 		},
 		"side": string(t.Side), "role": orNil(string(t.Role)),
 		"tokenId": string(t.TokenID), "marketId": orNil(string(t.MarketID)), "question": orNil(t.Title),
@@ -274,6 +281,10 @@ func readWalletConfig(p engine.Params) (walletConfig, error) {
 		}
 
 		if t.maxUSD, err = optionalDecimal(row, "maxDollars"); err != nil {
+			return cfg, err
+		}
+
+		if t.take, err = optionalDecimal(row, "take"); err != nil {
 			return cfg, err
 		}
 
