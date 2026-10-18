@@ -16,6 +16,7 @@ func UseSchema(schema string) {
 	Executions = Executions.FromSchema(schema)
 	Holdings = Holdings.FromSchema(schema)
 	Invites = Invites.FromSchema(schema)
+	NodeMemory = NodeMemory.FromSchema(schema)
 	NotificationPrefs = NotificationPrefs.FromSchema(schema)
 	OrderFills = OrderFills.FromSchema(schema)
 	Orders = Orders.FromSchema(schema)

@@ -91,6 +91,7 @@ type Services struct {
 	CodeTypes    CodeTypes
 	WorkflowCode WorkflowCode
 	Trading      TradingService
+	Memory       MemoryService
 	Events       EventService
 	Library      LibraryService
 	Settings     SettingsService
@@ -126,6 +127,7 @@ type Server struct {
 	codeTypes     CodeTypes
 	workflowCode  WorkflowCode
 	trading       TradingService
+	memory        MemoryService
 	customNodes   CustomNodeService
 	events        EventService
 	library       LibraryService
@@ -191,6 +193,7 @@ func New(cfg Config, util *observability.Utility, services Services) (*Server, e
 		codeTypes:     services.CodeTypes,
 		workflowCode:  services.WorkflowCode,
 		trading:       services.Trading,
+		memory:        services.Memory,
 		customNodes:   services.CustomNodes,
 		events:        services.Events,
 		library:       services.Library,
@@ -319,6 +322,8 @@ func (s *Server) routes() {
 	wf.GET("/:id/trading", s.getTradingSummary)
 	wf.GET("/:id/orders", s.listOrders)
 	wf.GET("/:id/holdings", s.listHoldings)
+	wf.GET("/:id/nodes/:node/memory", s.getNodeMemory)
+	wf.DELETE("/:id/nodes/:node/memory", s.forgetNodeMemory)
 	wf.GET("/:id/share", s.getSharedCopy)
 	wf.PUT("/:id/share", s.shareWorkflow)
 

@@ -64,6 +64,7 @@ packages:
       WebhookSender: {}
       CredentialRepository: {}
       CredentialReader: {}
+      NodeMemory: {}
   github.com/lein3000zzz/polythought-go/internal/core/services/auth:
     config:
       dir: internal/mocks/auth
@@ -101,6 +102,7 @@ packages:
       CodeTypes: {}
       WorkflowCode: {}
       TradingService: {}
+      MemoryService: {}
       EventService: {}
       LibraryService: {}
       SettingsService: {}

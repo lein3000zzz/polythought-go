@@ -681,6 +681,7 @@ function Editor({ workflow, types, onReload }: Props) {
                   <NodePanel
                     key={selectedNode.id}
                     node={selectedNode}
+                    workflowId={workflow?.id}
                     received={shapes.get(selectedNode.id)?.get(defaultPort)}
                     inputs={shapes.get(selectedNode.id)}
                     onChange={(patch) => changeNode(selectedNode.id, patch)}

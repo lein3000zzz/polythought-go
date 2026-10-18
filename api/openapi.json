@@ -1146,6 +1146,18 @@
                 ],
                 "type": "object"
             },
+            "NodeMemory": {
+                "properties": {
+                    "count": {
+                        "description": "Count is how many keys the node remembers now, like the items Only new has seen.",
+                        "type": "integer"
+                    }
+                },
+                "required": [
+                    "count"
+                ],
+                "type": "object"
+            },
             "NodeRun": {
                 "properties": {
                     "error": {
@@ -1251,6 +1263,10 @@
                         },
                         "type": "array",
                         "uniqueItems": false
+                    },
+                    "remembers": {
+                        "description": "Remembers says it keeps what it saw across runs; /workflows/{id}/nodes/{node}/memory\nsays how much, and forgets it.",
+                        "type": "boolean"
                     },
                     "trigger": {
                         "type": "boolean"
@@ -6196,6 +6212,135 @@
                 "summary": "List holdings",
                 "tags": [
                     "trading"
+                ]
+            }
+        },
+        "/workflows/{id}/nodes/{node}/memory": {
+            "delete": {
+                "operationId": "forgetNodeMemory",
+                "parameters": [
+                    {
+                        "description": "Workflow ID",
+                        "in": "path",
+                        "name": "id",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "description": "Node ID",
+                        "in": "path",
+                        "name": "node",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "No Content"
+                    },
+                    "401": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "unauthenticated"
+                    },
+                    "404": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "not_found"
+                    }
+                },
+                "security": [
+                    {
+                        "SessionCookie": []
+                    },
+                    {
+                        "APIToken": []
+                    }
+                ],
+                "summary": "Forget a node's memory",
+                "tags": [
+                    "workflows"
+                ]
+            },
+            "get": {
+                "operationId": "getNodeMemory",
+                "parameters": [
+                    {
+                        "description": "Workflow ID",
+                        "in": "path",
+                        "name": "id",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "description": "Node ID",
+                        "in": "path",
+                        "name": "node",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/NodeMemory"
+                                }
+                            }
+                        },
+                        "description": "OK"
+                    },
+                    "401": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "unauthenticated"
+                    },
+                    "404": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "not_found"
+                    }
+                },
+                "security": [
+                    {
+                        "SessionCookie": []
+                    },
+                    {
+                        "APIToken": []
+                    }
+                ],
+                "summary": "Node memory",
+                "tags": [
+                    "workflows"
                 ]
             }
         },

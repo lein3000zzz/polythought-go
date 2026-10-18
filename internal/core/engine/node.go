@@ -193,6 +193,10 @@ type NodeType struct {
 
 	// Code says it runs code its owner wrote, which the admin's code switch covers.
 	Code bool
+
+	// Remembers says it keeps what it saw across runs, in node memory (D121), which its
+	// settings show and Forget clears (D137).
+	Remembers bool
 }
 
 // Node is a step that transforms items. Per-item failures go to ErrorPort via Ports.Fail;

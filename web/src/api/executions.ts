@@ -68,6 +68,7 @@ export function useRunWorkflow(workflowId: string) {
     onSuccess: (execution) => {
       queryClient.setQueryData(keys.execution(workflowId, execution.id), execution)
       void queryClient.invalidateQueries({ queryKey: keys.executions(workflowId) })
+      void queryClient.invalidateQueries({ queryKey: keys.memory(workflowId) }) // a run remembers
     },
   })
 }

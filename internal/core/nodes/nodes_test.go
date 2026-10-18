@@ -20,6 +20,7 @@ func TestRegister(t *testing.T) {
 	deps := nodes.Deps{
 		Markets:    portsmocks.NewMockMarketReader(t),
 		OrderBooks: portsmocks.NewMockOrderBookReader(t),
+		Memory:     memoryStub{},
 		Logger:     logging.Noop(),
 	}
 
@@ -66,6 +67,7 @@ func TestRegister(t *testing.T) {
 			Logger: logging.Noop(), Feed: portsmocks.NewMockMarketFeed(t), Traders: tradersStub{},
 			Orders: ordersStub{}, Books: booksStub{},
 			Messenger: telegramStub{}, TelegramInbox: telegramStub{}, Asker: telegramStub{}, Code: codeStub{},
+			Memory: memoryStub{},
 		}))
 
 		types := all.Types()
@@ -85,6 +87,9 @@ func TestRegister(t *testing.T) {
 		assert.Error(t, nodes.Register(registry, deps))
 	})
 }
+
+// memoryStub stands in for node memory: only the node types are read.
+type memoryStub struct{ ports.NodeMemory }
 
 // telegramStub stands in for the bot: only the node types are read.
 type telegramStub struct{}

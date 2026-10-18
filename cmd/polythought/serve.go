@@ -55,6 +55,7 @@ func serve(ctx context.Context) error {
 		Auth: a.auth, Wallets: a.wallets, Workflows: a.workflows, NodeTypes: nodeTypes{types: a.customNodes}, Events: a.events,
 		CodeTypes: codeTypes{types: a.customNodes}, WorkflowCode: workflowCode{code: a.code, gate: a.codeGate},
 		CustomNodes: a.customNodes, Library: a.library, Settings: a.settings, Credentials: a.credentials, Trading: a.trading,
+		Memory:   a.memory,
 		Telegram: a.telegram, TelegramWebhook: a.telegramBot, Notifications: a.notify,
 	})
 	if err != nil {
@@ -82,6 +83,9 @@ func serve(ctx context.Context) error {
 
 	// Paper holdings of resolved markets settle on their own (D106).
 	go a.trading.SettleEvery(ctx, 5*time.Minute)
+
+	// What nodes remember goes when it expires (D121).
+	go a.memory.SweepEvery(ctx, 10*time.Minute)
 
 	// The bot follows its settings: a change restarts it, not the server.
 	telegramDone := make(chan struct{})

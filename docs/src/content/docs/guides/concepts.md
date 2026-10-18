@@ -84,6 +84,18 @@ Merge combines the items of one run: copies of a trade only in outcomes a wallet
 holds, say, are the trades on `a` and the wallet's [Positions](/docs/reference/nodes/polymarket/positions/)
 on `b`, matched on `tokenId`, keeping `both`.
 
+## Memory
+
+A few nodes remember what they saw, across runs and server restarts:
+[Only new](/docs/reference/nodes/logic/dedupe/) remembers the items it has let through, each
+until **New again after** has gone by. Memory belongs to the node in its workflow. Runs
+started by hand count too; it is kept when the node's settings change; and it goes with the
+node when the node, or its workflow, is deleted. A node remembers at most 10,000 items:
+past that, the oldest are forgotten first.
+
+The node's settings say how many items it remembers, and **Forget** clears them, so every
+item counts as new again.
+
 ## Triggers
 
 A workflow starts at a **trigger**, a node with no input:

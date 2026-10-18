@@ -340,3 +340,40 @@ test('a merge combines two branches, each field picker offering its own', async 
   await expect(page.getByText('Version 2')).toBeVisible()
   await run(3)
 })
+
+test('only new remembers across runs, says how much, and forgets', async ({ page }) => {
+  const id = await createWorkflow(page, unique('memory'), [
+    { id: 'manual', type: 'trigger.manual' },
+    { id: 'markets', type: 'polymarket.markets', params: { limit: 3 } },
+    { id: 'dedupe', type: 'logic.dedupe', params: { field: 'id' } },
+    { id: 'log', type: 'output.log' },
+  ])
+
+  await page.goto(`/workflows/${id}`)
+  const settings = page.getByRole('complementary', { name: 'Settings' })
+
+  // The log after it runs when items get through, and is skipped when none do.
+  const run = async (log: 'Succeeded' | 'Skipped') => {
+    await page.getByRole('button', { name: 'Run', exact: true }).click()
+    await expect(canvasNode(page, 'log').getByLabel(log)).toBeVisible()
+  }
+
+  await canvasNode(page, 'dedupe').click()
+  await expect(settings.getByText('Remembers nothing yet')).toBeVisible()
+
+  await run('Succeeded')
+  await canvasNode(page, 'dedupe').click()
+  await expect(settings.getByText(/^main · 3 items/)).toBeVisible()
+
+  await run('Skipped') // all seen
+
+  await canvasNode(page, 'dedupe').click()
+  await page.getByRole('tab', { name: 'Settings' }).click()
+  await expect(settings.getByText('Remembers 3 items')).toBeVisible()
+  await settings.getByRole('button', { name: 'Forget' }).click()
+  await page.getByRole('alertdialog').getByRole('button', { name: 'Forget' }).click()
+  await expect(page.getByText('Forgotten')).toBeVisible()
+  await expect(settings.getByText('Remembers nothing yet')).toBeVisible()
+
+  await run('Succeeded') // new again
+})

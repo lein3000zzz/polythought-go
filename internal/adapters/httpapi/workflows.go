@@ -268,6 +268,9 @@ type nodeTypeDTO struct {
 	// Code says it runs code its owner wrote: only users who may write code (the
 	// mayWriteCode of /me) can save it.
 	Code bool `json:"code"`
+	// Remembers says it keeps what it saw across runs; /workflows/{id}/nodes/{node}/memory
+	// says how much, and forgets it.
+	Remembers bool `json:"remembers,omitempty" validate:"optional"`
 } // @name NodeType
 
 // itemsDTO describes the items a node emits on every output port: fields of its own, or
@@ -336,7 +339,7 @@ func toNodeTypeDTO(t engine.TypeInfo) nodeTypeDTO {
 		Name: t.Name, Label: t.Label, Description: t.Description, Trigger: t.Trigger,
 		Inputs: nonNil(t.Inputs), Outputs: nonNil(t.Outputs),
 		Params: make([]paramDTO, len(t.Params)), OutputsParam: t.OutputsParam, OutputsColumn: t.OutputsColumn,
-		Items: toItemsDTO(t.Items), Code: t.Code,
+		Items: toItemsDTO(t.Items), Code: t.Code, Remembers: t.Remembers,
 	}
 
 	for j, p := range t.Params {

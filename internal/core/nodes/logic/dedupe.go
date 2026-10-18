@@ -3,46 +3,29 @@ package logic
 import (
 	"context"
 	"fmt"
-	"sync"
 	"time"
 
-	"github.com/lein3000zzz/polythought-go/internal/core/domain"
 	"github.com/lein3000zzz/polythought-go/internal/core/engine"
 	"github.com/lein3000zzz/polythought-go/internal/core/nodes/fields"
 	"github.com/lein3000zzz/polythought-go/internal/core/nodes/shape"
+	"github.com/lein3000zzz/polythought-go/internal/core/ports"
 )
 
 const DedupeType = "logic.dedupe"
 
-const (
-	// maxRemembered bounds what one node remembers; past it the oldest go first.
-	maxRemembered = 10_000
-
-	// sweepEvery is how often a run also forgets expired items of every other node, so
-	// deleted workflows do not hold memory forever.
-	sweepEvery = 10 * time.Minute
-)
-
 var _ engine.Node = (*Dedupe)(nil)
 
 // Dedupe passes an item only the first time it is seen, so a schedule that finds the
-// same thing every few minutes reports it once. It remembers in memory, per workflow
-// node: a restart forgets, and runs started by hand count too.
+// same thing every few minutes reports it once. It remembers in node memory (D121): per
+// workflow node, across runs and restarts, up to ports.MaxRemembered items, the oldest
+// forgotten first. Runs started by hand count too.
 type Dedupe struct {
-	now func() time.Time
-
-	mu        sync.Mutex
-	seen      map[dedupeKey]map[string]time.Time // item key -> when it was first seen
-	lastSweep time.Time
+	memory ports.NodeMemory
+	now    func() time.Time
 }
 
-type dedupeKey struct {
-	workflow domain.WorkflowID
-	node     domain.NodeID
-}
-
-func NewDedupe() *Dedupe {
-	return &Dedupe{now: time.Now, seen: make(map[dedupeKey]map[string]time.Time)}
+func NewDedupe(memory ports.NodeMemory) *Dedupe {
+	return &Dedupe{memory: memory, now: time.Now}
 }
 
 // WithClock replaces time.Now, for tests.
@@ -56,10 +39,11 @@ func (*Dedupe) Type() engine.NodeType {
 		Name:  DedupeType,
 		Label: "Only new",
 		Description: "Passes an item only the first time it shows up, so an alert fires once instead of " +
-			"on every run. It remembers in memory: a server restart forgets.",
-		Inputs:  []string{engine.DefaultPort},
-		Outputs: []string{engine.DefaultPort},
-		Items:   shape.Passed(),
+			"on every run. It remembers across runs and restarts, up to 10,000 items.",
+		Inputs:    []string{engine.DefaultPort},
+		Outputs:   []string{engine.DefaultPort},
+		Items:     shape.Passed(),
+		Remembers: true,
 		Params: []engine.ParamSpec{
 			{
 				Name: "field", Label: "Identify items by", Kind: engine.ParamString, Default: "id", Field: true,
@@ -67,21 +51,26 @@ func (*Dedupe) Type() engine.NodeType {
 			},
 			{
 				Name: "forget", Label: "New again after", Kind: engine.ParamDuration, Default: "24h",
-				Description: "How long an item counts as seen.",
+				Description: "How long an item counts as seen. A change applies to the items seen after it.",
 			},
 		},
 	}
 }
 
-func (d *Dedupe) Run(_ context.Context, rc engine.RunContext, in engine.Ports) (engine.Ports, error) {
-	out := engine.Ports{}
-	key := dedupeKey{workflow: rc.WorkflowID, node: rc.NodeID}
+func (d *Dedupe) Run(ctx context.Context, rc engine.RunContext, in engine.Ports) (engine.Ports, error) {
 	now := d.now()
 
-	d.mu.Lock()
-	defer d.mu.Unlock()
+	type seen struct {
+		item engine.Item
+		src  engine.ItemRef
+		key  string
+	}
 
-	d.sweep(now)
+	var (
+		items []seen
+		byTTL = map[time.Duration][]string{} // keys by how long they are remembered
+		out   = engine.Ports{}
+	)
 
 	for i, item := range in[engine.DefaultPort] {
 		src := engine.ItemRef{Port: engine.DefaultPort, Index: i}
@@ -107,69 +96,31 @@ func (d *Dedupe) Run(_ context.Context, rc engine.RunContext, in engine.Ports) (
 			continue
 		}
 
-		if d.remember(key, fields.Format(v), now, forget) {
-			out.Add(engine.DefaultPort, engine.Item{JSON: item.JSON, Source: []engine.ItemRef{src}})
+		key := fields.Format(v)
+		items = append(items, seen{item: item, src: src, key: key})
+		byTTL[forget] = append(byTTL[forget], key)
+	}
+
+	fresh := map[string]bool{}
+
+	for ttl, keys := range byTTL {
+		got, err := d.memory.Remember(ctx, rc.WorkflowID, rc.NodeID, keys, now, now.Add(ttl))
+		if err != nil {
+			return nil, fmt.Errorf("remember the items: %w", err)
+		}
+
+		for _, k := range got {
+			fresh[k] = true
+		}
+	}
+
+	// In the order they came, a repeat within the run dropped too.
+	for _, s := range items {
+		if fresh[s.key] {
+			delete(fresh, s.key)
+			out.Add(engine.DefaultPort, engine.Item{JSON: s.item.JSON, Source: []engine.ItemRef{s.src}})
 		}
 	}
 
 	return out, nil
-}
-
-// remember records id and reports whether it is new: never seen, or seen longer than
-// forget ago.
-func (d *Dedupe) remember(key dedupeKey, id string, now time.Time, forget time.Duration) bool {
-	seen := d.seen[key]
-	if seen == nil {
-		seen = make(map[string]time.Time)
-		d.seen[key] = seen
-	}
-
-	if at, ok := seen[id]; ok && now.Sub(at) < forget {
-		return false
-	}
-
-	if len(seen) >= maxRemembered {
-		forgetOldest(seen)
-	}
-
-	seen[id] = now
-
-	return true
-}
-
-// sweep drops items no node can still count as seen. The longest "forget" any node uses
-// is unknown here, so it keeps a generous week.
-func (d *Dedupe) sweep(now time.Time) {
-	if now.Sub(d.lastSweep) < sweepEvery {
-		return
-	}
-
-	d.lastSweep = now
-
-	for key, seen := range d.seen {
-		for id, at := range seen {
-			if now.Sub(at) > 7*24*time.Hour {
-				delete(seen, id)
-			}
-		}
-
-		if len(seen) == 0 {
-			delete(d.seen, key)
-		}
-	}
-}
-
-func forgetOldest(seen map[string]time.Time) {
-	var (
-		oldest   string
-		oldestAt time.Time
-	)
-
-	for id, at := range seen {
-		if oldestAt.IsZero() || at.Before(oldestAt) {
-			oldest, oldestAt = id, at
-		}
-	}
-
-	delete(seen, oldest)
 }

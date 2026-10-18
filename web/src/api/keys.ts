@@ -38,4 +38,6 @@ export const keys = {
   trading: (workflowId: string) => ['workflows', 'trading', workflowId],
   tradingSummary: (workflowId: string) => ['workflows', 'trading', workflowId, 'summary'],
   orders: (workflowId: string) => ['workflows', 'trading', workflowId, 'orders'],
+  memory: (workflowId: string) => ['workflows', 'memory', workflowId],
+  nodeMemory: (workflowId: string, nodeId: string) => ['workflows', 'memory', workflowId, nodeId],
 } as const

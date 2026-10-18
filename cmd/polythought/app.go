@@ -34,6 +34,7 @@ import (
 	"github.com/lein3000zzz/polythought-go/internal/core/services/events"
 	"github.com/lein3000zzz/polythought-go/internal/core/services/feed"
 	"github.com/lein3000zzz/polythought-go/internal/core/services/library"
+	"github.com/lein3000zzz/polythought-go/internal/core/services/memory"
 	"github.com/lein3000zzz/polythought-go/internal/core/services/notify"
 	"github.com/lein3000zzz/polythought-go/internal/core/services/settings"
 	"github.com/lein3000zzz/polythought-go/internal/core/services/telegram"
@@ -107,6 +108,8 @@ type app struct {
 	feed        *feed.Hub
 	traders     *traders.Hub
 	trading     *trading.Service
+	nodeMemory  *postgres.NodeMemory
+	memory      *memory.Service
 	events      *events.Hub
 	library     *library.Service
 	customNodes *customnodes.Service
@@ -543,6 +546,8 @@ func (a *app) initEngine(ctx context.Context, pmc polymarket) error {
 	paperBalance := func() decimal.Decimal {
 		return decimal.NewFromInt(int64(a.settings.Current().Int(config.KeyPaperBalance)))
 	}
+	a.nodeMemory = postgres.NewNodeMemory(a.db)
+
 	a.trading = trading.New(trading.Deps{
 		Ledger: ledger, Books: pmc.reader, Rules: pmc.reader, Markets: pmc.reader,
 		Workflows: laterWorkflows{a}, Logger: a.util.Logger, PaperBalance: paperBalance,
@@ -571,6 +576,7 @@ func (a *app) initEngine(ctx context.Context, pmc polymarket) error {
 		TradingRules:  pmc.reader,
 		Portfolios:    pmc.reader,
 		PaperBalance:  paperBalance,
+		Memory:        a.nodeMemory,
 		Logger:        a.util.Logger,
 		MinInterval:   current.Duration(config.KeyScheduleMinInterval),
 	})
@@ -615,7 +621,8 @@ func (a *app) initEngine(ctx context.Context, pmc polymarket) error {
 	a.workflows = workflows.New(postgres.NewWorkflows(a.db), executions, checks, executor, a.supervisor, a.util.Logger,
 		workflows.WithLiveLimits(func() workflows.Limits { return workflowLimits(a.settings.Current()) }),
 		workflows.WithWaits(a.waits), workflows.WithFieldChecks(checks),
-		workflows.WithExpressionChecks(checks), workflows.WithCodeAccess(checks))
+		workflows.WithExpressionChecks(checks), workflows.WithCodeAccess(checks), workflows.WithNodeMemory(a.nodeMemory))
+	a.memory = memory.New(a.nodeMemory, a.workflows, a.util.Logger)
 
 	if a.library, err = library.New(postgres.NewTemplates(a.db), a.workflows, a.registry, a.util.Logger,
 		library.WithOwnTypes(a.customNodes), library.WithCustomNodes(a.customNodes)); err != nil {

@@ -133,6 +133,44 @@ func TestCreate(t *testing.T) {
 	}
 }
 
+// forgetful records what node memory is told to keep.
+type forgetful struct {
+	kept [][]domain.NodeID
+	err  error
+}
+
+func (f *forgetful) ForgetOthers(_ context.Context, _ domain.WorkflowID, keep []domain.NodeID) error {
+	f.kept = append(f.kept, keep)
+	return f.err
+}
+
+func TestUpdateForgetsRemovedNodes(t *testing.T) {
+	for _, failing := range []bool{false, true} {
+		d := deps{
+			repo:       portsmocks.NewMockWorkflowRepository(t),
+			executions: portsmocks.NewMockExecutionRepository(t),
+			validator:  workflowsmocks.NewMockValidator(t),
+			executor:   workflowsmocks.NewMockExecutor(t),
+			supervisor: workflowsmocks.NewMockSupervisor(t),
+		}
+		mem := &forgetful{}
+		if failing {
+			mem.err = errors.New("database down")
+		}
+
+		svc := workflows.New(d.repo, d.executions, d.validator, d.executor, d.supervisor, logging.Noop(),
+			workflows.WithClock(func() time.Time { return now }), workflows.WithNodeMemory(mem))
+
+		d.repo.EXPECT().Get(mock.Anything, domain.UserID("u-1"), domain.WorkflowID("wf-1")).Return(stored, nil)
+		d.validator.EXPECT().Validate(mock.Anything, mock.Anything).Return(nil)
+		d.repo.EXPECT().Update(mock.Anything, mock.Anything, 3).Return(nil)
+
+		_, err := svc.Update(context.Background(), alice, "wf-1", 3, def)
+		require.NoError(t, err, "saved, whatever memory says")
+		assert.Equal(t, [][]domain.NodeID{{"manual", "log"}}, mem.kept, "a removed node takes its memory along")
+	}
+}
+
 func TestUpdate(t *testing.T) {
 	tests := []struct {
 		name    string

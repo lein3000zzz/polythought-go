@@ -51,6 +51,7 @@ func registry(t *testing.T) *engine.Registry {
 		Asker:        noTelegram{},
 		Orders:       noOrders{},
 		Books:        noBooks{},
+		Memory:       noMemory{},
 		Logger:       logging.Noop(),
 	}))
 
@@ -63,6 +64,7 @@ type (
 	noTelegram struct{}
 	noOrders   struct{}
 	noBooks    struct{ ports.Ledger }
+	noMemory   struct{ ports.NodeMemory }
 )
 
 func (noTraders) Follow(context.Context, []domain.WalletAddress, time.Time) (ports.TraderSubscription, error) {

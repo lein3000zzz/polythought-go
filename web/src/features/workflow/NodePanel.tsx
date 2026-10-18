@@ -1,7 +1,10 @@
 import { CircleAlert, Trash2, X } from 'lucide-react'
-import { useMemo } from 'react'
+import { useMemo, useState } from 'react'
+import { toast } from 'sonner'
 
-import type { ParamSpec, Problem } from '@/api/client'
+import { errorMessage, type ParamSpec, type Problem } from '@/api/client'
+import { useForgetNodeMemory, useNodeMemory } from '@/api/memory'
+import { ConfirmDialog } from '@/components/ConfirmDialog'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -17,6 +20,7 @@ import { fieldChoices, fieldProblem, type Shape } from './shapes'
 
 type Props = {
   node: FlowNode
+  workflowId?: string // once saved
   received?: Shape // what its main input's items look like, when known
   inputs?: ReadonlyMap<string, Shape> // what each input's look like
   onChange: (patch: Partial<Pick<NodeSpec, 'name' | 'continueOnFail' | 'notes'>>) => void
@@ -25,7 +29,15 @@ type Props = {
 }
 
 /** Settings of the selected node. Changes apply as they are made. */
-export function NodePanel({ node, received, inputs, onChange, onParam, onDelete }: Props) {
+export function NodePanel({
+  node,
+  workflowId,
+  received,
+  inputs,
+  onChange,
+  onParam,
+  onDelete,
+}: Props) {
   const { spec, type } = node.data
   const problems = useNodeProblems(node.id)
   const declared = type?.params ?? []
@@ -121,6 +133,8 @@ export function NodePanel({ node, received, inputs, onChange, onParam, onDelete 
         />
       ))}
 
+      {type?.remembers && workflowId && <NodeMemory workflowId={workflowId} nodeId={spec.id} />}
+
       {unknown.map((name) => (
         <div key={name} className="flex items-center justify-between gap-2 text-sm">
           <span>
@@ -185,6 +199,44 @@ export function WorkflowPanel({ problems }: WorkflowPanelProps) {
         Select a node to change its settings. Select a node or connection and press Delete to remove
         it.
       </p>
+    </div>
+  )
+}
+
+/** What a node keeps across runs (D137): how much, and Forget for a fresh start. */
+function NodeMemory({ workflowId, nodeId }: { workflowId: string; nodeId: string }) {
+  const memory = useNodeMemory(workflowId, nodeId)
+  const forget = useForgetNodeMemory(workflowId, nodeId)
+  const [asking, setAsking] = useState(false)
+  const count = memory.data?.count
+
+  return (
+    <div className="flex items-center justify-between gap-2 text-sm">
+      <span className="text-muted-foreground">
+        {count === undefined
+          ? 'Remembers…'
+          : count === 0
+            ? 'Remembers nothing yet'
+            : `Remembers ${count.toLocaleString('en-US')} ${count === 1 ? 'item' : 'items'}`}
+      </span>
+      <Button variant="outline" size="sm" disabled={!count} onClick={() => setAsking(true)}>
+        Forget
+      </Button>
+
+      <ConfirmDialog
+        open={asking}
+        title="Forget what it remembers?"
+        description="Every item counts as new again from its next run."
+        confirm="Forget"
+        destructive
+        onCancel={() => setAsking(false)}
+        onConfirm={() =>
+          forget.mutate(undefined, {
+            onSuccess: () => toast.success('Forgotten'),
+            onError: (error) => toast.error(errorMessage(error)),
+          })
+        }
+      />
     </div>
   )
 }

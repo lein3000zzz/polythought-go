@@ -72,6 +72,7 @@ type Service struct {
 	fields     FieldChecker      // optional: without it, field settings go unchecked
 	exprs      ExpressionChecker // optional: without it, expressions go unchecked
 	code       CodeAccessChecker // optional: without it, anyone may save code nodes
+	memory     NodeMemory        // optional: without it, removed nodes' memory waits to expire
 	limits     func() Limits
 	log        logging.Logger
 	now        func() time.Time
@@ -119,6 +120,16 @@ type CodeAccessChecker interface {
 // WithCodeAccess refuses to save code nodes for a user who may not write code (D44).
 func WithCodeAccess(c CodeAccessChecker) Option {
 	return func(s *Service) { s.code = c }
+}
+
+// NodeMemory is what the service needs from node memory: a node removed from its workflow
+// takes what it remembered along, so a new node of the same ID starts fresh.
+type NodeMemory interface {
+	ForgetOthers(ctx context.Context, wf domain.WorkflowID, keep []domain.NodeID) error
+}
+
+func WithNodeMemory(m NodeMemory) Option {
+	return func(s *Service) { s.memory = m }
 }
 
 // WithWaits cancels waiting executions when a workflow is switched off, and lets users
@@ -232,6 +243,18 @@ func (s *Service) Update(ctx context.Context, p auth.Principal, id domain.Workfl
 
 	if w.Active {
 		s.supervisor.Resume(w) // it was running: the new version picks up where it stopped
+	}
+
+	if s.memory != nil {
+		keep := make([]domain.NodeID, len(w.Nodes))
+		for i, n := range w.Nodes {
+			keep[i] = n.ID
+		}
+
+		// Saved already: what removed nodes remember otherwise expires on its own.
+		if err := s.memory.ForgetOthers(ctx, w.ID, keep); err != nil {
+			s.log.Warn(ctx, "Removed nodes' memory not forgotten", "workflow_id", w.ID, logging.Err(err))
+		}
 	}
 
 	s.log.Info(ctx, "Workflow updated", "user_id", p.User.ID, "workflow_id", w.ID, "version", w.Version)

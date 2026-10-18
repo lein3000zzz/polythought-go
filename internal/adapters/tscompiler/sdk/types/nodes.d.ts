@@ -64,7 +64,7 @@ export interface LogicDedupeSettings {
      */
     field?: string;
     /**
-     * How long an item counts as seen.
+     * How long an item counts as seen. A change applies to the items seen after it.
      * @default "24h"
      */
     forget?: DurationText | Expression;

@@ -755,6 +755,24 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/workflows/{id}/nodes/{node}/memory": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Node memory */
+        get: operations["getNodeMemory"];
+        put?: never;
+        post?: never;
+        /** Forget a node's memory */
+        delete: operations["forgetNodeMemory"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/workflows/{id}/orders": {
         parameters: {
             query?: never;
@@ -1266,6 +1284,10 @@ export interface components {
             picked?: string;
             split?: string;
         };
+        NodeMemory: {
+            /** @description Count is how many keys the node remembers now, like the items Only new has seen. */
+            count: number;
+        };
         NodeRun: {
             error?: string;
             /**
@@ -1314,6 +1336,11 @@ export interface components {
              */
             outputsParam?: string;
             params: components["schemas"]["ParamSpec"][];
+            /**
+             * @description Remembers says it keeps what it saw across runs; /workflows/{id}/nodes/{node}/memory
+             *     says how much, and forgets it.
+             */
+            remembers?: boolean;
             trigger: boolean;
         };
         NodeTypeList: {
@@ -4375,6 +4402,90 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["HoldingList"];
                 };
+            };
+            /** @description unauthenticated */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description not_found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    getNodeMemory: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Workflow ID */
+                id: string;
+                /** @description Node ID */
+                node: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NodeMemory"];
+                };
+            };
+            /** @description unauthenticated */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description not_found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    forgetNodeMemory: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Workflow ID */
+                id: string;
+                /** @description Node ID */
+                node: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No Content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             /** @description unauthenticated */
             401: {
