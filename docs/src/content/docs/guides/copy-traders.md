@@ -128,6 +128,31 @@ market's taker fee, as Polymarket charges it: on top of a buy, out of a sell.
 
 As on Polymarket, an order must keep to its market: a price on the tick, at least its least
 order size. A buy needs the cash for all it may spend, a sell the shares. An order that
-does not is refused, saying why, and is kept with the others: every order of a workflow is
-in its books, through the API for now: `GET /api/v1/workflows/{id}/orders`, `/holdings`
-and `/paper-account`.
+does not is refused, saying why, and is kept with the others.
+
+When a market resolves, what the workflow holds in it settles on its own within a few
+minutes, at what a share pays: $1 for the outcome that won, nothing for the others. The
+cash goes to the paper account, and the order list shows it as settled.
+
+## See how it does
+
+A workflow with trading nodes has a third view beside **Canvas** and **Code**: **Trading**.
+It shows, refreshed every half minute:
+
+- **The paper account**: what it is worth, its cash and what it holds now, its cash alone,
+  and its profit or loss since it started.
+- **Traders**: a row per trader copied, and one for orders copied from no one: how many
+  copies filled, the dollars they traded, the profit or loss made on what was sold
+  (realized) and what what is held would make sold now (unrealized), and the win rate, the
+  closed copies, sold out of or settled, that made money.
+- **Holdings**: what is held, per trader and outcome, with what it cost and what it is
+  worth now, at the midpoint of the order book; when the book has only one side, at the
+  market's own price.
+- **Orders**: every order, the newest first, with how it went.
+
+**Reset**, after asking, starts the paper account over: its cash goes back to the Paper
+balance and its holdings are emptied. The orders stay in the list, under the reset, and
+the results count from it.
+
+The same is in the API: `GET /api/v1/workflows/{id}/trading`, `/orders`, `/holdings` and
+`/paper-account`, and `POST /api/v1/workflows/{id}/paper-account/reset`.

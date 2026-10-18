@@ -52,6 +52,46 @@
                 ],
                 "type": "object"
             },
+            "AccountSummary": {
+                "properties": {
+                    "cash": {
+                        "example": "989.65",
+                        "type": "string"
+                    },
+                    "open": {
+                        "description": "Open is false until the workflow's first paper order; the rest is then what an\naccount would start with.",
+                        "type": "boolean"
+                    },
+                    "profit": {
+                        "type": "string"
+                    },
+                    "resetAt": {
+                        "description": "ResetAt is when it was last started over: orders before it are history.",
+                        "format": "date-time",
+                        "type": "string"
+                    },
+                    "startedAt": {
+                        "format": "date-time",
+                        "type": "string"
+                    },
+                    "startedWith": {
+                        "example": "1000",
+                        "type": "string"
+                    },
+                    "worth": {
+                        "description": "Worth is the cash and what the holdings are worth now; Profit is it less what the\naccount started with.",
+                        "type": "string"
+                    }
+                },
+                "required": [
+                    "cash",
+                    "open",
+                    "profit",
+                    "startedWith",
+                    "worth"
+                ],
+                "type": "object"
+            },
             "AuthConfig": {
                 "properties": {
                     "minPasswordLength": {
@@ -830,6 +870,70 @@
                 ],
                 "type": "object"
             },
+            "HoldingSummary": {
+                "properties": {
+                    "cost": {
+                        "description": "Cost is what the shares held cost, fees included; Realized is the profit or loss\nof those sold.",
+                        "type": "string"
+                    },
+                    "mark": {
+                        "description": "Mark is a share's price now, the book's midpoint; absent when nobody knows, and\nValue is then the cost.",
+                        "type": "string"
+                    },
+                    "marketId": {
+                        "type": "string"
+                    },
+                    "mode": {
+                        "enum": [
+                            "paper",
+                            "live"
+                        ],
+                        "type": "string"
+                    },
+                    "outcome": {
+                        "type": "string"
+                    },
+                    "question": {
+                        "type": "string"
+                    },
+                    "realized": {
+                        "type": "string"
+                    },
+                    "shares": {
+                        "type": "string"
+                    },
+                    "tokenId": {
+                        "type": "string"
+                    },
+                    "trader": {
+                        "type": "string"
+                    },
+                    "traderLabel": {
+                        "type": "string"
+                    },
+                    "unrealized": {
+                        "type": "string"
+                    },
+                    "updatedAt": {
+                        "format": "date-time",
+                        "type": "string"
+                    },
+                    "value": {
+                        "type": "string"
+                    }
+                },
+                "required": [
+                    "cost",
+                    "mode",
+                    "realized",
+                    "shares",
+                    "tokenId",
+                    "unrealized",
+                    "updatedAt",
+                    "value"
+                ],
+                "type": "object"
+            },
             "Invite": {
                 "properties": {
                     "code": {
@@ -1279,11 +1383,13 @@
                         "type": "string"
                     },
                     "type": {
+                        "description": "SETTLE: a holding closed by its market's resolution",
                         "enum": [
                             "FOK",
                             "FAK",
                             "GTC",
-                            "GTD"
+                            "GTD",
+                            "SETTLE"
                         ],
                         "type": "string"
                     }
@@ -1354,6 +1460,11 @@
                     "open": {
                         "description": "Open is false until the workflow's first paper order; the rest is then what an\naccount would start with.",
                         "type": "boolean"
+                    },
+                    "resetAt": {
+                        "description": "ResetAt is when it was last started over: orders before it are history.",
+                        "format": "date-time",
+                        "type": "string"
                     },
                     "startedAt": {
                         "format": "date-time",
@@ -1951,6 +2062,76 @@
                 },
                 "required": [
                     "templates"
+                ],
+                "type": "object"
+            },
+            "TraderSummary": {
+                "properties": {
+                    "closed": {
+                        "description": "holdings sold out of, or settled",
+                        "type": "integer"
+                    },
+                    "copies": {
+                        "description": "orders that filled",
+                        "type": "integer"
+                    },
+                    "label": {
+                        "type": "string"
+                    },
+                    "realized": {
+                        "type": "string"
+                    },
+                    "trader": {
+                        "description": "Trader is absent for the orders copied from no one.",
+                        "type": "string"
+                    },
+                    "unrealized": {
+                        "type": "string"
+                    },
+                    "volume": {
+                        "description": "the dollars they traded",
+                        "type": "string"
+                    },
+                    "wins": {
+                        "description": "closed holdings that made money",
+                        "type": "integer"
+                    }
+                },
+                "required": [
+                    "closed",
+                    "copies",
+                    "realized",
+                    "unrealized",
+                    "volume",
+                    "wins"
+                ],
+                "type": "object"
+            },
+            "TradingSummary": {
+                "properties": {
+                    "account": {
+                        "$ref": "#/components/schemas/AccountSummary"
+                    },
+                    "holdings": {
+                        "description": "open ones",
+                        "items": {
+                            "$ref": "#/components/schemas/HoldingSummary"
+                        },
+                        "type": "array",
+                        "uniqueItems": false
+                    },
+                    "traders": {
+                        "items": {
+                            "$ref": "#/components/schemas/TraderSummary"
+                        },
+                        "type": "array",
+                        "uniqueItems": false
+                    }
+                },
+                "required": [
+                    "account",
+                    "holdings",
+                    "traders"
                 ],
                 "type": "object"
             },
@@ -6149,6 +6330,66 @@
                 ]
             }
         },
+        "/workflows/{id}/paper-account/reset": {
+            "post": {
+                "operationId": "resetPaperAccount",
+                "parameters": [
+                    {
+                        "description": "Workflow ID",
+                        "in": "path",
+                        "name": "id",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/PaperAccount"
+                                }
+                            }
+                        },
+                        "description": "OK"
+                    },
+                    "401": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "unauthenticated"
+                    },
+                    "404": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "not_found"
+                    }
+                },
+                "security": [
+                    {
+                        "SessionCookie": []
+                    },
+                    {
+                        "APIToken": []
+                    }
+                ],
+                "summary": "Reset the paper account",
+                "tags": [
+                    "trading"
+                ]
+            }
+        },
         "/workflows/{id}/problems": {
             "get": {
                 "operationId": "checkWorkflow",
@@ -6429,6 +6670,66 @@
                 "summary": "Share a workflow",
                 "tags": [
                     "library"
+                ]
+            }
+        },
+        "/workflows/{id}/trading": {
+            "get": {
+                "operationId": "getTradingSummary",
+                "parameters": [
+                    {
+                        "description": "Workflow ID",
+                        "in": "path",
+                        "name": "id",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/TradingSummary"
+                                }
+                            }
+                        },
+                        "description": "OK"
+                    },
+                    "401": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "unauthenticated"
+                    },
+                    "404": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "not_found"
+                    }
+                },
+                "security": [
+                    {
+                        "SessionCookie": []
+                    },
+                    {
+                        "APIToken": []
+                    }
+                ],
+                "summary": "Trading results",
+                "tags": [
+                    "trading"
                 ]
             }
         }

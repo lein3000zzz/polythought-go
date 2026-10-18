@@ -80,6 +80,9 @@ func serve(ctx context.Context) error {
 		}
 	}()
 
+	// Paper holdings of resolved markets settle on their own (D106).
+	go a.trading.SettleEvery(ctx, 5*time.Minute)
+
 	// The bot follows its settings: a change restarts it, not the server.
 	telegramDone := make(chan struct{})
 

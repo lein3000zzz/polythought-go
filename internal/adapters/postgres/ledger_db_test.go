@@ -138,6 +138,34 @@ func TestLedger(t *testing.T) {
 		assert.Len(t, holdings, 1)
 	})
 
+	t.Run("totals by trader since a time, settlements no copies", func(t *testing.T) {
+		settled := order(domain.SideSell, domain.OrderFilled, domain.OrderFill{Price: num("1"), Shares: num("1"), Dollars: num("1"), Fee: num("0")})
+		settled.Type = domain.OrderSettle
+		require.NoError(t, ledger.Record(ctx, settled, nil))
+
+		totals, err := ledger.TraderTotals(ctx, w.ID, domain.ModePaper, at.Add(-time.Hour))
+		require.NoError(t, err)
+		require.Len(t, totals, 1)
+		assert.Equal(t, trader, totals[0].Trader)
+		assert.Equal(t, 1, totals[0].Orders, "the filled buy; refused ones filled nothing")
+		assert.Equal(t, "10.3328", totals[0].Volume.String())
+
+		later, err := ledger.TraderTotals(ctx, w.ID, domain.ModePaper, at.Add(time.Hour))
+		require.NoError(t, err)
+		assert.Empty(t, later)
+	})
+
+	t.Run("open holdings, every workflow's", func(t *testing.T) {
+		open, err := ledger.OpenHoldings(ctx, domain.ModePaper)
+		require.NoError(t, err)
+		require.Len(t, open, 1)
+		assert.Equal(t, w.ID, open[0].WorkflowID)
+
+		none, err := ledger.OpenHoldings(ctx, domain.ModeLive)
+		require.NoError(t, err)
+		assert.Empty(t, none)
+	})
+
 	t.Run("what buys spent since a time, fees in, sells and refused orders out", func(t *testing.T) {
 		spent, err := ledger.Spent(ctx, w.ID, domain.ModePaper, at.Add(-time.Hour))
 		require.NoError(t, err)
@@ -151,4 +179,51 @@ func TestLedger(t *testing.T) {
 		require.NoError(t, err)
 		assert.True(t, spent.IsZero(), "nor live")
 	})
+}
+
+func TestLedgerReset(t *testing.T) {
+	ctx := context.Background()
+
+	db := fresh(t)
+	ledger := postgres.NewLedger(db)
+	alice := seedUser(t, db, "alice@example.com", domain.RoleUser)
+
+	w := newWorkflow(alice.ID, "copy")
+	require.NoError(t, postgres.NewWorkflows(db).Create(ctx, w))
+
+	_, err := ledger.OpenPaperAccount(ctx, domain.PaperAccount{WorkflowID: w.ID, OwnerID: alice.ID, Cash: num("1000"), StartedWith: num("1000"), StartedAt: at})
+	require.NoError(t, err)
+
+	buy := domain.PlacedOrder{
+		OrderRequest: domain.OrderRequest{
+			WorkflowID: w.ID, OwnerID: alice.ID, NodeID: "buy", Mode: domain.ModePaper, TokenID: "t", Side: domain.SideBuy,
+			Type: domain.OrderFAK, Price: num("0.5"), Shares: num("10"),
+		},
+		ID: domain.OrderID(newID()), Status: domain.OrderFilled, CreatedAt: at,
+		Fills: []domain.OrderFill{{Price: num("0.5"), Shares: num("10"), Dollars: num("5"), Fee: num("0")}},
+	}
+	require.NoError(t, ledger.Record(ctx, buy, &ports.LedgerChange{Cash: num("-5"), Holding: domain.Holding{
+		WorkflowID: w.ID, Mode: domain.ModePaper, TokenID: "t", Shares: num("10"), Cost: num("5"), Realized: decimal.Zero, UpdatedAt: at,
+	}}))
+
+	later := at.Add(time.Hour)
+	require.NoError(t, ledger.ResetPaperAccount(ctx, domain.PaperAccount{
+		WorkflowID: w.ID, Cash: num("500"), StartedWith: num("500"), StartedAt: later, ResetAt: later,
+	}))
+
+	a, err := ledger.PaperAccount(ctx, w.ID)
+	require.NoError(t, err)
+	assert.Equal(t, "500", a.Cash.String())
+	assert.Equal(t, later, a.ResetAt)
+
+	holdings, err := ledger.Holdings(ctx, w.ID)
+	require.NoError(t, err)
+	assert.Empty(t, holdings, "emptied")
+
+	page, err := ledger.Orders(ctx, w.ID, ports.PageFilter{})
+	require.NoError(t, err)
+	assert.Len(t, page.Items, 1, "the orders stay (D107)")
+
+	err = ledger.ResetPaperAccount(ctx, domain.PaperAccount{WorkflowID: domain.WorkflowID(newID()), StartedAt: later})
+	require.ErrorIs(t, err, domain.ErrNotFound, "no account to reset")
 }

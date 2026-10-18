@@ -315,6 +315,8 @@ func (s *Server) routes() {
 	wf.GET("/:id/executions/:eid", s.getExecution)
 	wf.POST("/:id/executions/:eid/cancel", s.cancelExecution)
 	wf.GET("/:id/paper-account", s.getPaperAccount)
+	wf.POST("/:id/paper-account/reset", s.resetPaperAccount)
+	wf.GET("/:id/trading", s.getTradingSummary)
 	wf.GET("/:id/orders", s.listOrders)
 	wf.GET("/:id/holdings", s.listHoldings)
 	wf.GET("/:id/share", s.getSharedCopy)

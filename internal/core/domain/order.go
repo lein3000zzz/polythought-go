@@ -25,6 +25,10 @@ const (
 	OrderFAK OrderType = "FAK" // fill what the book has at once, cancel the rest
 	OrderGTC OrderType = "GTC" // rest on the book until filled or cancelled
 	OrderGTD OrderType = "GTD" // rest until filled, cancelled or its expiry
+
+	// OrderSettle is no order placed: a holding closed at what its resolved market pays
+	// a share, recorded as one (D106).
+	OrderSettle OrderType = "SETTLE"
 )
 
 // OrderStatus is how an order ended, or stands.
@@ -108,7 +112,16 @@ type PaperAccount struct {
 	OwnerID     UserID
 	Cash        decimal.Decimal
 	StartedWith decimal.Decimal
-	StartedAt   time.Time
+	StartedAt   time.Time // when it opened, or was last reset
+	ResetAt     time.Time // zero: never reset (D107)
+}
+
+// TraderTotal is what a workflow's copies of one trader came to: the orders that filled,
+// and the dollars they traded. An empty Trader is the orders copied from no one.
+type TraderTotal struct {
+	Trader WalletAddress
+	Orders int
+	Volume decimal.Decimal
 }
 
 // Holding is a workflow's position in one outcome, copied from one trader or from no one

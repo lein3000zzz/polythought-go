@@ -35,4 +35,7 @@ export const keys = {
   workflowProblems: (id: string) => ['workflows', 'problems', id],
   executions: (workflowId: string) => ['workflows', 'executions', workflowId],
   execution: (workflowId: string, id: string) => ['workflows', 'execution', workflowId, id],
+  trading: (workflowId: string) => ['workflows', 'trading', workflowId],
+  tradingSummary: (workflowId: string) => ['workflows', 'trading', workflowId, 'summary'],
+  orders: (workflowId: string) => ['workflows', 'trading', workflowId, 'orders'],
 } as const

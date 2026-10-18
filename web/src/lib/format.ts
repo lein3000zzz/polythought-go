@@ -28,3 +28,24 @@ export function formatDuration(ms: number): string {
 export function shortAddress(address: string): string {
   return `${address.slice(0, 6)}…${address.slice(-4)}`
 }
+
+const dollarFormat = new Intl.NumberFormat(undefined, { style: 'currency', currency: 'USD' })
+const shareFormat = new Intl.NumberFormat(undefined, { maximumFractionDigits: 2 })
+
+/** $1,012.40, from a decimal's text. */
+export function formatDollars(text: string): string {
+  return dollarFormat.format(Number(text))
+}
+
+/** +$12.40 or −$1.20: a gain or a loss. */
+export function formatProfit(text: string): string {
+  const n = Number(text)
+  const sign = n > 0 ? '+' : n < 0 ? '−' : ''
+
+  return sign + dollarFormat.format(Math.abs(n))
+}
+
+/** 19.8 shares, as many decimals as there are, up to 2. */
+export function formatShares(text: string): string {
+  return shareFormat.format(Number(text))
+}

@@ -61,6 +61,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Switch } from '@/components/ui/switch'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
+import { TradingView } from '@/features/trading/TradingView'
 import { CodeView, type ApplyFailure } from '@/features/workflowcode/CodeView'
 import { place } from '@/features/workflowcode/place'
 import { printWorkflow } from '@/features/workflowcode/print'
@@ -97,6 +98,13 @@ import { WorkflowNodeView } from './WorkflowNodeView'
 
 // Defined once: React Flow re-mounts every node when this object changes identity.
 const nodeTypes = { workflow: WorkflowNodeView }
+
+// The editor's views: the canvas, the workflow as code (D76), and how its trading went
+// (D104), for a saved workflow with a trading node.
+type View = 'canvas' | 'code' | 'trading'
+
+const views: View[] = ['canvas', 'code', 'trading']
+const viewNames: Record<View, string> = { canvas: 'Canvas', code: 'Code', trading: 'Trading' }
 
 // A new workflow starts with this trigger, the one "Run" uses.
 const manualTrigger = 'trigger.manual'
@@ -179,12 +187,14 @@ function Editor({ workflow, types, onReload }: Props) {
 
   // The workflow as code (D76), printed when the Code view opens. base is the code the
   // canvas has: text that differs is not applied yet (D77).
-  const [view, setView] = useState<'canvas' | 'code'>('canvas')
+  const [view, setView] = useState<View>('canvas')
   const [code, setCode] = useState({ text: '', base: '' })
   const [applyFailure, setApplyFailure] = useState<ApplyFailure>()
-  const [askApply, setAskApply] = useState(false) // on leaving the Code view
+  const [leaveTo, setLeaveTo] = useState<View>() // asked on leaving the Code view
   const runCode = useRunWorkflowCode()
   const unapplied = view === 'code' && code.text !== code.base
+  const trading =
+    workflow !== undefined && nodes.some((n) => n.data.spec.type.startsWith('trading.'))
   const codeOff = me?.mayWriteCode === false
 
   const definition = useMemo(() => toDefinition(name, nodes, edges), [name, nodes, edges])
@@ -295,14 +305,15 @@ function Editor({ workflow, types, onReload }: Props) {
     setView('code')
   }
 
-  function showCanvas() {
-    if (unapplied) setAskApply(true)
-    else setView('canvas')
+  function leave(to: View) {
+    if (unapplied) setLeaveTo(to)
+    else setView(to)
   }
 
-  async function applyAndShowCanvas() {
-    setAskApply(false)
-    if (await apply()) setView('canvas')
+  async function applyAndGo() {
+    const to = leaveTo ?? 'canvas'
+    setLeaveTo(undefined)
+    if (await apply()) setView(to)
   }
 
   // Leaving the page with code not applied: it is kept only once saved (D78).
@@ -502,7 +513,8 @@ function Editor({ workflow, types, onReload }: Props) {
             onShare={() => setSharing(true)}
             onDelete={() => setConfirmDelete(true)}
             view={view}
-            onView={(v) => (v === 'code' ? showCode() : showCanvas())}
+            onView={(v) => (v === 'code' ? showCode() : leave(v))}
+            trading={trading}
           />
 
           {workflow && inspected.data && (
@@ -537,7 +549,11 @@ function Editor({ workflow, types, onReload }: Props) {
             </div>
           )}
 
-          {view === 'code' ? (
+          {view === 'trading' && workflow ? (
+            <div className="min-h-0 flex-1">
+              <TradingView workflowId={workflow.id} />
+            </div>
+          ) : view === 'code' ? (
             <div className="min-h-0 flex-1">
               <CodeView
                 value={code.text}
@@ -688,18 +704,18 @@ function Editor({ workflow, types, onReload }: Props) {
           />
 
           <ConfirmDialog
-            open={askApply}
+            open={leaveTo !== undefined}
             title="Apply your code?"
             description="It is not on the canvas yet. Discarding it leaves the canvas as it is."
             confirm="Apply"
             alternative="Discard"
             cancel="Keep editing"
-            onConfirm={() => void applyAndShowCanvas()}
+            onConfirm={() => void applyAndGo()}
             onAlternative={() => {
-              setAskApply(false)
-              setView('canvas')
+              setView(leaveTo ?? 'canvas')
+              setLeaveTo(undefined)
             }}
-            onCancel={() => setAskApply(false)}
+            onCancel={() => setLeaveTo(undefined)}
           />
 
           <ConfirmDialog
@@ -787,8 +803,9 @@ type HeaderProps = {
   onToggleExecutions: () => void
   onShare: () => void
   onDelete: () => void
-  view: 'canvas' | 'code'
-  onView: (view: 'canvas' | 'code') => void
+  view: View
+  onView: (view: View) => void
+  trading: boolean // the workflow trades: its results have a view
 }
 
 function Header({
@@ -807,6 +824,7 @@ function Header({
   onDelete,
   view,
   onView,
+  trading,
 }: HeaderProps) {
   return (
     <header className="flex items-center gap-3 border-b px-4 py-2">
@@ -838,19 +856,21 @@ function Header({
 
       <div className="ml-auto flex items-center gap-3">
         <div role="tablist" aria-label="View" className="flex rounded-md border p-0.5">
-          {(['canvas', 'code'] as const).map((v) => (
-            <Button
-              key={v}
-              role="tab"
-              aria-selected={view === v}
-              variant={view === v ? 'secondary' : 'ghost'}
-              size="sm"
-              className="h-7"
-              onClick={() => view !== v && onView(v)}
-            >
-              {v === 'canvas' ? 'Canvas' : 'Code'}
-            </Button>
-          ))}
+          {views
+            .filter((v) => v !== 'trading' || trading)
+            .map((v) => (
+              <Button
+                key={v}
+                role="tab"
+                aria-selected={view === v}
+                variant={view === v ? 'secondary' : 'ghost'}
+                size="sm"
+                className="h-7"
+                onClick={() => view !== v && onView(v)}
+              >
+                {viewNames[v]}
+              </Button>
+            ))}
         </div>
 
         {workflow && view === 'canvas' && (

@@ -789,6 +789,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/workflows/{id}/paper-account/reset": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Reset the paper account */
+        post: operations["resetPaperAccount"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/workflows/{id}/problems": {
         parameters: {
             query?: never;
@@ -841,6 +858,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/workflows/{id}/trading": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Trading results */
+        get: operations["getTradingSummary"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -860,6 +894,30 @@ export interface components {
         };
         APITokenList: {
             tokens: components["schemas"]["APIToken"][];
+        };
+        AccountSummary: {
+            /** @example 989.65 */
+            cash: string;
+            /**
+             * @description Open is false until the workflow's first paper order; the rest is then what an
+             *     account would start with.
+             */
+            open: boolean;
+            profit: string;
+            /**
+             * Format: date-time
+             * @description ResetAt is when it was last started over: orders before it are history.
+             */
+            resetAt?: string;
+            /** Format: date-time */
+            startedAt?: string;
+            /** @example 1000 */
+            startedWith: string;
+            /**
+             * @description Worth is the cash and what the holdings are worth now; Profit is it less what the
+             *     account started with.
+             */
+            worth: string;
         };
         AuthConfig: {
             /** @description MinPasswordLength is the fewest characters a new password may have. */
@@ -1117,6 +1175,32 @@ export interface components {
         HoldingList: {
             holdings: components["schemas"]["Holding"][];
         };
+        HoldingSummary: {
+            /**
+             * @description Cost is what the shares held cost, fees included; Realized is the profit or loss
+             *     of those sold.
+             */
+            cost: string;
+            /**
+             * @description Mark is a share's price now, the book's midpoint; absent when nobody knows, and
+             *     Value is then the cost.
+             */
+            mark?: string;
+            marketId?: string;
+            /** @enum {string} */
+            mode: "paper" | "live";
+            outcome?: string;
+            question?: string;
+            realized: string;
+            shares: string;
+            tokenId: string;
+            trader?: string;
+            traderLabel?: string;
+            unrealized: string;
+            /** Format: date-time */
+            updatedAt: string;
+            value: string;
+        };
         Invite: {
             /** @description Code is the secret, present only in the response that creates it. */
             code?: string;
@@ -1265,8 +1349,11 @@ export interface components {
              */
             trader?: string;
             traderLabel?: string;
-            /** @enum {string} */
-            type: "FOK" | "FAK" | "GTC" | "GTD";
+            /**
+             * @description SETTLE: a holding closed by its market's resolution
+             * @enum {string}
+             */
+            type: "FOK" | "FAK" | "GTC" | "GTD" | "SETTLE";
         };
         OrderFill: {
             dollars: string;
@@ -1287,6 +1374,11 @@ export interface components {
              *     account would start with.
              */
             open: boolean;
+            /**
+             * Format: date-time
+             * @description ResetAt is when it was last started over: orders before it are history.
+             */
+            resetAt?: string;
             /** Format: date-time */
             startedAt?: string;
             /** @example 1000 */
@@ -1492,6 +1584,27 @@ export interface components {
             /** @description NextCursor is absent on the last page. */
             nextCursor?: string;
             templates: components["schemas"]["Template"][];
+        };
+        TraderSummary: {
+            /** @description holdings sold out of, or settled */
+            closed: number;
+            /** @description orders that filled */
+            copies: number;
+            label?: string;
+            realized: string;
+            /** @description Trader is absent for the orders copied from no one. */
+            trader?: string;
+            unrealized: string;
+            /** @description the dollars they traded */
+            volume: string;
+            /** @description closed holdings that made money */
+            wins: number;
+        };
+        TradingSummary: {
+            account: components["schemas"]["AccountSummary"];
+            /** @description open ones */
+            holdings: components["schemas"]["HoldingSummary"][];
+            traders: components["schemas"]["TraderSummary"][];
         };
         UpdateCredentialRequest: {
             name: string;
@@ -4370,6 +4483,47 @@ export interface operations {
             };
         };
     };
+    resetPaperAccount: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Workflow ID */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PaperAccount"];
+                };
+            };
+            /** @description unauthenticated */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description not_found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
     checkWorkflow: {
         parameters: {
             query?: never;
@@ -4540,6 +4694,47 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description unauthenticated */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description not_found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    getTradingSummary: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Workflow ID */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TradingSummary"];
                 };
             };
             /** @description unauthenticated */

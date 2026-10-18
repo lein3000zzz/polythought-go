@@ -32,6 +32,15 @@ type Ledger interface {
 	Holding(ctx context.Context, key domain.HoldingKey) (domain.Holding, error)
 	Holdings(ctx context.Context, workflow domain.WorkflowID) ([]domain.Holding, error)
 
+	// OpenHoldings are the positions in a mode with shares in them, every workflow's.
+	OpenHoldings(ctx context.Context, mode domain.TradingMode) ([]domain.Holding, error)
+	// TraderTotals are a workflow's filled orders in a mode since then, by trader;
+	// settlements are not orders.
+	TraderTotals(ctx context.Context, workflow domain.WorkflowID, mode domain.TradingMode, since time.Time) ([]domain.TraderTotal, error)
+	// ResetPaperAccount starts a's workflow's account over as a has it, its paper
+	// holdings emptied; its orders stay (D107).
+	ResetPaperAccount(ctx context.Context, a domain.PaperAccount) error
+
 	// Spent is what a workflow's buys in a mode spent since then, fees included.
 	Spent(ctx context.Context, workflow domain.WorkflowID, mode domain.TradingMode, since time.Time) (decimal.Decimal, error)
 

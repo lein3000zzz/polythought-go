@@ -22,6 +22,7 @@ type paperAccountsTable struct {
 	Cash        postgres.ColumnFloat
 	StartedWith postgres.ColumnFloat
 	StartedAt   postgres.ColumnTimestampz
+	ResetAt     postgres.ColumnTimestampz
 
 	AllColumns     postgres.ColumnList
 	MutableColumns postgres.ColumnList
@@ -68,8 +69,9 @@ func newPaperAccountsTableImpl(schemaName, tableName, alias string) paperAccount
 		CashColumn        = postgres.FloatColumn("cash")
 		StartedWithColumn = postgres.FloatColumn("started_with")
 		StartedAtColumn   = postgres.TimestampzColumn("started_at")
-		allColumns        = postgres.ColumnList{WorkflowIDColumn, OwnerIDColumn, CashColumn, StartedWithColumn, StartedAtColumn}
-		mutableColumns    = postgres.ColumnList{OwnerIDColumn, CashColumn, StartedWithColumn, StartedAtColumn}
+		ResetAtColumn     = postgres.TimestampzColumn("reset_at")
+		allColumns        = postgres.ColumnList{WorkflowIDColumn, OwnerIDColumn, CashColumn, StartedWithColumn, StartedAtColumn, ResetAtColumn}
+		mutableColumns    = postgres.ColumnList{OwnerIDColumn, CashColumn, StartedWithColumn, StartedAtColumn, ResetAtColumn}
 		defaultColumns    = postgres.ColumnList{}
 	)
 
@@ -82,6 +84,7 @@ func newPaperAccountsTableImpl(schemaName, tableName, alias string) paperAccount
 		Cash:        CashColumn,
 		StartedWith: StartedWithColumn,
 		StartedAt:   StartedAtColumn,
+		ResetAt:     ResetAtColumn,
 
 		AllColumns:     allColumns,
 		MutableColumns: mutableColumns,

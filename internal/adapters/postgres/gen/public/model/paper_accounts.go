@@ -19,4 +19,5 @@ type PaperAccounts struct {
 	Cash        decimal.Decimal
 	StartedWith decimal.Decimal
 	StartedAt   time.Time
+	ResetAt     *time.Time
 }

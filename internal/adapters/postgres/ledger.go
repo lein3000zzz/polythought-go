@@ -120,6 +120,87 @@ func (r *Ledger) Holdings(ctx context.Context, workflow domain.WorkflowID) ([]do
 	return out, nil
 }
 
+func (r *Ledger) OpenHoldings(ctx context.Context, mode domain.TradingMode) ([]domain.Holding, error) {
+	h := table.Holdings
+
+	var rows []model.Holdings
+
+	err := jet.SELECT(h.AllColumns).FROM(h).
+		WHERE(h.Mode.EQ(jet.String(string(mode))).AND(h.Shares.GT(jet.Decimal("0")))).
+		ORDER_BY(h.WorkflowID, h.MarketID).
+		QueryContext(ctx, r.db.conn(ctx), &rows)
+	if err != nil && !errors.Is(err, qrm.ErrNoRows) {
+		return nil, err
+	}
+
+	out := make([]domain.Holding, len(rows))
+	for i, m := range rows {
+		out[i] = toHolding(m)
+	}
+
+	return out, nil
+}
+
+func (r *Ledger) TraderTotals(ctx context.Context, workflow domain.WorkflowID, mode domain.TradingMode, since time.Time) ([]domain.TraderTotal, error) {
+	wid, err := parseID(workflow)
+	if err != nil {
+		return nil, err
+	}
+
+	o, f := table.Orders, table.OrderFills
+
+	var rows []struct {
+		Trader string          `alias:"trader"`
+		Orders int64           `alias:"orders"`
+		Volume decimal.Decimal `alias:"volume"`
+	}
+
+	err = jet.SELECT(o.Trader.AS("trader"), jet.COUNT(jet.DISTINCT(o.ID)).AS("orders"), jet.SUM(f.Dollars).AS("volume")).
+		FROM(o.INNER_JOIN(f, f.OrderID.EQ(o.ID))).
+		WHERE(o.WorkflowID.EQ(jet.UUID(wid)).
+			AND(o.Mode.EQ(jet.String(string(mode)))).
+			AND(o.OrderType.NOT_EQ(jet.String(string(domain.OrderSettle)))).
+			AND(o.CreatedAt.GT_EQ(jet.TimestampzT(since)))).
+		GROUP_BY(o.Trader).
+		ORDER_BY(o.Trader).
+		QueryContext(ctx, r.db.conn(ctx), &rows)
+	if err != nil && !errors.Is(err, qrm.ErrNoRows) {
+		return nil, err
+	}
+
+	out := make([]domain.TraderTotal, len(rows))
+	for i, row := range rows {
+		out[i] = domain.TraderTotal{Trader: domain.WalletAddress(row.Trader), Orders: int(row.Orders), Volume: row.Volume}
+	}
+
+	return out, nil
+}
+
+func (r *Ledger) ResetPaperAccount(ctx context.Context, a domain.PaperAccount) error {
+	wid, err := parseID(a.WorkflowID)
+	if err != nil {
+		return err
+	}
+
+	return r.db.WithinTx(ctx, func(ctx context.Context) error {
+		h := table.Holdings
+		if _, err := h.DELETE().
+			WHERE(h.WorkflowID.EQ(jet.UUID(wid)).AND(h.Mode.EQ(jet.String(string(domain.ModePaper))))).
+			ExecContext(ctx, r.db.conn(ctx)); err != nil {
+			return err
+		}
+
+		pa := table.PaperAccounts
+
+		res, err := pa.UPDATE(pa.Cash, pa.StartedWith, pa.StartedAt, pa.ResetAt).
+			MODEL(model.PaperAccounts{Cash: a.Cash, StartedWith: a.StartedWith, StartedAt: a.StartedAt, ResetAt: timePtr(a.ResetAt)}).
+			WHERE(pa.WorkflowID.EQ(jet.UUID(wid))).
+			ExecContext(ctx, r.db.conn(ctx))
+
+		return affectedOne(res, err)
+	})
+}
+
 func (r *Ledger) Spent(ctx context.Context, workflow domain.WorkflowID, mode domain.TradingMode, since time.Time) (decimal.Decimal, error) {
 	wid, err := parseID(workflow)
 	if err != nil {
@@ -319,10 +400,16 @@ func toPlacedOrder(m model.Orders, fills []model.OrderFills) domain.PlacedOrder 
 }
 
 func toPaperAccount(m model.PaperAccounts) domain.PaperAccount {
-	return domain.PaperAccount{
+	a := domain.PaperAccount{
 		WorkflowID: domain.WorkflowID(m.WorkflowID.String()), OwnerID: domain.UserID(m.OwnerID.String()),
 		Cash: m.Cash, StartedWith: m.StartedWith, StartedAt: m.StartedAt.UTC(),
 	}
+
+	if m.ResetAt != nil {
+		a.ResetAt = m.ResetAt.UTC()
+	}
+
+	return a
 }
 
 func toHolding(m model.Holdings) domain.Holding {

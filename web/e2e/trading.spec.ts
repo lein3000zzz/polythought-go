@@ -62,6 +62,27 @@ test('a paper order fills against the live book, and the workflow keeps its book
   const list = page.getByRole('navigation', { name: 'Node types' })
   await expect(list.getByText('Copy sizing', { exact: true })).toBeVisible()
   await expect(list.getByText('Place order', { exact: true })).toBeVisible()
+
+  // Its results, in the Trading view (D104).
+  await page.getByRole('tab', { name: 'Trading' }).click()
+  const account = page.getByRole('region', { name: 'Paper account' })
+  await expect(account.getByText('Worth')).toBeVisible()
+  await expect(
+    page.getByRole('region', { name: 'Traders' }).getByRole('row', { name: /Copied from no one/ }),
+  ).toContainText('1')
+  await expect(page.getByRole('region', { name: 'Holdings' }).getByRole('row')).toHaveCount(2)
+  await expect(
+    page.getByRole('region', { name: 'Orders' }).getByText(/^filled|^partial/),
+  ).toBeVisible()
+
+  // Reset starts it over, the orders kept (D107).
+  await account.getByRole('button', { name: 'Reset' }).click()
+  await page.getByRole('alertdialog').getByRole('button', { name: 'Reset' }).click()
+  await expect(account.getByText('$1,000.00').first()).toBeVisible()
+  await expect(page.getByText('Nothing held.')).toBeVisible()
+  await expect(
+    page.getByRole('region', { name: 'Orders' }).getByText(/^Before the reset on/),
+  ).toBeVisible()
 })
 
 test('the risk guard makes a copy over its cap smaller before it is placed', async ({ page }) => {

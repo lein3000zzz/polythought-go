@@ -84,6 +84,69 @@ func (l *ledger) Spent(context.Context, domain.WorkflowID, domain.TradingMode, t
 	return decimal.Zero, nil
 }
 
+func (l *ledger) OpenHoldings(_ context.Context, mode domain.TradingMode) ([]domain.Holding, error) {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+
+	var out []domain.Holding
+	for _, h := range l.holdings {
+		if h.Mode == mode && h.Shares.IsPositive() {
+			out = append(out, h)
+		}
+	}
+
+	return out, nil
+}
+
+func (l *ledger) TraderTotals(_ context.Context, _ domain.WorkflowID, _ domain.TradingMode, since time.Time) ([]domain.TraderTotal, error) {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+
+	by := map[domain.WalletAddress]*domain.TraderTotal{}
+
+	for _, o := range l.orders {
+		if len(o.Fills) == 0 || o.Type == domain.OrderSettle || o.CreatedAt.Before(since) {
+			continue
+		}
+
+		t, ok := by[o.Trader]
+		if !ok {
+			t = &domain.TraderTotal{Trader: o.Trader}
+			by[o.Trader] = t
+		}
+
+		_, dollars, _ := o.Totals()
+		t.Orders++
+		t.Volume = t.Volume.Add(dollars)
+	}
+
+	var out []domain.TraderTotal
+	for _, t := range by {
+		out = append(out, *t)
+	}
+
+	return out, nil
+}
+
+func (l *ledger) ResetPaperAccount(_ context.Context, a domain.PaperAccount) error {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+
+	if _, ok := l.accounts[a.WorkflowID]; !ok {
+		return domain.ErrNotFound
+	}
+
+	l.accounts[a.WorkflowID] = a
+
+	for k, h := range l.holdings {
+		if h.WorkflowID == a.WorkflowID && h.Mode == domain.ModePaper {
+			delete(l.holdings, k)
+		}
+	}
+
+	return nil
+}
+
 func (l *ledger) Record(_ context.Context, o domain.PlacedOrder, c *ports.LedgerChange) error {
 	l.mu.Lock()
 	defer l.mu.Unlock()
@@ -110,8 +173,11 @@ func (l *ledger) Orders(context.Context, domain.WorkflowID, ports.PageFilter) (p
 
 type books struct{ book domain.OrderBook }
 
-func (b books) OrderBooks(context.Context, ...domain.TokenID) ([]domain.OrderBook, error) {
-	return []domain.OrderBook{b.book}, nil
+func (b books) OrderBooks(_ context.Context, tokens ...domain.TokenID) ([]domain.OrderBook, error) {
+	book := b.book
+	book.TokenID = tokens[0]
+
+	return []domain.OrderBook{book}, nil
 }
 
 type rules struct{ asked []domain.MarketID }
@@ -125,7 +191,8 @@ func (r *rules) TradingRules(_ context.Context, m domain.MarketID) (domain.Tradi
 	}, nil
 }
 
-type markets struct{}
+// markets knows t-yes's market, 0xm: open unless resolved says otherwise.
+type markets struct{ resolved bool }
 
 func (markets) ListMarkets(_ context.Context, f ports.MarketFilter) (ports.Page[domain.Market], error) {
 	if len(f.TokenIDs) == 1 && f.TokenIDs[0] == "t-yes" {
@@ -135,8 +202,21 @@ func (markets) ListMarkets(_ context.Context, f ports.MarketFilter) (ports.Page[
 	return ports.Page[domain.Market]{}, nil
 }
 
-func (markets) GetMarket(context.Context, domain.MarketID) (domain.Market, error) {
-	return domain.Market{}, domain.ErrNotFound
+func (m markets) GetMarket(_ context.Context, id domain.MarketID) (domain.Market, error) {
+	if id != "0xm" {
+		return domain.Market{}, domain.ErrNotFound
+	}
+
+	market := domain.Market{ID: id, Question: "Will it?", Status: domain.MarketOpen, Outcomes: []domain.Outcome{
+		{TokenID: "t-yes", Label: "Yes", Price: d("0.49")}, {TokenID: "t-no", Label: "No", Price: d("0.51")},
+	}}
+
+	if m.resolved {
+		market.Status = domain.MarketResolved
+		market.Outcomes[0].Price, market.Outcomes[1].Price = d("1"), d("0")
+	}
+
+	return market, nil
 }
 
 func (markets) GetMarketBySlug(context.Context, string) (domain.Market, error) {

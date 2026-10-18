@@ -15,6 +15,7 @@ import (
 	"github.com/lein3000zzz/polythought-go/internal/core/domain"
 	"github.com/lein3000zzz/polythought-go/internal/core/ports"
 	"github.com/lein3000zzz/polythought-go/internal/core/services/auth"
+	tradingsvc "github.com/lein3000zzz/polythought-go/internal/core/services/trading"
 	httpapimocks "github.com/lein3000zzz/polythought-go/internal/mocks/httpapi"
 )
 
@@ -90,6 +91,48 @@ func TestTrading(t *testing.T) {
 		w := get("/api/v1/workflows/wf-1/holdings").do(t, srv)
 		assert.JSONEq(t, `{"holdings":[{"mode":"paper","trader":"0xA1","traderLabel":"Alice","tokenId":"t-yes","marketId":"0xm",
 			"shares":"15","cost":"7.65","realized":"1.35","updatedAt":"2026-10-17T12:00:00Z"}]}`, w.Body.String())
+	})
+
+	t.Run("the summary: the account, traders and holdings marked to market", func(t *testing.T) {
+		mark := num("0.49")
+		trading.EXPECT().Summary(mock.Anything, byAlice, domain.WorkflowID("wf-1")).Return(tradingsvc.Summary{
+			Account: tradingsvc.AccountSummary{
+				Open: true, Cash: num("89.40016"), StartedWith: num("100"), Worth: num("99.20016"), Profit: num("-0.79984"),
+				StartedAt: at, ResetAt: at,
+			},
+			Traders: []tradingsvc.TraderSummary{{
+				Trader: "0xA1", Label: "Alice", Copies: 2, Volume: num("14.8"), Realized: num("-0.39984"),
+				Unrealized: num("-0.2"), Wins: 1, Closed: 2,
+			}},
+			Holdings: []tradingsvc.HoldingSummary{{
+				Holding: domain.Holding{
+					Mode: domain.ModePaper, Trader: "0xA1", TraderLabel: "Alice", TokenID: "t-yes", MarketID: "0xm",
+					Shares: num("10"), Cost: num("5.1"), Realized: num("-0.39984"), UpdatedAt: at,
+				},
+				Question: "Will it?", Outcome: "Yes", Mark: &mark, Value: num("4.9"),
+			}},
+		}, nil).Once()
+
+		w := get("/api/v1/workflows/wf-1/trading").do(t, srv)
+		assert.Equal(t, http.StatusOK, w.Code, w.Body.String())
+		assert.JSONEq(t, `{
+			"account": {"open": true, "cash": "89.40016", "startedWith": "100", "worth": "99.20016", "profit": "-0.79984",
+				"startedAt": "2026-10-17T12:00:00Z", "resetAt": "2026-10-17T12:00:00Z"},
+			"traders": [{"trader": "0xA1", "label": "Alice", "copies": 2, "volume": "14.8", "realized": "-0.39984",
+				"unrealized": "-0.2", "wins": 1, "closed": 2}],
+			"holdings": [{"mode": "paper", "trader": "0xA1", "traderLabel": "Alice", "tokenId": "t-yes", "marketId": "0xm",
+				"shares": "10", "cost": "5.1", "realized": "-0.39984", "updatedAt": "2026-10-17T12:00:00Z",
+				"question": "Will it?", "outcome": "Yes", "mark": "0.49", "value": "4.9", "unrealized": "-0.2"}]
+		}`, w.Body.String())
+	})
+
+	t.Run("reset", func(t *testing.T) {
+		trading.EXPECT().Reset(mock.Anything, byAlice, domain.WorkflowID("wf-1")).
+			Return(domain.PaperAccount{Cash: num("1000"), StartedWith: num("1000"), StartedAt: at, ResetAt: at}, nil).Once()
+
+		w := request{method: "POST", path: "/api/v1/workflows/wf-1/paper-account/reset", headers: cookie}.do(t, srv)
+		assert.Equal(t, http.StatusOK, w.Code, w.Body.String())
+		assert.JSONEq(t, `{"open":true,"cash":"1000","startedWith":"1000","startedAt":"2026-10-17T12:00:00Z","resetAt":"2026-10-17T12:00:00Z"}`, w.Body.String())
 	})
 
 	t.Run("someone else's workflow is not there", func(t *testing.T) {
