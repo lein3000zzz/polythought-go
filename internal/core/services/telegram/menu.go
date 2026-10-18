@@ -17,6 +17,7 @@ import (
 	"github.com/lein3000zzz/polythought-go/internal/core/ports"
 	"github.com/lein3000zzz/polythought-go/internal/core/services/auth"
 	"github.com/lein3000zzz/polythought-go/internal/core/services/notify"
+	"github.com/lein3000zzz/polythought-go/internal/core/services/workflows"
 )
 
 // The bot's menu: sections on the keyboard under the input field, and inside each, a
@@ -32,6 +33,7 @@ type Workflows interface {
 	Deactivate(ctx context.Context, p auth.Principal, id domain.WorkflowID) (domain.Workflow, error)
 	Run(ctx context.Context, p auth.Principal, id domain.WorkflowID, trigger domain.NodeID) (domain.Execution, error)
 	Executions(ctx context.Context, p auth.Principal, id domain.WorkflowID, f ports.PageFilter) (ports.Page[domain.Execution], error)
+	Update(ctx context.Context, p auth.Principal, id domain.WorkflowID, version int, def workflows.Definition) (domain.Workflow, error)
 }
 
 // Wallets is what the menu needs from the wallet service.
@@ -51,6 +53,7 @@ type Menu struct {
 	Wallets       Wallets
 	Positions     ports.PositionReader
 	Notifications Notifications
+	Trading       Trading // optional: without it, the Traders section is not available
 }
 
 // UseMenu gives the bot its menu. Call it before the bot runs.
@@ -72,11 +75,11 @@ const (
 	maxNoteText      = 120
 )
 
-var mainKeyboard = [][]string{{sectionWorkflows, sectionStatus}, {sectionPositions, sectionNotifications}}
+var mainKeyboard = [][]string{{sectionWorkflows, sectionTraders}, {sectionPositions, sectionStatus}, {sectionNotifications}}
 
 // Button data prefixes.
 const (
-	dataSection    = "s:"  // s:w, s:s, s:p, s:n: a section's first screen
+	dataSection    = "s:"  // s:w, s:t, s:s, s:p, s:n: a section's first screen
 	dataWorkflows  = "wl:" // wl:<cursor>: a page of workflows
 	dataWorkflow   = "wo:" // wo:<id>: one workflow
 	dataRun        = "wr:" // wr:<id>: run it now
@@ -100,6 +103,8 @@ func sectionOf(text string) string {
 	switch word {
 	case "workflows":
 		return "w"
+	case "traders":
+		return "t"
 	case "status":
 		return "s"
 	case "positions":
@@ -131,6 +136,8 @@ func (s *Service) section(ctx context.Context, user domain.User, section string)
 	switch section {
 	case "w":
 		return s.workflowList(ctx, user, "")
+	case "t":
+		return s.traderFlows(ctx, user)
 	case "s":
 		return s.status(ctx, user)
 	case "p":
@@ -179,6 +186,15 @@ func (s *Service) menuPress(ctx context.Context, cb ports.TelegramCallback, user
 		sc = s.positions(ctx, user, domain.WalletID(arg))
 	case dataNotify:
 		sc = s.notifications(ctx, user, arg)
+	case dataTraderFlows:
+		sc = s.traderFlows(ctx, user)
+	case dataTraderFlow, dataTrader, dataTraderSwitch:
+		if s.menu.Trading == nil {
+			s.answer(ctx, cb.ID, textStale)
+			return
+		}
+
+		sc = s.traderPress(ctx, user, kind, arg)
 	default:
 		s.answer(ctx, cb.ID, textStale)
 		return

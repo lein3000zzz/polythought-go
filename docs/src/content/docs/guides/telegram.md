@@ -5,7 +5,8 @@ description: Link Telegram to get messages from Polythought there, and set up th
 
 Polythought can write to you on Telegram, through the bot of your instance: notifications,
 and messages from your workflows. From its menu you can run your workflows, switch them on
-and off, and check your positions, and your workflows can start on messages you send it.
+and off, see how the traders you copy do, and check your positions, and your workflows can
+start on messages you send it.
 Link your Telegram account once to use any of it.
 
 ## Linking
@@ -22,11 +23,16 @@ If **Link Telegram** is missing, the instance has no bot yet; see below.
 
 ## The menu
 
-Once linked, a keyboard with four sections sits under the chat's input field. Send `/menu`
+Once linked, a keyboard with five sections sits under the chat's input field. Send `/menu`
 if it is gone. Each section answers with a message whose buttons change it in place:
 
 - **📋 Workflows**: your workflows, ● on and ○ off, a page at a time. Pick one to see its last
   runs, run it now, or switch it on or off.
+- **👥 Traders**: the workflows that [copy traders](/docs/guides/copy-traders/), with how
+  many of their traders are on. Pick one to see what its paper account is worth and, for
+  each trader, the profit or loss made on what was sold, what is held would make sold now,
+  and how many closed copies made money. Pick a trader to see more and **Switch** them
+  **on** or **off**, which saves the workflow as a new version, like saving it in the editor.
 - **📊 Status**: which workflows are on, how each last run went, and how many runs failed in
   the last 24 hours.
 - **💼 Positions**: pick one of your [wallets](/docs/guides/concepts/#wallets) to see its

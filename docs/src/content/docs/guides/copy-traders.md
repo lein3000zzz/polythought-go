@@ -156,3 +156,11 @@ the results count from it.
 
 The same is in the API: `GET /api/v1/workflows/{id}/trading`, `/orders`, `/holdings` and
 `/paper-account`, and `POST /api/v1/workflows/{id}/paper-account/reset`.
+
+### On Telegram
+
+With [Telegram linked](/docs/guides/telegram/), the menu's **👥 Traders** section has each
+workflow's traders with their results, and switches a trader on or off from your phone.
+A switch saves the workflow as a new version. An editor open on it with changes not saved
+yet then says, when it saves, that the workflow changed elsewhere, and reloading it drops
+those changes.

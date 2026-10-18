@@ -18,6 +18,8 @@ import (
 	"github.com/lein3000zzz/polythought-go/internal/core/services/auth"
 	"github.com/lein3000zzz/polythought-go/internal/core/services/notify"
 	"github.com/lein3000zzz/polythought-go/internal/core/services/telegram"
+	"github.com/lein3000zzz/polythought-go/internal/core/services/trading"
+	"github.com/lein3000zzz/polythought-go/internal/core/services/workflows"
 )
 
 // fakeWorkflows is alice's workflows.
@@ -28,6 +30,8 @@ type fakeWorkflows struct {
 	runErr    error
 	toggleErr error
 	pageSize  int
+	conflicts int // saves in between, each refusing an Update
+	saves     int
 }
 
 func (f *fakeWorkflows) owned(p auth.Principal) bool { return p.User.ID == alice.ID }
@@ -98,6 +102,43 @@ func (f *fakeWorkflows) Executions(_ context.Context, _ auth.Principal, id domai
 	return ports.Page[domain.Execution]{Items: f.runs[id]}, nil
 }
 
+func (f *fakeWorkflows) Update(_ context.Context, p auth.Principal, id domain.WorkflowID, version int, def workflows.Definition) (domain.Workflow, error) {
+	for i, w := range f.items {
+		if w.ID != id || !f.owned(p) {
+			continue
+		}
+
+		if f.conflicts > 0 {
+			f.conflicts--
+			f.items[i].Version++
+
+			return domain.Workflow{}, domain.ErrConflict
+		}
+
+		if version != w.Version {
+			return domain.Workflow{}, domain.ErrConflict
+		}
+
+		f.saves++
+		f.items[i].Name, f.items[i].Nodes, f.items[i].Connections = def.Name, def.Nodes, def.Connections
+		f.items[i].Version++
+
+		return f.items[i], nil
+	}
+
+	return domain.Workflow{}, domain.ErrNotFound
+}
+
+type fakeTrading map[domain.WorkflowID]trading.Summary
+
+func (f fakeTrading) Summary(_ context.Context, p auth.Principal, id domain.WorkflowID) (trading.Summary, error) {
+	if p.User.ID != alice.ID {
+		return trading.Summary{}, domain.ErrNotFound
+	}
+
+	return f[id], nil
+}
+
 type fakeWallets []domain.Wallet
 
 func (f fakeWallets) List(_ context.Context, p auth.Principal) ([]domain.Wallet, error) {
@@ -142,6 +183,7 @@ type menuDeps struct {
 	workflows     *fakeWorkflows
 	positions     *fakePositions
 	notifications *fakeNotifications
+	trading       fakeTrading
 }
 
 func newMenu(t *testing.T) (*telegram.Service, menuDeps) {
@@ -167,6 +209,7 @@ func newMenu(t *testing.T) (*telegram.Service, menuDeps) {
 		},
 		positions:     &fakePositions{},
 		notifications: &fakeNotifications{on: true},
+		trading:       fakeTrading{},
 	}
 
 	s.UseMenu(telegram.Menu{
@@ -174,6 +217,7 @@ func newMenu(t *testing.T) (*telegram.Service, menuDeps) {
 		Wallets:       fakeWallets{{ID: "w-1", Address: "0x5aAeb6053F3E94C9b9A09f33669435E7Ef1BeAed", Label: "Main"}},
 		Positions:     m.positions,
 		Notifications: m.notifications,
+		Trading:       m.trading,
 	})
 
 	return s, m

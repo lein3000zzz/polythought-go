@@ -224,7 +224,7 @@ func TestLinking(t *testing.T) {
 		reply := d.bot.last(t)
 		assert.Equal(t, int64(70), reply.ChatID)
 		assert.Contains(t, reply.HTML, "Linked to <b>alice@example.com</b>")
-		assert.Equal(t, [][]string{{"📋 Workflows", "📊 Status"}, {"💼 Positions", "🔔 Notifications"}}, reply.Keyboard, "the menu")
+		assert.Equal(t, [][]string{{"📋 Workflows", "👥 Traders"}, {"💼 Positions", "📊 Status"}, {"🔔 Notifications"}}, reply.Keyboard, "the menu")
 
 		status, err := s.Status(ctx, p)
 		require.NoError(t, err)

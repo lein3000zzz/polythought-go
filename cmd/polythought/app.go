@@ -210,7 +210,7 @@ func (a *app) init(ctx context.Context) error {
 	}
 
 	a.telegram.UseMenu(telegram.Menu{
-		Workflows: a.workflows, Wallets: a.wallets, Positions: pmc.reader, Notifications: a.notify,
+		Workflows: a.workflows, Wallets: a.wallets, Positions: pmc.reader, Notifications: a.notify, Trading: a.trading,
 	})
 	a.telegram.UseAnswers(a.waits)
 
