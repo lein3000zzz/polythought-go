@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/shopspring/decimal"
+
 	"github.com/lein3000zzz/polythought-go/internal/core/domain"
 	"github.com/lein3000zzz/polythought-go/internal/core/ports"
 	pm "github.com/lein3000zzz/polythought-go/pkg/clients/polymarket"
@@ -224,4 +226,10 @@ func (r *Reader) TradingRules(ctx context.Context, market domain.MarketID) (doma
 		MinOrderSize: info.MinOrderSize,
 		Fees:         domain.FeeSchedule{Rate: info.Fees.Rate, Exponent: info.Fees.Exponent},
 	}, nil
+}
+
+var _ ports.PortfolioReader = (*Reader)(nil)
+
+func (r *Reader) PortfolioValue(ctx context.Context, wallet domain.WalletAddress) (decimal.Decimal, error) {
+	return r.data.Value(ctx, string(wallet))
 }

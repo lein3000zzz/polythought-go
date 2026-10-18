@@ -37,7 +37,8 @@ func TestRegisterItems(t *testing.T) {
 			}}),
 		},
 		{name: "both kinds", typ: node(engine.Items{Passed: true, Picked: "fields"}), wantErr: "passed whole or picked, not both"},
-		{name: "received and own", typ: node(engine.Items{Passed: true, Fields: []engine.Field{text("x")}}), wantErr: "not both"},
+		{name: "received, with fields added", typ: node(engine.Items{Passed: true, Fields: []engine.Field{text("x")}})},
+		{name: "picked and own", typ: node(engine.Items{Picked: "fields", Fields: []engine.Field{text("x")}}), wantErr: "not both"},
 		{
 			name: "a trigger cannot pass on",
 			typ:  engine.NodeType{Name: "test.items", Outputs: mainPorts(), Items: &engine.Items{Passed: true}}, wantErr: "receives no items",

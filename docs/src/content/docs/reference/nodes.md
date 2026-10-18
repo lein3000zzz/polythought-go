@@ -68,3 +68,10 @@ Each node has a page with its settings. In the editor, the node list on the left
 | [Code: filter](/docs/reference/nodes/code/filter/) | `code.filter` | Keeps the items TypeScript says to keep: keep(item, ctx) is called for each item and returns true to keep it. |
 | [Code: route](/docs/reference/nodes/code/route/) | `code.route` | Sends each item down the route TypeScript picks: route(item, ctx) is called for each item and returns one of the Routes. |
 | [Code: transform](/docs/reference/nodes/code/transform/) | `code.transform` | Turns the items into others with TypeScript: run(items, ctx) is called once with all of them and returns the items to send on. |
+
+## Trading
+
+| Node | Type | What it does |
+|---|---|---|
+| [Copy sizing](/docs/reference/nodes/trading/copy-size/) | `trading.copySize` | Works out a copy of each trade a followed trader made: how much to buy, or how much of your copy to sell, and at what price. |
+| [Place order](/docs/reference/nodes/trading/place-order/) | `trading.placeOrder` | Places an order for each item, on paper: the copy Copy sizing worked out, or one of its own settings. |

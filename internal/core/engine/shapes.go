@@ -59,7 +59,7 @@ func emits(typ NodeType, spec domain.NodeSpec, in Shape) Shape {
 	case it == nil:
 		return nil
 	case it.Passed:
-		return in
+		return added(in, it.Fields)
 	case it.Picked != "":
 		names, err := Params(spec.Params).Strings(it.Picked)
 		if err != nil || in == nil {
@@ -70,6 +70,24 @@ func emits(typ NodeType, spec domain.NodeSpec, in Shape) Shape {
 	default:
 		return append(Shape{}, it.Fields...) // known, even with no fields
 	}
+}
+
+// added is in with fields set on it, replacing any of the same name. Not knowing in, it
+// knows nothing.
+func added(in Shape, fields []Field) Shape {
+	if in == nil || len(fields) == 0 {
+		return in
+	}
+
+	out := make(Shape, 0, len(in)+len(fields))
+
+	for _, f := range in {
+		if !slices.ContainsFunc(fields, func(a Field) bool { return a.Name == f.Name }) {
+			out = append(out, f)
+		}
+	}
+
+	return append(out, fields...)
 }
 
 // pick is the fields at paths, named by them, as transform.pick keeps them.

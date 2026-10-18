@@ -12,9 +12,11 @@ import (
 	markets2 "github.com/lein3000zzz/polythought-go/internal/core/nodes/markets"
 	"github.com/lein3000zzz/polythought-go/internal/core/nodes/output"
 	"github.com/lein3000zzz/polythought-go/internal/core/nodes/telegram"
+	"github.com/lein3000zzz/polythought-go/internal/core/nodes/trading"
 	"github.com/lein3000zzz/polythought-go/internal/core/nodes/transform"
 	"github.com/lein3000zzz/polythought-go/internal/core/nodes/triggers"
 	"github.com/lein3000zzz/the-watchers/pkg/observability/logging"
+	"github.com/shopspring/decimal"
 
 	"github.com/lein3000zzz/polythought-go/internal/core/engine"
 	"github.com/lein3000zzz/polythought-go/internal/core/ports"
@@ -45,6 +47,15 @@ type Deps struct {
 
 	// Code runs code nodes; optional: without it they are not available.
 	Code ports.CodeCaller
+
+	// Orders places orders, on paper for now; optional: without it, and the ledger
+	// (Books), the trading nodes are not available. TradingRules and Portfolios are for
+	// Copy sizing, PaperBalance what a paper account starts with.
+	Orders       ports.OrderPlacer
+	Books        trading.Books
+	TradingRules ports.TradingRulesReader
+	Portfolios   ports.PortfolioReader
+	PaperBalance func() decimal.Decimal
 
 	// MinInterval is the shortest interval schedules and market triggers may use. Zero
 	// means triggers.DefaultMinInterval.
@@ -84,6 +95,17 @@ func Register(r *engine.Registry, d Deps) error {
 		telegramAsk = r.RegisterNode(telegram.NewAsk(d.Asker, d.Reminder, time.Now))
 	}
 
+	var trade []error
+	if d.Orders != nil && d.Books != nil {
+		trade = append(trade,
+			r.RegisterNode(trading.NewCopySize(trading.Sources{
+				Books: d.Books, Rules: d.TradingRules, Markets: d.Markets, Positions: d.Positions,
+				Portfolios: d.Portfolios, PaperBalance: d.PaperBalance,
+			})),
+			r.RegisterNode(trading.NewPlaceOrder(d.Orders)),
+		)
+	}
+
 	var code []error
 	if d.Code != nil {
 		for _, n := range []*codenodes.Node{
@@ -96,6 +118,7 @@ func Register(r *engine.Registry, d Deps) error {
 
 	return errors.Join(
 		errors.Join(code...),
+		errors.Join(trade...),
 		market,
 		wallet,
 		telegramSend,

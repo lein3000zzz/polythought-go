@@ -529,6 +529,54 @@ export interface TelegramSendSettings {
     silent?: boolean | Expression;
 }
 
+/** The settings of Copy sizing (trading.copySize). */
+export interface TradingCopySizeSettings {
+    /**
+     * fixed: Dollars a buy. multiple: Multiple times what they spent. proportional: the share of their portfolio they spent, of what the workflow's paper account is worth.
+     * @default "fixed"
+     */
+    sizing?: "fixed" | "multiple" | "proportional" | Expression;
+    /**
+     * A fixed buy's dollars.
+     * @default "10"
+     */
+    dollars?: DecimalText | number | Expression;
+    /**
+     * For multiple: 0.1 buys a tenth of what they spent.
+     * @default "0.1"
+     */
+    multiple?: DecimalText | number | Expression;
+    /**
+     * How much worse than their price per share a copy may pay, or take when it sells.
+     * @default "0.02"
+     */
+    slippage?: DecimalText | number | Expression;
+}
+
+/** The settings of Place order (trading.placeOrder). */
+export interface TradingPlaceOrderSettings {
+    /**
+     * copy: the order Copy sizing worked out. settings: the order these settings make.
+     * @default "copy"
+     */
+    from?: "copy" | "settings" | Expression;
+    /** For settings: the outcome's token ID. */
+    tokenId?: string;
+    /** For settings. */
+    side?: "buy" | "sell" | Expression;
+    /** For settings: the limit, the most a buy pays per share or the least a sell takes. */
+    price?: DecimalText | number | Expression;
+    /** For settings: how many to buy or sell. */
+    shares?: DecimalText | number | Expression;
+    /** For settings: a buy of so many dollars instead of shares. */
+    dollars?: DecimalText | number | Expression;
+    /**
+     * For settings. FAK: what the book has within the price. FOK: all of it, or nothing.
+     * @default "FAK"
+     */
+    type?: "FAK" | "FOK" | Expression;
+}
+
 /** The settings of Keep fields (transform.pick). */
 export interface TransformPickSettings {
     /** One per line, e.g. question and spread. Paths like outcomes.0.price work too. A field of the items it receives. */
@@ -867,6 +915,20 @@ export interface NodeTypes {
         trigger: false;
         inputs: "main";
         outputs: "main";
+    };
+    "trading.copySize": {
+        settings: TradingCopySizeSettings;
+        items: "received";
+        trigger: false;
+        inputs: "main";
+        outputs: "main" | "skipped";
+    };
+    "trading.placeOrder": {
+        settings: TradingPlaceOrderSettings;
+        items: "received";
+        trigger: false;
+        inputs: "main";
+        outputs: "main" | "missed";
     };
     "transform.pick": {
         settings: TransformPickSettings;

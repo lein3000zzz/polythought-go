@@ -203,10 +203,16 @@ func (w walk) list(f engine.Field, v any, at string) error {
 
 // Check reports items a node of type typ emitted that do not conform to the fields it
 // declares, as they are and through JSON. Items received and passed on, and failed ones,
-// are not its own and go unchecked.
+// are not its own and go unchecked, but for the fields it adds to them.
 func Check(typ engine.NodeType, out engine.Ports) error {
-	if typ.Items == nil || typ.Items.Received() {
+	if typ.Items == nil || (typ.Items.Received() && len(typ.Items.Fields) == 0) {
 		return nil
+	}
+
+	// Passed on, only the fields it adds are its own: the rest are whatever came in.
+	check := Conforms
+	if typ.Items.Received() {
+		check = Has
 	}
 
 	for port, items := range out {
@@ -215,7 +221,7 @@ func Check(typ engine.NodeType, out engine.Ports) error {
 		}
 
 		for i, it := range items {
-			if err := Conforms(typ.Items.Fields, it.JSON); err != nil {
+			if err := check(typ.Items.Fields, it.JSON); err != nil {
 				return fmt.Errorf("%s: %s item %d: %w", typ.Name, port, i, err)
 			}
 
@@ -229,7 +235,7 @@ func Check(typ engine.NodeType, out engine.Ports) error {
 				return err
 			}
 
-			if err := Conforms(typ.Items.Fields, back); err != nil {
+			if err := check(typ.Items.Fields, back); err != nil {
 				return fmt.Errorf("%s: %s item %d, through JSON: %w", typ.Name, port, i, err)
 			}
 		}

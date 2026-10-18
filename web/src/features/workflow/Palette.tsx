@@ -16,6 +16,7 @@ const groupNames: Record<string, string> = {
   telegram: 'Telegram',
   code: 'Code',
   custom: 'Custom',
+  trading: 'Trading',
 }
 
 // Groups follow the way items flow: where they start, come from, are sorted out, go.
@@ -26,6 +27,7 @@ const groupOrder = [
   'Transform',
   'Code',
   'Custom',
+  'Trading',
   'Output',
   'Telegram',
   'Other',

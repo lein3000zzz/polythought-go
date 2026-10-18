@@ -8,6 +8,7 @@ import (
 	"context"
 
 	"github.com/lein3000zzz/polythought-go/pkg/clients/polymarket"
+	"github.com/shopspring/decimal"
 	mock "github.com/stretchr/testify/mock"
 )
 
@@ -452,6 +453,72 @@ func (_c *MockDataClient_Trades_Call) Return(page polymarket.Page[polymarket.Tra
 }
 
 func (_c *MockDataClient_Trades_Call) RunAndReturn(run func(ctx context.Context, q polymarket.TradesQuery) (polymarket.Page[polymarket.Trade], error)) *MockDataClient_Trades_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// Value provides a mock function for the type MockDataClient
+func (_mock *MockDataClient) Value(ctx context.Context, user string) (decimal.Decimal, error) {
+	ret := _mock.Called(ctx, user)
+
+	if len(ret) == 0 {
+		panic("no return value specified for Value")
+	}
+
+	var r0 decimal.Decimal
+	var r1 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context, string) (decimal.Decimal, error)); ok {
+		return returnFunc(ctx, user)
+	}
+	if returnFunc, ok := ret.Get(0).(func(context.Context, string) decimal.Decimal); ok {
+		r0 = returnFunc(ctx, user)
+	} else {
+		r0 = ret.Get(0).(decimal.Decimal)
+	}
+	if returnFunc, ok := ret.Get(1).(func(context.Context, string) error); ok {
+		r1 = returnFunc(ctx, user)
+	} else {
+		r1 = ret.Error(1)
+	}
+	return r0, r1
+}
+
+// MockDataClient_Value_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'Value'
+type MockDataClient_Value_Call struct {
+	*mock.Call
+}
+
+// Value is a helper method to define mock.On call
+//   - ctx context.Context
+//   - user string
+func (_e *MockDataClient_Expecter) Value(ctx any, user any) *MockDataClient_Value_Call {
+	return &MockDataClient_Value_Call{Call: _e.mock.On("Value", ctx, user)}
+}
+
+func (_c *MockDataClient_Value_Call) Run(run func(ctx context.Context, user string)) *MockDataClient_Value_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		var arg1 string
+		if args[1] != nil {
+			arg1 = args[1].(string)
+		}
+		run(
+			arg0,
+			arg1,
+		)
+	})
+	return _c
+}
+
+func (_c *MockDataClient_Value_Call) Return(decimal1 decimal.Decimal, err error) *MockDataClient_Value_Call {
+	_c.Call.Return(decimal1, err)
+	return _c
+}
+
+func (_c *MockDataClient_Value_Call) RunAndReturn(run func(ctx context.Context, user string) (decimal.Decimal, error)) *MockDataClient_Value_Call {
 	_c.Call.Return(run)
 	return _c
 }

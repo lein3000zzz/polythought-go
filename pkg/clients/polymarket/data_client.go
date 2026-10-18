@@ -9,6 +9,7 @@ import (
 	"github.com/lein3000zzz/the-watchers/pkg/observability/logging"
 	"github.com/lein3000zzz/the-watchers/pkg/observability/metrics/redkit"
 	"github.com/lein3000zzz/the-watchers/pkg/observability/tracing"
+	"github.com/shopspring/decimal"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/trace"
 )
@@ -22,6 +23,7 @@ const (
 	opHolders      = "holders"
 	opOpenInterest = "open_interest"
 	opPriceHistory = "price_history"
+	opValue        = "value"
 )
 
 // DefaultDataClient targets Data API v2 only; v1 is retired on 2026-10-24.
@@ -241,5 +243,27 @@ func (c *DefaultDataClient) PriceHistory(ctx context.Context, q PriceHistoryQuer
 		c.log.Debug(ctx, "Fetched price history", "token_id", q.TokenID, "points", len(resp.Data))
 
 		return Page[PricePoint]{Items: resp.Data, NextCursor: resp.Pagination.NextCursor}, nil
+	})
+}
+
+// Value is GET /v2/value: what a wallet's open positions are worth, without its cash.
+func (c *DefaultDataClient) Value(ctx context.Context, user string) (_ decimal.Decimal, err error) {
+	done := c.kit.Start(ctx, opValue)
+	defer func() { done(succeeded(err)) }()
+
+	return tracing.InScope(ctx, c.scope, opValue, func(ctx context.Context, span trace.Span) (decimal.Decimal, error) {
+		span.SetAttributes(attribute.String(attrUser, user))
+
+		params := url.Values{}
+		setString(params, "user", user)
+
+		var resp dataEnvelope[struct {
+			Value decimal.Decimal `json:"value"`
+		}]
+		if err := c.core.get(ctx, "/v2/value", params, &resp); err != nil {
+			return decimal.Zero, failed(ctx, c.log, opValue, err)
+		}
+
+		return resp.Data.Value, nil
 	})
 }

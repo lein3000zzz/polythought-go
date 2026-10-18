@@ -72,7 +72,12 @@ function topological(nodes: readonly FlowNode[], edges: readonly FlowEdge[]): Fl
 function emits(data: WorkflowNodeData, received: Shape): Shape {
   const items = data.type?.items
   if (!items) return undefined
-  if (items.passed) return received
+  // Passed on, with the fields it adds.
+  if (items.passed) {
+    if (!received || items.fields.length === 0) return received
+    const names = new Set(items.fields.map((f) => f.name))
+    return [...received.filter((f) => !names.has(f.name)), ...items.fields]
+  }
 
   if (items.picked) {
     const value =

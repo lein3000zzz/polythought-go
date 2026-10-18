@@ -397,6 +397,14 @@ func (c codeTypes) Declarations(ctx context.Context, p auth.Principal) ([]ports.
 	return tscompiler.Declarations(reg.Types()), nil
 }
 
+// laterWorkflows is the workflows service, made after the trading service that asks it
+// whose a workflow is.
+type laterWorkflows struct{ a *app }
+
+func (l laterWorkflows) Get(ctx context.Context, p auth.Principal, id domain.WorkflowID) (domain.Workflow, error) {
+	return l.a.workflows.Get(ctx, p, id)
+}
+
 // workflowCode runs workflow code for the Code tab's Apply (D74), for those who may write
 // code (D75).
 type workflowCode struct {
@@ -528,6 +536,18 @@ func (a *app) initEngine(ctx context.Context, pmc polymarket) error {
 		return err
 	}
 
+	// Orders, on paper for now: simulated against the live book, a paper account per
+	// workflow (D89 to D92). Place order places them; the books are shown to their owner,
+	// whom the workflows service, made later, knows.
+	ledger := postgres.NewLedger(a.db)
+	paperBalance := func() decimal.Decimal {
+		return decimal.NewFromInt(int64(a.settings.Current().Int(config.KeyPaperBalance)))
+	}
+	a.trading = trading.New(trading.Deps{
+		Ledger: ledger, Books: pmc.reader, Rules: pmc.reader, Markets: pmc.reader,
+		Workflows: laterWorkflows{a}, Logger: a.util.Logger, PaperBalance: paperBalance,
+	})
+
 	err = nodes.Register(a.registry, nodes.Deps{
 		Markets:       pmc.reader,
 		Events:        pmc.reader,
@@ -546,6 +566,11 @@ func (a *app) initEngine(ctx context.Context, pmc polymarket) error {
 		Code:          a.code,
 		Feed:          a.feed,
 		Traders:       a.traders,
+		Orders:        a.trading,
+		Books:         ledger,
+		TradingRules:  pmc.reader,
+		Portfolios:    pmc.reader,
+		PaperBalance:  paperBalance,
 		Logger:        a.util.Logger,
 		MinInterval:   current.Duration(config.KeyScheduleMinInterval),
 	})
@@ -591,16 +616,6 @@ func (a *app) initEngine(ctx context.Context, pmc polymarket) error {
 		workflows.WithLiveLimits(func() workflows.Limits { return workflowLimits(a.settings.Current()) }),
 		workflows.WithWaits(a.waits), workflows.WithFieldChecks(checks),
 		workflows.WithExpressionChecks(checks), workflows.WithCodeAccess(checks))
-
-	// Orders, on paper for now: simulated against the live book, a paper account per
-	// workflow (D89 to D92).
-	a.trading = trading.New(trading.Deps{
-		Ledger: postgres.NewLedger(a.db), Books: pmc.reader, Rules: pmc.reader, Markets: pmc.reader,
-		Workflows: a.workflows, Logger: a.util.Logger,
-		PaperBalance: func() decimal.Decimal {
-			return decimal.NewFromInt(int64(a.settings.Current().Int(config.KeyPaperBalance)))
-		},
-	})
 
 	if a.library, err = library.New(postgres.NewTemplates(a.db), a.workflows, a.registry, a.util.Logger,
 		library.WithOwnTypes(a.customNodes), library.WithCustomNodes(a.customNodes)); err != nil {

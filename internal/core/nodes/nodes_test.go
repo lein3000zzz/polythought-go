@@ -64,11 +64,12 @@ func TestRegister(t *testing.T) {
 		all := engine.NewRegistry()
 		require.NoError(t, nodes.Register(all, nodes.Deps{
 			Logger: logging.Noop(), Feed: portsmocks.NewMockMarketFeed(t), Traders: tradersStub{},
+			Orders: ordersStub{}, Books: booksStub{},
 			Messenger: telegramStub{}, TelegramInbox: telegramStub{}, Asker: telegramStub{}, Code: codeStub{},
 		}))
 
 		types := all.Types()
-		assert.Len(t, types, 27)
+		assert.Len(t, types, 29)
 
 		for _, typ := range types {
 			if typ.Name == "code.transform" || typ.Name == "code.aggregate" {
@@ -110,4 +111,13 @@ type tradersStub struct{}
 
 func (tradersStub) Follow(context.Context, []domain.WalletAddress, time.Time) (ports.TraderSubscription, error) {
 	return nil, nil //nolint:nilnil // never called: only the types are read
+}
+
+type (
+	ordersStub struct{}
+	booksStub  struct{ ports.Ledger } // never called
+)
+
+func (ordersStub) Place(context.Context, domain.OrderRequest) (domain.PlacedOrder, error) {
+	return domain.PlacedOrder{}, nil
 }

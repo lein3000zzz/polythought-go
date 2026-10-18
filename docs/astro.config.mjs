@@ -23,7 +23,7 @@ export default defineConfig({
             'guides/library',
             'guides/credentials',
             'guides/telegram',
-            'guides/follow-traders',
+            'guides/copy-traders',
           ],
         },
         {
@@ -41,7 +41,7 @@ export default defineConfig({
               items: [
                 { label: 'All nodes', slug: 'reference/nodes' },
                 // The groups of tools/docgen, which writes these pages.
-                ...['Triggers', 'Polymarket', 'Logic', 'Transform', 'Output', 'Telegram', 'Code'].map((label) => ({
+                ...['Triggers', 'Polymarket', 'Logic', 'Transform', 'Output', 'Telegram', 'Code', 'Trading'].map((label) => ({
                   label,
                   collapsed: true,
                   items: [{ autogenerate: { directory: `reference/nodes/${label.toLowerCase()}` } }],

@@ -4,6 +4,8 @@ import (
 	"context"
 	"time"
 
+	"github.com/shopspring/decimal"
+
 	"github.com/lein3000zzz/polythought-go/internal/core/domain"
 )
 
@@ -45,6 +47,11 @@ type TradeReader interface {
 // PositionReader needs a wallet or market IDs in the filter.
 type PositionReader interface {
 	Positions(ctx context.Context, f PositionFilter) (Page[domain.Position], error)
+}
+
+// PortfolioReader says what a wallet's open positions are worth now, its cash aside.
+type PortfolioReader interface {
+	PortfolioValue(ctx context.Context, wallet domain.WalletAddress) (decimal.Decimal, error)
 }
 
 type PriceHistoryReader interface {

@@ -33,6 +33,9 @@ func shapesRegistry(t *testing.T) *engine.Registry {
 
 	for _, typ := range []engine.NodeType{
 		{Name: "t.pass", Inputs: in, Outputs: in, Items: &engine.Items{Passed: true}},
+		{Name: "t.add", Inputs: in, Outputs: in, Items: &engine.Items{Passed: true, Fields: []engine.Field{
+			{Name: "price", Kind: engine.FieldText}, {Name: "copy", Kind: engine.FieldObject, Fields: []engine.Field{{Name: "dollars", Kind: engine.FieldDecimal}}},
+		}}},
 		{Name: "t.unknown", Inputs: in, Outputs: in},
 		{Name: "t.own", Inputs: in, Outputs: in, Items: &engine.Items{Fields: []engine.Field{{Name: "price", Kind: engine.FieldNumber}, {Name: "n", Kind: engine.FieldNumber}}}},
 		{
@@ -86,6 +89,15 @@ func TestReceived(t *testing.T) {
 		assert.Nil(t, got["n0"], "a trigger receives nothing")
 		assert.Equal(t, []string{"question", "price", "outcomes"}, names(got["n1"]))
 		assert.Equal(t, got["n1"], got["n3"])
+	})
+
+	t.Run("passed on with fields added", func(t *testing.T) {
+		got := r.Received(chain("t.add", "t.pass"))["n2"]
+
+		assert.Equal(t, []string{"question", "outcomes", "price", "copy"}, names(got), "the added replace their namesakes")
+		assert.Equal(t, engine.FieldText, got[2].Kind)
+
+		assert.Nil(t, r.Received(chain("t.unknown", "t.add", "t.pass"))["n3"], "added to what nobody knows: still unknown")
 	})
 
 	t.Run("their own, or nobody knows", func(t *testing.T) {

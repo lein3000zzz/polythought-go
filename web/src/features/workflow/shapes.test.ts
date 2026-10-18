@@ -39,6 +39,15 @@ const types: Record<string, NodeType> = {
     items: { fields: marketFields, passed: false },
   }),
   pass: type('t.pass', { items: { fields: [], passed: true } }),
+  add: type('t.add', {
+    items: {
+      fields: [
+        field('price', 'text'),
+        field('copy', 'object', { fields: [field('dollars', 'decimal')] }),
+      ],
+      passed: true,
+    },
+  }),
   unknown: type('t.unknown', {}),
   own: type('t.own', {
     items: { fields: [field('price', 'number'), field('n', 'number')], passed: false },
@@ -72,6 +81,17 @@ describe('receivedShapes', () => {
 
     expect(shapes.get('a')).toBeUndefined()
     expect(names(shapes.get('c'))).toEqual(['question', 'price', 'outcomes'])
+  })
+
+  it('passes items on with the fields a node adds, replacing their namesakes', () => {
+    const shapes = receivedShapes(
+      [node('a', types.markets), node('b', types.add), node('c', types.pass)],
+      [link('a', 'b'), link('b', 'c')],
+    )
+
+    const got = shapes.get('c')
+    expect(names(got)).toEqual(['question', 'outcomes', 'price', 'copy'])
+    expect(got?.find((f) => f.name === 'price')?.kind).toBe('text')
   })
 
   it('takes a node’s own fields, and knows nothing after one that does not say', () => {

@@ -115,6 +115,7 @@ func TestLedger(t *testing.T) {
 
 	t.Run("a refused order is kept with why, and pages go newest first", func(t *testing.T) {
 		refused := order(domain.SideBuy, domain.OrderRefused)
+		refused.ExecutionID = domain.ExecutionID(newID()) // still running: recorded when it ends
 		refused.Reason = "not enough paper cash"
 		require.NoError(t, ledger.Record(ctx, refused, nil))
 
@@ -123,6 +124,7 @@ func TestLedger(t *testing.T) {
 		require.Len(t, first.Items, 1)
 		assert.Equal(t, refused.ID, first.Items[0].ID)
 		assert.Equal(t, "not enough paper cash", first.Items[0].Reason)
+		assert.Equal(t, refused.ExecutionID, first.Items[0].ExecutionID)
 		assert.Empty(t, first.Items[0].Fills)
 
 		rest, err := ledger.Orders(ctx, w.ID, ports.PageFilter{Limit: 1, Cursor: first.NextCursor})

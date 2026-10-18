@@ -345,6 +345,17 @@ func TestRESTRequests(t *testing.T) {
 			},
 		},
 		{
+			name:     "data value of a wallet's positions",
+			response: []byte(`{"data":{"proxy_wallet":"0xw","value":1234.5678}}`),
+			call: func(ctx context.Context, c restClients) (any, error) {
+				return c.data.Value(ctx, "0xw")
+			},
+			wantURI: "/v2/value?user=0xw",
+			check: func(t *testing.T, result any) {
+				assert.True(t, result.(decimal.Decimal).Equal(dec("1234.5678")), "exact")
+			},
+		},
+		{
 			name:     "data open interest for conditions",
 			response: []byte(`{"data":[{"condition_id":"0xa","value":1},{"condition_id":"0xb","value":2}]}`),
 			call: func(ctx context.Context, c restClients) (any, error) {

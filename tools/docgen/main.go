@@ -78,6 +78,7 @@ func build() (Pages, map[string]string, error) {
 	// wallet triggers register only with a feed, and the Telegram nodes only with the bot.
 	err := nodes.Register(registry, nodes.Deps{
 		Feed: noFeed{}, Traders: noTraders{}, Messenger: noTelegram{}, TelegramInbox: noTelegram{}, Asker: noTelegram{}, Code: noCode{},
+		Orders: noOrders{}, Books: noBooks{},
 		Logger: logging.Noop(),
 	})
 	if err != nil {
@@ -171,6 +172,16 @@ type noTraders struct{}
 
 func (noTraders) Follow(context.Context, []domain.WalletAddress, time.Time) (ports.TraderSubscription, error) {
 	return nil, nil //nolint:nilnil // never called: only the node types are read
+}
+
+// noOrders and noBooks stand in for the trading service and the ledger.
+type (
+	noOrders struct{}
+	noBooks  struct{ ports.Ledger }
+)
+
+func (noOrders) Place(context.Context, domain.OrderRequest) (domain.PlacedOrder, error) {
+	return domain.PlacedOrder{}, nil
 }
 
 type noTelegram struct{}

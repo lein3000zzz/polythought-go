@@ -37,9 +37,10 @@ type Field struct {
 // Items describes the items a node emits, on every output port: fields of its own, or
 // the items it received. The error port always carries the items received.
 type Items struct {
+	// Fields are the items' own; with Passed, those it adds to the items it sends on.
 	Fields []Field
 
-	// Passed: the node sends on the items it receives, as they are.
+	// Passed: the node sends on the items it receives, as they are, but for Fields.
 	Passed bool
 
 	// Picked names a list param: the node sends on the items it receives with only the
@@ -69,8 +70,8 @@ func checkItems(typ NodeType) error {
 	switch {
 	case it.Passed && it.Picked != "":
 		return fail("passed whole or picked, not both")
-	case it.Received() && len(it.Fields) > 0:
-		return fail("the items received, or fields of its own, not both")
+	case it.Picked != "" && len(it.Fields) > 0:
+		return fail("picked fields, or fields of its own, not both")
 	case it.Received() && len(typ.Inputs) == 0:
 		return fail("a node without inputs receives no items")
 	}

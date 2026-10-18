@@ -52,6 +52,8 @@ type DataClient interface {
 	Holders(ctx context.Context, q HoldersQuery) ([]TokenHolders, error)
 	OpenInterest(ctx context.Context, conditionIDs ...string) ([]OpenInterest, error)
 	PriceHistory(ctx context.Context, q PriceHistoryQuery) (Page[PricePoint], error)
+	// Value is what a wallet's positions are worth now, its cash aside.
+	Value(ctx context.Context, user string) (decimal.Decimal, error)
 }
 
 // MarketStreamClient streams the public CLOB market channel.
