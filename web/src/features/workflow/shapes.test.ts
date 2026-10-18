@@ -56,6 +56,18 @@ const types: Record<string, NodeType> = {
     items: { fields: [], passed: false, picked: 'fields' },
     params: [{ name: 'fields', kind: 'list', required: true, field: true }],
   }),
+  split: type('t.split', {
+    items: { fields: [], passed: false, split: 'field' },
+    params: [{ name: 'field', kind: 'string', required: true, field: true }],
+  }),
+  tokens: type('t.tokens', {
+    trigger: true,
+    inputs: [],
+    items: {
+      fields: [field('question', 'text'), field('tokens', 'list', { of: field('', 'text') })],
+      passed: false,
+    },
+  }),
 }
 
 function node(id: string, t: NodeType, params?: Record<string, unknown>): FlowNode {
@@ -126,6 +138,37 @@ describe('receivedShapes', () => {
       field('ghost', 'any', { optional: true }),
     ])
     expect(names(shapes.get('d'))).toEqual(['question', 'price', 'outcomes'])
+  })
+
+  it('splits a list: an entry’s fields at the top, or the entry in the list’s place', () => {
+    const shapes = receivedShapes(
+      [
+        node('a', types.markets),
+        node('b', types.split, { field: 'outcomes' }),
+        node('c', types.pass),
+        node('t', types.tokens),
+        node('u', types.split, { field: 'tokens' }),
+        node('v', types.pass),
+        node('w', types.split, { field: 'question' }),
+        node('x', types.pass),
+      ],
+      [
+        link('a', 'b'),
+        link('b', 'c'),
+        link('t', 'u'),
+        link('u', 'v'),
+        link('a', 'w'),
+        link('w', 'x'),
+      ],
+    )
+
+    expect(shapes.get('c')).toEqual([
+      field('question', 'text'),
+      field('label', 'text'),
+      field('price', 'decimal'),
+    ])
+    expect(shapes.get('v')).toEqual([field('question', 'text'), field('tokens', 'text')])
+    expect(shapes.get('x')).toBeUndefined()
   })
 
   it('makes optional what only some connections carry', () => {

@@ -1262,6 +1262,7 @@ export interface components {
             fields: components["schemas"]["ItemField"][];
             passed: boolean;
             picked?: string;
+            split?: string;
         };
         NodeRun: {
             error?: string;
@@ -1304,7 +1305,11 @@ export interface components {
             label?: string;
             name: string;
             outputs: string[];
-            /** @description OutputsParam names a list param whose values are more output ports, after outputs. */
+            outputsColumn?: string;
+            /**
+             * @description OutputsParam names a list param whose values are more output ports, after outputs;
+             *     with outputsColumn, a table, that text column of each row naming a port.
+             */
             outputsParam?: string;
             params: components["schemas"]["ParamSpec"][];
             trigger: boolean;

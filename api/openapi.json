@@ -1129,6 +1129,9 @@
                     },
                     "picked": {
                         "type": "string"
+                    },
+                    "split": {
+                        "type": "string"
                     }
                 },
                 "required": [
@@ -1229,8 +1232,11 @@
                         "type": "array",
                         "uniqueItems": false
                     },
+                    "outputsColumn": {
+                        "type": "string"
+                    },
                     "outputsParam": {
-                        "description": "OutputsParam names a list param whose values are more output ports, after outputs.",
+                        "description": "OutputsParam names a list param whose values are more output ports, after outputs;\nwith outputsColumn, a table, that text column of each row naming a port.",
                         "type": "string"
                     },
                     "params": {

@@ -16,10 +16,11 @@ const (
 	MaxPortNameSize = 40 // characters
 )
 
-var errOutputsParam = errors.New("outputs param must name a list param")
+var errOutputsParam = errors.New("outputs param must name a list param, or a table and its text column")
 
 // OutputsOf lists the output ports of a node of this type with params: the fixed ones,
-// then one per value of its OutputsParam, or of that param's default when it is unset.
+// then one per value of its OutputsParam, or of that param's default when it is unset;
+// for a table, one per row, named by its OutputsColumn.
 func (t NodeType) OutputsOf(params map[string]any) []string {
 	ports, _ := t.paramPorts(params)
 
@@ -46,9 +47,28 @@ func (t NodeType) paramPorts(params map[string]any) (ports []string, ok bool) {
 		return nil, true
 	}
 
+	if t.OutputsColumn != "" {
+		return t.columnPorts(value)
+	}
+
 	ports, err := Params{t.OutputsParam: value}.Strings(t.OutputsParam)
 
 	return ports, err == nil
+}
+
+// columnPorts is the OutputsColumn of each row of a table, empty where a row has none.
+func (t NodeType) columnPorts(value any) ([]string, bool) {
+	rows, err := Params{t.OutputsParam: value}.Table(t.OutputsParam, nil)
+	if err != nil {
+		return nil, false
+	}
+
+	ports := make([]string, len(rows))
+	for i, row := range rows {
+		ports[i], _ = row[t.OutputsColumn].(string)
+	}
+
+	return ports, true
 }
 
 func checkOutputsParam(typ NodeType) error {
@@ -57,7 +77,13 @@ func checkOutputsParam(typ NodeType) error {
 	}
 
 	for _, p := range typ.Params {
-		if p.Name == typ.OutputsParam && p.Kind == ParamList {
+		switch {
+		case p.Name != typ.OutputsParam:
+		case typ.OutputsColumn == "" && p.Kind == ParamList:
+			return nil
+		case typ.OutputsColumn != "" && p.Kind == ParamTable && slices.ContainsFunc(p.Columns, func(c ParamSpec) bool {
+			return c.Name == typ.OutputsColumn && c.Kind == ParamString
+		}):
 			return nil
 		}
 	}
@@ -81,11 +107,16 @@ func checkParamPorts(v *domain.ValidationError, n domain.NodeSpec, typ NodeType)
 		})
 	}
 
+	value, empty := "value", "has an empty value"
+	if typ.OutputsColumn != "" {
+		value, empty = "row", "has a row without a port name"
+	}
+
 	switch {
 	case len(ports) == 0:
-		problem("needs at least one value")
+		problem("needs at least one %s", value)
 	case len(ports) > MaxParamPorts:
-		problem("has %d values, more than the %d allowed", len(ports), MaxParamPorts)
+		problem("has %d %ss, more than the %d allowed", len(ports), value, MaxParamPorts)
 	}
 
 	seen := make(map[string]bool, len(ports))
@@ -93,7 +124,7 @@ func checkParamPorts(v *domain.ValidationError, n domain.NodeSpec, typ NodeType)
 	for _, port := range ports {
 		switch {
 		case strings.TrimSpace(port) == "":
-			problem("has an empty value")
+			problem("%s", empty)
 		case utf8.RuneCountInString(port) > MaxPortNameSize:
 			problem("%q is longer than %d characters", port, MaxPortNameSize)
 		case seen[port]:

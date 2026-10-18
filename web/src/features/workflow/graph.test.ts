@@ -275,13 +275,36 @@ describe('ports from a setting', () => {
     expect(moved[0].id).toBe('ask.Approve->buy.main')
   })
 
-  it('swaps connections when values swap', () => {
+  it('keeps connections with values that only moved', () => {
     expect(ports(followPorts(edges, 'ask', ['Yes', 'No'], ['No', 'Yes']))).toEqual([
-      'ask.No->buy',
-      'ask.Yes->log',
+      'ask.Yes->buy',
+      'ask.No->log',
       'ask.timeout->log',
       'other.Yes->log',
     ])
+  })
+
+  it('gives a port per row of a table, named by a column', () => {
+    const rules: NodeType = {
+      name: 'logic.switch',
+      trigger: false,
+      code: false,
+      inputs: ['main'],
+      outputs: ['other'],
+      params: [{ name: 'rules', kind: 'table', required: false }],
+      outputsParam: 'rules',
+      outputsColumn: 'port',
+    }
+    const rows = [{ port: 'cheap', field: 'price' }, { port: '' }, { field: 'x' }, { port: 'dear' }]
+
+    expect(
+      outputsOf({
+        spec: { id: 's', type: 'logic.switch', params: { rules: rows } },
+        type: rules,
+        extraInputs: [],
+        extraOutputs: [],
+      }),
+    ).toEqual(['other', 'cheap', 'dear'])
   })
 
   it('drops connections from a value that is gone', () => {

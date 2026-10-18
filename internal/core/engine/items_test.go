@@ -16,7 +16,10 @@ func TestRegisterItems(t *testing.T) {
 	node := func(items engine.Items) engine.NodeType {
 		return engine.NodeType{
 			Name: "test.items", Inputs: mainPorts(), Outputs: mainPorts(), Items: &items,
-			Params: []engine.ParamSpec{{Name: "fields", Kind: engine.ParamList}, {Name: "one", Kind: engine.ParamString}},
+			Params: []engine.ParamSpec{
+				{Name: "fields", Kind: engine.ParamList}, {Name: "one", Kind: engine.ParamString},
+				{Name: "list", Kind: engine.ParamString, Field: true},
+			},
 		}
 	}
 
@@ -36,7 +39,11 @@ func TestRegisterItems(t *testing.T) {
 				{Name: "outcomes", Kind: engine.FieldList, Of: &engine.Field{Kind: engine.FieldObject, Fields: []engine.Field{text("label")}}},
 			}}),
 		},
-		{name: "both kinds", typ: node(engine.Items{Passed: true, Picked: "fields"}), wantErr: "passed whole or picked, not both"},
+		{name: "split", typ: node(engine.Items{Split: "list"})},
+		{name: "both kinds", typ: node(engine.Items{Passed: true, Picked: "fields"}), wantErr: "passed whole, picked or split: one of them"},
+		{name: "split and picked", typ: node(engine.Items{Split: "list", Picked: "fields"}), wantErr: "one of them"},
+		{name: "split and own", typ: node(engine.Items{Split: "list", Fields: []engine.Field{text("x")}}), wantErr: "not both"},
+		{name: "split by no field", typ: node(engine.Items{Split: "one"}), wantErr: `split by "one", which is not a field param`},
 		{name: "received, with fields added", typ: node(engine.Items{Passed: true, Fields: []engine.Field{text("x")}})},
 		{name: "picked and own", typ: node(engine.Items{Picked: "fields", Fields: []engine.Field{text("x")}}), wantErr: "not both"},
 		{

@@ -42,7 +42,7 @@ func TestRegisterOutputsParam(t *testing.T) {
 
 	missing := routeType()
 	missing.Name, missing.OutputsParam = "test.missing", "ghost"
-	require.ErrorContains(t, r.RegisterNode(fakeNode{typ: missing}), `outputs param must name a list param, not "ghost"`)
+	require.ErrorContains(t, r.RegisterNode(fakeNode{typ: missing}), `outputs param must name a list param, or a table and its text column, not "ghost"`)
 
 	notList := routeType()
 	notList.Name = "test.string"
@@ -122,4 +122,57 @@ func TestValidateParamPorts(t *testing.T) {
 			}
 		})
 	}
+}
+
+// rulesType has a fixed "other" port and one per row of its "rules" table, named by the
+// row's "port".
+func rulesType() engine.NodeType {
+	return engine.NodeType{
+		Name: "test.rules", Inputs: mainPorts(), Outputs: mainPorts("other"),
+		Params: []engine.ParamSpec{{
+			Name: "rules", Kind: engine.ParamTable,
+			Columns: []engine.ParamSpec{{Name: "port", Kind: engine.ParamString, Required: true}, {Name: "field", Kind: engine.ParamString}},
+		}},
+		OutputsParam: "rules", OutputsColumn: "port",
+	}
+}
+
+func TestPortsFromATable(t *testing.T) {
+	t.Parallel()
+
+	rows := func(ports ...string) []any {
+		out := make([]any, len(ports))
+		for i, p := range ports {
+			out[i] = map[string]any{"port": p, "field": "price"}
+		}
+
+		return out
+	}
+
+	typ := rulesType()
+	assert.Equal(t, []string{"other", "cheap", "dear"}, typ.OutputsOf(map[string]any{"rules": rows("cheap", "dear")}))
+	assert.Equal(t, []string{"other"}, typ.OutputsOf(nil))
+
+	r := testRegistry(t)
+	require.NoError(t, r.RegisterNode(fakeNode{typ: typ}))
+
+	noColumn := rulesType()
+	noColumn.Name, noColumn.OutputsColumn = "test.nocolumn", "ghost"
+	require.ErrorContains(t, r.RegisterNode(fakeNode{typ: noColumn}), "a table and its text column")
+
+	rules := func(table []any, from string) domain.Workflow {
+		return domain.Workflow{
+			Nodes: []domain.NodeSpec{trigger(), spec("r", "test.rules", map[string]any{"rules": table}), spec("a", "test.pass", nil)},
+			Connections: []domain.Connection{
+				mainLink("trigger", "r"), link("r", from, "a", engine.DefaultPort),
+			},
+		}
+	}
+
+	require.NoError(t, r.Validate(rules(rows("cheap", "dear"), "dear")))
+	require.NoError(t, r.Validate(rules(rows("cheap"), "other")))
+	require.ErrorContains(t, r.Validate(rules(rows("cheap"), "dear")), `has no output port "dear"`)
+	require.ErrorContains(t, r.Validate(rules(rows("cheap", ""), "cheap")), `param "rules" has a row without a port name`)
+	require.ErrorContains(t, r.Validate(rules(rows("cheap", "cheap"), "cheap")), `param "rules" has "cheap" twice`)
+	require.ErrorContains(t, r.Validate(rules(nil, "other")), `param "rules" needs at least one row`)
 }

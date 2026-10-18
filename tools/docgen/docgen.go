@@ -200,7 +200,11 @@ func nodePage(t engine.TypeInfo, order int, credTypes []engine.CredentialType) s
 	}
 
 	outputs := portList(t.Outputs)
-	if t.OutputsParam != "" {
+	switch {
+	case t.OutputsColumn != "":
+		outputs += ", and one per row of " + paramLabel(t.NodeType, t.OutputsParam) + ", named by its " +
+			columnLabel(t.NodeType, t.OutputsParam, t.OutputsColumn)
+	case t.OutputsParam != "":
 		outputs += ", and one per value of " + paramLabel(t.NodeType, t.OutputsParam)
 	}
 
@@ -232,7 +236,10 @@ func nodePage(t engine.TypeInfo, order int, credTypes []engine.CredentialType) s
 
 		fmt.Fprintf(&b, "\n### %s columns\n\nEach row of **%s** has these cells.", labelOf(p), labelOf(p))
 
-		if !t.Trigger { // a trigger's settings take no expressions at all
+		switch {
+		case p.Name == t.OutputsParam:
+			b.WriteString(" Its rows name ports, so it takes no expression: the ports must be known when the workflow is saved.")
+		case !t.Trigger: // a trigger's settings take no expressions at all
 			fmt.Fprintf(&b, " Only the whole table takes an [expression](%s/guides/expressions/), not its cells.", base)
 		}
 
@@ -275,6 +282,13 @@ func writeItems(b *strings.Builder, t engine.NodeType) {
 		return
 	case it.Picked != "":
 		fmt.Fprintf(b, "The items it receives, with only the fields %s names.\n", paramLabel(t, it.Picked))
+		return
+	case it.Split != "":
+		fmt.Fprintf(b, "An item for each entry of the list %s names, with the other fields of the item it "+
+			"came from. An entry's own fields go at the top, in place of any of the same name; an entry that "+
+			"is not an object takes the list's place. An item whose list is empty or missing gives none.\n",
+			paramLabel(t, it.Split))
+
 		return
 	case len(it.Fields) == 0:
 		b.WriteString("Empty: items with no fields.\n")
@@ -598,6 +612,23 @@ func paramLabel(t engine.NodeType, name string) string {
 	for _, p := range t.Params {
 		if p.Name == name && p.Label != "" {
 			return "**" + p.Label + "** (`" + name + "`)"
+		}
+	}
+
+	return "`" + name + "`"
+}
+
+// columnLabel names a column of a table param, as paramLabel names a param.
+func columnLabel(t engine.NodeType, table, name string) string {
+	for _, p := range t.Params {
+		if p.Name != table {
+			continue
+		}
+
+		for _, c := range p.Columns {
+			if c.Name == name && c.Label != "" {
+				return "**" + c.Label + "** (`" + name + "`)"
+			}
 		}
 	}
 

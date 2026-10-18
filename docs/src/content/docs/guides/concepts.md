@@ -12,7 +12,9 @@ message to a chat. Data flows along the lines from node to node.
 What flows is a list of **items**. An item is one record, such as a market, a trade or a
 position, with named fields: `question`, `spread`, `price` and so on. Most nodes take items
 in and send items out: Markets sends one item per market, Order books adds each market's
-best prices to its item, Filter passes on only the items that match.
+best prices to its item, Filter passes on only the items that match, and
+[Split out](/docs/reference/nodes/transform/split-out/) makes an item of each entry of a
+list, like a market's outcomes, each with the market's other fields.
 
 A node's settings can use an item's fields. The Webhook node's message, for example, puts
 in a field with `{{question}}` or `{{spread}}`, and `{{ dec(spread).times(100) }}` works it out; see
@@ -32,15 +34,16 @@ node connected to a port gets the items sent through it.
 
 A few nodes take some of their ports from a setting: a
 [Telegram question](/docs/reference/nodes/telegram/ask/) has a port for each of its buttons,
-named like the button, besides `timeout`. Renaming a button in the editor keeps its lines;
-removing one removes them.
+named like the button, besides `timeout`, and a [Switch](/docs/reference/nodes/logic/switch/)
+one for each of its rules, besides `other`. Renaming a button or a rule's port in the editor
+keeps its lines, and so does moving it; removing one removes them.
 
 ## Testing items
 
 [If](/docs/reference/nodes/logic/if/) and [Filter](/docs/reference/nodes/logic/filter/) test
-each item: a number compared with a value, like `spread` `lt` `0.02`; text that contains a
-value, in any case; or a field being there at all, `exists` or `missing`. **More tests** adds
-more, a row each, and **Match** says how they count together:
+each item: a number compared with a value, like `spread` `lt` `0.02`; text that is a value
+(`is`, `isNot`) or contains it, in any case; or a field being there at all, `exists` or
+`missing`. **More tests** adds more, a row each, and **Match** says how they count together:
 
 | Match | The item passes when |
 |---|---|
@@ -53,6 +56,13 @@ The first test takes expressions: `{{ bestAsk }}` as its value compares one fiel
 another. The rows of More tests are plain values. A field a test cannot use, like text
 where a number is needed, fails the item, whatever the other tests say: it stops the
 execution, or with **Continue on failure** on, leaves on the `error` port.
+
+[Switch](/docs/reference/nodes/logic/switch/) has the same tests, one in each of its
+rules, a row each with the port it sends to. Rules are tried in order: the first an item
+passes takes it, and items no rule takes leave from `other`. A Switch with `price` `lt`
+`0.2` as `longshot` and `price` `gte` `0.8` as `favourite` splits copies by price. Its rules
+are plain values too, and one that cannot use an item's field fails the item, as there is
+no telling where it goes.
 
 ## Triggers
 

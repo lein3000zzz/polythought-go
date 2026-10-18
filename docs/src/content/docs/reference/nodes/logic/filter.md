@@ -23,8 +23,8 @@ Items that fail stop the execution, unless **Continue on failure** is on: then t
 | Setting | Kind | Required | Default | Description |
 |---|---|---|---|---|
 | Field (`field`) | text | yes |  | The item field to test, e.g. spread, or outcomes.0.price for the first outcome's price. Names a field of the items it receives; saving checks the items have it. |
-| Test (`operator`) | text | no | `gt` | One of `gt`, `gte`, `lt`, `lte`, `eq`, `neq`, `contains`, `notContains`, `exists`, `missing`. |
-| Value (`value`) | text or a number | no |  | A number for the comparisons, text for contains (any case). Not used by exists and missing. |
+| Test (`operator`) | text | no | `gt` | One of `gt`, `gte`, `lt`, `lte`, `eq`, `neq`, `is`, `isNot`, `contains`, `notContains`, `exists`, `missing`. |
+| Value (`value`) | text or a number | no |  | A number for the comparisons, text for is and contains (any case). Not used by exists and missing. |
 | More tests (`tests`) | table, its columns below | no |  | More tests like the first, a row each. Match says how they count together. |
 | Match (`match`) | text | no | `all` | all: every test passes (AND). any: one or more do (OR). none: not one does (NOT). one: exactly one does (XOR). One of `all`, `any`, `none`, `one`. |
 
@@ -35,8 +35,8 @@ Each row of **More tests** has these cells. Only the whole table takes an [expre
 | Column | Kind | Required | Default | Description |
 |---|---|---|---|---|
 | Field (`field`) | text | yes |  | The item field to test. |
-| Test (`operator`) | text | no | `gt` | One of `gt`, `gte`, `lt`, `lte`, `eq`, `neq`, `contains`, `notContains`, `exists`, `missing`. |
-| Value (`value`) | text or a number | no |  | A number for the comparisons, text for contains (any case). Not used by exists and missing. |
+| Test (`operator`) | text | no | `gt` | One of `gt`, `gte`, `lt`, `lte`, `eq`, `neq`, `is`, `isNot`, `contains`, `notContains`, `exists`, `missing`. |
+| Value (`value`) | text or a number | no |  | A number for the comparisons, text for is and contains (any case). Not used by exists and missing. |
 
 ## Items
 

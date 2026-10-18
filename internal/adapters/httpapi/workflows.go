@@ -257,8 +257,10 @@ type nodeTypeDTO struct {
 	Inputs      []string   `json:"inputs"`
 	Outputs     []string   `json:"outputs"`
 	Params      []paramDTO `json:"params"`
-	// OutputsParam names a list param whose values are more output ports, after outputs.
-	OutputsParam string `json:"outputsParam,omitempty" validate:"optional"`
+	// OutputsParam names a list param whose values are more output ports, after outputs;
+	// with outputsColumn, a table, that text column of each row naming a port.
+	OutputsParam  string `json:"outputsParam,omitempty" validate:"optional"`
+	OutputsColumn string `json:"outputsColumn,omitempty" validate:"optional"`
 	// Items describes what the node emits; absent when nobody knows.
 	Items *itemsDTO `json:"items,omitempty" validate:"optional"`
 	// Code says it runs code its owner wrote: only users who may write code (the
@@ -267,12 +269,14 @@ type nodeTypeDTO struct {
 } // @name NodeType
 
 // itemsDTO describes the items a node emits on every output port: fields of its own, or
-// the items it received, whole or with only the fields a list param names. The error
+// the items it received, whole or with only the fields a list param names, or an item for
+// each entry of the list a field param names, with the item's other fields. The error
 // port carries the items received.
 type itemsDTO struct {
 	Fields []fieldDTO `json:"fields"`
 	Passed bool       `json:"passed"`
 	Picked string     `json:"picked,omitempty" validate:"optional"`
+	Split  string     `json:"split,omitempty" validate:"optional"`
 } // @name NodeItems
 
 type fieldDTO struct {
@@ -325,7 +329,7 @@ func toNodeTypeDTO(t engine.TypeInfo) nodeTypeDTO {
 	dto := nodeTypeDTO{
 		Name: t.Name, Label: t.Label, Description: t.Description, Trigger: t.Trigger,
 		Inputs: nonNil(t.Inputs), Outputs: nonNil(t.Outputs),
-		Params: make([]paramDTO, len(t.Params)), OutputsParam: t.OutputsParam,
+		Params: make([]paramDTO, len(t.Params)), OutputsParam: t.OutputsParam, OutputsColumn: t.OutputsColumn,
 		Items: toItemsDTO(t.Items), Code: t.Code,
 	}
 
@@ -341,7 +345,7 @@ func toItemsDTO(it *engine.Items) *itemsDTO {
 		return nil
 	}
 
-	return &itemsDTO{Fields: toFieldDTOs(it.Fields), Passed: it.Passed, Picked: it.Picked}
+	return &itemsDTO{Fields: toFieldDTOs(it.Fields), Passed: it.Passed, Picked: it.Picked, Split: it.Split}
 }
 
 func toFieldDTOs(fields []engine.Field) []fieldDTO {

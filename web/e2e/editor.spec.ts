@@ -180,3 +180,95 @@ test('field settings offer the fields there, and saving checks them', async ({ p
   await page.getByRole('button', { name: 'Save', exact: true }).click()
   await expect(page.getByText('Version 2')).toBeVisible()
 })
+
+test('a switch has a port per rule, and its lines stay with their rules', async ({ page }) => {
+  const rule = (port: string, operator: string) => ({
+    port,
+    field: 'price',
+    operator,
+    value: '0.5',
+  })
+  const created = await page.request.post('/api/v1/workflows', {
+    data: {
+      name: unique('switch'),
+      nodes: [
+        { id: 'manual', type: 'trigger.manual', position: { x: 0, y: 0 } },
+        {
+          id: 'markets',
+          type: 'polymarket.markets',
+          params: { limit: 3 },
+          position: { x: 300, y: 0 },
+        },
+        {
+          id: 'split',
+          type: 'transform.splitOut',
+          params: { field: 'outcomes' },
+          position: { x: 600, y: 0 },
+        },
+        {
+          id: 'route',
+          type: 'logic.switch',
+          params: { rules: [rule('cheap', 'lt'), rule('dear', 'gte')] },
+          position: { x: 900, y: 0 },
+        },
+        { id: 'log', type: 'output.log', position: { x: 1200, y: 0 } },
+      ],
+      connections: [
+        { from: 'manual', fromPort: 'main', to: 'markets', toPort: 'main' },
+        { from: 'markets', fromPort: 'main', to: 'split', toPort: 'main' },
+        { from: 'split', fromPort: 'main', to: 'route', toPort: 'main' },
+        { from: 'route', fromPort: 'dear', to: 'log', toPort: 'main' },
+      ],
+    },
+  })
+  expect(created.status(), await created.text()).toBe(201)
+  const { id } = (await created.json()) as { id: string }
+  const saved = async () =>
+    (await (await page.request.get(`/api/v1/workflows/${id}`)).json()) as {
+      nodes: { id: string; params?: { rules?: { port: string }[] } }[]
+      connections: { from: string; fromPort: string; to: string }[]
+    }
+
+  await page.goto(`/workflows/${id}`)
+  const ports = canvasNode(page, 'route').locator('.react-flow__handle.source')
+  await expect(ports).toHaveCount(3)
+  for (const port of ['other', 'cheap', 'dear']) {
+    await expect(canvasNode(page, 'route').locator(`[data-handleid="${port}"]`)).toHaveCount(1)
+  }
+
+  // Moved up, the dear rule keeps its line.
+  await canvasNode(page, 'route').click()
+  const settings = page.getByRole('complementary', { name: 'Settings' })
+  await settings.getByRole('button', { name: 'Edit rules' }).click()
+  const dialog = page.getByRole('dialog', { name: 'Rules' })
+  await dialog.getByRole('button', { name: 'Move row 2 up' }).click()
+  await dialog.getByRole('button', { name: 'Done' }).click()
+  await page.getByRole('button', { name: 'Save', exact: true }).click()
+  await expect(page.getByText('Version 2')).toBeVisible()
+
+  let w = await saved()
+  expect(w.nodes.find((n) => n.id === 'route')?.params?.rules?.map((r) => r.port)).toEqual([
+    'dear',
+    'cheap',
+  ])
+  expect(w.connections.find((c) => c.to === 'log')?.fromPort).toBe('dear')
+
+  // Renamed, it takes its line along.
+  await settings.getByRole('button', { name: 'Edit rules' }).click()
+  await dialog.getByRole('textbox', { name: 'Port, row 1' }).fill('pricey')
+  await dialog.getByRole('button', { name: 'Done' }).click()
+  await page.getByRole('button', { name: 'Save', exact: true }).click()
+  await expect(page.getByText('Version 3')).toBeVisible()
+
+  w = await saved()
+  expect(w.connections.find((c) => c.to === 'log')?.fromPort).toBe('pricey')
+
+  // Run on live markets: an item per outcome, each sent by its price.
+  await page.getByRole('button', { name: 'Run', exact: true }).click()
+  await expect(page.getByText(/Execution at/)).toBeVisible()
+  await expect(canvasNode(page, 'route').getByLabel('Succeeded')).toBeVisible()
+
+  await canvasNode(page, 'split').click()
+  await expect(settings.getByText(/^main · \d+ items/)).toBeVisible()
+  await expect(settings.getByText(/"tokenId":/).first()).toBeVisible() // an outcome's, at the top
+})

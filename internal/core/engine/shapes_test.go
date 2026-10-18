@@ -43,6 +43,10 @@ func shapesRegistry(t *testing.T) *engine.Registry {
 			Params: []engine.ParamSpec{{Name: "fields", Kind: engine.ParamList, Field: true}},
 		},
 		{
+			Name: "t.split", Inputs: in, Outputs: in, Items: &engine.Items{Split: "list"},
+			Params: []engine.ParamSpec{{Name: "list", Kind: engine.ParamString, Field: true}},
+		},
+		{
 			Name: "t.compare", Inputs: in, Outputs: mainPorts("true", "false"), Items: &engine.Items{Passed: true},
 			Params: []engine.ParamSpec{{Name: "field", Kind: engine.ParamString, Field: true, FieldKinds: numbers}},
 		},
@@ -117,6 +121,33 @@ func TestReceived(t *testing.T) {
 			{Name: "outcomes.0.price", Kind: engine.FieldDecimal, Optional: true},
 			{Name: "ghost", Kind: engine.FieldAny, Optional: true},
 		}, []engine.Field(got))
+	})
+
+	t.Run("split: an entry's fields at the top, winning a clash", func(t *testing.T) {
+		w := chain("t.split", "t.pass")
+		w.Nodes[1].Params = map[string]any{"list": "outcomes"}
+
+		got := r.Received(w)["n2"]
+		assert.Equal(t, []engine.Field{
+			textField, {Name: "label", Kind: engine.FieldText}, {Name: "price", Kind: engine.FieldDecimal},
+		}, []engine.Field(got), "the market's fields but the list, and the outcome's")
+
+		w.Nodes[1].Params = map[string]any{"list": "question"}
+		assert.Nil(t, r.Received(w)["n2"], "not a list: nobody knows")
+	})
+
+	t.Run("split: an entry that is no object takes the list's place", func(t *testing.T) {
+		require.NoError(t, r.RegisterTrigger(fakeTrigger{typ: engine.NodeType{
+			Name: "t.tokens", Outputs: mainPorts(), Items: &engine.Items{Fields: []engine.Field{
+				textField, {Name: "tokens", Kind: engine.FieldList, Of: &engine.Field{Kind: engine.FieldText}},
+			}},
+		}}))
+
+		w := chain("t.split", "t.pass")
+		w.Nodes[0].Type = "t.tokens"
+		w.Nodes[1].Params = map[string]any{"list": "tokens"}
+
+		assert.Equal(t, []engine.Field{textField, {Name: "tokens", Kind: engine.FieldText}}, []engine.Field(r.Received(w)["n2"]))
 	})
 
 	t.Run("failed items are the ones received", func(t *testing.T) {

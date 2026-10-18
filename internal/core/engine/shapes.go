@@ -67,6 +67,13 @@ func emits(typ NodeType, spec domain.NodeSpec, in Shape) Shape {
 		}
 
 		return pick(in, names)
+	case it.Split != "":
+		path, err := Params(spec.Params).String(it.Split)
+		if err != nil || in == nil {
+			return nil
+		}
+
+		return split(in, path)
 	default:
 		return append(Shape{}, it.Fields...) // known, even with no fields
 	}
@@ -105,6 +112,52 @@ func pick(in Shape, paths []string) Shape {
 		f.Optional = !ok || isOptionalAt(in, p)
 
 		out = append(out, f)
+	}
+
+	return out
+}
+
+// split is an item of each entry of the list at path (Items.Split): an object's fields
+// at the top with the rest but the list, anything else in the list's place. Unknown when
+// the list's entries are.
+func split(in Shape, path string) Shape {
+	list, ok := in.Lookup(path)
+	if !ok || list.Kind != FieldList || list.Of == nil {
+		return nil
+	}
+
+	steps := strings.Split(path, ".")
+	entry := *list.Of
+
+	if entry.Kind == FieldObject {
+		return added(replaced(in, steps, nil), entry.Fields)
+	}
+
+	entry.Name = steps[len(steps)-1]
+	entry.Optional = list.Optional
+
+	return replaced(in, steps, &entry)
+}
+
+// replaced is s with the field at steps, through objects, set to f, or left out when f
+// is nil.
+func replaced(s Shape, steps []string, f *Field) Shape {
+	out := make(Shape, 0, len(s))
+
+	for _, field := range s {
+		switch {
+		case field.Name != steps[0]:
+			out = append(out, field)
+		case len(steps) == 1:
+			if f != nil {
+				out = append(out, *f)
+			}
+		case field.Kind == FieldObject:
+			field.Fields = replaced(field.Fields, steps[1:], f)
+			out = append(out, field)
+		default:
+			out = append(out, field) // through a list: the list stays, as at run time
+		}
 	}
 
 	return out

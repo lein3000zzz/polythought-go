@@ -20,8 +20,8 @@ const (
 )
 
 // testNames lists the tests in the order an editor offers them. The first six compare
-// numbers.
-var testNames = []string{"gt", "gte", "lt", "lte", "eq", "neq", "contains", "notContains", "exists", "missing"}
+// numbers; is and isNot compare text whole, in any case (D131).
+var testNames = []string{"gt", "gte", "lt", "lte", "eq", "neq", "is", "isNot", "contains", "notContains", "exists", "missing"}
 
 var matchNames = []string{MatchAll, MatchAny, MatchNone, MatchOne}
 
@@ -35,7 +35,7 @@ var operators = map[string]func(cmp int) bool{
 	"neq": func(c int) bool { return c != 0 },
 }
 
-const valueDescription = "A number for the comparisons, text for contains (any case). Not used by exists and missing."
+const valueDescription = "A number for the comparisons, text for is and contains (any case). Not used by exists and missing."
 
 // moreTestColumns are a row of More tests: a test like the first.
 var moreTestColumns = []engine.ParamSpec{
@@ -137,27 +137,62 @@ func testsOf(p engine.Params) ([]test, error) {
 	out := []test{first}
 
 	for i, row := range rows {
-		at := fmt.Sprintf(`"tests": in row %d`, i+1)
-		t := test{opAt: at, valueAt: at}
-
-		if t.field, err = row.String("field"); err != nil {
+		t, err := rowTest(row, fmt.Sprintf(`"tests": in row %d`, i+1))
+		if err != nil {
 			return nil, err
 		}
 
-		if t.op, err = row.String("operator"); err != nil {
-			return nil, err
-		}
-
-		t.value, _ = row.Text("value")
 		out = append(out, t)
 	}
 
 	return out, nil
 }
 
+// rowTest reads a test from a table row of field, operator and value; at says where.
+func rowTest(row engine.Params, at string) (test, error) {
+	t := test{opAt: at, valueAt: at}
+
+	var err error
+
+	if t.field, err = row.String("field"); err != nil {
+		return test{}, err
+	}
+
+	if t.op, err = row.String("operator"); err != nil {
+		return test{}, err
+	}
+
+	t.value, _ = row.Text("value") // optional for exists and missing
+
+	return t, nil
+}
+
+// valid says what is wrong with t's settings: a test that does not exist, or a value a
+// comparison cannot read.
+func (t test) valid() error {
+	switch t.op {
+	case "exists", "missing", "is", "isNot", "contains", "notContains":
+		return nil
+	}
+
+	if _, known := operators[t.op]; !known {
+		return fmt.Errorf("%w %s: unknown test %q", engine.ErrInvalidParam, t.opAt, t.op)
+	}
+
+	if _, ok := fields.Number(t.value); !ok {
+		return fmt.Errorf("%w %s: %q is not a number, which %s compares with", engine.ErrInvalidParam, t.valueAt, t.value, t.op)
+	}
+
+	return nil
+}
+
 // check reports whether item passes t. The first error is the item's; the second, for
 // bad settings, fails the node.
 func (t test) check(item engine.Item) (bool, error, error) {
+	if err := t.valid(); err != nil {
+		return false, nil, err
+	}
+
 	got, present := fields.Lookup(item.JSON, t.field)
 	present = present && got != nil
 
@@ -166,20 +201,16 @@ func (t test) check(item engine.Item) (bool, error, error) {
 		return present, nil, nil
 	case "missing":
 		return !present, nil, nil
+	case "is", "isNot":
+		same := present && strings.EqualFold(fields.Format(got), t.value)
+		return same == (t.op == "is"), nil, nil
 	case "contains", "notContains":
 		has := present && strings.Contains(strings.ToLower(fields.Format(got)), strings.ToLower(t.value))
 		return has == (t.op == "contains"), nil, nil
 	}
 
-	satisfies, known := operators[t.op]
-	if !known {
-		return false, nil, fmt.Errorf("%w %s: unknown test %q", engine.ErrInvalidParam, t.opAt, t.op)
-	}
-
-	want, ok := fields.Number(t.value)
-	if !ok {
-		return false, nil, fmt.Errorf("%w %s: %q is not a number, which %s compares with", engine.ErrInvalidParam, t.valueAt, t.value, t.op)
-	}
+	satisfies := operators[t.op]
+	want, _ := fields.Number(t.value)
 
 	if !present {
 		return false, nil, nil // nothing to compare, like a one-sided book's spread

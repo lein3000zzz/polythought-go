@@ -39,7 +39,8 @@ export function outputsOf(data: WorkflowNodeData): string[] {
 
 /**
  * The ports a node gets from the setting its type names in outputsParam, one per value,
- * such as a button each; the setting's default when it is unset.
+ * such as a button each; the setting's default when it is unset. With outputsColumn, the
+ * setting is a table and that column of each row names a port: a rule each, say.
  */
 export function paramPorts(data: Pick<WorkflowNodeData, 'spec' | 'type'>): string[] {
   const name = data.type?.outputsParam
@@ -48,13 +49,20 @@ export function paramPorts(data: Pick<WorkflowNodeData, 'spec' | 'type'>): strin
   const value = data.spec.params?.[name] ?? data.type?.params.find((p) => p.name === name)?.default
   if (!Array.isArray(value)) return []
 
-  return value.filter((v): v is string => typeof v === 'string' && v.trim() !== '')
+  const column = data.type?.outputsColumn
+  const names: unknown[] = column
+    ? value.map((row: unknown) =>
+        row && typeof row === 'object' ? (row as Record<string, unknown>)[column] : undefined,
+      )
+    : value
+
+  return names.filter((v): v is string => typeof v === 'string' && v.trim() !== '')
 }
 
 /**
  * Follows a change to the ports node gets from a setting. Values renamed in place, the
  * count unchanged, take their connections along; connections from values that are gone
- * go too, as there is no port left to draw them from.
+ * go too, as there is no port left to draw them from. Values only moved keep theirs.
  */
 export function followPorts(
   edges: readonly FlowEdge[],
@@ -65,7 +73,8 @@ export function followPorts(
   const renamed = new Map<string, string>()
   if (before.length === after.length) {
     before.forEach((port, i) => {
-      if (port !== after[i] && !renamed.has(port)) renamed.set(port, after[i])
+      // A rename: this name is gone, another in its place. One only moved keeps its own.
+      if (!after.includes(port) && !renamed.has(port)) renamed.set(port, after[i])
     })
   }
 

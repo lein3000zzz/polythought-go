@@ -46,11 +46,17 @@ type Items struct {
 	// Picked names a list param: the node sends on the items it receives with only the
 	// fields that param names.
 	Picked string
+
+	// Split names a field param, a list: the node sends an item for each of its entries,
+	// with the other fields of the item it came from (D132). An object's fields go at the
+	// top, winning a clash; anything else takes the list's place.
+	Split string
 }
 
-// Received reports whether the items are the ones the node receives, whole or picked.
+// Received reports whether the items are the ones the node receives: whole, picked or
+// split.
 func (it Items) Received() bool {
-	return it.Passed || it.Picked != ""
+	return it.Passed || it.Picked != "" || it.Split != ""
 }
 
 var errItems = errors.New("items")
@@ -67,11 +73,18 @@ func checkItems(typ NodeType) error {
 		return fmt.Errorf("register node type %q: %w: %s", typ.Name, errItems, fmt.Sprintf(format, args...))
 	}
 
+	ways := 0
+	for _, way := range []bool{it.Passed, it.Picked != "", it.Split != ""} {
+		if way {
+			ways++
+		}
+	}
+
 	switch {
-	case it.Passed && it.Picked != "":
-		return fail("passed whole or picked, not both")
-	case it.Picked != "" && len(it.Fields) > 0:
-		return fail("picked fields, or fields of its own, not both")
+	case ways > 1:
+		return fail("passed whole, picked or split: one of them")
+	case (it.Picked != "" || it.Split != "") && len(it.Fields) > 0:
+		return fail("picked or split, or fields of its own, not both")
 	case it.Received() && len(typ.Inputs) == 0:
 		return fail("a node without inputs receives no items")
 	}
@@ -79,6 +92,12 @@ func checkItems(typ NodeType) error {
 	if it.Picked != "" {
 		if !hasParam(typ, it.Picked, ParamList) {
 			return fail("picked by %q, which is not a list param", it.Picked)
+		}
+	}
+
+	if it.Split != "" {
+		if !slices.ContainsFunc(typ.Params, func(p ParamSpec) bool { return p.Name == it.Split && p.Field && p.Kind == ParamString }) {
+			return fail("split by %q, which is not a field param", it.Split)
 		}
 	}
 

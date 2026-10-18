@@ -98,8 +98,8 @@ export interface LogicFilterSettings {
     /**
      * @default "gt"
      */
-    operator?: "gt" | "gte" | "lt" | "lte" | "eq" | "neq" | "contains" | "notContains" | "exists" | "missing" | Expression;
-    /** A number for the comparisons, text for contains (any case). Not used by exists and missing. */
+    operator?: "gt" | "gte" | "lt" | "lte" | "eq" | "neq" | "is" | "isNot" | "contains" | "notContains" | "exists" | "missing" | Expression;
+    /** A number for the comparisons, text for is and contains (any case). Not used by exists and missing. */
     value?: string | number | Expression;
     /** More tests like the first, a row each. Match says how they count together. A table: a row each. */
     tests?: {
@@ -108,8 +108,8 @@ export interface LogicFilterSettings {
         /**
          * @default "gt"
          */
-        operator?: "gt" | "gte" | "lt" | "lte" | "eq" | "neq" | "contains" | "notContains" | "exists" | "missing";
-        /** A number for the comparisons, text for contains (any case). Not used by exists and missing. */
+        operator?: "gt" | "gte" | "lt" | "lte" | "eq" | "neq" | "is" | "isNot" | "contains" | "notContains" | "exists" | "missing";
+        /** A number for the comparisons, text for is and contains (any case). Not used by exists and missing. */
         value?: string | number;
     }[] | Expression;
     /**
@@ -126,8 +126,8 @@ export interface LogicIfSettings {
     /**
      * @default "gt"
      */
-    operator?: "gt" | "gte" | "lt" | "lte" | "eq" | "neq" | "contains" | "notContains" | "exists" | "missing" | Expression;
-    /** A number for the comparisons, text for contains (any case). Not used by exists and missing. */
+    operator?: "gt" | "gte" | "lt" | "lte" | "eq" | "neq" | "is" | "isNot" | "contains" | "notContains" | "exists" | "missing" | Expression;
+    /** A number for the comparisons, text for is and contains (any case). Not used by exists and missing. */
     value?: string | number | Expression;
     /** More tests like the first, a row each. Match says how they count together. A table: a row each. */
     tests?: {
@@ -136,8 +136,8 @@ export interface LogicIfSettings {
         /**
          * @default "gt"
          */
-        operator?: "gt" | "gte" | "lt" | "lte" | "eq" | "neq" | "contains" | "notContains" | "exists" | "missing";
-        /** A number for the comparisons, text for contains (any case). Not used by exists and missing. */
+        operator?: "gt" | "gte" | "lt" | "lte" | "eq" | "neq" | "is" | "isNot" | "contains" | "notContains" | "exists" | "missing";
+        /** A number for the comparisons, text for is and contains (any case). Not used by exists and missing. */
         value?: string | number;
     }[] | Expression;
     /**
@@ -145,6 +145,23 @@ export interface LogicIfSettings {
      * @default "all"
      */
     match?: "all" | "any" | "none" | "one" | Expression;
+}
+
+/** The settings of Switch (logic.switch). */
+export interface LogicSwitchSettings {
+    /** A row each, tried in order: the port it sends to, and its test. Each port shows on the node. A table: a row each. */
+    rules?: {
+        /** The output port the items this rule takes leave from. */
+        port: string;
+        /** The item field to test. */
+        field: string;
+        /**
+         * @default "gt"
+         */
+        operator?: "gt" | "gte" | "lt" | "lte" | "eq" | "neq" | "is" | "isNot" | "contains" | "notContains" | "exists" | "missing";
+        /** A number for the comparisons, text for is and contains (any case). Not used by exists and missing. */
+        value?: string | number;
+    }[];
 }
 
 /** The settings of Wait (logic.wait). */
@@ -634,6 +651,12 @@ export interface TransformPickSettings {
     fields: string[];
 }
 
+/** The settings of Split out (transform.splitOut). */
+export interface TransformSplitOutSettings {
+    /** The list to split, e.g. outcomes. An entry's own fields go at the top, beside the item's others. A field of the items it receives. */
+    field: string;
+}
+
 /** The settings of Top items (transform.top). */
 export interface TransformTopSettings {
     /** A numeric field, e.g. liquidity, volume24h or absChangePct. A field of the items it receives. */
@@ -823,7 +846,8 @@ export interface TriggerWalletActivityItem {
 /**
  * Every node type by name: its settings, and the items it sends on. "received" means
  * the items it was given, as they are; "picked", those with only the fields its
- * settings name. Then whether it starts workflows, and the names of its input and
+ * settings name; "split", an item for each entry of the list its settings name, with
+ * the other fields. Then whether it starts workflows, and the names of its input and
  * output ports; a type whose ports a setting makes takes any name beside its own.
  */
 export interface NodeTypes {
@@ -875,6 +899,13 @@ export interface NodeTypes {
         trigger: false;
         inputs: "main";
         outputs: "true" | "false";
+    };
+    "logic.switch": {
+        settings: LogicSwitchSettings;
+        items: "received";
+        trigger: false;
+        inputs: "main";
+        outputs: "other" | (string & {});
     };
     "logic.wait": {
         settings: LogicWaitSettings;
@@ -991,6 +1022,13 @@ export interface NodeTypes {
     "transform.pick": {
         settings: TransformPickSettings;
         items: "picked";
+        trigger: false;
+        inputs: "main";
+        outputs: "main";
+    };
+    "transform.splitOut": {
+        settings: TransformSplitOutSettings;
+        items: "split";
         trigger: false;
         inputs: "main";
         outputs: "main";

@@ -37,6 +37,7 @@ Each node has a page with its settings. In the editor, the node list on the left
 | [Only new](/docs/reference/nodes/logic/dedupe/) | `logic.dedupe` | Passes an item only the first time it shows up, so an alert fires once instead of on every run. |
 | [Filter](/docs/reference/nodes/logic/filter/) | `logic.filter` | Keeps the items that pass its tests and drops the others: a number compared with a value, text that contains a value, or a field being there at all. |
 | [If](/docs/reference/nodes/logic/if/) | `logic.if` | Tests each item and routes it to true or false: a number compared with a value, text that contains a value, or a field being there at all. |
+| [Switch](/docs/reference/nodes/logic/switch/) | `logic.switch` | Sends each item out of the port of the first rule it passes, each rule a test like If's; the items no rule takes leave from other. |
 | [Wait](/docs/reference/nodes/logic/wait/) | `logic.wait` | Holds the items for a while, or until a time of day, then passes them on. |
 
 ## Transform
@@ -44,6 +45,7 @@ Each node has a page with its settings. In the editor, the node list on the left
 | Node | Type | What it does |
 |---|---|---|
 | [Keep fields](/docs/reference/nodes/transform/pick/) | `transform.pick` | Keeps only the fields you name on each item and drops the rest, so outputs and messages stay short. |
+| [Split out](/docs/reference/nodes/transform/split-out/) | `transform.splitOut` | Makes an item of each entry of a list field, like a market's outcomes, with the other fields of the item it came from. |
 | [Top items](/docs/reference/nodes/transform/top/) | `transform.top` | Sorts the items by a number and keeps the first few, e.g. the five markets with the most liquidity. |
 
 ## Output

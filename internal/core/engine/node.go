@@ -179,7 +179,10 @@ type NodeType struct {
 
 	// OutputsParam names a list param whose values are more output ports, after Outputs:
 	// buttons [Yes, No] give a port for each. Empty means the type's ports are fixed.
-	OutputsParam string
+	// With OutputsColumn, it names a table instead, and that text column of each row
+	// names a port: a rule each, say.
+	OutputsParam  string
+	OutputsColumn string
 
 	// Items describes what it emits; nil when nobody knows, as for code whose author did
 	// not say.

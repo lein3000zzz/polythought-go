@@ -91,7 +91,51 @@ function emits(data: WorkflowNodeData, received: Shape): Shape {
     )
   }
 
+  if (items.split) {
+    const path = data.spec.params?.[items.split]
+    if (typeof path !== 'string' || !received) return undefined
+
+    return split(received, path)
+  }
+
   return [...items.fields] // known, even with no fields
+}
+
+/**
+ * An item of each entry of the list at path (D132): an object's fields at the top with
+ * the rest but the list, anything else in the list's place. Unknown when the list's
+ * entries are.
+ */
+function split(received: ItemField[], path: string): Shape {
+  const list = lookup(received, path)
+  if (!list || list.kind !== 'list' || !list.of) return undefined
+
+  const steps = path.split('.')
+  const entry = list.of
+
+  if (entry.kind === 'object') {
+    const fields = entry.fields ?? []
+    const names = new Set(fields.map((f) => f.name))
+    return [...replaced(received, steps).filter((f) => !names.has(f.name)), ...fields]
+  }
+
+  return replaced(received, steps, {
+    ...entry,
+    name: steps[steps.length - 1],
+    optional: list.optional,
+  })
+}
+
+/** shape with the field at steps, through objects, set to field, or left out without one. */
+function replaced(shape: ItemField[], steps: string[], field?: ItemField): ItemField[] {
+  return shape.flatMap((f) => {
+    if (f.name !== steps[0]) return [f]
+    if (steps.length === 1) return field ? [field] : []
+    if (f.kind === 'object')
+      return [{ ...f, fields: replaced(f.fields ?? [], steps.slice(1), field) }]
+
+    return [f] // through a list: the list stays, as at run time
+  })
 }
 
 function pick(received: ItemField[], paths: string[]): ItemField[] {
