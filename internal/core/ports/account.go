@@ -14,6 +14,18 @@ type CredentialsVerifier interface {
 	VerifyCredentials(ctx context.Context, creds domain.PolymarketCredentials) error
 }
 
+// TradingKeys reads what a private key controls and makes its API credentials (D154,
+// D155). Keys cross it decrypted, in memory only.
+type TradingKeys interface {
+	// Account says how key controls wallet: the signer, the key's address, and the
+	// signature type. domain.ErrKeyNotForWallet when it controls neither the wallet nor
+	// its proxy, Safe or Deposit Wallet; domain.ErrInvalidInput when it is no key.
+	Account(key string, wallet domain.WalletAddress) (signer domain.WalletAddress, typ domain.SignatureType, err error)
+
+	// APICredentials makes the key's account an API key, or gives its key again.
+	APICredentials(ctx context.Context, key string) (domain.PolymarketCredentials, error)
+}
+
 type OrderFilter struct {
 	MarketID domain.MarketID
 	TokenID  domain.TokenID

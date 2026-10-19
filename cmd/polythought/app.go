@@ -196,7 +196,11 @@ func (a *app) init(ctx context.Context) error {
 		return err
 	}
 
-	a.wallets = wallets.New(postgres.NewWallets(a.db), a.box, pmc.account, a.util.Logger)
+	a.wallets = wallets.New(postgres.NewWallets(a.db), a.box, pmc.account, a.util.Logger,
+		wallets.WithKeys(pmc.keys, func() bool {
+			s := a.settings.Current()
+			return config.TakesKeys(s.String(config.KeyKeyImport), domain.RegistrationMode(s.String(config.KeyRegistration)))
+		}))
 
 	// Before the engine: the Telegram nodes use the bot, and failures are notified.
 	// The bot and the notifications run only in serve, which starts them.
@@ -450,6 +454,7 @@ func workflowLimits(s *settings.Snapshot) workflows.Limits {
 type polymarket struct {
 	reader  *pmadapter.Reader
 	account *pmadapter.Account
+	keys    *pmadapter.Keys
 }
 
 func newPolymarket(a *app) (polymarket, error) {
@@ -468,7 +473,9 @@ func newPolymarket(a *app) (polymarket, error) {
 		return polymarket{}, err
 	}
 
-	return polymarket{reader: pmadapter.NewReader(gamma, clob, data), account: pmadapter.NewAccount(clob)}, nil
+	return polymarket{
+		reader: pmadapter.NewReader(gamma, clob, data), account: pmadapter.NewAccount(clob), keys: pmadapter.NewKeys(clob),
+	}, nil
 }
 
 // initEngine builds the workflow engine. Workflows run under ctx: cancelling it stops

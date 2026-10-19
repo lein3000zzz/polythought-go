@@ -3,11 +3,25 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { api, ApiError, call, type Schemas } from './client'
 import { keys } from './keys'
 
+function walletList() {
+  return call(api.GET('/wallets'))
+}
+
 export function useWallets() {
   return useQuery({
     queryKey: keys.walletList,
-    queryFn: async () => (await call(api.GET('/wallets'))).wallets,
+    queryFn: walletList,
+    select: (list) => list.wallets,
   })
+}
+
+/** Whether the instance takes private keys now (D21). */
+export function useTakesKeys() {
+  return useQuery({
+    queryKey: keys.walletList,
+    queryFn: walletList,
+    select: (list) => list.takesKeys,
+  }).data
 }
 
 export function useLinkWallet() {
@@ -52,6 +66,25 @@ export function useSetCredentials(walletId: string) {
   return useMutation({
     mutationFn: (body: Schemas['SetCredentialsRequest']) =>
       call(api.PUT('/wallets/{id}/credentials', { params: { path: { id: walletId } }, body })),
+    onSuccess: (info) => {
+      queryClient.setQueryData(keys.credentials(walletId), info)
+      void queryClient.invalidateQueries({ queryKey: keys.walletList })
+    },
+  })
+}
+
+/** Imports a wallet's private key, and makes its API credentials from it (D153, D154). */
+export function useImportKey(walletId: string) {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: (privateKey: string) =>
+      call(
+        api.PUT('/wallets/{id}/key', {
+          params: { path: { id: walletId } },
+          body: { privateKey },
+        }),
+      ),
     onSuccess: (info) => {
       queryClient.setQueryData(keys.credentials(walletId), info)
       void queryClient.invalidateQueries({ queryKey: keys.walletList })

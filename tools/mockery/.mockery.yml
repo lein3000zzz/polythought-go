@@ -65,6 +65,7 @@ packages:
       CredentialRepository: {}
       CredentialReader: {}
       NodeMemory: {}
+      TradingKeys: {}
   github.com/lein3000zzz/polythought-go/internal/core/services/auth:
     config:
       dir: internal/mocks/auth

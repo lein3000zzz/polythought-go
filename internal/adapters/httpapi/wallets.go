@@ -12,11 +12,13 @@ import (
 )
 
 type walletDTO struct {
-	ID             string    `json:"id"`
-	Address        string    `json:"address"`
-	Label          string    `json:"label"`
-	HasCredentials bool      `json:"hasCredentials"`
-	CreatedAt      time.Time `json:"createdAt" format:"date-time"`
+	ID             string `json:"id"`
+	Address        string `json:"address"`
+	Label          string `json:"label"`
+	HasCredentials bool   `json:"hasCredentials"`
+	// HasKey says its private key is imported: it can trade.
+	HasKey    bool      `json:"hasKey"`
+	CreatedAt time.Time `json:"createdAt" format:"date-time"`
 } // @name Wallet
 
 func toWalletDTO(w domain.Wallet) walletDTO {
@@ -25,21 +27,26 @@ func toWalletDTO(w domain.Wallet) walletDTO {
 		Address:        string(w.Address),
 		Label:          w.Label,
 		HasCredentials: w.HasCredentials,
+		HasKey:         w.HasKey,
 		CreatedAt:      w.CreatedAt,
 	}
 }
 
 type walletList struct {
 	Wallets []walletDTO `json:"wallets"`
+	// TakesKeys says whether the instance takes private keys now, as an admin set it.
+	TakesKeys bool `json:"takesKeys"`
 } // @name WalletList
 
 // credentialsDTO never carries a secret: only a hint of the API key.
 type credentialsDTO struct {
-	APIKeyHint    string    `json:"apiKeyHint"`
-	Signer        string    `json:"signer"`
-	SignatureType int       `json:"signatureType" enums:"0,1,2,3"`
-	CreatedAt     time.Time `json:"createdAt" format:"date-time"`
-	UpdatedAt     time.Time `json:"updatedAt" format:"date-time"`
+	APIKeyHint    string `json:"apiKeyHint"`
+	Signer        string `json:"signer"`
+	SignatureType int    `json:"signatureType" enums:"0,1,2,3"`
+	// HasKey says they were made from an imported private key, which is kept too.
+	HasKey    bool      `json:"hasKey"`
+	CreatedAt time.Time `json:"createdAt" format:"date-time"`
+	UpdatedAt time.Time `json:"updatedAt" format:"date-time"`
 } // @name Credentials
 
 func toCredentialsDTO(c domain.CredentialsInfo) credentialsDTO {
@@ -47,6 +54,7 @@ func toCredentialsDTO(c domain.CredentialsInfo) credentialsDTO {
 		APIKeyHint:    c.APIKeyHint,
 		Signer:        string(c.Signer),
 		SignatureType: int(c.SignatureType),
+		HasKey:        c.HasKey,
 		CreatedAt:     c.CreatedAt,
 		UpdatedAt:     c.UpdatedAt,
 	}
@@ -86,7 +94,7 @@ func (s *Server) listWallets(ctx context.Context, c *app.RequestContext) {
 		return
 	}
 
-	out := walletList{Wallets: make([]walletDTO, len(list))}
+	out := walletList{Wallets: make([]walletDTO, len(list)), TakesKeys: s.wallets.TakesKeys()}
 	for i, w := range list {
 		out.Wallets[i] = toWalletDTO(w)
 	}
@@ -205,6 +213,47 @@ func (s *Server) setCredentials(ctx context.Context, c *app.RequestContext) {
 		Signer:        req.Signer,
 		SignatureType: domain.SignatureType(req.SignatureType),
 	})
+	if err != nil {
+		s.fail(ctx, c, err)
+		return
+	}
+
+	c.JSON(http.StatusOK, toCredentialsDTO(info))
+}
+
+type importKeyRequest struct {
+	// PrivateKey is 64 hex digits, with 0x or without.
+	PrivateKey string `json:"privateKey"`
+} // @name ImportKeyRequest
+
+// importKey keeps a wallet's private key, so it can trade, and makes its API credentials
+// from it, replacing any stored before (D153, D154). Only from a browser session, while
+// the instance takes keys (D21), and only a key that controls the wallet (D155).
+//
+//	@Summary	Import a wallet's private key
+//	@ID			importKey
+//	@Tags		wallets
+//	@Param		id		path		string				true	"Wallet ID"
+//	@Param		body	body		importKeyRequest	true	"The private key"
+//	@Success	200		{object}	credentialsDTO
+//	@Failure	400		{object}	errorBody	"invalid_input, key_not_for_wallet or credentials_rejected"
+//	@Failure	401		{object}	errorBody	"unauthenticated"
+//	@Failure	403		{object}	errorBody	"key_import_off, or forbidden with an API token"
+//	@Failure	404		{object}	errorBody	"not_found"
+//	@Failure	503		{object}	errorBody	"upstream_unavailable: Polymarket could not be reached"
+//	@Security	SessionCookie
+//	@Router		/wallets/{id}/key [put]
+func (s *Server) importKey(ctx context.Context, c *app.RequestContext) {
+	var req importKeyRequest
+
+	if err := decodeJSON(c, &req); err != nil {
+		s.fail(ctx, c, err)
+		return
+	}
+
+	p, _ := principal(c)
+
+	info, err := s.wallets.ImportKey(ctx, p, domain.WalletID(c.Param("id")), req.PrivateKey)
 	if err != nil {
 		s.fail(ctx, c, err)
 		return

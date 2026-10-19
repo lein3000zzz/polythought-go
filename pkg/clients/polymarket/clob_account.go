@@ -2,6 +2,8 @@ package polymarket
 
 import (
 	"context"
+	"errors"
+	"net/http"
 	"net/url"
 	"strconv"
 
@@ -13,12 +15,45 @@ import (
 var _ ClobAccountClient = (*DefaultClobClient)(nil)
 
 const (
+	opCreateAPIKey     = "create_api_key"
 	opAPIKeys          = "api_keys"
 	opOpenOrders       = "open_orders"
 	opBalanceAllowance = "balance_allowance"
 )
 
 const attrAddress = "polymarket.address"
+
+// CreateOrDeriveAPIKey makes the account of auth's key an API key, or gives its key
+// again when it has one, as the official client does: a 400 to making one means it exists.
+func (c *DefaultClobClient) CreateOrDeriveAPIKey(ctx context.Context, auth L1Auth) (_ L2Credentials, err error) {
+	done := c.kit.Start(ctx, opCreateAPIKey)
+	defer func() { done(succeeded(err)) }()
+
+	return tracing.InScope(ctx, c.scope, opCreateAPIKey, func(ctx context.Context, span trace.Span) (L2Credentials, error) {
+		span.SetAttributes(attribute.String(attrAddress, auth.Signer.Address()))
+
+		var resp struct {
+			APIKey     string `json:"apiKey"`
+			Secret     string `json:"secret"`
+			Passphrase string `json:"passphrase"`
+		}
+
+		err := c.core.do(ctx, http.MethodPost, "/auth/api-key", nil, nil, auth, &resp)
+
+		var apiErr *APIError
+		if errors.As(err, &apiErr) && apiErr.StatusCode == http.StatusBadRequest {
+			err = c.core.do(ctx, http.MethodGet, "/auth/derive-api-key", nil, nil, auth, &resp)
+		}
+
+		if err != nil {
+			return L2Credentials{}, failed(ctx, c.log, opCreateAPIKey, err)
+		}
+
+		c.log.Info(ctx, "Made a Polymarket API key", "address", auth.Signer.Address())
+
+		return L2Credentials{Address: auth.Signer.Address(), APIKey: resp.APIKey, Secret: resp.Secret, Passphrase: resp.Passphrase}, nil
+	})
+}
 
 func (c *DefaultClobClient) APIKeys(ctx context.Context, creds L2Credentials) (_ []string, err error) {
 	done := c.kit.Start(ctx, opAPIKeys)

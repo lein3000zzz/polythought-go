@@ -16,6 +16,7 @@ const wallet = (overrides: Partial<Schemas['Wallet']> = {}): Schemas['Wallet'] =
   address,
   label: 'Main',
   hasCredentials: false,
+  hasKey: false,
   createdAt: '2026-10-01T10:00:00Z',
   ...overrides,
 })
@@ -24,6 +25,7 @@ const credentials: Schemas['Credentials'] = {
   apiKeyHint: 'abcd…wxyz',
   signer: address,
   signatureType: 0,
+  hasKey: false,
   createdAt: '2026-10-02T10:00:00Z',
   updatedAt: '2026-10-02T10:00:00Z',
 }
@@ -97,6 +99,67 @@ describe('wallets page', () => {
     await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
     expect(sent).toMatchObject({ signer: address })
     expect(await screen.findByText(/API key abcd…wxyz/)).toBeInTheDocument()
+  })
+
+  it('imports a private key, so the wallet can trade', async () => {
+    let imported = false
+    let sent: unknown
+
+    server.use(
+      signedIn,
+      http.get('/api/v1/wallets', () =>
+        HttpResponse.json({
+          wallets: [wallet({ hasCredentials: imported, hasKey: imported })],
+          takesKeys: true,
+        }),
+      ),
+      http.get('/api/v1/wallets/w-1/credentials', () =>
+        imported
+          ? HttpResponse.json({ ...credentials, hasKey: true })
+          : apiError(404, 'not_found', 'none'),
+      ),
+      http.put('/api/v1/wallets/w-1/key', async ({ request }) => {
+        sent = await request.json()
+        if ((sent as { privateKey: string }).privateKey === '0xnot') {
+          return apiError(400, 'key_not_for_wallet', 'this key does not control the wallet')
+        }
+
+        imported = true
+        return HttpResponse.json({ ...credentials, hasKey: true })
+      }),
+    )
+    const { user } = renderApp('/wallets')
+
+    await user.click(await screen.findByRole('button', { name: 'Import private key' }))
+    const dialog = within(await screen.findByRole('dialog'))
+    const field = dialog.getByLabelText('Private key')
+    expect(field).toHaveAttribute('type', 'password')
+
+    await user.type(field, '0xnot')
+    await user.click(dialog.getByRole('button', { name: 'Import' }))
+    expect(await dialog.findByText('This key does not control the wallet')).toBeInTheDocument()
+
+    await user.clear(field)
+    await user.type(field, '0xgood')
+    await user.click(dialog.getByRole('button', { name: 'Import' }))
+
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
+    expect(sent).toEqual({ privateKey: '0xgood' })
+    expect(await screen.findByText('Can trade')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Replace private key' })).toBeInTheDocument()
+  })
+
+  it('offers no key import while the instance takes none', async () => {
+    server.use(
+      signedIn,
+      http.get('/api/v1/wallets', () =>
+        HttpResponse.json({ wallets: [wallet()], takesKeys: false }),
+      ),
+    )
+    renderApp('/wallets')
+
+    expect(await screen.findByRole('button', { name: 'Add credentials' })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Import private key' })).not.toBeInTheDocument()
   })
 
   it('unlinks after asking', async () => {

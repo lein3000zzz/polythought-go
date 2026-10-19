@@ -6,9 +6,11 @@ import { toast } from 'sonner'
 import { errorMessage, type Schemas } from '@/api/client'
 import {
   useCredentials,
+  useImportKey,
   useLinkWallet,
   useRemoveCredentials,
   useSetCredentials,
+  useTakesKeys,
   useUnlinkWallet,
   useWallets,
 } from '@/api/wallets'
@@ -50,7 +52,8 @@ export function WalletsPage() {
         <h1 className="font-heading text-xl font-semibold">Wallets</h1>
         <p className="text-sm text-muted-foreground">
           A linked wallet is enough for nodes that read its positions. Orders and balance also need
-          its Polymarket API credentials, which are checked with Polymarket and stored encrypted.
+          its Polymarket API credentials, which are checked with Polymarket and stored encrypted. To
+          trade, a wallet needs its private key, where an admin allows importing one.
         </p>
       </div>
 
@@ -120,7 +123,9 @@ function WalletCard({ wallet }: { wallet: Wallet }) {
   const credentials = useCredentials(wallet.id, wallet.hasCredentials)
   const unlink = useUnlinkWallet()
   const remove = useRemoveCredentials(wallet.id)
+  const takesKeys = useTakesKeys()
   const [editing, setEditing] = useState(false)
+  const [importing, setImporting] = useState(false)
   const [confirmUnlink, setConfirmUnlink] = useState(false)
   const [confirmRemove, setConfirmRemove] = useState(false)
 
@@ -161,9 +166,10 @@ function WalletCard({ wallet }: { wallet: Wallet }) {
 
         {wallet.hasCredentials && credentials.data ? (
           <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
+            {wallet.hasKey && <Badge>Can trade</Badge>}
             <Badge variant="secondary">
               <KeyRound />
-              API key {credentials.data.apiKeyHint}
+              {wallet.hasKey ? 'Private key and ' : ''}API key {credentials.data.apiKeyHint}
             </Badge>
             <span className="text-muted-foreground">
               {signatureTypes[credentials.data.signatureType]} · signer{' '}
@@ -175,7 +181,12 @@ function WalletCard({ wallet }: { wallet: Wallet }) {
           !wallet.hasCredentials && <p className="text-muted-foreground">No API credentials.</p>
         )}
 
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
+          {takesKeys && (
+            <Button variant="outline" size="sm" onClick={() => setImporting(true)}>
+              {wallet.hasKey ? 'Replace private key' : 'Import private key'}
+            </Button>
+          )}
           <Button variant="outline" size="sm" onClick={() => setEditing(true)}>
             {wallet.hasCredentials ? 'Replace credentials' : 'Add credentials'}
           </Button>
@@ -188,6 +199,7 @@ function WalletCard({ wallet }: { wallet: Wallet }) {
       </CardContent>
 
       <CredentialsDialog wallet={wallet} open={editing} onClose={() => setEditing(false)} />
+      <ImportKeyDialog wallet={wallet} open={importing} onClose={() => setImporting(false)} />
 
       <ConfirmDialog
         open={confirmUnlink}
@@ -206,8 +218,16 @@ function WalletCard({ wallet }: { wallet: Wallet }) {
 
       <ConfirmDialog
         open={confirmRemove}
-        title="Remove the API credentials?"
-        description="Nodes that read this wallet's orders or balance will fail until you add them again."
+        title={
+          wallet.hasKey
+            ? 'Remove the private key and API credentials?'
+            : 'Remove the API credentials?'
+        }
+        description={
+          wallet.hasKey
+            ? 'Both are deleted, and this wallet can no longer trade. Nodes that read its orders or balance will fail until you add them again.'
+            : "Nodes that read this wallet's orders or balance will fail until you add them again."
+        }
         confirm="Remove"
         destructive
         onCancel={() => setConfirmRemove(false)}
@@ -332,6 +352,89 @@ function CredentialsDialog({
           </Button>
           <Button type="submit" form="credentials-form" disabled={save.isPending}>
             {save.isPending ? 'Checking…' : 'Check and save'}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  )
+}
+
+/**
+ * Takes a wallet's private key (D153): checked to control the wallet (D155), kept
+ * encrypted, and used to make its API credentials (D154). It is never shown again.
+ */
+function ImportKeyDialog({
+  wallet,
+  open,
+  onClose,
+}: {
+  wallet: Wallet
+  open: boolean
+  onClose: () => void
+}) {
+  const importKey = useImportKey(wallet.id)
+  const [key, setKey] = useState('')
+
+  const close = () => {
+    setKey('')
+    importKey.reset()
+    onClose()
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={(isOpen) => !isOpen && close()}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>
+            Import the private key of {wallet.label || shortAddress(wallet.address)}
+          </DialogTitle>
+          <DialogDescription>
+            With it, Polythought can place this wallet&apos;s orders. It must be the key of the
+            wallet itself, or of the account that owns its proxy, Safe or Deposit Wallet:
+            Polythought checks that before keeping it. It is kept encrypted, makes the wallet&apos;s
+            API credentials, replacing any added before, and is never shown again. Use a wallet that
+            holds only what you mean to trade.
+          </DialogDescription>
+        </DialogHeader>
+
+        <form
+          id={`import-key-${wallet.id}`}
+          className="flex flex-col gap-2"
+          onSubmit={(e) => {
+            e.preventDefault()
+            importKey.mutate(key, {
+              onSuccess: () => {
+                toast.success('Key imported: this wallet can trade')
+                close()
+              },
+            })
+          }}
+        >
+          {importKey.isError && <ErrorAlert error={importKey.error} />}
+          <Label htmlFor={`private-key-${wallet.id}`}>Private key</Label>
+          <Input
+            id={`private-key-${wallet.id}`}
+            type="password"
+            className="font-mono"
+            autoComplete="off"
+            spellCheck={false}
+            placeholder="0x… (64 hex digits)"
+            value={key}
+            onChange={(e) => setKey(e.target.value)}
+            required
+          />
+        </form>
+
+        <DialogFooter>
+          <Button variant="outline" onClick={close}>
+            Cancel
+          </Button>
+          <Button
+            type="submit"
+            form={`import-key-${wallet.id}`}
+            disabled={importKey.isPending || !key}
+          >
+            Import
           </Button>
         </DialogFooter>
       </DialogContent>

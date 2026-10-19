@@ -121,6 +121,84 @@ func (_c *MockWalletService_CredentialsInfo_Call) RunAndReturn(run func(ctx cont
 	return _c
 }
 
+// ImportKey provides a mock function for the type MockWalletService
+func (_mock *MockWalletService) ImportKey(ctx context.Context, p auth.Principal, id domain.WalletID, key string) (domain.CredentialsInfo, error) {
+	ret := _mock.Called(ctx, p, id, key)
+
+	if len(ret) == 0 {
+		panic("no return value specified for ImportKey")
+	}
+
+	var r0 domain.CredentialsInfo
+	var r1 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context, auth.Principal, domain.WalletID, string) (domain.CredentialsInfo, error)); ok {
+		return returnFunc(ctx, p, id, key)
+	}
+	if returnFunc, ok := ret.Get(0).(func(context.Context, auth.Principal, domain.WalletID, string) domain.CredentialsInfo); ok {
+		r0 = returnFunc(ctx, p, id, key)
+	} else {
+		r0 = ret.Get(0).(domain.CredentialsInfo)
+	}
+	if returnFunc, ok := ret.Get(1).(func(context.Context, auth.Principal, domain.WalletID, string) error); ok {
+		r1 = returnFunc(ctx, p, id, key)
+	} else {
+		r1 = ret.Error(1)
+	}
+	return r0, r1
+}
+
+// MockWalletService_ImportKey_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'ImportKey'
+type MockWalletService_ImportKey_Call struct {
+	*mock.Call
+}
+
+// ImportKey is a helper method to define mock.On call
+//   - ctx context.Context
+//   - p auth.Principal
+//   - id domain.WalletID
+//   - key string
+func (_e *MockWalletService_Expecter) ImportKey(ctx any, p any, id any, key any) *MockWalletService_ImportKey_Call {
+	return &MockWalletService_ImportKey_Call{Call: _e.mock.On("ImportKey", ctx, p, id, key)}
+}
+
+func (_c *MockWalletService_ImportKey_Call) Run(run func(ctx context.Context, p auth.Principal, id domain.WalletID, key string)) *MockWalletService_ImportKey_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		var arg1 auth.Principal
+		if args[1] != nil {
+			arg1 = args[1].(auth.Principal)
+		}
+		var arg2 domain.WalletID
+		if args[2] != nil {
+			arg2 = args[2].(domain.WalletID)
+		}
+		var arg3 string
+		if args[3] != nil {
+			arg3 = args[3].(string)
+		}
+		run(
+			arg0,
+			arg1,
+			arg2,
+			arg3,
+		)
+	})
+	return _c
+}
+
+func (_c *MockWalletService_ImportKey_Call) Return(credentialsInfo domain.CredentialsInfo, err error) *MockWalletService_ImportKey_Call {
+	_c.Call.Return(credentialsInfo, err)
+	return _c
+}
+
+func (_c *MockWalletService_ImportKey_Call) RunAndReturn(run func(ctx context.Context, p auth.Principal, id domain.WalletID, key string) (domain.CredentialsInfo, error)) *MockWalletService_ImportKey_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // Link provides a mock function for the type MockWalletService
 func (_mock *MockWalletService) Link(ctx context.Context, p auth.Principal, address string, label string) (domain.Wallet, error) {
 	ret := _mock.Called(ctx, p, address, label)
@@ -404,6 +482,50 @@ func (_c *MockWalletService_SetCredentials_Call) Return(credentialsInfo domain.C
 }
 
 func (_c *MockWalletService_SetCredentials_Call) RunAndReturn(run func(ctx context.Context, p auth.Principal, id domain.WalletID, in wallets.CredentialsInput) (domain.CredentialsInfo, error)) *MockWalletService_SetCredentials_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// TakesKeys provides a mock function for the type MockWalletService
+func (_mock *MockWalletService) TakesKeys() bool {
+	ret := _mock.Called()
+
+	if len(ret) == 0 {
+		panic("no return value specified for TakesKeys")
+	}
+
+	var r0 bool
+	if returnFunc, ok := ret.Get(0).(func() bool); ok {
+		r0 = returnFunc()
+	} else {
+		r0 = ret.Get(0).(bool)
+	}
+	return r0
+}
+
+// MockWalletService_TakesKeys_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'TakesKeys'
+type MockWalletService_TakesKeys_Call struct {
+	*mock.Call
+}
+
+// TakesKeys is a helper method to define mock.On call
+func (_e *MockWalletService_Expecter) TakesKeys() *MockWalletService_TakesKeys_Call {
+	return &MockWalletService_TakesKeys_Call{Call: _e.mock.On("TakesKeys")}
+}
+
+func (_c *MockWalletService_TakesKeys_Call) Run(run func()) *MockWalletService_TakesKeys_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run()
+	})
+	return _c
+}
+
+func (_c *MockWalletService_TakesKeys_Call) Return(b bool) *MockWalletService_TakesKeys_Call {
+	_c.Call.Return(b)
+	return _c
+}
+
+func (_c *MockWalletService_TakesKeys_Call) RunAndReturn(run func() bool) *MockWalletService_TakesKeys_Call {
 	_c.Call.Return(run)
 	return _c
 }

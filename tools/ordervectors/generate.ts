@@ -22,7 +22,16 @@ import {
 import { computeLimitOrderAmounts, computeMarketOrderAmounts } from './actions/orders/amounts';
 import { toScaledPrice } from './actions/orders/fixed';
 import { isV2PositionId } from './protocol';
-import { SignerType, wrapDepositWalletSignature } from './wallet';
+import { createApiKeyAuthTypedDataPayload } from './authentication';
+import { production } from './environments';
+import {
+  deriveBeaconDepositWalletAddress,
+  deriveProxyWalletAddress,
+  deriveSafeWalletAddress,
+  deriveUupsDepositWalletAddress,
+  SignerType,
+  wrapDepositWalletSignature,
+} from './wallet';
 
 // Anvil's first two keys: well known, never funded on Polygon.
 const ownerKey = '0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80';
@@ -205,6 +214,22 @@ async function main() {
     String((1n << 104n) + 7n),
   ].map((tokenId) => ({ tokenId, v2: isV2PositionId(tokenId as never) }));
 
+  // The ClobAuth signature API keys are made with (L1), for a few times and nonces.
+  const clobAuth = [];
+  for (const [timestamp, nonce] of [[1760875200, 0], [1760875261, 7]] as const) {
+    const payload = createApiKeyAuthTypedDataPayload({ address: owner.address, chainId: 137, nonce, timestamp });
+    clobAuth.push({ address: owner.address, chainId: 137, timestamp, nonce, signature: await owner.signTypedData(payload as never) });
+  }
+
+  // The wallets a key controls, as Polymarket derives them in production.
+  const wallets = [owner.address, session.address, '0x5aAeb6053F3E94C9b9A09f33669435E7Ef1BeAed'].map((signer) => ({
+    signer,
+    proxy: deriveProxyWalletAddress(signer as never, production.walletDerivation),
+    safe: deriveSafeWalletAddress(signer as never, production.walletDerivation),
+    depositBeacon: deriveBeaconDepositWalletAddress(signer as never, production.walletDerivation),
+    depositUups: deriveUupsDepositWalletAddress(signer as never, production.walletDerivation),
+  }));
+
   process.stdout.write(
     `${JSON.stringify(
       {
@@ -214,6 +239,8 @@ async function main() {
         limitAmounts,
         marketAmounts,
         positionIds,
+        clobAuth,
+        wallets,
       },
       null,
       2,

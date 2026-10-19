@@ -182,6 +182,16 @@ which you link on the **Wallets** page by its address. Positions are public, so 
 is enough for them. Orders and balance also need the wallet's Polymarket API credentials,
 which Polymarket checks before they are stored, encrypted.
 
+To trade, a wallet needs its private key: **Import private key** on its card, where an admin
+allows it. It must be the key of the wallet itself, or of the account that owns the wallet's
+proxy, Safe or Deposit Wallet, as Polymarket derives them; Polythought checks that before it
+keeps the key, and says whose key it is when it does not match. With the key, Polythought
+makes the wallet's API credentials itself, replacing any added by hand, and the card says
+**Can trade**. The key is kept encrypted and never shown again; **Remove credentials**
+deletes it with them, and pasting credentials by hand replaces it.
+
+A key lets the server sign for the wallet, so keep in it only what you mean to trade.
+
 A workflow only ever reaches its owner's wallets and credentials, and sharing it leaves them
 out.
 

@@ -73,8 +73,11 @@ then locks it on the Config page; see [Configuration](/docs/self-hosting/configu
 
 ## Keys
 
-`POLYTHOUGHT_SECRET_KEYS` encrypts wallet API credentials, [credentials](/docs/guides/credentials/)
-and secret settings. Back it up apart from the database: without it they cannot be read.
+`POLYTHOUGHT_SECRET_KEYS` encrypts wallet API credentials and private keys,
+[credentials](/docs/guides/credentials/) and secret settings. Back it up apart from the
+database: without it they cannot be read, and with it and the database, imported keys can
+be used. Whether users may import keys at all is **Private keys** on the Config page: auto,
+the default, takes them unless anyone may sign up.
 
 To change keys, put the new one first and keep the old one after it, as in
 `k2:…,k1:…`. New secrets use the first key; the others only read what was saved with them.

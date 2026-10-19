@@ -26,6 +26,7 @@ type polymarketCredentialsTable struct {
 	SignatureType    postgres.ColumnInteger
 	CreatedAt        postgres.ColumnTimestampz
 	UpdatedAt        postgres.ColumnTimestampz
+	PrivateKeySealed postgres.ColumnBytea
 
 	AllColumns     postgres.ColumnList
 	MutableColumns postgres.ColumnList
@@ -76,8 +77,9 @@ func newPolymarketCredentialsTableImpl(schemaName, tableName, alias string) poly
 		SignatureTypeColumn    = postgres.IntegerColumn("signature_type")
 		CreatedAtColumn        = postgres.TimestampzColumn("created_at")
 		UpdatedAtColumn        = postgres.TimestampzColumn("updated_at")
-		allColumns             = postgres.ColumnList{WalletIDColumn, APIKeySealedColumn, SecretSealedColumn, PassphraseSealedColumn, APIKeyHintColumn, SignerAddressColumn, SignatureTypeColumn, CreatedAtColumn, UpdatedAtColumn}
-		mutableColumns         = postgres.ColumnList{APIKeySealedColumn, SecretSealedColumn, PassphraseSealedColumn, APIKeyHintColumn, SignerAddressColumn, SignatureTypeColumn, CreatedAtColumn, UpdatedAtColumn}
+		PrivateKeySealedColumn = postgres.ByteaColumn("private_key_sealed")
+		allColumns             = postgres.ColumnList{WalletIDColumn, APIKeySealedColumn, SecretSealedColumn, PassphraseSealedColumn, APIKeyHintColumn, SignerAddressColumn, SignatureTypeColumn, CreatedAtColumn, UpdatedAtColumn, PrivateKeySealedColumn}
+		mutableColumns         = postgres.ColumnList{APIKeySealedColumn, SecretSealedColumn, PassphraseSealedColumn, APIKeyHintColumn, SignerAddressColumn, SignatureTypeColumn, CreatedAtColumn, UpdatedAtColumn, PrivateKeySealedColumn}
 		defaultColumns         = postgres.ColumnList{}
 	)
 
@@ -94,6 +96,7 @@ func newPolymarketCredentialsTableImpl(schemaName, tableName, alias string) poly
 		SignatureType:    SignatureTypeColumn,
 		CreatedAt:        CreatedAtColumn,
 		UpdatedAt:        UpdatedAtColumn,
+		PrivateKeySealed: PrivateKeySealedColumn,
 
 		AllColumns:     allColumns,
 		MutableColumns: mutableColumns,

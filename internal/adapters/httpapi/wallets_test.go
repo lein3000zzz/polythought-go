@@ -39,9 +39,47 @@ func TestWalletRoutes(t *testing.T) {
 			req:  request{method: "GET", path: "/api/v1/wallets", headers: cookie},
 			setup: func(w *httpapimocks.MockWalletService) {
 				w.EXPECT().List(mock.Anything, mock.Anything).Return([]domain.Wallet{linked}, nil)
+				w.EXPECT().TakesKeys().Return(true)
 			},
 			wantStatus: http.StatusOK,
-			wantBody:   []string{`"address":"0x5aAeb6053F3E94C9b9A09f33669435E7Ef1BeAed"`, `"hasCredentials":false`},
+			wantBody: []string{
+				`"address":"0x5aAeb6053F3E94C9b9A09f33669435E7Ef1BeAed"`, `"hasCredentials":false`, `"hasKey":false`,
+				`"takesKeys":true`,
+			},
+		},
+		{
+			name: "import a key",
+			req: request{method: "PUT", path: "/api/v1/wallets/w-1/key", headers: cookie,
+				body: `{"privateKey":"0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80"}`},
+			setup: func(w *httpapimocks.MockWalletService) {
+				withKey := info
+				withKey.HasKey = true
+				w.EXPECT().ImportKey(mock.Anything, mock.Anything, domain.WalletID("w-1"),
+					"0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80").Return(withKey, nil)
+			},
+			wantStatus: http.StatusOK,
+			wantBody:   []string{`"hasKey":true`, `"apiKeyHint":"4f6d…9f01"`},
+			check: func(t *testing.T, w *ut.ResponseRecorder) {
+				assert.NotContains(t, w.Body.String(), "ac0974", "the key never comes back")
+			},
+		},
+		{
+			name: "a key that does not control the wallet",
+			req:  request{method: "PUT", path: "/api/v1/wallets/w-1/key", headers: cookie, body: `{"privateKey":"0x01"}`},
+			setup: func(w *httpapimocks.MockWalletService) {
+				w.EXPECT().ImportKey(mock.Anything, mock.Anything, domain.WalletID("w-1"), "0x01").Return(domain.CredentialsInfo{}, domain.ErrKeyNotForWallet)
+			},
+			wantStatus: http.StatusBadRequest,
+			wantBody:   []string{`"code":"key_not_for_wallet"`},
+		},
+		{
+			name: "while the instance takes none",
+			req:  request{method: "PUT", path: "/api/v1/wallets/w-1/key", headers: cookie, body: `{"privateKey":"0x01"}`},
+			setup: func(w *httpapimocks.MockWalletService) {
+				w.EXPECT().ImportKey(mock.Anything, mock.Anything, domain.WalletID("w-1"), "0x01").Return(domain.CredentialsInfo{}, domain.ErrKeyImportOff)
+			},
+			wantStatus: http.StatusForbidden,
+			wantBody:   []string{`"code":"key_import_off"`},
 		},
 		{
 			name: "link",

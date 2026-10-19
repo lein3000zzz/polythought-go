@@ -29,6 +29,8 @@ type Service struct {
 	repo       ports.WalletRepository
 	box        ports.SecretBox
 	verifier   ports.CredentialsVerifier
+	keys       ports.TradingKeys // optional: without it, no key is taken
+	keyImport  func() bool       // whether the instance takes keys now (D21)
 	log        logging.Logger
 	now        func() time.Time
 	maxWallets int
@@ -39,6 +41,16 @@ type Option func(*Service)
 // WithClock replaces the clock, for tests.
 func WithClock(now func() time.Time) Option {
 	return func(s *Service) { s.now = now }
+}
+
+// WithKeys takes private keys while allowed says so (D21), reading them with keys.
+func WithKeys(keys ports.TradingKeys, allowed func() bool) Option {
+	return func(s *Service) { s.keys, s.keyImport = keys, allowed }
+}
+
+// TakesKeys reports whether the instance takes private keys now.
+func (s *Service) TakesKeys() bool {
+	return s.keys != nil && s.keyImport != nil && s.keyImport()
 }
 
 func New(repo ports.WalletRepository, box ports.SecretBox, verifier ports.CredentialsVerifier, log logging.Logger, opts ...Option) *Service {
@@ -146,6 +158,19 @@ func (s *Service) SetCredentials(ctx context.Context, p auth.Principal, id domai
 		return domain.CredentialsInfo{}, err
 	}
 
+	info, err := s.save(ctx, w, creds, "") // pasted: no key, a key kept before goes
+	if err != nil {
+		return domain.CredentialsInfo{}, err
+	}
+
+	s.log.Info(ctx, "Polymarket credentials saved", "user_id", p.User.ID, "wallet_id", w.ID, "signature_type", creds.SignatureType)
+
+	return info, nil
+}
+
+// save seals and keeps a wallet's credentials, and its private key when there is one,
+// replacing what it had.
+func (s *Service) save(ctx context.Context, w domain.Wallet, creds domain.PolymarketCredentials, key string) (domain.CredentialsInfo, error) {
 	now := s.now()
 	created := now
 
@@ -159,12 +184,13 @@ func (s *Service) SetCredentials(ctx context.Context, p auth.Principal, id domai
 			APIKeyHint:    hint(creds.APIKey),
 			Signer:        creds.Signer,
 			SignatureType: creds.SignatureType,
+			HasKey:        key != "",
 			CreatedAt:     created,
 			UpdatedAt:     now,
 		},
 	}
 
-	for _, f := range []struct {
+	fields := []struct {
 		name  string
 		value string
 		dst   *[]byte
@@ -172,7 +198,19 @@ func (s *Service) SetCredentials(ctx context.Context, p auth.Principal, id domai
 		{"api_key", creds.APIKey, &sealed.APIKey},
 		{"secret", creds.Secret, &sealed.Secret},
 		{"passphrase", creds.Passphrase, &sealed.Passphrase},
-	} {
+	}
+
+	if key != "" {
+		fields = append(fields, struct {
+			name  string
+			value string
+			dst   *[]byte
+		}{"private_key", key, &sealed.PrivateKey})
+	}
+
+	var err error
+
+	for _, f := range fields {
 		*f.dst, err = s.box.Seal(ctx, []byte(f.value), aad(w.ID, f.name))
 		if err != nil {
 			return domain.CredentialsInfo{}, fmt.Errorf("seal %s: %w", f.name, err)
@@ -183,9 +221,50 @@ func (s *Service) SetCredentials(ctx context.Context, p auth.Principal, id domai
 		return domain.CredentialsInfo{}, err
 	}
 
-	s.log.Info(ctx, "Polymarket credentials saved", "user_id", p.User.ID, "wallet_id", w.ID, "signature_type", creds.SignatureType)
-
 	return sealed.Info, nil
+}
+
+// ImportKey keeps a wallet's private key, so it can trade (D153): only while the instance
+// takes keys (D21), from a browser session, and only a key that controls the wallet
+// (D155). Its API credentials are made from it (D154), replacing any pasted ones. The key
+// is never shown again.
+func (s *Service) ImportKey(ctx context.Context, p auth.Principal, id domain.WalletID, key string) (domain.CredentialsInfo, error) {
+	if !p.ViaSession() {
+		return domain.CredentialsInfo{}, domain.ErrForbidden
+	}
+
+	if !s.TakesKeys() {
+		return domain.CredentialsInfo{}, domain.ErrKeyImportOff
+	}
+
+	w, err := s.repo.Get(ctx, p.User.ID, id)
+	if err != nil {
+		return domain.CredentialsInfo{}, err
+	}
+
+	key = strings.TrimSpace(key)
+
+	signer, typ, err := s.keys.Account(key, w.Address)
+	if err != nil {
+		return domain.CredentialsInfo{}, err
+	}
+
+	creds, err := s.keys.APICredentials(ctx, key)
+	if err != nil {
+		s.log.Info(ctx, "Polymarket API key not made", "user_id", p.User.ID, "wallet_id", w.ID, logging.Err(err))
+		return domain.CredentialsInfo{}, err
+	}
+
+	creds.Signer, creds.SignatureType = signer, typ
+
+	info, err := s.save(ctx, w, creds, key)
+	if err != nil {
+		return domain.CredentialsInfo{}, err
+	}
+
+	s.log.Info(ctx, "Polymarket key imported", "user_id", p.User.ID, "wallet_id", w.ID, "signer", signer, "signature_type", typ)
+
+	return info, nil
 }
 
 // CredentialsInfo describes a wallet's stored credentials without decrypting them.

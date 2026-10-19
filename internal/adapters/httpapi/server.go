@@ -58,6 +58,8 @@ type WalletService interface {
 	SetCredentials(ctx context.Context, p auth.Principal, id domain.WalletID, in wallets.CredentialsInput) (domain.CredentialsInfo, error)
 	CredentialsInfo(ctx context.Context, p auth.Principal, id domain.WalletID) (domain.CredentialsInfo, error)
 	RemoveCredentials(ctx context.Context, p auth.Principal, id domain.WalletID) error
+	ImportKey(ctx context.Context, p auth.Principal, id domain.WalletID, key string) (domain.CredentialsInfo, error)
+	TakesKeys() bool
 }
 
 // WorkflowService is what the handlers need from the workflow service.
@@ -272,6 +274,7 @@ func (s *Server) routes() {
 	w.GET("/:id/credentials", s.credentialsInfo)
 	w.PUT("/:id/credentials", s.setCredentials)
 	w.DELETE("/:id/credentials", s.removeCredentials)
+	w.PUT("/:id/key", s.importKey)
 
 	v1.GET("/credential-types", s.requireAuth, s.listCredentialTypes)
 

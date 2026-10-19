@@ -13,6 +13,7 @@ type SealedCredentials struct {
 	APIKey     []byte
 	Secret     []byte
 	Passphrase []byte
+	PrivateKey []byte // nil for pasted credentials
 }
 
 // WalletRepository scopes every lookup to the owning user, so one user can never reach

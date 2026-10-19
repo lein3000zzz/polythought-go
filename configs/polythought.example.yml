@@ -160,6 +160,13 @@ trading:
   # Environment: POLYTHOUGHT_TRADING_PAPER_BALANCE.
   # paper_balance: 1000
 
+  # Whether users may import a wallet's private key, so it can trade: on, off, or auto,
+  # on unless anyone may sign up (Registration open). The server keeps imported keys
+  # encrypted, and could trade with them. Keys imported before stay when it is switched
+  # off; new ones are refused. One of auto, on, off.
+  # Environment: POLYTHOUGHT_TRADING_KEY_IMPORT.
+  # key_import: "auto"
+
 webhook:
 
   # Let workflows post to addresses inside the server's network, such as a service on

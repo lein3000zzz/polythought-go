@@ -78,6 +78,8 @@ var errorMapping = []struct {
 	{domain.ErrInvalidInvite, http.StatusBadRequest, "invalid_invite"},
 	{domain.ErrInvalidWorkflow, http.StatusBadRequest, "invalid_workflow"},
 	{domain.ErrCodeOff, http.StatusForbidden, "code_off"},
+	{domain.ErrKeyImportOff, http.StatusForbidden, "key_import_off"},
+	{domain.ErrKeyNotForWallet, http.StatusBadRequest, "key_not_for_wallet"},
 	{domain.ErrCredentialsRejected, http.StatusBadRequest, "credentials_rejected"},
 	{domain.ErrInvalidCredentials, http.StatusUnauthorized, "invalid_credentials"},
 	{domain.ErrUnauthenticated, http.StatusUnauthorized, "unauthenticated"},

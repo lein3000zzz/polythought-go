@@ -65,6 +65,7 @@ func TestSettingsDefaults(t *testing.T) {
 		config.KeyCodeHostCalls:       jsruntime.DefaultLimits.HostCalls,
 		config.KeyCodeConcurrency:     0,
 		config.KeyPaperBalance:        1000,
+		config.KeyKeyImport:           config.KeyImportAuto,
 		config.KeyTrustedProxies:      []string{},
 		config.KeyWebhookAllowPrivate: false,
 		config.KeyLogLevel:            "info",
@@ -76,7 +77,7 @@ func TestSettingsDefaults(t *testing.T) {
 		assert.Equal(t, want, spec(t, key).Default, key)
 	}
 
-	assert.Len(t, registry(t).Specs(), 28, "every setting has a default checked above")
+	assert.Len(t, registry(t).Specs(), 29, "every setting has a default checked above")
 	assert.True(t, spec(t, config.KeyTelegramToken).Secret)
 }
 
@@ -162,5 +163,23 @@ func TestSettingsGroupsAreTogether(t *testing.T) {
 
 		assert.False(t, done[s.Group], "%s: group %q is split; register its settings together", s.Key, s.Group)
 		done[current], current = true, s.Group
+	}
+}
+
+func TestTakesKeys(t *testing.T) {
+	t.Parallel()
+
+	for _, tc := range []struct {
+		mode         string
+		registration domain.RegistrationMode
+		want         bool
+	}{
+		{config.KeyImportAuto, domain.RegistrationInvite, true},
+		{config.KeyImportAuto, domain.RegistrationClosed, true},
+		{config.KeyImportAuto, domain.RegistrationOpen, false},
+		{config.KeyImportOn, domain.RegistrationOpen, true},
+		{config.KeyImportOff, domain.RegistrationInvite, false},
+	} {
+		assert.Equal(t, tc.want, config.TakesKeys(tc.mode, tc.registration), "%s with %s registration (D21)", tc.mode, tc.registration)
 	}
 }

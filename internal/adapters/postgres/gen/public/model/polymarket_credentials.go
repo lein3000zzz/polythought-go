@@ -22,4 +22,5 @@ type PolymarketCredentials struct {
 	SignatureType    int16
 	CreatedAt        time.Time
 	UpdatedAt        time.Time
+	PrivateKeySealed *[]byte
 }

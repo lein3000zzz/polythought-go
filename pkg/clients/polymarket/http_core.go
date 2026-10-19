@@ -62,12 +62,18 @@ func (c *httpCore) post(ctx context.Context, path string, body, out any) error {
 
 // getL2 sends an authenticated GET signed with creds.
 func (c *httpCore) getL2(ctx context.Context, path string, query url.Values, creds L2Credentials, out any) error {
-	return c.do(ctx, http.MethodGet, path, query, nil, &creds, out)
+	return c.do(ctx, http.MethodGet, path, query, nil, creds, out)
 }
 
-// do retries only on throttling and gateway errors. Every MVP endpoint is a read, so retries are safe.
-// The attempt count and final status land on the caller's span.
-func (c *httpCore) do(ctx context.Context, method, path string, query url.Values, body any, creds *L2Credentials, out any) error {
+// authorizer signs a request's headers: L2 credentials, or L1's ClobAuth.
+type authorizer interface {
+	headers(now time.Time, method, path string, body []byte) (http.Header, error)
+}
+
+// do retries only on throttling and gateway errors. Reads are safe to retry; so is making
+// an API key, which gives the same one again once made. The attempt count and final status
+// land on the caller's span.
+func (c *httpCore) do(ctx context.Context, method, path string, query url.Values, body any, creds authorizer, out any) error {
 	var payload []byte
 	if body != nil {
 		var err error

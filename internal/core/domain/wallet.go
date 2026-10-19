@@ -69,6 +69,7 @@ type Wallet struct {
 	Label          string
 	CreatedAt      time.Time
 	HasCredentials bool
+	HasKey         bool // a private key imported: it can trade (D153)
 }
 
 // SignatureType is how a Polymarket account signs orders.
@@ -104,6 +105,15 @@ type CredentialsInfo struct {
 	APIKeyHint    string
 	Signer        WalletAddress
 	SignatureType SignatureType
+	HasKey        bool // made from an imported private key, which is kept too
 	CreatedAt     time.Time
 	UpdatedAt     time.Time
 }
+
+var (
+	// ErrKeyImportOff means the instance does not take private keys (D21).
+	ErrKeyImportOff = errors.New("this instance does not take private keys")
+	// ErrKeyNotForWallet means a private key controls neither the wallet nor its
+	// proxy, Safe or Deposit Wallet (D155).
+	ErrKeyNotForWallet = errors.New("this key does not control the wallet")
+)

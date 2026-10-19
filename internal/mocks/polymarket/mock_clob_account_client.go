@@ -187,6 +187,72 @@ func (_c *MockClobAccountClient_BalanceAllowance_Call) RunAndReturn(run func(ctx
 	return _c
 }
 
+// CreateOrDeriveAPIKey provides a mock function for the type MockClobAccountClient
+func (_mock *MockClobAccountClient) CreateOrDeriveAPIKey(ctx context.Context, auth polymarket.L1Auth) (polymarket.L2Credentials, error) {
+	ret := _mock.Called(ctx, auth)
+
+	if len(ret) == 0 {
+		panic("no return value specified for CreateOrDeriveAPIKey")
+	}
+
+	var r0 polymarket.L2Credentials
+	var r1 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context, polymarket.L1Auth) (polymarket.L2Credentials, error)); ok {
+		return returnFunc(ctx, auth)
+	}
+	if returnFunc, ok := ret.Get(0).(func(context.Context, polymarket.L1Auth) polymarket.L2Credentials); ok {
+		r0 = returnFunc(ctx, auth)
+	} else {
+		r0 = ret.Get(0).(polymarket.L2Credentials)
+	}
+	if returnFunc, ok := ret.Get(1).(func(context.Context, polymarket.L1Auth) error); ok {
+		r1 = returnFunc(ctx, auth)
+	} else {
+		r1 = ret.Error(1)
+	}
+	return r0, r1
+}
+
+// MockClobAccountClient_CreateOrDeriveAPIKey_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'CreateOrDeriveAPIKey'
+type MockClobAccountClient_CreateOrDeriveAPIKey_Call struct {
+	*mock.Call
+}
+
+// CreateOrDeriveAPIKey is a helper method to define mock.On call
+//   - ctx context.Context
+//   - auth polymarket.L1Auth
+func (_e *MockClobAccountClient_Expecter) CreateOrDeriveAPIKey(ctx any, auth any) *MockClobAccountClient_CreateOrDeriveAPIKey_Call {
+	return &MockClobAccountClient_CreateOrDeriveAPIKey_Call{Call: _e.mock.On("CreateOrDeriveAPIKey", ctx, auth)}
+}
+
+func (_c *MockClobAccountClient_CreateOrDeriveAPIKey_Call) Run(run func(ctx context.Context, auth polymarket.L1Auth)) *MockClobAccountClient_CreateOrDeriveAPIKey_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		var arg1 polymarket.L1Auth
+		if args[1] != nil {
+			arg1 = args[1].(polymarket.L1Auth)
+		}
+		run(
+			arg0,
+			arg1,
+		)
+	})
+	return _c
+}
+
+func (_c *MockClobAccountClient_CreateOrDeriveAPIKey_Call) Return(l2Credentials polymarket.L2Credentials, err error) *MockClobAccountClient_CreateOrDeriveAPIKey_Call {
+	_c.Call.Return(l2Credentials, err)
+	return _c
+}
+
+func (_c *MockClobAccountClient_CreateOrDeriveAPIKey_Call) RunAndReturn(run func(ctx context.Context, auth polymarket.L1Auth) (polymarket.L2Credentials, error)) *MockClobAccountClient_CreateOrDeriveAPIKey_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // OpenOrders provides a mock function for the type MockClobAccountClient
 func (_mock *MockClobAccountClient) OpenOrders(ctx context.Context, creds polymarket.L2Credentials, q polymarket.OpenOrdersQuery) (polymarket.Page[polymarket.OpenOrder], error) {
 	ret := _mock.Called(ctx, creds, q)

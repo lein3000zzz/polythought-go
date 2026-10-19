@@ -107,6 +107,35 @@ func TestWallets(t *testing.T) {
 			assert.Equal(t, at.Add(time.Hour), got.Info.UpdatedAt)
 			assert.Equal(t, domain.SignaturePolyProxy, got.Info.SignatureType)
 		}},
+		{"a key is kept with the credentials, and pasted ones without it clear it", func(t *testing.T, db *postgres.DB, wallets *postgres.Wallets) {
+			u := seedUser(t, db, "a@x.io", domain.RoleUser)
+			w := seedWallet(t, db, u, addrA)
+
+			withKey := sealed(w, "abcd", at)
+			withKey.PrivateKey = []byte("sealed-key")
+			require.NoError(t, wallets.SaveCredentials(ctx, withKey))
+
+			got, err := wallets.Credentials(ctx, w.ID)
+			require.NoError(t, err)
+			assert.Equal(t, []byte("sealed-key"), got.PrivateKey)
+			assert.True(t, got.Info.HasKey)
+
+			listed, err := wallets.Get(ctx, u.ID, w.ID)
+			require.NoError(t, err)
+			assert.True(t, listed.HasKey)
+
+			require.NoError(t, wallets.SaveCredentials(ctx, sealed(w, "efgh", at.Add(time.Hour))))
+
+			got, err = wallets.Credentials(ctx, w.ID)
+			require.NoError(t, err)
+			assert.Nil(t, got.PrivateKey)
+			assert.False(t, got.Info.HasKey)
+
+			listed, err = wallets.Get(ctx, u.ID, w.ID)
+			require.NoError(t, err)
+			assert.True(t, listed.HasCredentials)
+			assert.False(t, listed.HasKey)
+		}},
 		{"unlinking removes credentials", func(t *testing.T, db *postgres.DB, wallets *postgres.Wallets) {
 			u := seedUser(t, db, "a@x.io", domain.RoleUser)
 			w := seedWallet(t, db, u, addrA)

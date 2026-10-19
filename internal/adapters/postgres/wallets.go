@@ -53,12 +53,13 @@ func (r *Wallets) Create(ctx context.Context, w domain.Wallet) error {
 type walletRow struct {
 	model.Wallets
 	Credentials *struct {
-		WalletID uuid.UUID `sql:"primary_key" alias:"polymarket_credentials.wallet_id"`
+		WalletID         uuid.UUID `sql:"primary_key" alias:"polymarket_credentials.wallet_id"`
+		PrivateKeySealed *[]byte   `alias:"polymarket_credentials.private_key_sealed"`
 	}
 }
 
 func (r *Wallets) selectWallets(where jet.BoolExpression) jet.SelectStatement {
-	return jet.SELECT(table.Wallets.AllColumns, table.PolymarketCredentials.WalletID).
+	return jet.SELECT(table.Wallets.AllColumns, table.PolymarketCredentials.WalletID, table.PolymarketCredentials.PrivateKeySealed).
 		FROM(table.Wallets.LEFT_JOIN(table.PolymarketCredentials, table.PolymarketCredentials.WalletID.EQ(table.Wallets.ID))).
 		WHERE(where)
 }
@@ -153,6 +154,7 @@ func (r *Wallets) SaveCredentials(ctx context.Context, c ports.SealedCredentials
 		APIKeySealed:     c.APIKey,
 		SecretSealed:     c.Secret,
 		PassphraseSealed: c.Passphrase,
+		PrivateKeySealed: optionalBytes(c.PrivateKey),
 		APIKeyHint:       c.Info.APIKeyHint,
 		SignerAddress:    string(c.Info.Signer),
 		SignatureType:    int16(c.Info.SignatureType),
@@ -169,6 +171,7 @@ func (r *Wallets) SaveCredentials(ctx context.Context, c ports.SealedCredentials
 			t.APIKeySealed.SET(t.EXCLUDED.APIKeySealed),
 			t.SecretSealed.SET(t.EXCLUDED.SecretSealed),
 			t.PassphraseSealed.SET(t.EXCLUDED.PassphraseSealed),
+			t.PrivateKeySealed.SET(t.EXCLUDED.PrivateKeySealed),
 			t.APIKeyHint.SET(t.EXCLUDED.APIKeyHint),
 			t.SignerAddress.SET(t.EXCLUDED.SignerAddress),
 			t.SignatureType.SET(t.EXCLUDED.SignatureType),
@@ -201,13 +204,31 @@ func (r *Wallets) Credentials(ctx context.Context, walletID domain.WalletID) (po
 			APIKeyHint:    m.APIKeyHint,
 			Signer:        domain.WalletAddress(m.SignerAddress),
 			SignatureType: domain.SignatureType(m.SignatureType),
+			HasKey:        m.PrivateKeySealed != nil,
 			CreatedAt:     m.CreatedAt.UTC(),
 			UpdatedAt:     m.UpdatedAt.UTC(),
 		},
 		APIKey:     m.APIKeySealed,
 		Secret:     m.SecretSealed,
 		Passphrase: m.PassphraseSealed,
+		PrivateKey: derefBytes(m.PrivateKeySealed),
 	}, nil
+}
+
+func optionalBytes(b []byte) *[]byte {
+	if b == nil {
+		return nil
+	}
+
+	return &b
+}
+
+func derefBytes(b *[]byte) []byte {
+	if b == nil {
+		return nil
+	}
+
+	return *b
 }
 
 func (r *Wallets) DeleteCredentials(ctx context.Context, walletID domain.WalletID) error {
@@ -229,5 +250,6 @@ func toWallet(row walletRow) domain.Wallet {
 		Label:          row.Label,
 		CreatedAt:      row.CreatedAt.UTC(),
 		HasCredentials: row.Credentials != nil,
+		HasKey:         row.Credentials != nil && row.Credentials.PrivateKeySealed != nil,
 	}
 }

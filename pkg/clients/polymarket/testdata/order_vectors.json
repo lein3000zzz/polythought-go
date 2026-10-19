@@ -3867,5 +3867,44 @@
       "tokenId": "20282409603651670423947251286023",
       "v2": true
     }
+  ],
+  "clobAuth": [
+    {
+      "address": "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266",
+      "chainId": 137,
+      "timestamp": 1760875200,
+      "nonce": 0,
+      "signature": "0x7d34d6cf5df1f006e40b61b1b13058d515a8e343e2f17519ee2d4f6b6ced955a728b434fd34bbbf260630bf632d263f2d2609af7d83f0221f3b4d978e4829fae1c"
+    },
+    {
+      "address": "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266",
+      "chainId": 137,
+      "timestamp": 1760875261,
+      "nonce": 7,
+      "signature": "0x32354b1cede41765a968a892bd717d8a5b80841bde5156bd4c9fd38b66c10fca0db50492e42c060c34818b1bc0666f39c1509d00f967d3b67aa6e17964323d821c"
+    }
+  ],
+  "wallets": [
+    {
+      "signer": "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266",
+      "proxy": "0x365f0ca36ae1f641e02fe3b7743673da42a13a70",
+      "safe": "0xd93b25cb943d14d0d34fbaf01fc93a0f8b5f6e47",
+      "depositBeacon": "0xbc0ff067b7740eff76c1ca93c875ba6b890d6b50",
+      "depositUups": "0xdf8b9e8f9ab23f261f6e1b171b7454ae6e46ba76"
+    },
+    {
+      "signer": "0x70997970C51812dc3A010C7d01b50e0d17dc79C8",
+      "proxy": "0xd9d24e482c11f586cd9a1a53dc3eec6de3883862",
+      "safe": "0x8ac5d4bd2752afc9f5ca531f19d617647216b893",
+      "depositBeacon": "0x4fe2cc4925607a473264fa89e7138075695a5f8e",
+      "depositUups": "0x5f4f45abd6e86c60b3df2a4af103f85256a2ce6d"
+    },
+    {
+      "signer": "0x5aAeb6053F3E94C9b9A09f33669435E7Ef1BeAed",
+      "proxy": "0x7dac848eb90e598eb45a8b5462e82f4a433873af",
+      "safe": "0xc94eecfb93b1ca63f32707e0328a267b82661241",
+      "depositBeacon": "0xa05f08027251a6b36c7af86d97ab821b43d35369",
+      "depositUups": "0x2bca1fdcc1820bc572964c9dd44338f624aa7627"
+    }
   ]
 }

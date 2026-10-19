@@ -433,6 +433,10 @@
                         "format": "date-time",
                         "type": "string"
                     },
+                    "hasKey": {
+                        "description": "HasKey says they were made from an imported private key, which is kept too.",
+                        "type": "boolean"
+                    },
                     "signatureType": {
                         "enum": [
                             0,
@@ -453,6 +457,7 @@
                 "required": [
                     "apiKeyHint",
                     "createdAt",
+                    "hasKey",
                     "signatureType",
                     "signer",
                     "updatedAt"
@@ -931,6 +936,18 @@
                     "unrealized",
                     "updatedAt",
                     "value"
+                ],
+                "type": "object"
+            },
+            "ImportKeyRequest": {
+                "properties": {
+                    "privateKey": {
+                        "description": "PrivateKey is 64 hex digits, with 0x or without.",
+                        "type": "string"
+                    }
+                },
+                "required": [
+                    "privateKey"
                 ],
                 "type": "object"
             },
@@ -2396,6 +2413,10 @@
                     "hasCredentials": {
                         "type": "boolean"
                     },
+                    "hasKey": {
+                        "description": "HasKey says its private key is imported: it can trade.",
+                        "type": "boolean"
+                    },
                     "id": {
                         "type": "string"
                     },
@@ -2407,6 +2428,7 @@
                     "address",
                     "createdAt",
                     "hasCredentials",
+                    "hasKey",
                     "id",
                     "label"
                 ],
@@ -2414,6 +2436,10 @@
             },
             "WalletList": {
                 "properties": {
+                    "takesKeys": {
+                        "description": "TakesKeys says whether the instance takes private keys now, as an admin set it.",
+                        "type": "boolean"
+                    },
                     "wallets": {
                         "items": {
                             "$ref": "#/components/schemas/Wallet"
@@ -2423,6 +2449,7 @@
                     }
                 },
                 "required": [
+                    "takesKeys",
                     "wallets"
                 ],
                 "type": "object"
@@ -5455,6 +5482,106 @@
                     }
                 ],
                 "summary": "Store a wallet's API credentials",
+                "tags": [
+                    "wallets"
+                ]
+            }
+        },
+        "/wallets/{id}/key": {
+            "put": {
+                "operationId": "importKey",
+                "parameters": [
+                    {
+                        "description": "Wallet ID",
+                        "in": "path",
+                        "name": "id",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/ImportKeyRequest",
+                                "summary": "body",
+                                "description": "The private key"
+                            }
+                        }
+                    },
+                    "description": "The private key",
+                    "required": true
+                },
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Credentials"
+                                }
+                            }
+                        },
+                        "description": "OK"
+                    },
+                    "400": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "invalid_input, key_not_for_wallet or credentials_rejected"
+                    },
+                    "401": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "unauthenticated"
+                    },
+                    "403": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "key_import_off, or forbidden with an API token"
+                    },
+                    "404": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "not_found"
+                    },
+                    "503": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "upstream_unavailable: Polymarket could not be reached"
+                    }
+                },
+                "security": [
+                    {
+                        "SessionCookie": []
+                    }
+                ],
+                "summary": "Import a wallet's private key",
                 "tags": [
                     "wallets"
                 ]

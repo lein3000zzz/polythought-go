@@ -616,6 +616,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/wallets/{id}/key": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Import a wallet's private key */
+        put: operations["importKey"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/workflows": {
         parameters: {
             query?: never;
@@ -1046,6 +1063,8 @@ export interface components {
             apiKeyHint: string;
             /** Format: date-time */
             createdAt: string;
+            /** @description HasKey says they were made from an imported private key, which is kept too. */
+            hasKey: boolean;
             /** @enum {integer} */
             signatureType: 0 | 1 | 2 | 3;
             signer: string;
@@ -1218,6 +1237,10 @@ export interface components {
             /** Format: date-time */
             updatedAt: string;
             value: string;
+        };
+        ImportKeyRequest: {
+            /** @description PrivateKey is 64 hex digits, with 0x or without. */
+            privateKey: string;
         };
         Invite: {
             /** @description Code is the secret, present only in the response that creates it. */
@@ -1739,10 +1762,14 @@ export interface components {
             /** Format: date-time */
             createdAt: string;
             hasCredentials: boolean;
+            /** @description HasKey says its private key is imported: it can trade. */
+            hasKey: boolean;
             id: string;
             label: string;
         };
         WalletList: {
+            /** @description TakesKeys says whether the instance takes private keys now, as an admin set it. */
+            takesKeys: boolean;
             wallets: components["schemas"]["Wallet"][];
         };
         Workflow: {
@@ -3902,6 +3929,79 @@ export interface operations {
             };
             /** @description not_found */
             404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    importKey: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Wallet ID */
+                id: string;
+            };
+            cookie?: never;
+        };
+        /** @description The private key */
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ImportKeyRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Credentials"];
+                };
+            };
+            /** @description invalid_input, key_not_for_wallet or credentials_rejected */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description unauthenticated */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description key_import_off, or forbidden with an API token */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description not_found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description upstream_unavailable: Polymarket could not be reached */
+            503: {
                 headers: {
                     [name: string]: unknown;
                 };

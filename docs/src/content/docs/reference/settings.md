@@ -269,6 +269,18 @@ What a workflow's paper account starts with, in dollars: its paper buys spend it
 | Default | `1000` |
 | Applies | at once |
 
+### Private keys
+
+Whether users may import a wallet's private key, so it can trade: on, off, or auto, on unless anyone may sign up (Registration open). The server keeps imported keys encrypted, and could trade with them. Keys imported before stay when it is switched off; new ones are refused.
+
+| | |
+|---|---|
+| Key | `trading.key_import` |
+| Environment variable | `POLYTHOUGHT_TRADING_KEY_IMPORT` |
+| Kind | one of `auto`, `on`, `off` |
+| Default | `auto` |
+| Applies | at once |
+
 ## Network
 
 ### Trusted proxies

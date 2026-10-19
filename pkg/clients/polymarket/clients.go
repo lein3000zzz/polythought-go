@@ -38,6 +38,8 @@ type ClobClient interface {
 // ClobAccountClient reads an account's own CLOB data with L2 credentials. Credentials
 // are passed per call, so one client serves many accounts.
 type ClobAccountClient interface {
+	// CreateOrDeriveAPIKey makes the account of auth's key an API key, or gives its key again.
+	CreateOrDeriveAPIKey(ctx context.Context, auth L1Auth) (L2Credentials, error)
 	// APIKeys lists the keys of the credentials' account; a 401 is ErrUnauthorized.
 	APIKeys(ctx context.Context, creds L2Credentials) ([]string, error)
 	OpenOrders(ctx context.Context, creds L2Credentials, q OpenOrdersQuery) (Page[OpenOrder], error)

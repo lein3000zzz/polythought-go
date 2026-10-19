@@ -32,6 +32,7 @@ const (
 	KeyCodeHostCalls       = "code.host_calls"
 	KeyCodeConcurrency     = "code.concurrency"
 	KeyPaperBalance        = "trading.paper_balance"
+	KeyKeyImport           = "trading.key_import"
 	KeyTrustedProxies      = "http.trusted_proxies"
 	KeyWebhookAllowPrivate = "webhook.allow_private"
 	KeyLogLevel            = "log.level"
@@ -40,6 +41,26 @@ const (
 	KeyTelegramToken       = "telegram.token"
 	KeyTelegramMode        = "telegram.mode"
 )
+
+// The ways the instance takes private keys (D21): auto is on unless registration is open.
+const (
+	KeyImportAuto = "auto"
+	KeyImportOn   = "on"
+	KeyImportOff  = "off"
+)
+
+// TakesKeys reports whether users may import private keys, by the Private keys and
+// Registration settings.
+func TakesKeys(mode string, registration domain.RegistrationMode) bool {
+	switch mode {
+	case KeyImportOn:
+		return true
+	case KeyImportOff:
+		return false
+	default:
+		return registration != domain.RegistrationOpen
+	}
+}
 
 const (
 	groupAccounts   = "Accounts"
@@ -170,6 +191,12 @@ func Settings() (*settings.Registry, error) {
 			Key: KeyPaperBalance, Group: groupTrading, Label: "Paper balance ($)",
 			Description: "What a workflow's paper account starts with, in dollars: its paper buys spend it and its sells add to it. Accounts already open keep theirs.",
 			Kind:        settings.KindInt, Default: 1000, Check: between(1, 10_000_000),
+		},
+		settings.Spec{
+			Key: KeyKeyImport, Group: groupTrading, Label: "Private keys",
+			Description: "Whether users may import a wallet's private key, so it can trade: on, off, or auto, on unless anyone may sign up (Registration open). The server keeps imported keys encrypted, and could trade with them. Keys imported before stay when it is switched off; new ones are refused.",
+			Kind:        settings.KindEnum, Default: KeyImportAuto,
+			Options: []string{KeyImportAuto, KeyImportOn, KeyImportOff},
 		},
 		settings.Spec{
 			Key: KeyTrustedProxies, Group: groupNetwork, Label: "Trusted proxies",
