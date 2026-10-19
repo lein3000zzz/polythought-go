@@ -56,7 +56,7 @@ func serve(ctx context.Context) error {
 		CodeTypes: codeTypes{types: a.customNodes}, WorkflowCode: workflowCode{code: a.code, gate: a.codeGate},
 		CustomNodes: a.customNodes, Library: a.library, Settings: a.settings, Credentials: a.credentials, Trading: a.trading,
 		Memory:   a.memory,
-		Telegram: a.telegram, TelegramWebhook: a.telegramBot, Notifications: a.notify,
+		Telegram: a.telegram, TelegramWebhook: a.telegramBot, Notifications: a.notify, Mail: a.mail,
 	})
 	if err != nil {
 		return err

@@ -5,7 +5,9 @@ import (
 	"errors"
 	"fmt"
 	"net"
+	"net/mail"
 	"net/url"
+	"strings"
 	"time"
 
 	"github.com/lein3000zzz/polythought-go/internal/core/domain"
@@ -47,6 +49,21 @@ const (
 	KeyTelegramEnabled     = "telegram.enabled"
 	KeyTelegramToken       = "telegram.token"
 	KeyTelegramMode        = "telegram.mode"
+	KeyMailHost            = "mail.host"
+	KeyMailPort            = "mail.port"
+	KeyMailSecurity        = "mail.security"
+	KeyMailUsername        = "mail.username"
+	KeyMailPassword        = "mail.password"
+	KeyMailFrom            = "mail.from_address"
+	KeyMailFromName        = "mail.from_name"
+)
+
+// How the server connects to the mail server (D169): STARTTLS, TLS from the start, or
+// plain, for one on the same host or network. Certificates are always checked.
+const (
+	MailSTARTTLS = "starttls"
+	MailTLS      = "tls"
+	MailPlain    = "none"
 )
 
 // The ways the instance takes private keys (D21): auto is on unless registration is open.
@@ -78,6 +95,7 @@ const (
 	groupNetwork    = "Network"
 	groupLogging    = "Logging"
 	groupTelegram   = "Telegram"
+	groupMail       = "Mail"
 )
 
 // Settings is the registry of the server's own settings.
@@ -265,6 +283,41 @@ func Settings() (*settings.Registry, error) {
 			Description: "polling asks Telegram for new messages, and works anywhere, even behind a firewall. webhook has Telegram send them to this server, and needs the public URL to be https.",
 			Kind:        settings.KindEnum, Default: "polling", Options: []string{"polling", "webhook"},
 		},
+		settings.Spec{
+			Key: KeyMailHost, Group: groupMail, Label: "Mail server",
+			Description: "The SMTP server Polythought sends mail through, like mail.example.com, with no port: that is below. Mail is set up once this and the From address are in.",
+			Kind:        settings.KindString, Default: "", Check: mailHost,
+		},
+		settings.Spec{
+			Key: KeyMailPort, Group: groupMail, Label: "Port",
+			Description: "587 for STARTTLS, 465 for TLS from the start, 25 for a plain connection.",
+			Kind:        settings.KindInt, Default: 587, Check: between(1, 65535),
+		},
+		settings.Spec{
+			Key: KeyMailSecurity, Group: groupMail, Label: "Security",
+			Description: "starttls upgrades the connection to TLS, tls uses TLS from the start, none stays plain, for a server on the same host or network. The server's certificate is always checked; a password is never sent over a plain connection, except to this host.",
+			Kind:        settings.KindEnum, Default: MailSTARTTLS, Options: []string{MailSTARTTLS, MailTLS, MailPlain},
+		},
+		settings.Spec{
+			Key: KeyMailUsername, Group: groupMail, Label: "Username",
+			Description: "The account Polythought signs in to the mail server with. Leave empty for a server that takes mail without signing in.",
+			Kind:        settings.KindString, Default: "",
+		},
+		settings.Spec{
+			Key: KeyMailPassword, Group: groupMail, Label: "Password",
+			Description: "The password of that account.",
+			Kind:        settings.KindString, Secret: true, Default: "",
+		},
+		settings.Spec{
+			Key: KeyMailFrom, Group: groupMail, Label: "From address",
+			Description: "The address Polythought's mail comes from, like polythought@example.com. Your mail server must let the account send as it.",
+			Kind:        settings.KindString, Default: "", Check: emailAddress,
+		},
+		settings.Spec{
+			Key: KeyMailFromName, Group: groupMail, Label: "From name",
+			Description: "The name mail comes from, shown beside the address.",
+			Kind:        settings.KindString, Default: "Polythought",
+		},
 	)
 	if err != nil {
 		return nil, err
@@ -301,6 +354,34 @@ func between(least, most int) func(any) error {
 
 		return nil
 	}
+}
+
+// mailHost checks a mail server's host: a name or an address, without a scheme or port.
+func mailHost(v any) error {
+	h := v.(string)
+	if h == "" {
+		return nil
+	}
+
+	if strings.ContainsAny(h, ":/ @") {
+		return errors.New("is a host alone, like mail.example.com, without a scheme or port")
+	}
+
+	return nil
+}
+
+// emailAddress checks an address alone, like polythought@example.com.
+func emailAddress(v any) error {
+	a := v.(string)
+	if a == "" {
+		return nil
+	}
+
+	if addr, err := mail.ParseAddress(a); err != nil || addr.Address != a {
+		return errors.New("is not an address like polythought@example.com")
+	}
+
+	return nil
 }
 
 // DefaultPolygonRPC is the public endpoint @polymarket/client uses.

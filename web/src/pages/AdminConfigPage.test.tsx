@@ -297,6 +297,55 @@ describe('admin config page', () => {
     expect(restarted).toBe(true)
   })
 
+  it('sends a test email through the saved mail server, saying what it answered', async () => {
+    const mail = (key: string, value: string) => setting({ key, group: 'Mail', value, default: '' })
+    let sent: unknown
+    let answer = apiError(
+      502,
+      'mail_failed',
+      'the mail server did not take the message: 535 5.7.8 Authentication credentials invalid',
+    )
+
+    config([
+      mail('mail.host', 'mail.example.com'),
+      mail('mail.from_address', 'polythought@example.com'),
+    ])
+    server.use(
+      http.post('/api/v1/admin/mail/test', async ({ request }) => {
+        sent = await request.json()
+        return answer
+      }),
+    )
+    const { user } = renderApp('/admin/config')
+
+    const field = await screen.findByLabelText('Send a test email to')
+    expect(field).toHaveValue(root.email)
+
+    await user.click(screen.getByRole('button', { name: 'Send test email' }))
+    expect(
+      await screen.findByText(
+        'The mail server did not take the message: 535 5.7.8 Authentication credentials invalid',
+      ),
+    ).toBeInTheDocument()
+    expect(sent).toEqual({ to: root.email })
+
+    answer = new HttpResponse(null, { status: 204 })
+    await user.clear(field)
+    await user.type(field, 'ops@example.com')
+    await user.click(screen.getByRole('button', { name: 'Send test email' }))
+    expect(await screen.findByText(/Sent to ops@example.com/)).toBeInTheDocument()
+  })
+
+  it('sends no test email before a mail server is saved', async () => {
+    config([setting({ key: 'mail.host', group: 'Mail', value: '' })])
+    renderApp('/admin/config')
+
+    expect(
+      await screen.findByText('Save a mail server and a From address first.'),
+    ).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Send test email' })).toBeDisabled()
+  })
+
   it('lists changes, newest first', async () => {
     config()
     server.use(

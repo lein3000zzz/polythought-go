@@ -90,3 +90,10 @@ export function useRestart() {
     onSettled: () => queryClient.invalidateQueries({ queryKey: keys.settings }),
   })
 }
+
+/** Sends a test email through the mail server as saved (D168). */
+export function useSendTestMail() {
+  return useMutation({
+    mutationFn: (to: string) => call(api.POST('/admin/mail/test', { body: { to } })),
+  })
+}

@@ -16,6 +16,7 @@ import (
 
 	"github.com/lein3000zzz/polythought-go/internal/adapters/crypto"
 	"github.com/lein3000zzz/polythought-go/internal/adapters/jsruntime"
+	"github.com/lein3000zzz/polythought-go/internal/adapters/mailer"
 	pmadapter "github.com/lein3000zzz/polythought-go/internal/adapters/polymarket"
 	"github.com/lein3000zzz/polythought-go/internal/adapters/postgres"
 	"github.com/lein3000zzz/polythought-go/internal/adapters/ratelimit"
@@ -34,6 +35,7 @@ import (
 	"github.com/lein3000zzz/polythought-go/internal/core/services/events"
 	"github.com/lein3000zzz/polythought-go/internal/core/services/feed"
 	"github.com/lein3000zzz/polythought-go/internal/core/services/library"
+	"github.com/lein3000zzz/polythought-go/internal/core/services/mail"
 	"github.com/lein3000zzz/polythought-go/internal/core/services/memory"
 	"github.com/lein3000zzz/polythought-go/internal/core/services/notify"
 	"github.com/lein3000zzz/polythought-go/internal/core/services/settings"
@@ -117,6 +119,7 @@ type app struct {
 	telegramBot *tgadapter.Bot
 	telegram    *telegram.Service
 	notify      *notify.Service
+	mail        *mail.Service
 	waits       *waits.Service
 	code        *code.Service
 	codeGate    auth.CodeGate
@@ -205,6 +208,17 @@ func (a *app) init(ctx context.Context) error {
 	a.telegram = telegram.New(a.telegramBot, postgres.NewTelegramLinks(a.db), postgres.NewUsers(a.db), a.util.Logger)
 	a.telegramBot.SetHandler(a.telegram.HandleUpdate)
 	a.notify = notify.New(a.telegram, postgres.NewNotificationPrefs(a.db), postgres.NewWorkflows(a.db), a.cfg.PublicURL, a.util.Logger)
+
+	// Mail goes through the server set up on the Config page, read for each message (D168).
+	a.mail = mail.New(mailer.New(func() mailer.Config {
+		s := a.settings.Current()
+
+		return mailer.Config{
+			Host: s.String(config.KeyMailHost), Port: s.Int(config.KeyMailPort), Security: s.String(config.KeyMailSecurity),
+			Username: s.String(config.KeyMailUsername), Password: s.String(config.KeyMailPassword),
+			From: s.String(config.KeyMailFrom), FromName: s.String(config.KeyMailFromName),
+		}
+	}, a.util.Logger), a.cfg.PublicURL, a.util.Logger)
 
 	// After notify, which reminds of expiring session keys.
 	walletRepo := postgres.NewWallets(a.db)

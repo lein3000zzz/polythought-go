@@ -418,3 +418,89 @@ polling asks Telegram for new messages, and works anywhere, even behind a firewa
 | Kind | one of `polling`, `webhook` |
 | Default | `polling` |
 | Applies | at once |
+
+## Mail
+
+### Mail server
+
+The SMTP server Polythought sends mail through, like mail.example.com, with no port: that is below. Mail is set up once this and the From address are in.
+
+| | |
+|---|---|
+| Key | `mail.host` |
+| Environment variable | `POLYTHOUGHT_MAIL_HOST` |
+| Kind | text |
+| Default | empty |
+| Applies | at once |
+
+### Port
+
+587 for STARTTLS, 465 for TLS from the start, 25 for a plain connection.
+
+| | |
+|---|---|
+| Key | `mail.port` |
+| Environment variable | `POLYTHOUGHT_MAIL_PORT` |
+| Kind | whole number |
+| Default | `587` |
+| Applies | at once |
+
+### Security
+
+starttls upgrades the connection to TLS, tls uses TLS from the start, none stays plain, for a server on the same host or network. The server's certificate is always checked; a password is never sent over a plain connection, except to this host.
+
+| | |
+|---|---|
+| Key | `mail.security` |
+| Environment variable | `POLYTHOUGHT_MAIL_SECURITY` |
+| Kind | one of `starttls`, `tls`, `none` |
+| Default | `starttls` |
+| Applies | at once |
+
+### Username
+
+The account Polythought signs in to the mail server with. Leave empty for a server that takes mail without signing in.
+
+| | |
+|---|---|
+| Key | `mail.username` |
+| Environment variable | `POLYTHOUGHT_MAIL_USERNAME` |
+| Kind | text |
+| Default | empty |
+| Applies | at once |
+
+### Password
+
+The password of that account.
+
+| | |
+|---|---|
+| Key | `mail.password` |
+| Environment variable | `POLYTHOUGHT_MAIL_PASSWORD` |
+| Kind | text, secret: stored encrypted and never shown |
+| Default | empty |
+| Applies | at once |
+
+### From address
+
+The address Polythought's mail comes from, like polythought@example.com. Your mail server must let the account send as it.
+
+| | |
+|---|---|
+| Key | `mail.from_address` |
+| Environment variable | `POLYTHOUGHT_MAIL_FROM_ADDRESS` |
+| Kind | text |
+| Default | empty |
+| Applies | at once |
+
+### From name
+
+The name mail comes from, shown beside the address.
+
+| | |
+|---|---|
+| Key | `mail.from_name` |
+| Environment variable | `POLYTHOUGHT_MAIL_FROM_NAME` |
+| Kind | text |
+| Default | `Polythought` |
+| Applies | at once |

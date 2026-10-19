@@ -73,6 +73,7 @@ packages:
       SessionKeyReminder: {}
       TradingApprovals: {}
       ApprovalSetupRepository: {}
+      Mailer: {}
   github.com/lein3000zzz/polythought-go/internal/core/services/auth:
     config:
       dir: internal/mocks/auth
@@ -119,3 +120,4 @@ packages:
       TelegramWebhook: {}
       NotificationService: {}
       CustomNodeService: {}
+      MailService: {}

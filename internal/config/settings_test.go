@@ -78,14 +78,22 @@ func TestSettingsDefaults(t *testing.T) {
 		config.KeyTelegramEnabled:     false,
 		config.KeyTelegramToken:       "",
 		config.KeyTelegramMode:        "polling",
+		config.KeyMailHost:            "",
+		config.KeyMailPort:            587,
+		config.KeyMailSecurity:        config.MailSTARTTLS,
+		config.KeyMailUsername:        "",
+		config.KeyMailPassword:        "",
+		config.KeyMailFrom:            "",
+		config.KeyMailFromName:        "Polythought",
 	} {
 		assert.Equal(t, want, spec(t, key).Default, key)
 	}
 
-	assert.Len(t, registry(t).Specs(), 33, "every setting has a default checked above")
+	assert.Len(t, registry(t).Specs(), 40, "every setting has a default checked above")
 
 	for _, key := range []string{
 		config.KeyTelegramToken, config.KeyBuilderAPIKey, config.KeyBuilderSecret, config.KeyBuilderPassphrase, config.KeyPolygonRPC,
+		config.KeyMailPassword,
 	} {
 		assert.True(t, spec(t, key).Secret, key)
 	}
@@ -137,6 +145,11 @@ func TestSettingsValidation(t *testing.T) {
 		{config.KeyBuilderSecret, "not base64!", "is not base64"},
 		{config.KeyPolygonRPC, "wss://polygon.example", "is not an http or https URL"},
 		{config.KeyPolygonRPC, "polygon.drpc.org", "is not an http or https URL"},
+		{config.KeyMailHost, "smtp://mail.example.com", "without a scheme or port"},
+		{config.KeyMailHost, "mail.example.com:587", "without a scheme or port"},
+		{config.KeyMailPort, "70000", "must be between 1 and 65535"},
+		{config.KeyMailSecurity, "ssl", `"ssl" is not one of starttls, tls, none`},
+		{config.KeyMailFrom, "Polythought <p@example.com>", "is not an address like"},
 	}
 
 	for _, tc := range tests {

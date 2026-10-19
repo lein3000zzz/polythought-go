@@ -116,6 +116,7 @@ type Services struct {
 	TelegramWebhook TelegramWebhook
 	Notifications   NotificationService
 	CustomNodes     CustomNodeService
+	Mail            MailService
 }
 
 type Config struct {
@@ -151,6 +152,7 @@ type Server struct {
 	telegram      TelegramService
 	telegramHook  TelegramWebhook
 	notifications NotificationService
+	mail          MailService
 	log           logging.Logger
 	kit           *redkit.Kit
 	scope         tracing.Scope
@@ -217,6 +219,7 @@ func New(cfg Config, util *observability.Utility, services Services) (*Server, e
 		telegram:      services.Telegram,
 		telegramHook:  services.TelegramWebhook,
 		notifications: services.Notifications,
+		mail:          services.Mail,
 		log:           log,
 		kit:           kit,
 		scope:         tracing.Scope{Manager: util.TracerManager, TracerName: tracerName},
@@ -369,6 +372,7 @@ func (s *Server) routes() {
 	admin.PATCH("/settings", s.updateSettings)
 	admin.GET("/settings/history", s.listSettingChanges)
 	admin.POST("/restart", s.restartServer)
+	admin.POST("/mail/test", s.sendTestMail)
 }
 
 // Engine exposes the router for in-process tests.

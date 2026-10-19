@@ -2389,6 +2389,18 @@
                 ],
                 "type": "object"
             },
+            "TestMailRequest": {
+                "properties": {
+                    "to": {
+                        "description": "To is the address the test email goes to.",
+                        "type": "string"
+                    }
+                },
+                "required": [
+                    "to"
+                ],
+                "type": "object"
+            },
             "TraderSummary": {
                 "properties": {
                     "closed": {
@@ -2990,6 +3002,91 @@
                     }
                 ],
                 "summary": "Create an invite",
+                "tags": [
+                    "admin"
+                ]
+            }
+        },
+        "/admin/mail/test": {
+            "post": {
+                "operationId": "sendTestMail",
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/TestMailRequest",
+                                "summary": "body",
+                                "description": "Where to"
+                            }
+                        }
+                    },
+                    "description": "Where to",
+                    "required": true
+                },
+                "responses": {
+                    "204": {
+                        "description": "No Content"
+                    },
+                    "400": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "invalid_email"
+                    },
+                    "401": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "unauthenticated"
+                    },
+                    "403": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "forbidden"
+                    },
+                    "409": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "mail_not_set_up"
+                    },
+                    "502": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "mail_failed: the message says what the server answered"
+                    }
+                },
+                "security": [
+                    {
+                        "SessionCookie": []
+                    },
+                    {
+                        "APIToken": []
+                    }
+                ],
+                "summary": "Send a test email",
                 "tags": [
                     "admin"
                 ]

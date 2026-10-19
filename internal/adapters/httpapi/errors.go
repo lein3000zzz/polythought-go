@@ -93,6 +93,8 @@ var errorMapping = []struct {
 	{domain.ErrNotOwner, http.StatusBadRequest, "not_owner"},
 	{domain.ErrNotDeployed, http.StatusBadRequest, "not_deployed"},
 	{domain.ErrSetupPending, http.StatusConflict, "setup_pending"},
+	{domain.ErrMailNotSetUp, http.StatusConflict, "mail_not_set_up"},
+	{domain.ErrMailFailed, http.StatusBadGateway, "mail_failed"},
 	{domain.ErrCredentialsRejected, http.StatusBadRequest, "credentials_rejected"},
 	{domain.ErrInvalidCredentials, http.StatusUnauthorized, "invalid_credentials"},
 	{domain.ErrUnauthenticated, http.StatusUnauthorized, "unauthenticated"},

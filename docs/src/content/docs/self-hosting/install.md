@@ -107,6 +107,29 @@ printf '%s' "$PASSWORD" | docker compose -f deployments/docker-compose.yml --env
   --profile app run --rm -T api admin create -email someone@example.com
 ```
 
+## Mail
+
+Polythought sends mail through an SMTP server you connect, your own or a provider's. Under
+**Mail** on the Config page:
+
+- **Mail server** is its host, like `mail.example.com`, and **Port** its port: 587 for
+  STARTTLS, 465 for TLS from the start, 25 for a plain connection.
+- **Security** is `starttls`, `tls` or `none`. The server's certificate is always checked,
+  so it must be valid for the host as you entered it (Let's Encrypt's are). A plain
+  connection is for a server on the same host or network, and carries no password except
+  to this host.
+- **Username** and **Password** are the account Polythought signs in with; leave them empty
+  for a server that takes mail without signing in.
+- **From address** and **From name** are who the mail comes from. The server must let the
+  account send as that address, and for mail to arrive rather than land in spam, the
+  address's domain needs SPF, DKIM and DMARC records for the server.
+
+Mail is set up once the server and the From address are saved. **Send test email** sends
+one to any address, and shows what the server answered when it did not take it. Like every
+setting, these can come from environment variables instead, such as
+`POLYTHOUGHT_MAIL_HOST` and `POLYTHOUGHT_MAIL_PASSWORD`; see
+[Configuration](/docs/self-hosting/configuration/).
+
 ## Upgrading and backups
 
 Get the new code and run `make up` again. The database schema is updated when the server

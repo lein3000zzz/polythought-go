@@ -222,3 +222,39 @@ telegram:
   # One of polling, webhook.
   # Environment: POLYTHOUGHT_TELEGRAM_MODE.
   # mode: "polling"
+
+mail:
+
+  # The SMTP server Polythought sends mail through, like mail.example.com, with no port:
+  # that is below. Mail is set up once this and the From address are in.
+  # Environment: POLYTHOUGHT_MAIL_HOST.
+  # host: ""
+
+  # 587 for STARTTLS, 465 for TLS from the start, 25 for a plain connection.
+  # Environment: POLYTHOUGHT_MAIL_PORT.
+  # port: 587
+
+  # starttls upgrades the connection to TLS, tls uses TLS from the start, none stays
+  # plain, for a server on the same host or network. The server's certificate is always
+  # checked; a password is never sent over a plain connection, except to this host. One
+  # of starttls, tls, none.
+  # Environment: POLYTHOUGHT_MAIL_SECURITY.
+  # security: "starttls"
+
+  # The account Polythought signs in to the mail server with. Leave empty for a server
+  # that takes mail without signing in.
+  # Environment: POLYTHOUGHT_MAIL_USERNAME.
+  # username: ""
+
+  # The password of that account.
+  # Environment: POLYTHOUGHT_MAIL_PASSWORD.
+  # password: ""
+
+  # The address Polythought's mail comes from, like polythought@example.com. Your mail
+  # server must let the account send as it.
+  # Environment: POLYTHOUGHT_MAIL_FROM_ADDRESS.
+  # from_address: ""
+
+  # The name mail comes from, shown beside the address.
+  # Environment: POLYTHOUGHT_MAIL_FROM_NAME.
+  # from_name: "Polythought"

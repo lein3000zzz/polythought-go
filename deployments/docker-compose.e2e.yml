@@ -1,5 +1,6 @@
 # Overrides for `make e2e`: a throwaway stack that can run beside a development one. Its
-# database is not published and the UI is on port 3100.
+# database is not published and the UI is on port 3100. Mailpit catches the mail the tests
+# send (D164): SMTP on mailpit:1025 inside, its API on port 3125 for the tests to read.
 services:
   postgres:
     ports: !reset []
@@ -11,3 +12,9 @@ services:
   web:
     ports: !override
       - "3100:80"
+
+  mailpit:
+    image: axllent/mailpit:v1.31.6
+    profiles: [app]
+    ports:
+      - "3125:8025"
