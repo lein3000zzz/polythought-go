@@ -22,29 +22,41 @@ type RegisterInput struct {
 	IP         string
 }
 
-// Register creates a regular user, honouring the registration mode.
-func (s *Service) Register(ctx context.Context, in RegisterInput) (domain.User, error) {
+// Register creates a regular user, honouring the registration mode. While sign-ups verify
+// (D173), the account must verify its address before it signs in, and the link is mailed;
+// a failed mail leaves the account, to send again (D175). An account of the address that
+// never verified is replaced (D174).
+func (s *Service) Register(ctx context.Context, in RegisterInput) (Registration, error) {
 	if !s.limiter.Allow("register:ip:" + in.IP) {
-		return domain.User{}, domain.ErrRateLimited
+		return Registration{}, domain.ErrRateLimited
 	}
 
 	mode := s.config().Registration
 
 	switch mode {
 	case domain.RegistrationClosed:
-		return domain.User{}, domain.ErrRegistrationClosed
+		return Registration{}, domain.ErrRegistrationClosed
 	case domain.RegistrationInvite:
 		if strings.TrimSpace(in.InviteCode) == "" {
-			return domain.User{}, domain.ErrInvalidInvite
+			return Registration{}, domain.ErrInvalidInvite
 		}
 	}
 
 	user, hash, err := s.newUser(in.Email, in.Password, domain.RoleUser)
 	if err != nil {
-		return domain.User{}, err
+		return Registration{}, err
+	}
+
+	mustVerify := s.verifying()
+	if !mustVerify {
+		user.EmailVerifiedAt = user.CreatedAt
 	}
 
 	err = s.repos.Tx.WithinTx(ctx, func(ctx context.Context) error {
+		if err := s.replaceUnverified(ctx, user.Email); err != nil {
+			return err
+		}
+
 		if err := s.repos.Users.Create(ctx, user, hash); err != nil {
 			return err
 		}
@@ -56,12 +68,17 @@ func (s *Service) Register(ctx context.Context, in RegisterInput) (domain.User, 
 		return s.repos.Invites.Consume(ctx, hashSecret(strings.TrimSpace(in.InviteCode)), user.ID, user.CreatedAt)
 	})
 	if err != nil {
-		return domain.User{}, err
+		return Registration{}, err
 	}
 
-	s.log.Info(ctx, "User registered", "user_id", user.ID, "ip", in.IP)
+	s.log.Info(ctx, "User registered", "user_id", user.ID, "ip", in.IP, "must_verify", mustVerify)
 
-	return user, nil
+	out := Registration{User: user, MustVerify: mustVerify}
+	if mustVerify {
+		out.Sent = s.sendVerification(ctx, user) == nil
+	}
+
+	return out, nil
 }
 
 // CreateUser lets an admin add an account in any registration mode.
@@ -107,6 +124,8 @@ func (s *Service) createUser(ctx context.Context, email, password string, role d
 	if err != nil {
 		return domain.User{}, err
 	}
+
+	user.EmailVerifiedAt = user.CreatedAt // an admin's word for it (D167)
 
 	if err := s.repos.Users.Create(ctx, user, hash); err != nil {
 		return domain.User{}, err

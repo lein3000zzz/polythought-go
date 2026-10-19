@@ -111,10 +111,10 @@ func TestRoutes(t *testing.T) {
 			setup: func(svc *httpapimocks.MockAuthService) {
 				svc.EXPECT().Register(mock.Anything, mock.MatchedBy(func(in auth.RegisterInput) bool {
 					return in.Email == "alice@example.com" && in.Password == "pw" && in.InviteCode == "inv_1"
-				})).Return(alice, nil)
+				})).Return(auth.Registration{User: alice, MustVerify: true, Sent: true}, nil)
 			},
 			wantStatus: http.StatusCreated,
-			wantBody:   []string{`"id":"u-1"`, `"role":"user"`},
+			wantBody:   []string{`"user":{"id":"u-1"`, `"role":"user"`, `"mustVerify":true`, `"sent":true`},
 		},
 		{
 			name:       "unknown fields are rejected",
@@ -127,7 +127,7 @@ func TestRoutes(t *testing.T) {
 			name: "domain errors map to codes",
 			req:  request{method: "POST", path: "/api/v1/auth/register", body: `{"email":"a@b.c","password":"pw"}`},
 			setup: func(svc *httpapimocks.MockAuthService) {
-				svc.EXPECT().Register(mock.Anything, mock.Anything).Return(domain.User{}, domain.ErrEmailTaken)
+				svc.EXPECT().Register(mock.Anything, mock.Anything).Return(auth.Registration{}, domain.ErrEmailTaken)
 			},
 			wantStatus: http.StatusConflict,
 			wantBody:   []string{`"code":"email_taken"`},
@@ -156,6 +156,66 @@ func TestRoutes(t *testing.T) {
 			},
 			wantStatus: http.StatusTooManyRequests,
 			wantBody:   []string{`"code":"rate_limited"`},
+		},
+		{
+			name: "login of an account that must verify",
+			req:  request{method: "POST", path: "/api/v1/auth/login", body: `{"email":"a@b.c","password":"pw"}`},
+			setup: func(svc *httpapimocks.MockAuthService) {
+				svc.EXPECT().Login(mock.Anything, mock.Anything).Return(auth.LoginResult{}, domain.ErrEmailNotVerified)
+			},
+			wantStatus: http.StatusForbidden,
+			wantBody:   []string{`"code":"email_not_verified"`},
+		},
+		{
+			name: "verify an address",
+			req:  request{method: "POST", path: "/api/v1/auth/verify-email", body: `{"token":"tok"}`},
+			setup: func(svc *httpapimocks.MockAuthService) {
+				svc.EXPECT().VerifyEmail(mock.Anything, "tok", mock.Anything).Return("alice@example.com", nil)
+			},
+			wantStatus: http.StatusOK,
+			wantBody:   []string{`{"email":"alice@example.com"}`},
+			check: func(t *testing.T, w *ut.ResponseRecorder) {
+				assert.Empty(t, w.Result().Header.Peek("Set-Cookie"), "not signed in (D172)")
+			},
+		},
+		{
+			name: "a used link",
+			req:  request{method: "POST", path: "/api/v1/auth/verify-email", body: `{"token":"old"}`},
+			setup: func(svc *httpapimocks.MockAuthService) {
+				svc.EXPECT().VerifyEmail(mock.Anything, "old", mock.Anything).Return("", domain.ErrInvalidLink)
+			},
+			wantStatus: http.StatusBadRequest,
+			wantBody:   []string{`"code":"invalid_link"`},
+		},
+		{
+			name: "send the link again",
+			req:  request{method: "POST", path: "/api/v1/auth/verification", body: `{"email":"a@b.c"}`},
+			setup: func(svc *httpapimocks.MockAuthService) {
+				svc.EXPECT().ResendVerification(mock.Anything, "a@b.c", mock.Anything).Return(nil)
+			},
+			wantStatus: http.StatusNoContent,
+		},
+		{
+			name: "an admin sends it again",
+			req:  request{method: "POST", path: "/api/v1/admin/users/u-2/verification", headers: cookie},
+			setup: func(svc *httpapimocks.MockAuthService) {
+				withSession(svc, alice)
+				svc.EXPECT().SendVerificationLink(mock.Anything, mock.Anything, domain.UserID("u-2")).Return(domain.ErrMailNotSetUp)
+			},
+			wantStatus: http.StatusConflict,
+			wantBody:   []string{`"code":"mail_not_set_up"`},
+		},
+		{
+			name: "an admin marks an address verified",
+			req:  request{method: "PATCH", path: "/api/v1/admin/users/u-2", headers: cookie, body: `{"emailVerified":true}`},
+			setup: func(svc *httpapimocks.MockAuthService) {
+				withSession(svc, alice)
+				svc.EXPECT().UpdateUser(mock.Anything, mock.Anything, domain.UserID("u-2"), mock.MatchedBy(func(u auth.UserUpdate) bool {
+					return u.EmailVerified != nil && *u.EmailVerified
+				})).Return(domain.User{ID: "u-2", EmailVerifiedAt: time.Now()}, nil)
+			},
+			wantStatus: http.StatusOK,
+			wantBody:   []string{`"emailVerified":true`},
 		},
 		{
 			name:       "me needs authentication",

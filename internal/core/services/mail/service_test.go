@@ -3,6 +3,7 @@ package mail
 import (
 	"context"
 	"testing"
+	"time"
 
 	"github.com/lein3000zzz/the-watchers/pkg/observability/logging"
 	"github.com/stretchr/testify/assert"
@@ -67,4 +68,29 @@ func TestCompose(t *testing.T) {
 	assert.Contains(t, m.HTML, "One &lt;b&gt;bold&lt;/b&gt; &amp; two.", "escaped")
 	assert.Contains(t, m.HTML, `href="https://poly.example/verify?token=a&amp;b"`)
 	assert.NotContains(t, m.HTML, "<b>")
+}
+
+func TestSendVerification(t *testing.T) {
+	mailer := portsmocks.NewMockMailer(t)
+
+	var sent ports.Mail
+	mailer.EXPECT().Send(mock.Anything, mock.Anything).RunAndReturn(func(_ context.Context, m ports.Mail) error {
+		sent = m
+		return nil
+	})
+
+	s := New(mailer, "https://poly.example", logging.Noop())
+	require.NoError(t, s.SendVerification(context.Background(), "ada@example.com", "tok+en/1", 24*time.Hour))
+
+	assert.Equal(t, "ada@example.com", sent.To)
+	assert.Equal(t, "Verify your email for Polythought", sent.Subject)
+	assert.Contains(t, sent.Text, "Verify my address: https://poly.example/verify-email?token=tok%2Ben%2F1")
+	assert.Contains(t, sent.Text, "It works for 24 hours.")
+	assert.Contains(t, sent.HTML, `href="https://poly.example/verify-email?token=tok%2Ben%2F1"`)
+}
+
+func TestForPeople(t *testing.T) {
+	assert.Equal(t, "24 hours", forPeople(24*time.Hour))
+	assert.Equal(t, "1 hour", forPeople(time.Hour))
+	assert.Equal(t, "30 minutes", forPeople(30*time.Minute))
 }

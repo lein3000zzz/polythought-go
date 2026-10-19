@@ -911,22 +911,22 @@ func (_c *MockAuthService_MinPasswordLength_Call) RunAndReturn(run func() int) *
 }
 
 // Register provides a mock function for the type MockAuthService
-func (_mock *MockAuthService) Register(ctx context.Context, in auth.RegisterInput) (domain.User, error) {
+func (_mock *MockAuthService) Register(ctx context.Context, in auth.RegisterInput) (auth.Registration, error) {
 	ret := _mock.Called(ctx, in)
 
 	if len(ret) == 0 {
 		panic("no return value specified for Register")
 	}
 
-	var r0 domain.User
+	var r0 auth.Registration
 	var r1 error
-	if returnFunc, ok := ret.Get(0).(func(context.Context, auth.RegisterInput) (domain.User, error)); ok {
+	if returnFunc, ok := ret.Get(0).(func(context.Context, auth.RegisterInput) (auth.Registration, error)); ok {
 		return returnFunc(ctx, in)
 	}
-	if returnFunc, ok := ret.Get(0).(func(context.Context, auth.RegisterInput) domain.User); ok {
+	if returnFunc, ok := ret.Get(0).(func(context.Context, auth.RegisterInput) auth.Registration); ok {
 		r0 = returnFunc(ctx, in)
 	} else {
-		r0 = ret.Get(0).(domain.User)
+		r0 = ret.Get(0).(auth.Registration)
 	}
 	if returnFunc, ok := ret.Get(1).(func(context.Context, auth.RegisterInput) error); ok {
 		r1 = returnFunc(ctx, in)
@@ -966,12 +966,12 @@ func (_c *MockAuthService_Register_Call) Run(run func(ctx context.Context, in au
 	return _c
 }
 
-func (_c *MockAuthService_Register_Call) Return(user domain.User, err error) *MockAuthService_Register_Call {
-	_c.Call.Return(user, err)
+func (_c *MockAuthService_Register_Call) Return(registration auth.Registration, err error) *MockAuthService_Register_Call {
+	_c.Call.Return(registration, err)
 	return _c
 }
 
-func (_c *MockAuthService_Register_Call) RunAndReturn(run func(ctx context.Context, in auth.RegisterInput) (domain.User, error)) *MockAuthService_Register_Call {
+func (_c *MockAuthService_Register_Call) RunAndReturn(run func(ctx context.Context, in auth.RegisterInput) (auth.Registration, error)) *MockAuthService_Register_Call {
 	_c.Call.Return(run)
 	return _c
 }
@@ -1016,6 +1016,69 @@ func (_c *MockAuthService_RegistrationMode_Call) Return(registrationMode domain.
 }
 
 func (_c *MockAuthService_RegistrationMode_Call) RunAndReturn(run func() domain.RegistrationMode) *MockAuthService_RegistrationMode_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// ResendVerification provides a mock function for the type MockAuthService
+func (_mock *MockAuthService) ResendVerification(ctx context.Context, email string, ip string) error {
+	ret := _mock.Called(ctx, email, ip)
+
+	if len(ret) == 0 {
+		panic("no return value specified for ResendVerification")
+	}
+
+	var r0 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context, string, string) error); ok {
+		r0 = returnFunc(ctx, email, ip)
+	} else {
+		r0 = ret.Error(0)
+	}
+	return r0
+}
+
+// MockAuthService_ResendVerification_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'ResendVerification'
+type MockAuthService_ResendVerification_Call struct {
+	*mock.Call
+}
+
+// ResendVerification is a helper method to define mock.On call
+//   - ctx context.Context
+//   - email string
+//   - ip string
+func (_e *MockAuthService_Expecter) ResendVerification(ctx any, email any, ip any) *MockAuthService_ResendVerification_Call {
+	return &MockAuthService_ResendVerification_Call{Call: _e.mock.On("ResendVerification", ctx, email, ip)}
+}
+
+func (_c *MockAuthService_ResendVerification_Call) Run(run func(ctx context.Context, email string, ip string)) *MockAuthService_ResendVerification_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		var arg1 string
+		if args[1] != nil {
+			arg1 = args[1].(string)
+		}
+		var arg2 string
+		if args[2] != nil {
+			arg2 = args[2].(string)
+		}
+		run(
+			arg0,
+			arg1,
+			arg2,
+		)
+	})
+	return _c
+}
+
+func (_c *MockAuthService_ResendVerification_Call) Return(err error) *MockAuthService_ResendVerification_Call {
+	_c.Call.Return(err)
+	return _c
+}
+
+func (_c *MockAuthService_ResendVerification_Call) RunAndReturn(run func(ctx context.Context, email string, ip string) error) *MockAuthService_ResendVerification_Call {
 	_c.Call.Return(run)
 	return _c
 }
@@ -1079,6 +1142,69 @@ func (_c *MockAuthService_RevokeAPIToken_Call) Return(err error) *MockAuthServic
 }
 
 func (_c *MockAuthService_RevokeAPIToken_Call) RunAndReturn(run func(ctx context.Context, p auth.Principal, id domain.APITokenID) error) *MockAuthService_RevokeAPIToken_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// SendVerificationLink provides a mock function for the type MockAuthService
+func (_mock *MockAuthService) SendVerificationLink(ctx context.Context, actor auth.Principal, id domain.UserID) error {
+	ret := _mock.Called(ctx, actor, id)
+
+	if len(ret) == 0 {
+		panic("no return value specified for SendVerificationLink")
+	}
+
+	var r0 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context, auth.Principal, domain.UserID) error); ok {
+		r0 = returnFunc(ctx, actor, id)
+	} else {
+		r0 = ret.Error(0)
+	}
+	return r0
+}
+
+// MockAuthService_SendVerificationLink_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'SendVerificationLink'
+type MockAuthService_SendVerificationLink_Call struct {
+	*mock.Call
+}
+
+// SendVerificationLink is a helper method to define mock.On call
+//   - ctx context.Context
+//   - actor auth.Principal
+//   - id domain.UserID
+func (_e *MockAuthService_Expecter) SendVerificationLink(ctx any, actor any, id any) *MockAuthService_SendVerificationLink_Call {
+	return &MockAuthService_SendVerificationLink_Call{Call: _e.mock.On("SendVerificationLink", ctx, actor, id)}
+}
+
+func (_c *MockAuthService_SendVerificationLink_Call) Run(run func(ctx context.Context, actor auth.Principal, id domain.UserID)) *MockAuthService_SendVerificationLink_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		var arg1 auth.Principal
+		if args[1] != nil {
+			arg1 = args[1].(auth.Principal)
+		}
+		var arg2 domain.UserID
+		if args[2] != nil {
+			arg2 = args[2].(domain.UserID)
+		}
+		run(
+			arg0,
+			arg1,
+			arg2,
+		)
+	})
+	return _c
+}
+
+func (_c *MockAuthService_SendVerificationLink_Call) Return(err error) *MockAuthService_SendVerificationLink_Call {
+	_c.Call.Return(err)
+	return _c
+}
+
+func (_c *MockAuthService_SendVerificationLink_Call) RunAndReturn(run func(ctx context.Context, actor auth.Principal, id domain.UserID) error) *MockAuthService_SendVerificationLink_Call {
 	_c.Call.Return(run)
 	return _c
 }
@@ -1157,6 +1283,78 @@ func (_c *MockAuthService_UpdateUser_Call) Return(user domain.User, err error) *
 }
 
 func (_c *MockAuthService_UpdateUser_Call) RunAndReturn(run func(ctx context.Context, actor auth.Principal, id domain.UserID, upd auth.UserUpdate) (domain.User, error)) *MockAuthService_UpdateUser_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// VerifyEmail provides a mock function for the type MockAuthService
+func (_mock *MockAuthService) VerifyEmail(ctx context.Context, token string, ip string) (string, error) {
+	ret := _mock.Called(ctx, token, ip)
+
+	if len(ret) == 0 {
+		panic("no return value specified for VerifyEmail")
+	}
+
+	var r0 string
+	var r1 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context, string, string) (string, error)); ok {
+		return returnFunc(ctx, token, ip)
+	}
+	if returnFunc, ok := ret.Get(0).(func(context.Context, string, string) string); ok {
+		r0 = returnFunc(ctx, token, ip)
+	} else {
+		r0 = ret.Get(0).(string)
+	}
+	if returnFunc, ok := ret.Get(1).(func(context.Context, string, string) error); ok {
+		r1 = returnFunc(ctx, token, ip)
+	} else {
+		r1 = ret.Error(1)
+	}
+	return r0, r1
+}
+
+// MockAuthService_VerifyEmail_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'VerifyEmail'
+type MockAuthService_VerifyEmail_Call struct {
+	*mock.Call
+}
+
+// VerifyEmail is a helper method to define mock.On call
+//   - ctx context.Context
+//   - token string
+//   - ip string
+func (_e *MockAuthService_Expecter) VerifyEmail(ctx any, token any, ip any) *MockAuthService_VerifyEmail_Call {
+	return &MockAuthService_VerifyEmail_Call{Call: _e.mock.On("VerifyEmail", ctx, token, ip)}
+}
+
+func (_c *MockAuthService_VerifyEmail_Call) Run(run func(ctx context.Context, token string, ip string)) *MockAuthService_VerifyEmail_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		var arg1 string
+		if args[1] != nil {
+			arg1 = args[1].(string)
+		}
+		var arg2 string
+		if args[2] != nil {
+			arg2 = args[2].(string)
+		}
+		run(
+			arg0,
+			arg1,
+			arg2,
+		)
+	})
+	return _c
+}
+
+func (_c *MockAuthService_VerifyEmail_Call) Return(s string, err error) *MockAuthService_VerifyEmail_Call {
+	_c.Call.Return(s, err)
+	return _c
+}
+
+func (_c *MockAuthService_VerifyEmail_Call) RunAndReturn(run func(ctx context.Context, token string, ip string) (string, error)) *MockAuthService_VerifyEmail_Call {
 	_c.Call.Return(run)
 	return _c
 }

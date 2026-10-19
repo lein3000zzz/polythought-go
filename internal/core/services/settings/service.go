@@ -192,9 +192,14 @@ func aad(key string) []byte {
 // build layers the defaults, the saved values and the environment, later layers winning.
 // The caller holds mu or is Load.
 func (s *Service) build() *Snapshot {
+	return s.buildFrom(s.saved)
+}
+
+// buildFrom is the settings as they would be with saved.
+func (s *Service) buildFrom(saved map[string]any) *Snapshot {
 	k := koanf.New(".")
 
-	for _, layer := range []map[string]any{s.defaults, s.saved, s.file, s.env} {
+	for _, layer := range []map[string]any{s.defaults, saved, s.file, s.env} {
 		_ = k.Load(confmap.Provider(layer, "."), nil) // a map provider cannot fail
 	}
 
@@ -208,7 +213,7 @@ func (s *Service) build() *Snapshot {
 			snap.sources[spec.Key] = SourceEnvironment
 		case has(s.file, spec.Key):
 			snap.sources[spec.Key] = SourceFile
-		case has(s.saved, spec.Key):
+		case has(saved, spec.Key):
 			snap.sources[spec.Key] = SourceDatabase
 		default:
 			snap.sources[spec.Key] = SourceDefault
@@ -335,12 +340,23 @@ func (s *Service) Update(ctx context.Context, p auth.Principal, changes map[stri
 		return nil
 	}
 
+	// Checks across settings see them as they would be.
+	next := s.buildFrom(saved)
+	for _, rule := range s.registry.Rules() {
+		if err := rule.Check(next); err != nil {
+			problems.Add(domain.Problem{Param: rule.Key, Message: err.Error()})
+		}
+	}
+
+	if err := problems.Err(); err != nil {
+		return err
+	}
+
 	if err := s.repo.Apply(ctx, batch, p.User.ID, s.now()); err != nil {
 		return err
 	}
 
 	s.saved = saved
-	next := s.build()
 	s.current.Store(next)
 
 	for _, fn := range s.subs {

@@ -35,6 +35,14 @@ export function useUpdateUser() {
   })
 }
 
+/** Mails a user that must verify a new link. */
+export function useSendVerificationLink() {
+  return useMutation({
+    mutationFn: (id: string) =>
+      call(api.POST('/admin/users/{id}/verification', { params: { path: { id } } })),
+  })
+}
+
 export function useInvites() {
   return useQuery({
     queryKey: keys.invites,

@@ -6,7 +6,7 @@ export const alice: Schemas['User'] = {
   id: 'u-1',
   email: 'alice@example.com',
   role: 'user',
-  emailVerified: false,
+  emailVerified: true,
   disabled: false,
   codeChosen: false,
   mayWriteCode: true,

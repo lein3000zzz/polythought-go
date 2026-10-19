@@ -6,7 +6,10 @@ import (
 	"context"
 	"html"
 	"net/mail"
+	"net/url"
+	"strconv"
 	"strings"
+	"time"
 
 	"github.com/lein3000zzz/the-watchers/pkg/observability/logging"
 
@@ -56,6 +59,38 @@ func (s *Service) SendTest(ctx context.Context, actor auth.Principal, to string)
 	s.log.Info(ctx, "Test email sent", "user_id", actor.User.ID)
 
 	return nil
+}
+
+var _ ports.AccountMail = (*Service)(nil)
+
+// SendVerification mails the link verifying an account's address: it opens the app's
+// verification page, which then asks for the password (D172).
+func (s *Service) SendVerification(ctx context.Context, to, token string, lasts time.Duration) error {
+	return s.send(ctx, to, Message{
+		Subject: "Verify your email for Polythought",
+		Paragraphs: []string{
+			"Someone, hopefully you, made a Polythought account with this address. Open the link to verify it, then sign in.",
+			"It works for " + forPeople(lasts) + ". Did not sign up? Ignore this mail: the account is removed within 7 days.",
+		},
+		Link: &Link{Text: "Verify my address", URL: s.publicURL + "/verify-email?token=" + url.QueryEscape(token)},
+	})
+}
+
+// forPeople says how long d is, roughly: 24 hours, 30 minutes.
+func forPeople(d time.Duration) string {
+	if d >= time.Hour && d%time.Hour == 0 {
+		return plural(int(d/time.Hour), "hour", "hours")
+	}
+
+	return plural(int(d.Round(time.Minute)/time.Minute), "minute", "minutes")
+}
+
+func plural(n int, one, many string) string {
+	if n == 1 {
+		return "1 " + one
+	}
+
+	return strconv.Itoa(n) + " " + many
 }
 
 // Message is what a mail says: its subject, paragraphs, and a link to act on.

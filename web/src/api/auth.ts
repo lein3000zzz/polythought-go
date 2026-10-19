@@ -41,16 +41,43 @@ export function useLogin() {
   })
 }
 
-/** Creates the account and signs straight in. */
+/** What signing up did: signed straight in, or wait for the mailed link first (D166). */
+export type SignUp = { verify: false; user: User } | { verify: true; email: string; sent: boolean }
+
+/** Creates the account and signs straight in, unless it must verify its address first. */
 export function useRegister() {
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: async (body: Schemas['RegisterRequest']) => {
-      await call(api.POST('/auth/register', { body }))
-      return call(api.POST('/auth/login', { body: { email: body.email, password: body.password } }))
+    mutationFn: async (body: Schemas['RegisterRequest']): Promise<SignUp> => {
+      const registration = await call(api.POST('/auth/register', { body }))
+      if (registration.mustVerify) {
+        return { verify: true, email: registration.user.email, sent: registration.sent }
+      }
+
+      const user = await call(
+        api.POST('/auth/login', { body: { email: body.email, password: body.password } }),
+      )
+
+      return { verify: false, user }
     },
-    onSuccess: (user) => queryClient.setQueryData(keys.me, user),
+    onSuccess: (result) => {
+      if (!result.verify) queryClient.setQueryData(keys.me, result.user)
+    },
+  })
+}
+
+/** Mails a new verification link, if the address has an account that still needs one. */
+export function useResendVerification() {
+  return useMutation({
+    mutationFn: (email: string) => call(api.POST('/auth/verification', { body: { email } })),
+  })
+}
+
+/** Verifies an address with its link's token; signing in comes after (D172). */
+export function useVerifyEmail() {
+  return useMutation({
+    mutationFn: (token: string) => call(api.POST('/auth/verify-email', { body: { token } })),
   })
 }
 

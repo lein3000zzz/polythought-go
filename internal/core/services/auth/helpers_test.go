@@ -29,6 +29,8 @@ type deps struct {
 	sessions *portsmocks.MockSessionRepository
 	tokens   *portsmocks.MockAPITokenRepository
 	invites  *portsmocks.MockInviteRepository
+	links    *portsmocks.MockEmailTokenRepository
+	mail     *portsmocks.MockAccountMail
 	tx       *portsmocks.MockTransactor
 	hasher   *portsmocks.MockPasswordHasher
 	limiter  *portsmocks.MockRateLimiter
@@ -44,6 +46,8 @@ func newDeps(t *testing.T) deps {
 		sessions: portsmocks.NewMockSessionRepository(t),
 		tokens:   portsmocks.NewMockAPITokenRepository(t),
 		invites:  portsmocks.NewMockInviteRepository(t),
+		links:    portsmocks.NewMockEmailTokenRepository(t),
+		mail:     portsmocks.NewMockAccountMail(t),
 		tx:       portsmocks.NewMockTransactor(t),
 		hasher:   portsmocks.NewMockPasswordHasher(t),
 		limiter:  portsmocks.NewMockRateLimiter(t),
@@ -69,10 +73,11 @@ func newService(t *testing.T, d deps, cfg auth.Config) *auth.Service {
 	d.hasher.EXPECT().Hash("polythought-dummy-password").Return(dummyHash, nil).Once()
 
 	s, err := auth.New(cfg, auth.Repositories{
-		Users: d.users, Sessions: d.sessions, Tokens: d.tokens, Invites: d.invites, Tx: d.tx,
+		Users: d.users, Sessions: d.sessions, Tokens: d.tokens, Invites: d.invites, EmailTokens: d.links, Tx: d.tx,
 	}, d.hasher, d.limiter, logging.Noop(),
 		auth.WithClock(func() time.Time { return now }),
 		auth.WithWorkflowStopper(d.workflows),
+		auth.WithAccountMail(d.mail),
 	)
 	require.NoError(t, err)
 
@@ -92,7 +97,7 @@ func sha(s string) []byte {
 }
 
 func user(id string, role domain.Role) domain.User {
-	return domain.User{ID: domain.UserID(id), Email: id + "@example.com", Role: role, CreatedAt: now}
+	return domain.User{ID: domain.UserID(id), Email: id + "@example.com", Role: role, EmailVerifiedAt: now, CreatedAt: now}
 }
 
 func sessionPrincipal(u domain.User) auth.Principal {

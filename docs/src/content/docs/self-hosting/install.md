@@ -130,6 +130,21 @@ setting, these can come from environment variables instead, such as
 `POLYTHOUGHT_MAIL_HOST` and `POLYTHOUGHT_MAIL_PASSWORD`; see
 [Configuration](/docs/self-hosting/configuration/).
 
+### Verifying sign-ups
+
+With mail set up, **Verify sign-ups** (under Accounts) makes people who sign up themselves,
+openly or with an invite, prove their address: they get a link by mail, working once for 24
+hours, and sign in once they have opened it, with their password. The sign-in page offers to
+send the link again, at most once a minute and five times a day; it says the same whether
+or not the address has an account. An account that does not verify within 7 days is
+removed, and signing up again with its address replaces it, so nobody can hold an address
+that is not theirs.
+
+Accounts from before, those an admin creates and the first admin count as verified. On
+**Admin → Users**, unverified accounts are marked: **Send link** mails them a new one, and
+**Mark verified** takes your word for the address, for when the mail does not get through.
+The setting cannot be turned on without mail, nor mail removed while it is on.
+
 ## Upgrading and backups
 
 Get the new code and run `make up` again. The database schema is updated when the server

@@ -59,9 +59,15 @@ func (s *Service) Login(ctx context.Context, in LoginInput) (LoginResult, error)
 		return LoginResult{}, domain.ErrInvalidCredentials
 	}
 
-	// Checked after the password, so a disabled account is not revealed to guessers.
+	// Checked after the password, so a disabled or unverified account is not revealed to
+	// guessers.
 	if user.Disabled() {
 		return LoginResult{}, domain.ErrUserDisabled
+	}
+
+	if user.EmailVerifiedAt.IsZero() {
+		s.log.Info(ctx, "Login refused: email not verified", "user_id", user.ID)
+		return LoginResult{}, domain.ErrEmailNotVerified
 	}
 
 	if needsRehash {

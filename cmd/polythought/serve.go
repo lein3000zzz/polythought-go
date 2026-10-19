@@ -177,6 +177,13 @@ func pruneSessions(ctx context.Context, a *app, log logging.Logger) {
 			}
 
 			log.Debug(ctx, "Expired sessions pruned", "count", n)
+
+			// Accounts unverified after 7 days go (D174), with links expired.
+			if n, err := a.auth.PruneUnverified(ctx); err != nil {
+				log.Warn(ctx, "Unverified accounts not pruned", logging.Err(err))
+			} else if n > 0 {
+				log.Info(ctx, "Unverified accounts removed", "count", n)
+			}
 		}
 	}
 }

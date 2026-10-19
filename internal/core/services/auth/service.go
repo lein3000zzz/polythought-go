@@ -34,6 +34,8 @@ type Config struct {
 	TouchInterval     time.Duration
 	MinPasswordLength int
 	CodeAccess        domain.CodeAccess // who may write code
+	// VerifyEmail makes people who sign up themselves verify their address by mail (D173).
+	VerifyEmail bool
 }
 
 func DefaultConfig() Config {
@@ -57,7 +59,9 @@ type Repositories struct {
 	Sessions ports.SessionRepository
 	Tokens   ports.APITokenRepository
 	Invites  ports.InviteRepository
-	Tx       ports.Transactor
+	// EmailTokens keeps mailed links; needed with WithAccountMail.
+	EmailTokens ports.EmailTokenRepository
+	Tx          ports.Transactor
 }
 
 type Service struct {
@@ -68,7 +72,8 @@ type Service struct {
 	log     logging.Logger
 	now     func() time.Time
 
-	workflows WorkflowStopper // optional; commands without the engine have none
+	workflows WorkflowStopper   // optional; commands without the engine have none
+	mail      ports.AccountMail // optional; without it, nothing is mailed
 
 	// dummyHash is verified against when an email is unknown, so a miss takes as long
 	// as a wrong password and response times do not reveal which emails exist.

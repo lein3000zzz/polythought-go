@@ -489,3 +489,43 @@ func TestHistory(t *testing.T) {
 	require.NoError(t, err)
 	assert.Len(t, page.Items, 1)
 }
+
+func TestRules(t *testing.T) {
+	t.Parallel()
+
+	r := registry(t)
+
+	// Open registration needs a retention under a week, say.
+	r.AddRule(keyRegistration, func(s *settings.Snapshot) error {
+		if s.String(keyRegistration) == "open" && s.Duration(keyRetention) > 7*24*time.Hour {
+			return errors.New("needs a retention of a week or less")
+		}
+
+		return nil
+	})
+
+	repo := newRepo()
+	svc := settings.New(r, repo, box{}, settings.WithClock(func() time.Time { return now }))
+	_, err := svc.Load(context.Background(), env(nil), nil)
+	require.NoError(t, err)
+
+	// Refused as the change would leave them, nothing saved.
+	err = svc.Update(context.Background(), root, map[string]json.RawMessage{keyRegistration: json.RawMessage(`"open"`)})
+
+	var v *domain.ValidationError
+	require.ErrorAs(t, err, &v)
+	assert.Equal(t, []domain.Problem{{Param: keyRegistration, Message: "needs a retention of a week or less"}}, v.Problems)
+	assert.Empty(t, repo.applied)
+	assert.Equal(t, "invite", svc.Current().String(keyRegistration))
+
+	// Both at once is fine.
+	require.NoError(t, svc.Update(context.Background(), root, map[string]json.RawMessage{
+		keyRegistration: json.RawMessage(`"open"`), keyRetention: json.RawMessage(`"24h"`),
+	}))
+	assert.Equal(t, "open", svc.Current().String(keyRegistration))
+
+	// Undoing what the rule needs is refused too.
+	err = svc.Update(context.Background(), root, map[string]json.RawMessage{keyRetention: json.RawMessage(`null`)})
+	require.ErrorAs(t, err, &v)
+	assert.Equal(t, keyRegistration, v.Problems[0].Param)
+}

@@ -32,7 +32,10 @@ type AuthService interface {
 	RegistrationMode() domain.RegistrationMode
 	MinPasswordLength() int
 	CodeAccess() domain.CodeAccess
-	Register(ctx context.Context, in auth.RegisterInput) (domain.User, error)
+	Register(ctx context.Context, in auth.RegisterInput) (auth.Registration, error)
+	VerifyEmail(ctx context.Context, token, ip string) (string, error)
+	ResendVerification(ctx context.Context, email, ip string) error
+	SendVerificationLink(ctx context.Context, actor auth.Principal, id domain.UserID) error
 	Login(ctx context.Context, in auth.LoginInput) (auth.LoginResult, error)
 	Logout(ctx context.Context, id domain.SessionID) error
 	AuthenticateSession(ctx context.Context, token string) (auth.Principal, error)
@@ -274,6 +277,8 @@ func (s *Server) routes() {
 	v1.GET("/auth/config", s.authConfig)
 	v1.POST("/auth/register", s.register)
 	v1.POST("/auth/login", s.login)
+	v1.POST("/auth/verify-email", s.verifyEmail)
+	v1.POST("/auth/verification", s.resendVerification)
 	v1.POST("/auth/logout", s.requireAuth, s.logout)
 
 	v1.GET("/me", s.requireAuth, s.me)
@@ -366,6 +371,7 @@ func (s *Server) routes() {
 	admin.GET("/users", s.listUsers)
 	admin.POST("/users", s.createUser)
 	admin.PATCH("/users/:id", s.updateUser)
+	admin.POST("/users/:id/verification", s.sendVerificationLink)
 	admin.GET("/invites", s.listInvites)
 	admin.POST("/invites", s.createInvite)
 	admin.GET("/settings", s.listSettings)

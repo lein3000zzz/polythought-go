@@ -223,3 +223,43 @@ func toUser(m model.Users) domain.User {
 		UpdatedAt:       m.UpdatedAt.UTC(),
 	}
 }
+
+func (r *Users) SetEmailVerified(ctx context.Context, id domain.UserID, at time.Time) error {
+	uid, err := parseID(id)
+	if err != nil {
+		return err
+	}
+
+	u := table.Users
+
+	return affectedOne(u.UPDATE(u.EmailVerifiedAt, u.UpdatedAt).
+		SET(jet.TimestampzT(at), jet.TimestampzT(at)).
+		WHERE(u.ID.EQ(jet.UUID(uid))).
+		ExecContext(ctx, r.db.conn(ctx)))
+}
+
+func (r *Users) DeleteUnverified(ctx context.Context, id domain.UserID) error {
+	uid, err := parseID(id)
+	if err != nil {
+		return err
+	}
+
+	u := table.Users
+
+	return affectedOne(u.DELETE().
+		WHERE(u.ID.EQ(jet.UUID(uid)).AND(u.EmailVerifiedAt.IS_NULL())).
+		ExecContext(ctx, r.db.conn(ctx)))
+}
+
+func (r *Users) PruneUnverified(ctx context.Context, before time.Time) (int64, error) {
+	u := table.Users
+
+	res, err := u.DELETE().
+		WHERE(u.EmailVerifiedAt.IS_NULL().AND(u.CreatedAt.LT(jet.TimestampzT(before)))).
+		ExecContext(ctx, r.db.conn(ctx))
+	if err != nil {
+		return 0, err
+	}
+
+	return res.RowsAffected()
+}

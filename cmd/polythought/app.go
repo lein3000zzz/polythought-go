@@ -240,17 +240,19 @@ func (a *app) init(ctx context.Context) error {
 	a.telegram.UseAnswers(a.waits)
 
 	a.auth, err = auth.New(authConfig(a.settings.Current()), auth.Repositories{
-		Users:    postgres.NewUsers(a.db),
-		Sessions: postgres.NewSessions(a.db),
-		Tokens:   postgres.NewAPITokens(a.db),
-		Invites:  postgres.NewInvites(a.db),
-		Tx:       a.db,
+		Users:       postgres.NewUsers(a.db),
+		Sessions:    postgres.NewSessions(a.db),
+		Tokens:      postgres.NewAPITokens(a.db),
+		Invites:     postgres.NewInvites(a.db),
+		EmailTokens: postgres.NewEmailTokens(a.db),
+		Tx:          a.db,
 	},
 		crypto.NewArgon2id(crypto.DefaultArgon2Params),
 		ratelimit.NewMemory(30*time.Second, 10), // 10 attempts, then one every 30 s per key
 		a.util.Logger,
 		auth.WithWorkflowStopper(a.workflows),
 		auth.WithLiveConfig(func() auth.Config { return authConfig(a.settings.Current()) }),
+		auth.WithAccountMail(a.mail),
 	)
 
 	return err
@@ -316,6 +318,7 @@ func authConfig(s *settings.Snapshot) auth.Config {
 	cfg.InviteTTL = s.Duration(config.KeyInviteTTL)
 	cfg.MinPasswordLength = s.Int(config.KeyMinPasswordLength)
 	cfg.CodeAccess = codeAccess(s)
+	cfg.VerifyEmail = s.Bool(config.KeyVerifyEmail)
 
 	return cfg
 }

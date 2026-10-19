@@ -239,6 +239,42 @@ func FormatDuration(d time.Duration) string {
 type Registry struct {
 	specs map[string]Spec
 	order []string
+	rules []Rule
+}
+
+// Rule is a check across settings: Check sees what they would be after a change, and its
+// error is a problem of the setting Key.
+type Rule struct {
+	Key   string
+	Check func(*Snapshot) error
+}
+
+// AddRule adds a check across settings, run on every change.
+func (r *Registry) AddRule(key string, check func(*Snapshot) error) {
+	r.rules = append(r.rules, Rule{Key: key, Check: check})
+}
+
+// Snapshot is the settings with values over their defaults, for checking rules.
+func (r *Registry) Snapshot(values map[string]any) *Snapshot {
+	snap := &Snapshot{values: make(map[string]any), sources: make(map[string]Source)}
+
+	for _, key := range r.order {
+		v, ok := values[key]
+		if !ok {
+			v, snap.sources[key] = r.specs[key].Default, SourceDefault
+		} else {
+			snap.sources[key] = SourceDatabase
+		}
+
+		snap.values[key] = v
+	}
+
+	return snap
+}
+
+// Rules are the checks across settings.
+func (r *Registry) Rules() []Rule {
+	return r.rules
 }
 
 func NewRegistry() *Registry {

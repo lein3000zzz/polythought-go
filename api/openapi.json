@@ -1806,6 +1806,38 @@
                 ],
                 "type": "object"
             },
+            "Registration": {
+                "properties": {
+                    "mustVerify": {
+                        "description": "MustVerify says the account signs in only once it has opened the link mailed to it.",
+                        "type": "boolean"
+                    },
+                    "sent": {
+                        "description": "Sent says the link was mailed; when it was not, it can be sent again.",
+                        "type": "boolean"
+                    },
+                    "user": {
+                        "$ref": "#/components/schemas/User"
+                    }
+                },
+                "required": [
+                    "mustVerify",
+                    "sent",
+                    "user"
+                ],
+                "type": "object"
+            },
+            "ResendVerificationRequest": {
+                "properties": {
+                    "email": {
+                        "type": "string"
+                    }
+                },
+                "required": [
+                    "email"
+                ],
+                "type": "object"
+            },
             "Revocation": {
                 "properties": {
                     "problem": {
@@ -2564,6 +2596,10 @@
                     "disabled": {
                         "type": "boolean"
                     },
+                    "emailVerified": {
+                        "description": "EmailVerified true marks the address verified; it cannot be made false.",
+                        "type": "boolean"
+                    },
                     "role": {
                         "enum": [
                             "admin",
@@ -2685,6 +2721,30 @@
                 },
                 "required": [
                     "users"
+                ],
+                "type": "object"
+            },
+            "Verified": {
+                "properties": {
+                    "email": {
+                        "description": "Email is the address verified, for the sign-in form.",
+                        "type": "string"
+                    }
+                },
+                "required": [
+                    "email"
+                ],
+                "type": "object"
+            },
+            "VerifyEmailRequest": {
+                "properties": {
+                    "token": {
+                        "description": "Token is the one in the mailed link.",
+                        "type": "string"
+                    }
+                },
+                "required": [
+                    "token"
                 ],
                 "type": "object"
             },
@@ -3592,6 +3652,109 @@
                 ]
             }
         },
+        "/admin/users/{id}/verification": {
+            "post": {
+                "operationId": "sendVerificationLink",
+                "parameters": [
+                    {
+                        "description": "User ID",
+                        "in": "path",
+                        "name": "id",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "No Content"
+                    },
+                    "400": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "invalid_input: verified already"
+                    },
+                    "401": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "unauthenticated"
+                    },
+                    "403": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "forbidden"
+                    },
+                    "404": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "not_found"
+                    },
+                    "409": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "mail_not_set_up"
+                    },
+                    "429": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "rate_limited: one a minute, five a day"
+                    },
+                    "502": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "mail_failed"
+                    }
+                },
+                "security": [
+                    {
+                        "SessionCookie": []
+                    },
+                    {
+                        "APIToken": []
+                    }
+                ],
+                "summary": "Send a user's verification link again",
+                "tags": [
+                    "admin"
+                ]
+            }
+        },
         "/auth/config": {
             "get": {
                 "operationId": "getAuthConfig",
@@ -3676,7 +3839,7 @@
                                 }
                             }
                         },
-                        "description": "user_disabled"
+                        "description": "user_disabled, or email_not_verified"
                     },
                     "429": {
                         "content": {
@@ -3748,7 +3911,7 @@
                         "content": {
                             "application/json": {
                                 "schema": {
-                                    "$ref": "#/components/schemas/User"
+                                    "$ref": "#/components/schemas/Registration"
                                 }
                             }
                         },
@@ -3796,6 +3959,107 @@
                     }
                 },
                 "summary": "Create an account",
+                "tags": [
+                    "auth"
+                ]
+            }
+        },
+        "/auth/verification": {
+            "post": {
+                "operationId": "resendVerification",
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/ResendVerificationRequest",
+                                "summary": "body",
+                                "description": "The address"
+                            }
+                        }
+                    },
+                    "description": "The address",
+                    "required": true
+                },
+                "responses": {
+                    "204": {
+                        "description": "No Content"
+                    },
+                    "409": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "mail_not_set_up"
+                    },
+                    "429": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "rate_limited"
+                    }
+                },
+                "summary": "Send the verification link again",
+                "tags": [
+                    "auth"
+                ]
+            }
+        },
+        "/auth/verify-email": {
+            "post": {
+                "operationId": "verifyEmail",
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/VerifyEmailRequest",
+                                "summary": "body",
+                                "description": "The link's token"
+                            }
+                        }
+                    },
+                    "description": "The link's token",
+                    "required": true
+                },
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Verified"
+                                }
+                            }
+                        },
+                        "description": "OK"
+                    },
+                    "400": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "invalid_link: used already, or too old"
+                    },
+                    "429": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "rate_limited"
+                    }
+                },
+                "summary": "Verify an email address",
                 "tags": [
                     "auth"
                 ]

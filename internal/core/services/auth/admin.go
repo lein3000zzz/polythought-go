@@ -83,6 +83,9 @@ type UserUpdate struct {
 	Role       *domain.Role
 	Disabled   *bool
 	CodeChosen *bool // picked to write code, for code access "chosen"
+	// EmailVerified true marks the address verified, an admin's word for it (D175); an
+	// address cannot be unverified.
+	EmailVerified *bool
 }
 
 // UpdateUser changes a user's role, disabled state or code access. Disabling signs the user out
@@ -95,6 +98,10 @@ func (s *Service) UpdateUser(ctx context.Context, actor Principal, id domain.Use
 
 	if upd.Role != nil && !upd.Role.Valid() {
 		return domain.User{}, fmt.Errorf("%w: role %q", domain.ErrInvalidInput, *upd.Role)
+	}
+
+	if upd.EmailVerified != nil && !*upd.EmailVerified {
+		return domain.User{}, fmt.Errorf("%w: an address cannot be unverified", domain.ErrInvalidInput)
 	}
 
 	var updated domain.User
@@ -140,6 +147,14 @@ func (s *Service) UpdateUser(ctx context.Context, actor Principal, id domain.Use
 
 		if err := s.repos.Users.Update(ctx, user); err != nil {
 			return err
+		}
+
+		if upd.EmailVerified != nil && user.EmailVerifiedAt.IsZero() {
+			if err := s.repos.Users.SetEmailVerified(ctx, user.ID, now); err != nil {
+				return err
+			}
+
+			user.EmailVerifiedAt = now
 		}
 
 		if user.Disabled() {

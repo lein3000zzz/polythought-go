@@ -1,6 +1,9 @@
 package ports
 
-import "context"
+import (
+	"context"
+	"time"
+)
 
 // Mail is a message to one address: its subject, and its body as plain text and as HTML.
 type Mail struct {
@@ -14,4 +17,13 @@ type Mailer interface {
 	// Send sends m: domain.ErrMailNotSetUp without a server, domain.ErrMailFailed saying
 	// what the server answered when it did not take it.
 	Send(ctx context.Context, m Mail) error
+}
+
+// AccountMail mails accounts the links they open (D165).
+type AccountMail interface {
+	// SetUp says whether mail can be sent.
+	SetUp() bool
+	// SendVerification mails to the link verifying its address, carrying token, which
+	// works for lasts.
+	SendVerification(ctx context.Context, to, token string, lasts time.Duration) error
 }

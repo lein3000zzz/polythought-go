@@ -14,6 +14,7 @@ func UseSchema(schema string) {
 	ApprovalSetups = ApprovalSetups.FromSchema(schema)
 	Credentials = Credentials.FromSchema(schema)
 	CustomNodes = CustomNodes.FromSchema(schema)
+	EmailTokens = EmailTokens.FromSchema(schema)
 	Executions = Executions.FromSchema(schema)
 	Holdings = Holdings.FromSchema(schema)
 	Invites = Invites.FromSchema(schema)

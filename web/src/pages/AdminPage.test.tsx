@@ -100,6 +100,44 @@ describe('admin page', () => {
     ])
   })
 
+  it('marks an unverified address verified, or sends its link again', async () => {
+    const bob: Schemas['User'] = {
+      ...alice,
+      id: 'u-2',
+      email: 'bob@example.com',
+      emailVerified: false,
+    }
+    const calls: string[] = []
+
+    admin([root, alice, bob])
+    server.use(
+      http.patch('/api/v1/admin/users/u-2', async ({ request }) => {
+        calls.push(`patch ${JSON.stringify(await request.json())}`)
+        return HttpResponse.json({ ...bob, emailVerified: true })
+      }),
+      http.post('/api/v1/admin/users/u-2/verification', () => {
+        calls.push('link')
+        return new HttpResponse(null, { status: 204 })
+      }),
+    )
+    const { user } = renderApp('/admin')
+
+    await screen.findByText('bob@example.com')
+    expect(within(userRow('alice@example.com')).queryByText('Unverified')).not.toBeInTheDocument()
+
+    const row = within(userRow('bob@example.com'))
+    expect(row.getByText('Unverified')).toBeInTheDocument()
+
+    await user.click(row.getByRole('button', { name: 'Send link' }))
+    expect(
+      await screen.findByText('A new link is on its way to bob@example.com'),
+    ).toBeInTheDocument()
+
+    await user.click(row.getByRole('button', { name: 'Mark verified' }))
+    expect(await screen.findByText('bob@example.com is verified')).toBeInTheDocument()
+    expect(calls).toEqual(['link', 'patch {"emailVerified":true}'])
+  })
+
   it('picks the users who may write code, while code is for chosen users', async () => {
     const sent: unknown[] = []
     admin([root, alice], [], 'chosen')

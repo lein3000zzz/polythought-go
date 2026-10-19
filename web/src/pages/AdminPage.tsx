@@ -4,7 +4,14 @@ import { useForm } from 'react-hook-form'
 import { Link } from 'react-router'
 import { toast } from 'sonner'
 
-import { useCreateInvite, useCreateUser, useInvites, useUpdateUser, useUsers } from '@/api/admin'
+import {
+  useCreateInvite,
+  useCreateUser,
+  useInvites,
+  useSendVerificationLink,
+  useUpdateUser,
+  useUsers,
+} from '@/api/admin'
 import { useAuthConfig, useMe, useMinPasswordLength } from '@/api/auth'
 import { errorMessage, type Schemas } from '@/api/client'
 import { useSettings } from '@/api/settings'
@@ -65,6 +72,7 @@ export function AdminPage() {
 function UsersSection({ me }: { me: User }) {
   const users = useUsers()
   const update = useUpdateUser()
+  const sendVerification = useSendVerificationLink()
   const [change, setChange] = useState<{ user: User; patch: Schemas['UpdateUserRequest'] }>()
   const items = users.data?.pages.flatMap((page) => page.users) ?? []
   const settings = useSettings()
@@ -82,6 +90,22 @@ function UsersSection({ me }: { me: User }) {
         onError: (error) => toast.error(errorMessage(error)),
       },
     )
+
+  // An admin's word for an address, when the mail does not get through (D175).
+  const markVerified = (user: User) =>
+    update.mutate(
+      { id: user.id, emailVerified: true },
+      {
+        onSuccess: () => toast.success(`${user.email} is verified`),
+        onError: (error) => toast.error(errorMessage(error)),
+      },
+    )
+
+  const sendLink = (user: User) =>
+    sendVerification.mutate(user.id, {
+      onSuccess: () => toast.success(`A new link is on its way to ${user.email}`),
+      onError: (error) => toast.error(errorMessage(error)),
+    })
 
   const confirmText = (user: User, patch: Schemas['UpdateUserRequest']) => {
     if (patch.disabled) {
@@ -142,7 +166,8 @@ function UsersSection({ me }: { me: User }) {
                 <TableCell>
                   <Badge variant={u.disabled ? 'destructive' : 'secondary'}>
                     {u.disabled ? 'Disabled' : 'Active'}
-                  </Badge>
+                  </Badge>{' '}
+                  {!u.emailVerified && <Badge variant="outline">Unverified</Badge>}
                 </TableCell>
                 <TableCell>
                   {codeAccess === 'chosen' && u.role !== 'admin' ? (
@@ -163,6 +188,16 @@ function UsersSection({ me }: { me: User }) {
                 <TableCell className="text-right">
                   {u.id !== me.id && (
                     <div className="flex justify-end gap-1">
+                      {!u.emailVerified && (
+                        <>
+                          <Button variant="ghost" size="sm" onClick={() => sendLink(u)}>
+                            Send link
+                          </Button>
+                          <Button variant="ghost" size="sm" onClick={() => markVerified(u)}>
+                            Mark verified
+                          </Button>
+                        </>
+                      )}
                       <Button
                         variant="ghost"
                         size="sm"

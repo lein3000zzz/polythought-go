@@ -59,6 +59,12 @@ auth:
   # Environment: POLYTHOUGHT_REGISTRATION.
   # registration: "invite"
 
+  # People who sign up themselves get a link by mail, and can sign in once they open it;
+  # an account unverified after 7 days is removed. Needs mail set up, under Mail.
+  # Accounts from before, and those admins create, count as verified.
+  # Environment: POLYTHOUGHT_AUTH_VERIFY_EMAIL.
+  # verify_email: false
+
   # A browser session unused this long signs out. Applies to new activity at once.
   # Environment: POLYTHOUGHT_SESSION_IDLE_TTL.
   # session_idle_ttl: "168h"

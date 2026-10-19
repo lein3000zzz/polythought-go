@@ -150,6 +150,8 @@ type updateUserRequest struct {
 	Role       *string `json:"role" validate:"optional" enums:"admin,user"`
 	Disabled   *bool   `json:"disabled" validate:"optional"`
 	CodeChosen *bool   `json:"codeChosen" validate:"optional"`
+	// EmailVerified true marks the address verified; it cannot be made false.
+	EmailVerified *bool `json:"emailVerified" validate:"optional"`
 } // @name UpdateUserRequest
 
 // decodeJSON reads the body strictly: unknown fields are an error, so typos in field
@@ -186,13 +188,22 @@ func (s *Server) authConfig(_ context.Context, c *app.RequestContext) {
 	})
 }
 
-// register creates an account when the registration mode allows it.
+type registrationDTO struct {
+	User userDTO `json:"user"`
+	// MustVerify says the account signs in only once it has opened the link mailed to it.
+	MustVerify bool `json:"mustVerify"`
+	// Sent says the link was mailed; when it was not, it can be sent again.
+	Sent bool `json:"sent"`
+} // @name Registration
+
+// register creates an account when the registration mode allows it. While sign-ups
+// verify, the account signs in only once it has opened the link mailed to it (D166).
 //
 //	@Summary	Create an account
 //	@ID			register
 //	@Tags		auth
 //	@Param		body	body		registerRequest	true	"Account"
-//	@Success	201		{object}	userDTO
+//	@Success	201		{object}	registrationDTO
 //	@Failure	400		{object}	errorBody	"invalid_input, invalid_email, weak_password or invalid_invite"
 //	@Failure	403		{object}	errorBody	"registration_closed"
 //	@Failure	409		{object}	errorBody	"email_taken"
@@ -206,7 +217,7 @@ func (s *Server) register(ctx context.Context, c *app.RequestContext) {
 		return
 	}
 
-	user, err := s.auth.Register(ctx, auth.RegisterInput{
+	reg, err := s.auth.Register(ctx, auth.RegisterInput{
 		Email: req.Email, Password: req.Password, InviteCode: req.InviteCode, IP: c.ClientIP(),
 	})
 	if err != nil {
@@ -214,7 +225,104 @@ func (s *Server) register(ctx context.Context, c *app.RequestContext) {
 		return
 	}
 
-	c.JSON(http.StatusCreated, s.userDTO(user))
+	c.JSON(http.StatusCreated, registrationDTO{User: s.userDTO(reg.User), MustVerify: reg.MustVerify, Sent: reg.Sent})
+}
+
+type verifyEmailRequest struct {
+	// Token is the one in the mailed link.
+	Token string `json:"token"`
+} // @name VerifyEmailRequest
+
+type verifiedDTO struct {
+	// Email is the address verified, for the sign-in form.
+	Email string `json:"email"`
+} // @name Verified
+
+// verifyEmail verifies an account's address with the token of the link mailed to it. It
+// does not sign in: the password is still needed (D172).
+//
+//	@Summary	Verify an email address
+//	@ID			verifyEmail
+//	@Tags		auth
+//	@Param		body	body		verifyEmailRequest	true	"The link's token"
+//	@Success	200		{object}	verifiedDTO
+//	@Failure	400		{object}	errorBody	"invalid_link: used already, or too old"
+//	@Failure	429		{object}	errorBody	"rate_limited"
+//	@Router		/auth/verify-email [post]
+func (s *Server) verifyEmail(ctx context.Context, c *app.RequestContext) {
+	var req verifyEmailRequest
+
+	if err := decodeJSON(c, &req); err != nil {
+		s.fail(ctx, c, err)
+		return
+	}
+
+	email, err := s.auth.VerifyEmail(ctx, req.Token, c.ClientIP())
+	if err != nil {
+		s.fail(ctx, c, err)
+		return
+	}
+
+	c.JSON(http.StatusOK, verifiedDTO{Email: email})
+}
+
+type resendVerificationRequest struct {
+	Email string `json:"email"`
+} // @name ResendVerificationRequest
+
+// resendVerification mails a new verification link to the account of the address, if it
+// has one that must still verify. It answers the same either way.
+//
+//	@Summary	Send the verification link again
+//	@ID			resendVerification
+//	@Tags		auth
+//	@Param		body	body	resendVerificationRequest	true	"The address"
+//	@Success	204
+//	@Failure	409	{object}	errorBody	"mail_not_set_up"
+//	@Failure	429	{object}	errorBody	"rate_limited"
+//	@Router		/auth/verification [post]
+func (s *Server) resendVerification(ctx context.Context, c *app.RequestContext) {
+	var req resendVerificationRequest
+
+	if err := decodeJSON(c, &req); err != nil {
+		s.fail(ctx, c, err)
+		return
+	}
+
+	if err := s.auth.ResendVerification(ctx, req.Email, c.ClientIP()); err != nil {
+		s.fail(ctx, c, err)
+		return
+	}
+
+	c.Status(http.StatusNoContent)
+}
+
+// sendVerificationLink mails a user that must verify a new link, for an admin.
+//
+//	@Summary	Send a user's verification link again
+//	@ID			sendVerificationLink
+//	@Tags		admin
+//	@Param		id	path	string	true	"User ID"
+//	@Success	204
+//	@Failure	400	{object}	errorBody	"invalid_input: verified already"
+//	@Failure	401	{object}	errorBody	"unauthenticated"
+//	@Failure	403	{object}	errorBody	"forbidden"
+//	@Failure	404	{object}	errorBody	"not_found"
+//	@Failure	409	{object}	errorBody	"mail_not_set_up"
+//	@Failure	429	{object}	errorBody	"rate_limited: one a minute, five a day"
+//	@Failure	502	{object}	errorBody	"mail_failed"
+//	@Security	SessionCookie
+//	@Security	APIToken
+//	@Router		/admin/users/{id}/verification [post]
+func (s *Server) sendVerificationLink(ctx context.Context, c *app.RequestContext) {
+	p, _ := principal(c)
+
+	if err := s.auth.SendVerificationLink(ctx, p, domain.UserID(c.Param("id"))); err != nil {
+		s.fail(ctx, c, err)
+		return
+	}
+
+	c.Status(http.StatusNoContent)
 }
 
 // login starts a browser session.
@@ -227,7 +335,7 @@ func (s *Server) register(ctx context.Context, c *app.RequestContext) {
 //	@Header		200		{string}	Set-Cookie	"The polythought_session cookie"
 //	@Failure	400		{object}	errorBody	"invalid_input"
 //	@Failure	401		{object}	errorBody	"invalid_credentials"
-//	@Failure	403		{object}	errorBody	"user_disabled"
+//	@Failure	403		{object}	errorBody	"user_disabled, or email_not_verified"
 //	@Failure	429		{object}	errorBody	"rate_limited"
 //	@Router		/auth/login [post]
 func (s *Server) login(ctx context.Context, c *app.RequestContext) {
@@ -523,7 +631,7 @@ func (s *Server) updateUser(ctx context.Context, c *app.RequestContext) {
 		return
 	}
 
-	upd := auth.UserUpdate{Disabled: req.Disabled, CodeChosen: req.CodeChosen}
+	upd := auth.UserUpdate{Disabled: req.Disabled, CodeChosen: req.CodeChosen, EmailVerified: req.EmailVerified}
 	if req.Role != nil {
 		role := domain.Role(*req.Role)
 		upd.Role = &role

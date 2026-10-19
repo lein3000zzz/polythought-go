@@ -12,6 +12,7 @@ import { LoginPage } from '@/pages/LoginPage'
 import { NodesPage } from '@/pages/NodesPage'
 import { NotFoundPage } from '@/pages/NotFoundPage'
 import { RegisterPage } from '@/pages/RegisterPage'
+import { VerifyEmailPage } from '@/pages/VerifyEmailPage'
 import { SettingsPage } from '@/pages/SettingsPage'
 import { WalletsPage } from '@/pages/WalletsPage'
 import { WorkflowsPage } from '@/pages/WorkflowsPage'
@@ -32,6 +33,7 @@ const editor: RouteObject = {
 export const routes: RouteObject[] = [
   { path: '/login', element: <LoginPage /> },
   { path: '/register', element: <RegisterPage /> },
+  { path: '/verify-email', element: <VerifyEmailPage /> },
   {
     element: <RequireAuth />,
     children: [

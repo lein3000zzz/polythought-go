@@ -144,7 +144,7 @@ describe('registering', () => {
       noWorkflows,
       http.post('/api/v1/auth/register', async ({ request }) => {
         calls.push(`register ${JSON.stringify(await request.json())}`)
-        return HttpResponse.json(alice, { status: 201 })
+        return HttpResponse.json({ user: alice, mustVerify: false, sent: false }, { status: 201 })
       }),
       http.post('/api/v1/auth/login', () => {
         calls.push('login')
@@ -184,6 +184,124 @@ describe('registering', () => {
     await user.click(screen.getByRole('button', { name: 'Create account' }))
 
     expect(await screen.findByText('Email already registered')).toBeInTheDocument()
+  })
+})
+
+describe('verifying an address', () => {
+  const pending = { ...alice, emailVerified: false }
+
+  it('waits for the mailed link instead of signing in, and sends it again', async () => {
+    const calls: string[] = []
+
+    server.use(
+      signedOut,
+      registration('open'),
+      http.post('/api/v1/auth/register', () =>
+        HttpResponse.json({ user: pending, mustVerify: true, sent: true }, { status: 201 }),
+      ),
+      http.post('/api/v1/auth/login', () => {
+        calls.push('login')
+        return HttpResponse.json(alice)
+      }),
+      http.post('/api/v1/auth/verification', async ({ request }) => {
+        calls.push(`again ${JSON.stringify(await request.json())}`)
+        return new HttpResponse(null, { status: 204 })
+      }),
+    )
+    const { user } = renderApp('/register')
+
+    await user.type(await screen.findByLabelText('Email'), 'alice@example.com')
+    await user.type(screen.getByLabelText('Password'), 'a long enough password')
+    await user.click(screen.getByRole('button', { name: 'Create account' }))
+
+    expect(await screen.findByText('Check your inbox')).toBeInTheDocument()
+    expect(screen.getByText(/We mailed a link to alice@example.com/)).toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: 'Send the link again' }))
+    expect(await screen.findByText(/a new link is on its way/)).toBeInTheDocument()
+    expect(calls).toEqual(['again {"email":"alice@example.com"}'])
+  })
+
+  it('says when the mail did not go out (D175)', async () => {
+    server.use(
+      signedOut,
+      registration('open'),
+      http.post('/api/v1/auth/register', () =>
+        HttpResponse.json({ user: pending, mustVerify: true, sent: false }, { status: 201 }),
+      ),
+    )
+    const { user } = renderApp('/register')
+
+    await user.type(await screen.findByLabelText('Email'), 'alice@example.com')
+    await user.type(screen.getByLabelText('Password'), 'a long enough password')
+    await user.click(screen.getByRole('button', { name: 'Create account' }))
+
+    expect(await screen.findByText(/did not go out/)).toBeInTheDocument()
+  })
+
+  it('signing in first says to verify, and sends the link again', async () => {
+    let sentTo: unknown
+
+    server.use(
+      signedOut,
+      registration('invite'),
+      http.post('/api/v1/auth/login', () =>
+        apiError(403, 'email_not_verified', 'verify your email first: open the link we mailed you'),
+      ),
+      http.post('/api/v1/auth/verification', async ({ request }) => {
+        sentTo = await request.json()
+        return new HttpResponse(null, { status: 204 })
+      }),
+    )
+    const { user } = renderApp('/login')
+
+    await user.type(await screen.findByLabelText('Email'), 'alice@example.com')
+    await user.type(screen.getByLabelText('Password'), 'a long enough password')
+    await user.click(screen.getByRole('button', { name: 'Sign in' }))
+
+    expect(
+      await screen.findByText('Verify your email first: open the link we mailed you'),
+    ).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Send the link again' }))
+    await waitFor(() => expect(sentTo).toEqual({ email: 'alice@example.com' }))
+  })
+
+  it('the link verifies, then signing in asks for the password (D172)', async () => {
+    let token: unknown
+
+    server.use(
+      signedOut,
+      registration('invite'),
+      http.post('/api/v1/auth/verify-email', async ({ request }) => {
+        token = await request.json()
+        return HttpResponse.json({ email: 'alice@example.com' })
+      }),
+    )
+    const { router } = renderApp('/verify-email?token=tok_1')
+
+    expect(await screen.findByText('Your address is verified: sign in.')).toBeInTheDocument()
+    expect(router.state.location.pathname).toBe('/login')
+    expect(screen.getByLabelText('Email')).toHaveValue('alice@example.com')
+    expect(screen.getByLabelText('Password')).toHaveValue('')
+    expect(token).toEqual({ token: 'tok_1' })
+  })
+
+  it('an old link offers a new one', async () => {
+    server.use(
+      signedOut,
+      registration('invite'),
+      http.post('/api/v1/auth/verify-email', () =>
+        apiError(
+          400,
+          'invalid_link',
+          'this link does not work any more: it was used already, or it is too old',
+        ),
+      ),
+    )
+    renderApp('/verify-email?token=old')
+
+    expect(await screen.findByText('This link does not work')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Send the link again' })).toBeDisabled()
   })
 })
 

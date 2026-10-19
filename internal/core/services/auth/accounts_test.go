@@ -49,7 +49,8 @@ func TestLiveConfig(t *testing.T) {
 
 func TestRegister(t *testing.T) {
 	createdUser := mock.MatchedBy(func(u domain.User) bool {
-		return u.Email == "Bob@Example.com" && u.Role == domain.RoleUser && u.ID != "" && u.CreatedAt.Equal(now)
+		return u.Email == "Bob@Example.com" && u.Role == domain.RoleUser && u.ID != "" && u.CreatedAt.Equal(now) &&
+			u.EmailVerifiedAt.Equal(now) // verification is off
 	})
 
 	tests := []struct {
@@ -157,6 +158,7 @@ func TestRegister(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			d := newDeps(t)
 			d.allow(!tt.limited)
+			d.users.EXPECT().ByEmail(mock.Anything, mock.Anything).Return(domain.User{}, "", domain.ErrNotFound).Maybe()
 			tt.setup(d)
 
 			got, err := newService(t, d, config(tt.mode)).Register(context.Background(), tt.in)
@@ -167,8 +169,9 @@ func TestRegister(t *testing.T) {
 			}
 
 			require.NoError(t, err)
-			assert.Equal(t, domain.RoleUser, got.Role)
-			assert.Equal(t, "Bob@Example.com", got.Email, "the address keeps its case; matching ignores it")
+			assert.Equal(t, domain.RoleUser, got.User.Role)
+			assert.Equal(t, "Bob@Example.com", got.User.Email, "the address keeps its case; matching ignores it")
+			assert.False(t, got.MustVerify)
 		})
 	}
 }
@@ -235,6 +238,7 @@ func TestCreateUserAndBootstrap(t *testing.T) {
 
 			require.NoError(t, err)
 			assert.Equal(t, tt.want, got.Role)
+			assert.Equal(t, now, got.EmailVerifiedAt, "an admin's word for the address (D167)")
 		})
 	}
 }

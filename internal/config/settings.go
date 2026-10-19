@@ -17,6 +17,7 @@ import (
 // Keys of the settings the server itself reads.
 const (
 	KeyRegistration        = "auth.registration"
+	KeyVerifyEmail         = "auth.verify_email"
 	KeySessionIdleTTL      = "auth.session_idle_ttl"
 	KeySessionAbsoluteTTL  = "auth.session_absolute_ttl"
 	KeyInviteTTL           = "auth.invite_ttl"
@@ -109,6 +110,11 @@ func Settings() (*settings.Registry, error) {
 			Kind:        settings.KindEnum, Default: string(domain.RegistrationInvite),
 			Options: []string{string(domain.RegistrationOpen), string(domain.RegistrationInvite), string(domain.RegistrationClosed)},
 			Env:     prefix + "REGISTRATION",
+		},
+		settings.Spec{
+			Key: KeyVerifyEmail, Group: groupAccounts, Label: "Verify sign-ups",
+			Description: "People who sign up themselves get a link by mail, and can sign in once they open it; an account unverified after 7 days is removed. Needs mail set up, under Mail. Accounts from before, and those admins create, count as verified.",
+			Kind:        settings.KindBool, Default: false,
 		},
 		settings.Spec{
 			Key: KeySessionIdleTTL, Group: groupAccounts, Label: "Idle sign-out",
@@ -323,7 +329,21 @@ func Settings() (*settings.Registry, error) {
 		return nil, err
 	}
 
+	// Verifying sign-ups needs mail, so a missing server cannot block them unseen (D173).
+	r.AddRule(KeyVerifyEmail, func(s *settings.Snapshot) error {
+		if s.Bool(KeyVerifyEmail) && !MailSetUp(s) {
+			return errors.New("needs mail set up first: a mail server and a From address, under Mail")
+		}
+
+		return nil
+	})
+
 	return r, nil
+}
+
+// MailSetUp says whether the settings name a mail server and a From address.
+func MailSetUp(s *settings.Snapshot) bool {
+	return s.String(KeyMailHost) != "" && s.String(KeyMailFrom) != ""
 }
 
 func atLeast(least time.Duration) func(any) error {

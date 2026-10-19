@@ -74,7 +74,12 @@ var (
 	ErrRateLimited        = errors.New("too many attempts")
 	ErrLastAdmin          = errors.New("the last admin cannot be demoted or disabled")
 	ErrInvalidInput       = errors.New("invalid input")
-	ErrCodeOff            = errors.New("an admin has turned code off for you")
+	// ErrEmailNotVerified means the account must verify its address before it signs in
+	// (D166).
+	ErrEmailNotVerified = errors.New("verify your email first: open the link we mailed you")
+	// ErrInvalidLink means a mailed link was used already, or is too old.
+	ErrInvalidLink = errors.New("this link does not work any more: it was used already, or it is too old")
+	ErrCodeOff     = errors.New("an admin has turned code off for you")
 )
 
 // User is an account. The password hash never leaves the auth service and its repository.
@@ -136,3 +141,19 @@ type Invite struct {
 }
 
 func (i Invite) Used() bool { return !i.UsedAt.IsZero() }
+
+// EmailTokenPurpose is what a mailed link does.
+type EmailTokenPurpose string
+
+const (
+	EmailTokenVerify EmailTokenPurpose = "verify" // verifies the address
+	EmailTokenReset  EmailTokenPurpose = "reset"  // sets a new password
+)
+
+// EmailToken is a link mailed to an account. Its secret is only ever stored hashed.
+type EmailToken struct {
+	UserID    UserID
+	Purpose   EmailTokenPurpose
+	CreatedAt time.Time
+	ExpiresAt time.Time
+}

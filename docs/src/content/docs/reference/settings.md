@@ -21,6 +21,18 @@ Who may create an account: anyone (open), people an admin invited (invite), or o
 | Default | `invite` |
 | Applies | at once |
 
+### Verify sign-ups
+
+People who sign up themselves get a link by mail, and can sign in once they open it; an account unverified after 7 days is removed. Needs mail set up, under Mail. Accounts from before, and those admins create, count as verified.
+
+| | |
+|---|---|
+| Key | `auth.verify_email` |
+| Environment variable | `POLYTHOUGHT_AUTH_VERIFY_EMAIL` |
+| Kind | `true` or `false` |
+| Default | `false` |
+| Applies | at once |
+
 ### Idle sign-out
 
 A browser session unused this long signs out. Applies to new activity at once.

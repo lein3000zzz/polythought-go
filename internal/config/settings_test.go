@@ -46,6 +46,7 @@ func TestSettingsDefaults(t *testing.T) {
 	// The services' own defaults, used by tests and tools, match what the server runs with.
 	for key, want := range map[string]any{
 		config.KeyRegistration:        string(authCfg.Registration),
+		config.KeyVerifyEmail:         authCfg.VerifyEmail,
 		config.KeySessionIdleTTL:      authCfg.SessionIdleTTL,
 		config.KeySessionAbsoluteTTL:  authCfg.SessionAbsoluteTTL,
 		config.KeyInviteTTL:           authCfg.InviteTTL,
@@ -89,7 +90,7 @@ func TestSettingsDefaults(t *testing.T) {
 		assert.Equal(t, want, spec(t, key).Default, key)
 	}
 
-	assert.Len(t, registry(t).Specs(), 40, "every setting has a default checked above")
+	assert.Len(t, registry(t).Specs(), 41, "every setting has a default checked above")
 
 	for _, key := range []string{
 		config.KeyTelegramToken, config.KeyBuilderAPIKey, config.KeyBuilderSecret, config.KeyBuilderPassphrase, config.KeyPolygonRPC,
@@ -208,4 +209,27 @@ func TestTakesKeys(t *testing.T) {
 	} {
 		assert.Equal(t, tc.want, config.TakesKeys(tc.mode, tc.registration), "%s with %s registration (D21)", tc.mode, tc.registration)
 	}
+}
+
+func TestVerifyEmailNeedsMail(t *testing.T) {
+	t.Parallel()
+
+	r := registry(t)
+	require.Len(t, r.Rules(), 1)
+	rule := r.Rules()[0]
+	assert.Equal(t, config.KeyVerifyEmail, rule.Key)
+
+	mail := map[string]any{config.KeyMailHost: "mail.example.com", config.KeyMailFrom: "p@example.com"}
+
+	require.NoError(t, rule.Check(r.Snapshot(nil)), "off")
+	require.NoError(t, rule.Check(r.Snapshot(mail)), "off, mail set up")
+
+	on := map[string]any{config.KeyVerifyEmail: true}
+	require.ErrorContains(t, rule.Check(r.Snapshot(on)), "needs mail set up first")
+
+	on[config.KeyMailHost] = "mail.example.com"
+	require.Error(t, rule.Check(r.Snapshot(on)), "no From address")
+
+	on[config.KeyMailFrom] = "p@example.com"
+	require.NoError(t, rule.Check(r.Snapshot(on)))
 }

@@ -5,6 +5,7 @@ import { useAuthConfig, useMe, useRegister } from '@/api/auth'
 import { AuthLayout } from '@/components/AuthLayout'
 import { ErrorAlert } from '@/components/ErrorAlert'
 import { Button } from '@/components/ui/button'
+import { ResendLink } from '@/features/auth/Verification'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 
@@ -42,6 +43,24 @@ export function RegisterPage() {
   }
 
   const mode = config.data.registration
+  const signedUp = registration.data
+
+  // While sign-ups verify, the account waits for the mailed link (D166, D175).
+  if (signedUp?.verify) {
+    return (
+      <AuthLayout
+        title="Check your inbox"
+        description={
+          signedUp.sent
+            ? `We mailed a link to ${signedUp.email}. Open it within 24 hours, then sign in.`
+            : `The mail to ${signedUp.email} did not go out. Send it again in a minute, or ask an admin to verify your account.`
+        }
+      >
+        <ResendLink email={signedUp.email} />
+        {signIn}
+      </AuthLayout>
+    )
+  }
 
   if (mode === 'closed') {
     return (

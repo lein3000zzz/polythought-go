@@ -1,10 +1,13 @@
-import { useForm } from 'react-hook-form'
+import { useForm, useWatch } from 'react-hook-form'
 import { Link, Navigate, useSearchParams } from 'react-router'
 
 import { useAuthConfig, useLogin, useMe } from '@/api/auth'
+import { ApiError } from '@/api/client'
 import { AuthLayout } from '@/components/AuthLayout'
 import { ErrorAlert } from '@/components/ErrorAlert'
+import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
+import { ResendLink } from '@/features/auth/Verification'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { nextPath } from '@/lib/paths'
@@ -16,7 +19,12 @@ export function LoginPage() {
   const config = useAuthConfig()
   const login = useLogin()
   const [params] = useSearchParams()
-  const { register, handleSubmit } = useForm<Form>()
+  // The verification page sends people here with their address (D172).
+  const { register, handleSubmit, control } = useForm<Form>({
+    defaultValues: { email: params.get('email') ?? '' },
+  })
+  const email = useWatch({ control, name: 'email' })
+  const unverified = login.error instanceof ApiError && login.error.code === 'email_not_verified'
 
   // Signing in fills in the user, which lands here and moves on.
   if (me.data) return <Navigate to={nextPath(params.get('next'))} replace />
@@ -24,7 +32,13 @@ export function LoginPage() {
   return (
     <AuthLayout title="Sign in">
       <form className="flex flex-col gap-4" onSubmit={handleSubmit((form) => login.mutate(form))}>
+        {params.get('verified') && !login.isError && (
+          <Alert>
+            <AlertDescription>Your address is verified: sign in.</AlertDescription>
+          </Alert>
+        )}
         {login.isError && <ErrorAlert error={login.error} />}
+        {unverified && <ResendLink email={email.trim()} />}
 
         <div className="flex flex-col gap-2">
           <Label htmlFor="email">Email</Label>

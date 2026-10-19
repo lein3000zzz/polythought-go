@@ -310,6 +310,63 @@ func (_c *MockUserRepository_Create_Call) RunAndReturn(run func(ctx context.Cont
 	return _c
 }
 
+// DeleteUnverified provides a mock function for the type MockUserRepository
+func (_mock *MockUserRepository) DeleteUnverified(ctx context.Context, id domain.UserID) error {
+	ret := _mock.Called(ctx, id)
+
+	if len(ret) == 0 {
+		panic("no return value specified for DeleteUnverified")
+	}
+
+	var r0 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context, domain.UserID) error); ok {
+		r0 = returnFunc(ctx, id)
+	} else {
+		r0 = ret.Error(0)
+	}
+	return r0
+}
+
+// MockUserRepository_DeleteUnverified_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'DeleteUnverified'
+type MockUserRepository_DeleteUnverified_Call struct {
+	*mock.Call
+}
+
+// DeleteUnverified is a helper method to define mock.On call
+//   - ctx context.Context
+//   - id domain.UserID
+func (_e *MockUserRepository_Expecter) DeleteUnverified(ctx any, id any) *MockUserRepository_DeleteUnverified_Call {
+	return &MockUserRepository_DeleteUnverified_Call{Call: _e.mock.On("DeleteUnverified", ctx, id)}
+}
+
+func (_c *MockUserRepository_DeleteUnverified_Call) Run(run func(ctx context.Context, id domain.UserID)) *MockUserRepository_DeleteUnverified_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		var arg1 domain.UserID
+		if args[1] != nil {
+			arg1 = args[1].(domain.UserID)
+		}
+		run(
+			arg0,
+			arg1,
+		)
+	})
+	return _c
+}
+
+func (_c *MockUserRepository_DeleteUnverified_Call) Return(err error) *MockUserRepository_DeleteUnverified_Call {
+	_c.Call.Return(err)
+	return _c
+}
+
+func (_c *MockUserRepository_DeleteUnverified_Call) RunAndReturn(run func(ctx context.Context, id domain.UserID) error) *MockUserRepository_DeleteUnverified_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // List provides a mock function for the type MockUserRepository
 func (_mock *MockUserRepository) List(ctx context.Context, f ports.PageFilter) (ports.Page[domain.User], error) {
 	ret := _mock.Called(ctx, f)
@@ -498,6 +555,135 @@ func (_c *MockUserRepository_PasswordHash_Call) Return(s string, err error) *Moc
 }
 
 func (_c *MockUserRepository_PasswordHash_Call) RunAndReturn(run func(ctx context.Context, id domain.UserID) (string, error)) *MockUserRepository_PasswordHash_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// PruneUnverified provides a mock function for the type MockUserRepository
+func (_mock *MockUserRepository) PruneUnverified(ctx context.Context, before time.Time) (int64, error) {
+	ret := _mock.Called(ctx, before)
+
+	if len(ret) == 0 {
+		panic("no return value specified for PruneUnverified")
+	}
+
+	var r0 int64
+	var r1 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context, time.Time) (int64, error)); ok {
+		return returnFunc(ctx, before)
+	}
+	if returnFunc, ok := ret.Get(0).(func(context.Context, time.Time) int64); ok {
+		r0 = returnFunc(ctx, before)
+	} else {
+		r0 = ret.Get(0).(int64)
+	}
+	if returnFunc, ok := ret.Get(1).(func(context.Context, time.Time) error); ok {
+		r1 = returnFunc(ctx, before)
+	} else {
+		r1 = ret.Error(1)
+	}
+	return r0, r1
+}
+
+// MockUserRepository_PruneUnverified_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'PruneUnverified'
+type MockUserRepository_PruneUnverified_Call struct {
+	*mock.Call
+}
+
+// PruneUnverified is a helper method to define mock.On call
+//   - ctx context.Context
+//   - before time.Time
+func (_e *MockUserRepository_Expecter) PruneUnverified(ctx any, before any) *MockUserRepository_PruneUnverified_Call {
+	return &MockUserRepository_PruneUnverified_Call{Call: _e.mock.On("PruneUnverified", ctx, before)}
+}
+
+func (_c *MockUserRepository_PruneUnverified_Call) Run(run func(ctx context.Context, before time.Time)) *MockUserRepository_PruneUnverified_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		var arg1 time.Time
+		if args[1] != nil {
+			arg1 = args[1].(time.Time)
+		}
+		run(
+			arg0,
+			arg1,
+		)
+	})
+	return _c
+}
+
+func (_c *MockUserRepository_PruneUnverified_Call) Return(n int64, err error) *MockUserRepository_PruneUnverified_Call {
+	_c.Call.Return(n, err)
+	return _c
+}
+
+func (_c *MockUserRepository_PruneUnverified_Call) RunAndReturn(run func(ctx context.Context, before time.Time) (int64, error)) *MockUserRepository_PruneUnverified_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// SetEmailVerified provides a mock function for the type MockUserRepository
+func (_mock *MockUserRepository) SetEmailVerified(ctx context.Context, id domain.UserID, at time.Time) error {
+	ret := _mock.Called(ctx, id, at)
+
+	if len(ret) == 0 {
+		panic("no return value specified for SetEmailVerified")
+	}
+
+	var r0 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context, domain.UserID, time.Time) error); ok {
+		r0 = returnFunc(ctx, id, at)
+	} else {
+		r0 = ret.Error(0)
+	}
+	return r0
+}
+
+// MockUserRepository_SetEmailVerified_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'SetEmailVerified'
+type MockUserRepository_SetEmailVerified_Call struct {
+	*mock.Call
+}
+
+// SetEmailVerified is a helper method to define mock.On call
+//   - ctx context.Context
+//   - id domain.UserID
+//   - at time.Time
+func (_e *MockUserRepository_Expecter) SetEmailVerified(ctx any, id any, at any) *MockUserRepository_SetEmailVerified_Call {
+	return &MockUserRepository_SetEmailVerified_Call{Call: _e.mock.On("SetEmailVerified", ctx, id, at)}
+}
+
+func (_c *MockUserRepository_SetEmailVerified_Call) Run(run func(ctx context.Context, id domain.UserID, at time.Time)) *MockUserRepository_SetEmailVerified_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		var arg1 domain.UserID
+		if args[1] != nil {
+			arg1 = args[1].(domain.UserID)
+		}
+		var arg2 time.Time
+		if args[2] != nil {
+			arg2 = args[2].(time.Time)
+		}
+		run(
+			arg0,
+			arg1,
+			arg2,
+		)
+	})
+	return _c
+}
+
+func (_c *MockUserRepository_SetEmailVerified_Call) Return(err error) *MockUserRepository_SetEmailVerified_Call {
+	_c.Call.Return(err)
+	return _c
+}
+
+func (_c *MockUserRepository_SetEmailVerified_Call) RunAndReturn(run func(ctx context.Context, id domain.UserID, at time.Time) error) *MockUserRepository_SetEmailVerified_Call {
 	_c.Call.Return(run)
 	return _c
 }

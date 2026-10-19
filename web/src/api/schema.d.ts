@@ -126,6 +126,23 @@ export interface paths {
         patch: operations["updateUser"];
         trace?: never;
     };
+    "/admin/users/{id}/verification": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Send a user's verification link again */
+        post: operations["sendVerificationLink"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/auth/config": {
         parameters: {
             query?: never;
@@ -188,6 +205,40 @@ export interface paths {
         put?: never;
         /** Create an account */
         post: operations["register"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/auth/verification": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Send the verification link again */
+        post: operations["resendVerification"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/auth/verify-email": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Verify an email address */
+        post: operations["verifyEmail"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1704,6 +1755,16 @@ export interface components {
             inviteCode?: string;
             password: string;
         };
+        Registration: {
+            /** @description MustVerify says the account signs in only once it has opened the link mailed to it. */
+            mustVerify: boolean;
+            /** @description Sent says the link was mailed; when it was not, it can be sent again. */
+            sent: boolean;
+            user: components["schemas"]["User"];
+        };
+        ResendVerificationRequest: {
+            email: string;
+        };
         Revocation: {
             /** @description Problem says why it was not revoked. */
             problem?: string;
@@ -1988,6 +2049,8 @@ export interface components {
         UpdateUserRequest: {
             codeChosen?: boolean;
             disabled?: boolean;
+            /** @description EmailVerified true marks the address verified; it cannot be made false. */
+            emailVerified?: boolean;
             /** @enum {string} */
             role?: "admin" | "user";
         };
@@ -2032,6 +2095,14 @@ export interface components {
             /** @description NextCursor is absent on the last page. */
             nextCursor?: string;
             users: components["schemas"]["User"][];
+        };
+        Verified: {
+            /** @description Email is the address verified, for the sign-in form. */
+            email: string;
+        };
+        VerifyEmailRequest: {
+            /** @description Token is the one in the mailed link. */
+            token: string;
         };
         Wallet: {
             address: string;
@@ -2612,6 +2683,90 @@ export interface operations {
             };
         };
     };
+    sendVerificationLink: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description User ID */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No Content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description invalid_input: verified already */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description unauthenticated */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description not_found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description mail_not_set_up */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description rate_limited: one a minute, five a day */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description mail_failed */
+            502: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
     getAuthConfig: {
         parameters: {
             query?: never;
@@ -2675,7 +2830,7 @@ export interface operations {
                     "application/json": components["schemas"]["Error"];
                 };
             };
-            /** @description user_disabled */
+            /** @description user_disabled, or email_not_verified */
             403: {
                 headers: {
                     [name: string]: unknown;
@@ -2742,7 +2897,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["User"];
+                    "application/json": components["schemas"]["Registration"];
                 };
             };
             /** @description invalid_input, invalid_email, weak_password or invalid_invite */
@@ -2765,6 +2920,90 @@ export interface operations {
             };
             /** @description email_taken */
             409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description rate_limited */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    resendVerification: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description The address */
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ResendVerificationRequest"];
+            };
+        };
+        responses: {
+            /** @description No Content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description mail_not_set_up */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description rate_limited */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    verifyEmail: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description The link's token */
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["VerifyEmailRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Verified"];
+                };
+            };
+            /** @description invalid_link: used already, or too old */
+            400: {
                 headers: {
                     [name: string]: unknown;
                 };

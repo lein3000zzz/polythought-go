@@ -29,6 +29,28 @@ type UserRepository interface {
 	// LockActiveAdmins locks the active admins' rows until the surrounding transaction
 	// ends and returns how many there are. It must run inside Transactor.WithinTx.
 	LockActiveAdmins(ctx context.Context) (int, error)
+
+	// SetEmailVerified records when the account verified its address.
+	SetEmailVerified(ctx context.Context, id domain.UserID, at time.Time) error
+	// DeleteUnverified removes the account if it has not verified its address;
+	// domain.ErrNotFound when it has, or is gone.
+	DeleteUnverified(ctx context.Context, id domain.UserID) error
+	// PruneUnverified removes the accounts made before before that never verified.
+	PruneUnverified(ctx context.Context, before time.Time) (int64, error)
+}
+
+// EmailTokenRepository keeps the links mailed to accounts, by the SHA-256 of their token.
+type EmailTokenRepository interface {
+	Create(ctx context.Context, t domain.EmailToken, tokenHash []byte) error
+	// Take uses a link: it removes it and says whose it is; domain.ErrNotFound when no
+	// link of purpose has that hash, or it expired by now.
+	Take(ctx context.Context, tokenHash []byte, purpose domain.EmailTokenPurpose, now time.Time) (domain.UserID, error)
+	// CountSince counts the account's links of purpose made since.
+	CountSince(ctx context.Context, user domain.UserID, purpose domain.EmailTokenPurpose, since time.Time) (int, error)
+	// DeleteForUser removes the account's links of purpose.
+	DeleteForUser(ctx context.Context, user domain.UserID, purpose domain.EmailTokenPurpose) error
+	// DeleteExpired removes the links expired by now.
+	DeleteExpired(ctx context.Context, now time.Time) (int64, error)
 }
 
 // SessionRepository looks sessions up by the SHA-256 of their token.
