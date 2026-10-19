@@ -82,7 +82,10 @@ var (
 	// ErrPasswordResetOff means passwords cannot be reset by mail here: it is switched off,
 	// or mail is not set up (D176).
 	ErrPasswordResetOff = errors.New("passwords cannot be reset by email here: ask an admin")
-	ErrCodeOff          = errors.New("an admin has turned code off for you")
+	// ErrInviteEmailOff means invites cannot be mailed here: it is switched off, or mail
+	// is not set up (D180).
+	ErrInviteEmailOff = errors.New("invites cannot be mailed here: inviting by email is off, or mail is not set up")
+	ErrCodeOff        = errors.New("an admin has turned code off for you")
 )
 
 // User is an account. The password hash never leaves the auth service and its repository.
@@ -137,6 +140,7 @@ func (t APIToken) Expired(now time.Time) bool {
 type Invite struct {
 	ID        InviteID
 	CreatedBy UserID
+	Email     string // the address it was mailed to, which alone signs up with it; empty for a copied link
 	CreatedAt time.Time
 	ExpiresAt time.Time
 	UsedBy    UserID

@@ -38,6 +38,8 @@ type Config struct {
 	VerifyEmail bool
 	// PasswordReset lets people set a new password with a mailed link (D176).
 	PasswordReset bool
+	// InviteEmail lets admins mail invites (D180).
+	InviteEmail bool
 }
 
 func DefaultConfig() Config {
@@ -50,6 +52,7 @@ func DefaultConfig() Config {
 		MinPasswordLength:  12,
 		CodeAccess:         domain.CodeEveryone,
 		PasswordReset:      true,
+		InviteEmail:        true,
 	}
 }
 

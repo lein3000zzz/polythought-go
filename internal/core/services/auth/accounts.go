@@ -33,12 +33,20 @@ func (s *Service) Register(ctx context.Context, in RegisterInput) (Registration,
 
 	mode := s.config().Registration
 
+	var invite domain.Invite
+
 	switch mode {
 	case domain.RegistrationClosed:
 		return Registration{}, domain.ErrRegistrationClosed
 	case domain.RegistrationInvite:
-		if strings.TrimSpace(in.InviteCode) == "" {
+		code := strings.TrimSpace(in.InviteCode)
+		if code == "" {
 			return Registration{}, domain.ErrInvalidInvite
+		}
+
+		var err error
+		if invite, err = s.repos.Invites.ByCode(ctx, hashSecret(code), s.now()); err != nil {
+			return Registration{}, err
 		}
 	}
 
@@ -47,7 +55,12 @@ func (s *Service) Register(ctx context.Context, in RegisterInput) (Registration,
 		return Registration{}, err
 	}
 
-	mustVerify := s.verifying()
+	// A mailed invite is for its address alone, which the mail proved (D181).
+	if invite.Email != "" && !strings.EqualFold(invite.Email, user.Email) {
+		return Registration{}, fmt.Errorf("%w: it is for %s", domain.ErrInvalidInvite, invite.Email)
+	}
+
+	mustVerify := s.verifying() && invite.Email == ""
 	if !mustVerify {
 		user.EmailVerifiedAt = user.CreatedAt
 	}

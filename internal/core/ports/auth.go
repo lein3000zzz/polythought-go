@@ -79,6 +79,9 @@ type InviteRepository interface {
 	// Consume marks an unused, unexpired invite as used by userID, or returns
 	// domain.ErrInvalidInvite. It is atomic: an invite admits exactly one registration.
 	Consume(ctx context.Context, codeHash []byte, userID domain.UserID, at time.Time) error
+	// ByCode is the unused invite of the code, unexpired at at; domain.ErrInvalidInvite
+	// when there is none.
+	ByCode(ctx context.Context, codeHash []byte, at time.Time) (domain.Invite, error)
 }
 
 // RateLimiter answers whether one more attempt under key is allowed right now.

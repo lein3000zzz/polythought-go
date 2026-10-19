@@ -20,4 +20,5 @@ type Invites struct {
 	ExpiresAt time.Time
 	UsedBy    *uuid.UUID
 	UsedAt    *time.Time
+	Email     string
 }

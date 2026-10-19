@@ -22,6 +22,7 @@ const (
 	KeySessionIdleTTL      = "auth.session_idle_ttl"
 	KeySessionAbsoluteTTL  = "auth.session_absolute_ttl"
 	KeyInviteTTL           = "auth.invite_ttl"
+	KeyInviteEmail         = "auth.invite_email"
 	KeyMinPasswordLength   = "auth.min_password_length"
 	KeyMaxWorkflows        = "workflows.max_per_user"
 	KeyMaxActiveWorkflows  = "workflows.max_active_per_user"
@@ -138,6 +139,11 @@ func Settings() (*settings.Registry, error) {
 			Key: KeyInviteTTL, Group: groupAccounts, Label: "Invite lifetime",
 			Description: "How long an invite works. Applies to invites created from now.",
 			Kind:        settings.KindDuration, Default: 7 * 24 * time.Hour, Check: atLeast(time.Hour),
+		},
+		settings.Spec{
+			Key: KeyInviteEmail, Group: groupAccounts, Label: "Invites by email",
+			Description: "Admins can type an address on the Users page, and the invite is mailed, naming them; only that address signs up with it, verified. Invite links can still be copied. Works while mail is set up, under Mail.",
+			Kind:        settings.KindBool, Default: true,
 		},
 		settings.Spec{
 			Key: KeyMinPasswordLength, Group: groupAccounts, Label: "Shortest password",

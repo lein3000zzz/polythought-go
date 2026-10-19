@@ -84,6 +84,12 @@ auth:
   # Environment: POLYTHOUGHT_AUTH_INVITE_TTL.
   # invite_ttl: "168h"
 
+  # Admins can type an address on the Users page, and the invite is mailed, naming them;
+  # only that address signs up with it, verified. Invite links can still be copied.
+  # Works while mail is set up, under Mail.
+  # Environment: POLYTHOUGHT_AUTH_INVITE_EMAIL.
+  # invite_email: true
+
   # The fewest characters a new password may have. Existing passwords keep working.
   # Environment: POLYTHOUGHT_AUTH_MIN_PASSWORD_LENGTH.
   # min_password_length: 12

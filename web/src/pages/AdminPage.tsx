@@ -334,7 +334,9 @@ function InvitesSection() {
   const invites = useInvites()
   const create = useCreateInvite()
   const [created, setCreated] = useState<Schemas['Invite']>()
+  const [email, setEmail] = useState('')
   const [now] = useState(() => Date.now()) // when the page opened, to tell expired invites
+  const list = invites.data?.invites
 
   const link = created?.code
     ? `${window.location.origin}/register?invite=${encodeURIComponent(created.code)}`
@@ -370,12 +372,52 @@ function InvitesSection() {
         </Button>
       </div>
 
+      {/* Mailed, an invite is for its address alone (D180, D181). */}
+      {invites.data?.byEmail && (
+        <form
+          className="flex flex-wrap items-end gap-2"
+          onSubmit={(e) => {
+            e.preventDefault()
+            create.mutate(email.trim(), {
+              onSuccess: (invite) => {
+                setCreated(invite)
+                setEmail('')
+                if (invite.sent) toast.success(`Invite mailed to ${invite.email}`)
+              },
+              onError: (error) => toast.error(errorMessage(error)),
+            })
+          }}
+        >
+          <div className="flex min-w-64 flex-1 flex-col gap-2">
+            <Label htmlFor="invite-email">Invite by email</Label>
+            <Input
+              id="invite-email"
+              type="email"
+              placeholder="someone@example.com"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              required
+            />
+          </div>
+          <Button type="submit" disabled={create.isPending || !email.trim()}>
+            Send invite
+          </Button>
+        </form>
+      )}
+
       {link && created && (
         <Alert>
-          <AlertTitle>Send this link now</AlertTitle>
+          <AlertTitle>
+            {!created.email
+              ? 'Send this link now'
+              : created.sent
+                ? `Mailed to ${created.email}`
+                : `The mail to ${created.email} did not go out: send this link yourself`}
+          </AlertTitle>
           <AlertDescription className="flex flex-col gap-2">
             <p>
-              It works once, until {formatDateTime(created.expiresAt)}, and is shown only this once.
+              It works once, until {formatDateTime(created.expiresAt)}
+              {created.email && `, for ${created.email} alone`}, and is shown only this once.
             </p>
             <div className="flex items-center gap-2">
               <code className="min-w-0 flex-1 truncate rounded bg-muted px-2 py-1 font-mono text-xs">
@@ -405,22 +447,24 @@ function InvitesSection() {
       {invites.isError && (
         <ErrorAlert error={invites.error} onRetry={() => void invites.refetch()} />
       )}
-      {invites.data?.length === 0 && (
-        <p className="text-sm text-muted-foreground">No invites yet.</p>
-      )}
+      {list?.length === 0 && <p className="text-sm text-muted-foreground">No invites yet.</p>}
 
-      {invites.data && invites.data.length > 0 && (
+      {list && list.length > 0 && (
         <Table>
           <TableHeader>
             <TableRow>
+              <TableHead>For</TableHead>
               <TableHead>Created</TableHead>
               <TableHead>Expires</TableHead>
               <TableHead>Status</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
-            {invites.data.map((i) => (
+            {list.map((i) => (
               <TableRow key={i.id}>
+                <TableCell>
+                  {i.email || <span className="text-muted-foreground">Anyone with the link</span>}
+                </TableCell>
                 <TableCell>{formatDateTime(i.createdAt)}</TableCell>
                 <TableCell>{formatDateTime(i.expiresAt)}</TableCell>
                 <TableCell>

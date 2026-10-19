@@ -43,19 +43,24 @@ export function useSendVerificationLink() {
   })
 }
 
+/** The invites, and whether they can be mailed now (D180). */
 export function useInvites() {
   return useQuery({
     queryKey: keys.invites,
-    queryFn: async () => (await call(api.GET('/admin/invites'))).invites,
+    queryFn: () => call(api.GET('/admin/invites')),
   })
 }
 
-/** Creates an invite. The response carries its code, which cannot be read again. */
+/**
+ * Creates an invite, mailed to email when one is given (D180). The response carries its
+ * code, which cannot be read again.
+ */
 export function useCreateInvite() {
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: () => call(api.POST('/admin/invites')),
+    mutationFn: (email?: string) =>
+      call(api.POST('/admin/invites', email ? { body: { email } } : {})),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: keys.invites }),
   })
 }

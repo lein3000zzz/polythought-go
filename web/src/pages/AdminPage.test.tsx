@@ -16,6 +16,7 @@ function admin(
   users: Schemas['User'][],
   invites: Schemas['Invite'][] = [],
   codeAccess: 'everyone' | 'chosen' | 'off' = 'everyone',
+  byEmail = false,
 ) {
   const access: Schemas['Setting'] = {
     key: 'code.access',
@@ -39,7 +40,7 @@ function admin(
     registration('invite'),
     http.get('/api/v1/workflows', () => HttpResponse.json({ workflows: [] })),
     http.get('/api/v1/admin/users', () => HttpResponse.json({ users })),
-    http.get('/api/v1/admin/invites', () => HttpResponse.json({ invites })),
+    http.get('/api/v1/admin/invites', () => HttpResponse.json({ invites, byEmail })),
     http.get('/api/v1/admin/settings', () =>
       HttpResponse.json({ settings: [access], restartPending: false }),
     ),
@@ -247,5 +248,65 @@ describe('admin page', () => {
     expect(
       await screen.findByText('http://localhost:3000/register?invite=inv_abc%2B1'),
     ).toBeInTheDocument()
+  })
+
+  it('mails an invite to an address, and shows whom each is for (D180)', async () => {
+    let sent: unknown
+    let answer = { sent: true }
+
+    admin(
+      [root],
+      [
+        {
+          id: 'i-1',
+          createdBy: root.id,
+          createdAt: '2026-10-01T10:00:00Z',
+          expiresAt: '2099-01-01T00:00:00Z',
+          email: 'old@example.com',
+        },
+      ],
+      'everyone',
+      true,
+    )
+    server.use(
+      http.post('/api/v1/admin/invites', async ({ request }) => {
+        sent = await request.json()
+        return HttpResponse.json(
+          {
+            id: 'i-2',
+            createdBy: root.id,
+            createdAt: '2026-10-19T10:00:00Z',
+            expiresAt: '2099-01-01T00:00:00Z',
+            email: 'new@example.com',
+            code: 'inv_new',
+            ...answer,
+          },
+          { status: 201 },
+        )
+      }),
+    )
+    const { user } = renderApp('/admin')
+
+    expect(await screen.findByText('old@example.com')).toBeInTheDocument()
+
+    await user.type(screen.getByLabelText('Invite by email'), 'new@example.com')
+    await user.click(screen.getByRole('button', { name: 'Send invite' }))
+
+    expect(await screen.findByText('Mailed to new@example.com')).toBeInTheDocument()
+    expect(sent).toEqual({ email: 'new@example.com' })
+    expect(screen.getByText(/for new@example.com alone/)).toBeInTheDocument()
+
+    answer = { sent: false }
+    await user.type(screen.getByLabelText('Invite by email'), 'new@example.com')
+    await user.click(screen.getByRole('button', { name: 'Send invite' }))
+    expect(await screen.findByText(/did not go out: send this link yourself/)).toBeInTheDocument()
+  })
+
+  it('offers no mailing while invites cannot be mailed', async () => {
+    admin([root])
+    renderApp('/admin')
+
+    expect(await screen.findByRole('button', { name: 'Create invite' })).toBeInTheDocument()
+    expect(screen.queryByLabelText('Invite by email')).not.toBeInTheDocument()
   })
 })

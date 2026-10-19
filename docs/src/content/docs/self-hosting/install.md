@@ -145,6 +145,15 @@ Accounts from before, those an admin creates and the first admin count as verifi
 **Mark verified** takes your word for the address, for when the mail does not get through.
 The setting cannot be turned on without mail, nor mail removed while it is on.
 
+### Invites by email
+
+While mail is set up, the Invites section of **Admin → Users** takes an address: **Send
+invite** mails the invite there, naming you, unless **Invites by email** (under Accounts, on
+by default) is off. Only that address signs up with it, filled in on the form, and the
+account counts as verified, as the mail proved the address. An address that has an account
+already is refused. If the mail does not go out, the invite is made anyway and its link
+shown, to send yourself. **Create invite** still makes a link for anyone, to copy.
+
 ### Password reset
 
 While mail is set up, **Forgot password?** on the sign-in page mails a link to set a new

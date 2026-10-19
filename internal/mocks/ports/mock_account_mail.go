@@ -47,6 +47,81 @@ func (_m *MockAccountMail) EXPECT() *MockAccountMail_Expecter {
 	return &MockAccountMail_Expecter{mock: &_m.Mock}
 }
 
+// SendInvite provides a mock function for the type MockAccountMail
+func (_mock *MockAccountMail) SendInvite(ctx context.Context, to string, inviter string, code string, until time.Time) error {
+	ret := _mock.Called(ctx, to, inviter, code, until)
+
+	if len(ret) == 0 {
+		panic("no return value specified for SendInvite")
+	}
+
+	var r0 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context, string, string, string, time.Time) error); ok {
+		r0 = returnFunc(ctx, to, inviter, code, until)
+	} else {
+		r0 = ret.Error(0)
+	}
+	return r0
+}
+
+// MockAccountMail_SendInvite_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'SendInvite'
+type MockAccountMail_SendInvite_Call struct {
+	*mock.Call
+}
+
+// SendInvite is a helper method to define mock.On call
+//   - ctx context.Context
+//   - to string
+//   - inviter string
+//   - code string
+//   - until time.Time
+func (_e *MockAccountMail_Expecter) SendInvite(ctx any, to any, inviter any, code any, until any) *MockAccountMail_SendInvite_Call {
+	return &MockAccountMail_SendInvite_Call{Call: _e.mock.On("SendInvite", ctx, to, inviter, code, until)}
+}
+
+func (_c *MockAccountMail_SendInvite_Call) Run(run func(ctx context.Context, to string, inviter string, code string, until time.Time)) *MockAccountMail_SendInvite_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		var arg1 string
+		if args[1] != nil {
+			arg1 = args[1].(string)
+		}
+		var arg2 string
+		if args[2] != nil {
+			arg2 = args[2].(string)
+		}
+		var arg3 string
+		if args[3] != nil {
+			arg3 = args[3].(string)
+		}
+		var arg4 time.Time
+		if args[4] != nil {
+			arg4 = args[4].(time.Time)
+		}
+		run(
+			arg0,
+			arg1,
+			arg2,
+			arg3,
+			arg4,
+		)
+	})
+	return _c
+}
+
+func (_c *MockAccountMail_SendInvite_Call) Return(err error) *MockAccountMail_SendInvite_Call {
+	_c.Call.Return(err)
+	return _c
+}
+
+func (_c *MockAccountMail_SendInvite_Call) RunAndReturn(run func(ctx context.Context, to string, inviter string, code string, until time.Time) error) *MockAccountMail_SendInvite_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // SendPasswordChanged provides a mock function for the type MockAccountMail
 func (_mock *MockAccountMail) SendPasswordChanged(ctx context.Context, to string, at time.Time) error {
 	ret := _mock.Called(ctx, to, at)

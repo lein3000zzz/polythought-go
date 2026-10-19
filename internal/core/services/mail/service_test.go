@@ -117,3 +117,22 @@ func TestPasswordMail(t *testing.T) {
 	assert.Contains(t, sent[1].Text, "changed on 19 October 2026 at 18:05 UTC")
 	assert.Contains(t, sent[1].Text, "https://poly.example/forgot-password")
 }
+
+func TestSendInvite(t *testing.T) {
+	mailer := portsmocks.NewMockMailer(t)
+
+	var sent ports.Mail
+	mailer.EXPECT().Send(mock.Anything, mock.Anything).RunAndReturn(func(_ context.Context, m ports.Mail) error {
+		sent = m
+		return nil
+	})
+
+	s := New(mailer, "https://poly.example", logging.Noop())
+	require.NoError(t, s.SendInvite(context.Background(), "new@example.com", "admin@example.com", "inv_1", time.Date(2026, 10, 26, 18, 0, 0, 0, time.UTC)))
+
+	assert.Equal(t, "new@example.com", sent.To)
+	assert.Equal(t, "admin@example.com invited you to Polythought", sent.Subject)
+	assert.Contains(t, sent.Text, "admin@example.com invited you to Polythought, at https://poly.example.")
+	assert.Contains(t, sent.Text, "until 26 October 2026 at 18:00 UTC")
+	assert.Contains(t, sent.Text, "Make my account: https://poly.example/register?invite=inv_1")
+}

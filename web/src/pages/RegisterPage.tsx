@@ -1,7 +1,8 @@
+import { useEffect } from 'react'
 import { useForm } from 'react-hook-form'
 import { Link, Navigate, useSearchParams } from 'react-router'
 
-import { useAuthConfig, useMe, useRegister } from '@/api/auth'
+import { useAuthConfig, useInviteFor, useMe, useRegister } from '@/api/auth'
 import { AuthLayout } from '@/components/AuthLayout'
 import { ErrorAlert } from '@/components/ErrorAlert'
 import { Button } from '@/components/ui/button'
@@ -17,9 +18,18 @@ export function RegisterPage() {
   const minPasswordLength = config.data?.minPasswordLength
   const registration = useRegister()
   const [params] = useSearchParams()
-  const { register, handleSubmit } = useForm<Form>({
-    defaultValues: { inviteCode: params.get('invite') ?? '' },
+  const code = params.get('invite') ?? ''
+  const { register, handleSubmit, setValue } = useForm<Form>({
+    defaultValues: { inviteCode: code },
   })
+
+  // A mailed invite is for its address alone, filled in (D181).
+  const invite = useInviteFor(config.data?.registration === 'invite' ? code : '')
+  const tied = invite.data?.email
+
+  useEffect(() => {
+    if (tied) setValue('email', tied)
+  }, [tied, setValue])
 
   if (me.data) return <Navigate to="/workflows" replace />
 
@@ -89,10 +99,24 @@ export function RegisterPage() {
         )}
       >
         {registration.isError && <ErrorAlert error={registration.error} />}
+        {invite.isError && <ErrorAlert error={invite.error} title="This invite does not work" />}
 
         <div className="flex flex-col gap-2">
           <Label htmlFor="email">Email</Label>
-          <Input id="email" type="email" autoComplete="email" required {...register('email')} />
+          <Input
+            id="email"
+            type="email"
+            autoComplete="email"
+            required
+            readOnly={Boolean(tied)}
+            aria-describedby={tied ? 'email-hint' : undefined}
+            {...register('email')}
+          />
+          {tied && (
+            <p id="email-hint" className="text-xs text-muted-foreground">
+              The invite is for this address.
+            </p>
+          )}
         </div>
 
         <div className="flex flex-col gap-2">

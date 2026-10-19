@@ -74,6 +74,20 @@ export function useResendVerification() {
   })
 }
 
+/**
+ * Whether an invite works, and the address it is for when it was mailed (D181). Read once:
+ * the code is used up by signing up.
+ */
+export function useInviteFor(code: string) {
+  return useQuery({
+    queryKey: ['invite', code],
+    queryFn: () => call(api.POST('/auth/invite', { body: { code } })),
+    enabled: code !== '',
+    retry: false,
+    staleTime: Infinity,
+  })
+}
+
 /** Mails a link setting a new password, if the address has an account (D176). */
 export function useRequestPasswordReset() {
   return useMutation({

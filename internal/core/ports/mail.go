@@ -31,4 +31,6 @@ type AccountMail interface {
 	SendPasswordReset(ctx context.Context, to, token string, lasts time.Duration) error
 	// SendPasswordChanged tells to that its password was changed at at.
 	SendPasswordChanged(ctx context.Context, to string, at time.Time) error
+	// SendInvite mails to an invite from inviter, carrying code, working until until.
+	SendInvite(ctx context.Context, to, inviter, code string, until time.Time) error
 }

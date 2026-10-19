@@ -6,6 +6,7 @@ import (
 	"time"
 
 	jet "github.com/go-jet/jet/v2/postgres"
+	"github.com/go-jet/jet/v2/qrm"
 	"github.com/google/uuid"
 
 	"github.com/lein3000zzz/polythought-go/internal/adapters/postgres/gen/public/model"
@@ -146,7 +147,7 @@ func (r *Invites) Create(ctx context.Context, inv domain.Invite, codeHash []byte
 		return err
 	}
 
-	m := model.Invites{ID: id, CodeHash: codeHash, CreatedAt: inv.CreatedAt, ExpiresAt: inv.ExpiresAt}
+	m := model.Invites{ID: id, CodeHash: codeHash, Email: inv.Email, CreatedAt: inv.CreatedAt, ExpiresAt: inv.ExpiresAt}
 
 	if inv.CreatedBy != "" {
 		by, err := uuid.Parse(string(inv.CreatedBy))
@@ -175,17 +176,42 @@ func (r *Invites) List(ctx context.Context) ([]domain.Invite, error) {
 
 	out := make([]domain.Invite, len(rows))
 	for i, m := range rows {
-		out[i] = domain.Invite{
-			ID:        domain.InviteID(m.ID.String()),
-			CreatedBy: uuidString[domain.UserID](m.CreatedBy),
-			CreatedAt: m.CreatedAt.UTC(),
-			ExpiresAt: m.ExpiresAt.UTC(),
-			UsedBy:    uuidString[domain.UserID](m.UsedBy),
-			UsedAt:    timeOf(m.UsedAt),
-		}
+		out[i] = toInvite(m)
 	}
 
 	return out, nil
+}
+
+func (r *Invites) ByCode(ctx context.Context, codeHash []byte, at time.Time) (domain.Invite, error) {
+	t := table.Invites
+
+	var m model.Invites
+
+	err := jet.SELECT(t.AllColumns).
+		FROM(t).
+		WHERE(t.CodeHash.EQ(jet.Bytea(codeHash)).AND(t.UsedAt.IS_NULL()).AND(t.ExpiresAt.GT(jet.TimestampzT(at)))).
+		QueryContext(ctx, r.db.conn(ctx), &m)
+	if errors.Is(err, qrm.ErrNoRows) {
+		return domain.Invite{}, domain.ErrInvalidInvite
+	}
+
+	if err != nil {
+		return domain.Invite{}, err
+	}
+
+	return toInvite(m), nil
+}
+
+func toInvite(m model.Invites) domain.Invite {
+	return domain.Invite{
+		ID:        domain.InviteID(m.ID.String()),
+		CreatedBy: uuidString[domain.UserID](m.CreatedBy),
+		Email:     m.Email,
+		CreatedAt: m.CreatedAt.UTC(),
+		ExpiresAt: m.ExpiresAt.UTC(),
+		UsedBy:    uuidString[domain.UserID](m.UsedBy),
+		UsedAt:    timeOf(m.UsedAt),
+	}
 }
 
 // Consume claims the invite in a single conditional UPDATE, so two registrations racing

@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"net/http"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/cloudwego/hertz/pkg/app"
@@ -85,6 +86,11 @@ type inviteDTO struct {
 	UsedAt    *time.Time `json:"usedAt,omitempty" validate:"optional" format:"date-time"`
 	// Code is the secret, present only in the response that creates it.
 	Code string `json:"code,omitempty" validate:"optional"`
+	// Email is the address it was mailed to, which alone signs up with it (D181).
+	Email string `json:"email,omitempty" validate:"optional"`
+	// Sent says the mail went, in the response that mails it; when it did not, the
+	// code can still be copied.
+	Sent *bool `json:"sent,omitempty" validate:"optional"`
 } // @name Invite
 
 func toInviteDTO(i domain.Invite) inviteDTO {
@@ -95,12 +101,20 @@ func toInviteDTO(i domain.Invite) inviteDTO {
 		ExpiresAt: i.ExpiresAt,
 		UsedBy:    string(i.UsedBy),
 		UsedAt:    optionalTime(i.UsedAt),
+		Email:     i.Email,
 	}
 }
 
 type inviteList struct {
 	Invites []inviteDTO `json:"invites"`
+	// ByEmail says invites can be mailed now: switched on, and mail set up (D180).
+	ByEmail bool `json:"byEmail"`
 } // @name InviteList
+
+type createInviteRequest struct {
+	// Email, when given, mails the invite there; only that address signs up with it.
+	Email string `json:"email" validate:"optional"`
+} // @name CreateInviteRequest
 
 func optionalTime(t time.Time) *time.Time {
 	if t.IsZero() {
@@ -737,7 +751,7 @@ func (s *Server) listInvites(ctx context.Context, c *app.RequestContext) {
 		return
 	}
 
-	out := inviteList{Invites: make([]inviteDTO, len(invites))}
+	out := inviteList{Invites: make([]inviteDTO, len(invites)), ByEmail: s.auth.InviteEmail()}
 	for i, inv := range invites {
 		out.Invites[i] = toInviteDTO(inv)
 	}
@@ -745,28 +759,96 @@ func (s *Server) listInvites(ctx context.Context, c *app.RequestContext) {
 	c.JSON(http.StatusOK, out)
 }
 
-// createInvite is admin only and returns the invite code once.
+// createInvite is admin only and returns the invite code once. With an address, it mails
+// the invite there, naming the admin, and only that address signs up with it (D180 to
+// D183); the invite is made even when the mail fails.
 //
 //	@Summary	Create an invite
 //	@ID			createInvite
 //	@Tags		admin
-//	@Success	201	{object}	inviteDTO
-//	@Failure	401	{object}	errorBody	"unauthenticated"
-//	@Failure	403	{object}	errorBody	"forbidden"
+//	@Param		body	body		createInviteRequest	false	"Where to mail it"
+//	@Success	201		{object}	inviteDTO
+//	@Failure	400		{object}	errorBody	"invalid_email"
+//	@Failure	401		{object}	errorBody	"unauthenticated"
+//	@Failure	403		{object}	errorBody	"forbidden, or invite_email_off"
+//	@Failure	409		{object}	errorBody	"email_taken: the address has an account already"
 //	@Security	SessionCookie
 //	@Security	APIToken
 //	@Router		/admin/invites [post]
 func (s *Server) createInvite(ctx context.Context, c *app.RequestContext) {
+	var req createInviteRequest
+
+	if len(bytes.TrimSpace(c.Request.Body())) > 0 {
+		if err := decodeJSON(c, &req); err != nil {
+			s.fail(ctx, c, err)
+			return
+		}
+	}
+
 	p, _ := principal(c)
 
-	code, inv, err := s.auth.CreateInvite(ctx, p)
+	if strings.TrimSpace(req.Email) == "" {
+		code, inv, err := s.auth.CreateInvite(ctx, p)
+		if err != nil {
+			s.fail(ctx, c, err)
+			return
+		}
+
+		out := toInviteDTO(inv)
+		out.Code = code
+
+		c.JSON(http.StatusCreated, out)
+
+		return
+	}
+
+	code, inv, sent, err := s.auth.InviteByEmail(ctx, p, req.Email)
 	if err != nil {
 		s.fail(ctx, c, err)
 		return
 	}
 
 	out := toInviteDTO(inv)
-	out.Code = code
+	out.Code, out.Sent = code, &sent
 
 	c.JSON(http.StatusCreated, out)
+}
+
+type inviteForRequest struct {
+	// Code is the one in the invite link.
+	Code string `json:"code"`
+} // @name InviteForRequest
+
+type inviteForDTO struct {
+	// Email is the address the invite is for, when it was mailed: the sign-up form fills
+	// it in (D181).
+	Email string `json:"email,omitempty" validate:"optional"`
+} // @name InviteFor
+
+// inviteFor says whether an invite works, and which address it is for, for the sign-up
+// form. The code goes in the body, out of URLs and their logs.
+//
+//	@Summary	Look an invite up
+//	@ID			inviteFor
+//	@Tags		auth
+//	@Param		body	body		inviteForRequest	true	"The invite's code"
+//	@Success	200		{object}	inviteForDTO
+//	@Failure	400		{object}	errorBody	"invalid_invite: used, expired or none"
+//	@Failure	429		{object}	errorBody	"rate_limited"
+//	@Router		/auth/invite [post]
+func (s *Server) inviteFor(ctx context.Context, c *app.RequestContext) {
+	var req inviteForRequest
+
+	if err := decodeJSON(c, &req); err != nil {
+		s.fail(ctx, c, err)
+		return
+	}
+
+	inv, err := s.auth.InviteFor(ctx, req.Code, c.ClientIP())
+	if err != nil {
+		s.fail(ctx, c, err)
+		return
+	}
+
+	c.JSON(http.StatusOK, inviteForDTO{Email: inv.Email})
 }

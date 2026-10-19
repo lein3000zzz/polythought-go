@@ -142,6 +142,7 @@ describe('registering', () => {
       signedOut,
       registration('invite'),
       noWorkflows,
+      http.post('/api/v1/auth/invite', () => HttpResponse.json({})),
       http.post('/api/v1/auth/register', async ({ request }) => {
         calls.push(`register ${JSON.stringify(await request.json())}`)
         return HttpResponse.json({ user: alice, mustVerify: false, sent: false }, { status: 201 })
@@ -184,6 +185,55 @@ describe('registering', () => {
     await user.click(screen.getByRole('button', { name: 'Create account' }))
 
     expect(await screen.findByText('Email already registered')).toBeInTheDocument()
+  })
+})
+
+describe('a mailed invite', () => {
+  it('fills in the address it is for, and keeps it (D181)', async () => {
+    let looked: unknown
+    let sent: unknown
+
+    server.use(
+      signedOut,
+      registration('invite'),
+      noWorkflows,
+      http.post('/api/v1/auth/invite', async ({ request }) => {
+        looked = await request.json()
+        return HttpResponse.json({ email: 'new@example.com' })
+      }),
+      http.post('/api/v1/auth/register', async ({ request }) => {
+        sent = await request.json()
+        return HttpResponse.json({ user: alice, mustVerify: false, sent: false }, { status: 201 })
+      }),
+      http.post('/api/v1/auth/login', () => HttpResponse.json(alice)),
+    )
+    const { user, router } = renderApp('/register?invite=inv_mailed')
+
+    const email = await screen.findByLabelText('Email')
+    await waitFor(() => expect(email).toHaveValue('new@example.com'))
+    expect(email).toHaveAttribute('readonly')
+    expect(screen.getByText('The invite is for this address.')).toBeInTheDocument()
+    expect(looked).toEqual({ code: 'inv_mailed' })
+
+    await user.type(screen.getByLabelText('Password'), 'a long enough password')
+    await user.click(screen.getByRole('button', { name: 'Create account' }))
+
+    await waitFor(() => expect(router.state.location.pathname).toBe('/workflows'))
+    expect(sent).toMatchObject({ email: 'new@example.com', inviteCode: 'inv_mailed' })
+  })
+
+  it('says when an invite no longer works', async () => {
+    server.use(
+      signedOut,
+      registration('invite'),
+      http.post('/api/v1/auth/invite', () =>
+        apiError(400, 'invalid_invite', 'invalid or expired invite'),
+      ),
+    )
+    renderApp('/register?invite=old')
+
+    expect(await screen.findByText('This invite does not work')).toBeInTheDocument()
+    expect(screen.getByText('Invalid or expired invite')).toBeInTheDocument()
   })
 })
 

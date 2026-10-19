@@ -81,6 +81,18 @@ How long an invite works. Applies to invites created from now.
 | Default | `168h` |
 | Applies | at once |
 
+### Invites by email
+
+Admins can type an address on the Users page, and the invite is mailed, naming them; only that address signs up with it, verified. Invite links can still be copied. Works while mail is set up, under Mail.
+
+| | |
+|---|---|
+| Key | `auth.invite_email` |
+| Environment variable | `POLYTHOUGHT_AUTH_INVITE_EMAIL` |
+| Kind | `true` or `false` |
+| Default | `true` |
+| Applies | at once |
+
 ### Shortest password
 
 The fewest characters a new password may have. Existing passwords keep working.

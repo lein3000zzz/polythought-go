@@ -48,6 +48,78 @@ func (_m *MockInviteRepository) EXPECT() *MockInviteRepository_Expecter {
 	return &MockInviteRepository_Expecter{mock: &_m.Mock}
 }
 
+// ByCode provides a mock function for the type MockInviteRepository
+func (_mock *MockInviteRepository) ByCode(ctx context.Context, codeHash []byte, at time.Time) (domain.Invite, error) {
+	ret := _mock.Called(ctx, codeHash, at)
+
+	if len(ret) == 0 {
+		panic("no return value specified for ByCode")
+	}
+
+	var r0 domain.Invite
+	var r1 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context, []byte, time.Time) (domain.Invite, error)); ok {
+		return returnFunc(ctx, codeHash, at)
+	}
+	if returnFunc, ok := ret.Get(0).(func(context.Context, []byte, time.Time) domain.Invite); ok {
+		r0 = returnFunc(ctx, codeHash, at)
+	} else {
+		r0 = ret.Get(0).(domain.Invite)
+	}
+	if returnFunc, ok := ret.Get(1).(func(context.Context, []byte, time.Time) error); ok {
+		r1 = returnFunc(ctx, codeHash, at)
+	} else {
+		r1 = ret.Error(1)
+	}
+	return r0, r1
+}
+
+// MockInviteRepository_ByCode_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'ByCode'
+type MockInviteRepository_ByCode_Call struct {
+	*mock.Call
+}
+
+// ByCode is a helper method to define mock.On call
+//   - ctx context.Context
+//   - codeHash []byte
+//   - at time.Time
+func (_e *MockInviteRepository_Expecter) ByCode(ctx any, codeHash any, at any) *MockInviteRepository_ByCode_Call {
+	return &MockInviteRepository_ByCode_Call{Call: _e.mock.On("ByCode", ctx, codeHash, at)}
+}
+
+func (_c *MockInviteRepository_ByCode_Call) Run(run func(ctx context.Context, codeHash []byte, at time.Time)) *MockInviteRepository_ByCode_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		var arg1 []byte
+		if args[1] != nil {
+			arg1 = args[1].([]byte)
+		}
+		var arg2 time.Time
+		if args[2] != nil {
+			arg2 = args[2].(time.Time)
+		}
+		run(
+			arg0,
+			arg1,
+			arg2,
+		)
+	})
+	return _c
+}
+
+func (_c *MockInviteRepository_ByCode_Call) Return(invite domain.Invite, err error) *MockInviteRepository_ByCode_Call {
+	_c.Call.Return(invite, err)
+	return _c
+}
+
+func (_c *MockInviteRepository_ByCode_Call) RunAndReturn(run func(ctx context.Context, codeHash []byte, at time.Time) (domain.Invite, error)) *MockInviteRepository_ByCode_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // Consume provides a mock function for the type MockInviteRepository
 func (_mock *MockInviteRepository) Consume(ctx context.Context, codeHash []byte, userID domain.UserID, at time.Time) error {
 	ret := _mock.Called(ctx, codeHash, userID, at)

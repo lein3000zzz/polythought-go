@@ -535,6 +535,206 @@ func (_c *MockAuthService_CreateUser_Call) RunAndReturn(run func(ctx context.Con
 	return _c
 }
 
+// InviteByEmail provides a mock function for the type MockAuthService
+func (_mock *MockAuthService) InviteByEmail(ctx context.Context, actor auth.Principal, email string) (string, domain.Invite, bool, error) {
+	ret := _mock.Called(ctx, actor, email)
+
+	if len(ret) == 0 {
+		panic("no return value specified for InviteByEmail")
+	}
+
+	var r0 string
+	var r1 domain.Invite
+	var r2 bool
+	var r3 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context, auth.Principal, string) (string, domain.Invite, bool, error)); ok {
+		return returnFunc(ctx, actor, email)
+	}
+	if returnFunc, ok := ret.Get(0).(func(context.Context, auth.Principal, string) string); ok {
+		r0 = returnFunc(ctx, actor, email)
+	} else {
+		r0 = ret.Get(0).(string)
+	}
+	if returnFunc, ok := ret.Get(1).(func(context.Context, auth.Principal, string) domain.Invite); ok {
+		r1 = returnFunc(ctx, actor, email)
+	} else {
+		r1 = ret.Get(1).(domain.Invite)
+	}
+	if returnFunc, ok := ret.Get(2).(func(context.Context, auth.Principal, string) bool); ok {
+		r2 = returnFunc(ctx, actor, email)
+	} else {
+		r2 = ret.Get(2).(bool)
+	}
+	if returnFunc, ok := ret.Get(3).(func(context.Context, auth.Principal, string) error); ok {
+		r3 = returnFunc(ctx, actor, email)
+	} else {
+		r3 = ret.Error(3)
+	}
+	return r0, r1, r2, r3
+}
+
+// MockAuthService_InviteByEmail_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'InviteByEmail'
+type MockAuthService_InviteByEmail_Call struct {
+	*mock.Call
+}
+
+// InviteByEmail is a helper method to define mock.On call
+//   - ctx context.Context
+//   - actor auth.Principal
+//   - email string
+func (_e *MockAuthService_Expecter) InviteByEmail(ctx any, actor any, email any) *MockAuthService_InviteByEmail_Call {
+	return &MockAuthService_InviteByEmail_Call{Call: _e.mock.On("InviteByEmail", ctx, actor, email)}
+}
+
+func (_c *MockAuthService_InviteByEmail_Call) Run(run func(ctx context.Context, actor auth.Principal, email string)) *MockAuthService_InviteByEmail_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		var arg1 auth.Principal
+		if args[1] != nil {
+			arg1 = args[1].(auth.Principal)
+		}
+		var arg2 string
+		if args[2] != nil {
+			arg2 = args[2].(string)
+		}
+		run(
+			arg0,
+			arg1,
+			arg2,
+		)
+	})
+	return _c
+}
+
+func (_c *MockAuthService_InviteByEmail_Call) Return(s string, invite domain.Invite, b bool, err error) *MockAuthService_InviteByEmail_Call {
+	_c.Call.Return(s, invite, b, err)
+	return _c
+}
+
+func (_c *MockAuthService_InviteByEmail_Call) RunAndReturn(run func(ctx context.Context, actor auth.Principal, email string) (string, domain.Invite, bool, error)) *MockAuthService_InviteByEmail_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// InviteEmail provides a mock function for the type MockAuthService
+func (_mock *MockAuthService) InviteEmail() bool {
+	ret := _mock.Called()
+
+	if len(ret) == 0 {
+		panic("no return value specified for InviteEmail")
+	}
+
+	var r0 bool
+	if returnFunc, ok := ret.Get(0).(func() bool); ok {
+		r0 = returnFunc()
+	} else {
+		r0 = ret.Get(0).(bool)
+	}
+	return r0
+}
+
+// MockAuthService_InviteEmail_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'InviteEmail'
+type MockAuthService_InviteEmail_Call struct {
+	*mock.Call
+}
+
+// InviteEmail is a helper method to define mock.On call
+func (_e *MockAuthService_Expecter) InviteEmail() *MockAuthService_InviteEmail_Call {
+	return &MockAuthService_InviteEmail_Call{Call: _e.mock.On("InviteEmail")}
+}
+
+func (_c *MockAuthService_InviteEmail_Call) Run(run func()) *MockAuthService_InviteEmail_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run()
+	})
+	return _c
+}
+
+func (_c *MockAuthService_InviteEmail_Call) Return(b bool) *MockAuthService_InviteEmail_Call {
+	_c.Call.Return(b)
+	return _c
+}
+
+func (_c *MockAuthService_InviteEmail_Call) RunAndReturn(run func() bool) *MockAuthService_InviteEmail_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// InviteFor provides a mock function for the type MockAuthService
+func (_mock *MockAuthService) InviteFor(ctx context.Context, code string, ip string) (domain.Invite, error) {
+	ret := _mock.Called(ctx, code, ip)
+
+	if len(ret) == 0 {
+		panic("no return value specified for InviteFor")
+	}
+
+	var r0 domain.Invite
+	var r1 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context, string, string) (domain.Invite, error)); ok {
+		return returnFunc(ctx, code, ip)
+	}
+	if returnFunc, ok := ret.Get(0).(func(context.Context, string, string) domain.Invite); ok {
+		r0 = returnFunc(ctx, code, ip)
+	} else {
+		r0 = ret.Get(0).(domain.Invite)
+	}
+	if returnFunc, ok := ret.Get(1).(func(context.Context, string, string) error); ok {
+		r1 = returnFunc(ctx, code, ip)
+	} else {
+		r1 = ret.Error(1)
+	}
+	return r0, r1
+}
+
+// MockAuthService_InviteFor_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'InviteFor'
+type MockAuthService_InviteFor_Call struct {
+	*mock.Call
+}
+
+// InviteFor is a helper method to define mock.On call
+//   - ctx context.Context
+//   - code string
+//   - ip string
+func (_e *MockAuthService_Expecter) InviteFor(ctx any, code any, ip any) *MockAuthService_InviteFor_Call {
+	return &MockAuthService_InviteFor_Call{Call: _e.mock.On("InviteFor", ctx, code, ip)}
+}
+
+func (_c *MockAuthService_InviteFor_Call) Run(run func(ctx context.Context, code string, ip string)) *MockAuthService_InviteFor_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		var arg1 string
+		if args[1] != nil {
+			arg1 = args[1].(string)
+		}
+		var arg2 string
+		if args[2] != nil {
+			arg2 = args[2].(string)
+		}
+		run(
+			arg0,
+			arg1,
+			arg2,
+		)
+	})
+	return _c
+}
+
+func (_c *MockAuthService_InviteFor_Call) Return(invite domain.Invite, err error) *MockAuthService_InviteFor_Call {
+	_c.Call.Return(invite, err)
+	return _c
+}
+
+func (_c *MockAuthService_InviteFor_Call) RunAndReturn(run func(ctx context.Context, code string, ip string) (domain.Invite, error)) *MockAuthService_InviteFor_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // ListAPITokens provides a mock function for the type MockAuthService
 func (_mock *MockAuthService) ListAPITokens(ctx context.Context, p auth.Principal) ([]domain.APIToken, error) {
 	ret := _mock.Called(ctx, p)

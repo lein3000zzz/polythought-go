@@ -300,6 +300,34 @@ func TestInvites(t *testing.T) {
 	}
 }
 
+func TestInviteByCode(t *testing.T) {
+	ctx := context.Background()
+	db := fresh(t)
+	invites := postgres.NewInvites(db)
+	admin := seedUser(t, db, "admin@x.io", domain.RoleAdmin)
+
+	mailed := domain.Invite{ID: domain.InviteID(newID()), CreatedBy: admin.ID, Email: "Joiner@x.io", CreatedAt: at, ExpiresAt: at.Add(time.Hour)}
+	require.NoError(t, invites.Create(ctx, mailed, []byte("mailed")))
+
+	got, err := invites.ByCode(ctx, []byte("mailed"), at)
+	require.NoError(t, err)
+	assert.Equal(t, mailed, got)
+
+	list, err := invites.List(ctx)
+	require.NoError(t, err)
+	assert.Equal(t, "Joiner@x.io", list[0].Email)
+
+	_, err = invites.ByCode(ctx, []byte("mailed"), at.Add(2*time.Hour))
+	require.ErrorIs(t, err, domain.ErrInvalidInvite, "expired")
+
+	_, err = invites.ByCode(ctx, []byte("nope"), at)
+	require.ErrorIs(t, err, domain.ErrInvalidInvite)
+
+	require.NoError(t, invites.Consume(ctx, []byte("mailed"), admin.ID, at))
+	_, err = invites.ByCode(ctx, []byte("mailed"), at)
+	require.ErrorIs(t, err, domain.ErrInvalidInvite, "used")
+}
+
 func TestWithinTx(t *testing.T) {
 	ctx := context.Background()
 	boom := errors.New("boom")

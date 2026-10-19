@@ -391,6 +391,15 @@
                 ],
                 "type": "object"
             },
+            "CreateInviteRequest": {
+                "properties": {
+                    "email": {
+                        "description": "Email, when given, mails the invite there; only that address signs up with it.",
+                        "type": "string"
+                    }
+                },
+                "type": "object"
+            },
             "CreateTokenRequest": {
                 "properties": {
                     "expiresAt": {
@@ -1116,12 +1125,20 @@
                     "createdBy": {
                         "type": "string"
                     },
+                    "email": {
+                        "description": "Email is the address it was mailed to, which alone signs up with it (D181).",
+                        "type": "string"
+                    },
                     "expiresAt": {
                         "format": "date-time",
                         "type": "string"
                     },
                     "id": {
                         "type": "string"
+                    },
+                    "sent": {
+                        "description": "Sent says the mail went, in the response that mails it; when it did not, the\ncode can still be copied.",
+                        "type": "boolean"
                     },
                     "usedAt": {
                         "format": "date-time",
@@ -1139,8 +1156,33 @@
                 ],
                 "type": "object"
             },
+            "InviteFor": {
+                "properties": {
+                    "email": {
+                        "description": "Email is the address the invite is for, when it was mailed: the sign-up form fills\nit in (D181).",
+                        "type": "string"
+                    }
+                },
+                "type": "object"
+            },
+            "InviteForRequest": {
+                "properties": {
+                    "code": {
+                        "description": "Code is the one in the invite link.",
+                        "type": "string"
+                    }
+                },
+                "required": [
+                    "code"
+                ],
+                "type": "object"
+            },
             "InviteList": {
                 "properties": {
+                    "byEmail": {
+                        "description": "ByEmail says invites can be mailed now: switched on, and mail set up (D180).",
+                        "type": "boolean"
+                    },
                     "invites": {
                         "items": {
                             "$ref": "#/components/schemas/Invite"
@@ -1150,6 +1192,7 @@
                     }
                 },
                 "required": [
+                    "byEmail",
                     "invites"
                 ],
                 "type": "object"
@@ -3053,6 +3096,18 @@
             },
             "post": {
                 "operationId": "createInvite",
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/CreateInviteRequest",
+                                "summary": "body",
+                                "description": "Where to mail it"
+                            }
+                        }
+                    },
+                    "description": "Where to mail it"
+                },
                 "responses": {
                     "201": {
                         "content": {
@@ -3063,6 +3118,16 @@
                             }
                         },
                         "description": "Created"
+                    },
+                    "400": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "invalid_email"
                     },
                     "401": {
                         "content": {
@@ -3082,7 +3147,17 @@
                                 }
                             }
                         },
-                        "description": "forbidden"
+                        "description": "forbidden, or invite_email_off"
+                    },
+                    "409": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "email_taken: the address has an account already"
                     }
                 },
                 "security": [
@@ -3803,6 +3878,60 @@
                     }
                 },
                 "summary": "Registration settings",
+                "tags": [
+                    "auth"
+                ]
+            }
+        },
+        "/auth/invite": {
+            "post": {
+                "operationId": "inviteFor",
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/InviteForRequest",
+                                "summary": "body",
+                                "description": "The invite's code"
+                            }
+                        }
+                    },
+                    "description": "The invite's code",
+                    "required": true
+                },
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/InviteFor"
+                                }
+                            }
+                        },
+                        "description": "OK"
+                    },
+                    "400": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "invalid_invite: used, expired or none"
+                    },
+                    "429": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "rate_limited"
+                    }
+                },
+                "summary": "Look an invite up",
                 "tags": [
                     "auth"
                 ]

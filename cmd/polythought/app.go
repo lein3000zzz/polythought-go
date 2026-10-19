@@ -320,6 +320,7 @@ func authConfig(s *settings.Snapshot) auth.Config {
 	cfg.CodeAccess = codeAccess(s)
 	cfg.VerifyEmail = s.Bool(config.KeyVerifyEmail)
 	cfg.PasswordReset = s.Bool(config.KeyPasswordReset)
+	cfg.InviteEmail = s.Bool(config.KeyInviteEmail)
 
 	return cfg
 }

@@ -459,6 +459,56 @@ func TestRoutes(t *testing.T) {
 			wantStatus: http.StatusCreated,
 		},
 		{
+			name: "invite by email",
+			req:  request{method: "POST", path: "/api/v1/admin/invites", headers: cookie, body: `{"email":"new@example.com"}`},
+			setup: func(svc *httpapimocks.MockAuthService) {
+				withSession(svc, root)
+				svc.EXPECT().InviteByEmail(mock.Anything, mock.Anything, "new@example.com").
+					Return("inv_code", domain.Invite{ID: "i-1", CreatedBy: root.ID, Email: "new@example.com"}, false, nil)
+			},
+			wantStatus: http.StatusCreated,
+			wantBody:   []string{`"code":"inv_code"`, `"email":"new@example.com"`, `"sent":false`},
+		},
+		{
+			name: "invite an address with an account",
+			req:  request{method: "POST", path: "/api/v1/admin/invites", headers: cookie, body: `{"email":"bob@example.com"}`},
+			setup: func(svc *httpapimocks.MockAuthService) {
+				withSession(svc, root)
+				svc.EXPECT().InviteByEmail(mock.Anything, mock.Anything, mock.Anything).Return("", domain.Invite{}, false, domain.ErrEmailTaken)
+			},
+			wantStatus: http.StatusConflict,
+			wantBody:   []string{`"code":"email_taken"`},
+		},
+		{
+			name: "the invite list says whether invites can be mailed",
+			req:  request{method: "GET", path: "/api/v1/admin/invites", headers: cookie},
+			setup: func(svc *httpapimocks.MockAuthService) {
+				withSession(svc, root)
+				svc.EXPECT().ListInvites(mock.Anything, mock.Anything).Return([]domain.Invite{{ID: "i-1", Email: "new@example.com"}}, nil)
+				svc.EXPECT().InviteEmail().Return(true)
+			},
+			wantStatus: http.StatusOK,
+			wantBody:   []string{`"email":"new@example.com"`, `"byEmail":true`},
+		},
+		{
+			name: "look an invite up",
+			req:  request{method: "POST", path: "/api/v1/auth/invite", body: `{"code":"inv_code"}`},
+			setup: func(svc *httpapimocks.MockAuthService) {
+				svc.EXPECT().InviteFor(mock.Anything, "inv_code", mock.Anything).Return(domain.Invite{Email: "new@example.com"}, nil)
+			},
+			wantStatus: http.StatusOK,
+			wantBody:   []string{`{"email":"new@example.com"}`},
+		},
+		{
+			name: "a used invite",
+			req:  request{method: "POST", path: "/api/v1/auth/invite", body: `{"code":"used"}`},
+			setup: func(svc *httpapimocks.MockAuthService) {
+				svc.EXPECT().InviteFor(mock.Anything, "used", mock.Anything).Return(domain.Invite{}, domain.ErrInvalidInvite)
+			},
+			wantStatus: http.StatusBadRequest,
+			wantBody:   []string{`"code":"invalid_invite"`},
+		},
+		{
 			name: "forbidden for regular users",
 			req:  request{method: "GET", path: "/api/v1/admin/invites", headers: bearer},
 			setup: func(svc *httpapimocks.MockAuthService) {

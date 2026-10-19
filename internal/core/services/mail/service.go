@@ -103,6 +103,25 @@ func (s *Service) SendPasswordChanged(ctx context.Context, to string, at time.Ti
 	})
 }
 
+// SendInvite mails an invite, naming the admin who sent it (D182); its link opens the
+// sign-up form with the address filled in (D181).
+func (s *Service) SendInvite(ctx context.Context, to, inviter, code string, until time.Time) error {
+	where := "Polythought"
+	if s.publicURL != "" {
+		where += ", at " + s.publicURL
+	}
+
+	return s.send(ctx, to, Message{
+		Subject: inviter + " invited you to Polythought",
+		Paragraphs: []string{
+			inviter + " invited you to " + where + ".",
+			"Open the link to make your account with this address. It works once, until " +
+				until.UTC().Format("2 January 2006 at 15:04") + " UTC. Not expecting it? Ignore this mail.",
+		},
+		Link: &Link{Text: "Make my account", URL: s.publicURL + "/register?invite=" + url.QueryEscape(code)},
+	})
+}
+
 // forPeople says how long d is, roughly: 24 hours, 30 minutes.
 func forPeople(d time.Duration) string {
 	if d >= time.Hour && d%time.Hour == 0 {

@@ -24,6 +24,7 @@ type invitesTable struct {
 	ExpiresAt postgres.ColumnTimestampz
 	UsedBy    postgres.ColumnString
 	UsedAt    postgres.ColumnTimestampz
+	Email     postgres.ColumnString
 
 	AllColumns     postgres.ColumnList
 	MutableColumns postgres.ColumnList
@@ -72,9 +73,10 @@ func newInvitesTableImpl(schemaName, tableName, alias string) invitesTable {
 		ExpiresAtColumn = postgres.TimestampzColumn("expires_at")
 		UsedByColumn    = postgres.StringColumn("used_by")
 		UsedAtColumn    = postgres.TimestampzColumn("used_at")
-		allColumns      = postgres.ColumnList{IDColumn, CodeHashColumn, CreatedByColumn, CreatedAtColumn, ExpiresAtColumn, UsedByColumn, UsedAtColumn}
-		mutableColumns  = postgres.ColumnList{CodeHashColumn, CreatedByColumn, CreatedAtColumn, ExpiresAtColumn, UsedByColumn, UsedAtColumn}
-		defaultColumns  = postgres.ColumnList{}
+		EmailColumn     = postgres.StringColumn("email")
+		allColumns      = postgres.ColumnList{IDColumn, CodeHashColumn, CreatedByColumn, CreatedAtColumn, ExpiresAtColumn, UsedByColumn, UsedAtColumn, EmailColumn}
+		mutableColumns  = postgres.ColumnList{CodeHashColumn, CreatedByColumn, CreatedAtColumn, ExpiresAtColumn, UsedByColumn, UsedAtColumn, EmailColumn}
+		defaultColumns  = postgres.ColumnList{EmailColumn}
 	)
 
 	return invitesTable{
@@ -88,6 +90,7 @@ func newInvitesTableImpl(schemaName, tableName, alias string) invitesTable {
 		ExpiresAt: ExpiresAtColumn,
 		UsedBy:    UsedByColumn,
 		UsedAt:    UsedAtColumn,
+		Email:     EmailColumn,
 
 		AllColumns:     allColumns,
 		MutableColumns: mutableColumns,
