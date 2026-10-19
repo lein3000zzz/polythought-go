@@ -143,6 +143,23 @@ api-check: ## Fail if api/openapi.json is stale
 fixtures: ## Refresh client test fixtures from live Polymarket (network)
 	$(GO) run ./tools/fixtures
 
+# The official client our order signing is checked against (D151), at a pinned commit.
+ORDER_VECTORS_SDK := 206bb0fead733d9a64fade8c2832778f1e2d8942
+ORDER_VECTORS     := pkg/clients/polymarket/testdata/order_vectors.json
+ORDER_VECTORS_NODE := node:24-alpine
+
+.PHONY: order-vectors
+order-vectors: ## Regenerate the order-signing vectors from Polymarket's official client (network, Docker)
+	@set -e; tmp="$$(mktemp -d)"; trap 'rm -rf "$$tmp"' EXIT; \
+	git -C "$$tmp" init -q; \
+	git -C "$$tmp" fetch -q --depth 1 https://github.com/Polymarket/ts-sdk.git $(ORDER_VECTORS_SDK); \
+	git -C "$$tmp" checkout -q FETCH_HEAD; \
+	cp tools/ordervectors/generate.ts "$$tmp/packages/client/src/ordervectors.ts"; \
+	docker run --rm -v "$$tmp":/sdk -w /sdk -e SDK_COMMIT=$(ORDER_VECTORS_SDK) -e COREPACK_ENABLE_DOWNLOAD_PROMPT=0 \
+		$(ORDER_VECTORS_NODE) sh -c 'corepack enable >/dev/null && pnpm install --frozen-lockfile --ignore-scripts >&2 \
+		&& cd packages/client && pnpm dlx tsx@4.23.15 src/ordervectors.ts' > "$$tmp/vectors.json"; \
+	mv "$$tmp/vectors.json" $(ORDER_VECTORS)
+
 ## Web UI (web/, needs Node 22)
 
 .PHONY: web-install
