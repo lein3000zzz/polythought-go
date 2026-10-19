@@ -182,7 +182,23 @@ which you link on the **Wallets** page by its address. Positions are public, so 
 is enough for them. Orders and balance also need the wallet's Polymarket API credentials,
 which Polymarket checks before they are stored, encrypted.
 
-To trade, a wallet needs its private key: **Import private key** on its card, where an admin
+To trade, a wallet needs a key. A Deposit Wallet can have a **session key**, once an admin
+has entered a Builder key: **Authorise a session key** on its card connects your browser
+wallet, such as MetaMask or Rabby, with the account that owns the Deposit Wallet, switches it
+to Polygon and asks you to sign once. Polymarket then authorises the key on chain, in a
+minute or so, and the card says **Can trade**. Polythought makes the key and keeps it
+encrypted; it places and cancels the wallet's orders, nothing else, for 180 days. Your own key
+never leaves your browser wallet. Email and Google sign-ins of polymarket.com cannot sign here.
+
+Fourteen days before a session key expires, Polythought says so on Telegram (see
+[Notifications](/docs/guides/telegram/#notifications)); **Renew session key** authorises a new
+one, and the old one trades until the new one is confirmed. **Remove session key** asks you to
+sign once more, to revoke it: Polymarket then cancels its open orders. If you decline, or
+choose not to sign, it is removed without revoking: nobody can use it then, and it expires on
+its own. While a session key trades for a wallet, its credentials cannot be replaced or
+removed by hand; removing the session key removes them.
+
+Any wallet can trade with its private key instead: **Import private key** on its card, where an admin
 allows it. It must be the key of the wallet itself, or of the account that owns the wallet's
 proxy, Safe or Deposit Wallet, as Polymarket derives them; Polythought checks that before it
 keeps the key, and says whose key it is when it does not match. With the key, Polythought
@@ -190,7 +206,8 @@ makes the wallet's API credentials itself, replacing any added by hand, and the 
 **Can trade**. The key is kept encrypted and never shown again; **Remove credentials**
 deletes it with them, and pasting credentials by hand replaces it.
 
-A key lets the server sign for the wallet, so keep in it only what you mean to trade.
+A private key lets the server sign anything for the wallet, a session key only orders; either
+way, keep in the wallet only what you mean to trade.
 
 A workflow only ever reaches its owner's wallets and credentials, and sharing it leaves them
 out.

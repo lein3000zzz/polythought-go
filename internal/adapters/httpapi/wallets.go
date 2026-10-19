@@ -16,9 +16,11 @@ type walletDTO struct {
 	Address        string `json:"address"`
 	Label          string `json:"label"`
 	HasCredentials bool   `json:"hasCredentials"`
-	// HasKey says its private key is imported: it can trade.
-	HasKey    bool      `json:"hasKey"`
-	CreatedAt time.Time `json:"createdAt" format:"date-time"`
+	// HasKey says it has a key to trade with: its private key, or a session key.
+	HasKey bool `json:"hasKey"`
+	// HasSessionKey says the key is an authorised session key.
+	HasSessionKey bool      `json:"hasSessionKey"`
+	CreatedAt     time.Time `json:"createdAt" format:"date-time"`
 } // @name Wallet
 
 func toWalletDTO(w domain.Wallet) walletDTO {
@@ -28,6 +30,7 @@ func toWalletDTO(w domain.Wallet) walletDTO {
 		Label:          w.Label,
 		HasCredentials: w.HasCredentials,
 		HasKey:         w.HasKey,
+		HasSessionKey:  w.HasSessionKey,
 		CreatedAt:      w.CreatedAt,
 	}
 }
@@ -36,6 +39,9 @@ type walletList struct {
 	Wallets []walletDTO `json:"wallets"`
 	// TakesKeys says whether the instance takes private keys now, as an admin set it.
 	TakesKeys bool `json:"takesKeys"`
+	// TakesSessionKeys says whether it offers session keys: once an admin has entered a
+	// Builder key.
+	TakesSessionKeys bool `json:"takesSessionKeys"`
 } // @name WalletList
 
 // credentialsDTO never carries a secret: only a hint of the API key.
@@ -43,10 +49,12 @@ type credentialsDTO struct {
 	APIKeyHint    string `json:"apiKeyHint"`
 	Signer        string `json:"signer"`
 	SignatureType int    `json:"signatureType" enums:"0,1,2,3"`
-	// HasKey says they were made from an imported private key, which is kept too.
-	HasKey    bool      `json:"hasKey"`
-	CreatedAt time.Time `json:"createdAt" format:"date-time"`
-	UpdatedAt time.Time `json:"updatedAt" format:"date-time"`
+	// HasKey says they were made from a key, which is kept too: an imported private key,
+	// or a session key (SessionKey).
+	HasKey     bool      `json:"hasKey"`
+	SessionKey bool      `json:"sessionKey"`
+	CreatedAt  time.Time `json:"createdAt" format:"date-time"`
+	UpdatedAt  time.Time `json:"updatedAt" format:"date-time"`
 } // @name Credentials
 
 func toCredentialsDTO(c domain.CredentialsInfo) credentialsDTO {
@@ -55,6 +63,7 @@ func toCredentialsDTO(c domain.CredentialsInfo) credentialsDTO {
 		Signer:        string(c.Signer),
 		SignatureType: int(c.SignatureType),
 		HasKey:        c.HasKey,
+		SessionKey:    c.SessionKey,
 		CreatedAt:     c.CreatedAt,
 		UpdatedAt:     c.UpdatedAt,
 	}
@@ -94,7 +103,9 @@ func (s *Server) listWallets(ctx context.Context, c *app.RequestContext) {
 		return
 	}
 
-	out := walletList{Wallets: make([]walletDTO, len(list)), TakesKeys: s.wallets.TakesKeys()}
+	out := walletList{
+		Wallets: make([]walletDTO, len(list)), TakesKeys: s.wallets.TakesKeys(), TakesSessionKeys: s.wallets.TakesSessionKeys(),
+	}
 	for i, w := range list {
 		out.Wallets[i] = toWalletDTO(w)
 	}
@@ -192,6 +203,7 @@ func (s *Server) credentialsInfo(ctx context.Context, c *app.RequestContext) {
 //	@Failure	400		{object}	errorBody	"invalid_input, invalid_address or credentials_rejected"
 //	@Failure	401		{object}	errorBody	"unauthenticated"
 //	@Failure	404		{object}	errorBody	"not_found"
+//	@Failure	409		{object}	errorBody	"session_key_in_use: remove the session key instead"
 //	@Failure	503		{object}	errorBody	"upstream_unavailable: Polymarket could not be reached"
 //	@Security	SessionCookie
 //	@Security	APIToken
@@ -240,6 +252,7 @@ type importKeyRequest struct {
 //	@Failure	401		{object}	errorBody	"unauthenticated"
 //	@Failure	403		{object}	errorBody	"key_import_off, or forbidden with an API token"
 //	@Failure	404		{object}	errorBody	"not_found"
+//	@Failure	409		{object}	errorBody	"session_key_in_use: remove the session key instead"
 //	@Failure	503		{object}	errorBody	"upstream_unavailable: Polymarket could not be reached"
 //	@Security	SessionCookie
 //	@Router		/wallets/{id}/key [put]
@@ -271,6 +284,7 @@ func (s *Server) importKey(ctx context.Context, c *app.RequestContext) {
 //	@Success	204
 //	@Failure	401	{object}	errorBody	"unauthenticated"
 //	@Failure	404	{object}	errorBody	"not_found"
+//	@Failure	409	{object}	errorBody	"session_key_in_use: remove the session key instead"
 //	@Security	SessionCookie
 //	@Security	APIToken
 //	@Router		/wallets/{id}/credentials [delete]

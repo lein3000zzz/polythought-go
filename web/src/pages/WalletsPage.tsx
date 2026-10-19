@@ -9,8 +9,10 @@ import {
   useImportKey,
   useLinkWallet,
   useRemoveCredentials,
+  useSessionKeys,
   useSetCredentials,
   useTakesKeys,
+  useTakesSessionKeys,
   useUnlinkWallet,
   useWallets,
 } from '@/api/wallets'
@@ -31,6 +33,11 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { NativeSelect, NativeSelectOption } from '@/components/ui/native-select'
 import { Skeleton } from '@/components/ui/skeleton'
+import {
+  AuthoriseSessionKeyDialog,
+  RemoveSessionKeyDialog,
+  SessionKeyStatus,
+} from '@/features/wallets/SessionKey'
 import { formatDateTime, shortAddress } from '@/lib/format'
 
 type Wallet = Schemas['Wallet']
@@ -53,7 +60,8 @@ export function WalletsPage() {
         <p className="text-sm text-muted-foreground">
           A linked wallet is enough for nodes that read its positions. Orders and balance also need
           its Polymarket API credentials, which are checked with Polymarket and stored encrypted. To
-          trade, a wallet needs its private key, where an admin allows importing one.
+          trade, a wallet needs a key: a session key, for Deposit Wallets once an admin has entered
+          a Builder key, or its private key, where an admin allows importing one.
         </p>
       </div>
 
@@ -124,8 +132,13 @@ function WalletCard({ wallet }: { wallet: Wallet }) {
   const unlink = useUnlinkWallet()
   const remove = useRemoveCredentials(wallet.id)
   const takesKeys = useTakesKeys()
+  const takesSessionKeys = useTakesSessionKeys()
+  const sessionKeys = useSessionKeys(wallet.id, Boolean(takesSessionKeys) || wallet.hasSessionKey)
+  const activeKey = sessionKeys.data?.active
   const [editing, setEditing] = useState(false)
   const [importing, setImporting] = useState(false)
+  const [authorising, setAuthorising] = useState(false)
+  const [removingKey, setRemovingKey] = useState(false)
   const [confirmUnlink, setConfirmUnlink] = useState(false)
   const [confirmRemove, setConfirmRemove] = useState(false)
 
@@ -163,13 +176,15 @@ function WalletCard({ wallet }: { wallet: Wallet }) {
 
       <CardContent className="flex flex-col gap-3 text-sm">
         {credentials.isError && <ErrorAlert error={credentials.error} />}
+        {sessionKeys.isError && <ErrorAlert error={sessionKeys.error} />}
 
         {wallet.hasCredentials && credentials.data ? (
           <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
             {wallet.hasKey && <Badge>Can trade</Badge>}
             <Badge variant="secondary">
               <KeyRound />
-              {wallet.hasKey ? 'Private key and ' : ''}API key {credentials.data.apiKeyHint}
+              {wallet.hasSessionKey ? 'Session key and ' : wallet.hasKey ? 'Private key and ' : ''}
+              API key {credentials.data.apiKeyHint}
             </Badge>
             <span className="text-muted-foreground">
               {signatureTypes[credentials.data.signatureType]} · signer{' '}
@@ -181,30 +196,70 @@ function WalletCard({ wallet }: { wallet: Wallet }) {
           !wallet.hasCredentials && <p className="text-muted-foreground">No API credentials.</p>
         )}
 
+        {sessionKeys.data && <SessionKeyStatus keys={sessionKeys.data} />}
+
         <div className="flex flex-wrap gap-2">
-          {takesKeys && (
-            <Button variant="outline" size="sm" onClick={() => setImporting(true)}>
-              {wallet.hasKey ? 'Replace private key' : 'Import private key'}
+          {takesSessionKeys && (
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={sessionKeys.data?.pending?.state === 'authorizing'}
+              onClick={() => setAuthorising(true)}
+            >
+              {activeKey ? 'Renew session key' : 'Authorise a session key'}
             </Button>
           )}
-          <Button variant="outline" size="sm" onClick={() => setEditing(true)}>
-            {wallet.hasCredentials ? 'Replace credentials' : 'Add credentials'}
-          </Button>
-          {wallet.hasCredentials && (
-            <Button variant="ghost" size="sm" onClick={() => setConfirmRemove(true)}>
-              Remove credentials
+          {activeKey && (
+            <Button variant="ghost" size="sm" onClick={() => setRemovingKey(true)}>
+              Remove session key
             </Button>
+          )}
+          {/* A session key's credentials go with it (D159). */}
+          {!wallet.hasSessionKey && (
+            <>
+              {takesKeys && (
+                <Button variant="outline" size="sm" onClick={() => setImporting(true)}>
+                  {wallet.hasKey ? 'Replace private key' : 'Import private key'}
+                </Button>
+              )}
+              <Button variant="outline" size="sm" onClick={() => setEditing(true)}>
+                {wallet.hasCredentials ? 'Replace credentials' : 'Add credentials'}
+              </Button>
+              {wallet.hasCredentials && (
+                <Button variant="ghost" size="sm" onClick={() => setConfirmRemove(true)}>
+                  Remove credentials
+                </Button>
+              )}
+            </>
           )}
         </div>
       </CardContent>
 
       <CredentialsDialog wallet={wallet} open={editing} onClose={() => setEditing(false)} />
       <ImportKeyDialog wallet={wallet} open={importing} onClose={() => setImporting(false)} />
+      <AuthoriseSessionKeyDialog
+        wallet={wallet}
+        renewing={Boolean(activeKey)}
+        open={authorising}
+        onClose={() => setAuthorising(false)}
+      />
+      {activeKey && (
+        <RemoveSessionKeyDialog
+          wallet={wallet}
+          sessionKey={activeKey}
+          open={removingKey}
+          onClose={() => setRemovingKey(false)}
+        />
+      )}
 
       <ConfirmDialog
         open={confirmUnlink}
         title={`Unlink ${wallet.label || shortAddress(wallet.address)}?`}
-        description="Its stored credentials are deleted too. Workflow nodes that use this wallet will fail until you choose another."
+        description={
+          wallet.hasSessionKey
+            ? 'Its session key and credentials are deleted too, without revoking the key: remove the session key first to revoke it. Workflow nodes that use this wallet will fail until you choose another.'
+            : 'Its stored credentials are deleted too. Workflow nodes that use this wallet will fail until you choose another.'
+        }
         confirm="Unlink"
         destructive
         onCancel={() => setConfirmUnlink(false)}

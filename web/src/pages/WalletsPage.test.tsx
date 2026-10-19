@@ -17,6 +17,7 @@ const wallet = (overrides: Partial<Schemas['Wallet']> = {}): Schemas['Wallet'] =
   label: 'Main',
   hasCredentials: false,
   hasKey: false,
+  hasSessionKey: false,
   createdAt: '2026-10-01T10:00:00Z',
   ...overrides,
 })
@@ -26,6 +27,7 @@ const credentials: Schemas['Credentials'] = {
   signer: address,
   signatureType: 0,
   hasKey: false,
+  sessionKey: false,
   createdAt: '2026-10-02T10:00:00Z',
   updatedAt: '2026-10-02T10:00:00Z',
 }

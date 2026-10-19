@@ -196,12 +196,6 @@ func (a *app) init(ctx context.Context) error {
 		return err
 	}
 
-	a.wallets = wallets.New(postgres.NewWallets(a.db), a.box, pmc.account, a.util.Logger,
-		wallets.WithKeys(pmc.keys, func() bool {
-			s := a.settings.Current()
-			return config.TakesKeys(s.String(config.KeyKeyImport), domain.RegistrationMode(s.String(config.KeyRegistration)))
-		}))
-
 	// Before the engine: the Telegram nodes use the bot, and failures are notified.
 	// The bot and the notifications run only in serve, which starts them.
 	if a.telegramBot, err = tgadapter.New(a.util); err != nil {
@@ -211,6 +205,15 @@ func (a *app) init(ctx context.Context) error {
 	a.telegram = telegram.New(a.telegramBot, postgres.NewTelegramLinks(a.db), postgres.NewUsers(a.db), a.util.Logger)
 	a.telegramBot.SetHandler(a.telegram.HandleUpdate)
 	a.notify = notify.New(a.telegram, postgres.NewNotificationPrefs(a.db), postgres.NewWorkflows(a.db), a.cfg.PublicURL, a.util.Logger)
+
+	// After notify, which reminds of expiring session keys.
+	walletRepo := postgres.NewWallets(a.db)
+	a.wallets = wallets.New(walletRepo, a.box, pmc.account, a.util.Logger,
+		wallets.WithKeys(pmc.keys, func() bool {
+			s := a.settings.Current()
+			return config.TakesKeys(s.String(config.KeyKeyImport), domain.RegistrationMode(s.String(config.KeyRegistration)))
+		}),
+		wallets.WithSessionKeys(walletRepo, pmc.sessionKeys, a.notify))
 
 	if err := a.initEngine(ctx, pmc); err != nil {
 		return err
@@ -452,9 +455,10 @@ func workflowLimits(s *settings.Snapshot) workflows.Limits {
 
 // polymarket holds the adapters over the Polymarket clients.
 type polymarket struct {
-	reader  *pmadapter.Reader
-	account *pmadapter.Account
-	keys    *pmadapter.Keys
+	reader      *pmadapter.Reader
+	account     *pmadapter.Account
+	keys        *pmadapter.Keys
+	sessionKeys *pmadapter.SessionKeys
 }
 
 func newPolymarket(a *app) (polymarket, error) {
@@ -473,8 +477,25 @@ func newPolymarket(a *app) (polymarket, error) {
 		return polymarket{}, err
 	}
 
+	relayer, err := pm.NewRelayerClient(a.util, pm.HTTPConfig{})
+	if err != nil {
+		return polymarket{}, err
+	}
+
+	// The Builder key, while an admin has entered all of it (D156).
+	builder := func() (pm.BuilderCredentials, bool) {
+		s := a.settings.Current()
+		b := pm.BuilderCredentials{
+			Key: s.String(config.KeyBuilderAPIKey), Secret: s.String(config.KeyBuilderSecret),
+			Passphrase: s.String(config.KeyBuilderPassphrase),
+		}
+
+		return b, b.Key != "" && b.Secret != "" && b.Passphrase != ""
+	}
+
 	return polymarket{
 		reader: pmadapter.NewReader(gamma, clob, data), account: pmadapter.NewAccount(clob), keys: pmadapter.NewKeys(clob),
+		sessionKeys: pmadapter.NewSessionKeys(relayer, builder),
 	}, nil
 }
 

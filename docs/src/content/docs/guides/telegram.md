@@ -51,6 +51,8 @@ Under **Settings → Notifications**, choose what Polythought tells you about:
 - **A question waits for your answer**: a [question](#questions) is still unanswered with a
   quarter of its time left. The bot replies to it once, saying how long it stays open.
   Only for questions open 10 minutes or more.
+- **A session key is about to expire**: a wallet's [session key](/docs/guides/concepts/#wallets)
+  expires in 14 days or less, or has expired. Once per key, with the day it expires.
 
 Notifications go to your linked chat. Without one, nothing is sent.
 

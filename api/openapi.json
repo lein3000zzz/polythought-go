@@ -434,7 +434,10 @@
                         "type": "string"
                     },
                     "hasKey": {
-                        "description": "HasKey says they were made from an imported private key, which is kept too.",
+                        "description": "HasKey says they were made from a key, which is kept too: an imported private key,\nor a session key (SessionKey).",
+                        "type": "boolean"
+                    },
+                    "sessionKey": {
                         "type": "boolean"
                     },
                     "signatureType": {
@@ -458,6 +461,7 @@
                     "apiKeyHint",
                     "createdAt",
                     "hasKey",
+                    "sessionKey",
                     "signatureType",
                     "signer",
                     "updatedAt"
@@ -1659,11 +1663,103 @@
                 ],
                 "type": "object"
             },
+            "Revocation": {
+                "properties": {
+                    "problem": {
+                        "description": "Problem says why it was not revoked.",
+                        "type": "string"
+                    },
+                    "revoked": {
+                        "description": "Revoked says the Relayer took the revocation; the key is removed here either way.",
+                        "type": "boolean"
+                    }
+                },
+                "required": [
+                    "revoked"
+                ],
+                "type": "object"
+            },
             "RunRequest": {
                 "properties": {
                     "trigger": {
                         "description": "Trigger is the trigger node to start from; left out means the manual trigger.",
                         "type": "string"
+                    }
+                },
+                "type": "object"
+            },
+            "SessionKey": {
+                "properties": {
+                    "createdAt": {
+                        "format": "date-time",
+                        "type": "string"
+                    },
+                    "error": {
+                        "type": "string"
+                    },
+                    "owner": {
+                        "description": "Owner is the account that controls the Deposit Wallet, and signs for it.",
+                        "type": "string"
+                    },
+                    "signer": {
+                        "description": "Signer is the key's address.",
+                        "type": "string"
+                    },
+                    "state": {
+                        "description": "State: signing waits for the owner's signature, authorizing for the chain; the\nwallet trades with an active key; a failed one says why in error.",
+                        "enum": [
+                            "signing",
+                            "authorizing",
+                            "active",
+                            "failed"
+                        ],
+                        "type": "string"
+                    },
+                    "updatedAt": {
+                        "format": "date-time",
+                        "type": "string"
+                    },
+                    "validUntil": {
+                        "format": "date-time",
+                        "type": "string"
+                    }
+                },
+                "required": [
+                    "createdAt",
+                    "owner",
+                    "signer",
+                    "state",
+                    "updatedAt",
+                    "validUntil"
+                ],
+                "type": "object"
+            },
+            "SessionKeySigning": {
+                "properties": {
+                    "key": {
+                        "$ref": "#/components/schemas/SessionKey"
+                    },
+                    "typedData": {
+                        "additionalProperties": {},
+                        "description": "TypedData is what the owner's browser wallet signs, with eth_signTypedData_v4 on\nPolygon.",
+                        "type": "object"
+                    }
+                },
+                "required": [
+                    "key",
+                    "typedData"
+                ],
+                "type": "object"
+            },
+            "SessionKeys": {
+                "properties": {
+                    "active": {
+                        "$ref": "#/components/schemas/SessionKey",
+                        "description": "Active is the key the wallet trades with."
+                    },
+                    "pending": {
+                        "$ref": "#/components/schemas/SessionKey",
+                        "description": "Pending is the key being authorised, which replaces the active one once confirmed;\nor the last that failed."
                     }
                 },
                 "type": "object"
@@ -1884,6 +1980,30 @@
                         "type": "string"
                     }
                 },
+                "type": "object"
+            },
+            "SignatureRequest": {
+                "properties": {
+                    "signature": {
+                        "description": "Signature is what eth_signTypedData_v4 gave, hex.",
+                        "type": "string"
+                    }
+                },
+                "required": [
+                    "signature"
+                ],
+                "type": "object"
+            },
+            "StartSessionKeyRequest": {
+                "properties": {
+                    "owner": {
+                        "description": "Owner is the browser wallet's account, which must control the Deposit Wallet.",
+                        "type": "string"
+                    }
+                },
+                "required": [
+                    "owner"
+                ],
                 "type": "object"
             },
             "TelegramLink": {
@@ -2414,7 +2534,11 @@
                         "type": "boolean"
                     },
                     "hasKey": {
-                        "description": "HasKey says its private key is imported: it can trade.",
+                        "description": "HasKey says it has a key to trade with: its private key, or a session key.",
+                        "type": "boolean"
+                    },
+                    "hasSessionKey": {
+                        "description": "HasSessionKey says the key is an authorised session key.",
                         "type": "boolean"
                     },
                     "id": {
@@ -2429,6 +2553,7 @@
                     "createdAt",
                     "hasCredentials",
                     "hasKey",
+                    "hasSessionKey",
                     "id",
                     "label"
                 ],
@@ -2438,6 +2563,10 @@
                 "properties": {
                     "takesKeys": {
                         "description": "TakesKeys says whether the instance takes private keys now, as an admin set it.",
+                        "type": "boolean"
+                    },
+                    "takesSessionKeys": {
+                        "description": "TakesSessionKeys says whether it offers session keys: once an admin has entered a\nBuilder key.",
                         "type": "boolean"
                     },
                     "wallets": {
@@ -2450,6 +2579,7 @@
                 },
                 "required": [
                     "takesKeys",
+                    "takesSessionKeys",
                     "wallets"
                 ],
                 "type": "object"
@@ -5322,6 +5452,16 @@
                             }
                         },
                         "description": "not_found"
+                    },
+                    "409": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "session_key_in_use: remove the session key instead"
                     }
                 },
                 "security": [
@@ -5462,6 +5602,16 @@
                         },
                         "description": "not_found"
                     },
+                    "409": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "session_key_in_use: remove the session key instead"
+                    },
                     "503": {
                         "content": {
                             "application/json": {
@@ -5565,6 +5715,16 @@
                         },
                         "description": "not_found"
                     },
+                    "409": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "session_key_in_use: remove the session key instead"
+                    },
                     "503": {
                         "content": {
                             "application/json": {
@@ -5582,6 +5742,502 @@
                     }
                 ],
                 "summary": "Import a wallet's private key",
+                "tags": [
+                    "wallets"
+                ]
+            }
+        },
+        "/wallets/{id}/session-key": {
+            "delete": {
+                "operationId": "removeSessionKey",
+                "parameters": [
+                    {
+                        "description": "Wallet ID",
+                        "in": "path",
+                        "name": "id",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "No Content"
+                    },
+                    "401": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "unauthenticated"
+                    },
+                    "404": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "not_found"
+                    }
+                },
+                "security": [
+                    {
+                        "SessionCookie": []
+                    },
+                    {
+                        "APIToken": []
+                    }
+                ],
+                "summary": "Remove a session key without revoking it",
+                "tags": [
+                    "wallets"
+                ]
+            },
+            "get": {
+                "operationId": "getSessionKeys",
+                "parameters": [
+                    {
+                        "description": "Wallet ID",
+                        "in": "path",
+                        "name": "id",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/SessionKeys"
+                                }
+                            }
+                        },
+                        "description": "OK"
+                    },
+                    "401": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "unauthenticated"
+                    },
+                    "404": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "not_found"
+                    }
+                },
+                "security": [
+                    {
+                        "SessionCookie": []
+                    },
+                    {
+                        "APIToken": []
+                    }
+                ],
+                "summary": "Show a wallet's session keys",
+                "tags": [
+                    "wallets"
+                ]
+            },
+            "post": {
+                "operationId": "startSessionKey",
+                "parameters": [
+                    {
+                        "description": "Wallet ID",
+                        "in": "path",
+                        "name": "id",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/StartSessionKeyRequest",
+                                "summary": "body",
+                                "description": "The owner"
+                            }
+                        }
+                    },
+                    "description": "The owner",
+                    "required": true
+                },
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/SessionKeySigning"
+                                }
+                            }
+                        },
+                        "description": "OK"
+                    },
+                    "400": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "invalid_address, not_deposit_wallet or relayer_refused"
+                    },
+                    "401": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "unauthenticated"
+                    },
+                    "403": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "session_keys_off, or forbidden with an API token"
+                    },
+                    "404": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "not_found"
+                    },
+                    "409": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "session_key_pending"
+                    },
+                    "503": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "upstream_unavailable: the Relayer could not be reached"
+                    }
+                },
+                "security": [
+                    {
+                        "SessionCookie": []
+                    }
+                ],
+                "summary": "Start authorising a session key",
+                "tags": [
+                    "wallets"
+                ]
+            }
+        },
+        "/wallets/{id}/session-key/revocation": {
+            "post": {
+                "operationId": "startRevocation",
+                "parameters": [
+                    {
+                        "description": "Wallet ID",
+                        "in": "path",
+                        "name": "id",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/SessionKeySigning"
+                                }
+                            }
+                        },
+                        "description": "OK"
+                    },
+                    "400": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "relayer_refused"
+                    },
+                    "401": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "unauthenticated"
+                    },
+                    "403": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "session_keys_off, or forbidden with an API token"
+                    },
+                    "404": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "not_found: no such wallet, or no active session key"
+                    },
+                    "503": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "upstream_unavailable: the Relayer could not be reached"
+                    }
+                },
+                "security": [
+                    {
+                        "SessionCookie": []
+                    }
+                ],
+                "summary": "Start revoking a session key",
+                "tags": [
+                    "wallets"
+                ]
+            }
+        },
+        "/wallets/{id}/session-key/revocation/signature": {
+            "post": {
+                "operationId": "revokeSessionKey",
+                "parameters": [
+                    {
+                        "description": "Wallet ID",
+                        "in": "path",
+                        "name": "id",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/SignatureRequest",
+                                "summary": "body",
+                                "description": "The owner's signature"
+                            }
+                        }
+                    },
+                    "description": "The owner's signature",
+                    "required": true
+                },
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Revocation"
+                                }
+                            }
+                        },
+                        "description": "OK"
+                    },
+                    "400": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "invalid_input, wrong_signer or signature_expired: nothing removed"
+                    },
+                    "401": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "unauthenticated"
+                    },
+                    "403": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "session_keys_off, or forbidden with an API token"
+                    },
+                    "404": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "not_found: no such wallet, or no active session key"
+                    }
+                },
+                "security": [
+                    {
+                        "SessionCookie": []
+                    }
+                ],
+                "summary": "Revoke and remove a session key",
+                "tags": [
+                    "wallets"
+                ]
+            }
+        },
+        "/wallets/{id}/session-key/signature": {
+            "post": {
+                "operationId": "signSessionKey",
+                "parameters": [
+                    {
+                        "description": "Wallet ID",
+                        "in": "path",
+                        "name": "id",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/SignatureRequest",
+                                "summary": "body",
+                                "description": "The owner's signature"
+                            }
+                        }
+                    },
+                    "description": "The owner's signature",
+                    "required": true
+                },
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/SessionKey"
+                                }
+                            }
+                        },
+                        "description": "OK"
+                    },
+                    "400": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "invalid_input, wrong_signer, signature_expired or relayer_refused"
+                    },
+                    "401": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "unauthenticated"
+                    },
+                    "403": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "session_keys_off, or forbidden with an API token"
+                    },
+                    "404": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "not_found: no such wallet, or no key waits for a signature"
+                    },
+                    "503": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "upstream_unavailable: send the signature again"
+                    }
+                },
+                "security": [
+                    {
+                        "SessionCookie": []
+                    }
+                ],
+                "summary": "Authorise a session key",
                 "tags": [
                     "wallets"
                 ]

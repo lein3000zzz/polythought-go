@@ -23,4 +23,5 @@ type PolymarketCredentials struct {
 	CreatedAt        time.Time
 	UpdatedAt        time.Time
 	PrivateKeySealed *[]byte
+	SessionKey       bool
 }

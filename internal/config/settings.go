@@ -1,6 +1,8 @@
 package config
 
 import (
+	"encoding/base64"
+	"errors"
 	"fmt"
 	"net"
 	"time"
@@ -33,6 +35,9 @@ const (
 	KeyCodeConcurrency     = "code.concurrency"
 	KeyPaperBalance        = "trading.paper_balance"
 	KeyKeyImport           = "trading.key_import"
+	KeyBuilderAPIKey       = "trading.builder_api_key"
+	KeyBuilderSecret       = "trading.builder_secret"
+	KeyBuilderPassphrase   = "trading.builder_passphrase"
 	KeyTrustedProxies      = "http.trusted_proxies"
 	KeyWebhookAllowPrivate = "webhook.allow_private"
 	KeyLogLevel            = "log.level"
@@ -199,6 +204,21 @@ func Settings() (*settings.Registry, error) {
 			Options: []string{KeyImportAuto, KeyImportOn, KeyImportOff},
 		},
 		settings.Spec{
+			Key: KeyBuilderAPIKey, Group: groupTrading, Label: "Builder API key",
+			Description: "Your Polymarket Builder API key, with its secret and passphrase below, from polymarket.com/settings?tab=builder. Users of Deposit Wallets can authorise session keys once all three are in: trade-only keys that need no private key here. Polymarket must enable the key for session keys first (builder@polymarket.com).",
+			Kind:        settings.KindString, Secret: true, Default: "",
+		},
+		settings.Spec{
+			Key: KeyBuilderSecret, Group: groupTrading, Label: "Builder secret",
+			Description: "The secret of the Builder API key, base64.",
+			Kind:        settings.KindString, Secret: true, Default: "", Check: base64Secret,
+		},
+		settings.Spec{
+			Key: KeyBuilderPassphrase, Group: groupTrading, Label: "Builder passphrase",
+			Description: "The passphrase of the Builder API key.",
+			Kind:        settings.KindString, Secret: true, Default: "",
+		},
+		settings.Spec{
 			Key: KeyTrustedProxies, Group: groupNetwork, Label: "Trusted proxies",
 			Description: "Address ranges (CIDR, e.g. 10.0.0.0/8) of reverse proxies allowed to report the client's address in X-Forwarded-For. Leave empty without a proxy: anyone could then pick their own address and dodge rate limits.",
 			Kind:        settings.KindList, Default: []string{}, Check: cidrs,
@@ -274,6 +294,24 @@ func between(least, most int) func(any) error {
 
 		return nil
 	}
+}
+
+// base64Secret checks an API secret as Polymarket issues them: base64url, padded or not.
+func base64Secret(v any) error {
+	s := v.(string)
+	if s == "" {
+		return nil
+	}
+
+	if _, err := base64.URLEncoding.DecodeString(s); err == nil {
+		return nil
+	}
+
+	if _, err := base64.RawURLEncoding.DecodeString(s); err == nil {
+		return nil
+	}
+
+	return errors.New("is not base64")
 }
 
 func cidrs(v any) error {

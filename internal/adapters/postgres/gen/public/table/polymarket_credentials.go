@@ -27,6 +27,7 @@ type polymarketCredentialsTable struct {
 	CreatedAt        postgres.ColumnTimestampz
 	UpdatedAt        postgres.ColumnTimestampz
 	PrivateKeySealed postgres.ColumnBytea
+	SessionKey       postgres.ColumnBool
 
 	AllColumns     postgres.ColumnList
 	MutableColumns postgres.ColumnList
@@ -78,9 +79,10 @@ func newPolymarketCredentialsTableImpl(schemaName, tableName, alias string) poly
 		CreatedAtColumn        = postgres.TimestampzColumn("created_at")
 		UpdatedAtColumn        = postgres.TimestampzColumn("updated_at")
 		PrivateKeySealedColumn = postgres.ByteaColumn("private_key_sealed")
-		allColumns             = postgres.ColumnList{WalletIDColumn, APIKeySealedColumn, SecretSealedColumn, PassphraseSealedColumn, APIKeyHintColumn, SignerAddressColumn, SignatureTypeColumn, CreatedAtColumn, UpdatedAtColumn, PrivateKeySealedColumn}
-		mutableColumns         = postgres.ColumnList{APIKeySealedColumn, SecretSealedColumn, PassphraseSealedColumn, APIKeyHintColumn, SignerAddressColumn, SignatureTypeColumn, CreatedAtColumn, UpdatedAtColumn, PrivateKeySealedColumn}
-		defaultColumns         = postgres.ColumnList{}
+		SessionKeyColumn       = postgres.BoolColumn("session_key")
+		allColumns             = postgres.ColumnList{WalletIDColumn, APIKeySealedColumn, SecretSealedColumn, PassphraseSealedColumn, APIKeyHintColumn, SignerAddressColumn, SignatureTypeColumn, CreatedAtColumn, UpdatedAtColumn, PrivateKeySealedColumn, SessionKeyColumn}
+		mutableColumns         = postgres.ColumnList{APIKeySealedColumn, SecretSealedColumn, PassphraseSealedColumn, APIKeyHintColumn, SignerAddressColumn, SignatureTypeColumn, CreatedAtColumn, UpdatedAtColumn, PrivateKeySealedColumn, SessionKeyColumn}
+		defaultColumns         = postgres.ColumnList{SessionKeyColumn}
 	)
 
 	return polymarketCredentialsTable{
@@ -97,6 +99,7 @@ func newPolymarketCredentialsTableImpl(schemaName, tableName, alias string) poly
 		CreatedAt:        CreatedAtColumn,
 		UpdatedAt:        UpdatedAtColumn,
 		PrivateKeySealed: PrivateKeySealedColumn,
+		SessionKey:       SessionKeyColumn,
 
 		AllColumns:     allColumns,
 		MutableColumns: mutableColumns,

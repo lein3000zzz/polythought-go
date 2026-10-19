@@ -633,6 +633,76 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/wallets/{id}/session-key": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Show a wallet's session keys */
+        get: operations["getSessionKeys"];
+        put?: never;
+        /** Start authorising a session key */
+        post: operations["startSessionKey"];
+        /** Remove a session key without revoking it */
+        delete: operations["removeSessionKey"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/wallets/{id}/session-key/revocation": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Start revoking a session key */
+        post: operations["startRevocation"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/wallets/{id}/session-key/revocation/signature": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Revoke and remove a session key */
+        post: operations["revokeSessionKey"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/wallets/{id}/session-key/signature": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Authorise a session key */
+        post: operations["signSessionKey"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/workflows": {
         parameters: {
             query?: never;
@@ -1063,8 +1133,12 @@ export interface components {
             apiKeyHint: string;
             /** Format: date-time */
             createdAt: string;
-            /** @description HasKey says they were made from an imported private key, which is kept too. */
+            /**
+             * @description HasKey says they were made from a key, which is kept too: an imported private key,
+             *     or a session key (SessionKey).
+             */
             hasKey: boolean;
+            sessionKey: boolean;
             /** @enum {integer} */
             signatureType: 0 | 1 | 2 | 3;
             signer: string;
@@ -1488,9 +1562,53 @@ export interface components {
             inviteCode?: string;
             password: string;
         };
+        Revocation: {
+            /** @description Problem says why it was not revoked. */
+            problem?: string;
+            /** @description Revoked says the Relayer took the revocation; the key is removed here either way. */
+            revoked: boolean;
+        };
         RunRequest: {
             /** @description Trigger is the trigger node to start from; left out means the manual trigger. */
             trigger?: string;
+        };
+        SessionKey: {
+            /** Format: date-time */
+            createdAt: string;
+            error?: string;
+            /** @description Owner is the account that controls the Deposit Wallet, and signs for it. */
+            owner: string;
+            /** @description Signer is the key's address. */
+            signer: string;
+            /**
+             * @description State: signing waits for the owner's signature, authorizing for the chain; the
+             *     wallet trades with an active key; a failed one says why in error.
+             * @enum {string}
+             */
+            state: "signing" | "authorizing" | "active" | "failed";
+            /** Format: date-time */
+            updatedAt: string;
+            /** Format: date-time */
+            validUntil: string;
+        };
+        SessionKeySigning: {
+            key: components["schemas"]["SessionKey"];
+            /**
+             * @description TypedData is what the owner's browser wallet signs, with eth_signTypedData_v4 on
+             *     Polygon.
+             */
+            typedData: {
+                [key: string]: unknown;
+            };
+        };
+        SessionKeys: {
+            /** @description Active is the key the wallet trades with. */
+            active?: components["schemas"]["SessionKey"];
+            /**
+             * @description Pending is the key being authorised, which replaces the active one once confirmed;
+             *     or the last that failed.
+             */
+            pending?: components["schemas"]["SessionKey"];
         };
         SetCredentialsRequest: {
             apiKey: string;
@@ -1566,6 +1684,14 @@ export interface components {
         ShareRequest: {
             description?: string;
             summary?: string;
+        };
+        SignatureRequest: {
+            /** @description Signature is what eth_signTypedData_v4 gave, hex. */
+            signature: string;
+        };
+        StartSessionKeyRequest: {
+            /** @description Owner is the browser wallet's account, which must control the Deposit Wallet. */
+            owner: string;
         };
         TelegramLink: {
             firstName?: string;
@@ -1762,14 +1888,21 @@ export interface components {
             /** Format: date-time */
             createdAt: string;
             hasCredentials: boolean;
-            /** @description HasKey says its private key is imported: it can trade. */
+            /** @description HasKey says it has a key to trade with: its private key, or a session key. */
             hasKey: boolean;
+            /** @description HasSessionKey says the key is an authorised session key. */
+            hasSessionKey: boolean;
             id: string;
             label: string;
         };
         WalletList: {
             /** @description TakesKeys says whether the instance takes private keys now, as an admin set it. */
             takesKeys: boolean;
+            /**
+             * @description TakesSessionKeys says whether it offers session keys: once an admin has entered a
+             *     Builder key.
+             */
+            takesSessionKeys: boolean;
             wallets: components["schemas"]["Wallet"][];
         };
         Workflow: {
@@ -3888,6 +4021,15 @@ export interface operations {
                     "application/json": components["schemas"]["Error"];
                 };
             };
+            /** @description session_key_in_use: remove the session key instead */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
             /** @description upstream_unavailable: Polymarket could not be reached */
             503: {
                 headers: {
@@ -3929,6 +4071,15 @@ export interface operations {
             };
             /** @description not_found */
             404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description session_key_in_use: remove the session key instead */
+            409: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -4000,7 +4151,383 @@ export interface operations {
                     "application/json": components["schemas"]["Error"];
                 };
             };
+            /** @description session_key_in_use: remove the session key instead */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
             /** @description upstream_unavailable: Polymarket could not be reached */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    getSessionKeys: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Wallet ID */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SessionKeys"];
+                };
+            };
+            /** @description unauthenticated */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description not_found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    startSessionKey: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Wallet ID */
+                id: string;
+            };
+            cookie?: never;
+        };
+        /** @description The owner */
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["StartSessionKeyRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SessionKeySigning"];
+                };
+            };
+            /** @description invalid_address, not_deposit_wallet or relayer_refused */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description unauthenticated */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description session_keys_off, or forbidden with an API token */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description not_found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description session_key_pending */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description upstream_unavailable: the Relayer could not be reached */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    removeSessionKey: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Wallet ID */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No Content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description unauthenticated */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description not_found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    startRevocation: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Wallet ID */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SessionKeySigning"];
+                };
+            };
+            /** @description relayer_refused */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description unauthenticated */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description session_keys_off, or forbidden with an API token */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description not_found: no such wallet, or no active session key */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description upstream_unavailable: the Relayer could not be reached */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    revokeSessionKey: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Wallet ID */
+                id: string;
+            };
+            cookie?: never;
+        };
+        /** @description The owner's signature */
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SignatureRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Revocation"];
+                };
+            };
+            /** @description invalid_input, wrong_signer or signature_expired: nothing removed */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description unauthenticated */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description session_keys_off, or forbidden with an API token */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description not_found: no such wallet, or no active session key */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    signSessionKey: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Wallet ID */
+                id: string;
+            };
+            cookie?: never;
+        };
+        /** @description The owner's signature */
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SignatureRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SessionKey"];
+                };
+            };
+            /** @description invalid_input, wrong_signer, signature_expired or relayer_refused */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description unauthenticated */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description session_keys_off, or forbidden with an API token */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description not_found: no such wallet, or no key waits for a signature */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description upstream_unavailable: send the signature again */
             503: {
                 headers: {
                     [name: string]: unknown;

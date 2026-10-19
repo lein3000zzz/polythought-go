@@ -47,3 +47,49 @@ test('a private key is refused when it does not control the wallet, and only whi
     expect(reset.status(), await reset.text()).toBe(200)
   }
 })
+
+test('session keys are offered once a Builder key is in, and need a browser wallet', async ({
+  page,
+}) => {
+  const label = unique('session')
+  const linked = await page.request.post('/api/v1/wallets', {
+    data: { address: `0x${randomBytes(20).toString('hex')}`, label },
+  })
+  expect(linked.status(), await linked.text()).toBe(201)
+
+  await page.goto('/wallets')
+  const card = page.locator('[data-slot="card"]').filter({ hasText: label })
+
+  // Without a Builder key, none are offered (D156).
+  await expect(card.getByRole('button', { name: 'Add credentials' })).toBeVisible()
+  await expect(card.getByRole('button', { name: 'Authorise a session key' })).toHaveCount(0)
+
+  const builder = (on: boolean) =>
+    page.request.patch('/api/v1/admin/settings', {
+      data: {
+        values: {
+          'trading.builder_api_key': on ? 'e2e-builder-key' : null,
+          'trading.builder_secret': on ? 'c2VjcmV0LWJ5dGVz' : null,
+          'trading.builder_passphrase': on ? 'e2e-passphrase' : null,
+        },
+      },
+    })
+
+  try {
+    const set = await builder(true)
+    expect(set.status(), await set.text()).toBe(200)
+
+    await page.reload()
+    await card.getByRole('button', { name: 'Authorise a session key' }).click()
+
+    // The test browser has no wallet: nothing is asked of the server, nor of Polymarket.
+    const dialog = page.getByRole('dialog')
+    await expect(dialog.getByText(/No browser wallet found/)).toBeVisible()
+    await expect(dialog.getByRole('button', { name: 'Connect and sign' })).toBeDisabled()
+    await dialog.getByRole('button', { name: 'Cancel' }).click()
+  } finally {
+    // Back to the defaults, for the other tests.
+    const reset = await builder(false)
+    expect(reset.status(), await reset.text()).toBe(200)
+  }
+})

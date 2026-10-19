@@ -40,11 +40,12 @@ func TestWalletRoutes(t *testing.T) {
 			setup: func(w *httpapimocks.MockWalletService) {
 				w.EXPECT().List(mock.Anything, mock.Anything).Return([]domain.Wallet{linked}, nil)
 				w.EXPECT().TakesKeys().Return(true)
+				w.EXPECT().TakesSessionKeys().Return(true)
 			},
 			wantStatus: http.StatusOK,
 			wantBody: []string{
 				`"address":"0x5aAeb6053F3E94C9b9A09f33669435E7Ef1BeAed"`, `"hasCredentials":false`, `"hasKey":false`,
-				`"takesKeys":true`,
+				`"hasSessionKey":false`, `"takesKeys":true`, `"takesSessionKeys":true`,
 			},
 		},
 		{
@@ -177,6 +178,15 @@ func TestWalletRoutes(t *testing.T) {
 			},
 			wantStatus: http.StatusServiceUnavailable,
 			wantBody:   []string{`"code":"upstream_unavailable"`},
+		},
+		{
+			name: "a session key's credentials stay",
+			req:  request{method: "DELETE", path: "/api/v1/wallets/w-1/credentials", headers: cookie},
+			setup: func(w *httpapimocks.MockWalletService) {
+				w.EXPECT().RemoveCredentials(mock.Anything, mock.Anything, domain.WalletID("w-1")).Return(domain.ErrSessionKeyInUse)
+			},
+			wantStatus: http.StatusConflict,
+			wantBody:   []string{`"code":"session_key_in_use"`},
 		},
 		{
 			name:       "unknown credential fields are rejected",

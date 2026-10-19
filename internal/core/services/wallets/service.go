@@ -26,11 +26,17 @@ const (
 var _ ports.WalletDirectory = (*Service)(nil)
 
 type Service struct {
-	repo       ports.WalletRepository
-	box        ports.SecretBox
-	verifier   ports.CredentialsVerifier
-	keys       ports.TradingKeys // optional: without it, no key is taken
-	keyImport  func() bool       // whether the instance takes keys now (D21)
+	repo      ports.WalletRepository
+	box       ports.SecretBox
+	verifier  ports.CredentialsVerifier
+	keys      ports.TradingKeys // optional: without it, no key is taken
+	keyImport func() bool       // whether the instance takes keys now (D21)
+
+	// Optional: without them, no session key is offered (D156).
+	sessionKeys ports.SessionKeyRepository
+	relayer     ports.SessionKeyRelayer
+	reminder    ports.SessionKeyReminder
+
 	log        logging.Logger
 	now        func() time.Time
 	maxWallets int
@@ -148,6 +154,10 @@ func (s *Service) SetCredentials(ctx context.Context, p auth.Principal, id domai
 		return domain.CredentialsInfo{}, err
 	}
 
+	if w.HasSessionKey {
+		return domain.CredentialsInfo{}, domain.ErrSessionKeyInUse
+	}
+
 	creds, err := validateCredentials(w, in)
 	if err != nil {
 		return domain.CredentialsInfo{}, err
@@ -171,20 +181,36 @@ func (s *Service) SetCredentials(ctx context.Context, p auth.Principal, id domai
 // save seals and keeps a wallet's credentials, and its private key when there is one,
 // replacing what it had.
 func (s *Service) save(ctx context.Context, w domain.Wallet, creds domain.PolymarketCredentials, key string) (domain.CredentialsInfo, error) {
+	sealed, err := s.seal(ctx, w.ID, creds, key)
+	if err != nil {
+		return domain.CredentialsInfo{}, err
+	}
+
+	if err := s.repo.SaveCredentials(ctx, sealed); err != nil {
+		return domain.CredentialsInfo{}, err
+	}
+
+	return sealed.Info, nil
+}
+
+// seal seals a wallet's credentials, and its private key when there is one, to replace
+// what it had.
+func (s *Service) seal(ctx context.Context, id domain.WalletID, creds domain.PolymarketCredentials, key string) (ports.SealedCredentials, error) {
 	now := s.now()
 	created := now
 
-	if old, err := s.repo.Credentials(ctx, w.ID); err == nil {
+	if old, err := s.repo.Credentials(ctx, id); err == nil {
 		created = old.Info.CreatedAt
 	}
 
 	sealed := ports.SealedCredentials{
 		Info: domain.CredentialsInfo{
-			WalletID:      w.ID,
+			WalletID:      id,
 			APIKeyHint:    hint(creds.APIKey),
 			Signer:        creds.Signer,
 			SignatureType: creds.SignatureType,
 			HasKey:        key != "",
+			SessionKey:    creds.SessionKey,
 			CreatedAt:     created,
 			UpdatedAt:     now,
 		},
@@ -211,17 +237,13 @@ func (s *Service) save(ctx context.Context, w domain.Wallet, creds domain.Polyma
 	var err error
 
 	for _, f := range fields {
-		*f.dst, err = s.box.Seal(ctx, []byte(f.value), aad(w.ID, f.name))
+		*f.dst, err = s.box.Seal(ctx, []byte(f.value), aad(id, f.name))
 		if err != nil {
-			return domain.CredentialsInfo{}, fmt.Errorf("seal %s: %w", f.name, err)
+			return ports.SealedCredentials{}, fmt.Errorf("seal %s: %w", f.name, err)
 		}
 	}
 
-	if err := s.repo.SaveCredentials(ctx, sealed); err != nil {
-		return domain.CredentialsInfo{}, err
-	}
-
-	return sealed.Info, nil
+	return sealed, nil
 }
 
 // ImportKey keeps a wallet's private key, so it can trade (D153): only while the instance
@@ -240,6 +262,10 @@ func (s *Service) ImportKey(ctx context.Context, p auth.Principal, id domain.Wal
 	w, err := s.repo.Get(ctx, p.User.ID, id)
 	if err != nil {
 		return domain.CredentialsInfo{}, err
+	}
+
+	if w.HasSessionKey {
+		return domain.CredentialsInfo{}, domain.ErrSessionKeyInUse
 	}
 
 	key = strings.TrimSpace(key)
@@ -282,10 +308,16 @@ func (s *Service) CredentialsInfo(ctx context.Context, p auth.Principal, id doma
 	return c.Info, nil
 }
 
+// RemoveCredentials removes a wallet's credentials, and its key; not a session key's,
+// which removing the session key does (D159).
 func (s *Service) RemoveCredentials(ctx context.Context, p auth.Principal, id domain.WalletID) error {
 	w, err := s.repo.Get(ctx, p.User.ID, id)
 	if err != nil {
 		return err
+	}
+
+	if w.HasSessionKey {
+		return domain.ErrSessionKeyInUse
 	}
 
 	if err := s.repo.DeleteCredentials(ctx, w.ID); err != nil {
@@ -315,7 +347,7 @@ func (s *Service) Credentials(ctx context.Context, owner domain.UserID, id domai
 		return domain.PolymarketCredentials{}, err
 	}
 
-	out := domain.PolymarketCredentials{Signer: c.Info.Signer, SignatureType: c.Info.SignatureType}
+	out := domain.PolymarketCredentials{Signer: c.Info.Signer, SignatureType: c.Info.SignatureType, SessionKey: c.Info.SessionKey}
 
 	for _, f := range []struct {
 		name   string

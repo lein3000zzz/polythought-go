@@ -408,6 +408,219 @@ func (_c *MockWalletService_RemoveCredentials_Call) RunAndReturn(run func(ctx co
 	return _c
 }
 
+// RemoveSessionKey provides a mock function for the type MockWalletService
+func (_mock *MockWalletService) RemoveSessionKey(ctx context.Context, p auth.Principal, id domain.WalletID) error {
+	ret := _mock.Called(ctx, p, id)
+
+	if len(ret) == 0 {
+		panic("no return value specified for RemoveSessionKey")
+	}
+
+	var r0 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context, auth.Principal, domain.WalletID) error); ok {
+		r0 = returnFunc(ctx, p, id)
+	} else {
+		r0 = ret.Error(0)
+	}
+	return r0
+}
+
+// MockWalletService_RemoveSessionKey_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'RemoveSessionKey'
+type MockWalletService_RemoveSessionKey_Call struct {
+	*mock.Call
+}
+
+// RemoveSessionKey is a helper method to define mock.On call
+//   - ctx context.Context
+//   - p auth.Principal
+//   - id domain.WalletID
+func (_e *MockWalletService_Expecter) RemoveSessionKey(ctx any, p any, id any) *MockWalletService_RemoveSessionKey_Call {
+	return &MockWalletService_RemoveSessionKey_Call{Call: _e.mock.On("RemoveSessionKey", ctx, p, id)}
+}
+
+func (_c *MockWalletService_RemoveSessionKey_Call) Run(run func(ctx context.Context, p auth.Principal, id domain.WalletID)) *MockWalletService_RemoveSessionKey_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		var arg1 auth.Principal
+		if args[1] != nil {
+			arg1 = args[1].(auth.Principal)
+		}
+		var arg2 domain.WalletID
+		if args[2] != nil {
+			arg2 = args[2].(domain.WalletID)
+		}
+		run(
+			arg0,
+			arg1,
+			arg2,
+		)
+	})
+	return _c
+}
+
+func (_c *MockWalletService_RemoveSessionKey_Call) Return(err error) *MockWalletService_RemoveSessionKey_Call {
+	_c.Call.Return(err)
+	return _c
+}
+
+func (_c *MockWalletService_RemoveSessionKey_Call) RunAndReturn(run func(ctx context.Context, p auth.Principal, id domain.WalletID) error) *MockWalletService_RemoveSessionKey_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// RevokeSessionKey provides a mock function for the type MockWalletService
+func (_mock *MockWalletService) RevokeSessionKey(ctx context.Context, p auth.Principal, id domain.WalletID, signature string) (wallets.Revocation, error) {
+	ret := _mock.Called(ctx, p, id, signature)
+
+	if len(ret) == 0 {
+		panic("no return value specified for RevokeSessionKey")
+	}
+
+	var r0 wallets.Revocation
+	var r1 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context, auth.Principal, domain.WalletID, string) (wallets.Revocation, error)); ok {
+		return returnFunc(ctx, p, id, signature)
+	}
+	if returnFunc, ok := ret.Get(0).(func(context.Context, auth.Principal, domain.WalletID, string) wallets.Revocation); ok {
+		r0 = returnFunc(ctx, p, id, signature)
+	} else {
+		r0 = ret.Get(0).(wallets.Revocation)
+	}
+	if returnFunc, ok := ret.Get(1).(func(context.Context, auth.Principal, domain.WalletID, string) error); ok {
+		r1 = returnFunc(ctx, p, id, signature)
+	} else {
+		r1 = ret.Error(1)
+	}
+	return r0, r1
+}
+
+// MockWalletService_RevokeSessionKey_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'RevokeSessionKey'
+type MockWalletService_RevokeSessionKey_Call struct {
+	*mock.Call
+}
+
+// RevokeSessionKey is a helper method to define mock.On call
+//   - ctx context.Context
+//   - p auth.Principal
+//   - id domain.WalletID
+//   - signature string
+func (_e *MockWalletService_Expecter) RevokeSessionKey(ctx any, p any, id any, signature any) *MockWalletService_RevokeSessionKey_Call {
+	return &MockWalletService_RevokeSessionKey_Call{Call: _e.mock.On("RevokeSessionKey", ctx, p, id, signature)}
+}
+
+func (_c *MockWalletService_RevokeSessionKey_Call) Run(run func(ctx context.Context, p auth.Principal, id domain.WalletID, signature string)) *MockWalletService_RevokeSessionKey_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		var arg1 auth.Principal
+		if args[1] != nil {
+			arg1 = args[1].(auth.Principal)
+		}
+		var arg2 domain.WalletID
+		if args[2] != nil {
+			arg2 = args[2].(domain.WalletID)
+		}
+		var arg3 string
+		if args[3] != nil {
+			arg3 = args[3].(string)
+		}
+		run(
+			arg0,
+			arg1,
+			arg2,
+			arg3,
+		)
+	})
+	return _c
+}
+
+func (_c *MockWalletService_RevokeSessionKey_Call) Return(revocation wallets.Revocation, err error) *MockWalletService_RevokeSessionKey_Call {
+	_c.Call.Return(revocation, err)
+	return _c
+}
+
+func (_c *MockWalletService_RevokeSessionKey_Call) RunAndReturn(run func(ctx context.Context, p auth.Principal, id domain.WalletID, signature string) (wallets.Revocation, error)) *MockWalletService_RevokeSessionKey_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// SessionKeys provides a mock function for the type MockWalletService
+func (_mock *MockWalletService) SessionKeys(ctx context.Context, p auth.Principal, id domain.WalletID) (wallets.SessionKeys, error) {
+	ret := _mock.Called(ctx, p, id)
+
+	if len(ret) == 0 {
+		panic("no return value specified for SessionKeys")
+	}
+
+	var r0 wallets.SessionKeys
+	var r1 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context, auth.Principal, domain.WalletID) (wallets.SessionKeys, error)); ok {
+		return returnFunc(ctx, p, id)
+	}
+	if returnFunc, ok := ret.Get(0).(func(context.Context, auth.Principal, domain.WalletID) wallets.SessionKeys); ok {
+		r0 = returnFunc(ctx, p, id)
+	} else {
+		r0 = ret.Get(0).(wallets.SessionKeys)
+	}
+	if returnFunc, ok := ret.Get(1).(func(context.Context, auth.Principal, domain.WalletID) error); ok {
+		r1 = returnFunc(ctx, p, id)
+	} else {
+		r1 = ret.Error(1)
+	}
+	return r0, r1
+}
+
+// MockWalletService_SessionKeys_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'SessionKeys'
+type MockWalletService_SessionKeys_Call struct {
+	*mock.Call
+}
+
+// SessionKeys is a helper method to define mock.On call
+//   - ctx context.Context
+//   - p auth.Principal
+//   - id domain.WalletID
+func (_e *MockWalletService_Expecter) SessionKeys(ctx any, p any, id any) *MockWalletService_SessionKeys_Call {
+	return &MockWalletService_SessionKeys_Call{Call: _e.mock.On("SessionKeys", ctx, p, id)}
+}
+
+func (_c *MockWalletService_SessionKeys_Call) Run(run func(ctx context.Context, p auth.Principal, id domain.WalletID)) *MockWalletService_SessionKeys_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		var arg1 auth.Principal
+		if args[1] != nil {
+			arg1 = args[1].(auth.Principal)
+		}
+		var arg2 domain.WalletID
+		if args[2] != nil {
+			arg2 = args[2].(domain.WalletID)
+		}
+		run(
+			arg0,
+			arg1,
+			arg2,
+		)
+	})
+	return _c
+}
+
+func (_c *MockWalletService_SessionKeys_Call) Return(sessionKeys wallets.SessionKeys, err error) *MockWalletService_SessionKeys_Call {
+	_c.Call.Return(sessionKeys, err)
+	return _c
+}
+
+func (_c *MockWalletService_SessionKeys_Call) RunAndReturn(run func(ctx context.Context, p auth.Principal, id domain.WalletID) (wallets.SessionKeys, error)) *MockWalletService_SessionKeys_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // SetCredentials provides a mock function for the type MockWalletService
 func (_mock *MockWalletService) SetCredentials(ctx context.Context, p auth.Principal, id domain.WalletID, in wallets.CredentialsInput) (domain.CredentialsInfo, error) {
 	ret := _mock.Called(ctx, p, id, in)
@@ -486,6 +699,234 @@ func (_c *MockWalletService_SetCredentials_Call) RunAndReturn(run func(ctx conte
 	return _c
 }
 
+// SignSessionKey provides a mock function for the type MockWalletService
+func (_mock *MockWalletService) SignSessionKey(ctx context.Context, p auth.Principal, id domain.WalletID, signature string) (domain.SessionKey, error) {
+	ret := _mock.Called(ctx, p, id, signature)
+
+	if len(ret) == 0 {
+		panic("no return value specified for SignSessionKey")
+	}
+
+	var r0 domain.SessionKey
+	var r1 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context, auth.Principal, domain.WalletID, string) (domain.SessionKey, error)); ok {
+		return returnFunc(ctx, p, id, signature)
+	}
+	if returnFunc, ok := ret.Get(0).(func(context.Context, auth.Principal, domain.WalletID, string) domain.SessionKey); ok {
+		r0 = returnFunc(ctx, p, id, signature)
+	} else {
+		r0 = ret.Get(0).(domain.SessionKey)
+	}
+	if returnFunc, ok := ret.Get(1).(func(context.Context, auth.Principal, domain.WalletID, string) error); ok {
+		r1 = returnFunc(ctx, p, id, signature)
+	} else {
+		r1 = ret.Error(1)
+	}
+	return r0, r1
+}
+
+// MockWalletService_SignSessionKey_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'SignSessionKey'
+type MockWalletService_SignSessionKey_Call struct {
+	*mock.Call
+}
+
+// SignSessionKey is a helper method to define mock.On call
+//   - ctx context.Context
+//   - p auth.Principal
+//   - id domain.WalletID
+//   - signature string
+func (_e *MockWalletService_Expecter) SignSessionKey(ctx any, p any, id any, signature any) *MockWalletService_SignSessionKey_Call {
+	return &MockWalletService_SignSessionKey_Call{Call: _e.mock.On("SignSessionKey", ctx, p, id, signature)}
+}
+
+func (_c *MockWalletService_SignSessionKey_Call) Run(run func(ctx context.Context, p auth.Principal, id domain.WalletID, signature string)) *MockWalletService_SignSessionKey_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		var arg1 auth.Principal
+		if args[1] != nil {
+			arg1 = args[1].(auth.Principal)
+		}
+		var arg2 domain.WalletID
+		if args[2] != nil {
+			arg2 = args[2].(domain.WalletID)
+		}
+		var arg3 string
+		if args[3] != nil {
+			arg3 = args[3].(string)
+		}
+		run(
+			arg0,
+			arg1,
+			arg2,
+			arg3,
+		)
+	})
+	return _c
+}
+
+func (_c *MockWalletService_SignSessionKey_Call) Return(sessionKey domain.SessionKey, err error) *MockWalletService_SignSessionKey_Call {
+	_c.Call.Return(sessionKey, err)
+	return _c
+}
+
+func (_c *MockWalletService_SignSessionKey_Call) RunAndReturn(run func(ctx context.Context, p auth.Principal, id domain.WalletID, signature string) (domain.SessionKey, error)) *MockWalletService_SignSessionKey_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// StartRevocation provides a mock function for the type MockWalletService
+func (_mock *MockWalletService) StartRevocation(ctx context.Context, p auth.Principal, id domain.WalletID) (wallets.SessionKeySigning, error) {
+	ret := _mock.Called(ctx, p, id)
+
+	if len(ret) == 0 {
+		panic("no return value specified for StartRevocation")
+	}
+
+	var r0 wallets.SessionKeySigning
+	var r1 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context, auth.Principal, domain.WalletID) (wallets.SessionKeySigning, error)); ok {
+		return returnFunc(ctx, p, id)
+	}
+	if returnFunc, ok := ret.Get(0).(func(context.Context, auth.Principal, domain.WalletID) wallets.SessionKeySigning); ok {
+		r0 = returnFunc(ctx, p, id)
+	} else {
+		r0 = ret.Get(0).(wallets.SessionKeySigning)
+	}
+	if returnFunc, ok := ret.Get(1).(func(context.Context, auth.Principal, domain.WalletID) error); ok {
+		r1 = returnFunc(ctx, p, id)
+	} else {
+		r1 = ret.Error(1)
+	}
+	return r0, r1
+}
+
+// MockWalletService_StartRevocation_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'StartRevocation'
+type MockWalletService_StartRevocation_Call struct {
+	*mock.Call
+}
+
+// StartRevocation is a helper method to define mock.On call
+//   - ctx context.Context
+//   - p auth.Principal
+//   - id domain.WalletID
+func (_e *MockWalletService_Expecter) StartRevocation(ctx any, p any, id any) *MockWalletService_StartRevocation_Call {
+	return &MockWalletService_StartRevocation_Call{Call: _e.mock.On("StartRevocation", ctx, p, id)}
+}
+
+func (_c *MockWalletService_StartRevocation_Call) Run(run func(ctx context.Context, p auth.Principal, id domain.WalletID)) *MockWalletService_StartRevocation_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		var arg1 auth.Principal
+		if args[1] != nil {
+			arg1 = args[1].(auth.Principal)
+		}
+		var arg2 domain.WalletID
+		if args[2] != nil {
+			arg2 = args[2].(domain.WalletID)
+		}
+		run(
+			arg0,
+			arg1,
+			arg2,
+		)
+	})
+	return _c
+}
+
+func (_c *MockWalletService_StartRevocation_Call) Return(sessionKeySigning wallets.SessionKeySigning, err error) *MockWalletService_StartRevocation_Call {
+	_c.Call.Return(sessionKeySigning, err)
+	return _c
+}
+
+func (_c *MockWalletService_StartRevocation_Call) RunAndReturn(run func(ctx context.Context, p auth.Principal, id domain.WalletID) (wallets.SessionKeySigning, error)) *MockWalletService_StartRevocation_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// StartSessionKey provides a mock function for the type MockWalletService
+func (_mock *MockWalletService) StartSessionKey(ctx context.Context, p auth.Principal, id domain.WalletID, owner string) (wallets.SessionKeySigning, error) {
+	ret := _mock.Called(ctx, p, id, owner)
+
+	if len(ret) == 0 {
+		panic("no return value specified for StartSessionKey")
+	}
+
+	var r0 wallets.SessionKeySigning
+	var r1 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context, auth.Principal, domain.WalletID, string) (wallets.SessionKeySigning, error)); ok {
+		return returnFunc(ctx, p, id, owner)
+	}
+	if returnFunc, ok := ret.Get(0).(func(context.Context, auth.Principal, domain.WalletID, string) wallets.SessionKeySigning); ok {
+		r0 = returnFunc(ctx, p, id, owner)
+	} else {
+		r0 = ret.Get(0).(wallets.SessionKeySigning)
+	}
+	if returnFunc, ok := ret.Get(1).(func(context.Context, auth.Principal, domain.WalletID, string) error); ok {
+		r1 = returnFunc(ctx, p, id, owner)
+	} else {
+		r1 = ret.Error(1)
+	}
+	return r0, r1
+}
+
+// MockWalletService_StartSessionKey_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'StartSessionKey'
+type MockWalletService_StartSessionKey_Call struct {
+	*mock.Call
+}
+
+// StartSessionKey is a helper method to define mock.On call
+//   - ctx context.Context
+//   - p auth.Principal
+//   - id domain.WalletID
+//   - owner string
+func (_e *MockWalletService_Expecter) StartSessionKey(ctx any, p any, id any, owner any) *MockWalletService_StartSessionKey_Call {
+	return &MockWalletService_StartSessionKey_Call{Call: _e.mock.On("StartSessionKey", ctx, p, id, owner)}
+}
+
+func (_c *MockWalletService_StartSessionKey_Call) Run(run func(ctx context.Context, p auth.Principal, id domain.WalletID, owner string)) *MockWalletService_StartSessionKey_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		var arg1 auth.Principal
+		if args[1] != nil {
+			arg1 = args[1].(auth.Principal)
+		}
+		var arg2 domain.WalletID
+		if args[2] != nil {
+			arg2 = args[2].(domain.WalletID)
+		}
+		var arg3 string
+		if args[3] != nil {
+			arg3 = args[3].(string)
+		}
+		run(
+			arg0,
+			arg1,
+			arg2,
+			arg3,
+		)
+	})
+	return _c
+}
+
+func (_c *MockWalletService_StartSessionKey_Call) Return(sessionKeySigning wallets.SessionKeySigning, err error) *MockWalletService_StartSessionKey_Call {
+	_c.Call.Return(sessionKeySigning, err)
+	return _c
+}
+
+func (_c *MockWalletService_StartSessionKey_Call) RunAndReturn(run func(ctx context.Context, p auth.Principal, id domain.WalletID, owner string) (wallets.SessionKeySigning, error)) *MockWalletService_StartSessionKey_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // TakesKeys provides a mock function for the type MockWalletService
 func (_mock *MockWalletService) TakesKeys() bool {
 	ret := _mock.Called()
@@ -526,6 +967,50 @@ func (_c *MockWalletService_TakesKeys_Call) Return(b bool) *MockWalletService_Ta
 }
 
 func (_c *MockWalletService_TakesKeys_Call) RunAndReturn(run func() bool) *MockWalletService_TakesKeys_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// TakesSessionKeys provides a mock function for the type MockWalletService
+func (_mock *MockWalletService) TakesSessionKeys() bool {
+	ret := _mock.Called()
+
+	if len(ret) == 0 {
+		panic("no return value specified for TakesSessionKeys")
+	}
+
+	var r0 bool
+	if returnFunc, ok := ret.Get(0).(func() bool); ok {
+		r0 = returnFunc()
+	} else {
+		r0 = ret.Get(0).(bool)
+	}
+	return r0
+}
+
+// MockWalletService_TakesSessionKeys_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'TakesSessionKeys'
+type MockWalletService_TakesSessionKeys_Call struct {
+	*mock.Call
+}
+
+// TakesSessionKeys is a helper method to define mock.On call
+func (_e *MockWalletService_Expecter) TakesSessionKeys() *MockWalletService_TakesSessionKeys_Call {
+	return &MockWalletService_TakesSessionKeys_Call{Call: _e.mock.On("TakesSessionKeys")}
+}
+
+func (_c *MockWalletService_TakesSessionKeys_Call) Run(run func()) *MockWalletService_TakesSessionKeys_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run()
+	})
+	return _c
+}
+
+func (_c *MockWalletService_TakesSessionKeys_Call) Return(b bool) *MockWalletService_TakesSessionKeys_Call {
+	_c.Call.Return(b)
+	return _c
+}
+
+func (_c *MockWalletService_TakesSessionKeys_Call) RunAndReturn(run func() bool) *MockWalletService_TakesSessionKeys_Call {
 	_c.Call.Return(run)
 	return _c
 }

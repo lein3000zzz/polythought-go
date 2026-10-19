@@ -66,6 +66,9 @@ func TestSettingsDefaults(t *testing.T) {
 		config.KeyCodeConcurrency:     0,
 		config.KeyPaperBalance:        1000,
 		config.KeyKeyImport:           config.KeyImportAuto,
+		config.KeyBuilderAPIKey:       "",
+		config.KeyBuilderSecret:       "",
+		config.KeyBuilderPassphrase:   "",
 		config.KeyTrustedProxies:      []string{},
 		config.KeyWebhookAllowPrivate: false,
 		config.KeyLogLevel:            "info",
@@ -77,8 +80,11 @@ func TestSettingsDefaults(t *testing.T) {
 		assert.Equal(t, want, spec(t, key).Default, key)
 	}
 
-	assert.Len(t, registry(t).Specs(), 29, "every setting has a default checked above")
-	assert.True(t, spec(t, config.KeyTelegramToken).Secret)
+	assert.Len(t, registry(t).Specs(), 32, "every setting has a default checked above")
+
+	for _, key := range []string{config.KeyTelegramToken, config.KeyBuilderAPIKey, config.KeyBuilderSecret, config.KeyBuilderPassphrase} {
+		assert.True(t, spec(t, key).Secret, key)
+	}
 }
 
 func TestSettingsEnvironmentNames(t *testing.T) {
@@ -124,6 +130,7 @@ func TestSettingsValidation(t *testing.T) {
 		{config.KeyWebhookAllowPrivate, "sometimes", `"sometimes" is not true or false`},
 		{config.KeyCodeTime, "10m", "must be between 100ms and 5m"},
 		{config.KeyCodeMemory, "2048", "must be between 8 and 1024"},
+		{config.KeyBuilderSecret, "not base64!", "is not base64"},
 	}
 
 	for _, tc := range tests {

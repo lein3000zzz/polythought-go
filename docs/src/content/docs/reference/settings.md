@@ -281,6 +281,42 @@ Whether users may import a wallet's private key, so it can trade: on, off, or au
 | Default | `auto` |
 | Applies | at once |
 
+### Builder API key
+
+Your Polymarket Builder API key, with its secret and passphrase below, from polymarket.com/settings?tab=builder. Users of Deposit Wallets can authorise session keys once all three are in: trade-only keys that need no private key here. Polymarket must enable the key for session keys first (builder@polymarket.com).
+
+| | |
+|---|---|
+| Key | `trading.builder_api_key` |
+| Environment variable | `POLYTHOUGHT_TRADING_BUILDER_API_KEY` |
+| Kind | text, secret: stored encrypted and never shown |
+| Default | empty |
+| Applies | at once |
+
+### Builder secret
+
+The secret of the Builder API key, base64.
+
+| | |
+|---|---|
+| Key | `trading.builder_secret` |
+| Environment variable | `POLYTHOUGHT_TRADING_BUILDER_SECRET` |
+| Kind | text, secret: stored encrypted and never shown |
+| Default | empty |
+| Applies | at once |
+
+### Builder passphrase
+
+The passphrase of the Builder API key.
+
+| | |
+|---|---|
+| Key | `trading.builder_passphrase` |
+| Environment variable | `POLYTHOUGHT_TRADING_BUILDER_PASSPHRASE` |
+| Kind | text, secret: stored encrypted and never shown |
+| Default | empty |
+| Applies | at once |
+
 ## Network
 
 ### Trusted proxies

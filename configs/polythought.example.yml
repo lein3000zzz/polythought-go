@@ -167,6 +167,21 @@ trading:
   # Environment: POLYTHOUGHT_TRADING_KEY_IMPORT.
   # key_import: "auto"
 
+  # Your Polymarket Builder API key, with its secret and passphrase below, from
+  # polymarket.com/settings?tab=builder. Users of Deposit Wallets can authorise session
+  # keys once all three are in: trade-only keys that need no private key here.
+  # Polymarket must enable the key for session keys first (builder@polymarket.com).
+  # Environment: POLYTHOUGHT_TRADING_BUILDER_API_KEY.
+  # builder_api_key: ""
+
+  # The secret of the Builder API key, base64.
+  # Environment: POLYTHOUGHT_TRADING_BUILDER_SECRET.
+  # builder_secret: ""
+
+  # The passphrase of the Builder API key.
+  # Environment: POLYTHOUGHT_TRADING_BUILDER_PASSPHRASE.
+  # builder_passphrase: ""
+
 webhook:
 
   # Let workflows post to addresses inside the server's network, such as a service on

@@ -26,6 +26,7 @@ packages:
       DataClient: {}
       MarketStreamClient: {}
       ClobAccountClient: {}
+      RelayerClient: {}
   github.com/lein3000zzz/the-watchers/pkg/observability/logging:
     config:
       dir: internal/mocks/logging
@@ -66,6 +67,9 @@ packages:
       CredentialReader: {}
       NodeMemory: {}
       TradingKeys: {}
+      SessionKeyRepository: {}
+      SessionKeyRelayer: {}
+      SessionKeyReminder: {}
   github.com/lein3000zzz/polythought-go/internal/core/services/auth:
     config:
       dir: internal/mocks/auth

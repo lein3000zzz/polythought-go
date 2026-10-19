@@ -22,7 +22,10 @@ import {
 import { computeLimitOrderAmounts, computeMarketOrderAmounts } from './actions/orders/amounts';
 import { toScaledPrice } from './actions/orders/fixed';
 import { isV2PositionId } from './protocol';
+import { authorizeSessionSignerCall, revokeSessionSignerCall } from './abis';
+import { buildDepositWalletExecuteRequest } from './actions/gasless';
 import { createApiKeyAuthTypedDataPayload } from './authentication';
+import { buildHmacSignature } from './hmac';
 import { production } from './environments';
 import {
   deriveBeaconDepositWalletAddress,
@@ -230,6 +233,62 @@ async function main() {
     depositUups: deriveUupsDepositWalletAddress(signer as never, production.walletDerivation),
   }));
 
+  // Session keys (D156): the Batch an owner signs to authorise one, and to revoke it, for
+  // their Deposit Wallet, built by the SDK with a nonce from a stub Relayer at a fixed time.
+  const ownerDeposit = deriveBeaconDepositWalletAddress(owner.address as never, production.walletDerivation);
+  const relayerStub = {
+    account: { signer: owner.address, signerType: SignerType.OWNER, wallet: ownerDeposit, walletType: WalletType.DEPOSIT_WALLET },
+    environment: production,
+    relayer: { get: async () => ({ address: owner.address, nonce: '7' }) },
+  };
+  const now = 1760875200;
+  const realNow = Date.now;
+  Date.now = () => now * 1000;
+
+  async function batch(name: string, call: { data: string; to: string }, validUntil?: number) {
+    const steps = buildDepositWalletExecuteRequest(relayerStub as never, [call as never]);
+    const asked = await steps.next();
+    const payload = (asked.value as { payload: Parameters<typeof owner.signTypedData>[0] }).payload;
+    const done = await steps.next(await owner.signTypedData(payload as never));
+    const request = done.value as {
+      nonce: string;
+      signature: string;
+      depositWalletParams: { deadline: string; calls: { data: string; target: string; value: string }[] };
+    };
+
+    return {
+      name,
+      owner: owner.address,
+      wallet: ownerDeposit,
+      sessionSigner: session.address.toLowerCase(),
+      validUntil,
+      nonce: request.nonce,
+      deadline: request.depositWalletParams.deadline,
+      calls: request.depositWalletParams.calls,
+      digest: TypedData.getSignPayload(payload as never),
+      signature: request.signature,
+    };
+  }
+
+  const validUntil = now + 4_315 * 60 * 60;
+  const sessionBatches = [
+    await batch('authorise a session key', authorizeSessionSignerCall(ownerDeposit as never, session.address.toLowerCase() as never, BigInt(validUntil)), validUntil),
+    await batch('revoke it', revokeSessionSignerCall(ownerDeposit as never, session.address.toLowerCase() as never)),
+  ];
+  Date.now = realNow;
+
+  // A Builder key's signature of a Relayer request.
+  const builderSecret = 'c2VjcmV0LWJ5dGVzLWZvci1idWlsZGVy';
+  const builderBody = '{"walletAddress":"0x1111111111111111111111111111111111111111"}';
+  const builderHmac = [{
+    secret: builderSecret,
+    timestamp: now,
+    method: 'POST',
+    path: '/v1/session-signers/authorizations',
+    body: builderBody,
+    signature: await buildHmacSignature(builderSecret, now, 'POST', '/v1/session-signers/authorizations', builderBody),
+  }];
+
   process.stdout.write(
     `${JSON.stringify(
       {
@@ -241,6 +300,8 @@ async function main() {
         positionIds,
         clobAuth,
         wallets,
+        sessionBatches,
+        builderHmac,
       },
       null,
       2,

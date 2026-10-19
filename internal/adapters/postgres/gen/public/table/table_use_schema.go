@@ -22,6 +22,7 @@ func UseSchema(schema string) {
 	Orders = Orders.FromSchema(schema)
 	PaperAccounts = PaperAccounts.FromSchema(schema)
 	PolymarketCredentials = PolymarketCredentials.FromSchema(schema)
+	SessionKeys = SessionKeys.FromSchema(schema)
 	Sessions = Sessions.FromSchema(schema)
 	Settings = Settings.FromSchema(schema)
 	SettingsAudit = SettingsAudit.FromSchema(schema)

@@ -45,8 +45,16 @@ var ApprovalWaiting = Kind{
 	Default: true,
 }
 
+var SessionKeyExpiring = Kind{
+	Key:   "session_key_expiring",
+	Label: "A session key is about to expire",
+	Description: "A wallet's session key expires in 14 days or less: authorise a new one before then, so the wallet keeps " +
+		"trading. Once per key.",
+	Default: true,
+}
+
 // Kinds lists every kind, in the order Settings shows them.
-var Kinds = []Kind{WorkflowFailed, ApprovalWaiting}
+var Kinds = []Kind{WorkflowFailed, ApprovalWaiting, SessionKeyExpiring}
 
 const (
 	failureCooldown = time.Hour
@@ -56,8 +64,9 @@ const (
 )
 
 var (
-	_ ports.ExecutionNotifier = (*Service)(nil)
-	_ ports.QuestionReminder  = (*Service)(nil)
+	_ ports.ExecutionNotifier  = (*Service)(nil)
+	_ ports.QuestionReminder   = (*Service)(nil)
+	_ ports.SessionKeyReminder = (*Service)(nil)
 )
 
 type Service struct {
@@ -260,6 +269,41 @@ func (s *Service) RemindQuestion(ctx context.Context, user domain.UserID, messag
 		HTML:    "⏳ This question is still waiting for your answer, for " + about(left) + " more.",
 		ReplyTo: messageID,
 	})
+}
+
+// RemindSessionKey tells the owner that a wallet's session key expires at until, or has,
+// unless they switched that off. With nowhere to send it, nobody is told, and that is no
+// error: the key is not asked about again.
+func (s *Service) RemindSessionKey(ctx context.Context, user domain.UserID, w domain.Wallet, until time.Time) error {
+	on, err := s.enabled(ctx, user, SessionKeyExpiring)
+	if err != nil || !on {
+		return err
+	}
+
+	name := w.Label
+	if name == "" {
+		name = string(w.Address)
+	}
+
+	name = "<b>" + html.EscapeString(name) + "</b>"
+
+	text := "🔑 The session key of " + name + " has expired. Authorise a new one on the Wallets page, so the wallet can trade again."
+	if left := until.Sub(s.now()); left > 0 {
+		text = "🔑 The session key of " + name + " expires in " + about(left) + ", on " + until.UTC().Format("2 January 2006") +
+			" (UTC). Authorise a new one on the Wallets page before then, so the wallet keeps trading."
+	}
+
+	var buttons [][]ports.TelegramButton
+	if strings.HasPrefix(s.publicURL, "https://") {
+		buttons = [][]ports.TelegramButton{{{Text: "Open wallets", URL: s.publicURL + "/wallets"}}}
+	}
+
+	err = s.messenger.MessageUser(ctx, user, ports.UserMessage{HTML: text, Buttons: buttons})
+	if errors.Is(err, domain.ErrTelegramNotLinked) || errors.Is(err, domain.ErrTelegramUnavailable) {
+		return nil
+	}
+
+	return err
 }
 
 // about rounds d for people: about 15 minutes, about 2 hours, about 3 days.

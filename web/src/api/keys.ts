@@ -22,6 +22,7 @@ export const keys = {
   wallets: ['wallets'],
   walletList: ['wallets', 'list'],
   credentials: (walletId: string) => ['wallets', 'credentials', walletId],
+  sessionKeys: (walletId: string) => ['wallets', 'session-keys', walletId],
   vault: ['vault'],
   vaultList: ['vault', 'list'],
   vaultTypes: ['vault', 'types'],

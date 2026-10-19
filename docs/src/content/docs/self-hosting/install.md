@@ -73,11 +73,18 @@ then locks it on the Config page; see [Configuration](/docs/self-hosting/configu
 
 ## Keys
 
-`POLYTHOUGHT_SECRET_KEYS` encrypts wallet API credentials and private keys,
+`POLYTHOUGHT_SECRET_KEYS` encrypts wallet API credentials, private keys and session keys,
 [credentials](/docs/guides/credentials/) and secret settings. Back it up apart from the
 database: without it they cannot be read, and with it and the database, imported keys can
 be used. Whether users may import keys at all is **Private keys** on the Config page: auto,
 the default, takes them unless anyone may sign up.
+
+Session keys, for Deposit Wallets, need your Polymarket Builder API key, from
+polymarket.com/settings?tab=builder: **Builder API key**, **Builder secret** and **Builder
+passphrase** under Trading on the Config page. Users are offered session keys once all three
+are in. Polymarket must enable the key for session keys first (builder@polymarket.com), and
+gives unverified builders 100 Relayer transactions a day: each authorisation and each
+revocation is one. The server reaches Polymarket's Relayer at relayer-v2.polymarket.com.
 
 To change keys, put the new one first and keep the old one after it, as in
 `k2:…,k1:…`. New secrets use the first key; the others only read what was saved with them.

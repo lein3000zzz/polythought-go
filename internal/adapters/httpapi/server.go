@@ -60,6 +60,14 @@ type WalletService interface {
 	RemoveCredentials(ctx context.Context, p auth.Principal, id domain.WalletID) error
 	ImportKey(ctx context.Context, p auth.Principal, id domain.WalletID, key string) (domain.CredentialsInfo, error)
 	TakesKeys() bool
+
+	TakesSessionKeys() bool
+	SessionKeys(ctx context.Context, p auth.Principal, id domain.WalletID) (wallets.SessionKeys, error)
+	StartSessionKey(ctx context.Context, p auth.Principal, id domain.WalletID, owner string) (wallets.SessionKeySigning, error)
+	SignSessionKey(ctx context.Context, p auth.Principal, id domain.WalletID, signature string) (domain.SessionKey, error)
+	StartRevocation(ctx context.Context, p auth.Principal, id domain.WalletID) (wallets.SessionKeySigning, error)
+	RevokeSessionKey(ctx context.Context, p auth.Principal, id domain.WalletID, signature string) (wallets.Revocation, error)
+	RemoveSessionKey(ctx context.Context, p auth.Principal, id domain.WalletID) error
 }
 
 // WorkflowService is what the handlers need from the workflow service.
@@ -275,6 +283,12 @@ func (s *Server) routes() {
 	w.PUT("/:id/credentials", s.setCredentials)
 	w.DELETE("/:id/credentials", s.removeCredentials)
 	w.PUT("/:id/key", s.importKey)
+	w.GET("/:id/session-key", s.sessionKeys)
+	w.POST("/:id/session-key", s.startSessionKey)
+	w.DELETE("/:id/session-key", s.removeSessionKey)
+	w.POST("/:id/session-key/signature", s.signSessionKey)
+	w.POST("/:id/session-key/revocation", s.startRevocation)
+	w.POST("/:id/session-key/revocation/signature", s.revokeSessionKey)
 
 	v1.GET("/credential-types", s.requireAuth, s.listCredentialTypes)
 

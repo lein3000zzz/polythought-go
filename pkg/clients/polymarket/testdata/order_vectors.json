@@ -3906,5 +3906,52 @@
       "depositBeacon": "0xa05f08027251a6b36c7af86d97ab821b43d35369",
       "depositUups": "0x2bca1fdcc1820bc572964c9dd44338f624aa7627"
     }
+  ],
+  "sessionBatches": [
+    {
+      "name": "authorise a session key",
+      "owner": "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266",
+      "wallet": "0xbc0ff067b7740eff76c1ca93c875ba6b890d6b50",
+      "sessionSigner": "0x70997970c51812dc3a010c7d01b50e0d17dc79c8",
+      "validUntil": 1776409200,
+      "nonce": "7",
+      "deadline": "1760875800",
+      "calls": [
+        {
+          "data": "0x24017fae00000000000000000000000070997970c51812dc3a010c7d01b50e0d17dc79c80000000000000000000000000000000000000000000000000000000069e1da70",
+          "target": "0xbc0ff067b7740eff76c1ca93c875ba6b890d6b50",
+          "value": "0"
+        }
+      ],
+      "digest": "0xef5611587df2a080b8fbc0587fa44ca8fc56488df0f6d587bf27806cd1839b81",
+      "signature": "0x45904446e67074397d813000c9b1708a883de42d16f60b46832e120656dd095a49a2590730cea955a1de0c5fdc2e1969be2428d4482a44d24f89415da990a9ca1b"
+    },
+    {
+      "name": "revoke it",
+      "owner": "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266",
+      "wallet": "0xbc0ff067b7740eff76c1ca93c875ba6b890d6b50",
+      "sessionSigner": "0x70997970c51812dc3a010c7d01b50e0d17dc79c8",
+      "nonce": "7",
+      "deadline": "1760875800",
+      "calls": [
+        {
+          "data": "0xe63f952f00000000000000000000000070997970c51812dc3a010c7d01b50e0d17dc79c8",
+          "target": "0xbc0ff067b7740eff76c1ca93c875ba6b890d6b50",
+          "value": "0"
+        }
+      ],
+      "digest": "0x1552db18d8985235e0253094c1d50c0eb92e5b806ec900db24b65376c2950b12",
+      "signature": "0x770fbf7e4ffba7dc4a458c3a3a31fac4f24423571211a9279b4479c0a4b7823207d861363f3353dd1248c57bfc24ee4b4fa3e4e70baf5d5bc52bbdb3d89c4aa41b"
+    }
+  ],
+  "builderHmac": [
+    {
+      "secret": "c2VjcmV0LWJ5dGVzLWZvci1idWlsZGVy",
+      "timestamp": 1760875200,
+      "method": "POST",
+      "path": "/v1/session-signers/authorizations",
+      "body": "{\"walletAddress\":\"0x1111111111111111111111111111111111111111\"}",
+      "signature": "kFVQR1MrNEi7626kWep99jOQ2LvtJZ0LkG3GqYKeks8="
+    }
   ]
 }

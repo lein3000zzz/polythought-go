@@ -55,11 +55,13 @@ type walletRow struct {
 	Credentials *struct {
 		WalletID         uuid.UUID `sql:"primary_key" alias:"polymarket_credentials.wallet_id"`
 		PrivateKeySealed *[]byte   `alias:"polymarket_credentials.private_key_sealed"`
+		SessionKey       bool      `alias:"polymarket_credentials.session_key"`
 	}
 }
 
 func (r *Wallets) selectWallets(where jet.BoolExpression) jet.SelectStatement {
-	return jet.SELECT(table.Wallets.AllColumns, table.PolymarketCredentials.WalletID, table.PolymarketCredentials.PrivateKeySealed).
+	return jet.SELECT(table.Wallets.AllColumns, table.PolymarketCredentials.WalletID, table.PolymarketCredentials.PrivateKeySealed,
+		table.PolymarketCredentials.SessionKey).
 		FROM(table.Wallets.LEFT_JOIN(table.PolymarketCredentials, table.PolymarketCredentials.WalletID.EQ(table.Wallets.ID))).
 		WHERE(where)
 }
@@ -158,6 +160,7 @@ func (r *Wallets) SaveCredentials(ctx context.Context, c ports.SealedCredentials
 		APIKeyHint:       c.Info.APIKeyHint,
 		SignerAddress:    string(c.Info.Signer),
 		SignatureType:    int16(c.Info.SignatureType),
+		SessionKey:       c.Info.SessionKey,
 		CreatedAt:        c.Info.CreatedAt,
 		UpdatedAt:        c.Info.UpdatedAt,
 	}
@@ -175,6 +178,7 @@ func (r *Wallets) SaveCredentials(ctx context.Context, c ports.SealedCredentials
 			t.APIKeyHint.SET(t.EXCLUDED.APIKeyHint),
 			t.SignerAddress.SET(t.EXCLUDED.SignerAddress),
 			t.SignatureType.SET(t.EXCLUDED.SignatureType),
+			t.SessionKey.SET(t.EXCLUDED.SessionKey),
 			t.UpdatedAt.SET(t.EXCLUDED.UpdatedAt),
 		)).
 		ExecContext(ctx, r.db.conn(ctx))
@@ -205,6 +209,7 @@ func (r *Wallets) Credentials(ctx context.Context, walletID domain.WalletID) (po
 			Signer:        domain.WalletAddress(m.SignerAddress),
 			SignatureType: domain.SignatureType(m.SignatureType),
 			HasKey:        m.PrivateKeySealed != nil,
+			SessionKey:    m.SessionKey,
 			CreatedAt:     m.CreatedAt.UTC(),
 			UpdatedAt:     m.UpdatedAt.UTC(),
 		},
@@ -251,5 +256,6 @@ func toWallet(row walletRow) domain.Wallet {
 		CreatedAt:      row.CreatedAt.UTC(),
 		HasCredentials: row.Credentials != nil,
 		HasKey:         row.Credentials != nil && row.Credentials.PrivateKeySealed != nil,
+		HasSessionKey:  row.Credentials != nil && row.Credentials.SessionKey,
 	}
 }

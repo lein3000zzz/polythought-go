@@ -2,6 +2,7 @@ package notify_test
 
 import (
 	"context"
+	"errors"
 	"maps"
 	"sync"
 	"testing"
@@ -211,11 +212,14 @@ func TestPrefs(t *testing.T) {
 
 	got, err := s.Prefs(ctx, alice)
 	require.NoError(t, err)
-	require.Len(t, got, 2)
+	require.Len(t, got, 3)
 	assert.Equal(t, "workflow_failed", got[0].Key)
 	assert.Equal(t, "approval_waiting", got[1].Key)
-	assert.True(t, got[0].Enabled, "on by default")
-	assert.True(t, got[1].Enabled, "on by default")
+	assert.Equal(t, "session_key_expiring", got[2].Key)
+
+	for _, p := range got {
+		assert.True(t, p.Enabled, "%s on by default", p.Key)
+	}
 
 	pref, err := s.SetPref(ctx, alice, "workflow_failed", false)
 	require.NoError(t, err)
@@ -270,5 +274,60 @@ func TestRemindQuestion(t *testing.T) {
 		d.messenger.fail(domain.ErrTelegramNotLinked)
 
 		require.ErrorIs(t, s.RemindQuestion(ctx, "alice", 12, time.Hour), domain.ErrTelegramNotLinked)
+	})
+}
+
+func TestRemindSessionKey(t *testing.T) {
+	ctx := context.Background()
+	w := domain.Wallet{ID: "w-1", UserID: "alice", Address: "0x5aAeb6053F3E94C9b9A09f33669435E7Ef1BeAed", Label: "Main <1>"}
+
+	t.Run("how long it has left, with a link", func(t *testing.T) {
+		s, d := newService(t, "https://poly.example/")
+
+		require.NoError(t, s.RemindSessionKey(ctx, "alice", w, now.Add(14*24*time.Hour)))
+
+		require.Len(t, d.messenger.sent, 1)
+		msg := d.messenger.sent[0]
+		assert.Equal(t, "🔑 The session key of <b>Main &lt;1&gt;</b> expires in about 14 days, on 28 October 2026 (UTC). "+
+			"Authorise a new one on the Wallets page before then, so the wallet keeps trading.", msg.HTML)
+		assert.Equal(t, [][]ports.TelegramButton{{{Text: "Open wallets", URL: "https://poly.example/wallets"}}}, msg.Buttons)
+	})
+
+	t.Run("expired already; a wallet without a label by its address", func(t *testing.T) {
+		s, d := newService(t, "")
+		unnamed := w
+		unnamed.Label = ""
+
+		require.NoError(t, s.RemindSessionKey(ctx, "alice", unnamed, now.Add(-time.Hour)))
+
+		require.Len(t, d.messenger.sent, 1)
+		assert.Equal(t, "🔑 The session key of <b>0x5aAeb6053F3E94C9b9A09f33669435E7Ef1BeAed</b> has expired. "+
+			"Authorise a new one on the Wallets page, so the wallet can trade again.", d.messenger.sent[0].HTML)
+		assert.Nil(t, d.messenger.sent[0].Buttons)
+	})
+
+	t.Run("not when switched off", func(t *testing.T) {
+		s, d := newService(t, "")
+		_, err := s.SetPref(ctx, alice, "session_key_expiring", false)
+		require.NoError(t, err)
+
+		require.NoError(t, s.RemindSessionKey(ctx, "alice", w, now.Add(time.Hour)))
+		assert.Zero(t, d.messenger.count())
+	})
+
+	t.Run("nowhere to send it is no error", func(t *testing.T) {
+		for _, err := range []error{domain.ErrTelegramNotLinked, domain.ErrTelegramUnavailable} {
+			s, d := newService(t, "")
+			d.messenger.fail(err)
+
+			require.NoError(t, s.RemindSessionKey(ctx, "alice", w, now.Add(time.Hour)))
+		}
+	})
+
+	t.Run("a failure to send is, to try again", func(t *testing.T) {
+		s, d := newService(t, "")
+		d.messenger.fail(errors.New("telegram: 502"))
+
+		require.Error(t, s.RemindSessionKey(ctx, "alice", w, now.Add(time.Hour)))
 	})
 }
