@@ -213,7 +213,8 @@ func (a *app) init(ctx context.Context) error {
 			s := a.settings.Current()
 			return config.TakesKeys(s.String(config.KeyKeyImport), domain.RegistrationMode(s.String(config.KeyRegistration)))
 		}),
-		wallets.WithSessionKeys(walletRepo, pmc.sessionKeys, a.notify))
+		wallets.WithSessionKeys(walletRepo, pmc.sessionKeys, a.notify),
+		wallets.WithApprovals(walletRepo, pmc.approvals))
 
 	if err := a.initEngine(ctx, pmc); err != nil {
 		return err
@@ -459,6 +460,7 @@ type polymarket struct {
 	account     *pmadapter.Account
 	keys        *pmadapter.Keys
 	sessionKeys *pmadapter.SessionKeys
+	approvals   *pmadapter.Approvals
 }
 
 func newPolymarket(a *app) (polymarket, error) {
@@ -482,6 +484,13 @@ func newPolymarket(a *app) (polymarket, error) {
 		return polymarket{}, err
 	}
 
+	rpc, err := pm.NewRPCClient(a.util, pm.HTTPConfig{}, func() string {
+		return a.settings.Current().String(config.KeyPolygonRPC)
+	})
+	if err != nil {
+		return polymarket{}, err
+	}
+
 	// The Builder key, while an admin has entered all of it (D156).
 	builder := func() (pm.BuilderCredentials, bool) {
 		s := a.settings.Current()
@@ -496,6 +505,7 @@ func newPolymarket(a *app) (polymarket, error) {
 	return polymarket{
 		reader: pmadapter.NewReader(gamma, clob, data), account: pmadapter.NewAccount(clob), keys: pmadapter.NewKeys(clob),
 		sessionKeys: pmadapter.NewSessionKeys(relayer, builder),
+		approvals:   pmadapter.NewApprovals(data, rpc, relayer, builder),
 	}, nil
 }
 

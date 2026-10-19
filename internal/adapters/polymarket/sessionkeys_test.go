@@ -65,7 +65,8 @@ func TestSessionKeysNewKey(t *testing.T) {
 
 func TestSessionKeysBatches(t *testing.T) {
 	s, relayer := newSessionKeys(t, true)
-	relayer.EXPECT().Nonce(mock.Anything, testBuilder, string(anvilAddress)).Return("7", nil).Times(2)
+	relayer.EXPECT().ExecuteParams(mock.Anything, testBuilder, string(anvilAddress), pm.RelayerDepositWallet).
+		Return(pm.ExecuteParams{Address: "0x1111111111111111111111111111111111111111", Nonce: "7"}, nil).Times(2)
 
 	b, err := s.Authorization(t.Context(), anvilAddress, depositWallet(), sessionSigner)
 	require.NoError(t, err)

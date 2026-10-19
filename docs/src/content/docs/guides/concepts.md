@@ -209,6 +209,17 @@ deletes it with them, and pasting credentials by hand replaces it.
 A private key lets the server sign anything for the wallet, a session key only orders; either
 way, keep in the wallet only what you mean to trade.
 
+To trade, a wallet must also let Polymarket's exchanges move its pUSD and its outcome
+tokens: 17 **approvals**, as Polymarket's own client grants them. The card says how many are
+missing, as Polymarket's index last saw them, and **Show them** lists them. **Grant
+approvals** sets them up for a Deposit Wallet or a Safe: your browser wallet signs once, and
+Polymarket's Relayer submits it and pays the gas. With an imported key, Polythought signs
+instead, once you confirm. A proxy wallet (email sign-in) is set up only with its imported
+key, and an EOA grants its approvals itself, with its own wallet, paying the gas. Granting
+needs the admin's Builder key, as session keys do, and Polythought checks the approvals on
+chain right before, so nothing is granted twice. Polymarket's index shows new approvals
+within a minute or so.
+
 A workflow only ever reaches its owner's wallets and credentials, and sharing it leaves them
 out.
 

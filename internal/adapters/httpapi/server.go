@@ -68,6 +68,11 @@ type WalletService interface {
 	StartRevocation(ctx context.Context, p auth.Principal, id domain.WalletID) (wallets.SessionKeySigning, error)
 	RevokeSessionKey(ctx context.Context, p auth.Principal, id domain.WalletID, signature string) (wallets.Revocation, error)
 	RemoveSessionKey(ctx context.Context, p auth.Principal, id domain.WalletID) error
+
+	Approvals(ctx context.Context, p auth.Principal, id domain.WalletID) (wallets.ApprovalStatus, error)
+	SetUpApprovals(ctx context.Context, p auth.Principal, id domain.WalletID) (domain.ApprovalSetup, error)
+	StartApprovalSetup(ctx context.Context, p auth.Principal, id domain.WalletID, owner string) (wallets.ApprovalSigning, error)
+	SignApprovalSetup(ctx context.Context, p auth.Principal, id domain.WalletID, signature string) (domain.ApprovalSetup, error)
 }
 
 // WorkflowService is what the handlers need from the workflow service.
@@ -289,6 +294,10 @@ func (s *Server) routes() {
 	w.POST("/:id/session-key/signature", s.signSessionKey)
 	w.POST("/:id/session-key/revocation", s.startRevocation)
 	w.POST("/:id/session-key/revocation/signature", s.revokeSessionKey)
+	w.GET("/:id/approvals", s.approvals)
+	w.POST("/:id/approvals/setup", s.setUpApprovals)
+	w.POST("/:id/approvals/signing", s.startApprovalSetup)
+	w.POST("/:id/approvals/signature", s.signApprovalSetup)
 
 	v1.GET("/credential-types", s.requireAuth, s.listCredentialTypes)
 

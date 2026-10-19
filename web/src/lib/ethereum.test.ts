@@ -6,6 +6,7 @@ import {
   type EthereumProvider,
   findWallets,
   sameAddress,
+  signMessage,
   signTypedData,
   switchToPolygon,
   walletErrorMessage,
@@ -54,7 +55,7 @@ describe('browser wallets', () => {
   it('connects, switches to Polygon and signs', async () => {
     const request = vi.fn(async ({ method }: { method: string }) => {
       if (method === 'eth_requestAccounts') return ['0xowner']
-      if (method === 'eth_signTypedData_v4') return '0x5ign'
+      if (method === 'eth_signTypedData_v4' || method === 'personal_sign') return '0x5ign'
       return null
     })
     const p = provider(request)
@@ -62,11 +63,13 @@ describe('browser wallets', () => {
     expect(await connect(p)).toBe('0xowner')
     await switchToPolygon(p)
     expect(await signTypedData(p, '0xowner', { primaryType: 'Batch' })).toBe('0x5ign')
+    expect(await signMessage(p, '0xowner', '0xabcd')).toBe('0x5ign')
 
     expect(request.mock.calls.map(([args]) => args)).toEqual([
       { method: 'eth_requestAccounts' },
       { method: 'wallet_switchEthereumChain', params: [{ chainId: '0x89' }] },
       { method: 'eth_signTypedData_v4', params: ['0xowner', '{"primaryType":"Batch"}'] },
+      { method: 'personal_sign', params: ['0xabcd', '0xowner'] },
     ])
   })
 

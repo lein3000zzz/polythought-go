@@ -16,6 +16,7 @@ import (
 	"github.com/lein3000zzz/polythought-go/internal/core/services/customnodes"
 	"github.com/lein3000zzz/polythought-go/internal/core/services/settings"
 	"github.com/lein3000zzz/polythought-go/internal/core/services/workflows"
+	pm "github.com/lein3000zzz/polythought-go/pkg/clients/polymarket"
 )
 
 func registry(t *testing.T) *settings.Registry {
@@ -69,6 +70,7 @@ func TestSettingsDefaults(t *testing.T) {
 		config.KeyBuilderAPIKey:       "",
 		config.KeyBuilderSecret:       "",
 		config.KeyBuilderPassphrase:   "",
+		config.KeyPolygonRPC:          pm.DefaultRPCURL,
 		config.KeyTrustedProxies:      []string{},
 		config.KeyWebhookAllowPrivate: false,
 		config.KeyLogLevel:            "info",
@@ -80,9 +82,11 @@ func TestSettingsDefaults(t *testing.T) {
 		assert.Equal(t, want, spec(t, key).Default, key)
 	}
 
-	assert.Len(t, registry(t).Specs(), 32, "every setting has a default checked above")
+	assert.Len(t, registry(t).Specs(), 33, "every setting has a default checked above")
 
-	for _, key := range []string{config.KeyTelegramToken, config.KeyBuilderAPIKey, config.KeyBuilderSecret, config.KeyBuilderPassphrase} {
+	for _, key := range []string{
+		config.KeyTelegramToken, config.KeyBuilderAPIKey, config.KeyBuilderSecret, config.KeyBuilderPassphrase, config.KeyPolygonRPC,
+	} {
 		assert.True(t, spec(t, key).Secret, key)
 	}
 }
@@ -131,6 +135,8 @@ func TestSettingsValidation(t *testing.T) {
 		{config.KeyCodeTime, "10m", "must be between 100ms and 5m"},
 		{config.KeyCodeMemory, "2048", "must be between 8 and 1024"},
 		{config.KeyBuilderSecret, "not base64!", "is not base64"},
+		{config.KeyPolygonRPC, "wss://polygon.example", "is not an http or https URL"},
+		{config.KeyPolygonRPC, "polygon.drpc.org", "is not an http or https URL"},
 	}
 
 	for _, tc := range tests {

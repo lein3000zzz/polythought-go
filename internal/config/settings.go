@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"net"
+	"net/url"
 	"time"
 
 	"github.com/lein3000zzz/polythought-go/internal/core/domain"
@@ -38,6 +39,7 @@ const (
 	KeyBuilderAPIKey       = "trading.builder_api_key"
 	KeyBuilderSecret       = "trading.builder_secret"
 	KeyBuilderPassphrase   = "trading.builder_passphrase"
+	KeyPolygonRPC          = "trading.polygon_rpc"
 	KeyTrustedProxies      = "http.trusted_proxies"
 	KeyWebhookAllowPrivate = "webhook.allow_private"
 	KeyLogLevel            = "log.level"
@@ -219,6 +221,11 @@ func Settings() (*settings.Registry, error) {
 			Kind:        settings.KindString, Secret: true, Default: "",
 		},
 		settings.Spec{
+			Key: KeyPolygonRPC, Group: groupTrading, Label: "Polygon RPC",
+			Description: "The Polygon JSON-RPC endpoint the server reads approvals from before it grants any, and estimates proxy wallets' gas with: https://polygon.drpc.org, the one Polymarket's client uses, unless you set another, such as your own node or a provider's URL. Kept secret, as such URLs often hold a key.",
+			Kind:        settings.KindString, Secret: true, Default: DefaultPolygonRPC, Check: rpcURL,
+		},
+		settings.Spec{
 			Key: KeyTrustedProxies, Group: groupNetwork, Label: "Trusted proxies",
 			Description: "Address ranges (CIDR, e.g. 10.0.0.0/8) of reverse proxies allowed to report the client's address in X-Forwarded-For. Leave empty without a proxy: anyone could then pick their own address and dodge rate limits.",
 			Kind:        settings.KindList, Default: []string{}, Check: cidrs,
@@ -294,6 +301,19 @@ func between(least, most int) func(any) error {
 
 		return nil
 	}
+}
+
+// DefaultPolygonRPC is the public endpoint @polymarket/client uses.
+const DefaultPolygonRPC = "https://polygon.drpc.org"
+
+// rpcURL checks an RPC endpoint: an http or https URL with a host.
+func rpcURL(v any) error {
+	u, err := url.Parse(v.(string))
+	if err != nil || (u.Scheme != "https" && u.Scheme != "http") || u.Host == "" {
+		return errors.New("is not an http or https URL")
+	}
+
+	return nil
 }
 
 // base64Secret checks an API secret as Polymarket issues them: base64url, padded or not.

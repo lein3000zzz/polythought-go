@@ -100,6 +100,15 @@ export async function signTypedData(
   })) as string
 }
 
+/** Has the account sign a message, hex, with personal_sign. */
+export async function signMessage(
+  provider: EthereumProvider,
+  account: string,
+  message: string,
+): Promise<string> {
+  return (await provider.request({ method: 'personal_sign', params: [message, account] })) as string
+}
+
 /** Whether the user said no in their wallet (EIP-1193 code 4001). */
 export function declined(error: unknown): boolean {
   return errorCode(error) === 4001

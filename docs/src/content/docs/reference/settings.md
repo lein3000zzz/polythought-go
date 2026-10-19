@@ -317,6 +317,18 @@ The passphrase of the Builder API key.
 | Default | empty |
 | Applies | at once |
 
+### Polygon RPC
+
+The Polygon JSON-RPC endpoint the server reads approvals from before it grants any, and estimates proxy wallets' gas with: https://polygon.drpc.org, the one Polymarket's client uses, unless you set another, such as your own node or a provider's URL. Kept secret, as such URLs often hold a key.
+
+| | |
+|---|---|
+| Key | `trading.polygon_rpc` |
+| Environment variable | `POLYTHOUGHT_TRADING_POLYGON_RPC` |
+| Kind | text, secret: stored encrypted and never shown |
+| Default | `https://polygon.drpc.org` |
+| Applies | at once |
+
 ## Network
 
 ### Trusted proxies

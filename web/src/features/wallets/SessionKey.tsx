@@ -1,8 +1,8 @@
-import { CircleAlert, LoaderCircle } from 'lucide-react'
-import { useEffect, useState } from 'react'
+import { LoaderCircle } from 'lucide-react'
+import { useState } from 'react'
 import { toast } from 'sonner'
 
-import { ApiError, errorMessage, type Schemas } from '@/api/client'
+import type { Schemas } from '@/api/client'
 import {
   useRemoveSessionKey,
   useRevokeSessionKey,
@@ -10,7 +10,6 @@ import {
   useStartRevocation,
   useStartSessionKey,
 } from '@/api/wallets'
-import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import {
@@ -21,19 +20,18 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
-import { Label } from '@/components/ui/label'
-import { NativeSelect, NativeSelectOption } from '@/components/ui/native-select'
 import {
   type BrowserWallet,
   connect,
   declined,
-  findWallets,
   sameAddress,
   signTypedData,
   switchToPolygon,
-  walletErrorMessage,
 } from '@/lib/ethereum'
 import { formatDateTime, shortAddress } from '@/lib/format'
+
+import { SigningProgress } from './signing'
+import { useSigningFlow } from './useSigningFlow'
 
 type Wallet = Schemas['Wallet']
 type SessionKey = Schemas['SessionKey']
@@ -80,108 +78,6 @@ export function SessionKeyStatus({ keys }: { keys: Schemas['SessionKeys'] }) {
       )}
     </>
   )
-}
-
-/**
- * The browser wallets in the page, looked for each time open turns true; null while
- * looking. forget makes the next look start afresh.
- */
-function useBrowserWallets(open: boolean) {
-  const [wallets, setWallets] = useState<BrowserWallet[] | null>(null)
-
-  useEffect(() => {
-    if (!open) return
-
-    let live = true
-    void findWallets().then((found) => live && setWallets(found))
-
-    return () => {
-      live = false
-    }
-  }, [open])
-
-  return { wallets, forget: () => setWallets(null) }
-}
-
-/** Which browser wallet signs: a choice when there are several, a note when there is none. */
-function WalletPicker({
-  id,
-  wallets,
-  chosen,
-  onChoose,
-}: {
-  id: string
-  wallets: BrowserWallet[] | null
-  chosen: string
-  onChoose: (id: string) => void
-}) {
-  if (wallets === null) {
-    return <p className="text-sm text-muted-foreground">Looking for browser wallets…</p>
-  }
-
-  if (wallets.length === 0) {
-    return (
-      <Alert>
-        <CircleAlert />
-        <AlertDescription>
-          No browser wallet found. Install one, such as MetaMask or Rabby, with the account that
-          owns this Deposit Wallet, then open this again. Email and Google sign-ins of
-          polymarket.com cannot sign here.
-        </AlertDescription>
-      </Alert>
-    )
-  }
-
-  if (wallets.length === 1) {
-    return <p className="text-sm text-muted-foreground">Signs with {wallets[0].name}.</p>
-  }
-
-  return (
-    <div className="flex flex-col gap-2">
-      <Label htmlFor={id}>Browser wallet</Label>
-      <NativeSelect
-        id={id}
-        className="w-full"
-        value={chosen}
-        onChange={(e) => onChoose(e.target.value)}
-      >
-        {wallets.map((w) => (
-          <NativeSelectOption key={w.id} value={w.id}>
-            {w.name}
-          </NativeSelectOption>
-        ))}
-      </NativeSelect>
-    </div>
-  )
-}
-
-function FlowError({ error }: { error: unknown }) {
-  return (
-    <Alert variant="destructive">
-      <CircleAlert />
-      <AlertDescription>
-        <p>{error instanceof ApiError ? errorMessage(error) : walletErrorMessage(error)}</p>
-      </AlertDescription>
-    </Alert>
-  )
-}
-
-/** The browser wallet chosen of those found, and the error and step of what it does. */
-function useSigningFlow(open: boolean) {
-  const { wallets, forget } = useBrowserWallets(open)
-  const [chosen, setChosen] = useState('')
-  const [step, setStep] = useState<string | null>(null)
-  const [error, setError] = useState<unknown>(null)
-
-  const wallet = wallets?.find((w) => w.id === chosen) ?? wallets?.[0]
-
-  const reset = () => {
-    forget()
-    setStep(null)
-    setError(null)
-  }
-
-  return { wallets, wallet, chosen, setChosen, step, setStep, error, setError, reset }
 }
 
 /**
@@ -254,21 +150,7 @@ export function AuthoriseSessionKeyDialog({
           </DialogDescription>
         </DialogHeader>
 
-        <div className="flex flex-col gap-3">
-          {flow.error !== null && <FlowError error={flow.error} />}
-          <WalletPicker
-            id={`signing-wallet-${wallet.id}`}
-            wallets={flow.wallets}
-            chosen={flow.wallet?.id ?? ''}
-            onChoose={flow.setChosen}
-          />
-          {flow.step && (
-            <p className="flex items-center gap-2 text-sm">
-              <LoaderCircle className="size-4 animate-spin" />
-              {flow.step}
-            </p>
-          )}
-        </div>
+        <SigningProgress id={`signing-wallet-${wallet.id}`} flow={flow} />
 
         <DialogFooter>
           <Button variant="outline" onClick={close}>
@@ -387,21 +269,7 @@ export function RemoveSessionKeyDialog({
           </DialogDescription>
         </DialogHeader>
 
-        <div className="flex flex-col gap-3">
-          {flow.error !== null && <FlowError error={flow.error} />}
-          <WalletPicker
-            id={`revoking-wallet-${wallet.id}`}
-            wallets={flow.wallets}
-            chosen={flow.wallet?.id ?? ''}
-            onChoose={flow.setChosen}
-          />
-          {flow.step && (
-            <p className="flex items-center gap-2 text-sm">
-              <LoaderCircle className="size-4 animate-spin" />
-              {flow.step}
-            </p>
-          )}
-        </div>
+        <SigningProgress id={`revoking-wallet-${wallet.id}`} flow={flow} />
 
         <DialogFooter>
           <Button variant="outline" onClick={close}>

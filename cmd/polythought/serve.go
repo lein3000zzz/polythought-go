@@ -87,9 +87,9 @@ func serve(ctx context.Context) error {
 	// What nodes remember goes when it expires (D121).
 	go a.memory.SweepEvery(ctx, 10*time.Minute)
 
-	// Session keys submitted are followed until confirmed; their owners are reminded
-	// before they expire (D156).
-	go a.wallets.SessionKeysEvery(ctx, 5*time.Second, time.Hour)
+	// Session keys and approval setups submitted are followed until confirmed; session
+	// keys' owners are reminded before they expire (D156, D161).
+	go a.wallets.FollowEvery(ctx, 5*time.Second, time.Hour)
 
 	// The bot follows its settings: a change restarts it, not the server.
 	telegramDone := make(chan struct{})

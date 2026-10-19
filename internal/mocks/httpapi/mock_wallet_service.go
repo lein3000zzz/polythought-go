@@ -49,6 +49,78 @@ func (_m *MockWalletService) EXPECT() *MockWalletService_Expecter {
 	return &MockWalletService_Expecter{mock: &_m.Mock}
 }
 
+// Approvals provides a mock function for the type MockWalletService
+func (_mock *MockWalletService) Approvals(ctx context.Context, p auth.Principal, id domain.WalletID) (wallets.ApprovalStatus, error) {
+	ret := _mock.Called(ctx, p, id)
+
+	if len(ret) == 0 {
+		panic("no return value specified for Approvals")
+	}
+
+	var r0 wallets.ApprovalStatus
+	var r1 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context, auth.Principal, domain.WalletID) (wallets.ApprovalStatus, error)); ok {
+		return returnFunc(ctx, p, id)
+	}
+	if returnFunc, ok := ret.Get(0).(func(context.Context, auth.Principal, domain.WalletID) wallets.ApprovalStatus); ok {
+		r0 = returnFunc(ctx, p, id)
+	} else {
+		r0 = ret.Get(0).(wallets.ApprovalStatus)
+	}
+	if returnFunc, ok := ret.Get(1).(func(context.Context, auth.Principal, domain.WalletID) error); ok {
+		r1 = returnFunc(ctx, p, id)
+	} else {
+		r1 = ret.Error(1)
+	}
+	return r0, r1
+}
+
+// MockWalletService_Approvals_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'Approvals'
+type MockWalletService_Approvals_Call struct {
+	*mock.Call
+}
+
+// Approvals is a helper method to define mock.On call
+//   - ctx context.Context
+//   - p auth.Principal
+//   - id domain.WalletID
+func (_e *MockWalletService_Expecter) Approvals(ctx any, p any, id any) *MockWalletService_Approvals_Call {
+	return &MockWalletService_Approvals_Call{Call: _e.mock.On("Approvals", ctx, p, id)}
+}
+
+func (_c *MockWalletService_Approvals_Call) Run(run func(ctx context.Context, p auth.Principal, id domain.WalletID)) *MockWalletService_Approvals_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		var arg1 auth.Principal
+		if args[1] != nil {
+			arg1 = args[1].(auth.Principal)
+		}
+		var arg2 domain.WalletID
+		if args[2] != nil {
+			arg2 = args[2].(domain.WalletID)
+		}
+		run(
+			arg0,
+			arg1,
+			arg2,
+		)
+	})
+	return _c
+}
+
+func (_c *MockWalletService_Approvals_Call) Return(approvalStatus wallets.ApprovalStatus, err error) *MockWalletService_Approvals_Call {
+	_c.Call.Return(approvalStatus, err)
+	return _c
+}
+
+func (_c *MockWalletService_Approvals_Call) RunAndReturn(run func(ctx context.Context, p auth.Principal, id domain.WalletID) (wallets.ApprovalStatus, error)) *MockWalletService_Approvals_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // CredentialsInfo provides a mock function for the type MockWalletService
 func (_mock *MockWalletService) CredentialsInfo(ctx context.Context, p auth.Principal, id domain.WalletID) (domain.CredentialsInfo, error) {
 	ret := _mock.Called(ctx, p, id)
@@ -335,8 +407,8 @@ func (_c *MockWalletService_List_Call) Run(run func(ctx context.Context, p auth.
 	return _c
 }
 
-func (_c *MockWalletService_List_Call) Return(wallets []domain.Wallet, err error) *MockWalletService_List_Call {
-	_c.Call.Return(wallets, err)
+func (_c *MockWalletService_List_Call) Return(wallets1 []domain.Wallet, err error) *MockWalletService_List_Call {
+	_c.Call.Return(wallets1, err)
 	return _c
 }
 
@@ -699,6 +771,156 @@ func (_c *MockWalletService_SetCredentials_Call) RunAndReturn(run func(ctx conte
 	return _c
 }
 
+// SetUpApprovals provides a mock function for the type MockWalletService
+func (_mock *MockWalletService) SetUpApprovals(ctx context.Context, p auth.Principal, id domain.WalletID) (domain.ApprovalSetup, error) {
+	ret := _mock.Called(ctx, p, id)
+
+	if len(ret) == 0 {
+		panic("no return value specified for SetUpApprovals")
+	}
+
+	var r0 domain.ApprovalSetup
+	var r1 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context, auth.Principal, domain.WalletID) (domain.ApprovalSetup, error)); ok {
+		return returnFunc(ctx, p, id)
+	}
+	if returnFunc, ok := ret.Get(0).(func(context.Context, auth.Principal, domain.WalletID) domain.ApprovalSetup); ok {
+		r0 = returnFunc(ctx, p, id)
+	} else {
+		r0 = ret.Get(0).(domain.ApprovalSetup)
+	}
+	if returnFunc, ok := ret.Get(1).(func(context.Context, auth.Principal, domain.WalletID) error); ok {
+		r1 = returnFunc(ctx, p, id)
+	} else {
+		r1 = ret.Error(1)
+	}
+	return r0, r1
+}
+
+// MockWalletService_SetUpApprovals_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'SetUpApprovals'
+type MockWalletService_SetUpApprovals_Call struct {
+	*mock.Call
+}
+
+// SetUpApprovals is a helper method to define mock.On call
+//   - ctx context.Context
+//   - p auth.Principal
+//   - id domain.WalletID
+func (_e *MockWalletService_Expecter) SetUpApprovals(ctx any, p any, id any) *MockWalletService_SetUpApprovals_Call {
+	return &MockWalletService_SetUpApprovals_Call{Call: _e.mock.On("SetUpApprovals", ctx, p, id)}
+}
+
+func (_c *MockWalletService_SetUpApprovals_Call) Run(run func(ctx context.Context, p auth.Principal, id domain.WalletID)) *MockWalletService_SetUpApprovals_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		var arg1 auth.Principal
+		if args[1] != nil {
+			arg1 = args[1].(auth.Principal)
+		}
+		var arg2 domain.WalletID
+		if args[2] != nil {
+			arg2 = args[2].(domain.WalletID)
+		}
+		run(
+			arg0,
+			arg1,
+			arg2,
+		)
+	})
+	return _c
+}
+
+func (_c *MockWalletService_SetUpApprovals_Call) Return(approvalSetup domain.ApprovalSetup, err error) *MockWalletService_SetUpApprovals_Call {
+	_c.Call.Return(approvalSetup, err)
+	return _c
+}
+
+func (_c *MockWalletService_SetUpApprovals_Call) RunAndReturn(run func(ctx context.Context, p auth.Principal, id domain.WalletID) (domain.ApprovalSetup, error)) *MockWalletService_SetUpApprovals_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// SignApprovalSetup provides a mock function for the type MockWalletService
+func (_mock *MockWalletService) SignApprovalSetup(ctx context.Context, p auth.Principal, id domain.WalletID, signature string) (domain.ApprovalSetup, error) {
+	ret := _mock.Called(ctx, p, id, signature)
+
+	if len(ret) == 0 {
+		panic("no return value specified for SignApprovalSetup")
+	}
+
+	var r0 domain.ApprovalSetup
+	var r1 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context, auth.Principal, domain.WalletID, string) (domain.ApprovalSetup, error)); ok {
+		return returnFunc(ctx, p, id, signature)
+	}
+	if returnFunc, ok := ret.Get(0).(func(context.Context, auth.Principal, domain.WalletID, string) domain.ApprovalSetup); ok {
+		r0 = returnFunc(ctx, p, id, signature)
+	} else {
+		r0 = ret.Get(0).(domain.ApprovalSetup)
+	}
+	if returnFunc, ok := ret.Get(1).(func(context.Context, auth.Principal, domain.WalletID, string) error); ok {
+		r1 = returnFunc(ctx, p, id, signature)
+	} else {
+		r1 = ret.Error(1)
+	}
+	return r0, r1
+}
+
+// MockWalletService_SignApprovalSetup_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'SignApprovalSetup'
+type MockWalletService_SignApprovalSetup_Call struct {
+	*mock.Call
+}
+
+// SignApprovalSetup is a helper method to define mock.On call
+//   - ctx context.Context
+//   - p auth.Principal
+//   - id domain.WalletID
+//   - signature string
+func (_e *MockWalletService_Expecter) SignApprovalSetup(ctx any, p any, id any, signature any) *MockWalletService_SignApprovalSetup_Call {
+	return &MockWalletService_SignApprovalSetup_Call{Call: _e.mock.On("SignApprovalSetup", ctx, p, id, signature)}
+}
+
+func (_c *MockWalletService_SignApprovalSetup_Call) Run(run func(ctx context.Context, p auth.Principal, id domain.WalletID, signature string)) *MockWalletService_SignApprovalSetup_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		var arg1 auth.Principal
+		if args[1] != nil {
+			arg1 = args[1].(auth.Principal)
+		}
+		var arg2 domain.WalletID
+		if args[2] != nil {
+			arg2 = args[2].(domain.WalletID)
+		}
+		var arg3 string
+		if args[3] != nil {
+			arg3 = args[3].(string)
+		}
+		run(
+			arg0,
+			arg1,
+			arg2,
+			arg3,
+		)
+	})
+	return _c
+}
+
+func (_c *MockWalletService_SignApprovalSetup_Call) Return(approvalSetup domain.ApprovalSetup, err error) *MockWalletService_SignApprovalSetup_Call {
+	_c.Call.Return(approvalSetup, err)
+	return _c
+}
+
+func (_c *MockWalletService_SignApprovalSetup_Call) RunAndReturn(run func(ctx context.Context, p auth.Principal, id domain.WalletID, signature string) (domain.ApprovalSetup, error)) *MockWalletService_SignApprovalSetup_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // SignSessionKey provides a mock function for the type MockWalletService
 func (_mock *MockWalletService) SignSessionKey(ctx context.Context, p auth.Principal, id domain.WalletID, signature string) (domain.SessionKey, error) {
 	ret := _mock.Called(ctx, p, id, signature)
@@ -773,6 +995,84 @@ func (_c *MockWalletService_SignSessionKey_Call) Return(sessionKey domain.Sessio
 }
 
 func (_c *MockWalletService_SignSessionKey_Call) RunAndReturn(run func(ctx context.Context, p auth.Principal, id domain.WalletID, signature string) (domain.SessionKey, error)) *MockWalletService_SignSessionKey_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// StartApprovalSetup provides a mock function for the type MockWalletService
+func (_mock *MockWalletService) StartApprovalSetup(ctx context.Context, p auth.Principal, id domain.WalletID, owner string) (wallets.ApprovalSigning, error) {
+	ret := _mock.Called(ctx, p, id, owner)
+
+	if len(ret) == 0 {
+		panic("no return value specified for StartApprovalSetup")
+	}
+
+	var r0 wallets.ApprovalSigning
+	var r1 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context, auth.Principal, domain.WalletID, string) (wallets.ApprovalSigning, error)); ok {
+		return returnFunc(ctx, p, id, owner)
+	}
+	if returnFunc, ok := ret.Get(0).(func(context.Context, auth.Principal, domain.WalletID, string) wallets.ApprovalSigning); ok {
+		r0 = returnFunc(ctx, p, id, owner)
+	} else {
+		r0 = ret.Get(0).(wallets.ApprovalSigning)
+	}
+	if returnFunc, ok := ret.Get(1).(func(context.Context, auth.Principal, domain.WalletID, string) error); ok {
+		r1 = returnFunc(ctx, p, id, owner)
+	} else {
+		r1 = ret.Error(1)
+	}
+	return r0, r1
+}
+
+// MockWalletService_StartApprovalSetup_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'StartApprovalSetup'
+type MockWalletService_StartApprovalSetup_Call struct {
+	*mock.Call
+}
+
+// StartApprovalSetup is a helper method to define mock.On call
+//   - ctx context.Context
+//   - p auth.Principal
+//   - id domain.WalletID
+//   - owner string
+func (_e *MockWalletService_Expecter) StartApprovalSetup(ctx any, p any, id any, owner any) *MockWalletService_StartApprovalSetup_Call {
+	return &MockWalletService_StartApprovalSetup_Call{Call: _e.mock.On("StartApprovalSetup", ctx, p, id, owner)}
+}
+
+func (_c *MockWalletService_StartApprovalSetup_Call) Run(run func(ctx context.Context, p auth.Principal, id domain.WalletID, owner string)) *MockWalletService_StartApprovalSetup_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		var arg1 auth.Principal
+		if args[1] != nil {
+			arg1 = args[1].(auth.Principal)
+		}
+		var arg2 domain.WalletID
+		if args[2] != nil {
+			arg2 = args[2].(domain.WalletID)
+		}
+		var arg3 string
+		if args[3] != nil {
+			arg3 = args[3].(string)
+		}
+		run(
+			arg0,
+			arg1,
+			arg2,
+			arg3,
+		)
+	})
+	return _c
+}
+
+func (_c *MockWalletService_StartApprovalSetup_Call) Return(approvalSigning wallets.ApprovalSigning, err error) *MockWalletService_StartApprovalSetup_Call {
+	_c.Call.Return(approvalSigning, err)
+	return _c
+}
+
+func (_c *MockWalletService_StartApprovalSetup_Call) RunAndReturn(run func(ctx context.Context, p auth.Principal, id domain.WalletID, owner string) (wallets.ApprovalSigning, error)) *MockWalletService_StartApprovalSetup_Call {
 	_c.Call.Return(run)
 	return _c
 }

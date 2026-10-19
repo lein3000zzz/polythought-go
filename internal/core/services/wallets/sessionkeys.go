@@ -428,15 +428,15 @@ func (s *Service) RemindSessionKeys(ctx context.Context) {
 	}
 }
 
-// SessionKeysEvery follows submitted session keys every confirm, and reminds of expiring
-// ones every remind, until ctx is done.
-func (s *Service) SessionKeysEvery(ctx context.Context, confirm, remind time.Duration) {
-	if s.sessionKeys == nil {
+// FollowEvery follows what was submitted to the Relayer, session keys and approval setups,
+// every follow, and reminds of expiring session keys every remind, until ctx is done.
+func (s *Service) FollowEvery(ctx context.Context, follow, remind time.Duration) {
+	if s.sessionKeys == nil && s.setups == nil {
 		return
 	}
 
-	c, r := time.NewTicker(confirm), time.NewTicker(remind)
-	defer c.Stop()
+	f, r := time.NewTicker(follow), time.NewTicker(remind)
+	defer f.Stop()
 	defer r.Stop()
 
 	s.RemindSessionKeys(ctx)
@@ -445,8 +445,9 @@ func (s *Service) SessionKeysEvery(ctx context.Context, confirm, remind time.Dur
 		select {
 		case <-ctx.Done():
 			return
-		case <-c.C:
+		case <-f.C:
 			s.ConfirmSessionKeys(ctx)
+			s.ConfirmApprovalSetups(ctx)
 		case <-r.C:
 			s.RemindSessionKeys(ctx)
 		}

@@ -206,3 +206,62 @@ export function useRemoveSessionKey(walletId: string) {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: keys.wallets }),
   })
 }
+
+/**
+ * A wallet's trading approvals (D160): those Polymarket's index shows missing, and the
+ * last setup. Read again every few seconds while a setup is on its way, and now and then
+ * after it, until the index shows it.
+ */
+export function useApprovals(walletId: string) {
+  return useQuery({
+    queryKey: keys.approvals(walletId),
+    queryFn: () => call(api.GET('/wallets/{id}/approvals', { params: { path: { id: walletId } } })),
+    refetchInterval: (query) => {
+      const data = query.state.data
+      if (data?.setup?.state === 'submitted') return 4000
+      if (data?.setup?.state === 'done' && !data.ready) return 15000
+
+      return false
+    },
+  })
+}
+
+/** Grants the wallet's missing approvals, signed by the server with its imported key. */
+export function useSetUpApprovals(walletId: string) {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: () =>
+      call(api.POST('/wallets/{id}/approvals/setup', { params: { path: { id: walletId } } })),
+    onSettled: () => queryClient.invalidateQueries({ queryKey: keys.approvals(walletId) }),
+  })
+}
+
+/** Gives what owner's browser wallet signs to grant the wallet's missing approvals. */
+export function useStartApprovalSetup(walletId: string) {
+  return useMutation({
+    mutationFn: (owner: string) =>
+      call(
+        api.POST('/wallets/{id}/approvals/signing', {
+          params: { path: { id: walletId } },
+          body: { owner },
+        }),
+      ),
+  })
+}
+
+/** Submits the owner's signature granting the approvals. */
+export function useSignApprovalSetup(walletId: string) {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: (signature: string) =>
+      call(
+        api.POST('/wallets/{id}/approvals/signature', {
+          params: { path: { id: walletId } },
+          body: { signature },
+        }),
+      ),
+    onSettled: () => queryClient.invalidateQueries({ queryKey: keys.approvals(walletId) }),
+  })
+}

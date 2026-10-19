@@ -182,6 +182,13 @@ trading:
   # Environment: POLYTHOUGHT_TRADING_BUILDER_PASSPHRASE.
   # builder_passphrase: ""
 
+  # The Polygon JSON-RPC endpoint the server reads approvals from before it grants any,
+  # and estimates proxy wallets' gas with: https://polygon.drpc.org, the one
+  # Polymarket's client uses, unless you set another, such as your own node or a
+  # provider's URL. Kept secret, as such URLs often hold a key.
+  # Environment: POLYTHOUGHT_TRADING_POLYGON_RPC.
+  # polygon_rpc: "https://polygon.drpc.org"
+
 webhook:
 
   # Let workflows post to addresses inside the server's network, such as a service on

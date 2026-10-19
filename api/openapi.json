@@ -92,6 +92,149 @@
                 ],
                 "type": "object"
             },
+            "Approval": {
+                "properties": {
+                    "name": {
+                        "description": "Name is what it is for people, like \"pUSD to the CTF Exchange\".",
+                        "type": "string"
+                    },
+                    "spender": {
+                        "type": "string"
+                    },
+                    "standard": {
+                        "enum": [
+                            "ERC20",
+                            "ERC1155"
+                        ],
+                        "type": "string"
+                    },
+                    "token": {
+                        "type": "string"
+                    }
+                },
+                "required": [
+                    "name",
+                    "spender",
+                    "standard",
+                    "token"
+                ],
+                "type": "object"
+            },
+            "ApprovalSetup": {
+                "properties": {
+                    "createdAt": {
+                        "format": "date-time",
+                        "type": "string"
+                    },
+                    "error": {
+                        "type": "string"
+                    },
+                    "granting": {
+                        "description": "Granting is how many approvals it grants; none when none were missing.",
+                        "type": "integer"
+                    },
+                    "kind": {
+                        "description": "Kind is the wallet's: 1 a proxy wallet, 2 a Safe, 3 a Deposit Wallet.",
+                        "enum": [
+                            1,
+                            2,
+                            3
+                        ],
+                        "type": "integer"
+                    },
+                    "owner": {
+                        "description": "Owner signed, or signs, for the wallet.",
+                        "type": "string"
+                    },
+                    "state": {
+                        "description": "State: signing waits for the owner's signature, submitted for the chain; a failed one\nsays why in error.",
+                        "enum": [
+                            "signing",
+                            "submitted",
+                            "done",
+                            "failed"
+                        ],
+                        "type": "string"
+                    },
+                    "updatedAt": {
+                        "format": "date-time",
+                        "type": "string"
+                    }
+                },
+                "required": [
+                    "createdAt",
+                    "granting",
+                    "kind",
+                    "owner",
+                    "state",
+                    "updatedAt"
+                ],
+                "type": "object"
+            },
+            "ApprovalSigning": {
+                "properties": {
+                    "message": {
+                        "description": "Message is what a Safe's owner signs, hex, with personal_sign.",
+                        "type": "string"
+                    },
+                    "setup": {
+                        "$ref": "#/components/schemas/ApprovalSetup"
+                    },
+                    "typedData": {
+                        "additionalProperties": {},
+                        "description": "TypedData is what a Deposit Wallet's owner signs, with eth_signTypedData_v4.",
+                        "type": "object"
+                    }
+                },
+                "required": [
+                    "setup"
+                ],
+                "type": "object"
+            },
+            "Approvals": {
+                "properties": {
+                    "checkedAt": {
+                        "format": "date-time",
+                        "type": "string"
+                    },
+                    "missing": {
+                        "description": "Missing are those Polymarket's index shows missing, which may be a minute behind.",
+                        "items": {
+                            "$ref": "#/components/schemas/Approval"
+                        },
+                        "type": "array",
+                        "uniqueItems": false
+                    },
+                    "ready": {
+                        "description": "Ready says no trading approval is missing (D160).",
+                        "type": "boolean"
+                    },
+                    "setup": {
+                        "$ref": "#/components/schemas/ApprovalSetup",
+                        "description": "Setup is the last setting up of them here."
+                    },
+                    "way": {
+                        "description": "Way is how they can be set up here: with the imported key, in the owner's browser\nwallet, or not at all (no Builder key; an EOA, or a proxy wallet without a key).",
+                        "enum": [
+                            "key",
+                            "browser",
+                            "none"
+                        ],
+                        "type": "string"
+                    },
+                    "why": {
+                        "description": "Why says why not, when Way is none.",
+                        "type": "string"
+                    }
+                },
+                "required": [
+                    "checkedAt",
+                    "missing",
+                    "ready",
+                    "way"
+                ],
+                "type": "object"
+            },
             "AuthConfig": {
                 "properties": {
                     "minPasswordLength": {
@@ -1991,6 +2134,18 @@
                 },
                 "required": [
                     "signature"
+                ],
+                "type": "object"
+            },
+            "StartApprovalSetupRequest": {
+                "properties": {
+                    "owner": {
+                        "description": "Owner is the browser wallet's account, which must control the wallet.",
+                        "type": "string"
+                    }
+                },
+                "required": [
+                    "owner"
                 ],
                 "type": "object"
             },
@@ -5410,6 +5565,383 @@
                     }
                 ],
                 "summary": "Unlink a wallet",
+                "tags": [
+                    "wallets"
+                ]
+            }
+        },
+        "/wallets/{id}/approvals": {
+            "get": {
+                "operationId": "getApprovals",
+                "parameters": [
+                    {
+                        "description": "Wallet ID",
+                        "in": "path",
+                        "name": "id",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Approvals"
+                                }
+                            }
+                        },
+                        "description": "OK"
+                    },
+                    "401": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "unauthenticated"
+                    },
+                    "404": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "not_found"
+                    },
+                    "503": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "upstream_unavailable: Polymarket could not be reached"
+                    }
+                },
+                "security": [
+                    {
+                        "SessionCookie": []
+                    },
+                    {
+                        "APIToken": []
+                    }
+                ],
+                "summary": "Show a wallet's trading approvals",
+                "tags": [
+                    "wallets"
+                ]
+            }
+        },
+        "/wallets/{id}/approvals/setup": {
+            "post": {
+                "operationId": "setUpApprovals",
+                "parameters": [
+                    {
+                        "description": "Wallet ID",
+                        "in": "path",
+                        "name": "id",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApprovalSetup"
+                                }
+                            }
+                        },
+                        "description": "OK"
+                    },
+                    "400": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "eoa_approvals, not_deployed or relayer_refused"
+                    },
+                    "401": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "unauthenticated"
+                    },
+                    "403": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "builder_key_missing, or forbidden with an API token"
+                    },
+                    "404": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "not_found: no such wallet, or no imported key"
+                    },
+                    "409": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "setup_pending"
+                    },
+                    "503": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "upstream_unavailable: Polymarket or the RPC could not be reached"
+                    }
+                },
+                "security": [
+                    {
+                        "SessionCookie": []
+                    }
+                ],
+                "summary": "Set up approvals with the imported key",
+                "tags": [
+                    "wallets"
+                ]
+            }
+        },
+        "/wallets/{id}/approvals/signature": {
+            "post": {
+                "operationId": "signApprovalSetup",
+                "parameters": [
+                    {
+                        "description": "Wallet ID",
+                        "in": "path",
+                        "name": "id",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/SignatureRequest",
+                                "summary": "body",
+                                "description": "The owner's signature"
+                            }
+                        }
+                    },
+                    "description": "The owner's signature",
+                    "required": true
+                },
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApprovalSetup"
+                                }
+                            }
+                        },
+                        "description": "OK"
+                    },
+                    "400": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "invalid_input, wrong_signer, signature_expired or relayer_refused"
+                    },
+                    "401": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "unauthenticated"
+                    },
+                    "403": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "builder_key_missing, or forbidden with an API token"
+                    },
+                    "404": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "not_found: no such wallet, or no setup waits for a signature"
+                    },
+                    "503": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "upstream_unavailable: send the signature again"
+                    }
+                },
+                "security": [
+                    {
+                        "SessionCookie": []
+                    }
+                ],
+                "summary": "Set up approvals with the owner's signature",
+                "tags": [
+                    "wallets"
+                ]
+            }
+        },
+        "/wallets/{id}/approvals/signing": {
+            "post": {
+                "operationId": "startApprovalSetup",
+                "parameters": [
+                    {
+                        "description": "Wallet ID",
+                        "in": "path",
+                        "name": "id",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/StartApprovalSetupRequest",
+                                "summary": "body",
+                                "description": "The owner"
+                            }
+                        }
+                    },
+                    "description": "The owner",
+                    "required": true
+                },
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApprovalSigning"
+                                }
+                            }
+                        },
+                        "description": "OK"
+                    },
+                    "400": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "invalid_address, not_owner, eoa_approvals, needs_imported_key or not_deployed"
+                    },
+                    "401": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "unauthenticated"
+                    },
+                    "403": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "builder_key_missing, or forbidden with an API token"
+                    },
+                    "404": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "not_found"
+                    },
+                    "409": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "setup_pending"
+                    },
+                    "503": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "upstream_unavailable: Polymarket or the RPC could not be reached"
+                    }
+                },
+                "security": [
+                    {
+                        "SessionCookie": []
+                    }
+                ],
+                "summary": "Start setting up approvals in the browser",
                 "tags": [
                     "wallets"
                 ]

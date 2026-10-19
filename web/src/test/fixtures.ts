@@ -119,3 +119,8 @@ export function branching(overrides: Partial<Schemas['Workflow']> = {}): Schemas
     ...overrides,
   })
 }
+
+/** A wallet's trading approvals, all granted: for tests about something else. */
+export const approvalsGranted = http.get('/api/v1/wallets/:id/approvals', () =>
+  HttpResponse.json({ ready: true, missing: [], checkedAt: '2026-10-19T12:00:00Z', way: 'none' }),
+)

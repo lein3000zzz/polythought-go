@@ -199,12 +199,12 @@ func TestRelayerRequests(t *testing.T) {
 		Signature: "0xsig", IdempotencyKey: "retry-1",
 	}
 
-	t.Run("nonce", func(t *testing.T) {
-		base, seen := l2Server(t, []int{http.StatusOK}, `{"address":"0xowner","nonce":"7"}`)
+	t.Run("execute params", func(t *testing.T) {
+		base, seen := l2Server(t, []int{http.StatusOK}, `{"address":"0xrelay","nonce":"7"}`)
 
-		got, err := newRelayerClient(t, base).Nonce(t.Context(), testBuilder, "0xOwner")
+		got, err := newRelayerClient(t, base).ExecuteParams(t.Context(), testBuilder, "0xOwner", RelayerDepositWallet)
 		require.NoError(t, err)
-		assert.Equal(t, "7", got)
+		assert.Equal(t, ExecuteParams{Address: "0xrelay", Nonce: "7"}, got)
 
 		r := seen()[0]
 		assert.Equal(t, "GET /v1/account/transactions/params", r.method+" "+r.path)

@@ -24,6 +24,7 @@ const (
 	opOpenInterest = "open_interest"
 	opPriceHistory = "price_history"
 	opValue        = "value"
+	opApprovals    = "approvals"
 )
 
 // DefaultDataClient targets Data API v2 only; v1 is retired on 2026-10-24.
@@ -265,5 +266,23 @@ func (c *DefaultDataClient) Value(ctx context.Context, user string) (_ decimal.D
 		}
 
 		return resp.Data.Value, nil
+	})
+}
+
+// Approvals is GET /v2/approvals: what the Data API has indexed of a wallet's approvals,
+// recent changes perhaps not yet (D163).
+func (c *DefaultDataClient) Approvals(ctx context.Context, user string) (_ ApprovalsSnapshot, err error) {
+	done := c.kit.Start(ctx, opApprovals)
+	defer func() { done(succeeded(err)) }()
+
+	return tracing.InScope(ctx, c.scope, opApprovals, func(ctx context.Context, span trace.Span) (ApprovalsSnapshot, error) {
+		span.SetAttributes(attribute.String(attrUser, user))
+
+		var resp dataEnvelope[ApprovalsSnapshot]
+		if err := c.core.get(ctx, "/v2/approvals", url.Values{"user": {user}}, &resp); err != nil {
+			return ApprovalsSnapshot{}, failed(ctx, c.log, opApprovals, err)
+		}
+
+		return resp.Data, nil
 	})
 }

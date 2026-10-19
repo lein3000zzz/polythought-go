@@ -56,6 +56,8 @@ type DataClient interface {
 	PriceHistory(ctx context.Context, q PriceHistoryQuery) (Page[PricePoint], error)
 	// Value is what a wallet's positions are worth now, its cash aside.
 	Value(ctx context.Context, user string) (decimal.Decimal, error)
+	// Approvals is what is indexed of a wallet's approvals: all of Polymarket's catalog.
+	Approvals(ctx context.Context, user string) (ApprovalsSnapshot, error)
 }
 
 // MarketStreamClient streams the public CLOB market channel.

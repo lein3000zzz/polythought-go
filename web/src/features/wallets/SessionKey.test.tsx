@@ -2,10 +2,11 @@ import '@/test/browser'
 
 import { screen, waitFor, within } from '@testing-library/react'
 import { http, HttpResponse } from 'msw'
-import { afterEach, describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vitest'
 
 import type { Schemas } from '@/api/client'
-import { apiError, signedIn } from '@/test/fixtures'
+import { browserWallet, declined } from '@/test/ethereum'
+import { apiError, approvalsGranted, signedIn } from '@/test/fixtures'
 import { renderApp } from '@/test/render'
 import { server } from '@/test/server'
 
@@ -34,46 +35,6 @@ const sessionKey = (overrides: Partial<Schemas['SessionKey']> = {}): Schemas['Se
   ...overrides,
 })
 
-type Call = { method: string; params?: unknown[] }
-
-/** A browser wallet announcing itself (EIP-6963), on account, answering as told. */
-function browserWallet(account: string, answers: Record<string, () => unknown> = {}) {
-  const calls: Call[] = []
-  const provider = {
-    request: async ({ method, params }: Call) => {
-      calls.push({ method, params })
-      if (answers[method]) return answers[method]()
-      if (method === 'eth_requestAccounts') return [account]
-      if (method === 'eth_signTypedData_v4') return '0x5ign'
-      return null
-    },
-  }
-
-  const announce = () =>
-    window.dispatchEvent(
-      new CustomEvent('eip6963:announceProvider', {
-        detail: {
-          info: { uuid: 'fake', name: 'Fake Wallet', icon: '', rdns: 'test.fake' },
-          provider,
-        },
-      }),
-    )
-  window.addEventListener('eip6963:requestProvider', announce)
-  cleanups.push(() => window.removeEventListener('eip6963:requestProvider', announce))
-
-  return calls
-}
-
-const cleanups: (() => void)[] = []
-
-afterEach(() => {
-  cleanups.splice(0).forEach((f) => f())
-})
-
-const declined = () => {
-  throw { code: 4001, message: 'User rejected the request.' }
-}
-
 describe('session keys', () => {
   it('are authorised with the owner’s browser wallet', async () => {
     let keys: Schemas['SessionKeys'] = {}
@@ -82,6 +43,7 @@ describe('session keys', () => {
 
     server.use(
       signedIn,
+      approvalsGranted,
       http.get('/api/v1/wallets', () =>
         HttpResponse.json({ wallets: [wallet()], takesSessionKeys: true }),
       ),
@@ -122,6 +84,7 @@ describe('session keys', () => {
   it('need a browser wallet', async () => {
     server.use(
       signedIn,
+      approvalsGranted,
       http.get('/api/v1/wallets', () =>
         HttpResponse.json({ wallets: [wallet()], takesSessionKeys: true }),
       ),
@@ -140,6 +103,7 @@ describe('session keys', () => {
 
     server.use(
       signedIn,
+      approvalsGranted,
       http.get('/api/v1/wallets', () =>
         HttpResponse.json({ wallets: [wallet()], takesSessionKeys: true }),
       ),
@@ -169,6 +133,7 @@ describe('session keys', () => {
   it('trade for the wallet, and only removing them ends that', async () => {
     server.use(
       signedIn,
+      approvalsGranted,
       http.get('/api/v1/wallets', () =>
         HttpResponse.json({
           wallets: [wallet({ hasCredentials: true, hasKey: true, hasSessionKey: true })],
@@ -220,6 +185,8 @@ describe('session keys', () => {
 
       server.use(
         signedIn,
+        approvalsGranted,
+        approvalsGranted,
         http.get('/api/v1/wallets', () =>
           HttpResponse.json({
             wallets: [

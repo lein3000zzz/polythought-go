@@ -5,7 +5,7 @@ import { http, HttpResponse } from 'msw'
 import { describe, expect, it } from 'vitest'
 
 import type { Schemas } from '@/api/client'
-import { apiError, signedIn } from '@/test/fixtures'
+import { apiError, approvalsGranted, signedIn } from '@/test/fixtures'
 import { renderApp } from '@/test/render'
 import { server } from '@/test/server'
 
@@ -39,6 +39,7 @@ describe('wallets page', () => {
 
     server.use(
       signedIn,
+      approvalsGranted,
       http.get('/api/v1/wallets', () => HttpResponse.json({ wallets })),
       http.post('/api/v1/wallets', async ({ request }) => {
         linked = await request.json()
@@ -64,6 +65,7 @@ describe('wallets page', () => {
 
     server.use(
       signedIn,
+      approvalsGranted,
       http.get('/api/v1/wallets', () =>
         HttpResponse.json({ wallets: [wallet({ hasCredentials: attempts > 1 })] }),
       ),
@@ -109,6 +111,7 @@ describe('wallets page', () => {
 
     server.use(
       signedIn,
+      approvalsGranted,
       http.get('/api/v1/wallets', () =>
         HttpResponse.json({
           wallets: [wallet({ hasCredentials: imported, hasKey: imported })],
@@ -154,6 +157,7 @@ describe('wallets page', () => {
   it('offers no key import while the instance takes none', async () => {
     server.use(
       signedIn,
+      approvalsGranted,
       http.get('/api/v1/wallets', () =>
         HttpResponse.json({ wallets: [wallet()], takesKeys: false }),
       ),
@@ -169,6 +173,7 @@ describe('wallets page', () => {
 
     server.use(
       signedIn,
+      approvalsGranted,
       http.get('/api/v1/wallets', () => HttpResponse.json({ wallets: unlinked ? [] : [wallet()] })),
       http.delete('/api/v1/wallets/w-1', () => {
         unlinked = true

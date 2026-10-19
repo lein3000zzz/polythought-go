@@ -48,7 +48,7 @@ test('a private key is refused when it does not control the wallet, and only whi
   }
 })
 
-test('session keys are offered once a Builder key is in, and need a browser wallet', async ({
+test('session keys and approvals are offered once a Builder key is in, and need a browser wallet', async ({
   page,
 }) => {
   const label = unique('session')
@@ -60,9 +60,15 @@ test('session keys are offered once a Builder key is in, and need a browser wall
   await page.goto('/wallets')
   const card = page.locator('[data-slot="card"]').filter({ hasText: label })
 
-  // Without a Builder key, none are offered (D156).
+  // Without a Builder key, none are offered (D156); a fresh address has none of the trading
+  // approvals, as Polymarket's index says, and they cannot be granted here (D161).
   await expect(card.getByRole('button', { name: 'Add credentials' })).toBeVisible()
   await expect(card.getByRole('button', { name: 'Authorise a session key' })).toHaveCount(0)
+  await expect(card.getByText('17 approvals missing')).toBeVisible()
+  await expect(
+    card.getByText('This needs a Builder key, which an admin has not entered.'),
+  ).toBeVisible()
+  await expect(card.getByRole('button', { name: 'Grant approvals' })).toHaveCount(0)
 
   const builder = (on: boolean) =>
     page.request.patch('/api/v1/admin/settings', {
@@ -84,6 +90,12 @@ test('session keys are offered once a Builder key is in, and need a browser wall
 
     // The test browser has no wallet: nothing is asked of the server, nor of Polymarket.
     const dialog = page.getByRole('dialog')
+    await expect(dialog.getByText(/No browser wallet found/)).toBeVisible()
+    await expect(dialog.getByRole('button', { name: 'Connect and sign' })).toBeDisabled()
+    await dialog.getByRole('button', { name: 'Cancel' }).click()
+
+    // So with approvals: granting them waits for a browser wallet too.
+    await card.getByRole('button', { name: 'Grant approvals' }).click()
     await expect(dialog.getByText(/No browser wallet found/)).toBeVisible()
     await expect(dialog.getByRole('button', { name: 'Connect and sign' })).toBeDisabled()
     await dialog.getByRole('button', { name: 'Cancel' }).click()

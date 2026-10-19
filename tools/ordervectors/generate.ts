@@ -23,7 +23,9 @@ import { computeLimitOrderAmounts, computeMarketOrderAmounts } from './actions/o
 import { toScaledPrice } from './actions/orders/fixed';
 import { isV2PositionId } from './protocol';
 import { authorizeSessionSignerCall, revokeSessionSignerCall } from './abis';
+import { prepareTradingApprovals } from './actions/approvals';
 import { buildDepositWalletExecuteRequest } from './actions/gasless';
+import { completeWith } from './workflow';
 import { createApiKeyAuthTypedDataPayload } from './authentication';
 import { buildHmacSignature } from './hmac';
 import { production } from './environments';
@@ -275,6 +277,64 @@ async function main() {
     await batch('authorise a session key', authorizeSessionSignerCall(ownerDeposit as never, session.address.toLowerCase() as never, BigInt(validUntil)), validUntil),
     await batch('revoke it', revokeSessionSignerCall(ownerDeposit as never, session.address.toLowerCase() as never)),
   ];
+
+  // Trading approvals (D160, D161): the SDK's own setup, for each smart wallet, with a stub
+  // RPC answering the approval checks and a stub Relayer taking the submission. What it
+  // checks and what it submits are recorded.
+  const relay = '0x1111111111111111111111111111111111111111';
+  const max = `0x${'f'.repeat(64)}`;
+  const zero = `0x${'0'.repeat(64)}`;
+  const one = `0x${'0'.repeat(63)}1`;
+  const signer = {
+    getAddress: async () => owner.address,
+    signTypedData: async (payload: unknown) => owner.signTypedData(payload as never),
+    signMessage: async (message: string) => owner.signMessage({ message: { raw: message as `0x${string}` } }),
+  };
+
+  // approved says which of the checks (ERC-20 allowances, then ERC-1155 approvals, in the
+  // SDK's order) come back granted.
+  async function setup(name: string, walletType: WalletType, wallet: string, approved: (i: number) => boolean) {
+    let checks: { to: string; data: string }[] = [];
+    let submitted: unknown;
+
+    const client = {
+      account: { signer: owner.address, signerType: SignerType.OWNER, wallet, walletType },
+      environment: { ...production, relayerMaxPolls: 1, relayerPollFrequencyMs: 0 },
+      supportsGasless: true,
+      rpc: {
+        ethCallBatch: async (calls: { to: string; data: string }[]) => {
+          checks = calls.map(({ to, data }) => ({ to, data }));
+          return calls.map((call, i) => (approved(i) ? (call.data.startsWith('0xdd62ed3e') ? max : one) : zero));
+        },
+        ethEstimateGas: async () => 123456n,
+      },
+      relayer: {
+        get: async (path: string) =>
+          path === '/v1/account/transactions/params'
+            ? { address: relay, nonce: '7' }
+            : { state: 'STATE_CONFIRMED', transactionHash: `0x${'ab'.repeat(32)}`, transactionId: 'tx-1', errorMsg: null },
+        post: async (_path: string, options: { json: unknown }) => {
+          submitted = options.json;
+          return { state: 'STATE_NEW', transactionHash: null, transactionId: 'tx-1' };
+        },
+      },
+    };
+
+    await completeWith(signer as never)(await prepareTradingApprovals(client as never));
+
+    return { name, walletType, owner: owner.address, wallet, checks, approved: checks.map((_, i) => approved(i)), submitted: submitted ?? null };
+  }
+
+  const ownerSafe = deriveSafeWalletAddress(owner.address as never, production.walletDerivation);
+  const ownerProxy = deriveProxyWalletAddress(owner.address as never, production.walletDerivation);
+  const approvals = [
+    await setup('a Deposit Wallet, none granted', WalletType.DEPOSIT_WALLET, ownerDeposit, () => false),
+    await setup('a Deposit Wallet, some granted', WalletType.DEPOSIT_WALLET, ownerDeposit, (i) => i < 2 || i === 7),
+    await setup('a Safe, none granted', WalletType.GNOSIS_SAFE, ownerSafe, () => false),
+    await setup('a Safe, one missing', WalletType.GNOSIS_SAFE, ownerSafe, (i) => i !== 3),
+    await setup('a proxy wallet, none granted', WalletType.POLY_PROXY, ownerProxy, () => false),
+    await setup('a Deposit Wallet, all granted', WalletType.DEPOSIT_WALLET, ownerDeposit, () => true),
+  ];
   Date.now = realNow;
 
   // A Builder key's signature of a Relayer request.
@@ -301,6 +361,7 @@ async function main() {
         clobAuth,
         wallets,
         sessionBatches,
+        approvals,
         builderHmac,
       },
       null,

@@ -33,6 +33,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { NativeSelect, NativeSelectOption } from '@/components/ui/native-select'
 import { Skeleton } from '@/components/ui/skeleton'
+import { WalletApprovals } from '@/features/wallets/Approvals'
 import {
   AuthoriseSessionKeyDialog,
   RemoveSessionKeyDialog,
@@ -197,6 +198,7 @@ function WalletCard({ wallet }: { wallet: Wallet }) {
         )}
 
         {sessionKeys.data && <SessionKeyStatus keys={sessionKeys.data} />}
+        <WalletApprovals wallet={wallet} />
 
         <div className="flex flex-wrap gap-2">
           {takesSessionKeys && (

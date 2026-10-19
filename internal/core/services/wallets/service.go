@@ -37,6 +37,10 @@ type Service struct {
 	relayer     ports.SessionKeyRelayer
 	reminder    ports.SessionKeyReminder
 
+	// Optional: without them, no approvals are read or set up (D160).
+	setups    ports.ApprovalSetupRepository
+	approvals ports.TradingApprovals
+
 	log        logging.Logger
 	now        func() time.Time
 	maxWallets int

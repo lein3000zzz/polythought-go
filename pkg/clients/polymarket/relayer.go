@@ -27,13 +27,21 @@ const (
 	opAuthorize     = "authorize_session_signer"
 	opRevoke        = "revoke_session_signer"
 	opTransaction   = "transaction"
+	opSubmit        = "submit"
+	opDeployed      = "deployed"
 )
 
-// RelayerClient authorises and revokes session keys through the Relayer, with the
-// operator's Builder key (D156).
+// RelayerClient submits smart wallets' transactions through the Relayer, and authorises
+// and revokes session keys, with the operator's Builder key (D156, D161).
 type RelayerClient interface {
-	// Nonce is the nonce owner's next Deposit Wallet batch takes.
-	Nonce(ctx context.Context, auth BuilderCredentials, owner string) (string, error)
+	// ExecuteParams are what signer's next transaction of kind typ (RelayerDepositWallet,
+	// RelayerSafe or RelayerProxy) takes.
+	ExecuteParams(ctx context.Context, auth BuilderCredentials, signer, typ string) (ExecuteParams, error)
+	// Submit sends a signed gasless transaction, once: it is not retried, as it has no
+	// idempotency key.
+	Submit(ctx context.Context, auth BuilderCredentials, req SubmitRequest) (RelayerSubmission, error)
+	// Deployed says whether a smart wallet is deployed; depositWallet for a Deposit Wallet.
+	Deployed(ctx context.Context, auth BuilderCredentials, wallet string, depositWallet bool) (bool, error)
 	// AuthorizeSessionSigner submits the owner's signed batch authorising a session key.
 	AuthorizeSessionSigner(ctx context.Context, auth BuilderCredentials, req SessionSignerRequest) (RelayerOperation, error)
 	// RevokeSessionSigner submits the owner's signed batch revoking one.
@@ -55,6 +63,19 @@ type SessionSignerRequest struct {
 	Deadline              int64
 	Signature             string
 	IdempotencyKey        string
+}
+
+// ExecuteParams are a signer's next transaction's: the Relayer's address, which a proxy
+// wallet's signature covers, and the nonce.
+type ExecuteParams struct {
+	Address string `json:"address"`
+	Nonce   string `json:"nonce"`
+}
+
+// RelayerSubmission is the Relayer's answer to a submitted transaction.
+type RelayerSubmission struct {
+	State         string `json:"state"`
+	TransactionID string `json:"transactionID"`
 }
 
 // RelayerOperation is the Relayer's answer to a session-signer request.
@@ -93,6 +114,7 @@ var ErrRelayerRefused = errors.New("polymarket: the relayer refused it")
 
 type DefaultRelayerClient struct {
 	core  *httpCore
+	once  *httpCore // without retries, for submissions
 	kit   *redkit.Kit
 	scope tracing.Scope
 	log   logging.Logger
@@ -112,31 +134,76 @@ func NewRelayerClient(util *observability.Utility, cfg HTTPConfig) (*DefaultRela
 		return nil, fmt.Errorf("polymarket: register relayer metrics: %w", err)
 	}
 
+	once := cfg
+	once.MaxRetries = -1
+
 	return &DefaultRelayerClient{
 		core:  newHTTPCore(log, cfg.withDefaults(DefaultRelayerURL, defaultRelayerRPS)),
+		once:  newHTTPCore(log, once.withDefaults(DefaultRelayerURL, defaultRelayerRPS)),
 		kit:   kit,
 		scope: tracing.Scope{Manager: util.TracerManager, TracerName: tracerName},
 		log:   log,
 	}, nil
 }
 
-func (c *DefaultRelayerClient) Nonce(ctx context.Context, auth BuilderCredentials, owner string) (_ string, err error) {
+func (c *DefaultRelayerClient) ExecuteParams(ctx context.Context, auth BuilderCredentials, signer, typ string) (_ ExecuteParams, err error) {
 	done := c.kit.Start(ctx, opExecuteParams)
 	defer func() { done(succeeded(err)) }()
 
-	return tracing.InScope(ctx, c.scope, opExecuteParams, func(ctx context.Context, span trace.Span) (string, error) {
-		span.SetAttributes(attribute.String(attrAddress, owner))
+	return tracing.InScope(ctx, c.scope, opExecuteParams, func(ctx context.Context, span trace.Span) (ExecuteParams, error) {
+		span.SetAttributes(attribute.String(attrAddress, signer), attribute.String("polymarket.transaction_type", typ))
 
-		var resp struct {
-			Nonce string `json:"nonce"`
+		var out ExecuteParams
+
+		params := url.Values{"address": {signer}, "type": {typ}}
+		if err := c.core.do(ctx, http.MethodGet, "/v1/account/transactions/params", params, nil, auth, &out); err != nil {
+			return ExecuteParams{}, failed(ctx, c.log, opExecuteParams, err)
 		}
 
-		params := url.Values{"address": {owner}, "type": {"WALLET"}}
-		if err := c.core.do(ctx, http.MethodGet, "/v1/account/transactions/params", params, nil, auth, &resp); err != nil {
-			return "", failed(ctx, c.log, opExecuteParams, err)
+		return out, nil
+	})
+}
+
+func (c *DefaultRelayerClient) Submit(ctx context.Context, auth BuilderCredentials, req SubmitRequest) (_ RelayerSubmission, err error) {
+	done := c.kit.Start(ctx, opSubmit)
+	defer func() { done(succeeded(err)) }()
+
+	return tracing.InScope(ctx, c.scope, opSubmit, func(ctx context.Context, span trace.Span) (RelayerSubmission, error) {
+		span.SetAttributes(attribute.String(attrAddress, req.From), attribute.String("polymarket.transaction_type", req.Type))
+
+		var out RelayerSubmission
+		if err := c.once.do(ctx, http.MethodPost, "/submit", nil, req, auth, &out); err != nil {
+			return RelayerSubmission{}, failed(ctx, c.log, opSubmit, err)
 		}
 
-		return resp.Nonce, nil
+		if out.State == TransactionFailed || out.State == TransactionInvalid {
+			return out, fmt.Errorf("%w: %s", ErrRelayerRefused, out.State)
+		}
+
+		return out, nil
+	})
+}
+
+func (c *DefaultRelayerClient) Deployed(ctx context.Context, auth BuilderCredentials, wallet string, depositWallet bool) (_ bool, err error) {
+	done := c.kit.Start(ctx, opDeployed)
+	defer func() { done(succeeded(err)) }()
+
+	return tracing.InScope(ctx, c.scope, opDeployed, func(ctx context.Context, span trace.Span) (bool, error) {
+		span.SetAttributes(attribute.String(attrAddress, wallet))
+
+		params := url.Values{"address": {wallet}}
+		if depositWallet {
+			params.Set("type", RelayerDepositWallet)
+		}
+
+		var out struct {
+			Deployed bool `json:"deployed"`
+		}
+		if err := c.core.do(ctx, http.MethodGet, "/deployed", params, nil, auth, &out); err != nil {
+			return false, failed(ctx, c.log, opDeployed, err)
+		}
+
+		return out.Deployed, nil
 	})
 }
 

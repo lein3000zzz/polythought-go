@@ -119,46 +119,47 @@ func (_c *MockRelayerClient_AuthorizeSessionSigner_Call) RunAndReturn(run func(c
 	return _c
 }
 
-// Nonce provides a mock function for the type MockRelayerClient
-func (_mock *MockRelayerClient) Nonce(ctx context.Context, auth polymarket.BuilderCredentials, owner string) (string, error) {
-	ret := _mock.Called(ctx, auth, owner)
+// Deployed provides a mock function for the type MockRelayerClient
+func (_mock *MockRelayerClient) Deployed(ctx context.Context, auth polymarket.BuilderCredentials, wallet string, depositWallet bool) (bool, error) {
+	ret := _mock.Called(ctx, auth, wallet, depositWallet)
 
 	if len(ret) == 0 {
-		panic("no return value specified for Nonce")
+		panic("no return value specified for Deployed")
 	}
 
-	var r0 string
+	var r0 bool
 	var r1 error
-	if returnFunc, ok := ret.Get(0).(func(context.Context, polymarket.BuilderCredentials, string) (string, error)); ok {
-		return returnFunc(ctx, auth, owner)
+	if returnFunc, ok := ret.Get(0).(func(context.Context, polymarket.BuilderCredentials, string, bool) (bool, error)); ok {
+		return returnFunc(ctx, auth, wallet, depositWallet)
 	}
-	if returnFunc, ok := ret.Get(0).(func(context.Context, polymarket.BuilderCredentials, string) string); ok {
-		r0 = returnFunc(ctx, auth, owner)
+	if returnFunc, ok := ret.Get(0).(func(context.Context, polymarket.BuilderCredentials, string, bool) bool); ok {
+		r0 = returnFunc(ctx, auth, wallet, depositWallet)
 	} else {
-		r0 = ret.Get(0).(string)
+		r0 = ret.Get(0).(bool)
 	}
-	if returnFunc, ok := ret.Get(1).(func(context.Context, polymarket.BuilderCredentials, string) error); ok {
-		r1 = returnFunc(ctx, auth, owner)
+	if returnFunc, ok := ret.Get(1).(func(context.Context, polymarket.BuilderCredentials, string, bool) error); ok {
+		r1 = returnFunc(ctx, auth, wallet, depositWallet)
 	} else {
 		r1 = ret.Error(1)
 	}
 	return r0, r1
 }
 
-// MockRelayerClient_Nonce_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'Nonce'
-type MockRelayerClient_Nonce_Call struct {
+// MockRelayerClient_Deployed_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'Deployed'
+type MockRelayerClient_Deployed_Call struct {
 	*mock.Call
 }
 
-// Nonce is a helper method to define mock.On call
+// Deployed is a helper method to define mock.On call
 //   - ctx context.Context
 //   - auth polymarket.BuilderCredentials
-//   - owner string
-func (_e *MockRelayerClient_Expecter) Nonce(ctx any, auth any, owner any) *MockRelayerClient_Nonce_Call {
-	return &MockRelayerClient_Nonce_Call{Call: _e.mock.On("Nonce", ctx, auth, owner)}
+//   - wallet string
+//   - depositWallet bool
+func (_e *MockRelayerClient_Expecter) Deployed(ctx any, auth any, wallet any, depositWallet any) *MockRelayerClient_Deployed_Call {
+	return &MockRelayerClient_Deployed_Call{Call: _e.mock.On("Deployed", ctx, auth, wallet, depositWallet)}
 }
 
-func (_c *MockRelayerClient_Nonce_Call) Run(run func(ctx context.Context, auth polymarket.BuilderCredentials, owner string)) *MockRelayerClient_Nonce_Call {
+func (_c *MockRelayerClient_Deployed_Call) Run(run func(ctx context.Context, auth polymarket.BuilderCredentials, wallet string, depositWallet bool)) *MockRelayerClient_Deployed_Call {
 	_c.Call.Run(func(args mock.Arguments) {
 		var arg0 context.Context
 		if args[0] != nil {
@@ -172,21 +173,104 @@ func (_c *MockRelayerClient_Nonce_Call) Run(run func(ctx context.Context, auth p
 		if args[2] != nil {
 			arg2 = args[2].(string)
 		}
+		var arg3 bool
+		if args[3] != nil {
+			arg3 = args[3].(bool)
+		}
 		run(
 			arg0,
 			arg1,
 			arg2,
+			arg3,
 		)
 	})
 	return _c
 }
 
-func (_c *MockRelayerClient_Nonce_Call) Return(s string, err error) *MockRelayerClient_Nonce_Call {
-	_c.Call.Return(s, err)
+func (_c *MockRelayerClient_Deployed_Call) Return(b bool, err error) *MockRelayerClient_Deployed_Call {
+	_c.Call.Return(b, err)
 	return _c
 }
 
-func (_c *MockRelayerClient_Nonce_Call) RunAndReturn(run func(ctx context.Context, auth polymarket.BuilderCredentials, owner string) (string, error)) *MockRelayerClient_Nonce_Call {
+func (_c *MockRelayerClient_Deployed_Call) RunAndReturn(run func(ctx context.Context, auth polymarket.BuilderCredentials, wallet string, depositWallet bool) (bool, error)) *MockRelayerClient_Deployed_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// ExecuteParams provides a mock function for the type MockRelayerClient
+func (_mock *MockRelayerClient) ExecuteParams(ctx context.Context, auth polymarket.BuilderCredentials, signer string, typ string) (polymarket.ExecuteParams, error) {
+	ret := _mock.Called(ctx, auth, signer, typ)
+
+	if len(ret) == 0 {
+		panic("no return value specified for ExecuteParams")
+	}
+
+	var r0 polymarket.ExecuteParams
+	var r1 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context, polymarket.BuilderCredentials, string, string) (polymarket.ExecuteParams, error)); ok {
+		return returnFunc(ctx, auth, signer, typ)
+	}
+	if returnFunc, ok := ret.Get(0).(func(context.Context, polymarket.BuilderCredentials, string, string) polymarket.ExecuteParams); ok {
+		r0 = returnFunc(ctx, auth, signer, typ)
+	} else {
+		r0 = ret.Get(0).(polymarket.ExecuteParams)
+	}
+	if returnFunc, ok := ret.Get(1).(func(context.Context, polymarket.BuilderCredentials, string, string) error); ok {
+		r1 = returnFunc(ctx, auth, signer, typ)
+	} else {
+		r1 = ret.Error(1)
+	}
+	return r0, r1
+}
+
+// MockRelayerClient_ExecuteParams_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'ExecuteParams'
+type MockRelayerClient_ExecuteParams_Call struct {
+	*mock.Call
+}
+
+// ExecuteParams is a helper method to define mock.On call
+//   - ctx context.Context
+//   - auth polymarket.BuilderCredentials
+//   - signer string
+//   - typ string
+func (_e *MockRelayerClient_Expecter) ExecuteParams(ctx any, auth any, signer any, typ any) *MockRelayerClient_ExecuteParams_Call {
+	return &MockRelayerClient_ExecuteParams_Call{Call: _e.mock.On("ExecuteParams", ctx, auth, signer, typ)}
+}
+
+func (_c *MockRelayerClient_ExecuteParams_Call) Run(run func(ctx context.Context, auth polymarket.BuilderCredentials, signer string, typ string)) *MockRelayerClient_ExecuteParams_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		var arg1 polymarket.BuilderCredentials
+		if args[1] != nil {
+			arg1 = args[1].(polymarket.BuilderCredentials)
+		}
+		var arg2 string
+		if args[2] != nil {
+			arg2 = args[2].(string)
+		}
+		var arg3 string
+		if args[3] != nil {
+			arg3 = args[3].(string)
+		}
+		run(
+			arg0,
+			arg1,
+			arg2,
+			arg3,
+		)
+	})
+	return _c
+}
+
+func (_c *MockRelayerClient_ExecuteParams_Call) Return(executeParams polymarket.ExecuteParams, err error) *MockRelayerClient_ExecuteParams_Call {
+	_c.Call.Return(executeParams, err)
+	return _c
+}
+
+func (_c *MockRelayerClient_ExecuteParams_Call) RunAndReturn(run func(ctx context.Context, auth polymarket.BuilderCredentials, signer string, typ string) (polymarket.ExecuteParams, error)) *MockRelayerClient_ExecuteParams_Call {
 	_c.Call.Return(run)
 	return _c
 }
@@ -259,6 +343,78 @@ func (_c *MockRelayerClient_RevokeSessionSigner_Call) Return(relayerOperation po
 }
 
 func (_c *MockRelayerClient_RevokeSessionSigner_Call) RunAndReturn(run func(ctx context.Context, auth polymarket.BuilderCredentials, req polymarket.SessionSignerRequest) (polymarket.RelayerOperation, error)) *MockRelayerClient_RevokeSessionSigner_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// Submit provides a mock function for the type MockRelayerClient
+func (_mock *MockRelayerClient) Submit(ctx context.Context, auth polymarket.BuilderCredentials, req polymarket.SubmitRequest) (polymarket.RelayerSubmission, error) {
+	ret := _mock.Called(ctx, auth, req)
+
+	if len(ret) == 0 {
+		panic("no return value specified for Submit")
+	}
+
+	var r0 polymarket.RelayerSubmission
+	var r1 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context, polymarket.BuilderCredentials, polymarket.SubmitRequest) (polymarket.RelayerSubmission, error)); ok {
+		return returnFunc(ctx, auth, req)
+	}
+	if returnFunc, ok := ret.Get(0).(func(context.Context, polymarket.BuilderCredentials, polymarket.SubmitRequest) polymarket.RelayerSubmission); ok {
+		r0 = returnFunc(ctx, auth, req)
+	} else {
+		r0 = ret.Get(0).(polymarket.RelayerSubmission)
+	}
+	if returnFunc, ok := ret.Get(1).(func(context.Context, polymarket.BuilderCredentials, polymarket.SubmitRequest) error); ok {
+		r1 = returnFunc(ctx, auth, req)
+	} else {
+		r1 = ret.Error(1)
+	}
+	return r0, r1
+}
+
+// MockRelayerClient_Submit_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'Submit'
+type MockRelayerClient_Submit_Call struct {
+	*mock.Call
+}
+
+// Submit is a helper method to define mock.On call
+//   - ctx context.Context
+//   - auth polymarket.BuilderCredentials
+//   - req polymarket.SubmitRequest
+func (_e *MockRelayerClient_Expecter) Submit(ctx any, auth any, req any) *MockRelayerClient_Submit_Call {
+	return &MockRelayerClient_Submit_Call{Call: _e.mock.On("Submit", ctx, auth, req)}
+}
+
+func (_c *MockRelayerClient_Submit_Call) Run(run func(ctx context.Context, auth polymarket.BuilderCredentials, req polymarket.SubmitRequest)) *MockRelayerClient_Submit_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		var arg1 polymarket.BuilderCredentials
+		if args[1] != nil {
+			arg1 = args[1].(polymarket.BuilderCredentials)
+		}
+		var arg2 polymarket.SubmitRequest
+		if args[2] != nil {
+			arg2 = args[2].(polymarket.SubmitRequest)
+		}
+		run(
+			arg0,
+			arg1,
+			arg2,
+		)
+	})
+	return _c
+}
+
+func (_c *MockRelayerClient_Submit_Call) Return(relayerSubmission polymarket.RelayerSubmission, err error) *MockRelayerClient_Submit_Call {
+	_c.Call.Return(relayerSubmission, err)
+	return _c
+}
+
+func (_c *MockRelayerClient_Submit_Call) RunAndReturn(run func(ctx context.Context, auth polymarket.BuilderCredentials, req polymarket.SubmitRequest) (polymarket.RelayerSubmission, error)) *MockRelayerClient_Submit_Call {
 	_c.Call.Return(run)
 	return _c
 }

@@ -60,14 +60,14 @@ func (s *SessionKeys) batch(ctx context.Context, b ports.SessionKeyBatch) (ports
 		return ports.SessionKeyBatch{}, domain.ErrSessionKeysOff
 	}
 
-	nonce, err := s.relayer.Nonce(ctx, auth, string(b.Owner))
+	params, err := s.relayer.ExecuteParams(ctx, auth, string(b.Owner), pm.RelayerDepositWallet)
 	if err != nil {
 		return ports.SessionKeyBatch{}, relayerError(err)
 	}
 
 	now := s.now().UTC().Truncate(time.Second)
 
-	b.Nonce, b.Deadline = nonce, now.Add(pm.BatchDeadline)
+	b.Nonce, b.Deadline = params.Nonce, now.Add(pm.BatchDeadline)
 	if !b.Revoke {
 		b.ValidUntil = now.Add(pm.SessionKeyLifetime)
 	}
@@ -137,7 +137,12 @@ func (s *SessionKeys) Confirmed(ctx context.Context, transactionID string) (bool
 		return false, domain.ErrSessionKeysOff
 	}
 
-	tx, err := s.relayer.Transaction(ctx, auth, transactionID)
+	return confirmed(ctx, s.relayer, auth, transactionID)
+}
+
+// confirmed says whether a Relayer transaction is confirmed, and why it failed.
+func confirmed(ctx context.Context, relayer pm.RelayerClient, auth pm.BuilderCredentials, transactionID string) (bool, error) {
+	tx, err := relayer.Transaction(ctx, auth, transactionID)
 	if err != nil {
 		return false, relayerError(err)
 	}

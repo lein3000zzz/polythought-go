@@ -84,7 +84,13 @@ polymarket.com/settings?tab=builder: **Builder API key**, **Builder secret** and
 passphrase** under Trading on the Config page. Users are offered session keys once all three
 are in. Polymarket must enable the key for session keys first (builder@polymarket.com), and
 gives unverified builders 100 Relayer transactions a day: each authorisation and each
-revocation is one. The server reaches Polymarket's Relayer at relayer-v2.polymarket.com.
+revocation is one, and so is each setup of a wallet's trading approvals. The server reaches
+Polymarket's Relayer at relayer-v2.polymarket.com.
+
+Before it grants a wallet's approvals, the server reads them on chain through **Polygon
+RPC** (Trading): https://polygon.drpc.org, the endpoint Polymarket's client uses, unless you
+set another, such as your own node or a provider's URL. It is kept secret, as such URLs often
+hold a key.
 
 To change keys, put the new one first and keep the old one after it, as in
 `k2:…,k1:…`. New secrets use the first key; the others only read what was saved with them.

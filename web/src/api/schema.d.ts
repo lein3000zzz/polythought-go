@@ -597,6 +597,74 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/wallets/{id}/approvals": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Show a wallet's trading approvals */
+        get: operations["getApprovals"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/wallets/{id}/approvals/setup": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Set up approvals with the imported key */
+        post: operations["setUpApprovals"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/wallets/{id}/approvals/signature": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Set up approvals with the owner's signature */
+        post: operations["signApprovalSetup"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/wallets/{id}/approvals/signing": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Start setting up approvals in the browser */
+        post: operations["startApprovalSetup"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/wallets/{id}/credentials": {
         parameters: {
             query?: never;
@@ -1023,6 +1091,63 @@ export interface components {
              *     account started with.
              */
             worth: string;
+        };
+        Approval: {
+            /** @description Name is what it is for people, like "pUSD to the CTF Exchange". */
+            name: string;
+            spender: string;
+            /** @enum {string} */
+            standard: "ERC20" | "ERC1155";
+            token: string;
+        };
+        ApprovalSetup: {
+            /** Format: date-time */
+            createdAt: string;
+            error?: string;
+            /** @description Granting is how many approvals it grants; none when none were missing. */
+            granting: number;
+            /**
+             * @description Kind is the wallet's: 1 a proxy wallet, 2 a Safe, 3 a Deposit Wallet.
+             * @enum {integer}
+             */
+            kind: 1 | 2 | 3;
+            /** @description Owner signed, or signs, for the wallet. */
+            owner: string;
+            /**
+             * @description State: signing waits for the owner's signature, submitted for the chain; a failed one
+             *     says why in error.
+             * @enum {string}
+             */
+            state: "signing" | "submitted" | "done" | "failed";
+            /** Format: date-time */
+            updatedAt: string;
+        };
+        ApprovalSigning: {
+            /** @description Message is what a Safe's owner signs, hex, with personal_sign. */
+            message?: string;
+            setup: components["schemas"]["ApprovalSetup"];
+            /** @description TypedData is what a Deposit Wallet's owner signs, with eth_signTypedData_v4. */
+            typedData?: {
+                [key: string]: unknown;
+            };
+        };
+        Approvals: {
+            /** Format: date-time */
+            checkedAt: string;
+            /** @description Missing are those Polymarket's index shows missing, which may be a minute behind. */
+            missing: components["schemas"]["Approval"][];
+            /** @description Ready says no trading approval is missing (D160). */
+            ready: boolean;
+            /** @description Setup is the last setting up of them here. */
+            setup?: components["schemas"]["ApprovalSetup"];
+            /**
+             * @description Way is how they can be set up here: with the imported key, in the owner's browser
+             *     wallet, or not at all (no Builder key; an EOA, or a proxy wallet without a key).
+             * @enum {string}
+             */
+            way: "key" | "browser" | "none";
+            /** @description Why says why not, when Way is none. */
+            why?: string;
         };
         AuthConfig: {
             /** @description MinPasswordLength is the fewest characters a new password may have. */
@@ -1688,6 +1813,10 @@ export interface components {
         SignatureRequest: {
             /** @description Signature is what eth_signTypedData_v4 gave, hex. */
             signature: string;
+        };
+        StartApprovalSetupRequest: {
+            /** @description Owner is the browser wallet's account, which must control the wallet. */
+            owner: string;
         };
         StartSessionKeyRequest: {
             /** @description Owner is the browser wallet's account, which must control the Deposit Wallet. */
@@ -3918,6 +4047,288 @@ export interface operations {
             };
             /** @description not_found */
             404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    getApprovals: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Wallet ID */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Approvals"];
+                };
+            };
+            /** @description unauthenticated */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description not_found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description upstream_unavailable: Polymarket could not be reached */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    setUpApprovals: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Wallet ID */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApprovalSetup"];
+                };
+            };
+            /** @description eoa_approvals, not_deployed or relayer_refused */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description unauthenticated */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description builder_key_missing, or forbidden with an API token */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description not_found: no such wallet, or no imported key */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description setup_pending */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description upstream_unavailable: Polymarket or the RPC could not be reached */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    signApprovalSetup: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Wallet ID */
+                id: string;
+            };
+            cookie?: never;
+        };
+        /** @description The owner's signature */
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SignatureRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApprovalSetup"];
+                };
+            };
+            /** @description invalid_input, wrong_signer, signature_expired or relayer_refused */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description unauthenticated */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description builder_key_missing, or forbidden with an API token */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description not_found: no such wallet, or no setup waits for a signature */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description upstream_unavailable: send the signature again */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    startApprovalSetup: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Wallet ID */
+                id: string;
+            };
+            cookie?: never;
+        };
+        /** @description The owner */
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["StartApprovalSetupRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApprovalSigning"];
+                };
+            };
+            /** @description invalid_address, not_owner, eoa_approvals, needs_imported_key or not_deployed */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description unauthenticated */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description builder_key_missing, or forbidden with an API token */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description not_found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description setup_pending */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description upstream_unavailable: Polymarket or the RPC could not be reached */
+            503: {
                 headers: {
                     [name: string]: unknown;
                 };
