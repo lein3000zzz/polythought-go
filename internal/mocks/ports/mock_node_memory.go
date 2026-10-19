@@ -362,6 +362,108 @@ func (_c *MockNodeMemory_ForgetOthers_Call) RunAndReturn(run func(ctx context.Co
 	return _c
 }
 
+// Gather provides a mock function for the type MockNodeMemory
+func (_mock *MockNodeMemory) Gather(ctx context.Context, wf domain.WorkflowID, node domain.NodeID, key string, member string, since time.Time, now time.Time, expires time.Time) (int, error) {
+	ret := _mock.Called(ctx, wf, node, key, member, since, now, expires)
+
+	if len(ret) == 0 {
+		panic("no return value specified for Gather")
+	}
+
+	var r0 int
+	var r1 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context, domain.WorkflowID, domain.NodeID, string, string, time.Time, time.Time, time.Time) (int, error)); ok {
+		return returnFunc(ctx, wf, node, key, member, since, now, expires)
+	}
+	if returnFunc, ok := ret.Get(0).(func(context.Context, domain.WorkflowID, domain.NodeID, string, string, time.Time, time.Time, time.Time) int); ok {
+		r0 = returnFunc(ctx, wf, node, key, member, since, now, expires)
+	} else {
+		r0 = ret.Get(0).(int)
+	}
+	if returnFunc, ok := ret.Get(1).(func(context.Context, domain.WorkflowID, domain.NodeID, string, string, time.Time, time.Time, time.Time) error); ok {
+		r1 = returnFunc(ctx, wf, node, key, member, since, now, expires)
+	} else {
+		r1 = ret.Error(1)
+	}
+	return r0, r1
+}
+
+// MockNodeMemory_Gather_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'Gather'
+type MockNodeMemory_Gather_Call struct {
+	*mock.Call
+}
+
+// Gather is a helper method to define mock.On call
+//   - ctx context.Context
+//   - wf domain.WorkflowID
+//   - node domain.NodeID
+//   - key string
+//   - member string
+//   - since time.Time
+//   - now time.Time
+//   - expires time.Time
+func (_e *MockNodeMemory_Expecter) Gather(ctx any, wf any, node any, key any, member any, since any, now any, expires any) *MockNodeMemory_Gather_Call {
+	return &MockNodeMemory_Gather_Call{Call: _e.mock.On("Gather", ctx, wf, node, key, member, since, now, expires)}
+}
+
+func (_c *MockNodeMemory_Gather_Call) Run(run func(ctx context.Context, wf domain.WorkflowID, node domain.NodeID, key string, member string, since time.Time, now time.Time, expires time.Time)) *MockNodeMemory_Gather_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		var arg1 domain.WorkflowID
+		if args[1] != nil {
+			arg1 = args[1].(domain.WorkflowID)
+		}
+		var arg2 domain.NodeID
+		if args[2] != nil {
+			arg2 = args[2].(domain.NodeID)
+		}
+		var arg3 string
+		if args[3] != nil {
+			arg3 = args[3].(string)
+		}
+		var arg4 string
+		if args[4] != nil {
+			arg4 = args[4].(string)
+		}
+		var arg5 time.Time
+		if args[5] != nil {
+			arg5 = args[5].(time.Time)
+		}
+		var arg6 time.Time
+		if args[6] != nil {
+			arg6 = args[6].(time.Time)
+		}
+		var arg7 time.Time
+		if args[7] != nil {
+			arg7 = args[7].(time.Time)
+		}
+		run(
+			arg0,
+			arg1,
+			arg2,
+			arg3,
+			arg4,
+			arg5,
+			arg6,
+			arg7,
+		)
+	})
+	return _c
+}
+
+func (_c *MockNodeMemory_Gather_Call) Return(n int, err error) *MockNodeMemory_Gather_Call {
+	_c.Call.Return(n, err)
+	return _c
+}
+
+func (_c *MockNodeMemory_Gather_Call) RunAndReturn(run func(ctx context.Context, wf domain.WorkflowID, node domain.NodeID, key string, member string, since time.Time, now time.Time, expires time.Time) (int, error)) *MockNodeMemory_Gather_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // Remember provides a mock function for the type MockNodeMemory
 func (_mock *MockNodeMemory) Remember(ctx context.Context, wf domain.WorkflowID, node domain.NodeID, keys []string, now time.Time, expires time.Time) ([]string, error) {
 	ret := _mock.Called(ctx, wf, node, keys, now, expires)

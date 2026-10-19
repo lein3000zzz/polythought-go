@@ -29,6 +29,8 @@ The scenarios that come with Polythought:
 - **Your positions** and **Low balance warning**: read your own wallet's positions and balance.
 - **Copy traders** and **Copy traders with approval**: follow Polymarket traders and copy
   their trades on paper; the second asks you on Telegram before each copy.
+- **Copy when traders agree**: copy an outcome once 2 of your traders bought it within 6
+  hours.
 
 ## Sharing your own
 

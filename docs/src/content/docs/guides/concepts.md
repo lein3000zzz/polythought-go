@@ -96,11 +96,19 @@ period, **At most** `3` **In** `24h`, counted per value of **Count per**, like
 `trader.address`, or all together when it is empty. A period is any stretch of that length
 back from each item, not a calendar day. Items over the limit leave from `limited`.
 
+[Consensus](/docs/reference/nodes/logic/consensus/) lets an item on once enough different
+traders agreed: at **At least** `2` **Within** `6h`, a trade goes on when another trader made
+the same one in the 6 hours before it. **Agree on** lists what must be the same, the outcome
+(`tokenId`) and the `side` by default, and **Who** tells traders apart, `trader.address`; a
+trader counts once, however often they trade. From then on in the window, each such item goes
+on; the ones before leave from `alone`.
+
 ## Memory
 
 A few nodes remember what they saw, across runs and server restarts:
 [Only new](/docs/reference/nodes/logic/dedupe/) remembers the items it has let through, each
-until **New again after** has gone by, and Throttle the items it counts, for its period. Memory belongs to the node in its workflow. Runs
+until **New again after** has gone by, Throttle the items it counts, for its period, and
+Consensus who agreed on what, for its window. Memory belongs to the node in its workflow. Runs
 started by hand count too; it is kept when the node's settings change; and it goes with the
 node when the node, or its workflow, is deleted. A node remembers at most 10,000 items:
 past that, the oldest are forgotten first.

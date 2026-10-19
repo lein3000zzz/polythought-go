@@ -60,6 +60,8 @@ test('Copy traders asks for the traders and becomes a copytrading workflow', asy
   await page.goto('/library')
   const approval = page.getByRole('link').filter({ hasText: 'Copy traders with approval' })
   await expect(approval.getByText('Asks for traders')).toBeVisible()
+  const agree = page.getByRole('link').filter({ hasText: 'Copy when traders agree' })
+  await expect(agree.getByText('Asks for traders')).toBeVisible()
 
   const card = page.getByRole('link').filter({ hasText: 'Follow Polymarket traders and copy' })
   await expect(card.getByText('Asks for traders')).toBeVisible()

@@ -163,3 +163,46 @@ func TestNodeMemoryAdmit(t *testing.T) {
 		assert.Equal(t, []string{"alice"}, fresh, "a key alone is another entry than its members")
 	})
 }
+
+func TestNodeMemoryGather(t *testing.T) {
+	ctx := context.Background()
+
+	db := fresh(t)
+	mem := postgres.NewNodeMemory(db)
+	alice := seedUser(t, db, "alice@example.com", domain.RoleUser)
+
+	w := newWorkflow(alice.ID, "agree")
+	require.NoError(t, postgres.NewWorkflows(db).Create(ctx, w))
+
+	now := time.Date(2026, 10, 19, 12, 0, 0, 0, time.UTC)
+	window := 6 * time.Hour
+	gather := func(key, member string, at time.Time) int {
+		t.Helper()
+
+		n, err := mem.Gather(ctx, w.ID, "agree", key, member, at.Add(-window), at, at.Add(window))
+		require.NoError(t, err)
+
+		return n
+	}
+
+	assert.Equal(t, 1, gather("t-yes/buy", "alice", now))
+	assert.Equal(t, 1, gather("t-yes/buy", "alice", now.Add(time.Hour)), "the same trader again is still one")
+	assert.Equal(t, 1, gather("t-yes/sell", "bob", now.Add(time.Hour)), "another key")
+	assert.Equal(t, 2, gather("t-yes/buy", "bob", now.Add(2*time.Hour)))
+	assert.Equal(t, 2, gather("t-yes/buy", "carol", now.Add(7*time.Hour+time.Minute)),
+		"alice was last seen 6 hours and a minute before")
+
+	t.Run("two at once count each other", func(t *testing.T) {
+		counts := make(chan int, 2)
+
+		for _, who := range []string{"dave", "erin"} {
+			go func() {
+				n, err := mem.Gather(ctx, w.ID, "agree", "t-no/buy", who, now.Add(-window), now, now.Add(window))
+				assert.NoError(t, err)
+				counts <- n
+			}()
+		}
+
+		assert.ElementsMatch(t, []int{1, 2}, []int{<-counts, <-counts})
+	})
+}

@@ -9,12 +9,13 @@ to your limits, and **Place order** places them. Orders are on paper for now: th
 against the live order book, out of a paper account of the workflow's own, and spend no
 real money.
 
-The [library](/docs/guides/library/) has it ready to use: **Copy traders** copies $10 of
-each buy, at most $50 in a market and $200 a day, and asks only for the traders to follow.
-**Copy traders with approval** does the same, but first asks you on
+The [library](/docs/guides/library/) has it ready to use, three ways. **Copy traders**
+copies $10 of each buy, at most $50 in a market and $200 a day, and asks only for the
+traders to follow. **Copy traders with approval** does the same, but first asks you on
 [Telegram](/docs/guides/telegram/), with **Copy** and **Skip**, and tells you how each copy
 you approved went. Answer within 2 minutes; after that the copy is dropped, as the price
-may have moved.
+may have moved. **Copy when traders agree** copies a buy only once 2 of your traders bought
+the same outcome within 6 hours.
 
 ## Follow the traders
 
@@ -93,6 +94,11 @@ that price at once, and the rest is cancelled.
 A trade it cannot copy goes out of `skipped`, with why in `skipped.reason`: nothing held
 copying them to sell; a copy under the market's least order, which is skipped rather than
 made bigger than its sizing says; or a buy their **Take %** leaves out.
+
+To copy only what several of your traders buy, put a
+[Consensus](/docs/reference/nodes/logic/consensus/) before Copy sizing, for buys only: an
+If on `side` `is` `sell` sends sells straight on, so a copy is sold when its trader sells.
+The library's **Copy when traders agree** is built so.
 
 To copy at most so many of a trader's trades, put a
 [Throttle](/docs/reference/nodes/logic/throttle/) after Copy sizing: **At most** `3` **In**

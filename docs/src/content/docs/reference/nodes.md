@@ -34,6 +34,7 @@ Each node has a page with its settings. In the editor, the node list on the left
 
 | Node | Type | What it does |
 |---|---|---|
+| [Consensus](/docs/reference/nodes/logic/consensus/) | `logic.consensus` | Lets an item on once enough different traders agreed within a while: at 2 in 6h, a trade goes on when another trader made the same one in the 6 hours before. |
 | [Only new](/docs/reference/nodes/logic/dedupe/) | `logic.dedupe` | Passes an item only the first time it shows up, so an alert fires once instead of on every run. |
 | [Filter](/docs/reference/nodes/logic/filter/) | `logic.filter` | Keeps the items that pass its tests and drops the others: a number compared with a value, text that contains a value, or a field being there at all. |
 | [If](/docs/reference/nodes/logic/if/) | `logic.if` | Tests each item and routes it to true or false: a number compared with a value, text that contains a value, or a field being there at all. |

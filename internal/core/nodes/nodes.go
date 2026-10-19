@@ -36,7 +36,7 @@ type Deps struct {
 	Credentials  ports.CredentialReader // optional: without it, nodes cannot use credentials
 	Feed         ports.MarketFeed       // optional: without it, trigger.market is not available
 	Traders      ports.TraderFeed       // optional: without it, trigger.walletActivity is not available
-	Memory       ports.NodeMemory       // optional: without it, logic.dedupe and logic.throttle are not available
+	Memory       ports.NodeMemory       // optional: without it, Only new, Throttle and Consensus are not available
 	Logger       logging.Logger
 
 	// Messenger, TelegramInbox and Asker are optional: without them the Telegram nodes
@@ -74,10 +74,11 @@ func Register(r *engine.Registry, d Deps) error {
 		return err
 	}
 
-	var market, wallet, dedupe, throttle error
+	var market, wallet, dedupe, throttle, consensus error
 	if d.Memory != nil {
 		dedupe = r.RegisterNode(logic.NewDedupe(d.Memory))
 		throttle = r.RegisterNode(logic.NewThrottle(d.Memory))
+		consensus = r.RegisterNode(logic.NewConsensus(d.Memory))
 	}
 
 	if d.Feed != nil {
@@ -130,6 +131,7 @@ func Register(r *engine.Registry, d Deps) error {
 		wallet,
 		dedupe,
 		throttle,
+		consensus,
 		telegramSend,
 		telegramTrigger,
 		telegramAsk,

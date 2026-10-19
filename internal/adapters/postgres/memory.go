@@ -104,22 +104,16 @@ func (r *NodeMemory) Admit(ctx context.Context, wf domain.WorkflowID, node domai
 
 	err = r.db.WithinTx(ctx, func(ctx context.Context) error {
 		// One count at a time per key, so two runs at once cannot both fill the last place.
-		lock := string(wf) + "\x1f" + string(node) + "\x1f" + key
-		if _, err := r.db.conn(ctx).ExecContext(ctx, "SELECT pg_advisory_xact_lock(hashtextextended($1, 0))", lock); err != nil {
+		if err := r.lockKey(ctx, wf, node, key); err != nil {
 			return err
 		}
 
-		var held struct{ Count int64 }
-
-		err := jet.SELECT(jet.COUNT(jet.STAR).AS("count")).FROM(m).
-			WHERE(r.ofNode(wid, node).AND(m.Key.EQ(jet.String(key))).
-				AND(m.At.GT(jet.TimestampzT(since))).AND(m.ExpiresAt.GT(jet.TimestampzT(now)))).
-			QueryContext(ctx, r.db.conn(ctx), &held)
+		held, err := r.held(ctx, wid, node, key, since, now)
 		if err != nil {
 			return err
 		}
 
-		room := limit - int(held.Count)
+		room := limit - held
 		if room <= 0 {
 			return nil
 		}
@@ -143,6 +137,63 @@ func (r *NodeMemory) Admit(ctx context.Context, wf domain.WorkflowID, node domai
 	}
 
 	return admitted, nil
+}
+
+func (r *NodeMemory) Gather(ctx context.Context, wf domain.WorkflowID, node domain.NodeID, key, member string, since, now, expires time.Time) (int, error) {
+	wid, err := parseID(wf)
+	if err != nil {
+		return 0, err
+	}
+
+	m := table.NodeMemory
+
+	var n int
+
+	err = r.db.WithinTx(ctx, func(ctx context.Context) error {
+		// One at a time per key, so two members at once each count the other.
+		if err := r.lockKey(ctx, wf, node, key); err != nil {
+			return err
+		}
+
+		_, err := m.INSERT(m.AllColumns).
+			MODEL(model.NodeMemory{WorkflowID: wid, NodeID: string(node), Key: key, Member: member, At: now, ExpiresAt: expires}).
+			ON_CONFLICT(m.WorkflowID, m.NodeID, m.Key, m.Member).
+			DO_UPDATE(jet.SET(m.At.SET(m.EXCLUDED.At), m.ExpiresAt.SET(m.EXCLUDED.ExpiresAt))).
+			ExecContext(ctx, r.db.conn(ctx))
+		if err != nil {
+			return err
+		}
+
+		if n, err = r.held(ctx, wid, node, key, since, now); err != nil {
+			return err
+		}
+
+		return r.trim(ctx, wid, node)
+	})
+
+	return n, err
+}
+
+// lockKey holds a node's key until the transaction ends.
+func (r *NodeMemory) lockKey(ctx context.Context, wf domain.WorkflowID, node domain.NodeID, key string) error {
+	lock := string(wf) + "\x1f" + string(node) + "\x1f" + key // Postgres text takes no NUL
+	_, err := r.db.conn(ctx).ExecContext(ctx, "SELECT pg_advisory_xact_lock(hashtextextended($1, 0))", lock)
+
+	return err
+}
+
+// held is how many entries a node's key holds, remembered after since and alive at now.
+func (r *NodeMemory) held(ctx context.Context, wid uuid.UUID, node domain.NodeID, key string, since, now time.Time) (int, error) {
+	m := table.NodeMemory
+
+	var out struct{ Count int64 }
+
+	err := jet.SELECT(jet.COUNT(jet.STAR).AS("count")).FROM(m).
+		WHERE(r.ofNode(wid, node).AND(m.Key.EQ(jet.String(key))).
+			AND(m.At.GT(jet.TimestampzT(since))).AND(m.ExpiresAt.GT(jet.TimestampzT(now)))).
+		QueryContext(ctx, r.db.conn(ctx), &out)
+
+	return int(out.Count), err
 }
 
 // trim forgets the oldest entries of a node past the limit (D138): those older than the

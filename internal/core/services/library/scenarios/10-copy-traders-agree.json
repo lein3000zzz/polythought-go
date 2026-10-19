@@ -1,0 +1,60 @@
+{
+  "id": "copy-traders-agree",
+  "name": "Copy when traders agree",
+  "summary": "Copy an outcome on paper once 2 of the traders you follow bought it within 6 hours.",
+  "description": "One trader can be wrong; two buying the same outcome is a stronger sign. This workflow copies a buy only when your traders agree: once 2 of those you follow bought the same outcome within 6 hours, the buy that makes two is copied, and each one after it in those 6 hours. A buy no one else made leaves from alone, not copied.\n\nSells are copied as they come, as in Copy traders: a copy is sold when the trader it copied sells, so it never outstays them.\n\nIt copies on paper, $10 a buy, within the limits of Copy traders: at most $50 in one market and $200 a day, and no buys under 0.05 or over 0.95.\n\n- Fill in the traders to follow, two or more, then switch Active on.\n- Consensus remembers who bought what for 6 hours, across restarts; its settings say how much, with Forget.\n- The Trading view shows how it does: each trader's profit and loss, what it holds, and every order.",
+  "nodes": [
+    {
+      "id": "watch",
+      "type": "trigger.walletActivity",
+      "name": "Traders to follow",
+      "notes": "Starts the workflow with each trade one of your traders makes. Switch a trader off in the table to stop copying them and keep their row.",
+      "position": { "x": 0, "y": 0 }
+    },
+    {
+      "id": "sells",
+      "type": "logic.if",
+      "name": "A sell?",
+      "params": { "field": "side", "operator": "is", "value": "sell" },
+      "notes": "Sells go straight on, so a copy is sold when its trader sells; buys wait for agreement.",
+      "position": { "x": 300, "y": 0 }
+    },
+    {
+      "id": "agree",
+      "type": "logic.consensus",
+      "name": "2 agree",
+      "params": { "needed": 2, "within": "6h", "on": ["tokenId", "side"], "who": "trader.address" },
+      "notes": "Lets a buy on once another of your traders bought the same outcome in the 6 hours before it. Buys no one else made leave from alone.",
+      "position": { "x": 600, "y": 150 }
+    },
+    {
+      "id": "size",
+      "type": "trading.copySize",
+      "params": { "sizing": "fixed", "dollars": "10" },
+      "notes": "Works out the order that copies the trade: $10 for a buy, the same share of what it holds for a sell, at their price or at most 2 cents worse.",
+      "position": { "x": 900, "y": 0 }
+    },
+    {
+      "id": "guard",
+      "type": "trading.riskGuard",
+      "params": { "maxPerMarket": "50", "maxPerDay": "200", "minPrice": "0.05", "maxPrice": "0.95" },
+      "notes": "Keeps buys within your limits: $50 in one market, $200 a day, prices from 0.05 to 0.95. A copy over a cap goes ahead smaller; one a limit stops goes out of blocked. Sells always go ahead.",
+      "position": { "x": 1200, "y": 0 }
+    },
+    {
+      "id": "place",
+      "type": "trading.placeOrder",
+      "params": { "from": "copy" },
+      "notes": "Places the copy on paper, against the live order book: what the book has within the price fills at once, the rest is cancelled.",
+      "position": { "x": 1500, "y": 0 }
+    }
+  ],
+  "connections": [
+    { "from": "watch", "fromPort": "main", "to": "sells", "toPort": "main" },
+    { "from": "sells", "fromPort": "true", "to": "size", "toPort": "main" },
+    { "from": "sells", "fromPort": "false", "to": "agree", "toPort": "main" },
+    { "from": "agree", "fromPort": "main", "to": "size", "toPort": "main" },
+    { "from": "size", "fromPort": "main", "to": "guard", "toPort": "main" },
+    { "from": "guard", "fromPort": "main", "to": "place", "toPort": "main" }
+  ]
+}

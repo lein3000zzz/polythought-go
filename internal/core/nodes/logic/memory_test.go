@@ -18,13 +18,14 @@ type memory struct {
 	mu      sync.Mutex
 	keys    map[string]time.Time
 	entries map[string][]entry
+	members map[string]map[string]entry // what Gather keeps: by key, then member
 	err     error
 }
 
 type entry struct{ at, until time.Time }
 
 func newMemory() *memory {
-	return &memory{keys: map[string]time.Time{}, entries: map[string][]entry{}}
+	return &memory{keys: map[string]time.Time{}, entries: map[string][]entry{}, members: map[string]map[string]entry{}}
 }
 
 func memKey(wf domain.WorkflowID, node domain.NodeID, k string) string {
@@ -75,6 +76,32 @@ func (m *memory) Admit(_ context.Context, wf domain.WorkflowID, node domain.Node
 	}
 
 	return admitted, nil
+}
+
+func (m *memory) Gather(_ context.Context, wf domain.WorkflowID, node domain.NodeID, key, member string, since, now, expires time.Time) (int, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	if m.err != nil {
+		return 0, m.err
+	}
+
+	k := memKey(wf, node, key)
+	if m.members[k] == nil {
+		m.members[k] = map[string]entry{}
+	}
+
+	m.members[k][member] = entry{at: now, until: expires}
+
+	n := 0
+
+	for _, e := range m.members[k] {
+		if e.at.After(since) && e.until.After(now) {
+			n++
+		}
+	}
+
+	return n, nil
 }
 
 func (m *memory) Count(_ context.Context, wf domain.WorkflowID, node domain.NodeID, now time.Time) (int, error) {

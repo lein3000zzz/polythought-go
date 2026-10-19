@@ -26,6 +26,11 @@ type NodeMemory interface {
 	// let in, the first ones given; two calls at once count each other's.
 	Admit(ctx context.Context, wf domain.WorkflowID, node domain.NodeID, key string, members []string, limit int, since, now, expires time.Time) ([]string, error)
 
+	// Gather remembers member under key at now until expires, again if it was there, and
+	// says how many members the key holds remembered after since, it among them; two
+	// calls at once count each other's.
+	Gather(ctx context.Context, wf domain.WorkflowID, node domain.NodeID, key, member string, since, now, expires time.Time) (int, error)
+
 	// Count is how many entries a node remembers at now.
 	Count(ctx context.Context, wf domain.WorkflowID, node domain.NodeID, now time.Time) (int, error)
 

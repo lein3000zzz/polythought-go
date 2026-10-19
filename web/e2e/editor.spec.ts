@@ -416,3 +416,30 @@ test('throttle counts across runs, and sample splits the rest', async ({ page })
   await page.getByRole('tab', { name: 'Settings' }).click()
   await expect(settings.getByText('Remembers 2 items')).toBeVisible()
 })
+
+test('consensus lets items on once enough agree, remembering who did', async ({ page }) => {
+  // Open markets agree on their status; each market is one "trader".
+  const id = await createWorkflow(page, unique('agree'), [
+    { id: 'manual', type: 'trigger.manual' },
+    { id: 'markets', type: 'polymarket.markets', params: { limit: 3 } },
+    {
+      id: 'agree',
+      type: 'logic.consensus',
+      params: { needed: 2, within: '1h', on: ['status'], who: 'id' },
+    },
+  ])
+
+  await page.goto(`/workflows/${id}`)
+  const settings = page.getByRole('complementary', { name: 'Settings' })
+
+  await page.getByRole('button', { name: 'Run', exact: true }).click()
+  await expect(canvasNode(page, 'agree').getByLabel('Succeeded')).toBeVisible()
+  await canvasNode(page, 'agree').click()
+  await expect(settings.getByText(/^main · 2 items/)).toBeVisible()
+  await expect(settings.getByText(/^alone · 1 item/)).toBeVisible()
+
+  // The first is no longer alone: the others agreed within the hour.
+  await page.getByRole('button', { name: 'Run', exact: true }).click()
+  await expect(settings.getByText(/^main · 3 items/)).toBeVisible()
+  await expect(settings.getByText(/^alone/)).toHaveCount(0)
+})

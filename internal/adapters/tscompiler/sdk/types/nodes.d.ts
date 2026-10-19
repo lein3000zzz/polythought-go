@@ -56,6 +56,30 @@ export interface CodeTransformSettings {
     source?: string;
 }
 
+/** The settings of Consensus (logic.consensus). */
+export interface LogicConsensusSettings {
+    /**
+     * How many different traders must agree, this item's among them.
+     * @default 2
+     */
+    needed?: number | Expression;
+    /**
+     * How far back a trader's agreeing counts, from each item.
+     * @default "6h"
+     */
+    within?: DurationText | Expression;
+    /**
+     * The fields that must be the same, one per line: the outcome and the side by default, so a buy and a sell do not count together. A field of the items it receives.
+     * @default ["tokenId","side"]
+     */
+    on?: string[];
+    /**
+     * The field that tells traders apart: one counts once, however often they trade. A field of the items it receives.
+     * @default "trader.address"
+     */
+    who?: string;
+}
+
 /** The settings of Only new (logic.dedupe). */
 export interface LogicDedupeSettings {
     /**
@@ -904,6 +928,13 @@ export interface NodeTypes {
         trigger: false;
         inputs: "main";
         outputs: "main";
+    };
+    "logic.consensus": {
+        settings: LogicConsensusSettings;
+        items: "received";
+        trigger: false;
+        inputs: "main";
+        outputs: "main" | "alone";
     };
     "logic.dedupe": {
         settings: LogicDedupeSettings;
