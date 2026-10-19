@@ -37,6 +37,11 @@ export function LoginPage() {
             <AlertDescription>Your address is verified: sign in.</AlertDescription>
           </Alert>
         )}
+        {params.get('reset') && !login.isError && (
+          <Alert>
+            <AlertDescription>Your password is changed: sign in with it.</AlertDescription>
+          </Alert>
+        )}
         {login.isError && <ErrorAlert error={login.error} />}
         {unverified && <ResendLink email={email.trim()} />}
 
@@ -46,7 +51,17 @@ export function LoginPage() {
         </div>
 
         <div className="flex flex-col gap-2">
-          <Label htmlFor="password">Password</Label>
+          <div className="flex items-baseline justify-between">
+            <Label htmlFor="password">Password</Label>
+            {config.data?.passwordReset && (
+              <Link
+                to={`/forgot-password${email ? `?email=${encodeURIComponent(email.trim())}` : ''}`}
+                className="text-sm text-muted-foreground underline underline-offset-4"
+              >
+                Forgot password?
+              </Link>
+            )}
+          </div>
           <Input
             id="password"
             type="password"

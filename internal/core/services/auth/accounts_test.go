@@ -291,6 +291,8 @@ func TestChangePassword(t *testing.T) {
 				d.hasher.EXPECT().Hash("a brand new passphrase").Return("$new", nil)
 				d.users.EXPECT().SetPasswordHash(mock.Anything, u.ID, "$new", now).Return(nil)
 				d.sessions.EXPECT().DeleteForUser(mock.Anything, u.ID, domain.SessionID("sess-1")).Return(nil)
+				d.mail.EXPECT().SetUp().Return(true)
+				d.mail.EXPECT().SendPasswordChanged(mock.Anything, u.Email, now).Return(nil) // told, in case it was not them
 			},
 		},
 		{

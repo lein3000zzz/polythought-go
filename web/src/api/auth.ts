@@ -74,6 +74,21 @@ export function useResendVerification() {
   })
 }
 
+/** Mails a link setting a new password, if the address has an account (D176). */
+export function useRequestPasswordReset() {
+  return useMutation({
+    mutationFn: (email: string) => call(api.POST('/auth/password-reset', { body: { email } })),
+  })
+}
+
+/** Sets a new password with its link's token; signing in comes after (D177). */
+export function useResetPassword() {
+  return useMutation({
+    mutationFn: (body: Schemas['ResetPasswordRequest']) =>
+      call(api.POST('/auth/password-reset/confirm', { body })),
+  })
+}
+
 /** Verifies an address with its link's token; signing in comes after (D172). */
 export function useVerifyEmail() {
   return useMutation({

@@ -42,7 +42,7 @@ export const signedOut = http.get('/api/v1/me', () =>
 
 export function registration(mode: Schemas['AuthConfig']['registration'], minPasswordLength = 12) {
   return http.get('/api/v1/auth/config', () =>
-    HttpResponse.json({ registration: mode, minPasswordLength }),
+    HttpResponse.json({ registration: mode, minPasswordLength, passwordReset: false }),
   )
 }
 

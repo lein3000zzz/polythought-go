@@ -319,6 +319,7 @@ func authConfig(s *settings.Snapshot) auth.Config {
 	cfg.MinPasswordLength = s.Int(config.KeyMinPasswordLength)
 	cfg.CodeAccess = codeAccess(s)
 	cfg.VerifyEmail = s.Bool(config.KeyVerifyEmail)
+	cfg.PasswordReset = s.Bool(config.KeyPasswordReset)
 
 	return cfg
 }

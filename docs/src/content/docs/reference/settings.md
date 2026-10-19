@@ -33,6 +33,18 @@ People who sign up themselves get a link by mail, and can sign in once they open
 | Default | `false` |
 | Applies | at once |
 
+### Password reset by email
+
+Forgot password? on the sign-in page mails a link to set a new one, working once for an hour; setting it signs the account out everywhere. Works while mail is set up, under Mail.
+
+| | |
+|---|---|
+| Key | `auth.password_reset` |
+| Environment variable | `POLYTHOUGHT_AUTH_PASSWORD_RESET` |
+| Kind | `true` or `false` |
+| Default | `true` |
+| Applies | at once |
+
 ### Idle sign-out
 
 A browser session unused this long signs out. Applies to new activity at once.

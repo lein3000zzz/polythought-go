@@ -47,6 +47,138 @@ func (_m *MockAccountMail) EXPECT() *MockAccountMail_Expecter {
 	return &MockAccountMail_Expecter{mock: &_m.Mock}
 }
 
+// SendPasswordChanged provides a mock function for the type MockAccountMail
+func (_mock *MockAccountMail) SendPasswordChanged(ctx context.Context, to string, at time.Time) error {
+	ret := _mock.Called(ctx, to, at)
+
+	if len(ret) == 0 {
+		panic("no return value specified for SendPasswordChanged")
+	}
+
+	var r0 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context, string, time.Time) error); ok {
+		r0 = returnFunc(ctx, to, at)
+	} else {
+		r0 = ret.Error(0)
+	}
+	return r0
+}
+
+// MockAccountMail_SendPasswordChanged_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'SendPasswordChanged'
+type MockAccountMail_SendPasswordChanged_Call struct {
+	*mock.Call
+}
+
+// SendPasswordChanged is a helper method to define mock.On call
+//   - ctx context.Context
+//   - to string
+//   - at time.Time
+func (_e *MockAccountMail_Expecter) SendPasswordChanged(ctx any, to any, at any) *MockAccountMail_SendPasswordChanged_Call {
+	return &MockAccountMail_SendPasswordChanged_Call{Call: _e.mock.On("SendPasswordChanged", ctx, to, at)}
+}
+
+func (_c *MockAccountMail_SendPasswordChanged_Call) Run(run func(ctx context.Context, to string, at time.Time)) *MockAccountMail_SendPasswordChanged_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		var arg1 string
+		if args[1] != nil {
+			arg1 = args[1].(string)
+		}
+		var arg2 time.Time
+		if args[2] != nil {
+			arg2 = args[2].(time.Time)
+		}
+		run(
+			arg0,
+			arg1,
+			arg2,
+		)
+	})
+	return _c
+}
+
+func (_c *MockAccountMail_SendPasswordChanged_Call) Return(err error) *MockAccountMail_SendPasswordChanged_Call {
+	_c.Call.Return(err)
+	return _c
+}
+
+func (_c *MockAccountMail_SendPasswordChanged_Call) RunAndReturn(run func(ctx context.Context, to string, at time.Time) error) *MockAccountMail_SendPasswordChanged_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// SendPasswordReset provides a mock function for the type MockAccountMail
+func (_mock *MockAccountMail) SendPasswordReset(ctx context.Context, to string, token string, lasts time.Duration) error {
+	ret := _mock.Called(ctx, to, token, lasts)
+
+	if len(ret) == 0 {
+		panic("no return value specified for SendPasswordReset")
+	}
+
+	var r0 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context, string, string, time.Duration) error); ok {
+		r0 = returnFunc(ctx, to, token, lasts)
+	} else {
+		r0 = ret.Error(0)
+	}
+	return r0
+}
+
+// MockAccountMail_SendPasswordReset_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'SendPasswordReset'
+type MockAccountMail_SendPasswordReset_Call struct {
+	*mock.Call
+}
+
+// SendPasswordReset is a helper method to define mock.On call
+//   - ctx context.Context
+//   - to string
+//   - token string
+//   - lasts time.Duration
+func (_e *MockAccountMail_Expecter) SendPasswordReset(ctx any, to any, token any, lasts any) *MockAccountMail_SendPasswordReset_Call {
+	return &MockAccountMail_SendPasswordReset_Call{Call: _e.mock.On("SendPasswordReset", ctx, to, token, lasts)}
+}
+
+func (_c *MockAccountMail_SendPasswordReset_Call) Run(run func(ctx context.Context, to string, token string, lasts time.Duration)) *MockAccountMail_SendPasswordReset_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		var arg1 string
+		if args[1] != nil {
+			arg1 = args[1].(string)
+		}
+		var arg2 string
+		if args[2] != nil {
+			arg2 = args[2].(string)
+		}
+		var arg3 time.Duration
+		if args[3] != nil {
+			arg3 = args[3].(time.Duration)
+		}
+		run(
+			arg0,
+			arg1,
+			arg2,
+			arg3,
+		)
+	})
+	return _c
+}
+
+func (_c *MockAccountMail_SendPasswordReset_Call) Return(err error) *MockAccountMail_SendPasswordReset_Call {
+	_c.Call.Return(err)
+	return _c
+}
+
+func (_c *MockAccountMail_SendPasswordReset_Call) RunAndReturn(run func(ctx context.Context, to string, token string, lasts time.Duration) error) *MockAccountMail_SendPasswordReset_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // SendVerification provides a mock function for the type MockAccountMail
 func (_mock *MockAccountMail) SendVerification(ctx context.Context, to string, token string, lasts time.Duration) error {
 	ret := _mock.Called(ctx, to, token, lasts)

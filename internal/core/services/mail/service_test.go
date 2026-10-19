@@ -94,3 +94,26 @@ func TestForPeople(t *testing.T) {
 	assert.Equal(t, "1 hour", forPeople(time.Hour))
 	assert.Equal(t, "30 minutes", forPeople(30*time.Minute))
 }
+
+func TestPasswordMail(t *testing.T) {
+	mailer := portsmocks.NewMockMailer(t)
+
+	var sent []ports.Mail
+	mailer.EXPECT().Send(mock.Anything, mock.Anything).RunAndReturn(func(_ context.Context, m ports.Mail) error {
+		sent = append(sent, m)
+		return nil
+	})
+
+	s := New(mailer, "https://poly.example", logging.Noop())
+	require.NoError(t, s.SendPasswordReset(context.Background(), "ada@example.com", "tok", time.Hour))
+	require.NoError(t, s.SendPasswordChanged(context.Background(), "ada@example.com", time.Date(2026, 10, 19, 18, 5, 0, 0, time.UTC)))
+
+	require.Len(t, sent, 2)
+	assert.Equal(t, "Set a new Polythought password", sent[0].Subject)
+	assert.Contains(t, sent[0].Text, "Set a new password: https://poly.example/reset-password?token=tok")
+	assert.Contains(t, sent[0].Text, "works once, for 1 hour")
+
+	assert.Equal(t, "Your Polythought password was changed", sent[1].Subject)
+	assert.Contains(t, sent[1].Text, "changed on 19 October 2026 at 18:05 UTC")
+	assert.Contains(t, sent[1].Text, "https://poly.example/forgot-password")
+}

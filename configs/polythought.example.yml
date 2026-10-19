@@ -65,6 +65,12 @@ auth:
   # Environment: POLYTHOUGHT_AUTH_VERIFY_EMAIL.
   # verify_email: false
 
+  # Forgot password? on the sign-in page mails a link to set a new one, working once for
+  # an hour; setting it signs the account out everywhere. Works while mail is set up,
+  # under Mail.
+  # Environment: POLYTHOUGHT_AUTH_PASSWORD_RESET.
+  # password_reset: true
+
   # A browser session unused this long signs out. Applies to new activity at once.
   # Environment: POLYTHOUGHT_SESSION_IDLE_TTL.
   # session_idle_ttl: "168h"

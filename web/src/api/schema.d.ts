@@ -194,6 +194,40 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/auth/password-reset": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Ask for a password reset link */
+        post: operations["requestPasswordReset"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/auth/password-reset/confirm": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Set a new password with a mailed link */
+        post: operations["resetPassword"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/auth/register": {
         parameters: {
             query?: never;
@@ -1220,6 +1254,8 @@ export interface components {
         AuthConfig: {
             /** @description MinPasswordLength is the fewest characters a new password may have. */
             minPasswordLength: number;
+            /** @description PasswordReset says a forgotten password can be reset by email (D176). */
+            passwordReset: boolean;
             /** @enum {string} */
             registration: "open" | "invite" | "closed";
         };
@@ -1741,6 +1777,9 @@ export interface components {
             /** @description Sensitive values, like a webhook URL, are personal: sharing leaves them out. */
             sensitive?: boolean;
         };
+        PasswordResetRequest: {
+            email: string;
+        };
         Problem: {
             column?: number;
             /** @description Line and Column are where in the code a problem is, from 1, columns in characters. */
@@ -1764,6 +1803,11 @@ export interface components {
         };
         ResendVerificationRequest: {
             email: string;
+        };
+        ResetPasswordRequest: {
+            password: string;
+            /** @description Token is the one in the mailed link. */
+            token: string;
         };
         Revocation: {
             /** @description Problem says why it was not revoked. */
@@ -2097,7 +2141,7 @@ export interface components {
             users: components["schemas"]["User"][];
         };
         Verified: {
-            /** @description Email is the address verified, for the sign-in form. */
+            /** @description Email is the account's address, now verified, for the sign-in form. */
             email: string;
         };
         VerifyEmailRequest: {
@@ -2868,6 +2912,99 @@ export interface operations {
             };
             /** @description unauthenticated */
             401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    requestPasswordReset: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description The address */
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PasswordResetRequest"];
+            };
+        };
+        responses: {
+            /** @description No Content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description password_reset_off */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description rate_limited */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    resetPassword: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description The link's token and the new password */
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ResetPasswordRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Verified"];
+                };
+            };
+            /** @description invalid_link or weak_password */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description password_reset_off */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description rate_limited */
+            429: {
                 headers: {
                     [name: string]: unknown;
                 };

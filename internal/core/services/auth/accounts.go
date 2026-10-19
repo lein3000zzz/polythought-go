@@ -205,6 +205,7 @@ func (s *Service) ChangePassword(ctx context.Context, p Principal, current, next
 	}
 
 	s.log.Info(ctx, "Password changed", "user_id", p.User.ID)
+	s.tellPasswordChanged(ctx, p.User, s.now())
 
 	return nil
 }

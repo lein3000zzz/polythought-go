@@ -7,13 +7,15 @@ import { AdminConfigPage } from '@/pages/AdminConfigPage'
 import { AdminPage } from '@/pages/AdminPage'
 import { CredentialsPage } from '@/pages/CredentialsPage'
 import { CustomNodePage } from '@/pages/CustomNodePage'
+import { ForgotPasswordPage } from '@/pages/ForgotPasswordPage'
 import { LibraryPage } from '@/pages/LibraryPage'
 import { LoginPage } from '@/pages/LoginPage'
 import { NodesPage } from '@/pages/NodesPage'
 import { NotFoundPage } from '@/pages/NotFoundPage'
 import { RegisterPage } from '@/pages/RegisterPage'
-import { VerifyEmailPage } from '@/pages/VerifyEmailPage'
+import { ResetPasswordPage } from '@/pages/ResetPasswordPage'
 import { SettingsPage } from '@/pages/SettingsPage'
+import { VerifyEmailPage } from '@/pages/VerifyEmailPage'
 import { WalletsPage } from '@/pages/WalletsPage'
 import { WorkflowsPage } from '@/pages/WorkflowsPage'
 
@@ -34,6 +36,8 @@ export const routes: RouteObject[] = [
   { path: '/login', element: <LoginPage /> },
   { path: '/register', element: <RegisterPage /> },
   { path: '/verify-email', element: <VerifyEmailPage /> },
+  { path: '/forgot-password', element: <ForgotPasswordPage /> },
+  { path: '/reset-password', element: <ResetPasswordPage /> },
   {
     element: <RequireAuth />,
     children: [

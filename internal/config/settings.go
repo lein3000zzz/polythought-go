@@ -18,6 +18,7 @@ import (
 const (
 	KeyRegistration        = "auth.registration"
 	KeyVerifyEmail         = "auth.verify_email"
+	KeyPasswordReset       = "auth.password_reset"
 	KeySessionIdleTTL      = "auth.session_idle_ttl"
 	KeySessionAbsoluteTTL  = "auth.session_absolute_ttl"
 	KeyInviteTTL           = "auth.invite_ttl"
@@ -115,6 +116,11 @@ func Settings() (*settings.Registry, error) {
 			Key: KeyVerifyEmail, Group: groupAccounts, Label: "Verify sign-ups",
 			Description: "People who sign up themselves get a link by mail, and can sign in once they open it; an account unverified after 7 days is removed. Needs mail set up, under Mail. Accounts from before, and those admins create, count as verified.",
 			Kind:        settings.KindBool, Default: false,
+		},
+		settings.Spec{
+			Key: KeyPasswordReset, Group: groupAccounts, Label: "Password reset by email",
+			Description: "Forgot password? on the sign-in page mails a link to set a new one, working once for an hour; setting it signs the account out everywhere. Works while mail is set up, under Mail.",
+			Kind:        settings.KindBool, Default: true,
 		},
 		settings.Spec{
 			Key: KeySessionIdleTTL, Group: groupAccounts, Label: "Idle sign-out",

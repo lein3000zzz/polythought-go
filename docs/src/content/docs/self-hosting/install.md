@@ -145,6 +145,17 @@ Accounts from before, those an admin creates and the first admin count as verifi
 **Mark verified** takes your word for the address, for when the mail does not get through.
 The setting cannot be turned on without mail, nor mail removed while it is on.
 
+### Password reset
+
+While mail is set up, **Forgot password?** on the sign-in page mails a link to set a new
+password, unless **Password reset by email** (under Accounts, on by default) is off. The
+link works once, for an hour, and is sent at most once a minute and five times a day; the
+page says the same whether or not the address has an account, and a disabled account is
+sent nothing. Setting the password signs the account out of every session (its API tokens
+keep working), verifies its address, and leads to the sign-in form, where the new password
+is needed. After a reset, or a password change in Settings, the account is mailed a notice,
+so an owner learns of a change they did not make.
+
 ## Upgrading and backups
 
 Get the new code and run `make up` again. The database schema is updated when the server

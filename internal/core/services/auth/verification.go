@@ -48,32 +48,10 @@ type Registration struct {
 	Sent       bool
 }
 
-// sendVerification mails u a new link verifying its address, at most one a minute and
-// five a day.
+// sendVerification mails u a new link verifying its address.
 func (s *Service) sendVerification(ctx context.Context, u domain.User) error {
-	now := s.now()
-
-	for _, limit := range []struct {
-		since time.Time
-		most  int
-	}{{now.Add(-linkGap), 1}, {now.Add(-24 * time.Hour), linksPerDay}} {
-		n, err := s.repos.EmailTokens.CountSince(ctx, u.ID, domain.EmailTokenVerify, limit.since)
-		if err != nil {
-			return err
-		}
-
-		if n >= limit.most {
-			return domain.ErrRateLimited
-		}
-	}
-
-	token, err := newSecret("")
+	token, err := s.newLink(ctx, u, domain.EmailTokenVerify, verifyLinkTTL)
 	if err != nil {
-		return err
-	}
-
-	link := domain.EmailToken{UserID: u.ID, Purpose: domain.EmailTokenVerify, CreatedAt: now, ExpiresAt: now.Add(verifyLinkTTL)}
-	if err := s.repos.EmailTokens.Create(ctx, link, hashSecret(token)); err != nil {
 		return err
 	}
 
@@ -85,6 +63,38 @@ func (s *Service) sendVerification(ctx context.Context, u domain.User) error {
 	s.log.Info(ctx, "Verification link mailed", "user_id", u.ID)
 
 	return nil
+}
+
+// newLink makes u a link of purpose working for lasts, and gives its token: at most one a
+// minute and five a day of each purpose, domain.ErrRateLimited past that.
+func (s *Service) newLink(ctx context.Context, u domain.User, purpose domain.EmailTokenPurpose, lasts time.Duration) (string, error) {
+	now := s.now()
+
+	for _, limit := range []struct {
+		since time.Time
+		most  int
+	}{{now.Add(-linkGap), 1}, {now.Add(-24 * time.Hour), linksPerDay}} {
+		n, err := s.repos.EmailTokens.CountSince(ctx, u.ID, purpose, limit.since)
+		if err != nil {
+			return "", err
+		}
+
+		if n >= limit.most {
+			return "", domain.ErrRateLimited
+		}
+	}
+
+	token, err := newSecret("")
+	if err != nil {
+		return "", err
+	}
+
+	link := domain.EmailToken{UserID: u.ID, Purpose: purpose, CreatedAt: now, ExpiresAt: now.Add(lasts)}
+	if err := s.repos.EmailTokens.Create(ctx, link, hashSecret(token)); err != nil {
+		return "", err
+	}
+
+	return token, nil
 }
 
 // VerifyEmail verifies the address of the account a mailed link is for, and gives the

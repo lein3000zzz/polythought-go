@@ -114,6 +114,8 @@ type authConfigDTO struct {
 	Registration string `json:"registration" enums:"open,invite,closed"`
 	// MinPasswordLength is the fewest characters a new password may have.
 	MinPasswordLength int `json:"minPasswordLength"`
+	// PasswordReset says a forgotten password can be reset by email (D176).
+	PasswordReset bool `json:"passwordReset"`
 } // @name AuthConfig
 
 type registerRequest struct {
@@ -185,6 +187,7 @@ func (s *Server) authConfig(_ context.Context, c *app.RequestContext) {
 	c.JSON(http.StatusOK, authConfigDTO{
 		Registration:      string(s.auth.RegistrationMode()),
 		MinPasswordLength: s.auth.MinPasswordLength(),
+		PasswordReset:     s.auth.PasswordReset(),
 	})
 }
 
@@ -234,7 +237,7 @@ type verifyEmailRequest struct {
 } // @name VerifyEmailRequest
 
 type verifiedDTO struct {
-	// Email is the address verified, for the sign-in form.
+	// Email is the account's address, now verified, for the sign-in form.
 	Email string `json:"email"`
 } // @name Verified
 
@@ -295,6 +298,72 @@ func (s *Server) resendVerification(ctx context.Context, c *app.RequestContext) 
 	}
 
 	c.Status(http.StatusNoContent)
+}
+
+type passwordResetRequest struct {
+	Email string `json:"email"`
+} // @name PasswordResetRequest
+
+// requestPasswordReset mails a link setting a new password to the account of the address,
+// if it has one. It answers the same either way (D176).
+//
+//	@Summary	Ask for a password reset link
+//	@ID			requestPasswordReset
+//	@Tags		auth
+//	@Param		body	body	passwordResetRequest	true	"The address"
+//	@Success	204
+//	@Failure	403	{object}	errorBody	"password_reset_off"
+//	@Failure	429	{object}	errorBody	"rate_limited"
+//	@Router		/auth/password-reset [post]
+func (s *Server) requestPasswordReset(ctx context.Context, c *app.RequestContext) {
+	var req passwordResetRequest
+
+	if err := decodeJSON(c, &req); err != nil {
+		s.fail(ctx, c, err)
+		return
+	}
+
+	if err := s.auth.RequestPasswordReset(ctx, req.Email, c.ClientIP()); err != nil {
+		s.fail(ctx, c, err)
+		return
+	}
+
+	c.Status(http.StatusNoContent)
+}
+
+type resetPasswordRequest struct {
+	// Token is the one in the mailed link.
+	Token    string `json:"token"`
+	Password string `json:"password"`
+} // @name ResetPasswordRequest
+
+// resetPassword sets a new password with the token of the link mailed for it: it verifies
+// the address and signs the account out everywhere, but signs nobody in (D177 to D179).
+//
+//	@Summary	Set a new password with a mailed link
+//	@ID			resetPassword
+//	@Tags		auth
+//	@Param		body	body		resetPasswordRequest	true	"The link's token and the new password"
+//	@Success	200		{object}	verifiedDTO
+//	@Failure	400		{object}	errorBody	"invalid_link or weak_password"
+//	@Failure	403		{object}	errorBody	"password_reset_off"
+//	@Failure	429		{object}	errorBody	"rate_limited"
+//	@Router		/auth/password-reset/confirm [post]
+func (s *Server) resetPassword(ctx context.Context, c *app.RequestContext) {
+	var req resetPasswordRequest
+
+	if err := decodeJSON(c, &req); err != nil {
+		s.fail(ctx, c, err)
+		return
+	}
+
+	email, err := s.auth.ResetPassword(ctx, req.Token, req.Password, c.ClientIP())
+	if err != nil {
+		s.fail(ctx, c, err)
+		return
+	}
+
+	c.JSON(http.StatusOK, verifiedDTO{Email: email})
 }
 
 // sendVerificationLink mails a user that must verify a new link, for an admin.

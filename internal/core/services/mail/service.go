@@ -76,6 +76,33 @@ func (s *Service) SendVerification(ctx context.Context, to, token string, lasts 
 	})
 }
 
+// SendPasswordReset mails the link setting a new password; the page then asks to sign in
+// with it (D177).
+func (s *Service) SendPasswordReset(ctx context.Context, to, token string, lasts time.Duration) error {
+	return s.send(ctx, to, Message{
+		Subject: "Set a new Polythought password",
+		Paragraphs: []string{
+			"Someone, hopefully you, asked to set a new password for the Polythought account of this address.",
+			"The link works once, for " + forPeople(lasts) + ". Setting the password signs the account out everywhere. " +
+				"Did not ask? Ignore this mail: your password stays as it is.",
+		},
+		Link: &Link{Text: "Set a new password", URL: s.publicURL + "/reset-password?token=" + url.QueryEscape(token)},
+	})
+}
+
+// SendPasswordChanged tells an account its password was changed, so its owner learns of a
+// change they did not make.
+func (s *Service) SendPasswordChanged(ctx context.Context, to string, at time.Time) error {
+	return s.send(ctx, to, Message{
+		Subject: "Your Polythought password was changed",
+		Paragraphs: []string{
+			"The password of your Polythought account was changed on " + at.UTC().Format("2 January 2006 at 15:04") + " UTC.",
+			"If that was you, there is nothing to do. If not, set a new one now and tell an admin: someone may know your old password.",
+		},
+		Link: &Link{Text: "Set a new password", URL: s.publicURL + "/forgot-password"},
+	})
+}
+
 // forPeople says how long d is, roughly: 24 hours, 30 minutes.
 func forPeople(d time.Duration) string {
 	if d >= time.Hour && d%time.Hour == 0 {

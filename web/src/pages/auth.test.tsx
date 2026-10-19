@@ -305,6 +305,112 @@ describe('verifying an address', () => {
   })
 })
 
+describe('resetting a password', () => {
+  const resetOn = http.get('/api/v1/auth/config', () =>
+    HttpResponse.json({ registration: 'invite', minPasswordLength: 12, passwordReset: true }),
+  )
+
+  it('is offered on the sign-in page only while it works', async () => {
+    server.use(signedOut, registration('invite'))
+    renderApp('/login')
+
+    expect(await screen.findByLabelText('Password')).toBeInTheDocument()
+    expect(screen.queryByRole('link', { name: 'Forgot password?' })).not.toBeInTheDocument()
+  })
+
+  it('mails a link, saying the same for any address', async () => {
+    let asked: unknown
+
+    server.use(
+      signedOut,
+      resetOn,
+      http.post('/api/v1/auth/password-reset', async ({ request }) => {
+        asked = await request.json()
+        return new HttpResponse(null, { status: 204 })
+      }),
+    )
+    const { user } = renderApp('/login')
+
+    await user.type(await screen.findByLabelText('Email'), 'alice@example.com')
+    await user.click(screen.getByRole('link', { name: 'Forgot password?' }))
+
+    expect(await screen.findByLabelText('Email')).toHaveValue('alice@example.com')
+    await user.click(screen.getByRole('button', { name: 'Send the link' }))
+
+    expect(
+      await screen.findByText(/If alice@example.com has an account, a link/),
+    ).toBeInTheDocument()
+    expect(asked).toEqual({ email: 'alice@example.com' })
+  })
+
+  it('says when it is off', async () => {
+    server.use(
+      signedOut,
+      resetOn,
+      http.post('/api/v1/auth/password-reset', () =>
+        apiError(
+          403,
+          'password_reset_off',
+          'passwords cannot be reset by email here: ask an admin',
+        ),
+      ),
+    )
+    const { user } = renderApp('/forgot-password')
+
+    await user.type(await screen.findByLabelText('Email'), 'alice@example.com')
+    await user.click(screen.getByRole('button', { name: 'Send the link' }))
+
+    expect(
+      await screen.findByText('Passwords cannot be reset by email here: ask an admin'),
+    ).toBeInTheDocument()
+  })
+
+  it('sets the new password, then asks to sign in with it (D177)', async () => {
+    let sent: unknown
+
+    server.use(
+      signedOut,
+      resetOn,
+      http.post('/api/v1/auth/password-reset/confirm', async ({ request }) => {
+        sent = await request.json()
+        return HttpResponse.json({ email: 'alice@example.com' })
+      }),
+    )
+    const { user, router } = renderApp('/reset-password?token=tok_1')
+
+    await user.type(await screen.findByLabelText('New password'), 'a long enough password')
+    await user.click(screen.getByRole('button', { name: 'Set the password' }))
+
+    expect(
+      await screen.findByText('Your password is changed: sign in with it.'),
+    ).toBeInTheDocument()
+    expect(router.state.location.pathname).toBe('/login')
+    expect(screen.getByLabelText('Email')).toHaveValue('alice@example.com')
+    expect(sent).toEqual({ token: 'tok_1', password: 'a long enough password' })
+  })
+
+  it('an old link offers a new one', async () => {
+    server.use(
+      signedOut,
+      resetOn,
+      http.post('/api/v1/auth/password-reset/confirm', () =>
+        apiError(
+          400,
+          'invalid_link',
+          'this link does not work any more: it was used already, or it is too old',
+        ),
+      ),
+    )
+    const { user } = renderApp('/reset-password?token=old')
+
+    await user.type(await screen.findByLabelText('New password'), 'a long enough password')
+    await user.click(screen.getByRole('button', { name: 'Set the password' }))
+
+    expect(await screen.findByRole('link', { name: 'Ask for a new link' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Set the password' })).toBeDisabled()
+  })
+})
+
 describe('workflow page', () => {
   it('says so when the workflow is not there', async () => {
     server.use(

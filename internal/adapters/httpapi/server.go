@@ -36,6 +36,9 @@ type AuthService interface {
 	VerifyEmail(ctx context.Context, token, ip string) (string, error)
 	ResendVerification(ctx context.Context, email, ip string) error
 	SendVerificationLink(ctx context.Context, actor auth.Principal, id domain.UserID) error
+	PasswordReset() bool
+	RequestPasswordReset(ctx context.Context, email, ip string) error
+	ResetPassword(ctx context.Context, token, password, ip string) (string, error)
 	Login(ctx context.Context, in auth.LoginInput) (auth.LoginResult, error)
 	Logout(ctx context.Context, id domain.SessionID) error
 	AuthenticateSession(ctx context.Context, token string) (auth.Principal, error)
@@ -279,6 +282,8 @@ func (s *Server) routes() {
 	v1.POST("/auth/login", s.login)
 	v1.POST("/auth/verify-email", s.verifyEmail)
 	v1.POST("/auth/verification", s.resendVerification)
+	v1.POST("/auth/password-reset", s.requestPasswordReset)
+	v1.POST("/auth/password-reset/confirm", s.resetPassword)
 	v1.POST("/auth/logout", s.requireAuth, s.logout)
 
 	v1.GET("/me", s.requireAuth, s.me)

@@ -26,4 +26,9 @@ type AccountMail interface {
 	// SendVerification mails to the link verifying its address, carrying token, which
 	// works for lasts.
 	SendVerification(ctx context.Context, to, token string, lasts time.Duration) error
+	// SendPasswordReset mails to the link setting a new password, carrying token, which
+	// works for lasts.
+	SendPasswordReset(ctx context.Context, to, token string, lasts time.Duration) error
+	// SendPasswordChanged tells to that its password was changed at at.
+	SendPasswordChanged(ctx context.Context, to string, at time.Time) error
 }

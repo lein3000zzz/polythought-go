@@ -36,6 +36,8 @@ type Config struct {
 	CodeAccess        domain.CodeAccess // who may write code
 	// VerifyEmail makes people who sign up themselves verify their address by mail (D173).
 	VerifyEmail bool
+	// PasswordReset lets people set a new password with a mailed link (D176).
+	PasswordReset bool
 }
 
 func DefaultConfig() Config {
@@ -47,6 +49,7 @@ func DefaultConfig() Config {
 		TouchInterval:      time.Minute,
 		MinPasswordLength:  12,
 		CodeAccess:         domain.CodeEveryone,
+		PasswordReset:      true,
 	}
 }
 

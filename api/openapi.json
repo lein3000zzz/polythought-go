@@ -241,6 +241,10 @@
                         "description": "MinPasswordLength is the fewest characters a new password may have.",
                         "type": "integer"
                     },
+                    "passwordReset": {
+                        "description": "PasswordReset says a forgotten password can be reset by email (D176).",
+                        "type": "boolean"
+                    },
                     "registration": {
                         "enum": [
                             "open",
@@ -252,6 +256,7 @@
                 },
                 "required": [
                     "minPasswordLength",
+                    "passwordReset",
                     "registration"
                 ],
                 "type": "object"
@@ -1763,6 +1768,17 @@
                 ],
                 "type": "object"
             },
+            "PasswordResetRequest": {
+                "properties": {
+                    "email": {
+                        "type": "string"
+                    }
+                },
+                "required": [
+                    "email"
+                ],
+                "type": "object"
+            },
             "Problem": {
                 "properties": {
                     "column": {
@@ -1835,6 +1851,22 @@
                 },
                 "required": [
                     "email"
+                ],
+                "type": "object"
+            },
+            "ResetPasswordRequest": {
+                "properties": {
+                    "password": {
+                        "type": "string"
+                    },
+                    "token": {
+                        "description": "Token is the one in the mailed link.",
+                        "type": "string"
+                    }
+                },
+                "required": [
+                    "password",
+                    "token"
                 ],
                 "type": "object"
             },
@@ -2727,7 +2759,7 @@
             "Verified": {
                 "properties": {
                     "email": {
-                        "description": "Email is the address verified, for the sign-in form.",
+                        "description": "Email is the account's address, now verified, for the sign-in form.",
                         "type": "string"
                     }
                 },
@@ -3885,6 +3917,117 @@
                     }
                 ],
                 "summary": "Sign out",
+                "tags": [
+                    "auth"
+                ]
+            }
+        },
+        "/auth/password-reset": {
+            "post": {
+                "operationId": "requestPasswordReset",
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/PasswordResetRequest",
+                                "summary": "body",
+                                "description": "The address"
+                            }
+                        }
+                    },
+                    "description": "The address",
+                    "required": true
+                },
+                "responses": {
+                    "204": {
+                        "description": "No Content"
+                    },
+                    "403": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "password_reset_off"
+                    },
+                    "429": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "rate_limited"
+                    }
+                },
+                "summary": "Ask for a password reset link",
+                "tags": [
+                    "auth"
+                ]
+            }
+        },
+        "/auth/password-reset/confirm": {
+            "post": {
+                "operationId": "resetPassword",
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/ResetPasswordRequest",
+                                "summary": "body",
+                                "description": "The link's token and the new password"
+                            }
+                        }
+                    },
+                    "description": "The link's token and the new password",
+                    "required": true
+                },
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Verified"
+                                }
+                            }
+                        },
+                        "description": "OK"
+                    },
+                    "400": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "invalid_link or weak_password"
+                    },
+                    "403": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "password_reset_off"
+                    },
+                    "429": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "rate_limited"
+                    }
+                },
+                "summary": "Set a new password with a mailed link",
                 "tags": [
                     "auth"
                 ]

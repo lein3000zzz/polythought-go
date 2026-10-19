@@ -79,7 +79,10 @@ var (
 	ErrEmailNotVerified = errors.New("verify your email first: open the link we mailed you")
 	// ErrInvalidLink means a mailed link was used already, or is too old.
 	ErrInvalidLink = errors.New("this link does not work any more: it was used already, or it is too old")
-	ErrCodeOff     = errors.New("an admin has turned code off for you")
+	// ErrPasswordResetOff means passwords cannot be reset by mail here: it is switched off,
+	// or mail is not set up (D176).
+	ErrPasswordResetOff = errors.New("passwords cannot be reset by email here: ask an admin")
+	ErrCodeOff          = errors.New("an admin has turned code off for you")
 )
 
 // User is an account. The password hash never leaves the auth service and its repository.

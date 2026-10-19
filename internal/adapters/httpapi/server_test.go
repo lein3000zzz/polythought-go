@@ -101,9 +101,48 @@ func TestRoutes(t *testing.T) {
 			setup: func(svc *httpapimocks.MockAuthService) {
 				svc.EXPECT().RegistrationMode().Return(domain.RegistrationInvite)
 				svc.EXPECT().MinPasswordLength().Return(14)
+				svc.EXPECT().PasswordReset().Return(true)
 			},
 			wantStatus: http.StatusOK,
-			wantBody:   []string{`{"registration":"invite","minPasswordLength":14}`},
+			wantBody:   []string{`{"registration":"invite","minPasswordLength":14,"passwordReset":true}`},
+		},
+		{
+			name: "ask for a reset link",
+			req:  request{method: "POST", path: "/api/v1/auth/password-reset", body: `{"email":"a@b.c"}`},
+			setup: func(svc *httpapimocks.MockAuthService) {
+				svc.EXPECT().RequestPasswordReset(mock.Anything, "a@b.c", mock.Anything).Return(nil)
+			},
+			wantStatus: http.StatusNoContent,
+		},
+		{
+			name: "reset is off",
+			req:  request{method: "POST", path: "/api/v1/auth/password-reset", body: `{"email":"a@b.c"}`},
+			setup: func(svc *httpapimocks.MockAuthService) {
+				svc.EXPECT().RequestPasswordReset(mock.Anything, mock.Anything, mock.Anything).Return(domain.ErrPasswordResetOff)
+			},
+			wantStatus: http.StatusForbidden,
+			wantBody:   []string{`"code":"password_reset_off"`},
+		},
+		{
+			name: "set a new password",
+			req:  request{method: "POST", path: "/api/v1/auth/password-reset/confirm", body: `{"token":"tok","password":"new one"}`},
+			setup: func(svc *httpapimocks.MockAuthService) {
+				svc.EXPECT().ResetPassword(mock.Anything, "tok", "new one", mock.Anything).Return("alice@example.com", nil)
+			},
+			wantStatus: http.StatusOK,
+			wantBody:   []string{`{"email":"alice@example.com"}`},
+			check: func(t *testing.T, w *ut.ResponseRecorder) {
+				assert.Empty(t, w.Result().Header.Peek("Set-Cookie"), "not signed in (D177)")
+			},
+		},
+		{
+			name: "a weak new password",
+			req:  request{method: "POST", path: "/api/v1/auth/password-reset/confirm", body: `{"token":"tok","password":"x"}`},
+			setup: func(svc *httpapimocks.MockAuthService) {
+				svc.EXPECT().ResetPassword(mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return("", domain.ErrWeakPassword)
+			},
+			wantStatus: http.StatusBadRequest,
+			wantBody:   []string{`"code":"weak_password"`},
 		},
 		{
 			name: "register",
