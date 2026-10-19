@@ -1514,7 +1514,12 @@
                     "description": {
                         "type": "string"
                     },
+                    "email": {
+                        "description": "Email is by mail, to your account's address, while MailOn (D170).",
+                        "type": "boolean"
+                    },
                     "enabled": {
+                        "description": "Enabled is on Telegram, to your linked chat.",
                         "type": "boolean"
                     },
                     "key": {
@@ -1526,6 +1531,7 @@
                 },
                 "required": [
                     "description",
+                    "email",
                     "enabled",
                     "key",
                     "label"
@@ -1534,6 +1540,10 @@
             },
             "NotificationList": {
                 "properties": {
+                    "mailOn": {
+                        "description": "MailOn says notifications can go by mail now: an admin allows it, and mail is set up\n(D184).",
+                        "type": "boolean"
+                    },
                     "notifications": {
                         "items": {
                             "$ref": "#/components/schemas/Notification"
@@ -1543,6 +1553,7 @@
                     }
                 },
                 "required": [
+                    "mailOn",
                     "notifications"
                 ],
                 "type": "object"
@@ -2050,13 +2061,14 @@
             },
             "SetNotificationRequest": {
                 "properties": {
+                    "email": {
+                        "type": "boolean"
+                    },
                     "enabled": {
+                        "description": "Enabled switches it on Telegram, Email by mail; at least one is given.",
                         "type": "boolean"
                     }
                 },
-                "required": [
-                    "enabled"
-                ],
                 "type": "object"
             },
             "Setting": {
@@ -5663,11 +5675,11 @@
                             "schema": {
                                 "$ref": "#/components/schemas/SetNotificationRequest",
                                 "summary": "body",
-                                "description": "On or off"
+                                "description": "On or off, on Telegram or by mail"
                             }
                         }
                     },
-                    "description": "On or off",
+                    "description": "On or off, on Telegram or by mail",
                     "required": true
                 },
                 "responses": {

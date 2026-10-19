@@ -143,7 +143,7 @@ func (n *Ask) Resume(ctx context.Context, rc engine.RunContext, in engine.Ports,
 
 	if r.TimedOut && st.Remind {
 		// A reminder that does not arrive is no reason to give up on the answer.
-		_ = n.reminder.RemindQuestion(ctx, rc.OwnerID, st.Message, st.Deadline.Sub(n.now()))
+		_ = n.reminder.RemindQuestion(ctx, rc.OwnerID, rc.WorkflowID, st.Message, st.Deadline.Sub(n.now()))
 
 		st.Remind = false
 

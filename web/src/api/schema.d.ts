@@ -1715,11 +1715,19 @@ export interface components {
         };
         Notification: {
             description: string;
+            /** @description Email is by mail, to your account's address, while MailOn (D170). */
+            email: boolean;
+            /** @description Enabled is on Telegram, to your linked chat. */
             enabled: boolean;
             key: string;
             label: string;
         };
         NotificationList: {
+            /**
+             * @description MailOn says notifications can go by mail now: an admin allows it, and mail is set up
+             *     (D184).
+             */
+            mailOn: boolean;
             notifications: components["schemas"]["Notification"][];
         };
         Order: {
@@ -1912,7 +1920,9 @@ export interface components {
             signer?: string;
         };
         SetNotificationRequest: {
-            enabled: boolean;
+            email?: boolean;
+            /** @description Enabled switches it on Telegram, Email by mail; at least one is given. */
+            enabled?: boolean;
         };
         Setting: {
             /**
@@ -4219,7 +4229,7 @@ export interface operations {
             };
             cookie?: never;
         };
-        /** @description On or off */
+        /** @description On or off, on Telegram or by mail */
         requestBody: {
             content: {
                 "application/json": components["schemas"]["SetNotificationRequest"];

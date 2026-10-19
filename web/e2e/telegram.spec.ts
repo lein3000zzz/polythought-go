@@ -30,17 +30,19 @@ test('notification choices are kept, and the editor offers the Telegram nodes', 
   page,
 }) => {
   await page.goto('/settings')
-  const failures = page.getByRole('switch', { name: 'A workflow fails' })
+  const failures = page.getByRole('switch', { name: 'A workflow fails, on Telegram' })
   await expect(failures).toBeChecked()
-  await expect(page.getByText(/Link Telegram above to get them/)).toBeVisible()
+  await expect(page.getByText(/link Telegram above to get them/)).toBeVisible()
 
   await failures.click()
   await expect(failures).not.toBeChecked()
   await page.reload()
-  await expect(page.getByRole('switch', { name: 'A workflow fails' })).not.toBeChecked()
+  await expect(
+    page.getByRole('switch', { name: 'A workflow fails, on Telegram' }),
+  ).not.toBeChecked()
 
-  await page.getByRole('switch', { name: 'A workflow fails' }).click()
-  await expect(page.getByRole('switch', { name: 'A workflow fails' })).toBeChecked()
+  await page.getByRole('switch', { name: 'A workflow fails, on Telegram' }).click()
+  await expect(page.getByRole('switch', { name: 'A workflow fails, on Telegram' })).toBeChecked()
 
   await page.goto('/workflows/new')
   const list = page.getByRole('navigation', { name: 'Node types' })
@@ -102,5 +104,7 @@ test('a question has a port per button, which keeps its line when renamed', asyn
   await expect(page.getByText(/telegram is not linked/).first()).toBeVisible()
 
   await page.goto('/settings')
-  await expect(page.getByRole('switch', { name: 'A question waits for your answer' })).toBeChecked()
+  await expect(
+    page.getByRole('switch', { name: 'A question waits for your answer, on Telegram' }),
+  ).toBeChecked()
 })

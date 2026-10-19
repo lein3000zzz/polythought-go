@@ -421,15 +421,24 @@ function TelegramSection() {
 function NotificationsSection() {
   const notifications = useNotifications()
   const telegram = useTelegram()
+  const me = useMe()
   const set = useSetNotification()
+  const mailOn = notifications.data?.mailOn
+
+  const change = (key: string, body: { enabled?: boolean; email?: boolean }) =>
+    set.mutate({ key, ...body }, { onError: (error) => toast.error(errorMessage(error)) })
 
   return (
     <section className="flex flex-col gap-4">
       <div>
         <h2 className="font-medium">Notifications</h2>
         <p className="text-sm text-muted-foreground">
-          Sent to your Telegram chat.
-          {telegram.data && !telegram.data.link && ' Link Telegram above to get them.'}
+          On Telegram, to your linked chat
+          {telegram.data && !telegram.data.link && ' (link Telegram above to get them)'}; by email,
+          to {me.data?.email ?? 'your address'}.
+          {notifications.data &&
+            !mailOn &&
+            ' Email needs an admin to allow it, and mail set up on the server.'}
         </p>
       </div>
 
@@ -438,26 +447,37 @@ function NotificationsSection() {
         <ErrorAlert error={notifications.error} onRetry={() => void notifications.refetch()} />
       )}
 
-      {notifications.data?.map((n) => (
+      {notifications.data && notifications.data.notifications.length > 0 && (
+        <div className="flex justify-end gap-6 text-xs text-muted-foreground" aria-hidden>
+          <span className="w-9 text-center">Telegram</span>
+          <span className="w-9 text-center">Email</span>
+        </div>
+      )}
+
+      {notifications.data?.notifications.map((n) => (
         <div key={n.key} className="flex items-start justify-between gap-4">
           <div className="flex flex-col gap-0.5">
-            <Label htmlFor={`notify-${n.key}`}>{n.label}</Label>
+            <span className="text-sm font-medium">{n.label}</span>
             <p id={`notify-${n.key}-hint`} className="text-xs text-muted-foreground">
               {n.description}
             </p>
           </div>
-          <Switch
-            id={`notify-${n.key}`}
-            aria-describedby={`notify-${n.key}-hint`}
-            checked={n.enabled}
-            disabled={set.isPending}
-            onCheckedChange={(enabled) =>
-              set.mutate(
-                { key: n.key, enabled },
-                { onError: (error) => toast.error(errorMessage(error)) },
-              )
-            }
-          />
+          <div className="flex shrink-0 gap-6">
+            <Switch
+              aria-label={`${n.label}, on Telegram`}
+              aria-describedby={`notify-${n.key}-hint`}
+              checked={n.enabled}
+              disabled={set.isPending}
+              onCheckedChange={(enabled) => change(n.key, { enabled })}
+            />
+            <Switch
+              aria-label={`${n.label}, by email`}
+              aria-describedby={`notify-${n.key}-hint`}
+              checked={n.email}
+              disabled={set.isPending || !mailOn}
+              onCheckedChange={(email) => change(n.key, { email })}
+            />
+          </div>
         </div>
       ))}
     </section>

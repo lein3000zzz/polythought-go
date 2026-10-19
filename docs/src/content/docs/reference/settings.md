@@ -540,3 +540,15 @@ The name mail comes from, shown beside the address.
 | Kind | text |
 | Default | `Polythought` |
 | Applies | at once |
+
+### Notifications by email
+
+Users may get their notifications by email too: each chooses per kind in Settings, by email off until they turn it on. Works while mail is set up.
+
+| | |
+|---|---|
+| Key | `mail.notifications` |
+| Environment variable | `POLYTHOUGHT_MAIL_NOTIFICATIONS` |
+| Kind | `true` or `false` |
+| Default | `false` |
+| Applies | at once |

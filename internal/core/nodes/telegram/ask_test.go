@@ -51,11 +51,14 @@ func (a *asker) CloseQuestion(_ context.Context, _ domain.UserID, id int, html s
 }
 
 type reminder struct {
-	left map[int]time.Duration
+	left      map[int]time.Duration
+	workflows []domain.WorkflowID
 }
 
-func (r *reminder) RemindQuestion(_ context.Context, _ domain.UserID, id int, left time.Duration) error {
+func (r *reminder) RemindQuestion(_ context.Context, _ domain.UserID, workflow domain.WorkflowID, id int, left time.Duration) error {
 	r.left[id] = left
+	r.workflows = append(r.workflows, workflow)
+
 	return errors.New("not linked any more") // must not matter
 }
 
@@ -77,7 +80,7 @@ func newAsk(params map[string]any, withReminder bool) askTest {
 	}
 
 	at.node = telegram.NewAsk(at.asker, r, func() time.Time { return *at.clock })
-	at.rc = engine.RunContext{ExecutionID: "ex-1", OwnerID: owner, Params: engine.LiteralParams(at.node.Type(), params)}
+	at.rc = engine.RunContext{ExecutionID: "ex-1", WorkflowID: "wf-1", OwnerID: owner, Params: engine.LiteralParams(at.node.Type(), params)}
 
 	return at
 }
@@ -174,6 +177,7 @@ func TestAsk(t *testing.T) {
 		var again *engine.Wait
 		require.ErrorAs(t, err, &again)
 		assert.Equal(t, map[int]time.Duration{12: 15 * time.Minute}, at.reminder.left)
+		assert.Equal(t, []domain.WorkflowID{"wf-1"}, at.reminder.workflows, "the mail names it (D185)")
 		assert.Equal(t, askedAt.Add(time.Hour), again.Until)
 		assert.Equal(t, w.Key, again.Key)
 		assert.Equal(t, false, again.State["remind"])

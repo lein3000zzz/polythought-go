@@ -3,6 +3,8 @@ package ports
 import (
 	"context"
 	"time"
+
+	"github.com/lein3000zzz/polythought-go/internal/core/domain"
 )
 
 // Mail is a message to one address: its subject, and its body as plain text and as HTML.
@@ -33,4 +35,21 @@ type AccountMail interface {
 	SendPasswordChanged(ctx context.Context, to string, at time.Time) error
 	// SendInvite mails to an invite from inviter, carrying code, working until until.
 	SendInvite(ctx context.Context, to, inviter, code string, until time.Time) error
+}
+
+// UserMail is a notification as mail: a subject, paragraphs, and a link to act on.
+type UserMail struct {
+	Subject    string
+	Paragraphs []string
+	LinkText   string
+	LinkURL    string
+}
+
+// NotificationMail mails users their notifications, to their account's address (D170,
+// D184).
+type NotificationMail interface {
+	// On says whether notifications can go by mail: switched on, and mail set up.
+	On() bool
+	// MailUser mails m to the user; nothing to an account that is disabled or gone.
+	MailUser(ctx context.Context, user domain.UserID, m UserMail) error
 }

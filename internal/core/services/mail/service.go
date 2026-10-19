@@ -4,6 +4,7 @@ package mail
 
 import (
 	"context"
+	"errors"
 	"html"
 	"net/mail"
 	"net/url"
@@ -22,11 +23,62 @@ type Service struct {
 	mailer    ports.Mailer
 	publicURL string
 	log       logging.Logger
+
+	users         ports.UserRepository // for notifications: their addresses
+	notifications func() bool          // whether notifications may go by mail (D184)
+}
+
+type Option func(*Service)
+
+// WithNotifications mails users their notifications, to their addresses in users, while
+// on says so (D184).
+func WithNotifications(users ports.UserRepository, on func() bool) Option {
+	return func(s *Service) { s.users, s.notifications = users, on }
 }
 
 // New makes the service. publicURL is where people open the app; mail links to it.
-func New(mailer ports.Mailer, publicURL string, log logging.Logger) *Service {
-	return &Service{mailer: mailer, publicURL: strings.TrimRight(publicURL, "/"), log: log.With("component", "mail")}
+func New(mailer ports.Mailer, publicURL string, log logging.Logger, opts ...Option) *Service {
+	s := &Service{mailer: mailer, publicURL: strings.TrimRight(publicURL, "/"), log: log.With("component", "mail")}
+	for _, opt := range opts {
+		opt(s)
+	}
+
+	return s
+}
+
+var _ ports.NotificationMail = (*Service)(nil)
+
+// On says whether notifications can go by mail: switched on, and mail set up.
+func (s *Service) On() bool {
+	return s.users != nil && s.notifications() && s.mailer.SetUp()
+}
+
+// MailUser mails a notification to a user's address; nothing to an account disabled or
+// gone.
+func (s *Service) MailUser(ctx context.Context, user domain.UserID, m ports.UserMail) error {
+	if !s.On() {
+		return domain.ErrMailNotSetUp
+	}
+
+	u, err := s.users.ByID(ctx, user)
+	if errors.Is(err, domain.ErrNotFound) {
+		return nil
+	}
+
+	if err != nil {
+		return err
+	}
+
+	if u.Disabled() {
+		return nil
+	}
+
+	msg := Message{Subject: m.Subject, Paragraphs: m.Paragraphs}
+	if m.LinkURL != "" {
+		msg.Link = &Link{Text: m.LinkText, URL: m.LinkURL}
+	}
+
+	return s.send(ctx, u.Email, msg)
 }
 
 // SetUp says whether a mail server is set up.

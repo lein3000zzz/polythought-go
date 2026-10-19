@@ -48,6 +48,50 @@ func (_m *MockNotificationService) EXPECT() *MockNotificationService_Expecter {
 	return &MockNotificationService_Expecter{mock: &_m.Mock}
 }
 
+// MailOn provides a mock function for the type MockNotificationService
+func (_mock *MockNotificationService) MailOn() bool {
+	ret := _mock.Called()
+
+	if len(ret) == 0 {
+		panic("no return value specified for MailOn")
+	}
+
+	var r0 bool
+	if returnFunc, ok := ret.Get(0).(func() bool); ok {
+		r0 = returnFunc()
+	} else {
+		r0 = ret.Get(0).(bool)
+	}
+	return r0
+}
+
+// MockNotificationService_MailOn_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'MailOn'
+type MockNotificationService_MailOn_Call struct {
+	*mock.Call
+}
+
+// MailOn is a helper method to define mock.On call
+func (_e *MockNotificationService_Expecter) MailOn() *MockNotificationService_MailOn_Call {
+	return &MockNotificationService_MailOn_Call{Call: _e.mock.On("MailOn")}
+}
+
+func (_c *MockNotificationService_MailOn_Call) Run(run func()) *MockNotificationService_MailOn_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run()
+	})
+	return _c
+}
+
+func (_c *MockNotificationService_MailOn_Call) Return(b bool) *MockNotificationService_MailOn_Call {
+	_c.Call.Return(b)
+	return _c
+}
+
+func (_c *MockNotificationService_MailOn_Call) RunAndReturn(run func() bool) *MockNotificationService_MailOn_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // Prefs provides a mock function for the type MockNotificationService
 func (_mock *MockNotificationService) Prefs(ctx context.Context, p auth.Principal) ([]notify.Pref, error) {
 	ret := _mock.Called(ctx, p)
@@ -112,6 +156,84 @@ func (_c *MockNotificationService_Prefs_Call) Return(prefs []notify.Pref, err er
 }
 
 func (_c *MockNotificationService_Prefs_Call) RunAndReturn(run func(ctx context.Context, p auth.Principal) ([]notify.Pref, error)) *MockNotificationService_Prefs_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// SetEmailPref provides a mock function for the type MockNotificationService
+func (_mock *MockNotificationService) SetEmailPref(ctx context.Context, p auth.Principal, key string, enabled bool) (notify.Pref, error) {
+	ret := _mock.Called(ctx, p, key, enabled)
+
+	if len(ret) == 0 {
+		panic("no return value specified for SetEmailPref")
+	}
+
+	var r0 notify.Pref
+	var r1 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context, auth.Principal, string, bool) (notify.Pref, error)); ok {
+		return returnFunc(ctx, p, key, enabled)
+	}
+	if returnFunc, ok := ret.Get(0).(func(context.Context, auth.Principal, string, bool) notify.Pref); ok {
+		r0 = returnFunc(ctx, p, key, enabled)
+	} else {
+		r0 = ret.Get(0).(notify.Pref)
+	}
+	if returnFunc, ok := ret.Get(1).(func(context.Context, auth.Principal, string, bool) error); ok {
+		r1 = returnFunc(ctx, p, key, enabled)
+	} else {
+		r1 = ret.Error(1)
+	}
+	return r0, r1
+}
+
+// MockNotificationService_SetEmailPref_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'SetEmailPref'
+type MockNotificationService_SetEmailPref_Call struct {
+	*mock.Call
+}
+
+// SetEmailPref is a helper method to define mock.On call
+//   - ctx context.Context
+//   - p auth.Principal
+//   - key string
+//   - enabled bool
+func (_e *MockNotificationService_Expecter) SetEmailPref(ctx any, p any, key any, enabled any) *MockNotificationService_SetEmailPref_Call {
+	return &MockNotificationService_SetEmailPref_Call{Call: _e.mock.On("SetEmailPref", ctx, p, key, enabled)}
+}
+
+func (_c *MockNotificationService_SetEmailPref_Call) Run(run func(ctx context.Context, p auth.Principal, key string, enabled bool)) *MockNotificationService_SetEmailPref_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		var arg1 auth.Principal
+		if args[1] != nil {
+			arg1 = args[1].(auth.Principal)
+		}
+		var arg2 string
+		if args[2] != nil {
+			arg2 = args[2].(string)
+		}
+		var arg3 bool
+		if args[3] != nil {
+			arg3 = args[3].(bool)
+		}
+		run(
+			arg0,
+			arg1,
+			arg2,
+			arg3,
+		)
+	})
+	return _c
+}
+
+func (_c *MockNotificationService_SetEmailPref_Call) Return(pref notify.Pref, err error) *MockNotificationService_SetEmailPref_Call {
+	_c.Call.Return(pref, err)
+	return _c
+}
+
+func (_c *MockNotificationService_SetEmailPref_Call) RunAndReturn(run func(ctx context.Context, p auth.Principal, key string, enabled bool) (notify.Pref, error)) *MockNotificationService_SetEmailPref_Call {
 	_c.Call.Return(run)
 	return _c
 }

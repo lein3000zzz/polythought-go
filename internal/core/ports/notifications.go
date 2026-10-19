@@ -17,5 +17,5 @@ type NotificationPrefRepository interface {
 // QuestionReminder reminds users of a question still open, unless they switched that off.
 type QuestionReminder interface {
 	// RemindQuestion replies to the question's message, which left is still open for.
-	RemindQuestion(ctx context.Context, user domain.UserID, messageID int, left time.Duration) error
+	RemindQuestion(ctx context.Context, user domain.UserID, workflow domain.WorkflowID, messageID int, left time.Duration) error
 }

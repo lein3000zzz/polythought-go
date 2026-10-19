@@ -23,10 +23,11 @@ const failedPref: Schemas['Notification'] = {
   label: 'A workflow fails',
   description: 'A run of one of your workflows failed.',
   enabled: true,
+  email: false,
 }
 
 const notifications = http.get('/api/v1/notifications', () =>
-  HttpResponse.json({ notifications: [failedPref] }),
+  HttpResponse.json({ notifications: [failedPref], mailOn: false }),
 )
 
 describe('settings page', () => {
@@ -222,13 +223,45 @@ describe('settings page', () => {
     )
     const { user } = renderApp('/settings')
 
-    const toggle = await screen.findByRole('switch', { name: 'A workflow fails' })
+    const toggle = await screen.findByRole('switch', { name: 'A workflow fails, on Telegram' })
     expect(toggle).toBeChecked()
-    expect(screen.getByText(/Link Telegram above to get them/)).toBeInTheDocument()
+    expect(screen.getByText(/link Telegram above to get them/)).toBeInTheDocument()
+
+    // Not by email while mail cannot carry it (D184).
+    expect(screen.getByRole('switch', { name: 'A workflow fails, by email' })).toBeDisabled()
+    expect(screen.getByText(/Email needs an admin to allow it/)).toBeInTheDocument()
 
     await user.click(toggle)
 
     await waitFor(() => expect(toggle).not.toBeChecked())
     expect(sent).toEqual({ enabled: false })
+  })
+
+  it('switches a notification on by email, to the account address (D170)', async () => {
+    let sent: unknown
+    server.use(
+      signedIn,
+      noTelegram,
+      http.get('/api/v1/notifications', () =>
+        HttpResponse.json({ notifications: [failedPref], mailOn: true }),
+      ),
+      http.get('/api/v1/tokens', () => HttpResponse.json({ tokens: [] })),
+      http.put('/api/v1/notifications/workflow_failed', async ({ request }) => {
+        sent = await request.json()
+        return HttpResponse.json({ ...failedPref, email: true })
+      }),
+    )
+    const { user } = renderApp('/settings')
+
+    const email = await screen.findByRole('switch', { name: 'A workflow fails, by email' })
+    expect(email).not.toBeChecked()
+    expect(screen.getByText(/by email, to alice@example.com/)).toBeInTheDocument()
+    expect(screen.queryByText(/Email needs an admin/)).not.toBeInTheDocument()
+
+    await user.click(email)
+
+    await waitFor(() => expect(email).toBeChecked())
+    expect(sent).toEqual({ email: true })
+    expect(screen.getByRole('switch', { name: 'A workflow fails, on Telegram' })).toBeChecked()
   })
 })

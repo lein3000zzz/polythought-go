@@ -154,6 +154,13 @@ account counts as verified, as the mail proved the address. An address that has 
 already is refused. If the mail does not go out, the invite is made anyway and its link
 shown, to send yourself. **Create invite** still makes a link for anyone, to copy.
 
+### Notifications by email
+
+**Notifications by email** (under Mail, off by default) lets users get their
+[notifications](/docs/guides/telegram/#notifications) by email too, beside Telegram: each
+chooses per kind in Settings, by email off until they turn it on. Each mail links back to
+the app and says where to turn it off.
+
 ### Password reset
 
 While mail is set up, **Forgot password?** on the sign-in page mails a link to set a new

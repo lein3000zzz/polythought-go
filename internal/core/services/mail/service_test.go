@@ -136,3 +136,48 @@ func TestSendInvite(t *testing.T) {
 	assert.Contains(t, sent.Text, "until 26 October 2026 at 18:00 UTC")
 	assert.Contains(t, sent.Text, "Make my account: https://poly.example/register?invite=inv_1")
 }
+
+func TestNotificationMail(t *testing.T) {
+	ctx := context.Background()
+	on := true
+
+	mailer := portsmocks.NewMockMailer(t)
+	mailer.EXPECT().SetUp().Return(true).Maybe()
+	users := portsmocks.NewMockUserRepository(t)
+
+	s := New(mailer, "https://poly.example", logging.Noop(), WithNotifications(users, func() bool { return on }))
+	assert.True(t, s.On())
+
+	t.Run("to the account's address", func(t *testing.T) {
+		users.EXPECT().ByID(mock.Anything, domain.UserID("u-1")).Return(domain.User{ID: "u-1", Email: "ada@example.com"}, nil).Once()
+
+		var sent ports.Mail
+		mailer.EXPECT().Send(mock.Anything, mock.Anything).RunAndReturn(func(_ context.Context, m ports.Mail) error {
+			sent = m
+			return nil
+		}).Once()
+
+		require.NoError(t, s.MailUser(ctx, "u-1", ports.UserMail{
+			Subject: "Spreads failed", Paragraphs: []string{"Spreads failed."},
+			LinkText: "Open workflow", LinkURL: "https://poly.example/workflows/wf-1",
+		}))
+		assert.Equal(t, "ada@example.com", sent.To)
+		assert.Contains(t, sent.Text, "Open workflow: https://poly.example/workflows/wf-1")
+	})
+
+	t.Run("nothing to a disabled account, or one gone", func(t *testing.T) {
+		users.EXPECT().ByID(mock.Anything, domain.UserID("u-2")).Return(domain.User{ID: "u-2", DisabledAt: time.Now()}, nil).Once()
+		users.EXPECT().ByID(mock.Anything, domain.UserID("u-3")).Return(domain.User{}, domain.ErrNotFound).Once()
+
+		require.NoError(t, s.MailUser(ctx, "u-2", ports.UserMail{Subject: "x"}))
+		require.NoError(t, s.MailUser(ctx, "u-3", ports.UserMail{Subject: "x"}))
+	})
+
+	t.Run("switched off", func(t *testing.T) {
+		on = false
+		assert.False(t, s.On())
+		require.ErrorIs(t, s.MailUser(ctx, "u-1", ports.UserMail{}), domain.ErrMailNotSetUp)
+	})
+
+	assert.False(t, New(mailer, "", logging.Noop()).On(), "without notifications set up")
+}

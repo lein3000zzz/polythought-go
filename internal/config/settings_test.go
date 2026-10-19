@@ -88,11 +88,12 @@ func TestSettingsDefaults(t *testing.T) {
 		config.KeyMailPassword:        "",
 		config.KeyMailFrom:            "",
 		config.KeyMailFromName:        "Polythought",
+		config.KeyMailNotifications:   false,
 	} {
 		assert.Equal(t, want, spec(t, key).Default, key)
 	}
 
-	assert.Len(t, registry(t).Specs(), 43, "every setting has a default checked above")
+	assert.Len(t, registry(t).Specs(), 44, "every setting has a default checked above")
 
 	for _, key := range []string{
 		config.KeyTelegramToken, config.KeyBuilderAPIKey, config.KeyBuilderSecret, config.KeyBuilderPassphrase, config.KeyPolygonRPC,

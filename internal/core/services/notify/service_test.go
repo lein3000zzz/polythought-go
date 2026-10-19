@@ -104,21 +104,54 @@ func (c *clock) set(t time.Time) {
 
 type deps struct {
 	messenger *messenger
+	mail      *mailbox
 	prefs     *prefs
 	workflows *portsmocks.MockWorkflowRepository
 	clock     *clock
+}
+
+// mailbox takes mailed notifications while on.
+type mailbox struct {
+	mu   sync.Mutex
+	on   bool
+	sent []ports.UserMail
+	err  error
+}
+
+func (m *mailbox) On() bool {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	return m.on
+}
+
+func (m *mailbox) MailUser(_ context.Context, _ domain.UserID, mail ports.UserMail) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	m.sent = append(m.sent, mail)
+
+	return m.err
+}
+
+func (m *mailbox) mails() []ports.UserMail {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	return append([]ports.UserMail(nil), m.sent...)
 }
 
 func newService(t *testing.T, publicURL string) (*notify.Service, deps) {
 	t.Helper()
 
 	d := deps{
-		messenger: &messenger{}, prefs: &prefs{changed: map[string]bool{}},
+		messenger: &messenger{}, mail: &mailbox{on: true}, prefs: &prefs{changed: map[string]bool{}},
 		workflows: portsmocks.NewMockWorkflowRepository(t), clock: &clock{now: now},
 	}
 	d.workflows.EXPECT().Get(mock.Anything, domain.UserID("alice"), domain.WorkflowID("wf-1")).Return(spreads, nil).Maybe()
 
-	s := notify.New(d.messenger, d.prefs, d.workflows, publicURL, logging.Noop(), notify.WithClock(d.clock.Now))
+	s := notify.New(d.messenger, d.prefs, d.workflows, publicURL, logging.Noop(),
+		notify.WithClock(d.clock.Now), notify.WithMail(d.mail))
 
 	ctx, cancel := context.WithCancel(context.Background())
 	t.Cleanup(cancel)
@@ -241,7 +274,7 @@ func TestRemindQuestion(t *testing.T) {
 		s, d := newService(t, "")
 
 		for _, left := range []time.Duration{15 * time.Minute, 20 * time.Second, 6 * time.Hour, 42 * time.Hour, 54 * time.Hour} {
-			require.NoError(t, s.RemindQuestion(ctx, "alice", 12, left))
+			require.NoError(t, s.RemindQuestion(ctx, "alice", "wf-1", 12, left))
 		}
 
 		texts := make([]string, len(d.messenger.sent))
@@ -265,7 +298,7 @@ func TestRemindQuestion(t *testing.T) {
 		_, err := s.SetPref(ctx, alice, "approval_waiting", false)
 		require.NoError(t, err)
 
-		require.NoError(t, s.RemindQuestion(ctx, "alice", 12, time.Hour))
+		require.NoError(t, s.RemindQuestion(ctx, "alice", "wf-1", 12, time.Hour))
 		assert.Zero(t, d.messenger.count())
 	})
 
@@ -273,7 +306,7 @@ func TestRemindQuestion(t *testing.T) {
 		s, d := newService(t, "")
 		d.messenger.fail(domain.ErrTelegramNotLinked)
 
-		require.ErrorIs(t, s.RemindQuestion(ctx, "alice", 12, time.Hour), domain.ErrTelegramNotLinked)
+		require.ErrorIs(t, s.RemindQuestion(ctx, "alice", "wf-1", 12, time.Hour), domain.ErrTelegramNotLinked)
 	})
 }
 
@@ -329,5 +362,125 @@ func TestRemindSessionKey(t *testing.T) {
 		d.messenger.fail(errors.New("telegram: 502"))
 
 		require.Error(t, s.RemindSessionKey(ctx, "alice", w, now.Add(time.Hour)))
+	})
+}
+
+func TestEmailPrefs(t *testing.T) {
+	ctx := context.Background()
+	s, d := newService(t, "")
+
+	got, err := s.Prefs(ctx, alice)
+	require.NoError(t, err)
+
+	for _, p := range got {
+		assert.True(t, p.Enabled, "%s on Telegram by default", p.Key)
+		assert.False(t, p.Email, "%s off by email until chosen (D170)", p.Key)
+	}
+
+	pref, err := s.SetEmailPref(ctx, alice, "workflow_failed", true)
+	require.NoError(t, err)
+	assert.True(t, pref.Email)
+	assert.True(t, pref.Enabled, "Telegram as it was")
+	assert.Equal(t, map[string]bool{"workflow_failed.email": true}, d.prefs.changed)
+
+	pref, err = s.SetPref(ctx, alice, "workflow_failed", false)
+	require.NoError(t, err)
+	assert.False(t, pref.Enabled)
+	assert.True(t, pref.Email, "the other channel as it was")
+
+	_, err = s.SetEmailPref(ctx, alice, "nope", true)
+	require.ErrorIs(t, err, domain.ErrNotFound)
+
+	assert.True(t, s.MailOn())
+	d.mail.on = false
+	assert.False(t, s.MailOn())
+}
+
+func TestFailuresByEmail(t *testing.T) {
+	ctx := context.Background()
+
+	t.Run("by email alone", func(t *testing.T) {
+		s, d := newService(t, "https://poly.example")
+		_, err := s.SetPref(ctx, alice, "workflow_failed", false)
+		require.NoError(t, err)
+		_, err = s.SetEmailPref(ctx, alice, "workflow_failed", true)
+		require.NoError(t, err)
+
+		s.ExecutionFinished("alice", failed)
+		require.Eventually(t, func() bool { return len(d.mail.mails()) == 1 }, time.Second, time.Millisecond)
+
+		m := d.mail.mails()[0]
+		assert.Equal(t, "Spreads <tight> failed", m.Subject)
+		assert.Equal(t, "Spreads <tight> failed.", m.Paragraphs[0])
+		assert.Equal(t, `The error: node "hook": webhook to discord.com answered 404`, m.Paragraphs[1])
+		assert.Contains(t, m.Paragraphs[2], "“A workflow fails” is on by email in Settings → Notifications")
+		assert.Contains(t, m.Paragraphs[2], "https://poly.example/settings")
+		assert.Equal(t, "https://poly.example/workflows/wf-1", m.LinkURL)
+		assert.Zero(t, d.messenger.count(), "not on Telegram")
+	})
+
+	t.Run("both, under one cooldown", func(t *testing.T) {
+		s, d := newService(t, "")
+		_, err := s.SetEmailPref(ctx, alice, "workflow_failed", true)
+		require.NoError(t, err)
+
+		s.ExecutionFinished("alice", failed)
+		s.ExecutionFinished("alice", failed)
+		settle(t, d, 1)
+
+		assert.Equal(t, 1, d.messenger.count())
+		assert.Len(t, d.mail.mails(), 1)
+	})
+
+	t.Run("not while mail is off", func(t *testing.T) {
+		s, d := newService(t, "")
+		d.mail.on = false
+		_, err := s.SetEmailPref(ctx, alice, "workflow_failed", true)
+		require.NoError(t, err)
+
+		s.ExecutionFinished("alice", failed)
+		settle(t, d, 1)
+
+		assert.Empty(t, d.mail.mails())
+	})
+}
+
+func TestRemindersByEmail(t *testing.T) {
+	ctx := context.Background()
+
+	t.Run("a question, pointing to Telegram (D185)", func(t *testing.T) {
+		s, d := newService(t, "https://poly.example")
+		_, err := s.SetEmailPref(ctx, alice, "approval_waiting", true)
+		require.NoError(t, err)
+
+		require.NoError(t, s.RemindQuestion(ctx, "alice", "wf-1", 12, 2*time.Hour))
+
+		mails := d.mail.mails()
+		require.Len(t, mails, 1)
+		assert.Equal(t, "A question of Spreads <tight> waits for your answer", mails[0].Subject)
+		assert.Equal(t, "A question of Spreads <tight> is still waiting for your answer in Telegram, for about 2 hours more.", mails[0].Paragraphs[0])
+		assert.Equal(t, 1, d.messenger.count(), "and the reply in the chat")
+	})
+
+	t.Run("a session key, mailed though Telegram failed", func(t *testing.T) {
+		s, d := newService(t, "")
+		_, err := s.SetEmailPref(ctx, alice, "session_key_expiring", true)
+		require.NoError(t, err)
+		d.messenger.fail(errors.New("telegram: 502"))
+
+		w := domain.Wallet{ID: "w-1", Label: "Main"}
+		require.NoError(t, s.RemindSessionKey(ctx, "alice", w, now.Add(14*24*time.Hour)), "told by mail: not again")
+
+		mails := d.mail.mails()
+		require.Len(t, mails, 1)
+		assert.Equal(t, "The session key of Main expires in about 14 days", mails[0].Subject)
+	})
+
+	t.Run("Telegram failing, nothing mailed: tried again", func(t *testing.T) {
+		s, d := newService(t, "")
+		d.messenger.fail(errors.New("telegram: 502"))
+
+		require.Error(t, s.RemindSessionKey(ctx, "alice", domain.Wallet{ID: "w-1"}, now.Add(time.Hour)))
+		assert.Empty(t, d.mail.mails())
 	})
 }

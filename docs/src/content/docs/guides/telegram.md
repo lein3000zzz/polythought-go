@@ -54,7 +54,11 @@ Under **Settings → Notifications**, choose what Polythought tells you about:
 - **A session key is about to expire**: a wallet's [session key](/docs/guides/concepts/#wallets)
   expires in 14 days or less, or has expired. Once per key, with the day it expires.
 
-Notifications go to your linked chat. Without one, nothing is sent.
+Each has two switches: **Telegram**, to your linked chat (without one, nothing is sent), on
+by default; and **Email**, to your account's address, off until you turn it on. Email works
+once an admin allows notifications by email and mail is set up; until then its switches are
+greyed out. A failing workflow's once an hour holds for both together, and a question's
+reminder by email points you to Telegram, where you answer it.
 
 ## In workflows
 

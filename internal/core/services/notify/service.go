@@ -71,6 +71,7 @@ var (
 
 type Service struct {
 	messenger ports.UserMessenger
+	mail      ports.NotificationMail // optional: without it, nothing goes by mail
 	prefs     ports.NotificationPrefRepository
 	workflows ports.WorkflowRepository
 	publicURL string
@@ -101,6 +102,16 @@ func WithClock(now func() time.Time) Option {
 	return func(s *Service) { s.now = now }
 }
 
+// WithMail sends notifications by mail too, to users who choose it per kind (D170).
+func WithMail(m ports.NotificationMail) Option {
+	return func(s *Service) { s.mail = m }
+}
+
+// emailPref is the key a kind's email choice is kept under, off unless set (D170).
+func emailPref(k Kind) string {
+	return k.Key + ".email"
+}
+
 // New makes the service. publicURL is where users open the app; messages link to it
 // when it is https, which Telegram requires of link buttons.
 func New(messenger ports.UserMessenger, prefs ports.NotificationPrefRepository, workflows ports.WorkflowRepository,
@@ -124,11 +135,13 @@ func New(messenger ports.UserMessenger, prefs ports.NotificationPrefRepository, 
 	return s
 }
 
-// Pref is a kind of notification and whether the user gets it.
+// Pref is a kind of notification and how the user gets it: Enabled on Telegram, Email by
+// mail.
 type Pref struct {
 	Kind
 
 	Enabled bool
+	Email   bool
 }
 
 func (s *Service) Prefs(ctx context.Context, p auth.Principal) ([]Pref, error) {
@@ -138,46 +151,83 @@ func (s *Service) Prefs(ctx context.Context, p auth.Principal) ([]Pref, error) {
 	}
 
 	out := make([]Pref, len(Kinds))
-
 	for i, k := range Kinds {
-		enabled, ok := changed[k.Key]
-		if !ok {
-			enabled = k.Default
-		}
-
-		out[i] = Pref{Kind: k, Enabled: enabled}
+		out[i] = prefOf(k, changed)
 	}
 
 	return out, nil
 }
 
+func prefOf(k Kind, changed map[string]bool) Pref {
+	enabled, ok := changed[k.Key]
+	if !ok {
+		enabled = k.Default
+	}
+
+	return Pref{Kind: k, Enabled: enabled, Email: changed[emailPref(k)]}
+}
+
+// SetPref switches a kind on Telegram on or off.
 func (s *Service) SetPref(ctx context.Context, p auth.Principal, key string, enabled bool) (Pref, error) {
+	return s.set(ctx, p, key, func(k Kind) string { return k.Key }, enabled)
+}
+
+// SetEmailPref switches a kind by mail on or off.
+func (s *Service) SetEmailPref(ctx context.Context, p auth.Principal, key string, enabled bool) (Pref, error) {
+	return s.set(ctx, p, key, emailPref, enabled)
+}
+
+func (s *Service) set(ctx context.Context, p auth.Principal, key string, prefKey func(Kind) string, enabled bool) (Pref, error) {
 	for _, k := range Kinds {
 		if k.Key != key {
 			continue
 		}
 
-		if err := s.prefs.SetPref(ctx, p.User.ID, key, enabled); err != nil {
+		if err := s.prefs.SetPref(ctx, p.User.ID, prefKey(k), enabled); err != nil {
 			return Pref{}, err
 		}
 
-		return Pref{Kind: k, Enabled: enabled}, nil
+		changed, err := s.prefs.Prefs(ctx, p.User.ID)
+		if err != nil {
+			return Pref{}, err
+		}
+
+		return prefOf(k, changed), nil
 	}
 
 	return Pref{}, fmt.Errorf("%w: no kind of notification %q", domain.ErrNotFound, key)
 }
 
-func (s *Service) enabled(ctx context.Context, user domain.UserID, k Kind) (bool, error) {
+// MailOn says whether notifications can go by mail now: switched on, and mail set up
+// (D184).
+func (s *Service) MailOn() bool {
+	return s.mail != nil && s.mail.On()
+}
+
+// channels says how user gets k: on Telegram, by mail.
+func (s *Service) channels(ctx context.Context, user domain.UserID, k Kind) (telegram, mail bool, err error) {
 	changed, err := s.prefs.Prefs(ctx, user)
 	if err != nil {
-		return false, err
+		return false, false, err
 	}
 
-	if enabled, ok := changed[k.Key]; ok {
-		return enabled, nil
+	p := prefOf(k, changed)
+
+	return p.Enabled, p.Email && s.MailOn(), nil
+}
+
+// mailUser mails user a notification of k, saying where to turn it off, and logs what
+// went wrong.
+func (s *Service) mailUser(ctx context.Context, user domain.UserID, k Kind, m ports.UserMail) error {
+	m.Paragraphs = append(m.Paragraphs, "You get this mail as “"+k.Label+"” is on by email in Settings → Notifications, "+
+		"where you can turn it off: "+s.publicURL+"/settings.")
+
+	if err := s.mail.MailUser(ctx, user, m); err != nil {
+		s.log.Warn(ctx, "Notification not mailed", "user_id", user, "kind", k.Key, logging.Err(err))
+		return err
 	}
 
-	return k.Default, nil
+	return nil
 }
 
 // ExecutionFinished queues failed executions to tell their owners about. It never
@@ -222,21 +272,40 @@ func (s *Service) workflowFailed(ctx context.Context, f failure) {
 		return
 	}
 
-	on, err := s.enabled(ctx, f.owner, WorkflowFailed)
-	if err != nil || !on {
+	telegram, mail, err := s.channels(ctx, f.owner, WorkflowFailed)
+	if err != nil || (!telegram && !mail) {
 		return
 	}
 
+	// One cooldown for both channels.
 	missed, tell := s.due(w.ID)
 	if !tell {
 		return
 	}
 
-	text := "⚠️ <b>" + html.EscapeString(w.Name) + "</b> failed."
-
+	var again string
 	if missed > 0 {
-		text += fmt.Sprintf(" It failed %d more %s since the last message.", missed, plural(missed, "time", "times"))
+		again = fmt.Sprintf(" It failed %d more %s since the last message.", missed, plural(missed, "time", "times"))
 	}
+
+	if mail {
+		m := ports.UserMail{
+			Subject:    w.Name + " failed",
+			Paragraphs: []string{w.Name + " failed." + again},
+			LinkText:   "Open workflow", LinkURL: s.publicURL + "/workflows/" + string(w.ID),
+		}
+		if f.exec.Error != "" {
+			m.Paragraphs = append(m.Paragraphs, "The error: "+truncate(f.exec.Error, maxErrorText))
+		}
+
+		_ = s.mailUser(ctx, f.owner, WorkflowFailed, m)
+	}
+
+	if !telegram {
+		return
+	}
+
+	text := "⚠️ <b>" + html.EscapeString(w.Name) + "</b> failed." + again
 
 	if f.exec.Error != "" {
 		text += "\n<code>" + html.EscapeString(truncate(f.exec.Error, maxErrorText)) + "</code>"
@@ -258,11 +327,29 @@ func (s *Service) workflowFailed(ctx context.Context, f failure) {
 	}
 }
 
-// RemindQuestion replies to a question still open, unless the user switched that off.
-func (s *Service) RemindQuestion(ctx context.Context, user domain.UserID, messageID int, left time.Duration) error {
-	on, err := s.enabled(ctx, user, ApprovalWaiting)
-	if err != nil || !on {
+// RemindQuestion replies to a question of workflow still open, and mails it, pointing to
+// Telegram, where it is answered (D185); each as the user chose.
+func (s *Service) RemindQuestion(ctx context.Context, user domain.UserID, workflow domain.WorkflowID, messageID int, left time.Duration) error {
+	telegram, mail, err := s.channels(ctx, user, ApprovalWaiting)
+	if err != nil {
 		return err
+	}
+
+	if mail {
+		name := "one of your workflows"
+		if w, err := s.workflows.Get(ctx, user, workflow); err == nil {
+			name = w.Name
+		}
+
+		_ = s.mailUser(ctx, user, ApprovalWaiting, ports.UserMail{
+			Subject:    "A question of " + name + " waits for your answer",
+			Paragraphs: []string{"A question of " + name + " is still waiting for your answer in Telegram, for " + about(left) + " more."},
+			LinkText:   "Open workflow", LinkURL: s.publicURL + "/workflows/" + string(workflow),
+		})
+	}
+
+	if !telegram {
+		return nil
 	}
 
 	return s.messenger.MessageUser(ctx, user, ports.UserMessage{
@@ -272,11 +359,12 @@ func (s *Service) RemindQuestion(ctx context.Context, user domain.UserID, messag
 }
 
 // RemindSessionKey tells the owner that a wallet's session key expires at until, or has,
-// unless they switched that off. With nowhere to send it, nobody is told, and that is no
-// error: the key is not asked about again.
+// each way they chose. With nowhere to send it, nobody is told, and that is no error: the
+// key is not asked about again. It fails only when nothing went and a send can be tried
+// again.
 func (s *Service) RemindSessionKey(ctx context.Context, user domain.UserID, w domain.Wallet, until time.Time) error {
-	on, err := s.enabled(ctx, user, SessionKeyExpiring)
-	if err != nil || !on {
+	telegram, mail, err := s.channels(ctx, user, SessionKeyExpiring)
+	if err != nil || (!telegram && !mail) {
 		return err
 	}
 
@@ -285,11 +373,33 @@ func (s *Service) RemindSessionKey(ctx context.Context, user domain.UserID, w do
 		name = string(w.Address)
 	}
 
-	name = "<b>" + html.EscapeString(name) + "</b>"
+	left := until.Sub(s.now())
 
-	text := "🔑 The session key of " + name + " has expired. Authorise a new one on the Wallets page, so the wallet can trade again."
-	if left := until.Sub(s.now()); left > 0 {
-		text = "🔑 The session key of " + name + " expires in " + about(left) + ", on " + until.UTC().Format("2 January 2006") +
+	mailed := false
+	if mail {
+		m := ports.UserMail{
+			Subject:    "The session key of " + name + " has expired",
+			Paragraphs: []string{"The session key of " + name + " has expired. Authorise a new one on the Wallets page, so the wallet can trade again."},
+			LinkText:   "Open wallets", LinkURL: s.publicURL + "/wallets",
+		}
+		if left > 0 {
+			m.Subject = "The session key of " + name + " expires in " + about(left)
+			m.Paragraphs = []string{"The session key of " + name + " expires in " + about(left) + ", on " +
+				until.UTC().Format("2 January 2006") + " (UTC). Authorise a new one on the Wallets page before then, so the wallet keeps trading."}
+		}
+
+		mailed = s.mailUser(ctx, user, SessionKeyExpiring, m) == nil
+	}
+
+	if !telegram {
+		return nil // a failed mail is not tried again: the owner sees the date on the card
+	}
+
+	bold := "<b>" + html.EscapeString(name) + "</b>"
+
+	text := "🔑 The session key of " + bold + " has expired. Authorise a new one on the Wallets page, so the wallet can trade again."
+	if left > 0 {
+		text = "🔑 The session key of " + bold + " expires in " + about(left) + ", on " + until.UTC().Format("2 January 2006") +
 			" (UTC). Authorise a new one on the Wallets page before then, so the wallet keeps trading."
 	}
 
@@ -299,7 +409,7 @@ func (s *Service) RemindSessionKey(ctx context.Context, user domain.UserID, w do
 	}
 
 	err = s.messenger.MessageUser(ctx, user, ports.UserMessage{HTML: text, Buttons: buttons})
-	if errors.Is(err, domain.ErrTelegramNotLinked) || errors.Is(err, domain.ErrTelegramUnavailable) {
+	if err == nil || mailed || errors.Is(err, domain.ErrTelegramNotLinked) || errors.Is(err, domain.ErrTelegramUnavailable) {
 		return nil
 	}
 

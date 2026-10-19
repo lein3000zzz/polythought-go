@@ -207,7 +207,6 @@ func (a *app) init(ctx context.Context) error {
 
 	a.telegram = telegram.New(a.telegramBot, postgres.NewTelegramLinks(a.db), postgres.NewUsers(a.db), a.util.Logger)
 	a.telegramBot.SetHandler(a.telegram.HandleUpdate)
-	a.notify = notify.New(a.telegram, postgres.NewNotificationPrefs(a.db), postgres.NewWorkflows(a.db), a.cfg.PublicURL, a.util.Logger)
 
 	// Mail goes through the server set up on the Config page, read for each message (D168).
 	a.mail = mail.New(mailer.New(func() mailer.Config {
@@ -218,7 +217,11 @@ func (a *app) init(ctx context.Context) error {
 			Username: s.String(config.KeyMailUsername), Password: s.String(config.KeyMailPassword),
 			From: s.String(config.KeyMailFrom), FromName: s.String(config.KeyMailFromName),
 		}
-	}, a.util.Logger), a.cfg.PublicURL, a.util.Logger)
+	}, a.util.Logger), a.cfg.PublicURL, a.util.Logger,
+		mail.WithNotifications(postgres.NewUsers(a.db), func() bool { return a.settings.Current().Bool(config.KeyMailNotifications) }))
+
+	a.notify = notify.New(a.telegram, postgres.NewNotificationPrefs(a.db), postgres.NewWorkflows(a.db), a.cfg.PublicURL, a.util.Logger,
+		notify.WithMail(a.mail))
 
 	// After notify, which reminds of expiring session keys.
 	walletRepo := postgres.NewWallets(a.db)

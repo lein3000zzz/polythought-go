@@ -30,9 +30,30 @@ func TestNotificationRoutes(t *testing.T) {
 			req:  request{method: "GET", path: "/api/v1/notifications", headers: cookie},
 			setup: func(s *httpapimocks.MockNotificationService) {
 				s.EXPECT().Prefs(mock.Anything, mock.Anything).Return([]notify.Pref{failed}, nil)
+				s.EXPECT().MailOn().Return(true)
 			},
 			wantStatus: http.StatusOK,
-			wantBody:   []string{`{"notifications":[{"key":"workflow_failed","label":"A workflow fails","description":"When it fails.","enabled":true}]}`},
+			wantBody: []string{
+				`{"notifications":[{"key":"workflow_failed","label":"A workflow fails","description":"When it fails.","enabled":true,"email":false}],"mailOn":true}`,
+			},
+		},
+		{
+			name: "switch one on by email",
+			req:  request{method: "PUT", path: "/api/v1/notifications/workflow_failed", headers: cookie, body: `{"email":true}`},
+			setup: func(s *httpapimocks.MockNotificationService) {
+				on := failed
+				on.Email = true
+				s.EXPECT().SetEmailPref(mock.Anything, mock.Anything, "workflow_failed", true).Return(on, nil)
+			},
+			wantStatus: http.StatusOK,
+			wantBody:   []string{`"enabled":true`, `"email":true`},
+		},
+		{
+			name:       "neither channel",
+			req:        request{method: "PUT", path: "/api/v1/notifications/workflow_failed", headers: cookie, body: `{}`},
+			setup:      func(*httpapimocks.MockNotificationService) {},
+			wantStatus: http.StatusBadRequest,
+			wantBody:   []string{`"code":"invalid_input"`},
 		},
 		{
 			name: "switch one off",

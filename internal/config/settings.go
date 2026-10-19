@@ -59,6 +59,7 @@ const (
 	KeyMailPassword        = "mail.password"
 	KeyMailFrom            = "mail.from_address"
 	KeyMailFromName        = "mail.from_name"
+	KeyMailNotifications   = "mail.notifications"
 )
 
 // How the server connects to the mail server (D169): STARTTLS, TLS from the start, or
@@ -335,6 +336,11 @@ func Settings() (*settings.Registry, error) {
 			Key: KeyMailFromName, Group: groupMail, Label: "From name",
 			Description: "The name mail comes from, shown beside the address.",
 			Kind:        settings.KindString, Default: "Polythought",
+		},
+		settings.Spec{
+			Key: KeyMailNotifications, Group: groupMail, Label: "Notifications by email",
+			Description: "Users may get their notifications by email too: each chooses per kind in Settings, by email off until they turn it on. Works while mail is set up.",
+			Kind:        settings.KindBool, Default: false,
 		},
 	)
 	if err != nil {
