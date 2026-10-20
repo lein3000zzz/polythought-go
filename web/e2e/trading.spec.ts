@@ -120,3 +120,62 @@ test('the risk guard makes a copy over its cap smaller before it is placed', asy
   expect(spent).toBeGreaterThan(0)
   expect(spent).toBeLessThanOrEqual(20)
 })
+
+test('a paper GTC under the book rests, holding its cash, until cancelled (D206, D210)', async ({
+  page,
+}) => {
+  const id = await createWorkflow(page, unique('resting'), [
+    { id: 'manual', type: 'trigger.manual' },
+    { id: 'markets', type: 'polymarket.markets', params: { limit: 1 } },
+    {
+      id: 'buy',
+      type: 'trading.placeOrder',
+      params: {
+        from: 'settings',
+        tokenId: '{{ outcomes[0].tokenId }}',
+        side: 'buy',
+        price: '{{ tickSize }}', // the lowest price there is: nobody sells there
+        shares: '{{ minOrderSize }}',
+        type: 'GTC',
+      },
+    },
+  ])
+
+  const res = await page.request.post(`/api/v1/workflows/${id}/run`)
+  expect(res.status()).toBe(200)
+  expect(((await res.json()) as { status: string }).status).toBe('succeeded')
+
+  type Orders = { orders: { id: string; status: string; reason?: string }[] }
+  const orders = async () =>
+    ((await (await page.request.get(`/api/v1/workflows/${id}/orders`)).json()) as Orders).orders
+  const held = async () =>
+    (
+      (await (await page.request.get(`/api/v1/workflows/${id}/trading`)).json()) as {
+        account: { held: string; cash: string }
+      }
+    ).account
+
+  const placed = await orders()
+  expect(placed).toHaveLength(1)
+  expect(placed[0].status).toBe('open')
+  expect(placed[0].reason).toMatch(/^rests on the book at /)
+
+  const before = await held()
+  expect(Number(before.held)).toBeGreaterThan(0)
+  expect(before.cash).toBe('1000')
+
+  // Cancelled from the Trading view, its cash is free again.
+  await page.goto(`/workflows/${id}`)
+  await page.getByRole('tab', { name: 'Trading' }).click()
+  await expect(
+    page.getByRole('region', { name: 'Paper account' }).getByText('Held by resting orders'),
+  ).toBeVisible()
+  await page
+    .getByRole('region', { name: 'Orders' })
+    .getByRole('button', { name: /^Cancel buy/ })
+    .click()
+  await expect(page.getByText('Order cancelled')).toBeVisible()
+
+  expect((await orders())[0].status).toBe('canceled')
+  expect((await held()).held).toBe('0')
+})

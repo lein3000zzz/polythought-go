@@ -49,6 +49,78 @@ func (_m *MockLiveExchange) EXPECT() *MockLiveExchange_Expecter {
 	return &MockLiveExchange_Expecter{mock: &_m.Mock}
 }
 
+// Cancel provides a mock function for the type MockLiveExchange
+func (_mock *MockLiveExchange) Cancel(ctx context.Context, k ports.OrderKey, id string) (ports.LiveCancel, error) {
+	ret := _mock.Called(ctx, k, id)
+
+	if len(ret) == 0 {
+		panic("no return value specified for Cancel")
+	}
+
+	var r0 ports.LiveCancel
+	var r1 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context, ports.OrderKey, string) (ports.LiveCancel, error)); ok {
+		return returnFunc(ctx, k, id)
+	}
+	if returnFunc, ok := ret.Get(0).(func(context.Context, ports.OrderKey, string) ports.LiveCancel); ok {
+		r0 = returnFunc(ctx, k, id)
+	} else {
+		r0 = ret.Get(0).(ports.LiveCancel)
+	}
+	if returnFunc, ok := ret.Get(1).(func(context.Context, ports.OrderKey, string) error); ok {
+		r1 = returnFunc(ctx, k, id)
+	} else {
+		r1 = ret.Error(1)
+	}
+	return r0, r1
+}
+
+// MockLiveExchange_Cancel_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'Cancel'
+type MockLiveExchange_Cancel_Call struct {
+	*mock.Call
+}
+
+// Cancel is a helper method to define mock.On call
+//   - ctx context.Context
+//   - k ports.OrderKey
+//   - id string
+func (_e *MockLiveExchange_Expecter) Cancel(ctx any, k any, id any) *MockLiveExchange_Cancel_Call {
+	return &MockLiveExchange_Cancel_Call{Call: _e.mock.On("Cancel", ctx, k, id)}
+}
+
+func (_c *MockLiveExchange_Cancel_Call) Run(run func(ctx context.Context, k ports.OrderKey, id string)) *MockLiveExchange_Cancel_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		var arg1 ports.OrderKey
+		if args[1] != nil {
+			arg1 = args[1].(ports.OrderKey)
+		}
+		var arg2 string
+		if args[2] != nil {
+			arg2 = args[2].(string)
+		}
+		run(
+			arg0,
+			arg1,
+			arg2,
+		)
+	})
+	return _c
+}
+
+func (_c *MockLiveExchange_Cancel_Call) Return(liveCancel ports.LiveCancel, err error) *MockLiveExchange_Cancel_Call {
+	_c.Call.Return(liveCancel, err)
+	return _c
+}
+
+func (_c *MockLiveExchange_Cancel_Call) RunAndReturn(run func(ctx context.Context, k ports.OrderKey, id string) (ports.LiveCancel, error)) *MockLiveExchange_Cancel_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // Cash provides a mock function for the type MockLiveExchange
 func (_mock *MockLiveExchange) Cash(ctx context.Context, k ports.OrderKey) (decimal.Decimal, error) {
 	ret := _mock.Called(ctx, k)
@@ -260,8 +332,8 @@ func (_c *MockLiveExchange_Place_Call) RunAndReturn(run func(ctx context.Context
 }
 
 // Trades provides a mock function for the type MockLiveExchange
-func (_mock *MockLiveExchange) Trades(ctx context.Context, k ports.OrderKey, token domain.TokenID, ids []string) ([]ports.LiveTrade, error) {
-	ret := _mock.Called(ctx, k, token, ids)
+func (_mock *MockLiveExchange) Trades(ctx context.Context, k ports.OrderKey, order string, token domain.TokenID, ids []string) ([]ports.LiveTrade, error) {
+	ret := _mock.Called(ctx, k, order, token, ids)
 
 	if len(ret) == 0 {
 		panic("no return value specified for Trades")
@@ -269,18 +341,18 @@ func (_mock *MockLiveExchange) Trades(ctx context.Context, k ports.OrderKey, tok
 
 	var r0 []ports.LiveTrade
 	var r1 error
-	if returnFunc, ok := ret.Get(0).(func(context.Context, ports.OrderKey, domain.TokenID, []string) ([]ports.LiveTrade, error)); ok {
-		return returnFunc(ctx, k, token, ids)
+	if returnFunc, ok := ret.Get(0).(func(context.Context, ports.OrderKey, string, domain.TokenID, []string) ([]ports.LiveTrade, error)); ok {
+		return returnFunc(ctx, k, order, token, ids)
 	}
-	if returnFunc, ok := ret.Get(0).(func(context.Context, ports.OrderKey, domain.TokenID, []string) []ports.LiveTrade); ok {
-		r0 = returnFunc(ctx, k, token, ids)
+	if returnFunc, ok := ret.Get(0).(func(context.Context, ports.OrderKey, string, domain.TokenID, []string) []ports.LiveTrade); ok {
+		r0 = returnFunc(ctx, k, order, token, ids)
 	} else {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).([]ports.LiveTrade)
 		}
 	}
-	if returnFunc, ok := ret.Get(1).(func(context.Context, ports.OrderKey, domain.TokenID, []string) error); ok {
-		r1 = returnFunc(ctx, k, token, ids)
+	if returnFunc, ok := ret.Get(1).(func(context.Context, ports.OrderKey, string, domain.TokenID, []string) error); ok {
+		r1 = returnFunc(ctx, k, order, token, ids)
 	} else {
 		r1 = ret.Error(1)
 	}
@@ -295,13 +367,14 @@ type MockLiveExchange_Trades_Call struct {
 // Trades is a helper method to define mock.On call
 //   - ctx context.Context
 //   - k ports.OrderKey
+//   - order string
 //   - token domain.TokenID
 //   - ids []string
-func (_e *MockLiveExchange_Expecter) Trades(ctx any, k any, token any, ids any) *MockLiveExchange_Trades_Call {
-	return &MockLiveExchange_Trades_Call{Call: _e.mock.On("Trades", ctx, k, token, ids)}
+func (_e *MockLiveExchange_Expecter) Trades(ctx any, k any, order any, token any, ids any) *MockLiveExchange_Trades_Call {
+	return &MockLiveExchange_Trades_Call{Call: _e.mock.On("Trades", ctx, k, order, token, ids)}
 }
 
-func (_c *MockLiveExchange_Trades_Call) Run(run func(ctx context.Context, k ports.OrderKey, token domain.TokenID, ids []string)) *MockLiveExchange_Trades_Call {
+func (_c *MockLiveExchange_Trades_Call) Run(run func(ctx context.Context, k ports.OrderKey, order string, token domain.TokenID, ids []string)) *MockLiveExchange_Trades_Call {
 	_c.Call.Run(func(args mock.Arguments) {
 		var arg0 context.Context
 		if args[0] != nil {
@@ -311,19 +384,24 @@ func (_c *MockLiveExchange_Trades_Call) Run(run func(ctx context.Context, k port
 		if args[1] != nil {
 			arg1 = args[1].(ports.OrderKey)
 		}
-		var arg2 domain.TokenID
+		var arg2 string
 		if args[2] != nil {
-			arg2 = args[2].(domain.TokenID)
+			arg2 = args[2].(string)
 		}
-		var arg3 []string
+		var arg3 domain.TokenID
 		if args[3] != nil {
-			arg3 = args[3].([]string)
+			arg3 = args[3].(domain.TokenID)
+		}
+		var arg4 []string
+		if args[4] != nil {
+			arg4 = args[4].([]string)
 		}
 		run(
 			arg0,
 			arg1,
 			arg2,
 			arg3,
+			arg4,
 		)
 	})
 	return _c
@@ -334,7 +412,7 @@ func (_c *MockLiveExchange_Trades_Call) Return(liveTrades []ports.LiveTrade, err
 	return _c
 }
 
-func (_c *MockLiveExchange_Trades_Call) RunAndReturn(run func(ctx context.Context, k ports.OrderKey, token domain.TokenID, ids []string) ([]ports.LiveTrade, error)) *MockLiveExchange_Trades_Call {
+func (_c *MockLiveExchange_Trades_Call) RunAndReturn(run func(ctx context.Context, k ports.OrderKey, order string, token domain.TokenID, ids []string) ([]ports.LiveTrade, error)) *MockLiveExchange_Trades_Call {
 	_c.Call.Return(run)
 	return _c
 }

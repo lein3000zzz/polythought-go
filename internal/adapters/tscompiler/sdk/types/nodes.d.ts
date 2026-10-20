@@ -666,10 +666,25 @@ export interface TradingPlaceOrderSettings {
     /** For settings: a buy of so many dollars instead of shares. */
     dollars?: DecimalText | number | Expression;
     /**
-     * For settings. FAK: what the book has within the price. FOK: all of it, or nothing.
+     * For settings. FAK: what the book has within the price, the rest cancelled. FOK: all of it, or nothing. GTC: what the book has, the rest resting at the price until filled or cancelled. GTD: the same, until Expires after.
      * @default "FAK"
      */
-    type?: "FAK" | "FOK" | Expression;
+    type?: "FAK" | "FOK" | "GTC" | "GTD" | Expression;
+    /**
+     * For copy: copy, as Copy sizing worked it out, a FAK. GTC or GTD: resting at the copy's price instead, what fills at once included.
+     * @default "copy"
+     */
+    copyAs?: "copy" | "GTC" | "GTD" | Expression;
+    /**
+     * For GTD: how long it rests, 3 minutes at the least; then what is left is cancelled.
+     * @default "1h"
+     */
+    expiresAfter?: DurationText | Expression;
+    /**
+     * For GTC and GTD: refused rather than matched at once, so it only ever rests on the book.
+     * @default false
+     */
+    postOnly?: boolean | Expression;
 }
 
 /** The settings of Risk guard (trading.riskGuard). */
@@ -1088,7 +1103,7 @@ export interface NodeTypes {
         items: "received";
         trigger: false;
         inputs: "main";
-        outputs: "main" | "missed";
+        outputs: "main" | "resting" | "missed";
     };
     "trading.riskGuard": {
         settings: TradingRiskGuardSettings;

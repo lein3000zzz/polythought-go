@@ -1115,6 +1115,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/workflows/{id}/orders/{order}/cancel": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Cancel a resting order */
+        post: operations["cancelOrder"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/workflows/{id}/paper-account": {
         parameters: {
             query?: never;
@@ -1260,6 +1277,8 @@ export interface components {
             /** @example 989.65 */
             cash: string;
             cashKnown: boolean;
+            /** @description Held is what of the paper cash resting buys hold back. */
+            held: string;
             /** @enum {string} */
             mode: "paper" | "live";
             /**
@@ -1829,6 +1848,11 @@ export interface components {
             at: string;
             dollars?: string;
             executionId?: string;
+            /**
+             * Format: date-time
+             * @description ExpiresAt is when a GTD's rest is cancelled.
+             */
+            expiresAt?: string;
             fills: components["schemas"]["OrderFill"][];
             id: string;
             marketId?: string;
@@ -1844,11 +1868,13 @@ export interface components {
             /** @enum {string} */
             side: "buy" | "sell";
             /**
-             * @description Status pending is a live order sent whose outcome is not known yet, followed;
-             *     failed, one that matched but whose trades failed on chain, undone.
+             * @description Status open is an order resting on the book, filled in part or not yet, then
+             *     filled, canceled or expired with what it filled; pending, a live order sent whose
+             *     outcome is not known yet, followed; failed, one that matched but whose trades
+             *     failed on chain, undone.
              * @enum {string}
              */
-            status: "filled" | "partial" | "unfilled" | "refused" | "pending" | "failed";
+            status: "filled" | "partial" | "open" | "canceled" | "expired" | "unfilled" | "refused" | "pending" | "failed";
             tokenId: string;
             /**
              * @description Trader is the wallet whose trade it copies, with their label then; absent for an
@@ -6451,6 +6477,67 @@ export interface operations {
             };
             /** @description not_found */
             404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    cancelOrder: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Workflow ID */
+                id: string;
+                /** @description Order ID */
+                order: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Order"];
+                };
+            };
+            /** @description unauthenticated */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description not_found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description not_open: it no longer rests on the book */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description upstream_unavailable: Polymarket could not be reached */
+            503: {
                 headers: {
                     [name: string]: unknown;
                 };

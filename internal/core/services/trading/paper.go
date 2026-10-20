@@ -42,22 +42,13 @@ func request(req domain.OrderRequest) (domain.OrderRequest, string) {
 	}
 
 	switch req.Type {
-	case domain.OrderFOK, domain.OrderFAK:
-	case domain.OrderGTC, domain.OrderGTD:
-		if req.Mode == domain.ModePaper {
-			return req, "paper trading fills orders at once: FOK or FAK, not orders that rest on the book"
-		}
-
-		return req, "orders that rest on the book, GTC and GTD, are not taken yet: FOK or FAK"
+	case domain.OrderFOK, domain.OrderFAK, domain.OrderGTC, domain.OrderGTD:
 	default:
 		return req, fmt.Sprintf("%q is not an order type: FOK, FAK, GTC or GTD", req.Type)
 	}
 
-	switch {
-	case req.PostOnly && req.Mode == domain.ModePaper:
-		return req, "paper trading takes from the book: post-only orders would never fill"
-	case req.PostOnly:
-		return req, "post-only orders rest on the book, which live orders do not yet: FOK or FAK"
+	if req.PostOnly && !req.Type.Rests() {
+		return req, "only orders that rest on the book, GTC and GTD, can be post-only"
 	}
 
 	return req, ""

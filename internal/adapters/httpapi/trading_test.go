@@ -117,7 +117,8 @@ func TestTrading(t *testing.T) {
 		assert.Equal(t, http.StatusOK, w.Code, w.Body.String())
 		assert.JSONEq(t, `{
 			"account": {"mode": "paper", "open": true, "cash": "89.40016", "startedWith": "100", "worth": "99.20016",
-				"profit": "-0.79984", "startedAt": "2026-10-17T12:00:00Z", "resetAt": "2026-10-17T12:00:00Z", "cashKnown": false},
+				"profit": "-0.79984", "startedAt": "2026-10-17T12:00:00Z", "resetAt": "2026-10-17T12:00:00Z", "cashKnown": false,
+				"held": "0"},
 			"traders": [{"trader": "0xA1", "label": "Alice", "copies": 2, "volume": "14.8", "realized": "-0.39984",
 				"unrealized": "-0.2", "wins": 1, "closed": 2}],
 			"holdings": [{"mode": "paper", "trader": "0xA1", "traderLabel": "Alice", "tokenId": "t-yes", "marketId": "0xm",
@@ -138,7 +139,7 @@ func TestTrading(t *testing.T) {
 		assert.Equal(t, http.StatusOK, w.Code, w.Body.String())
 		assert.JSONEq(t, `{
 			"account": {"mode": "live", "open": true, "cash": "250", "startedWith": "0", "worth": "254.9", "profit": "2.4",
-				"cashKnown": true, "wallet": {"id": "w-1", "address": "0x1111111111111111111111111111111111111111", "label": "Main",
+				"cashKnown": true, "held": "0", "wallet": {"id": "w-1", "address": "0x1111111111111111111111111111111111111111", "label": "Main",
 				"hasCredentials": false, "hasKey": true, "hasSessionKey": false, "createdAt": "2026-10-17T12:00:00Z"}},
 			"traders": [], "holdings": []
 		}`, w.Body.String())
@@ -200,6 +201,30 @@ func TestTrading(t *testing.T) {
 			assert.Equal(t, want.status, w.Code, w.Body.String())
 			assert.Contains(t, w.Body.String(), `"code":"`+want.code+`"`)
 		}
+	})
+
+	t.Run("cancelling a resting order", func(t *testing.T) {
+		expires := at.Add(time.Hour)
+		trading.EXPECT().Cancel(mock.Anything, byAlice, domain.WorkflowID("wf-1"), domain.OrderID("o-7")).Return(domain.PlacedOrder{
+			OrderRequest: domain.OrderRequest{
+				NodeID: "buy", Mode: domain.ModePaper, TokenID: "t-yes", Side: domain.SideBuy, Type: domain.OrderGTD,
+				Price: num("0.4"), Shares: num("10"), Expires: expires,
+			},
+			ID: "o-7", Status: domain.OrderCanceled, Reason: "cancelled by its owner, 0 of 10 shares filled", CreatedAt: at,
+		}, nil).Once()
+
+		w := request{method: "POST", path: "/api/v1/workflows/wf-1/orders/o-7/cancel", headers: cookie}.do(t, srv)
+		assert.Equal(t, http.StatusOK, w.Code, w.Body.String())
+		assert.JSONEq(t, `{"id":"o-7","nodeId":"buy","mode":"paper","tokenId":"t-yes","side":"buy","type":"GTD","postOnly":false,
+			"price":"0.4","shares":"10","status":"canceled","reason":"cancelled by its owner, 0 of 10 shares filled","fills":[],
+			"at":"2026-10-17T12:00:00Z","expiresAt":"2026-10-17T13:00:00Z"}`, w.Body.String())
+
+		trading.EXPECT().Cancel(mock.Anything, byAlice, domain.WorkflowID("wf-1"), domain.OrderID("o-7")).
+			Return(domain.PlacedOrder{}, domain.ErrNotOpen).Once()
+
+		w = request{method: "POST", path: "/api/v1/workflows/wf-1/orders/o-7/cancel", headers: cookie}.do(t, srv)
+		assert.Equal(t, http.StatusConflict, w.Code)
+		assert.Contains(t, w.Body.String(), `"code":"not_open"`)
 	})
 
 	t.Run("a wallet's cash", func(t *testing.T) {

@@ -248,19 +248,8 @@ func (r *Ledger) Record(ctx context.Context, o domain.PlacedOrder, change *ports
 			return nil
 		}
 
-		if o.Mode == domain.ModePaper && !change.Cash.IsZero() {
-			pa := table.PaperAccounts
-
-			// The cash check stops the books going below zero whatever got here first.
-			res, err := pa.UPDATE(pa.Cash).
-				SET(pa.Cash.ADD(jet.Decimal(change.Cash.String()))).
-				WHERE(pa.WorkflowID.EQ(jet.UUID(m.WorkflowID)).AND(pa.Cash.ADD(jet.Decimal(change.Cash.String())).GT_EQ(jet.Decimal("0")))).
-				ExecContext(ctx, r.db.conn(ctx))
-			if err := affectedOne(res, err); errors.Is(err, domain.ErrNotFound) {
-				return domain.ErrNotEnoughCash
-			} else if err != nil {
-				return err
-			}
+		if err := r.moveCash(ctx, o, m.WorkflowID, change.Cash); err != nil {
+			return err
 		}
 
 		change.Holding.OwnerID = o.OwnerID
@@ -311,7 +300,7 @@ func (r *Ledger) saveHolding(ctx context.Context, holding domain.Holding, workfl
 	return err
 }
 
-func (r *Ledger) Update(ctx context.Context, o domain.PlacedOrder, holding *domain.Holding) error {
+func (r *Ledger) Update(ctx context.Context, o domain.PlacedOrder, change *ports.LedgerChange) error {
 	id, err := uuid.Parse(string(o.ID))
 	if err != nil {
 		return err
@@ -341,15 +330,78 @@ func (r *Ledger) Update(ctx context.Context, o domain.PlacedOrder, holding *doma
 			return err
 		}
 
-		if holding == nil {
+		if change == nil {
 			return nil
 		}
 
-		h := *holding
+		if err := r.moveCash(ctx, o, wid, change.Cash); err != nil {
+			return err
+		}
+
+		h := change.Holding
 		h.OwnerID = o.OwnerID
 
 		return r.saveHolding(ctx, h, wid)
 	})
+}
+
+func (r *Ledger) Order(ctx context.Context, id domain.OrderID) (domain.PlacedOrder, error) {
+	oid, err := parseID(id)
+	if err != nil {
+		return domain.PlacedOrder{}, err
+	}
+
+	got, err := r.ordersWhere(ctx, table.Orders.ID.EQ(jet.UUID(oid)), table.Orders.ID.ASC())
+	if err != nil {
+		return domain.PlacedOrder{}, err
+	}
+
+	if len(got) == 0 {
+		return domain.PlacedOrder{}, domain.ErrNotFound
+	}
+
+	return got[0], nil
+}
+
+func (r *Ledger) OpenOrders(ctx context.Context, mode domain.TradingMode) ([]domain.PlacedOrder, error) {
+	o := table.Orders
+
+	return r.ordersWhere(ctx, o.Status.EQ(jet.String(string(domain.OrderOpen))).AND(o.Mode.EQ(jet.String(string(mode)))), o.ID.ASC())
+}
+
+func (r *Ledger) WorkflowOpenOrders(ctx context.Context, workflow domain.WorkflowID, mode domain.TradingMode) ([]domain.PlacedOrder, error) {
+	wid, err := parseID(workflow)
+	if err != nil {
+		return nil, err
+	}
+
+	o := table.Orders
+
+	return r.ordersWhere(ctx, o.Status.EQ(jet.String(string(domain.OrderOpen))).
+		AND(o.Mode.EQ(jet.String(string(mode)))).
+		AND(o.WorkflowID.EQ(jet.UUID(wid))), o.ID.ASC())
+}
+
+// moveCash adds cash to a paper order's account; live cash is the wallet's. The check
+// stops the books going below zero whatever got here first.
+func (r *Ledger) moveCash(ctx context.Context, o domain.PlacedOrder, workflow uuid.UUID, cash decimal.Decimal) error {
+	if o.Mode != domain.ModePaper || cash.IsZero() {
+		return nil
+	}
+
+	pa := table.PaperAccounts
+
+	res, err := pa.UPDATE(pa.Cash).
+		SET(pa.Cash.ADD(jet.Decimal(cash.String()))).
+		WHERE(pa.WorkflowID.EQ(jet.UUID(workflow)).AND(pa.Cash.ADD(jet.Decimal(cash.String())).GT_EQ(jet.Decimal("0")))).
+		ExecContext(ctx, r.db.conn(ctx))
+	if err := affectedOne(res, err); errors.Is(err, domain.ErrNotFound) {
+		return domain.ErrNotEnoughCash
+	} else if err != nil {
+		return err
+	}
+
+	return nil
 }
 
 func (r *Ledger) OrdersOf(ctx context.Context, key domain.HoldingKey) ([]domain.PlacedOrder, error) {

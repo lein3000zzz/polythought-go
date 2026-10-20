@@ -88,6 +88,11 @@ func serve(ctx context.Context) error {
 	// Live orders still settling: pending ones, and trades not final (D193, D204).
 	go a.trading.FollowEvery(ctx, 5*time.Second)
 
+	// Orders resting on the book (3p3a): paper ones filled as the market trades through
+	// them (D209), live ones read as their wallet's user channel says they changed (D195).
+	go a.trading.RestEvery(ctx, 5*time.Second)
+	go a.trading.WatchLive(ctx, 30*time.Second)
+
 	// What nodes remember goes when it expires (D121).
 	go a.memory.SweepEvery(ctx, 10*time.Minute)
 

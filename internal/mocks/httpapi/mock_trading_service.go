@@ -51,6 +51,84 @@ func (_m *MockTradingService) EXPECT() *MockTradingService_Expecter {
 	return &MockTradingService_Expecter{mock: &_m.Mock}
 }
 
+// Cancel provides a mock function for the type MockTradingService
+func (_mock *MockTradingService) Cancel(ctx context.Context, p auth.Principal, id domain.WorkflowID, order domain.OrderID) (domain.PlacedOrder, error) {
+	ret := _mock.Called(ctx, p, id, order)
+
+	if len(ret) == 0 {
+		panic("no return value specified for Cancel")
+	}
+
+	var r0 domain.PlacedOrder
+	var r1 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context, auth.Principal, domain.WorkflowID, domain.OrderID) (domain.PlacedOrder, error)); ok {
+		return returnFunc(ctx, p, id, order)
+	}
+	if returnFunc, ok := ret.Get(0).(func(context.Context, auth.Principal, domain.WorkflowID, domain.OrderID) domain.PlacedOrder); ok {
+		r0 = returnFunc(ctx, p, id, order)
+	} else {
+		r0 = ret.Get(0).(domain.PlacedOrder)
+	}
+	if returnFunc, ok := ret.Get(1).(func(context.Context, auth.Principal, domain.WorkflowID, domain.OrderID) error); ok {
+		r1 = returnFunc(ctx, p, id, order)
+	} else {
+		r1 = ret.Error(1)
+	}
+	return r0, r1
+}
+
+// MockTradingService_Cancel_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'Cancel'
+type MockTradingService_Cancel_Call struct {
+	*mock.Call
+}
+
+// Cancel is a helper method to define mock.On call
+//   - ctx context.Context
+//   - p auth.Principal
+//   - id domain.WorkflowID
+//   - order domain.OrderID
+func (_e *MockTradingService_Expecter) Cancel(ctx any, p any, id any, order any) *MockTradingService_Cancel_Call {
+	return &MockTradingService_Cancel_Call{Call: _e.mock.On("Cancel", ctx, p, id, order)}
+}
+
+func (_c *MockTradingService_Cancel_Call) Run(run func(ctx context.Context, p auth.Principal, id domain.WorkflowID, order domain.OrderID)) *MockTradingService_Cancel_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		var arg1 auth.Principal
+		if args[1] != nil {
+			arg1 = args[1].(auth.Principal)
+		}
+		var arg2 domain.WorkflowID
+		if args[2] != nil {
+			arg2 = args[2].(domain.WorkflowID)
+		}
+		var arg3 domain.OrderID
+		if args[3] != nil {
+			arg3 = args[3].(domain.OrderID)
+		}
+		run(
+			arg0,
+			arg1,
+			arg2,
+			arg3,
+		)
+	})
+	return _c
+}
+
+func (_c *MockTradingService_Cancel_Call) Return(placedOrder domain.PlacedOrder, err error) *MockTradingService_Cancel_Call {
+	_c.Call.Return(placedOrder, err)
+	return _c
+}
+
+func (_c *MockTradingService_Cancel_Call) RunAndReturn(run func(ctx context.Context, p auth.Principal, id domain.WorkflowID, order domain.OrderID) (domain.PlacedOrder, error)) *MockTradingService_Cancel_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // Holdings provides a mock function for the type MockTradingService
 func (_mock *MockTradingService) Holdings(ctx context.Context, p auth.Principal, id domain.WorkflowID) ([]domain.Holding, error) {
 	ret := _mock.Called(ctx, p, id)

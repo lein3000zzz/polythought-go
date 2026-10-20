@@ -92,8 +92,15 @@ func (s *Service) placeLive(ctx context.Context, o domain.PlacedOrder, rules dom
 		return domain.PlacedOrder{}, err
 	}
 
-	if o.Side == domain.SideSell && o.Shares.GreaterThan(held.Shares) {
-		return s.refuse(ctx, o, fmt.Sprintf("not enough shares: %s to sell, %s held%s", o.Shares, held.Shares, copied(o)))
+	if o.Side == domain.SideSell {
+		_, selling, err := s.committed(ctx, o.WorkflowID, o.Mode)
+		if err != nil {
+			return domain.PlacedOrder{}, err
+		}
+
+		if free := held.Shares.Sub(selling[held.Key()]); o.Shares.GreaterThan(free) {
+			return s.refuse(ctx, o, fmt.Sprintf("not enough shares: %s to sell, %s held%s", o.Shares, free, restingSells(selling[held.Key()], o)))
+		}
 	}
 
 	k, err := s.d.Keys.OrderKey(ctx, o.OwnerID, t.WalletID)
@@ -112,6 +119,7 @@ func (s *Service) placeLive(ctx context.Context, o domain.PlacedOrder, rules dom
 	placed, err := s.d.Exchange.Place(ctx, k, ports.LiveOrder{
 		TokenID: o.TokenID, Side: o.Side, Type: o.Type, Price: o.Price, Shares: o.Shares, Dollars: o.Dollars,
 		TickSize: rules.TickSize, NegRisk: rules.NegRisk, Builder: s.builderCode(),
+		PostOnly: o.PostOnly, Expires: o.Expires,
 	})
 	if err != nil {
 		return domain.PlacedOrder{}, err
@@ -122,7 +130,7 @@ func (s *Service) placeLive(ctx context.Context, o domain.PlacedOrder, rules dom
 	switch {
 	case placed.State == ports.LiveRefused:
 		return s.refuse(ctx, o, placed.Reason)
-	case placed.State == ports.LiveDone && len(placed.TradeIDs) == 0:
+	case placed.State == ports.LiveDone && len(placed.TradeIDs) == 0 && !o.Type.Rests():
 		o.Status, o.Reason = domain.OrderUnfilled, placed.Reason
 
 		return o, s.d.Ledger.Record(ctx, o, nil)
@@ -166,11 +174,8 @@ func (s *Service) await(ctx context.Context, k ports.OrderKey, o domain.PlacedOr
 	state, trades := placed.State, placed.TradeIDs
 
 	for attempt := 0; ; attempt++ {
-		if state == ports.LiveMatched || state == ports.LiveDone {
-			settled, ok, err := s.fromTrades(ctx, k, o, rules, trades)
-			if err != nil || ok {
-				return settled, err
-			}
+		if decided, ok := s.decide(ctx, k, o, rules, state, trades); ok {
+			return decided, nil
 		}
 
 		if attempt >= int(s.d.Patience/s.d.Poll) {
@@ -192,45 +197,89 @@ func (s *Service) await(ctx context.Context, k ports.OrderKey, o domain.PlacedOr
 	}
 }
 
-// fromTrades is the order as its trades make it: its fills, at their fees, and how it
-// went; ok is false while a trade is not listed yet.
-func (s *Service) fromTrades(ctx context.Context, k ports.OrderKey, o domain.PlacedOrder, rules domain.TradingRules, ids []string) (domain.PlacedOrder, bool, error) {
-	if len(ids) == 0 {
-		o.Status, o.Reason, o.Fills = domain.OrderUnfilled, "the book could not fill it within its price", nil
-		return o, true, nil
-	}
-
-	trades, err := s.d.Exchange.Trades(ctx, k, o.TokenID, ids)
-	if err != nil {
-		s.d.Logger.Warn(ctx, "Live order's trades not read", "order_id", o.ID, logging.Err(err))
-		return o, false, nil
-	}
-
-	if len(trades) < len(ids) {
-		return o, false, nil
+// decide is the order as Polymarket has it in state, with the trades ids: its fills, at
+// their fees, and how it stands; ok is false while that is not known yet: delayed, not
+// found, or a trade not listed yet.
+func (s *Service) decide(ctx context.Context, k ports.OrderKey, o domain.PlacedOrder, rules domain.TradingRules, state ports.LiveState, ids []string) (domain.PlacedOrder, bool) {
+	switch {
+	case state == ports.LiveMatched || state == ports.LiveDone:
+	case state == ports.LiveResting && o.Type.Rests():
+	default:
+		return o, false
 	}
 
 	o.Fills = nil
 
-	for _, t := range trades {
-		for _, f := range t.Fills {
-			f.Fee, f.Status, f.TradeID = fee(f.Shares, f.Price, rules.Fees), t.Status, t.ID
-			o.Fills = append(o.Fills, f)
+	if len(ids) > 0 {
+		trades, err := s.d.Exchange.Trades(ctx, k, o.ClobID, o.TokenID, ids)
+		if err != nil {
+			s.d.Logger.Warn(ctx, "Live order's trades not read", "order_id", o.ID, logging.Err(err))
+			return o, false
+		}
+
+		if len(trades) < len(ids) {
+			return o, false
+		}
+
+		for _, t := range trades {
+			for _, f := range t.Fills {
+				f.Fee, f.Status, f.TradeID = fee(f.Shares, f.Price, rules.Fees), t.Status, t.ID
+				if t.Maker {
+					f.Fee = decimal.Zero // makers pay none (D90)
+				}
+
+				o.Fills = append(o.Fills, f)
+			}
 		}
 	}
 
-	o.Status, o.Reason = liveStatus(o)
+	o.Status, o.Reason = s.liveOutcome(o, state)
 
-	return o, true, nil
+	return o, true
 }
 
-// liveStatus is how a matched order went: all its trades failed, filled as asked, or in
-// part.
-func liveStatus(o domain.PlacedOrder) (domain.OrderStatus, string) {
-	if !slices.ContainsFunc(o.Fills, func(f domain.OrderFill) bool { return f.Status != domain.FillFailed }) {
+// liveOutcome is how a live order stands, its fills known: FAK and FOK as they filled;
+// a resting order on the book, filled, or cancelled or expired with what it filled.
+func (s *Service) liveOutcome(o domain.PlacedOrder, state ports.LiveState) (domain.OrderStatus, string) {
+	if len(o.Fills) > 0 && !slices.ContainsFunc(o.Fills, func(f domain.OrderFill) bool { return f.Status != domain.FillFailed }) {
 		return domain.OrderFailed, "it matched, but its trades failed on chain: undone"
 	}
 
+	if !o.Type.Rests() {
+		if len(o.Fills) == 0 {
+			return domain.OrderUnfilled, "the book could not fill it within its price"
+		}
+
+		return liveStatus(o)
+	}
+
+	shares, _, _ := o.Totals()
+
+	switch {
+	case state == ports.LiveMatched || shares.GreaterThanOrEqual(o.Shares):
+		return domain.OrderFilled, ""
+	case state == ports.LiveResting:
+		return domain.OrderOpen, resting(o)
+	case o.Type == domain.OrderGTD && !s.d.Now().Before(o.Expires):
+		return domain.OrderExpired, "expired, " + filledOf(o)
+	default:
+		return domain.OrderCanceled, "cancelled on Polymarket, " + filledOf(o)
+	}
+}
+
+// resting says where an order rests and what of it filled.
+func resting(o domain.PlacedOrder) string {
+	return fmt.Sprintf("rests on the book at %s, %s", o.Price, filledOf(o))
+}
+
+func filledOf(o domain.PlacedOrder) string {
+	shares, _, _ := o.Totals()
+
+	return fmt.Sprintf("%s of %s shares filled", shares, o.Shares)
+}
+
+// liveStatus is how a matched FAK or FOK went: filled as asked, or in part.
+func liveStatus(o domain.PlacedOrder) (domain.OrderStatus, string) {
 	shares, dollars, _ := o.Totals()
 
 	switch {
@@ -313,34 +362,27 @@ func (s *Service) follow(ctx context.Context, o domain.PlacedOrder) error {
 
 	before := o
 
-	if o.Status == domain.OrderPending {
+	if o.Status == domain.OrderPending || o.Status == domain.OrderOpen {
 		st, err := s.d.Exchange.Order(ctx, k, o.ClobID)
 		if err != nil {
 			return err
 		}
 
-		switch st.State {
-		case ports.LiveMatched, ports.LiveDone:
-			settled, ok, err := s.fromTrades(ctx, k, o, rules, st.TradeIDs)
-			if err != nil || !ok {
-				return err
-			}
+		decided, ok := s.decide(ctx, k, o, rules, st.State, st.TradeIDs)
 
-			o = settled
-		case ports.LiveNotFound:
-			if s.d.Now().Sub(o.CreatedAt) < lostAfter {
-				return nil
-			}
-
+		switch {
+		case ok:
+			o = decided
+		case st.State == ports.LiveNotFound && o.Status == domain.OrderPending && s.d.Now().Sub(o.CreatedAt) >= lostAfter:
 			o.Status, o.Reason = domain.OrderRefused, "it never reached Polymarket's book"
 		default:
-			return nil // still delayed, or resting
+			return nil // still delayed, or not known yet
 		}
 	} else if o, err = s.followTrades(ctx, k, o); err != nil {
 		return err
 	}
 
-	if slices.Equal(fillStatuses(o), fillStatuses(before)) && o.Status == before.Status {
+	if unchanged(before, o) {
 		return nil
 	}
 
@@ -349,7 +391,7 @@ func (s *Service) follow(ctx context.Context, o domain.PlacedOrder) error {
 		return err
 	}
 
-	if err := s.d.Ledger.Update(ctx, o, &h); err != nil {
+	if err := s.d.Ledger.Update(ctx, o, &ports.LedgerChange{Holding: h}); err != nil {
 		return err
 	}
 
@@ -378,7 +420,7 @@ func (s *Service) followTrades(ctx context.Context, k ports.OrderKey, o domain.P
 		}
 	}
 
-	trades, err := s.d.Exchange.Trades(ctx, k, o.TokenID, ids)
+	trades, err := s.d.Exchange.Trades(ctx, k, o.ClobID, o.TokenID, ids)
 	if err != nil {
 		return o, err
 	}
@@ -396,10 +438,10 @@ func (s *Service) followTrades(ctx context.Context, k ports.OrderKey, o domain.P
 		}
 	}
 
-	if o.Status == domain.OrderFilled || o.Status == domain.OrderPartial {
-		if st, reason := liveStatus(o); st == domain.OrderFailed {
-			o.Status, o.Reason = st, reason
-		}
+	// Ended with all its trades failed, it failed; one resting still rests.
+	allFailed := !slices.ContainsFunc(o.Fills, func(f domain.OrderFill) bool { return f.Status != domain.FillFailed })
+	if allFailed && o.Status != domain.OrderOpen && o.Status != domain.OrderPending {
+		o.Status, o.Reason = domain.OrderFailed, "it matched, but its trades failed on chain: undone"
 	}
 
 	return o, nil
@@ -439,6 +481,12 @@ func fillStatuses(o domain.PlacedOrder) []domain.FillStatus {
 	}
 
 	return out
+}
+
+// unchanged is whether following an order changed nothing of it.
+func unchanged(before, after domain.PlacedOrder) bool {
+	return before.Status == after.Status && before.Reason == after.Reason &&
+		slices.Equal(fillStatuses(before), fillStatuses(after))
 }
 
 // failedNow is whether a trade of o failed since before.

@@ -494,6 +494,7 @@ type polymarket struct {
 	approvals   *pmadapter.Approvals
 	geoblock    *pmadapter.Geoblock
 	exchange    *pmadapter.Exchange
+	orders      *pmadapter.OrderStream
 }
 
 func newPolymarket(a *app) (polymarket, error) {
@@ -546,6 +547,7 @@ func newPolymarket(a *app) (polymarket, error) {
 		approvals:   pmadapter.NewApprovals(data, rpc, relayer, builder),
 		geoblock:    pmadapter.NewGeoblock(geo),
 		exchange:    pmadapter.NewExchange(clob, clob),
+		orders:      pmadapter.NewOrderStream(pm.NewUserStreamClient(a.util, pm.UserStreamConfig{})),
 	}, nil
 }
 
@@ -631,6 +633,7 @@ func (a *app) initEngine(ctx context.Context, pmc polymarket) error {
 		Ledger: ledger, Books: pmc.reader, Rules: pmc.reader, Markets: pmc.reader,
 		Workflows: laterWorkflows{a}, Logger: a.util.Logger, PaperBalance: paperBalance,
 		Trading: a.workflowTrading, Exchange: pmc.exchange, Keys: a.wallets, Wallets: a.wallets, Notifier: a.notify,
+		Feed: a.feed, Stream: pmc.orders,
 		LiveOn:      func() bool { return a.settings.Current().Bool(config.KeyLiveTrading) },
 		BuilderCode: func() string { return a.settings.Current().String(config.KeyBuilderCode) },
 	})

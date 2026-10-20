@@ -6,6 +6,7 @@ import { toast } from 'sonner'
 import { errorMessage, type Schemas } from '@/api/client'
 import {
   type TradingMode,
+  useCancelOrder,
   useOrders,
   useResetPaperAccount,
   useTradingSetup,
@@ -173,6 +174,7 @@ export function TradingView({ workflowId }: { workflowId: string }) {
           Orders
         </h2>
         <Orders
+          workflowId={workflowId}
           orders={orders.data?.pages.flatMap((p) => p.orders) ?? []}
           resetAt={s.account.resetAt}
           names={names}
@@ -201,6 +203,9 @@ function Account({ workflowId, account }: { workflowId: string; account: Summary
     <section aria-label="Paper account" className="flex flex-wrap items-end gap-x-8 gap-y-3">
       <Figure label="Worth" value={formatDollars(account.worth)} />
       <Figure label="Cash" value={formatDollars(account.cash)} />
+      {Number(account.held) > 0 && (
+        <Figure label="Held by resting orders" value={formatDollars(account.held)} />
+      )}
       <Figure label="Profit" value={<Profit text={account.profit} />} />
       <p className="text-xs text-muted-foreground">
         {!account.open
@@ -280,14 +285,18 @@ function Profit({ text }: { text: string }) {
 }
 
 function Orders({
+  workflowId,
   orders,
   resetAt,
   names,
 }: {
+  workflowId: string
   orders: Order[]
   resetAt?: string
   names: Map<string, string>
 }) {
+  const cancel = useCancelOrder(workflowId)
+
   if (orders.length === 0) return <p className="text-sm text-muted-foreground">No orders yet.</p>
 
   const before = (o: Order) => resetAt !== undefined && o.at < resetAt
@@ -328,7 +337,27 @@ function Orders({
               <TableCell className="max-w-64 truncate" title={names.get(o.tokenId)}>
                 {names.get(o.tokenId) ?? shortAddress(o.tokenId)}
               </TableCell>
-              <TableCell>{resultText(o)}</TableCell>
+              <TableCell>
+                <span className="flex items-center gap-2">
+                  {resultText(o)}
+                  {o.status === 'open' && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      aria-label={`Cancel ${orderText(o)}`}
+                      disabled={cancel.isPending}
+                      onClick={() =>
+                        cancel.mutate(o.id, {
+                          onSuccess: () => toast.success('Order cancelled'),
+                          onError: (error) => toast.error(errorMessage(error)),
+                        })
+                      }
+                    >
+                      Cancel
+                    </Button>
+                  )}
+                </span>
+              </TableCell>
             </TableRow>
           </Fragment>
         ))}
@@ -356,8 +385,9 @@ function orderText(o: Order): string {
 
   const size = o.dollars ? formatDollars(o.dollars) : `${formatShares(o.shares ?? '0')} shares`
   const limit = o.side === 'buy' ? `up to ${o.price}` : `at least ${o.price}`
+  const until = o.expiresAt ? ` until ${formatDateTime(o.expiresAt)}` : ''
 
-  return `${o.side} ${size} at ${limit}, ${o.type}`
+  return `${o.side} ${size} at ${limit}, ${o.type}${until}`
 }
 
 function resultText(o: Order): string {

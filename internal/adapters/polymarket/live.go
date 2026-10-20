@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"slices"
 	"strings"
 	"time"
 
@@ -135,8 +136,17 @@ func (e *Exchange) signed(k ports.OrderKey, o ports.LiveOrder) (pm.OrderPost, er
 		return pm.OrderPost{}, err
 	}
 
-	return pm.OrderPost{Order: pm.SignedOrder{Order: order, Signature: signature}, Exchange: ex, Type: pm.OrderType(o.Type)}, nil
+	signed := pm.SignedOrder{Order: order, Signature: signature}
+	if o.Type == domain.OrderGTD {
+		// The CLOB ends a GTD a minute before its expiration: it is set a minute later.
+		signed.Expiration = o.Expires.Add(gtdLead).Unix()
+	}
+
+	return pm.OrderPost{Order: signed, Exchange: ex, Type: pm.OrderType(o.Type), PostOnly: o.PostOnly}, nil
 }
+
+// gtdLead is how much earlier than its expiration the CLOB ends a GTD order.
+const gtdLead = time.Minute
 
 // builderCode is a builder code as the order signs it: 32 bytes.
 func builderCode(code string) ([32]byte, error) {
@@ -221,10 +231,9 @@ func (e *Exchange) Order(ctx context.Context, k ports.OrderKey, id string) (port
 	return ports.LiveOrderState{State: state, Matched: o.SizeMatched, TradeIDs: o.AssociateTrades}, nil
 }
 
-// Trades reads each trade by its ID. A trade's part for the wallet are its fills: as
-// the taker, one at each maker order's price, in the wallet's own outcome; as a maker,
-// its own orders' part.
-func (e *Exchange) Trades(ctx context.Context, k ports.OrderKey, token domain.TokenID, ids []string) ([]ports.LiveTrade, error) {
+// Trades reads each trade by its ID. The order's part in it are its fills: as the taker,
+// one at each maker order's price, in the order's own outcome; as a maker, its own part.
+func (e *Exchange) Trades(ctx context.Context, k ports.OrderKey, order string, token domain.TokenID, ids []string) ([]ports.LiveTrade, error) {
 	out := make([]ports.LiveTrade, 0, len(ids))
 
 	for _, id := range ids {
@@ -235,7 +244,8 @@ func (e *Exchange) Trades(ctx context.Context, k ports.OrderKey, token domain.To
 
 		for _, t := range page.Items {
 			if t.ID == id {
-				out = append(out, ports.LiveTrade{ID: t.ID, Status: fillStatus(t.Status), Fills: fills(t, token, k.Wallet.Address)})
+				maker := !strings.EqualFold(t.TakerOrderID, order)
+				out = append(out, ports.LiveTrade{ID: t.ID, Status: fillStatus(t.Status), Fills: fills(t, order, token, maker), Maker: maker})
 			}
 		}
 	}
@@ -245,7 +255,7 @@ func (e *Exchange) Trades(ctx context.Context, k ports.OrderKey, token domain.To
 
 var one = decimal.NewFromInt(1)
 
-func fills(t pm.ClobTrade, token domain.TokenID, wallet domain.WalletAddress) []domain.OrderFill {
+func fills(t pm.ClobTrade, order string, token domain.TokenID, maker bool) []domain.OrderFill {
 	fill := func(shares, price decimal.Decimal) domain.OrderFill {
 		return domain.OrderFill{Price: price, Shares: shares, Dollars: shares.Mul(price), Fee: decimal.Zero, TradeID: t.ID}
 	}
@@ -262,9 +272,9 @@ func fills(t pm.ClobTrade, token domain.TokenID, wallet domain.WalletAddress) []
 
 	var out []domain.OrderFill
 
-	if t.TraderSide == pm.TraderMaker {
+	if maker {
 		for _, m := range t.MakerOrders {
-			if strings.EqualFold(m.MakerAddress, string(wallet)) {
+			if strings.EqualFold(m.OrderID, order) {
 				out = append(out, fill(m.MatchedAmount, m.Price))
 			}
 		}
@@ -298,6 +308,27 @@ func fillStatus(s pm.TradeStatus) domain.FillStatus {
 	}
 }
 
+// Cancel cancels what is left of the order with id; one Polymarket does not cancel, as
+// it matched or went already, says why.
+func (e *Exchange) Cancel(ctx context.Context, k ports.OrderKey, id string) (ports.LiveCancel, error) {
+	c, err := e.clob.CancelOrder(ctx, toL2(k.Credentials), id)
+	if err != nil {
+		return ports.LiveCancel{}, accountError(err)
+	}
+
+	if slices.ContainsFunc(c.Canceled, func(got string) bool { return strings.EqualFold(got, id) }) {
+		return ports.LiveCancel{Canceled: true}, nil
+	}
+
+	for got, why := range c.NotCanceled {
+		if strings.EqualFold(got, id) {
+			return ports.LiveCancel{Reason: why}, nil
+		}
+	}
+
+	return ports.LiveCancel{Reason: "Polymarket did not say"}, nil
+}
+
 func (e *Exchange) Cash(ctx context.Context, k ports.OrderKey) (decimal.Decimal, error) {
 	b, err := e.account.BalanceAllowance(ctx, toL2(k.Credentials), pm.BalanceQuery{
 		AssetType: pm.AssetCollateral, SignatureType: int(k.Credentials.SignatureType),
@@ -307,4 +338,48 @@ func (e *Exchange) Cash(ctx context.Context, k ports.OrderKey) (decimal.Decimal,
 	}
 
 	return b.Balance.Shift(-collateralDecimals), nil
+}
+
+var _ ports.LiveOrderStream = (*OrderStream)(nil)
+
+// OrderStream follows wallets' orders on the CLOB's user channel (3p3, D195): which
+// changed, for the trading service to read again over REST.
+type OrderStream struct {
+	users pm.UserStreamClient
+}
+
+func NewOrderStream(users pm.UserStreamClient) *OrderStream {
+	return &OrderStream{users: users}
+}
+
+func (s *OrderStream) Watch(ctx context.Context, k ports.OrderKey) <-chan ports.LiveOrderEvent {
+	out := make(chan ports.LiveOrderEvent, 64)
+	events := s.users.Watch(ctx, toL2(k.Credentials))
+
+	go func() {
+		defer close(out)
+
+		for e := range events {
+			var ev ports.LiveOrderEvent
+
+			switch {
+			case e.Gap:
+				ev.Gap = true
+			case e.Order != nil:
+				ev.Orders = []string{e.Order.ID}
+			case e.Trade != nil:
+				ev.Orders = e.Trade.Orders()
+			default:
+				continue
+			}
+
+			select {
+			case out <- ev:
+			case <-ctx.Done():
+				return
+			}
+		}
+	}()
+
+	return out
 }

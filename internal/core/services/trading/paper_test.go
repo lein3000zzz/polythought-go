@@ -36,8 +36,13 @@ func TestRequest(t *testing.T) {
 		"neither":                  {buy(domain.OrderFOK, "0.5", "", ""), "at least 0.01"},
 		"too little to round":      {buy(domain.OrderFOK, "0.5", "0.004", ""), "at least 0.01"},
 		"a price out of range":     {buy(domain.OrderFOK, "1", "10", ""), "not between 0 and 1"},
-		"a resting order on paper": {buy(domain.OrderGTC, "0.5", "10", ""), "FOK or FAK"},
-		"no type":                  {buy("", "0.5", "10", ""), "not an order type"},
+		"a resting order on paper": {buy(domain.OrderGTC, "0.5", "10", ""), ""},
+		"post-only and resting": {func() domain.OrderRequest {
+			r := buy(domain.OrderGTD, "0.5", "10", "")
+			r.PostOnly = true
+			return r
+		}(), ""},
+		"no type": {buy("", "0.5", "10", ""), "not an order type"},
 		"a sell of dollars": {func() domain.OrderRequest {
 			r := buy(domain.OrderFAK, "0.5", "", "10")
 			r.Side = domain.SideSell

@@ -80,5 +80,5 @@ Each node has a page with its settings. In the editor, the node list on the left
 | Node | Type | What it does |
 |---|---|---|
 | [Copy sizing](/docs/reference/nodes/trading/copy-size/) | `trading.copySize` | Works out a copy of each trade a followed trader made: how much to buy, or how much of your copy to sell, and at what price. |
-| [Place order](/docs/reference/nodes/trading/place-order/) | `trading.placeOrder` | Places an order for each item, on paper or live as the workflow trades: the copy Copy sizing worked out, or one of its own settings. |
+| [Place order](/docs/reference/nodes/trading/place-order/) | `trading.placeOrder` | Places an order for each item, on paper or live as the workflow trades: the copy Copy sizing worked out, or one of its own settings, at once or resting on the book. |
 | [Risk guard](/docs/reference/nodes/trading/risk-guard/) | `trading.riskGuard` | Holds copies of buys to the workflow's limits: caps a copy, a market and a day, a price band and categories. |

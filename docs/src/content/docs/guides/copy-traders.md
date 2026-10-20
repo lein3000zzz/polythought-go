@@ -131,16 +131,36 @@ the guard let it into.
 ## Place them
 
 [Place order](/docs/reference/nodes/trading/place-order/) places each item's copy. An order
-that filled, wholly or in part, goes out of `main`; one that did not, out of `missed`. Both
-carry `order`: its mode, its status (`filled`, `partial`, `unfilled` or `refused`, and live
-also `pending` or `failed`, below), the shares, dollars and fees it came to, the average
-price, and why when it did not fill.
+that filled, wholly or in part, goes out of `main`; one left resting on the book, out of
+`resting` (below); one that did not fill, out of `missed`. Each carries `order`: its mode,
+its status (`filled`, `partial`, `open`, `unfilled` or `refused`, and live also `pending`
+or `failed`, below), the shares, dollars and fees it came to, the average price, and why
+when it did not fill.
 
 Set **Order** to `settings` and Place order places an order of its own instead, from its
 settings, which take [expressions](/docs/guides/expressions/): a **Token**, a **Side**, a
-**Price** that is the limit, **Shares** or for a buy **Dollars**, and FAK or FOK. After
+**Price** that is the limit, **Shares** or for a buy **Dollars**, and a **Type**. After
 [Markets](/docs/reference/nodes/polymarket/markets/), say, `{{ outcomes[0].tokenId }}` as
 the token buys the first outcome of each market.
+
+### Resting orders
+
+A FAK takes what the book has within its price and cancels the rest; a FOK fills wholly or
+not at all. A **GTC** takes what it can at once too, and then **rests** on the book at its
+price, waiting for others to trade with it, until it fills or you cancel it; a **GTD** the
+same, until **Expires after**, 3 minutes at the least. With **Post-only**, a GTC or GTD
+that would match at once is refused instead, so it only ever rests. A buy of dollars rests
+as the shares those dollars buy at its price.
+
+A copy can rest too: **Copy as** `GTC` or `GTD` places the copy at its price instead of as
+the FAK Copy sizing worked out.
+
+A resting order goes out of `resting`, with what matched at once. What fills later is in
+the books and the order list; each resting order has **Cancel** there, which cancels what
+is left of it and keeps what it filled.
+
+While it rests, a buy holds back the cash it may spend, and a sell its shares: other orders
+cannot spend them. When its market resolves, what is left of it is cancelled.
 
 ## Paper trading
 
@@ -153,6 +173,14 @@ market's taker fee, as Polymarket charges it: on top of a buy, out of a sell.
 As on Polymarket, an order must keep to its market: a price on the tick, at least its least
 order size. A buy needs the cash for all it may spend, a sell the shares. An order that
 does not is refused, saying why, and is kept with the others.
+
+A paper order resting on the book fills as the live market trades **through** its price:
+a trade below a resting buy's price, or above a resting sell's, would have met it first,
+so it fills by as many shares as traded, at its own price, as a maker, paying no fee. A
+trade at exactly its price leaves it waiting, as where it would be in the queue is not
+known. This is an approximation: trades while the server was down are not seen, and
+others' orders ahead of it at the same price are guessed at, not known. A reset cancels
+what rests, with the cash it held.
 
 When a market resolves, what the workflow holds in it settles on its own within a few
 minutes, at what a share pays: $1 for the outcome that won, nothing for the others. The
@@ -187,8 +215,9 @@ is back on paper.
 ### What happens to an order
 
 Each order is checked as on paper: on the market's tick, at least its least order, and a
-sell only of shares the workflow holds live copying that trader. Polythought then signs
-it with the wallet's key, as Polymarket's own client does, and sends it, a FAK or a FOK.
+sell only of shares the workflow holds live copying that trader, not held back by its
+resting sells. Polythought then signs it with the wallet's key, as Polymarket's own client
+does, and sends it.
 
 - **It counts at match.** As soon as Polymarket matches it, its fills are in the books and
   the item goes on. The trades then settle on chain, and the order list says *confirming
@@ -202,6 +231,10 @@ it with the wallet's key, as Polymarket's own client does, and sends it, a FAK o
   sent, so one sent again after a lost answer is found, never placed twice.
 - **Fees** are Polymarket's taker fee, worked out per fill as Polymarket charges it: on top
   of a buy, out of a sell. With a builder code set (below), the builder's fee is on top.
+- **Resting orders** rest on Polymarket's book. Polythought follows them through
+  Polymarket's live channel for the wallet, reading each again as it changes, and every
+  half minute anyway; a fill of one, as a maker, pays no fee. Polymarket ends a GTD at its
+  time; **Cancel** asks Polymarket to cancel what is left.
 - **The cash** is the wallet's pUSD, which every workflow trading from it shares; the
   Risk guard's caps count each workflow's own live buys and holdings.
 
@@ -218,7 +251,7 @@ A workflow with trading nodes has a third view beside **Canvas** and **Code**: *
 It shows, refreshed every half minute:
 
 - **The paper account**: what it is worth, its cash and what it holds now, its cash alone,
-  and its profit or loss since it started.
+  what of it resting buys hold back, and its profit or loss since it started.
 - **Traders**: a row per trader copied, and one for orders copied from no one: how many
   copies filled, the dollars they traded, the profit or loss made on what was sold
   (realized) and what what is held would make sold now (unrealized), and the win rate, the
@@ -226,7 +259,8 @@ It shows, refreshed every half minute:
 - **Holdings**: what is held, per trader and outcome, with what it cost and what it is
   worth now, at the midpoint of the order book; when the book has only one side, at the
   market's own price.
-- **Orders**: every order, the newest first, with how it went; live ones marked so.
+- **Orders**: every order, the newest first, with how it went; live ones marked so, and
+  those resting on the book with **Cancel**.
 
 Live, the account is the wallet's: what the workflow is worth, the wallet's pUSD, and the
 profit or loss its live holdings made, sold and still held. A workflow set up to trade

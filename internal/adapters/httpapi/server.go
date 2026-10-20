@@ -370,6 +370,7 @@ func (s *Server) routes() {
 	wf.GET("/:id/trading/setup", s.getTradingSetup)
 	wf.PUT("/:id/trading/setup", s.setTradingSetup)
 	wf.GET("/:id/orders", s.listOrders)
+	wf.POST("/:id/orders/:order/cancel", s.cancelOrder)
 	wf.GET("/:id/holdings", s.listHoldings)
 	wf.GET("/:id/nodes/:node/memory", s.getNodeMemory)
 	wf.DELETE("/:id/nodes/:node/memory", s.forgetNodeMemory)

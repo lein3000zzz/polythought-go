@@ -147,7 +147,7 @@ func TestLiveBooks(t *testing.T) {
 
 		empty := holding(domain.ModeLive, "0")
 		empty.Cost = decimal.Zero
-		require.NoError(t, ledger.Update(ctx, failed, &empty))
+		require.NoError(t, ledger.Update(ctx, failed, &ports.LedgerChange{Holding: empty}))
 
 		got, err := ledger.OrdersOf(ctx, domain.HoldingKey{WorkflowID: w.ID, Mode: domain.ModeLive, TokenID: "t-yes"})
 		require.NoError(t, err)
@@ -204,5 +204,88 @@ func TestLiveBooks(t *testing.T) {
 		assert.Equal(t, "copy live", name)
 		require.NoError(t, db.SQL.QueryRowContext(ctx, `SELECT workflow_name FROM holdings WHERE workflow_id = $1`, string(w.ID)).Scan(&name))
 		assert.Equal(t, "copy live", name)
+	})
+}
+
+func TestRestingOrders(t *testing.T) {
+	ctx := context.Background()
+
+	db := fresh(t)
+	ledger := postgres.NewLedger(db)
+	alice := seedUser(t, db, "alice@example.com", domain.RoleUser)
+
+	w := newWorkflow(alice.ID, "rests")
+	other := newWorkflow(alice.ID, "other")
+	require.NoError(t, postgres.NewWorkflows(db).Create(ctx, w))
+	require.NoError(t, postgres.NewWorkflows(db).Create(ctx, other))
+
+	_, err := ledger.OpenPaperAccount(ctx, domain.PaperAccount{WorkflowID: w.ID, OwnerID: alice.ID, Cash: num("100"), StartedWith: num("100"), StartedAt: at})
+	require.NoError(t, err)
+
+	resting := func(wf domain.WorkflowID, mode domain.TradingMode) domain.PlacedOrder {
+		return domain.PlacedOrder{
+			OrderRequest: domain.OrderRequest{
+				WorkflowID: wf, OwnerID: alice.ID, NodeID: "buy", Mode: mode, TokenID: "t-yes", MarketID: "0xm",
+				Side: domain.SideBuy, Type: domain.OrderGTD, Price: num("0.4"), Shares: num("10"), Expires: at.Add(time.Hour),
+			},
+			ID: domain.OrderID(newID()), Status: domain.OrderOpen, Reason: "rests on the book", CreatedAt: at,
+		}
+	}
+
+	paper, live, elsewhere := resting(w.ID, domain.ModePaper), resting(w.ID, domain.ModeLive), resting(other.ID, domain.ModePaper)
+	for _, o := range []domain.PlacedOrder{paper, live, elsewhere} {
+		require.NoError(t, ledger.Record(ctx, o, nil))
+	}
+
+	got, err := ledger.Order(ctx, paper.ID)
+	require.NoError(t, err)
+	assert.Equal(t, domain.OrderOpen, got.Status)
+	assert.Equal(t, at.Add(time.Hour), got.Expires)
+
+	_, err = ledger.Order(ctx, domain.OrderID(newID()))
+	require.ErrorIs(t, err, domain.ErrNotFound)
+
+	open, err := ledger.OpenOrders(ctx, domain.ModePaper)
+	require.NoError(t, err)
+	assert.Len(t, open, 2, "every workflow's, on paper")
+
+	mine, err := ledger.WorkflowOpenOrders(ctx, w.ID, domain.ModePaper)
+	require.NoError(t, err)
+	require.Len(t, mine, 1)
+	assert.Equal(t, paper.ID, mine[0].ID)
+
+	t.Run("a fill later moves the paper cash with the holding", func(t *testing.T) {
+		filled := paper
+		filled.Status, filled.Reason = domain.OrderFilled, ""
+		filled.Fills = []domain.OrderFill{{Price: num("0.4"), Shares: num("10"), Dollars: num("4"), Fee: decimal.Zero}}
+
+		require.NoError(t, ledger.Update(ctx, filled, &ports.LedgerChange{Cash: num("-4"), Holding: domain.Holding{
+			WorkflowID: w.ID, Mode: domain.ModePaper, TokenID: "t-yes", MarketID: "0xm", Shares: num("10"), Cost: num("4"),
+			Realized: decimal.Zero, UpdatedAt: at,
+		}}))
+
+		a, err := ledger.PaperAccount(ctx, w.ID)
+		require.NoError(t, err)
+		assert.Equal(t, "96", a.Cash.String())
+
+		mine, err := ledger.WorkflowOpenOrders(ctx, w.ID, domain.ModePaper)
+		require.NoError(t, err)
+		assert.Empty(t, mine, "filled: no longer resting")
+	})
+
+	t.Run("no more cash than there is", func(t *testing.T) {
+		big := elsewhere
+		big.Status = domain.OrderFilled
+		require.ErrorIs(t, ledger.Update(ctx, big, &ports.LedgerChange{Cash: num("-1"), Holding: domain.Holding{
+			WorkflowID: other.ID, Mode: domain.ModePaper, TokenID: "t-yes", Shares: num("1"), Cost: num("1"), Realized: decimal.Zero, UpdatedAt: at,
+		}}), domain.ErrNotEnoughCash, "it has no paper account")
+	})
+
+	t.Run("cancelled and expired, as the statuses allow", func(t *testing.T) {
+		for _, st := range []domain.OrderStatus{domain.OrderCanceled, domain.OrderExpired} {
+			o := live
+			o.Status = st
+			require.NoError(t, ledger.Update(ctx, o, nil))
+		}
 	})
 }

@@ -29,6 +29,9 @@ type exchange struct {
 	cash    string
 	sent    []ports.LiveOrder
 	lookups int
+
+	cancel    ports.LiveCancel
+	cancelled []string
 }
 
 func (e *exchange) Place(_ context.Context, k ports.OrderKey, o ports.LiveOrder) (ports.LivePlacement, error) {
@@ -52,7 +55,16 @@ func (e *exchange) Order(context.Context, ports.OrderKey, string) (ports.LiveOrd
 	return e.states[min(e.lookups, len(e.states))-1], nil
 }
 
-func (e *exchange) Trades(_ context.Context, _ ports.OrderKey, _ domain.TokenID, ids []string) ([]ports.LiveTrade, error) {
+func (e *exchange) Cancel(_ context.Context, _ ports.OrderKey, id string) (ports.LiveCancel, error) {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+
+	e.cancelled = append(e.cancelled, id)
+
+	return e.cancel, nil
+}
+
+func (e *exchange) Trades(_ context.Context, _ ports.OrderKey, _ string, _ domain.TokenID, ids []string) ([]ports.LiveTrade, error) {
 	e.mu.Lock()
 	defer e.mu.Unlock()
 

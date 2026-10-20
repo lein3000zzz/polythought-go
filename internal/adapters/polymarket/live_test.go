@@ -295,15 +295,16 @@ func TestLiveTrades(t *testing.T) {
 
 	trades := map[string]pm.ClobTrade{
 		// Our buy took a sell of Yes at 0.54 and, minting, a buy of No at 0.45: 0.55 here.
-		"taker": {ID: "taker", TraderSide: pm.TraderTaker, Status: pm.TradeMined, Size: d("10"), Price: d("0.55"),
+		"taker": {ID: "taker", TakerOrderID: "0xMINE", TraderSide: pm.TraderTaker, Status: pm.TradeMined, Size: d("10"), Price: d("0.55"),
 			MakerOrders: []pm.MakerOrder{
 				{AssetID: string(vectorToken), MatchedAmount: d("6"), Price: d("0.54"), Side: pm.SideSell},
 				{AssetID: "other", MatchedAmount: d("4"), Price: d("0.45"), Side: pm.SideBuy},
 			}},
-		"bare": {ID: "bare", TraderSide: pm.TraderTaker, Status: pm.TradeConfirmed, Size: d("3"), Price: d("0.5")},
-		"maker": {ID: "maker", TraderSide: pm.TraderMaker, Status: pm.TradeFailed, MakerOrders: []pm.MakerOrder{
-			{MakerAddress: "0xsomeone", MatchedAmount: d("9"), Price: d("0.5")},
-			{MakerAddress: "0x1111111111111111111111111111111111111111", MatchedAmount: d("2"), Price: d("0.5")},
+		"bare": {ID: "bare", TakerOrderID: "0xmine", TraderSide: pm.TraderTaker, Status: pm.TradeConfirmed, Size: d("3"), Price: d("0.5")},
+		// Resting, ours was one of the makers another order took.
+		"maker": {ID: "maker", TakerOrderID: "0xtheirs", TraderSide: pm.TraderMaker, Status: pm.TradeFailed, MakerOrders: []pm.MakerOrder{
+			{OrderID: "0xsomeone", MatchedAmount: d("9"), Price: d("0.5")},
+			{OrderID: "0xmine", MatchedAmount: d("2"), Price: d("0.5")},
 		}},
 	}
 
@@ -313,12 +314,13 @@ func TestLiveTrades(t *testing.T) {
 	}
 	clob.EXPECT().Trades(mock.Anything, mock.Anything, pm.ClobTradesQuery{ID: "later"}).Return(pm.Page[pm.ClobTrade]{}, nil)
 
-	got, err := e.Trades(context.Background(), key, vectorToken, []string{"taker", "bare", "maker", "later"})
+	got, err := e.Trades(context.Background(), key, "0xmine", vectorToken, []string{"taker", "bare", "maker", "later"})
 	require.NoError(t, err)
 	require.Len(t, got, 3, "the one not listed yet left out")
 
 	taker := got[0]
 	assert.Equal(t, domain.FillMined, taker.Status)
+	assert.False(t, taker.Maker)
 	require.Len(t, taker.Fills, 2)
 	assert.Equal(t, "0.54", taker.Fills[0].Price.String())
 	assert.Equal(t, "0.55", taker.Fills[1].Price.String(), "the other outcome's price, from 1")
@@ -330,8 +332,92 @@ func TestLiveTrades(t *testing.T) {
 	assert.Equal(t, "1.5", got[1].Fills[0].Dollars.String())
 
 	assert.Equal(t, domain.FillFailed, got[2].Status)
-	require.Len(t, got[2].Fills, 1, "only the wallet's own maker order")
+	assert.True(t, got[2].Maker)
+	require.Len(t, got[2].Fills, 1, "only the order's own part")
 	assert.Equal(t, "2", got[2].Fills[0].Shares.String())
+}
+
+func TestLiveRestingOrder(t *testing.T) {
+	key := ports.OrderKey{
+		Wallet: domain.Wallet{Address: ownerAddress}, Key: loadLiveVectors(t).Keys.Owner,
+		Credentials: domain.PolymarketCredentials{Signer: ownerAddress, SignatureType: domain.SignatureEOA},
+	}
+	expires := time.Date(2026, 10, 20, 13, 0, 0, 0, time.UTC)
+
+	e, clob, _ := exchange(t)
+
+	var sent pm.OrderPost
+	clob.EXPECT().PostOrder(mock.Anything, mock.Anything, mock.Anything).
+		RunAndReturn(func(_ context.Context, _ pm.L2Credentials, p pm.OrderPost) (pm.PostedOrder, error) {
+			sent = p
+			return pm.PostedOrder{ID: "0x1", Status: pm.PostLive}, nil
+		})
+
+	placed, err := e.Place(context.Background(), key, ports.LiveOrder{
+		TokenID: vectorToken, Side: domain.SideBuy, Type: domain.OrderGTD, Price: d("0.55"), Shares: d("10"),
+		TickSize: d("0.01"), PostOnly: true, Expires: expires,
+	})
+	require.NoError(t, err)
+	assert.Equal(t, ports.LiveResting, placed.State)
+	assert.True(t, sent.PostOnly)
+	assert.Equal(t, pm.OrderGTD, sent.Type)
+	assert.Equal(t, expires.Add(time.Minute).Unix(), sent.Order.Expiration, "a minute on: the CLOB ends a GTD a minute early")
+}
+
+func TestLiveCancel(t *testing.T) {
+	key := ports.OrderKey{Credentials: domain.PolymarketCredentials{Signer: ownerAddress}}
+
+	for name, tc := range map[string]struct {
+		answer pm.Cancellation
+		err    error
+		want   ports.LiveCancel
+	}{
+		"cancelled":     {answer: pm.Cancellation{Canceled: []string{"0xABC"}}, want: ports.LiveCancel{Canceled: true}},
+		"matched first": {answer: pm.Cancellation{NotCanceled: map[string]string{"0xabc": "Order already matched"}}, want: ports.LiveCancel{Reason: "Order already matched"}},
+		"said nothing":  {answer: pm.Cancellation{}, want: ports.LiveCancel{Reason: "Polymarket did not say"}},
+	} {
+		t.Run(name, func(t *testing.T) {
+			e, clob, _ := exchange(t)
+			clob.EXPECT().CancelOrder(mock.Anything, toL2(key.Credentials), "0xabc").Return(tc.answer, tc.err)
+
+			got, err := e.Cancel(context.Background(), key, "0xabc")
+			require.NoError(t, err)
+			assert.Equal(t, tc.want, got)
+		})
+	}
+
+	e, clob, _ := exchange(t)
+	clob.EXPECT().CancelOrder(mock.Anything, mock.Anything, "0xabc").Return(pm.Cancellation{}, errors.New("dial tcp: refused"))
+
+	_, err := e.Cancel(context.Background(), key, "0xabc")
+	require.ErrorIs(t, err, domain.ErrUnavailable)
+}
+
+// users is a user channel the test feeds.
+type users struct{ events chan pm.UserEvent }
+
+func (u users) Watch(context.Context, pm.L2Credentials) <-chan pm.UserEvent { return u.events }
+
+func TestOrderStream(t *testing.T) {
+	u := users{events: make(chan pm.UserEvent, 4)}
+	trade := &pm.UserTradeEvent{ID: "trade-1", TakerOrderID: "0xt"}
+	trade.MakerOrders = append(trade.MakerOrders, struct {
+		OrderID string `json:"order_id"`
+	}{OrderID: "0xm"})
+
+	u.events <- pm.UserEvent{Gap: true}
+	u.events <- pm.UserEvent{Order: &pm.UserOrderEvent{ID: "0xo"}}
+	u.events <- pm.UserEvent{Trade: trade}
+	close(u.events)
+
+	var got []ports.LiveOrderEvent
+	for e := range NewOrderStream(u).Watch(context.Background(), ports.OrderKey{}) {
+		got = append(got, e)
+	}
+
+	assert.Equal(t, []ports.LiveOrderEvent{
+		{Gap: true}, {Orders: []string{"0xo"}}, {Orders: []string{"0xt", "0xm"}},
+	}, got)
 }
 
 func TestLiveCash(t *testing.T) {

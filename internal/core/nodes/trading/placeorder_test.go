@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"testing"
+	"time"
 
 	"github.com/shopspring/decimal"
 	"github.com/stretchr/testify/assert"
@@ -127,6 +128,44 @@ func TestPlaceOrder(t *testing.T) {
 		out := place(t, &placer{live: true}, nil, withCopy(domain.SideBuy, nil))
 		require.Len(t, out[engine.DefaultPort], 1, "filled live")
 		assert.Equal(t, "live", out[engine.DefaultPort][0].JSON["order"].(map[string]any)["mode"])
+	})
+
+	t.Run("resting: out of resting (D208)", func(t *testing.T) {
+		out := place(t, &placer{status: domain.OrderOpen}, nil, withCopy(domain.SideBuy, nil))
+
+		require.Len(t, out[trading.PortResting], 1)
+		assert.Equal(t, "open", out[trading.PortResting][0].JSON["order"].(map[string]any)["status"])
+	})
+
+	t.Run("a copy as a GTD, at its price, and post-only (D212)", func(t *testing.T) {
+		p := &placer{}
+		place(t, p, map[string]any{"copyAs": "GTD", "expiresAfter": "2h", "postOnly": true}, withCopy(domain.SideBuy, nil))
+
+		require.Len(t, p.asked, 1)
+		got := p.asked[0]
+		assert.Equal(t, domain.OrderGTD, got.Type)
+		assert.True(t, got.PostOnly)
+		assert.True(t, d("0.52").Equal(got.Price), "the copy's price")
+		assert.WithinDuration(t, time.Now().Add(2*time.Hour), got.Expires, time.Minute)
+	})
+
+	t.Run("a copy as Copy sizing worked it out, by default", func(t *testing.T) {
+		p := &placer{}
+		place(t, p, map[string]any{"postOnly": true}, withCopy(domain.SideBuy, nil))
+
+		assert.Equal(t, domain.OrderFAK, p.asked[0].Type)
+		assert.False(t, p.asked[0].PostOnly, "post-only is for resting orders")
+		assert.True(t, p.asked[0].Expires.IsZero())
+	})
+
+	t.Run("a GTC of its own settings", func(t *testing.T) {
+		p := &placer{}
+		place(t, p, map[string]any{
+			"from": "settings", "tokenId": "t-no", "side": "buy", "price": "0.3", "shares": "20", "type": "GTC",
+		}, engine.Item{JSON: map[string]any{"question": "Will it?"}})
+
+		assert.Equal(t, domain.OrderGTC, p.asked[0].Type)
+		assert.True(t, p.asked[0].Expires.IsZero(), "until cancelled")
 	})
 
 	t.Run("an order of its own settings (D99)", func(t *testing.T) {

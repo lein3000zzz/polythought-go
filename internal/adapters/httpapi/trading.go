@@ -23,6 +23,8 @@ type TradingService interface {
 	Summary(ctx context.Context, p auth.Principal, id domain.WorkflowID, mode domain.TradingMode) (trading.Summary, error)
 	Reset(ctx context.Context, p auth.Principal, id domain.WorkflowID) (domain.PaperAccount, error)
 
+	Cancel(ctx context.Context, p auth.Principal, id domain.WorkflowID, order domain.OrderID) (domain.PlacedOrder, error)
+
 	Setup(ctx context.Context, p auth.Principal, id domain.WorkflowID) (trading.Setup, error)
 	SetSetup(ctx context.Context, p auth.Principal, id domain.WorkflowID, c trading.SetupChange) (trading.Setup, error)
 	WalletCash(ctx context.Context, p auth.Principal, wallet domain.WalletID) (decimal.Decimal, error)
@@ -69,12 +71,16 @@ type orderDTO struct {
 	// Shares asked for, or for a buy of dollars, Dollars.
 	Shares  string `json:"shares,omitempty" validate:"optional"`
 	Dollars string `json:"dollars,omitempty" validate:"optional"`
-	// Status pending is a live order sent whose outcome is not known yet, followed;
-	// failed, one that matched but whose trades failed on chain, undone.
-	Status string         `json:"status" enums:"filled,partial,unfilled,refused,pending,failed"`
+	// Status open is an order resting on the book, filled in part or not yet, then
+	// filled, canceled or expired with what it filled; pending, a live order sent whose
+	// outcome is not known yet, followed; failed, one that matched but whose trades
+	// failed on chain, undone.
+	Status string         `json:"status" enums:"filled,partial,open,canceled,expired,unfilled,refused,pending,failed"`
 	Reason string         `json:"reason,omitempty" validate:"optional"`
 	Fills  []orderFillDTO `json:"fills"`
 	At     time.Time      `json:"at" format:"date-time"`
+	// ExpiresAt is when a GTD's rest is cancelled.
+	ExpiresAt *time.Time `json:"expiresAt,omitempty" validate:"optional" format:"date-time"`
 } // @name Order
 
 type orderPage struct {
@@ -231,6 +237,10 @@ func toOrderDTO(o domain.PlacedOrder) orderDTO {
 		Fills: make([]orderFillDTO, len(o.Fills)), At: o.CreatedAt,
 	}
 
+	if !o.Expires.IsZero() {
+		out.ExpiresAt = &o.Expires
+	}
+
 	for i, f := range o.Fills {
 		out.Fills[i] = orderFillDTO{
 			Price: f.Price.String(), Shares: f.Shares.String(), Dollars: f.Dollars.String(), Fee: f.Fee.String(),
@@ -253,6 +263,8 @@ type accountSummaryDTO struct {
 	// Live: the wallet trading, and whether its pUSD, the cash, could be read.
 	Wallet    *walletDTO `json:"wallet,omitempty" validate:"optional"`
 	CashKnown bool       `json:"cashKnown"`
+	// Held is what of the paper cash resting buys hold back.
+	Held string `json:"held"`
 } // @name AccountSummary
 
 type traderSummaryDTO struct {
@@ -314,6 +326,7 @@ func (s *Server) getTradingSummary(ctx context.Context, c *app.RequestContext) {
 		Account: accountSummaryDTO{
 			paperAccountDTO: paperAccountDTO{Open: a.Open, Cash: a.Cash.String(), StartedWith: a.StartedWith.String()},
 			Mode:            string(a.Mode), Worth: a.Worth.String(), Profit: a.Profit.String(), CashKnown: a.CashKnown,
+			Held: a.Held.String(),
 		},
 		Traders:  make([]traderSummaryDTO, len(sum.Traders)),
 		Holdings: make([]holdingSummaryDTO, len(sum.Holdings)),
@@ -504,4 +517,32 @@ func (s *Server) getWalletCash(ctx context.Context, c *app.RequestContext) {
 	}
 
 	c.JSON(http.StatusOK, walletCashDTO{Cash: cash.String()})
+}
+
+// cancelOrder cancels what is left of one of a workflow's resting orders: on paper at
+// once, live on Polymarket, keeping what it filled.
+//
+//	@Summary	Cancel a resting order
+//	@ID			cancelOrder
+//	@Tags		trading
+//	@Param		id		path		string	true	"Workflow ID"
+//	@Param		order	path		string	true	"Order ID"
+//	@Success	200		{object}	orderDTO
+//	@Failure	401		{object}	errorBody	"unauthenticated"
+//	@Failure	404		{object}	errorBody	"not_found"
+//	@Failure	409		{object}	errorBody	"not_open: it no longer rests on the book"
+//	@Failure	503		{object}	errorBody	"upstream_unavailable: Polymarket could not be reached"
+//	@Security	SessionCookie
+//	@Security	APIToken
+//	@Router		/workflows/{id}/orders/{order}/cancel [post]
+func (s *Server) cancelOrder(ctx context.Context, c *app.RequestContext) {
+	p, _ := principal(c)
+
+	o, err := s.trading.Cancel(ctx, p, domain.WorkflowID(c.Param("id")), domain.OrderID(c.Param("order")))
+	if err != nil {
+		s.fail(ctx, c, err)
+		return
+	}
+
+	c.JSON(http.StatusOK, toOrderDTO(o))
 }

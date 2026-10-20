@@ -55,9 +55,16 @@ type Ledger interface {
 	// Following are the live orders since then still pending, or with fills whose
 	// trades are not final: what the follower looks at (D193, D204).
 	Following(ctx context.Context, since time.Time) ([]domain.PlacedOrder, error)
-	// Update replaces a recorded live order's status, reason and fills and, with a
-	// holding, sets it as given, in one transaction.
-	Update(ctx context.Context, o domain.PlacedOrder, holding *domain.Holding) error
+	// Update replaces a recorded order's status, reason and fills and, with a change,
+	// does it, as Record does, in one transaction.
+	Update(ctx context.Context, o domain.PlacedOrder, change *LedgerChange) error
+	// Order is one order by its ID; domain.ErrNotFound if there is none.
+	Order(ctx context.Context, id domain.OrderID) (domain.PlacedOrder, error)
+	// OpenOrders are the orders resting on the book in a mode, every workflow's, the oldest
+	// first (3p3).
+	OpenOrders(ctx context.Context, mode domain.TradingMode) ([]domain.PlacedOrder, error)
+	// WorkflowOpenOrders are a workflow's orders resting on the book in a mode.
+	WorkflowOpenOrders(ctx context.Context, workflow domain.WorkflowID, mode domain.TradingMode) ([]domain.PlacedOrder, error)
 }
 
 // LedgerChange is what a filled order does to the books.

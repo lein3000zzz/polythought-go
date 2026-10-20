@@ -54,6 +54,11 @@ type Deps struct {
 
 	// Patience is how long a placed order is waited for, looked at every Poll (D204).
 	Patience, Poll time.Duration
+
+	// Resting orders (3p3a): optional; without Feed, paper ones rest but never fill,
+	// without Stream, live ones are read every so often only.
+	Feed   ports.MarketFeed
+	Stream ports.LiveOrderStream
 }
 
 type Service struct {
@@ -96,6 +101,10 @@ func (s *Service) Place(ctx context.Context, req domain.OrderRequest) (domain.Pl
 	req, reason := request(req)
 	o := domain.PlacedOrder{OrderRequest: req, ID: domain.OrderID(uuid.Must(uuid.NewV7()).String()), CreatedAt: s.d.Now().UTC()}
 
+	if reason == "" {
+		o, reason = s.asResting(o)
+	}
+
 	if reason != "" {
 		return s.refuse(ctx, o, reason)
 	}
@@ -135,6 +144,8 @@ func (s *Service) Place(ctx context.Context, req domain.OrderRequest) (domain.Pl
 		return domain.PlacedOrder{}, err
 	}
 
+	held.OwnerID = o.OwnerID
+
 	if o.Side == domain.SideSell && o.Shares.GreaterThan(held.Shares) {
 		return s.refuse(ctx, o, fmt.Sprintf("not enough shares: %s to sell, %s held%s", o.Shares, held.Shares, copied(o)))
 	}
@@ -144,10 +155,30 @@ func (s *Service) Place(ctx context.Context, req domain.OrderRequest) (domain.Pl
 		return domain.PlacedOrder{}, err
 	}
 
+	if o.Type.Rests() {
+		return s.placePaperResting(ctx, o, rules, held, account)
+	}
+
+	// Resting orders hold back cash and shares (D210).
+	holding, selling, err := s.committed(ctx, o.WorkflowID, o.Mode)
+	if err != nil {
+		return domain.PlacedOrder{}, err
+	}
+
+	if free := held.Shares.Sub(selling[held.Key()]); o.Side == domain.SideSell && o.Shares.GreaterThan(free) {
+		return s.refuse(ctx, o, fmt.Sprintf("not enough shares: %s to sell, %s held%s", o.Shares, free, restingSells(selling[held.Key()], o)))
+	}
+
 	// As the CLOB checks a balance: against all the order may spend, before it matches.
-	if need := o.Dollars.Add(o.Shares.Mul(o.Price)); o.Side == domain.SideBuy && need.GreaterThan(account.Cash) {
-		return s.refuse(ctx, o, fmt.Sprintf("not enough paper cash: $%s for it, $%s left",
-			need.StringFixed(2), account.Cash.StringFixed(2)))
+	free := account.Cash.Sub(holding)
+	if need := o.Dollars.Add(o.Shares.Mul(o.Price)); o.Side == domain.SideBuy && need.GreaterThan(free) {
+		left := "left"
+		if holding.IsPositive() {
+			left = "free, the rest held by resting orders"
+		}
+
+		return s.refuse(ctx, o, fmt.Sprintf("not enough paper cash: $%s for it, $%s %s",
+			need.StringFixed(2), free.StringFixed(2), left))
 	}
 
 	books, err := s.d.Books.OrderBooks(ctx, o.TokenID)

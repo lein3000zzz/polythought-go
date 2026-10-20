@@ -209,25 +209,72 @@ func (l *ledger) Following(_ context.Context, since time.Time) ([]domain.PlacedO
 	return out, nil
 }
 
-func (l *ledger) Update(_ context.Context, o domain.PlacedOrder, h *domain.Holding) error {
+func (l *ledger) Update(_ context.Context, o domain.PlacedOrder, c *ports.LedgerChange) error {
 	l.mu.Lock()
 	defer l.mu.Unlock()
 
 	for i, have := range l.orders {
-		if have.ID == o.ID {
-			l.orders[i] = o
+		if have.ID != o.ID {
+			continue
+		}
 
-			if h != nil {
-				held := *h
-				held.OwnerID = o.OwnerID
-				l.holdings[held.Key()] = held
+		if c != nil {
+			if o.Mode == domain.ModePaper {
+				a := l.accounts[o.WorkflowID]
+				if a.Cash.Add(c.Cash).IsNegative() {
+					return domain.ErrNotEnoughCash
+				}
+
+				a.Cash = a.Cash.Add(c.Cash)
+				l.accounts[o.WorkflowID] = a
 			}
 
-			return nil
+			held := c.Holding
+			held.OwnerID = o.OwnerID
+			l.holdings[held.Key()] = held
 		}
+
+		l.orders[i] = o
+
+		return nil
 	}
 
 	return domain.ErrNotFound
+}
+
+func (l *ledger) Order(_ context.Context, id domain.OrderID) (domain.PlacedOrder, error) {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+
+	for _, o := range l.orders {
+		if o.ID == id {
+			return o, nil
+		}
+	}
+
+	return domain.PlacedOrder{}, domain.ErrNotFound
+}
+
+func (l *ledger) OpenOrders(_ context.Context, mode domain.TradingMode) ([]domain.PlacedOrder, error) {
+	return l.open("", mode), nil
+}
+
+func (l *ledger) WorkflowOpenOrders(_ context.Context, w domain.WorkflowID, mode domain.TradingMode) ([]domain.PlacedOrder, error) {
+	return l.open(w, mode), nil
+}
+
+func (l *ledger) open(w domain.WorkflowID, mode domain.TradingMode) []domain.PlacedOrder {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+
+	var out []domain.PlacedOrder
+	for _, o := range l.orders {
+		if o.Status == domain.OrderOpen && o.Mode == mode && (w == "" || o.WorkflowID == w) {
+			out = append(out, o)
+		}
+	}
+
+	return out
 }
 
 type books struct{ book domain.OrderBook }
@@ -401,15 +448,15 @@ func TestPaperOrders(t *testing.T) {
 		svc := newService(l, &rules{})
 
 		small := order(domain.SideBuy, alice, "4")
-		rest := order(domain.SideBuy, alice, "10")
-		rest.Type = domain.OrderGTC
+		postOnly := order(domain.SideBuy, alice, "10")
+		postOnly.PostOnly = true
 		unknown := order(domain.SideBuy, alice, "10")
 		unknown.TokenID = "t-nobody"
 
 		for req, want := range map[*domain.OrderRequest]string{
-			&small:   "under the market's least order of 5",
-			&rest:    "FOK or FAK",
-			&unknown: "no market trades this token",
+			&small:    "under the market's least order of 5",
+			&postOnly: "only orders that rest on the book, GTC and GTD, can be post-only",
+			&unknown:  "no market trades this token",
 		} {
 			o, err := svc.Place(ctx, *req)
 			require.NoError(t, err)

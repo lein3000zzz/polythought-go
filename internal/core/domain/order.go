@@ -45,7 +45,18 @@ const (
 	// OrderFailed is a live order that matched, but whose trades failed on chain: undone
 	// in the books (D193).
 	OrderFailed OrderStatus = "failed"
+
+	// OrderOpen rests on the book, a GTC or GTD, filled in part or not yet (3p3); then
+	// filled, cancelled or expired, keeping what it filled.
+	OrderOpen     OrderStatus = "open"
+	OrderCanceled OrderStatus = "canceled"
+	OrderExpired  OrderStatus = "expired"
 )
+
+// Rests is whether an order of type t may rest on the book.
+func (t OrderType) Rests() bool {
+	return t == OrderGTC || t == OrderGTD
+}
 
 // FillStatus is how far a live fill's trade has come on chain (D193). Paper fills have
 // none: they are final at once.
@@ -95,7 +106,7 @@ type OrderRequest struct {
 	Shares  decimal.Decimal
 	Dollars decimal.Decimal
 
-	Expires time.Time // GTD only
+	Expires time.Time // GTD only: when what is left of it is cancelled
 }
 
 // PlacedOrder is an order a workflow placed, as the ledger keeps it: what was asked, and
@@ -224,6 +235,8 @@ var (
 	// ErrHoldsLive means a workflow's wallet cannot change while it holds live shares
 	// (D202).
 	ErrHoldsLive = errors.New("the workflow holds live shares: its wallet changes once they are sold or settled")
+	// ErrNotOpen means an order is not resting on the book: there is nothing to cancel.
+	ErrNotOpen = errors.New("the order is not resting on the book")
 	// ErrWalletTradesLive means a wallet cannot be unlinked while a workflow trades live
 	// from it.
 	ErrWalletTradesLive = errors.New("a workflow trades live from this wallet: switch it to paper first")

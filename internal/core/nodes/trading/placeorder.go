@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"maps"
+	"time"
 
 	"github.com/shopspring/decimal"
 
@@ -17,6 +18,7 @@ import (
 const (
 	PlaceOrderType = "trading.placeOrder"
 	PortMissed     = "missed"
+	PortResting    = "resting"
 )
 
 // Where Place order takes its order from (D99).
@@ -25,18 +27,23 @@ const (
 	FromSettings = "settings"
 )
 
+// How a copy is placed (D212): as Copy sizing worked it out, or resting at its price.
+const CopyAsIs = "copy"
+
 var _ engine.Node = (*PlaceOrder)(nil)
 
 // PlaceOrder places an order for each item, on paper or live as the workflow trades
-// (D191): the copy Copy sizing worked out, or one its settings make (D99). Filled ones,
-// wholly or in part, go out of main; unfilled, refused, pending and failed ones out of
+// (D191): the copy Copy sizing worked out, or one its settings make (D99), at once or
+// resting on the book (D212). Filled ones, wholly or in part, go out of main; those left
+// resting out of resting (D208); unfilled, refused, pending and failed ones out of
 // missed, saying why (D96, D204).
 type PlaceOrder struct {
 	placer ports.OrderPlacer
+	now    func() time.Time
 }
 
 func NewPlaceOrder(placer ports.OrderPlacer) *PlaceOrder {
-	return &PlaceOrder{placer: placer}
+	return &PlaceOrder{placer: placer, now: time.Now}
 }
 
 func (*PlaceOrder) Type() engine.NodeType {
@@ -46,9 +53,10 @@ func (*PlaceOrder) Type() engine.NodeType {
 		Name:  PlaceOrderType,
 		Label: "Place order",
 		Description: "Places an order for each item, on paper or live as the workflow trades: the copy Copy sizing " +
-			"worked out, or one of its own settings. Filled orders go out of main, those that did not fill out of missed.",
+			"worked out, or one of its own settings, at once or resting on the book. Filled orders go out of main, " +
+			"those left resting out of resting, those that did not fill out of missed.",
 		Inputs:  []string{engine.DefaultPort},
-		Outputs: []string{engine.DefaultPort, PortMissed},
+		Outputs: []string{engine.DefaultPort, PortResting, PortMissed},
 		Items:   &engine.Items{Passed: true, Fields: orderFields()},
 		Params: []engine.ParamSpec{
 			{
@@ -68,8 +76,24 @@ func (*PlaceOrder) Type() engine.NodeType {
 			},
 			{
 				Name: "type", Label: "Type", Kind: engine.ParamString, Default: string(domain.OrderFAK),
-				Options:     []string{string(domain.OrderFAK), string(domain.OrderFOK)},
-				Description: "For settings. FAK: what the book has within the price. FOK: all of it, or nothing.",
+				Options: []string{string(domain.OrderFAK), string(domain.OrderFOK), string(domain.OrderGTC), string(domain.OrderGTD)},
+				Description: "For settings. FAK: what the book has within the price, the rest cancelled. FOK: all of it, " +
+					"or nothing. GTC: what the book has, the rest resting at the price until filled or cancelled. GTD: " +
+					"the same, until Expires after.",
+			},
+			{
+				Name: "copyAs", Label: "Copy as", Kind: engine.ParamString, Default: CopyAsIs,
+				Options: []string{CopyAsIs, string(domain.OrderGTC), string(domain.OrderGTD)},
+				Description: "For copy: copy, as Copy sizing worked it out, a FAK. GTC or GTD: resting at the copy's " +
+					"price instead, what fills at once included.",
+			},
+			{
+				Name: "expiresAfter", Label: "Expires after", Kind: engine.ParamDuration, Default: "1h",
+				Description: "For GTD: how long it rests, 3 minutes at the least; then what is left is cancelled.",
+			},
+			{
+				Name: "postOnly", Label: "Post-only", Kind: engine.ParamBool, Default: false,
+				Description: "For GTC and GTD: refused rather than matched at once, so it only ever rests on the book.",
 			},
 		},
 	}
@@ -82,10 +106,11 @@ func orderFields() []engine.Field {
 			shape.Text("id", "Its ID in the workflow's orders."),
 			shape.OneOf("mode", "paper: simulated against the live book. live: on Polymarket, from the workflow's wallet.",
 				string(domain.ModePaper), string(domain.ModeLive)),
-			shape.OneOf("status", "filled, partial (the rest cancelled), unfilled or refused; live, also pending (sent, "+
-				"its outcome not known yet: followed) or failed (matched, but its trades failed on chain).",
-				string(domain.OrderFilled), string(domain.OrderPartial), string(domain.OrderUnfilled), string(domain.OrderRefused),
-				string(domain.OrderPending), string(domain.OrderFailed)),
+			shape.OneOf("status", "filled, partial (the rest cancelled), open (resting on the book, filled in part or "+
+				"not yet), unfilled or refused; live, also pending (sent, its outcome not known yet: followed) or failed "+
+				"(matched, but its trades failed on chain).",
+				string(domain.OrderFilled), string(domain.OrderPartial), string(domain.OrderOpen), string(domain.OrderUnfilled),
+				string(domain.OrderRefused), string(domain.OrderPending), string(domain.OrderFailed)),
 			shape.Nullable(shape.Text("reason", "Why it was refused or did not fill wholly.")),
 			shape.Decimal("shares", "Shares it got or sold."),
 			shape.Decimal("dollars", "Dollars they came to."),
@@ -106,7 +131,7 @@ func (n *PlaceOrder) Run(ctx context.Context, rc engine.RunContext, in engine.Po
 			return nil, err
 		}
 
-		req, err := request(rc, p, item.JSON)
+		req, err := n.request(rc, p, item.JSON)
 		if err != nil {
 			out.Fail(item, src, err)
 			continue
@@ -122,8 +147,12 @@ func (n *PlaceOrder) Run(ctx context.Context, rc engine.RunContext, in engine.Po
 		j["order"] = orderItem(placed)
 
 		port := PortMissed
-		if placed.Status == domain.OrderFilled || placed.Status == domain.OrderPartial {
+
+		switch placed.Status {
+		case domain.OrderFilled, domain.OrderPartial:
 			port = engine.DefaultPort
+		case domain.OrderOpen:
+			port = PortResting
 		}
 
 		out.Add(port, engine.Item{JSON: j, Source: []engine.ItemRef{src}})
@@ -134,7 +163,7 @@ func (n *PlaceOrder) Run(ctx context.Context, rc engine.RunContext, in engine.Po
 
 // request is the item's order: its copy, or the node's settings, with the trader it
 // copies when there is one, so the copy is held as theirs (D92).
-func request(rc engine.RunContext, p engine.Params, j map[string]any) (domain.OrderRequest, error) {
+func (n *PlaceOrder) request(rc engine.RunContext, p engine.Params, j map[string]any) (domain.OrderRequest, error) {
 	// The mode is the workflow's when the order goes: the trading service's to say.
 	req := domain.OrderRequest{WorkflowID: rc.WorkflowID, OwnerID: rc.OwnerID, ExecutionID: rc.ExecutionID, NodeID: rc.NodeID}
 
@@ -182,6 +211,34 @@ func request(rc engine.RunContext, p engine.Params, j map[string]any) (domain.Or
 		if *to, err = order.Decimal(name); err != nil {
 			return req, fmt.Errorf("the order's %s: %w", name, err)
 		}
+	}
+
+	if from == FromCopy {
+		as, err := p.String("copyAs")
+		if err != nil {
+			return req, err
+		}
+
+		if as != CopyAsIs {
+			req.Type = domain.OrderType(as)
+		}
+	}
+
+	if !req.Type.Rests() {
+		return req, nil
+	}
+
+	if req.PostOnly, err = p.Bool("postOnly"); err != nil {
+		return req, err
+	}
+
+	if req.Type == domain.OrderGTD {
+		after, err := p.Duration("expiresAfter")
+		if err != nil {
+			return req, err
+		}
+
+		req.Expires = n.now().Add(after).UTC()
 	}
 
 	return req, nil

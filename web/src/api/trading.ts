@@ -90,6 +90,21 @@ export function useOrders(workflowId: string, enabled = true) {
   })
 }
 
+/** Cancels what is left of a resting order, keeping what it filled (3p3). */
+export function useCancelOrder(workflowId: string) {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: (orderId: string) =>
+      call(
+        api.POST('/workflows/{id}/orders/{order}/cancel', {
+          params: { path: { id: workflowId, order: orderId } },
+        }),
+      ),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: keys.trading(workflowId) }),
+  })
+}
+
 /** Starts the paper account over (D107). */
 export function useResetPaperAccount(workflowId: string) {
   const queryClient = useQueryClient()

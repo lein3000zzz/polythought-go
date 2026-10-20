@@ -16,6 +16,7 @@ const summary: Schemas['TradingSummary'] = {
   account: {
     mode: 'paper',
     cashKnown: false,
+    held: '0',
     open: true,
     cash: '89.40016',
     startedWith: '100',
@@ -285,6 +286,7 @@ describe('trading view', () => {
                   worth: '254.9',
                   profit: '2.4',
                   cashKnown: true,
+                  held: '0',
                   wallet: main,
                 },
               },
@@ -340,6 +342,56 @@ describe('trading view', () => {
 
     await waitFor(() => expect(asked).toEqual({ mode: 'paper', walletId: 'w-1', confirm: false }))
     expect(await screen.findByText('Trading on paper')).toBeInTheDocument()
+  })
+
+  it('shows what resting orders hold, and cancels one (3p3)', async () => {
+    trading()
+    const cancelled: string[] = []
+    server.use(
+      http.get('/api/v1/workflows/wf-1/trading', () =>
+        HttpResponse.json({ ...summary, account: { ...summary.account, held: '40' } }),
+      ),
+      http.get('/api/v1/workflows/wf-1/orders', () =>
+        HttpResponse.json({
+          orders: [
+            order('o-9', '2026-10-18T12:00:00Z', {
+              type: 'GTD',
+              price: '0.4',
+              shares: '100',
+              status: 'open',
+              reason: 'rests on the book at 0.4, 0 of 100 shares filled',
+              expiresAt: '2026-10-18T13:00:00Z',
+            }),
+          ],
+        }),
+      ),
+      http.post('/api/v1/workflows/wf-1/orders/o-9/cancel', () => {
+        cancelled.push('o-9')
+        return HttpResponse.json(
+          order('o-9', '2026-10-18T12:00:00Z', {
+            status: 'canceled',
+            reason: 'cancelled by its owner',
+          }),
+        )
+      }),
+    )
+    const { user } = renderApp('/workflows/wf-1')
+
+    await user.click(await screen.findByRole('tab', { name: 'Trading' }))
+
+    const account = within(await screen.findByRole('region', { name: 'Paper account' }))
+    expect(account.getByText('Held by resting orders')).toBeInTheDocument()
+    expect(account.getByText('$40.00')).toBeInTheDocument()
+
+    const orders = within(screen.getByRole('region', { name: 'Orders' }))
+    expect(await orders.findByText(/buy 100 shares at up to 0\.4, GTD until/)).toBeInTheDocument()
+    expect(
+      orders.getByText('open: rests on the book at 0.4, 0 of 100 shares filled'),
+    ).toBeInTheDocument()
+
+    await user.click(orders.getByRole('button', { name: /^Cancel buy 100 shares/ }))
+    await waitFor(() => expect(cancelled).toEqual(['o-9']))
+    expect(await screen.findByText('Order cancelled')).toBeInTheDocument()
   })
 
   it('is there only for a saved workflow that trades', async () => {

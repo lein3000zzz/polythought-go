@@ -38,6 +38,8 @@ type AccountSummary struct {
 	Profit    decimal.Decimal
 	StartedAt time.Time // paper
 	ResetAt   time.Time // paper
+	// Held is the cash the resting buys hold back, of Cash (paper, D210).
+	Held decimal.Decimal
 
 	// Live: the wallet trading, and whether its pUSD could be read (D198).
 	Wallet    *domain.Wallet
@@ -128,9 +130,14 @@ func (s *Service) Summary(ctx context.Context, p auth.Principal, id domain.Workf
 		worth = worth.Add(h.Value)
 	}
 
+	held, _, err := s.committed(ctx, id, domain.ModePaper)
+	if err != nil {
+		return Summary{}, err
+	}
+
 	out.Account = AccountSummary{
 		Mode: domain.ModePaper, Open: true, Cash: a.Cash, StartedWith: a.StartedWith, Worth: worth,
-		Profit: worth.Sub(a.StartedWith), StartedAt: a.StartedAt, ResetAt: a.ResetAt,
+		Profit: worth.Sub(a.StartedWith), StartedAt: a.StartedAt, ResetAt: a.ResetAt, Held: held,
 	}
 	out.Holdings = marked
 	out.Traders = traderSummaries(totals, holdings, marked, domain.ModePaper)
@@ -350,6 +357,11 @@ func (s *Service) Reset(ctx context.Context, p auth.Principal, id domain.Workflo
 		return domain.PaperAccount{}, err
 	}
 
+	// What rests on the book goes with the holdings and the cash it was of.
+	if err := s.endPaperOrders(ctx, id, "cancelled: the paper account was reset"); err != nil {
+		return domain.PaperAccount{}, err
+	}
+
 	a := domain.PaperAccount{WorkflowID: id, OwnerID: w.OwnerID, Cash: balance, StartedWith: balance, StartedAt: now, ResetAt: now}
 	if err := s.d.Ledger.ResetPaperAccount(ctx, a); err != nil {
 		return domain.PaperAccount{}, err
@@ -394,6 +406,11 @@ func (s *Service) Settle(ctx context.Context) error {
 
 	open = append(open, live...)
 
+	resting, err := s.d.Ledger.OpenOrders(ctx, domain.ModePaper)
+	if err != nil {
+		return err
+	}
+
 	markets := map[domain.MarketID]*domain.Market{}
 
 	var errs []error
@@ -423,6 +440,28 @@ func (s *Service) Settle(ctx context.Context) error {
 
 		if err := s.settle(ctx, h.Key(), o, m.Question); err != nil {
 			errs = append(errs, err)
+		}
+	}
+
+	// Paper orders resting in a resolved market are cancelled, as Polymarket cancels the
+	// live ones.
+	for _, o := range resting {
+		m, seen := markets[o.MarketID]
+		if !seen {
+			got, err := s.d.Markets.GetMarket(ctx, o.MarketID)
+			if err != nil {
+				errs = append(errs, fmt.Errorf("market %s: %w", o.MarketID, err))
+			} else {
+				m = &got
+			}
+
+			markets[o.MarketID] = m
+		}
+
+		if m != nil && m.Status == domain.MarketResolved {
+			if err := s.endPaper(ctx, o.ID, domain.OrderCanceled, "cancelled: its market resolved"); err != nil {
+				errs = append(errs, err)
+			}
 		}
 	}
 

@@ -61,6 +61,10 @@
                     "cashKnown": {
                         "type": "boolean"
                     },
+                    "held": {
+                        "description": "Held is what of the paper cash resting buys hold back.",
+                        "type": "string"
+                    },
                     "mode": {
                         "enum": [
                             "paper",
@@ -100,6 +104,7 @@
                 "required": [
                     "cash",
                     "cashKnown",
+                    "held",
                     "mode",
                     "open",
                     "profit",
@@ -1620,6 +1625,11 @@
                     "executionId": {
                         "type": "string"
                     },
+                    "expiresAt": {
+                        "description": "ExpiresAt is when a GTD's rest is cancelled.",
+                        "format": "date-time",
+                        "type": "string"
+                    },
                     "fills": {
                         "items": {
                             "$ref": "#/components/schemas/OrderFill"
@@ -1665,10 +1675,13 @@
                         "type": "string"
                     },
                     "status": {
-                        "description": "Status pending is a live order sent whose outcome is not known yet, followed;\nfailed, one that matched but whose trades failed on chain, undone.",
+                        "description": "Status open is an order resting on the book, filled in part or not yet, then\nfilled, canceled or expired with what it filled; pending, a live order sent whose\noutcome is not known yet, followed; failed, one that matched but whose trades\nfailed on chain, undone.",
                         "enum": [
                             "filled",
                             "partial",
+                            "open",
+                            "canceled",
+                            "expired",
                             "unfilled",
                             "refused",
                             "pending",
@@ -8706,6 +8719,95 @@
                     }
                 ],
                 "summary": "List orders",
+                "tags": [
+                    "trading"
+                ]
+            }
+        },
+        "/workflows/{id}/orders/{order}/cancel": {
+            "post": {
+                "operationId": "cancelOrder",
+                "parameters": [
+                    {
+                        "description": "Workflow ID",
+                        "in": "path",
+                        "name": "id",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "description": "Order ID",
+                        "in": "path",
+                        "name": "order",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Order"
+                                }
+                            }
+                        },
+                        "description": "OK"
+                    },
+                    "401": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "unauthenticated"
+                    },
+                    "404": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "not_found"
+                    },
+                    "409": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "not_open: it no longer rests on the book"
+                    },
+                    "503": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "upstream_unavailable: Polymarket could not be reached"
+                    }
+                },
+                "security": [
+                    {
+                        "SessionCookie": []
+                    },
+                    {
+                        "APIToken": []
+                    }
+                ],
+                "summary": "Cancel a resting order",
                 "tags": [
                     "trading"
                 ]

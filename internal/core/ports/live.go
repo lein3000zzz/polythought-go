@@ -2,6 +2,7 @@ package ports
 
 import (
 	"context"
+	"time"
 
 	"github.com/shopspring/decimal"
 
@@ -42,6 +43,11 @@ type LiveOrder struct {
 	TickSize decimal.Decimal
 	NegRisk  bool
 	Builder  string // a builder code, bytes32 hex; empty for none (D203)
+
+	// Resting ones (3p3): GTC or GTD, refused rather than matched at once when PostOnly;
+	// a GTD's rest is cancelled at Expires.
+	PostOnly bool
+	Expires  time.Time
 }
 
 // LiveState is how far a live order is.
@@ -74,11 +80,32 @@ type LiveOrderState struct {
 
 // LiveTrade is one of an order's trades: its part, as fills at each maker's price in the
 // order's own outcome, and how far it has come on chain. Fees are the trading service's
-// to work out (D90).
+// to work out (D90): a maker pays none.
 type LiveTrade struct {
 	ID     string
 	Status domain.FillStatus
 	Fills  []domain.OrderFill
+	Maker  bool // the order rested on the book and was matched
+}
+
+// LiveCancel is how cancelling an order went: cancelled, or why not.
+type LiveCancel struct {
+	Canceled bool
+	Reason   string // Polymarket's words, when not
+}
+
+// LiveOrderEvent says a wallet's orders changed on Polymarket (3p3, D195): which ones, or
+// after a Gap, any of them may have.
+type LiveOrderEvent struct {
+	Gap    bool
+	Orders []string // their IDs on the CLOB
+}
+
+// LiveOrderStream follows a wallet's orders as they change.
+type LiveOrderStream interface {
+	// Watch streams k's wallet's order changes until ctx is done, a Gap first on every
+	// connection; the channel is closed once ctx is done.
+	Watch(ctx context.Context, k OrderKey) <-chan LiveOrderEvent
 }
 
 // LiveExchange places a wallet's orders on Polymarket's CLOB and follows them (3p).
@@ -88,9 +115,11 @@ type LiveExchange interface {
 	Place(ctx context.Context, k OrderKey, o LiveOrder) (LivePlacement, error)
 	// Order is how the order with id stands; LiveNotFound when the CLOB has none.
 	Order(ctx context.Context, k OrderKey, id string) (LiveOrderState, error)
-	// Trades are those with ids of a taker order in token; the CLOB may not list a trade
-	// at once, so some may be missing.
-	Trades(ctx context.Context, k OrderKey, token domain.TokenID, ids []string) ([]LiveTrade, error)
+	// Trades are the order's part in the trades with ids, of its outcome token; the CLOB
+	// may not list a trade at once, so some may be missing.
+	Trades(ctx context.Context, k OrderKey, order string, token domain.TokenID, ids []string) ([]LiveTrade, error)
+	// Cancel cancels what is left of an order on the book.
+	Cancel(ctx context.Context, k OrderKey, id string) (LiveCancel, error)
 	// Cash is the wallet's pUSD on the CLOB.
 	Cash(ctx context.Context, k OrderKey) (decimal.Decimal, error)
 }
