@@ -14,6 +14,7 @@ import (
 	"errors"
 	"html"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/lein3000zzz/the-watchers/pkg/observability/logging"
@@ -29,6 +30,7 @@ const (
 	cmdStart   = "/start"
 	cmdMenu    = "/menu"
 	dataUnlink = "unlink"
+	dataRelink = "lk:" // lk:yes moves the chat to the account of the link opened; lk:no keeps it (R10)
 )
 
 // What the bot says.
@@ -64,7 +66,20 @@ type Service struct {
 	now   func() time.Time
 
 	answers Answers // nil until UseAnswers
+
+	mu      sync.Mutex
+	relinks map[int64]relink // by Telegram user: a link to another account, waiting for a yes (R10)
 }
+
+// relink is a start link opened by a Telegram user linked to another account: the
+// account it is for, until it is answered or too old.
+type relink struct {
+	user  domain.UserID
+	until time.Time
+}
+
+// relinkFor is how long a move to another account waits for its yes.
+const relinkFor = 10 * time.Minute
 
 type Option func(*Service)
 
@@ -306,19 +321,85 @@ func (s *Service) link(ctx context.Context, m ports.TelegramIncoming, code strin
 		return
 	}
 
-	err = s.links.Save(ctx, domain.TelegramLink{
-		UserID: user.ID, TelegramUserID: m.From.ID, ChatID: m.ChatID,
-		Username: m.From.Username, FirstName: m.From.FirstName, LinkedAt: s.now(),
-	})
+	// Linked to another account already: moved only once its owner says so, both named,
+	// so a link someone else made cannot take the chat over unseen (R10).
+	if current, err := s.links.ForTelegramUser(ctx, m.From.ID); err == nil && current.UserID != user.ID {
+		s.askRelink(ctx, m, current, user)
+		return
+	}
+
+	s.save(ctx, m.ChatID, m.From, user)
+}
+
+// askRelink asks a Telegram user linked to one account whether to move to another.
+func (s *Service) askRelink(ctx context.Context, m ports.TelegramIncoming, current domain.TelegramLink, to domain.User) {
+	from, err := s.users.ByID(ctx, current.UserID)
 	if err != nil {
 		s.failed(ctx, m.ChatID, err)
+		return
+	}
+
+	s.mu.Lock()
+	if s.relinks == nil {
+		s.relinks = map[int64]relink{}
+	}
+
+	s.relinks[m.From.ID] = relink{user: to.ID, until: s.now().Add(relinkFor)}
+	s.mu.Unlock()
+
+	s.reply(ctx, m.ChatID, "This Telegram is linked to <b>"+html.EscapeString(from.Email)+"</b>. Link it to <b>"+
+		html.EscapeString(to.Email)+"</b> instead? Only if that account is yours: messages and buttons here would be its.",
+		[][]ports.TelegramButton{{
+			{Text: "Link to " + to.Email, Data: dataRelink + "yes"}, {Text: "Keep " + from.Email, Data: dataRelink + "no"},
+		}})
+}
+
+// relinked answers askRelink's question.
+func (s *Service) relinked(ctx context.Context, cb ports.TelegramCallback) {
+	s.mu.Lock()
+	r, ok := s.relinks[cb.From.ID]
+	delete(s.relinks, cb.From.ID)
+	s.mu.Unlock()
+
+	if cb.Data != dataRelink+"yes" {
+		s.answer(ctx, cb.ID, "Kept")
+		s.ignored(ctx, "Relink message not edited", s.bot.Edit(ctx, cb.MessageID, ports.TelegramMessage{ChatID: cb.ChatID, HTML: "Kept as it was."}))
+
+		return
+	}
+
+	if !ok || !r.until.After(s.now()) {
+		s.answer(ctx, cb.ID, "")
+		s.reply(ctx, cb.ChatID, textCodeUsed, nil)
+
+		return
+	}
+
+	user, err := s.users.ByID(ctx, r.user)
+	if err != nil || user.Disabled() {
+		s.answer(ctx, cb.ID, textDisabled)
+		return
+	}
+
+	s.answer(ctx, cb.ID, "")
+	s.save(ctx, cb.ChatID, cb.From, user)
+}
+
+// save links the Telegram user, in this chat, to user's account.
+func (s *Service) save(ctx context.Context, chatID int64, from ports.TelegramUser, user domain.User) {
+	err := s.links.Save(ctx, domain.TelegramLink{
+		UserID: user.ID, TelegramUserID: from.ID, ChatID: chatID,
+		Username: from.Username, FirstName: from.FirstName, LinkedAt: s.now(),
+	})
+	if err != nil {
+		s.failed(ctx, chatID, err)
 		return
 	}
 
 	s.log.Info(ctx, "Telegram linked", "user_id", user.ID)
 
 	_, err = s.bot.Send(ctx, ports.TelegramMessage{
-		ChatID:   m.ChatID,
+		ChatID:   chatID,
 		HTML:     "Linked to <b>" + html.EscapeString(user.Email) + "</b>. Messages from Polythought will arrive here. Pick a section below.",
 		Keyboard: mainKeyboard,
 	})
@@ -336,6 +417,11 @@ func (s *Service) callback(ctx context.Context, cb ports.TelegramCallback) {
 
 	if cb.Data == dataUnlink {
 		s.unlinkFromChat(ctx, cb, link)
+		return
+	}
+
+	if strings.HasPrefix(cb.Data, dataRelink) {
+		s.relinked(ctx, cb)
 		return
 	}
 

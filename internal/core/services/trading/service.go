@@ -213,7 +213,7 @@ func (s *Service) place(ctx context.Context, req domain.OrderRequest) (domain.Pl
 		book = books[0]
 	}
 
-	o.Fills, o.Status, o.Reason = fill(o.OrderRequest, book, rules.Fees)
+	o.Fills, o.Status, o.Reason = fill(o.OrderRequest, book, rules.Fees, o.CreatedAt)
 	if len(o.Fills) == 0 {
 		return o, s.d.Ledger.Record(ctx, o, nil)
 	}

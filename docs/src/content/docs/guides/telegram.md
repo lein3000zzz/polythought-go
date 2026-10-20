@@ -16,8 +16,9 @@ Link your Telegram account once to use any of it.
 3. The bot says which account the chat is linked to, and Settings shows it too.
 
 The link works once, for ten minutes, and links whichever Telegram account opens it, so
-keep it to yourself. A Telegram account links one Polythought account at a time: linking it
-to another moves it there.
+keep it to yourself. A Telegram account links one Polythought account at a time: opening a
+link of another account's in a chat linked already, the bot names both and asks first,
+and only **Link to** the other moves it there.
 
 If **Link Telegram** is missing, the instance has no bot yet; see below.
 

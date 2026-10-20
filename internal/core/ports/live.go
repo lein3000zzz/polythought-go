@@ -30,6 +30,10 @@ type OrderKey struct {
 // wallet without one.
 type OrderKeys interface {
 	OrderKey(ctx context.Context, owner domain.UserID, wallet domain.WalletID) (OrderKey, error)
+	// AccessKey is the wallet and its API credentials, without a signing key: what
+	// following, cancelling and heartbeats need, which go on once the wallet can no longer
+	// sign (its session key expired, say).
+	AccessKey(ctx context.Context, owner domain.UserID, wallet domain.WalletID) (OrderKey, error)
 }
 
 // LiveOrder is an order a wallet places on Polymarket: FOK or FAK in 3p2.

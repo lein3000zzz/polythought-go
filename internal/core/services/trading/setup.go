@@ -159,6 +159,17 @@ func (s *Service) setSetup(ctx context.Context, p auth.Principal, id domain.Work
 		if holds {
 			return domain.ErrHoldsLive
 		}
+
+		// Its orders would be followed and filled from the old wallet, its sells sent from
+		// the new one (R7).
+		unsettled, err := s.d.Ledger.OwnerUnsettled(ctx, p.User.ID, domain.ModeLive)
+		if err != nil {
+			return err
+		}
+
+		if slices.ContainsFunc(unsettled, func(o domain.PlacedOrder) bool { return o.WorkflowID == id }) {
+			return domain.ErrOrdersLive
+		}
 	}
 
 	if c.Mode == domain.ModeLive {

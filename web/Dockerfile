@@ -9,7 +9,7 @@ FROM node:22-alpine AS app
 WORKDIR /src/web
 RUN corepack enable
 
-COPY web/package.json web/pnpm-lock.yaml ./
+COPY web/package.json web/pnpm-lock.yaml web/pnpm-workspace.yaml ./
 RUN --mount=type=cache,target=/root/.local/share/pnpm/store pnpm install --frozen-lockfile
 
 # The API types are committed (src/api/schema.d.ts), so the build does not need the spec.
@@ -24,7 +24,7 @@ WORKDIR /src
 RUN corepack enable
 ENV ASTRO_TELEMETRY_DISABLED=1
 
-COPY docs/package.json docs/pnpm-lock.yaml ./
+COPY docs/package.json docs/pnpm-lock.yaml docs/pnpm-workspace.yaml ./
 RUN --mount=type=cache,target=/root/.local/share/pnpm/store pnpm install --frozen-lockfile
 
 # The reference pages are generated from the Go code and committed, so no Go is needed.

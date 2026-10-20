@@ -19,7 +19,11 @@ import (
 
 const (
 	sessionCookie = "polythought_session"
-	principalKey  = "principal"
+	// secureCookie is its name over https: the prefix has browsers refuse one set for a
+	// domain, or by a page that is not secure, so a sibling subdomain cannot plant it
+	// (R18).
+	secureCookie = "__Host-" + sessionCookie
+	principalKey = "principal"
 )
 
 var errServer = errors.New("server error")
@@ -97,7 +101,7 @@ func (s *Server) authenticate(ctx context.Context, c *app.RequestContext) {
 		return
 	}
 
-	if token := string(c.Cookie(sessionCookie)); token != "" {
+	if token := string(c.Cookie(s.cookieName())); token != "" {
 		p, err := s.auth.AuthenticateSession(ctx, token)
 		switch {
 		case err == nil:
@@ -182,9 +186,18 @@ func principal(c *app.RequestContext) (auth.Principal, bool) {
 
 func (s *Server) setSessionCookie(c *app.RequestContext, token string, expires time.Time) {
 	maxAge := int(time.Until(expires).Seconds())
-	c.SetCookie(sessionCookie, token, maxAge, "/", "", protocolLax, s.secure, true)
+	c.SetCookie(s.cookieName(), token, maxAge, "/", "", protocolLax, s.secure, true)
 }
 
 func (s *Server) clearSessionCookie(c *app.RequestContext) {
-	c.SetCookie(sessionCookie, "", -1, "/", "", protocolLax, s.secure, true)
+	c.SetCookie(s.cookieName(), "", -1, "/", "", protocolLax, s.secure, true)
+}
+
+// cookieName is the session cookie's name: with the __Host- prefix when it is secure.
+func (s *Server) cookieName() string {
+	if s.secure {
+		return secureCookie
+	}
+
+	return sessionCookie
 }

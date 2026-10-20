@@ -237,3 +237,21 @@ func TestCompileExpression(t *testing.T) {
 	_, err := c.CompileExpression(ctx, strings.Repeat("x", tscompiler.MaxExpression+1))
 	require.ErrorContains(t, err, "more than the 16 KiB allowed")
 }
+
+func TestCompileRefusesWhatWouldTakeTheServerDown(t *testing.T) {
+	t.Parallel()
+
+	c := compiler(t)
+
+	// The review's input: under the size allowed, and deep enough to overflow esbuild's
+	// stack, which no recover catches (R5).
+	_, err := c.Compile(context.Background(), "export const x = "+strings.Repeat("!", 262000)+"1")
+
+	var ce *domain.CodeError
+	require.ErrorAs(t, err, &ce)
+	assert.Contains(t, ce.Message, "in a row")
+
+	_, err = c.CompileExpression(context.Background(), strings.Repeat("a=>", 200)+"1")
+	require.ErrorAs(t, err, &ce)
+	assert.Equal(t, "the expression has more than 100 arrow functions", ce.Message)
+}

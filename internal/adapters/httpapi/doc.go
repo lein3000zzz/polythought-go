@@ -21,7 +21,7 @@ package httpapi
 //	@securityDefinitions.apikey	SessionCookie
 //	@in							cookie
 //	@name						polythought_session
-//	@description				Browser session cookie, set by POST /auth/login.
+//	@description				Browser session cookie, set by POST /auth/login; __Host-polythought_session when the app is served over https.
 
 //	@securitydefinitions.bearerauth	APIToken
 //	@description					Personal API token: Authorization: Bearer pt_...

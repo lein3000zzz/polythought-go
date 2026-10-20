@@ -21,6 +21,7 @@ import (
 	"regexp"
 	"runtime"
 	"strings"
+	"sync"
 	"sync/atomic"
 	"time"
 
@@ -89,6 +90,10 @@ type Runner struct {
 	limits   func() ports.CodeLimits
 	kit      *redkit.Kit
 	scope    tracing.Scope
+
+	mu      sync.Mutex
+	running map[domain.UserID]int // runs going, by owner (R12)
+	freed   chan struct{}         // closed as a run ends, then a new one
 }
 
 type Config struct {
@@ -218,6 +223,56 @@ func (r *Runner) Run(ctx context.Context, job ports.CodeJob) (res ports.CodeResu
 	})
 }
 
+// share waits until owner runs fewer than their share of the slots, half of them and at
+// least one, and counts this run; the func ends it. Code nobody owns shares nothing.
+func (r *Runner) share(ctx context.Context, owner domain.UserID) (func(), error) {
+	if owner == "" {
+		return func() {}, nil
+	}
+
+	most := max(1, cap(r.slots)/2)
+
+	for {
+		r.mu.Lock()
+		if r.running == nil {
+			r.running = map[domain.UserID]int{}
+		}
+
+		if r.running[owner] < most {
+			r.running[owner]++
+			r.mu.Unlock()
+
+			return func() {
+				r.mu.Lock()
+				if r.running[owner]--; r.running[owner] <= 0 {
+					delete(r.running, owner)
+				}
+
+				freed := r.freed
+				r.freed = nil
+				r.mu.Unlock()
+
+				if freed != nil {
+					close(freed)
+				}
+			}, nil
+		}
+
+		if r.freed == nil {
+			r.freed = make(chan struct{})
+		}
+
+		wait := r.freed
+		r.mu.Unlock()
+
+		select {
+		case <-wait:
+		case <-ctx.Done():
+			return nil, ctx.Err()
+		}
+	}
+}
+
 // entryName is what an entry may be: a name, or a path of names like exports.run, which
 // the engine evaluates to find it.
 var entryName = regexp.MustCompile(`^[A-Za-z_$][A-Za-z0-9_$]*(\.[A-Za-z_$][A-Za-z0-9_$]*)*$`)
@@ -228,6 +283,14 @@ func (r *Runner) run(ctx context.Context, job ports.CodeJob) (ports.CodeResult, 
 	}
 
 	limits := bound(job.Limits, r.limits())
+
+	// No owner holds more than their share of the slots, so one cannot keep everyone
+	// else's code waiting (R12); then a slot of the runner's.
+	share, err := r.share(ctx, ports.CodeOwner(ctx))
+	if err != nil {
+		return ports.CodeResult{}, err
+	}
+	defer share()
 
 	select {
 	case r.slots <- struct{}{}:

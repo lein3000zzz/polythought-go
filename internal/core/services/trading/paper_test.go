@@ -2,6 +2,7 @@ package trading
 
 import (
 	"testing"
+	"time"
 
 	"github.com/shopspring/decimal"
 	"github.com/stretchr/testify/assert"
@@ -87,7 +88,7 @@ var noFees = domain.FeeSchedule{}
 
 func TestFill(t *testing.T) {
 	t.Run("a buy of dollars takes the best asks first, up to its limit", func(t *testing.T) {
-		fills, status, _ := fill(buy(domain.OrderFAK, "0.52", "", "10"), book, noFees)
+		fills, status, _ := fill(buy(domain.OrderFAK, "0.52", "", "10"), book, noFees, time.Time{})
 
 		assert.Equal(t, domain.OrderFilled, status)
 		require.Len(t, fills, 2)
@@ -98,7 +99,7 @@ func TestFill(t *testing.T) {
 	})
 
 	t.Run("a FOK the book cannot fill within its price fills nothing", func(t *testing.T) {
-		fills, status, reason := fill(buy(domain.OrderFOK, "0.52", "40", ""), book, noFees)
+		fills, status, reason := fill(buy(domain.OrderFOK, "0.52", "40", ""), book, noFees, time.Time{})
 
 		assert.Equal(t, domain.OrderUnfilled, status)
 		assert.Empty(t, fills)
@@ -106,7 +107,7 @@ func TestFill(t *testing.T) {
 	})
 
 	t.Run("a FAK fills what it can and cancels the rest", func(t *testing.T) {
-		fills, status, _ := fill(buy(domain.OrderFAK, "0.52", "40", ""), book, noFees)
+		fills, status, _ := fill(buy(domain.OrderFAK, "0.52", "40", ""), book, noFees, time.Time{})
 
 		assert.Equal(t, domain.OrderPartial, status)
 		require.Len(t, fills, 2)
@@ -117,7 +118,7 @@ func TestFill(t *testing.T) {
 		sell := buy(domain.OrderFOK, "0.45", "20", "")
 		sell.Side = domain.SideSell
 
-		fills, status, _ := fill(sell, book, noFees)
+		fills, status, _ := fill(sell, book, noFees, time.Time{})
 		assert.Equal(t, domain.OrderFilled, status)
 		require.Len(t, fills, 2)
 		assert.Equal(t, "0.48", fills[0].Price.String())
@@ -125,13 +126,13 @@ func TestFill(t *testing.T) {
 	})
 
 	t.Run("nothing within its price", func(t *testing.T) {
-		_, status, reason := fill(buy(domain.OrderFAK, "0.40", "10", ""), book, noFees)
+		_, status, reason := fill(buy(domain.OrderFAK, "0.40", "10", ""), book, noFees, time.Time{})
 		assert.Equal(t, domain.OrderUnfilled, status)
 		assert.Contains(t, reason, "nothing within its price")
 	})
 
 	t.Run("fills pay the taker fee", func(t *testing.T) {
-		fills, _, _ := fill(buy(domain.OrderFOK, "0.50", "10", ""), book, domain.FeeSchedule{Rate: d("0.04"), Exponent: d("1")})
+		fills, _, _ := fill(buy(domain.OrderFOK, "0.50", "10", ""), book, domain.FeeSchedule{Rate: d("0.04"), Exponent: d("1")}, time.Time{})
 		require.Len(t, fills, 1)
 		assert.Equal(t, "0.1", fills[0].Fee.String(), "10 × 0.04 × 0.5 × 0.5")
 	})

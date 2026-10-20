@@ -27,12 +27,21 @@ type LoginResult struct {
 func (s *Service) Login(ctx context.Context, in LoginInput) (LoginResult, error) {
 	email := normalizeEmail(in.Email)
 
-	// Both keys are charged, so neither many emails from one IP nor one email from many
-	// IPs gets unlimited guesses.
-	ipOK := s.limiter.Allow("login:ip:" + in.IP)
-	emailOK := s.limiter.Allow("login:email:" + email)
+	// The IP first, so a client it stops charges nothing else, and keeps nothing more in
+	// the limiter's memory (R4).
+	if !s.limiter.Allow("login:ip:" + in.IP) {
+		s.log.Warn(ctx, "Login rate limited", "ip", in.IP)
+		return LoginResult{}, domain.ErrRateLimited
+	}
 
-	if !ipOK || !emailOK {
+	if len(email) > maxEmailLength || len(in.Password) > maxPasswordLength {
+		return LoginResult{}, domain.ErrInvalidCredentials // no account has them
+	}
+
+	// One address from one IP gets few guesses, and from all IPs together many more: a
+	// stranger cannot lock its owner out (R9), nor guess on from many places.
+	if !s.limiter.Allow("login:ip-email:"+in.IP+" "+email) ||
+		(s.accounts != nil && !s.accounts.Allow("login:email:"+email)) {
 		s.log.Warn(ctx, "Login rate limited", "ip", in.IP)
 		return LoginResult{}, domain.ErrRateLimited
 	}

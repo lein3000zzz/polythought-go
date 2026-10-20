@@ -89,7 +89,7 @@ func Register(r *engine.Registry, d Deps) error {
 	}
 
 	if d.Traders != nil {
-		wallet = r.RegisterTrigger(triggers.NewWalletActivity(d.Traders, d.Logger, time.Now))
+		wallet = r.RegisterTrigger(triggers.NewWalletActivity(d.Traders, d.Logger, time.Now, d.Memory))
 	}
 
 	var telegramSend, telegramTrigger, telegramAsk error

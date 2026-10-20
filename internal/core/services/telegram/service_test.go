@@ -259,6 +259,37 @@ func TestLinking(t *testing.T) {
 		assert.Empty(t, d.links.links)
 	})
 
+	t.Run("linked to another account, it moves only once asked, both named (R10)", func(t *testing.T) {
+		s, d := newService(t)
+		bob := domain.User{ID: "bob", Email: "bob@example.com"}
+		d.users.EXPECT().ByID(mock.Anything, bob.ID).Return(bob, nil)
+
+		s.HandleUpdate(ctx, message("/start "+linkCode(t, s, p)))
+		require.Len(t, d.links.links, 1)
+
+		// Someone else's link, opened by alice's Telegram.
+		s.HandleUpdate(ctx, message("/start "+linkCode(t, s, auth.Principal{User: bob})))
+		asked := d.bot.last(t)
+		assert.Contains(t, asked.HTML, "This Telegram is linked to <b>alice@example.com</b>. Link it to <b>bob@example.com</b> instead?")
+		assert.Equal(t, [][]string{{"Link to bob@example.com=lk:yes", "Keep alice@example.com=lk:no"}}, buttonsOf(asked))
+
+		saved, err := d.links.ForTelegramUser(ctx, 7)
+		require.NoError(t, err)
+		assert.Equal(t, alice.ID, saved.UserID, "not moved yet")
+
+		s.HandleUpdate(ctx, press("lk:no"))
+		saved, err = d.links.ForTelegramUser(ctx, 7)
+		require.NoError(t, err)
+		assert.Equal(t, alice.ID, saved.UserID, "kept")
+
+		s.HandleUpdate(ctx, message("/start "+linkCode(t, s, auth.Principal{User: bob})))
+		s.HandleUpdate(ctx, press("lk:yes"))
+		saved, err = d.links.ForTelegramUser(ctx, 7)
+		require.NoError(t, err)
+		assert.Equal(t, bob.ID, saved.UserID, "moved once asked")
+		assert.Contains(t, d.bot.last(t).HTML, "Linked to <b>bob@example.com</b>")
+	})
+
 	t.Run("no link without a running bot", func(t *testing.T) {
 		s, d := newService(t)
 		d.bot.status = ports.TelegramStatus{Error: "Telegram refused the bot token"}
@@ -465,4 +496,16 @@ func TestInbox(t *testing.T) {
 		for range messages {
 		}
 	})
+}
+
+// buttonsOf lists a message's buttons row by row, as text=data.
+func buttonsOf(m ports.TelegramMessage) [][]string {
+	out := make([][]string, len(m.Buttons))
+	for i, row := range m.Buttons {
+		for _, b := range row {
+			out[i] = append(out[i], b.Text+"="+b.Data)
+		}
+	}
+
+	return out
 }

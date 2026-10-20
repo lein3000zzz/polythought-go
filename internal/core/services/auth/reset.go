@@ -23,8 +23,9 @@ func (s *Service) PasswordReset() bool {
 }
 
 // RequestPasswordReset mails a link setting a new password to the account of email. It
-// answers the same whether or not there is one, so it tells nobody which addresses have
-// accounts; a disabled account is sent nothing.
+// answers the same whether or not there is one, and as fast, the account looked up and
+// mailed after the answer: it tells nobody which addresses have accounts (R17). A
+// disabled account is sent nothing.
 func (s *Service) RequestPasswordReset(ctx context.Context, email, ip string) error {
 	if !s.limiter.Allow("reset:ip:" + ip) {
 		return domain.ErrRateLimited
@@ -34,7 +35,17 @@ func (s *Service) RequestPasswordReset(ctx context.Context, email, ip string) er
 		return domain.ErrPasswordResetOff
 	}
 
-	u, _, err := s.repos.Users.ByEmail(ctx, normalizeEmail(email))
+	s.background(ctx, func(ctx context.Context) {
+		if err := s.mailReset(ctx, normalizeEmail(email)); err != nil {
+			s.log.Warn(ctx, "Password reset link not mailed", logging.Err(err))
+		}
+	})
+
+	return nil
+}
+
+func (s *Service) mailReset(ctx context.Context, email string) error {
+	u, _, err := s.repos.Users.ByEmail(ctx, email)
 	if errors.Is(err, domain.ErrNotFound) {
 		return nil
 	}

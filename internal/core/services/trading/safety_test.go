@@ -2,6 +2,7 @@ package trading_test
 
 import (
 	"context"
+	"fmt"
 	"slices"
 	"sync"
 	"testing"
@@ -171,6 +172,29 @@ func TestKillSwitch(t *testing.T) {
 		assert.Contains(t, got.Reason, "cancelled: an admin turned live trading off")
 	})
 
+	t.Run("a wallet that can no longer sign still has its orders cancelled (R8)", func(t *testing.T) {
+		expired := fmt.Errorf("%w: its session key expired", domain.ErrWalletCannotTrade)
+		l := liveService(t, func(d *trading.Deps) {
+			d.Users = &users{m: map[domain.UserID]domain.User{}}
+			d.Keys = keys{err: expired}
+		})
+
+		resting := domain.PlacedOrder{ID: "o-1", ClobID: "0xabc", WalletID: "w-1", Status: domain.OrderOpen, CreatedAt: at, OrderRequest: domain.OrderRequest{
+			WorkflowID: "wf", OwnerID: "alice", Mode: domain.ModeLive, Side: domain.SideBuy, TokenID: "t-yes", MarketID: "0xm",
+			Type: domain.OrderGTC, Price: d("0.4"), Shares: d("10"),
+		}}
+		require.NoError(t, l.ledger.Record(ctx, resting, nil))
+
+		l.exchange.cancel = ports.LiveCancel{Canceled: true}
+		l.exchange.states = []ports.LiveOrderState{{State: ports.LiveDone}}
+
+		ks, err := l.svc.StopLive(ctx, "alice", "cancelled: the kill switch is on")
+		require.NoError(t, err)
+		assert.Equal(t, 1, ks.Cancelled)
+		assert.Zero(t, ks.Left)
+		assert.Equal(t, []string{"0xabc"}, l.exchange.cancelledIDs())
+	})
+
 	t.Run("live trading off: all at once, as it goes off", func(t *testing.T) {
 		l, _ := safeService(t, domain.LiveCaps{})
 		l.exchange.placed = ports.LivePlacement{ID: "0xabc", State: ports.LiveResting}
@@ -219,6 +243,24 @@ func TestAdminCaps(t *testing.T) {
 		assert.Zero(t, l.exchange.sentCount())
 	})
 
+	t.Run("negative amounts are refused, and a buy is valued as it is sent (R1)", func(t *testing.T) {
+		l, _ := safeService(t, domain.LiveCaps{PerOrder: dollars(100), PerDay: dollars(1000)})
+
+		sneaky := liveBuy("20000")
+		sneaky.Dollars = d("-9950")
+		o, err := l.svc.Place(ctx, sneaky)
+		require.NoError(t, err)
+		assert.Equal(t, domain.OrderRefused, o.Status)
+		assert.Equal(t, "shares and dollars cannot be negative", o.Reason)
+
+		ofDollars := liveBuy("0")
+		ofDollars.Shares, ofDollars.Dollars = d("0"), d("150")
+		o, err = l.svc.Place(ctx, ofDollars)
+		require.NoError(t, err)
+		assert.Equal(t, "$150.00 is over the $100 a live order may spend: an admin's cap", o.Reason)
+		assert.Zero(t, l.exchange.sentCount())
+	})
+
 	t.Run("a user's own caps go over the instance's; 0 is none (D222)", func(t *testing.T) {
 		l, us := safeService(t, domain.LiveCaps{PerOrder: dollars(100), PerDay: dollars(1000)})
 		l.exchange.placed = ports.LivePlacement{ID: "0xabc", State: ports.LiveDone}
@@ -239,22 +281,22 @@ func TestAdminCaps(t *testing.T) {
 		l, _ := safeService(t, domain.LiveCaps{PerDay: dollars(1000)})
 		l.exchange.placed = ports.LivePlacement{ID: "0xabc", State: ports.LiveDone}
 
-		bought := func(id domain.OrderID, ago time.Duration, status domain.OrderStatus, shares string, filled bool) {
+		bought := func(id domain.OrderID, ago time.Duration, status domain.OrderStatus, shares string, filledAgo time.Duration) {
 			o := domain.PlacedOrder{ID: id, WalletID: "w-1", Status: status, CreatedAt: at.Add(-ago), OrderRequest: domain.OrderRequest{
 				WorkflowID: "wf-old", OwnerID: "alice", Mode: domain.ModeLive, Side: domain.SideBuy,
 				TokenID: "t-yes", Type: domain.OrderGTC, Price: d("0.5"), Shares: d(shares),
 			}}
-			if filled {
-				o.Fills = []domain.OrderFill{{Price: d("0.5"), Shares: d(shares), Dollars: d(shares).Mul(d("0.5"))}}
+			if filledAgo > 0 {
+				o.Fills = []domain.OrderFill{{Price: d("0.5"), Shares: d(shares), Dollars: d(shares).Mul(d("0.5")), At: at.Add(-filledAgo)}}
 			}
 
 			require.NoError(t, l.ledger.Record(ctx, o, nil))
 		}
 
-		bought("o-1", time.Hour, domain.OrderFilled, "1200", true)     // $600 spent
-		bought("o-2", 2*time.Hour, domain.OrderOpen, "600", false)     // $300 held
-		bought("o-3", 25*time.Hour, domain.OrderFilled, "2000", true)  // too long ago
-		bought("o-4", 30*time.Hour, domain.OrderPending, "100", false) // $50 that may still go
+		bought("o-1", 30*time.Hour, domain.OrderFilled, "1200", time.Hour)    // $600: it rested, and filled lately (R6)
+		bought("o-2", 2*time.Hour, domain.OrderOpen, "600", 0)                // $300 held
+		bought("o-3", 25*time.Hour, domain.OrderFilled, "2000", 25*time.Hour) // filled too long ago
+		bought("o-4", 30*time.Hour, domain.OrderPending, "100", 0)            // $50 that may still go
 
 		refused, err := l.svc.Place(ctx, liveBuy("300"))
 		require.NoError(t, err)

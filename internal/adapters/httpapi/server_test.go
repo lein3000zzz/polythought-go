@@ -75,7 +75,7 @@ func withToken(svc *httpapimocks.MockAuthService, u domain.User) {
 }
 
 var (
-	cookie = map[string]string{"Cookie": "polythought_session=sess-token", origin: publicURL}
+	cookie = map[string]string{"Cookie": "__Host-polythought_session=sess-token", origin: publicURL}
 	bearer = map[string]string{"Authorization": "Bearer pt_secret"}
 )
 
@@ -182,7 +182,7 @@ func TestRoutes(t *testing.T) {
 			check: func(t *testing.T, w *ut.ResponseRecorder) {
 				// Cookie attribute names are case-insensitive; Hertz writes "secure".
 				c := strings.ToLower(string(w.Result().Header.Peek("Set-Cookie")))
-				for _, attr := range []string{"polythought_session=new-token", "httponly", "secure", "samesite=lax", "path=/"} {
+				for _, attr := range []string{"__host-polythought_session=new-token", "httponly", "secure", "samesite=lax", "path=/"} {
 					assert.Contains(t, c, attr)
 				}
 			},
@@ -286,7 +286,7 @@ func TestRoutes(t *testing.T) {
 			wantStatus: http.StatusUnauthorized,
 			check: func(t *testing.T, w *ut.ResponseRecorder) {
 				c := string(w.Result().Header.Peek("Set-Cookie"))
-				assert.Contains(t, c, "polythought_session=;")
+				assert.Contains(t, c, "__Host-polythought_session=;")
 				assert.Contains(t, c, "max-age=0")
 			},
 		},
@@ -298,7 +298,7 @@ func TestRoutes(t *testing.T) {
 		},
 		{
 			name: "a bad token does not fall back to the cookie",
-			req:  request{method: "GET", path: "/api/v1/me", headers: map[string]string{"Authorization": "Bearer pt_bad", "Cookie": "polythought_session=sess-token"}},
+			req:  request{method: "GET", path: "/api/v1/me", headers: map[string]string{"Authorization": "Bearer pt_bad", "Cookie": "__Host-polythought_session=sess-token"}},
 			setup: func(svc *httpapimocks.MockAuthService) {
 				svc.EXPECT().AuthenticateToken(mock.Anything, "pt_bad").Return(auth.Principal{}, domain.ErrUnauthenticated)
 			},
@@ -312,13 +312,13 @@ func TestRoutes(t *testing.T) {
 		},
 		{
 			name:       "cross-origin change with a cookie is blocked",
-			req:        request{method: "POST", path: "/api/v1/admin/invites", headers: map[string]string{"Cookie": "polythought_session=sess-token", origin: "https://evil.example"}},
+			req:        request{method: "POST", path: "/api/v1/admin/invites", headers: map[string]string{"Cookie": "__Host-polythought_session=sess-token", origin: "https://evil.example"}},
 			setup:      func(svc *httpapimocks.MockAuthService) { withSession(svc, root) },
 			wantStatus: http.StatusForbidden,
 		},
 		{
 			name:       "cross-site referer is blocked when origin is missing",
-			req:        request{method: "POST", path: "/api/v1/admin/invites", headers: map[string]string{"Cookie": "polythought_session=sess-token", "Referer": "https://evil.example/page"}},
+			req:        request{method: "POST", path: "/api/v1/admin/invites", headers: map[string]string{"Cookie": "__Host-polythought_session=sess-token", "Referer": "https://evil.example/page"}},
 			setup:      func(svc *httpapimocks.MockAuthService) { withSession(svc, root) },
 			wantStatus: http.StatusForbidden,
 		},

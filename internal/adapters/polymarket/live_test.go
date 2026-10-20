@@ -166,6 +166,23 @@ func TestLiveOrdersAreSignedAsTheOfficialClientSignsThem(t *testing.T) {
 	}
 }
 
+func TestLiveOrderOfNoSizeNotSigned(t *testing.T) {
+	e, _, _ := exchange(t) // nothing posted
+	key := ports.OrderKey{
+		Wallet: domain.Wallet{Address: ownerAddress}, Key: loadLiveVectors(t).Keys.Owner,
+		Credentials: domain.PolymarketCredentials{Signer: ownerAddress, SignatureType: domain.SignatureEOA},
+	}
+
+	for _, o := range []ports.LiveOrder{
+		{TokenID: vectorToken, Side: domain.SideBuy, Type: domain.OrderFAK, Price: d("0.5"), Shares: d("20000"), Dollars: d("-9950"), TickSize: d("0.01")},
+		{TokenID: vectorToken, Side: domain.SideBuy, Type: domain.OrderFAK, Price: d("0.5"), Shares: d("-10"), Dollars: d("5"), TickSize: d("0.01")},
+		{TokenID: vectorToken, Side: domain.SideSell, Type: domain.OrderFAK, Price: d("0.5"), TickSize: d("0.01")},
+	} {
+		_, err := e.Place(context.Background(), key, o, nil)
+		require.ErrorIs(t, err, domain.ErrInvalidInput, "%s shares, $%s", o.Shares, o.Dollars)
+	}
+}
+
 func TestLiveOrderNotRecordedNotSent(t *testing.T) {
 	e, _, _ := exchange(t) // the CLOB mock fails the test if anything is posted
 	key := ports.OrderKey{

@@ -16,7 +16,6 @@ import (
 	"github.com/lein3000zzz/the-watchers/pkg/observability/logging"
 	"github.com/lein3000zzz/the-watchers/pkg/observability/metrics/redkit"
 	"github.com/lein3000zzz/the-watchers/pkg/observability/tracing"
-	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 	"go.opentelemetry.io/otel/trace"
 	"golang.org/x/time/rate"
 )
@@ -72,8 +71,10 @@ func NewRPCClient(util *observability.Utility, cfg HTTPConfig, url func() string
 	cfg = cfg.withDefaults("", defaultRPCRPS)
 
 	return &DefaultRPCClient{
-		url:     url,
-		client:  &http.Client{Timeout: cfg.Timeout, Transport: otelhttp.NewTransport(cfg.Transport)},
+		url: url,
+		// No otelhttp: its spans hold the whole URL, and this one is a secret (R19). The
+		// kit's spans name the call.
+		client:  &http.Client{Timeout: cfg.Timeout, Transport: cfg.Transport},
 		limiter: rate.NewLimiter(rate.Limit(cfg.RPS), cfg.Burst),
 		kit:     kit,
 		scope:   tracing.Scope{Manager: util.TracerManager, TracerName: tracerName},

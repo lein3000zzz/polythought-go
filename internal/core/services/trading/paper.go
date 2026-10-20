@@ -3,6 +3,7 @@ package trading
 import (
 	"fmt"
 	"math"
+	"time"
 
 	"github.com/shopspring/decimal"
 
@@ -35,6 +36,8 @@ func request(req domain.OrderRequest) (domain.OrderRequest, string) {
 		return req, fmt.Sprintf("%q is not a side: buy or sell", req.Side)
 	case !req.Price.IsPositive() || !req.Price.LessThan(one):
 		return req, fmt.Sprintf("a price of %s is not between 0 and 1", req.Price)
+	case req.Shares.IsNegative() || req.Dollars.IsNegative():
+		return req, "shares and dollars cannot be negative"
 	case req.Side == domain.SideSell && !req.Dollars.IsZero():
 		return req, "a sell is of shares, not dollars"
 	case req.Shares.IsPositive() == req.Dollars.IsPositive():
@@ -79,7 +82,7 @@ func keepsRules(req domain.OrderRequest, rules domain.TradingRules) string {
 // fill matches an order against the book, as the CLOB would at once: the best price
 // first, as far as its limit allows. A FOK that cannot fill wholly fills nothing; a FAK
 // fills what it can. The fills pay the market's taker fees (D90).
-func fill(req domain.OrderRequest, book domain.OrderBook, fees domain.FeeSchedule) ([]domain.OrderFill, domain.OrderStatus, string) {
+func fill(req domain.OrderRequest, book domain.OrderBook, fees domain.FeeSchedule, at time.Time) ([]domain.OrderFill, domain.OrderStatus, string) {
 	levels, within := book.Asks, func(p decimal.Decimal) bool { return p.LessThanOrEqual(req.Price) }
 	if req.Side == domain.SideSell {
 		levels, within = book.Bids, func(p decimal.Decimal) bool { return p.GreaterThanOrEqual(req.Price) }
@@ -108,7 +111,7 @@ func fill(req domain.OrderRequest, book domain.OrderBook, fees domain.FeeSchedul
 		}
 
 		cost := take.Mul(l.Price)
-		fills = append(fills, domain.OrderFill{Price: l.Price, Shares: take, Dollars: cost, Fee: fee(take, l.Price, fees)})
+		fills = append(fills, domain.OrderFill{Price: l.Price, Shares: take, Dollars: cost, Fee: fee(take, l.Price, fees), At: at})
 		last = l.Price
 
 		if req.Shares.IsPositive() {

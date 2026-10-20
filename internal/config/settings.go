@@ -10,6 +10,7 @@ import (
 	"net/url"
 	"strings"
 	"time"
+	"unicode"
 
 	"github.com/lein3000zzz/polythought-go/internal/core/domain"
 	"github.com/lein3000zzz/polythought-go/internal/core/services/settings"
@@ -320,7 +321,7 @@ func Settings() (*settings.Registry, error) {
 		settings.Spec{
 			Key: KeyTelegramToken, Group: groupTelegram, Label: "Bot token",
 			Description: "The token @BotFather gave you when you made the bot, like 123456:ABC-DEF…",
-			Kind:        settings.KindString, Secret: true, Default: "",
+			Kind:        settings.KindString, Secret: true, Default: "", Check: botToken,
 		},
 		settings.Spec{
 			Key: KeyTelegramMode, Group: groupTelegram, Label: "How the bot gets messages",
@@ -461,6 +462,25 @@ func rpcURL(v any) error {
 }
 
 // builderCode checks a builder code: empty, or 32 bytes of hex after 0x.
+// botToken checks a Telegram bot token: digits, a colon, then letters, digits, _ and -.
+// Anything else would not work, and could end up in an error that quotes it (R11).
+func botToken(v any) error {
+	s := v.(string)
+	if s == "" {
+		return nil
+	}
+
+	id, secret, ok := strings.Cut(s, ":")
+	if !ok || id == "" || secret == "" || strings.Trim(id, "0123456789") != "" ||
+		strings.TrimFunc(secret, func(r rune) bool {
+			return r < 128 && (unicode.IsLetter(r) || unicode.IsDigit(r) || r == '_' || r == '-')
+		}) != "" {
+		return errors.New("is not a bot token: digits, a colon, then letters, digits, _ and -")
+	}
+
+	return nil
+}
+
 func builderCode(v any) error {
 	s := v.(string)
 	if s == "" {

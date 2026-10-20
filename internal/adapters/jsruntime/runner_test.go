@@ -474,3 +474,53 @@ func TestBytecode(t *testing.T) {
 		require.ErrorContains(t, err, "jsruntime: the prelude does not compile: SyntaxError")
 	})
 }
+
+func TestFairShare(t *testing.T) {
+	ctx := context.Background()
+
+	// Two slots: one each at most (R12).
+	r, err := jsruntime.New(ctx, observability.NoopUtility(), jsruntime.Config{Concurrency: 2})
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = r.Close(ctx) })
+
+	release := make(chan struct{})
+	held := func(ctx context.Context, _ string, _ json.RawMessage) (json.RawMessage, error) {
+		select {
+		case <-release:
+			return json.RawMessage("1"), nil
+		case <-ctx.Done():
+			return nil, ctx.Err()
+		}
+	}
+
+	job := ports.CodeJob{Source: `function run() { return __host("wait") }`, Entry: "run", Host: held}
+	alice, bob := ports.WithCodeOwner(ctx, "alice"), ports.WithCodeOwner(ctx, "bob")
+
+	first := make(chan error, 1)
+
+	go func() {
+		_, err := r.Run(alice, job)
+		first <- err
+	}()
+
+	time.Sleep(50 * time.Millisecond) // the first holds its slot
+
+	// Alice's second waits for her first; Bob's goes ahead in the other slot.
+	waiting, cancel := context.WithTimeout(alice, 100*time.Millisecond)
+	defer cancel()
+
+	_, err = r.Run(waiting, job)
+	require.ErrorIs(t, err, context.DeadlineExceeded, "alice holds her share")
+
+	quick := ports.CodeJob{Source: `function run() { return 2 }`, Entry: "run"}
+	res, err := r.Run(bob, quick)
+	require.NoError(t, err)
+	assert.Equal(t, "2", string(res.Output))
+
+	close(release)
+	require.NoError(t, <-first)
+
+	res, err = r.Run(alice, quick)
+	require.NoError(t, err, "her share is free again")
+	assert.Equal(t, "2", string(res.Output))
+}

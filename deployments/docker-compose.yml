@@ -8,8 +8,9 @@ services:
       POSTGRES_USER: polythought
       POSTGRES_PASSWORD: polythought
       POSTGRES_DB: polythought
+    # On this machine only: its password is the development one above (R21).
     ports:
-      - "5432:5432"
+      - "127.0.0.1:5432:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
     healthcheck:

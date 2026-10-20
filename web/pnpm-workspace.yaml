@@ -1,0 +1,5 @@
+# pnpm settings for the web app.
+
+# DOMPurify, inside Monaco, before 3.4.16 has two DOM XSS advisories (R23).
+overrides:
+  dompurify: ^3.4.16

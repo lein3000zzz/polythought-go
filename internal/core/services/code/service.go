@@ -71,7 +71,7 @@ func (s *Service) Call(ctx context.Context, c ports.CodeCall) (ports.CodeResult,
 		return ports.CodeResult{}, fmt.Errorf("code: the arguments: %w", err)
 	}
 
-	return s.runner.Run(ctx, ports.CodeJob{
+	return s.runner.Run(ports.WithCodeOwner(ctx, c.Owner), ports.CodeJob{
 		Source: code.Script, Entry: code.Invoke, Input: input, Host: s.host(c.Owner), Limits: c.Limits,
 	})
 }

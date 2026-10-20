@@ -18,6 +18,8 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"regexp"
+	"strconv"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -98,6 +100,7 @@ type Bot struct {
 	pending *Config  // for Run to apply
 	cur     *running // nil when the bot is not running
 	status  ports.TelegramStatus
+	token   string // the one in use, to keep out of errors (R11)
 }
 
 // running is a started bot.
@@ -230,10 +233,15 @@ func (b *Bot) takePending() (Config, bool) {
 // start starts the bot as cfg says and returns how to stop it. Its errors are also put
 // in the status, for admins to see.
 func (b *Bot) start(ctx context.Context, cfg Config) (stop func(), err error) {
+	b.mu.Lock()
+	b.token = cfg.Token
+	b.mu.Unlock()
+
 	defer func() {
 		if err != nil {
-			b.log.Warn(ctx, "Telegram bot not started", logging.Err(err))
-			b.setStatus(ports.TelegramStatus{Mode: cfg.Mode, Error: strings.TrimPrefix(err.Error(), errPermanent.Error()+": "), ErrorAt: time.Now()})
+			text := b.scrub(err.Error())
+			b.log.Warn(ctx, "Telegram bot not started", logging.Err(errors.New(text)))
+			b.setStatus(ports.TelegramStatus{Mode: cfg.Mode, Error: strings.TrimPrefix(text, errPermanent.Error()+": "), ErrorAt: time.Now()})
 		}
 	}()
 
@@ -349,12 +357,32 @@ func newSecret() string {
 // problem records a problem the running bot ran into, such as a lost connection or
 // another server polling with the same token.
 func (b *Bot) problem(ctx context.Context, err error) {
-	b.log.Warn(ctx, "Telegram bot problem", logging.Err(err))
+	text := b.scrub(err.Error())
+	b.log.Warn(ctx, "Telegram bot problem", logging.Err(errors.New(text)))
 
 	b.mu.Lock()
-	b.status.Error, b.status.ErrorAt = err.Error(), time.Now()
+	b.status.Error, b.status.ErrorAt = text, time.Now()
 	b.mu.Unlock()
 }
+
+// scrub takes the bot token out of text: the client's errors can quote the URL, which
+// holds it.
+func (b *Bot) scrub(text string) string {
+	b.mu.Lock()
+	token := b.token
+	b.mu.Unlock()
+
+	if token != "" {
+		quoted := strconv.Quote(token) // as the URL's parse error writes it
+		text = strings.ReplaceAll(text, token, "<bot token>")
+		text = strings.ReplaceAll(text, quoted[1:len(quoted)-1], "<bot token>")
+	}
+
+	// And whatever follows /bot in a URL, whichever token it was.
+	return botPath.ReplaceAllString(text, "/bot<bot token>")
+}
+
+var botPath = regexp.MustCompile(`/bot[^/\s"]+`)
 
 func (b *Bot) setStatus(s ports.TelegramStatus) {
 	b.mu.Lock()

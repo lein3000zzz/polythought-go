@@ -202,6 +202,14 @@ func (r *Ledger) ResetPaperAccount(ctx context.Context, a domain.PaperAccount) e
 	})
 }
 
+// filledSince keeps the fills since then: by when they filled (R6), or for fills from
+// before fills had a time, by their order's.
+func filledSince(since time.Time) jet.BoolExpression {
+	f, o := table.OrderFills, table.Orders
+
+	return jet.TimestampzExp(jet.COALESCE(f.FilledAt, o.CreatedAt)).GT_EQ(jet.TimestampzT(since))
+}
+
 func (r *Ledger) Spent(ctx context.Context, workflow domain.WorkflowID, mode domain.TradingMode, since time.Time) (decimal.Decimal, error) {
 	wid, err := parseID(workflow)
 	if err != nil {
@@ -219,7 +227,7 @@ func (r *Ledger) Spent(ctx context.Context, workflow domain.WorkflowID, mode dom
 		WHERE(o.WorkflowID.EQ(jet.UUID(wid)).
 			AND(o.Mode.EQ(jet.String(string(mode)))).
 			AND(o.Side.EQ(jet.String(string(domain.SideBuy)))).
-			AND(o.CreatedAt.GT_EQ(jet.TimestampzT(since))).
+			AND(filledSince(since)).
 			AND(f.Status.NOT_EQ(jet.String(string(domain.FillFailed))))). // undone (D193)
 		QueryContext(ctx, r.db.conn(ctx), &row)
 	if err != nil {
@@ -246,7 +254,7 @@ func (r *Ledger) OwnerSpent(ctx context.Context, owner domain.UserID, mode domai
 		WHERE(o.OwnerID.EQ(jet.UUID(uid)).
 			AND(o.Mode.EQ(jet.String(string(mode)))).
 			AND(o.Side.EQ(jet.String(string(domain.SideBuy)))).
-			AND(o.CreatedAt.GT_EQ(jet.TimestampzT(since))).
+			AND(filledSince(since)).
 			AND(f.Status.NOT_EQ(jet.String(string(domain.FillFailed))))). // undone (D193)
 		QueryContext(ctx, r.db.conn(ctx), &row)
 	if err != nil {
@@ -294,7 +302,7 @@ func (r *Ledger) insertFills(ctx context.Context, order uuid.UUID, fills []domai
 	for i, f := range fills {
 		rows[i] = model.OrderFills{
 			OrderID: order, Seq: int32(i), Price: f.Price, Shares: f.Shares, Dollars: f.Dollars, Fee: f.Fee,
-			TradeID: f.TradeID, Status: string(f.Status),
+			TradeID: f.TradeID, Status: string(f.Status), FilledAt: timePtr(f.At),
 		}
 	}
 
@@ -696,7 +704,7 @@ func toPlacedOrder(m model.Orders, fills []model.OrderFills) domain.PlacedOrder 
 	for _, f := range fills {
 		o.Fills = append(o.Fills, domain.OrderFill{
 			Price: f.Price, Shares: f.Shares, Dollars: f.Dollars, Fee: f.Fee,
-			TradeID: f.TradeID, Status: domain.FillStatus(f.Status),
+			TradeID: f.TradeID, Status: domain.FillStatus(f.Status), At: timeOf(f.FilledAt),
 		})
 	}
 

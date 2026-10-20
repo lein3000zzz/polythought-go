@@ -157,6 +157,8 @@ func TestSettingsValidation(t *testing.T) {
 		{config.KeyBuilderCode, "0xb1", "is not 0x and 64 hex digits"},
 		{config.KeyBuilderCode, "0x" + strings.Repeat("g", 64), "is not 0x and 64 hex digits"},
 		{config.KeyLiveTrading, "maybe", `"maybe" is not true or false`},
+		{config.KeyTelegramToken, "123456:ABC-DEF\r", "is not a bot token"},
+		{config.KeyTelegramToken, "ABC-DEF", "is not a bot token"},
 		{config.KeyMailHost, "smtp://mail.example.com", "without a scheme or port"},
 		{config.KeyMailHost, "mail.example.com:587", "without a scheme or port"},
 		{config.KeyMailPort, "70000", "must be between 1 and 65535"},
@@ -188,6 +190,9 @@ func TestSettingsValidation(t *testing.T) {
 
 	_, err = spec(t, config.KeyBuilderCode).Parse("0x" + strings.Repeat("0b", 32))
 	require.NoError(t, err, "a builder code")
+
+	_, err = spec(t, config.KeyTelegramToken).Parse("123456:ABC-DEF_ghi")
+	require.NoError(t, err, "a bot token")
 }
 
 func TestSettingsGroupsAreTogether(t *testing.T) {

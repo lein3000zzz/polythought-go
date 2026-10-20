@@ -115,7 +115,7 @@ func (s *Service) placePaperResting(ctx context.Context, o domain.PlacedOrder, r
 		book = books[0]
 	}
 
-	fills, _, _ := fill(o.OrderRequest, book, rules.Fees)
+	fills, _, _ := fill(o.OrderRequest, book, rules.Fees, o.CreatedAt)
 
 	if o.PostOnly && len(fills) > 0 {
 		return s.refuse(ctx, o, "post-only: it would match the book at once")
@@ -337,7 +337,7 @@ func (s *Service) paperFill(ctx context.Context, id domain.OrderID, most decimal
 	}
 
 	part := o
-	part.Fills = []domain.OrderFill{{Price: o.Price, Shares: take, Dollars: take.Mul(o.Price), Fee: decimal.Zero}}
+	part.Fills = []domain.OrderFill{{Price: o.Price, Shares: take, Dollars: take.Mul(o.Price), Fee: decimal.Zero, At: s.d.Now().UTC()}}
 	cash, after := apply(part, held)
 
 	o.Fills = append(slices.Clone(o.Fills), part.Fills[0])
@@ -455,7 +455,7 @@ func (s *Service) WatchLive(ctx context.Context, every time.Duration) {
 				continue
 			}
 
-			k, err := s.d.Keys.OrderKey(ctx, owner, w)
+			k, err := s.d.Keys.AccessKey(ctx, owner, w) // no signing key: none is needed (R16)
 			if err != nil {
 				s.d.Logger.Warn(ctx, "Live orders of a wallet not watched", "wallet_id", w, logging.Err(err))
 				continue
@@ -605,7 +605,7 @@ func (s *Service) cancelLive(ctx context.Context, o domain.PlacedOrder, why stri
 		return domain.PlacedOrder{}, "", domain.ErrLiveTradingOff
 	}
 
-	k, err := s.d.Keys.OrderKey(ctx, o.OwnerID, o.WalletID)
+	k, err := s.d.Keys.AccessKey(ctx, o.OwnerID, o.WalletID)
 	if err != nil {
 		return domain.PlacedOrder{}, "", err
 	}

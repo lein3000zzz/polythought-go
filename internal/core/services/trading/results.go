@@ -489,7 +489,7 @@ func (s *Service) settle(ctx context.Context, key domain.HoldingKey, o domain.Ou
 			Type: domain.OrderSettle, Price: o.Price, Shares: h.Shares,
 		},
 		ID: domain.OrderID(uuid.Must(uuid.NewV7()).String()), Status: domain.OrderFilled, Reason: reason,
-		Fills:     []domain.OrderFill{{Price: o.Price, Shares: h.Shares, Dollars: h.Shares.Mul(o.Price), Fee: decimal.Zero}},
+		Fills:     []domain.OrderFill{{Price: o.Price, Shares: h.Shares, Dollars: h.Shares.Mul(o.Price), Fee: decimal.Zero, At: s.d.Now().UTC()}},
 		CreatedAt: s.d.Now().UTC(),
 	}
 

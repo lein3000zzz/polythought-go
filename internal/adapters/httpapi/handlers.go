@@ -433,7 +433,7 @@ func (s *Server) sendVerificationLink(ctx context.Context, c *app.RequestContext
 //	@Tags		auth
 //	@Param		body	body		loginRequest	true	"Credentials"
 //	@Success	200		{object}	userDTO
-//	@Header		200		{string}	Set-Cookie	"The polythought_session cookie"
+//	@Header		200		{string}	Set-Cookie	"The polythought_session cookie, __Host-polythought_session over https"
 //	@Failure	400		{object}	errorBody	"invalid_input"
 //	@Failure	401		{object}	errorBody	"invalid_credentials"
 //	@Failure	403		{object}	errorBody	"user_disabled, or email_not_verified"

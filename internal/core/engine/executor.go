@@ -151,6 +151,8 @@ func (e *Executor) Execute(
 		opt(&o)
 	}
 
+	ctx = ports.WithCodeOwner(ctx, w.OwnerID) // its code and expressions are its owner's
+
 	reg, err := e.catalog.For(ctx, w.OwnerID)
 	if err != nil {
 		return Result{}, fmt.Errorf("engine: the node types of the workflow's owner: %w", err)
@@ -199,6 +201,8 @@ func (e *Executor) Continue(ctx context.Context, rec ports.WaitRecord, r Resumpt
 	if err := snap.Execution.Resume(); err != nil {
 		return Result{}, err
 	}
+
+	ctx = ports.WithCodeOwner(ctx, snap.Workflow.OwnerID)
 
 	// Not reading the node types fails the execution rather than losing it.
 	reg, typesErr := e.catalog.For(ctx, snap.Workflow.OwnerID)

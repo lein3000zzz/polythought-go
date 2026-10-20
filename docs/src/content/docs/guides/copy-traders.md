@@ -57,8 +57,8 @@ like `role` is `taker`.
 The trades come from Polymarket's live feed of activity. When the feed drops, or the server
 restarts, Wallet activity looks up what it missed and starts the workflow for the trades
 younger than **Catch up within**, 2 minutes by default and up to an hour. Older ones are
-skipped: a trade is never passed on late. Those found this way have no `role`, as the
-lookup does not say.
+skipped: a trade is never passed on late, nor twice, a restart included. Those found this
+way have no `role`, as the lookup does not say.
 
 Switching a workflow on follows from then: trades from before are not caught up. Saving an
 active workflow catches up on what came in while it restarted.
@@ -232,8 +232,9 @@ understand** unlocks **Switch to live**. **Back to paper** goes back at once, an
 next order is on paper.
 
 A workflow's live holdings are its own books: going back to paper keeps them, and live
-again finds them. While it holds live shares its wallet stays, so a copied sell never goes
-to a wallet without them.
+again finds them. While it holds live shares, or has live orders resting or pending, its
+wallet stays, so a copied sell never goes to a wallet without the shares, and no order is
+followed from one wallet while its sells go from another.
 
 ### Stopping it
 
@@ -249,8 +250,8 @@ a minute.
 
 An admin caps what each user's live buys may spend, on the Config page under Trading:
 **Max $ a live order**, $100 to start with, and **Max $ a day of live buys**, $1,000, for
-what your live buys spent in the last 24 hours and what your resting ones may still
-spend, all your workflows together. A buy over either is refused before it is sent,
+what your live buys spent in the last 24 hours, by when they filled, and what your
+resting ones may still spend, all your workflows together. A buy over either is refused before it is sent,
 saying which cap and what is left; sells are never capped. Unlike the Risk guard's caps,
 which make a copy smaller, these are a hard stop the Risk guard cannot raise. An admin can
 give you caps of your own on the Users page.

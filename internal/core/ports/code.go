@@ -132,3 +132,18 @@ type CodeFile struct {
 	Path    string
 	Content string
 }
+
+type codeOwnerKey struct{}
+
+// WithCodeOwner says whose code runs under ctx, for the runner's fair share of its slots
+// (R12).
+func WithCodeOwner(ctx context.Context, owner domain.UserID) context.Context {
+	return context.WithValue(ctx, codeOwnerKey{}, owner)
+}
+
+// CodeOwner is whose code runs under ctx, or "" when nobody said.
+func CodeOwner(ctx context.Context) domain.UserID {
+	owner, _ := ctx.Value(codeOwnerKey{}).(domain.UserID)
+
+	return owner
+}

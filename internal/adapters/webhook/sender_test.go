@@ -36,6 +36,16 @@ func TestPublic(t *testing.T) {
 		{addr: "224.0.0.1"},
 		{addr: "::ffff:127.0.0.1"},
 		{addr: "::ffff:8.8.8.8", want: true},
+		// IPv4 inside IPv6, which a gateway may take inside the network, and ranges netip
+		// counts as global that are not (R13).
+		{addr: "64:ff9b::7f00:1"},
+		{addr: "64:ff9b:1::a00:1"},
+		{addr: "2002:7f00:1::"},
+		{addr: "2001:0:4136:e378::1"},
+		{addr: "192.0.0.8"},
+		{addr: "198.18.0.1"},
+		{addr: "240.0.0.1"},
+		{addr: "255.255.255.255"},
 	}
 
 	for _, tt := range tests {
@@ -151,4 +161,18 @@ func TestPostRedirects(t *testing.T) {
 		assert.Empty(t, seen[0].Get("X-Api-Key"))
 		assert.Equal(t, "application/json", seen[0].Get("Content-Type"))
 	})
+}
+
+func TestRedirectedFromHTTPSToHTTP(t *testing.T) {
+	ctx := context.WithValue(context.Background(), extraHeadersKey{}, []string{"X-Api-Key"})
+
+	from, err := http.NewRequestWithContext(ctx, http.MethodPost, "https://hook.example/in", nil)
+	require.NoError(t, err)
+
+	to, err := http.NewRequestWithContext(ctx, http.MethodPost, "http://hook.example/in", nil)
+	require.NoError(t, err)
+	to.Header.Set("X-Api-Key", "k-1")
+
+	require.NoError(t, redirected(to, []*http.Request{from}))
+	assert.Empty(t, to.Header.Get("X-Api-Key"), "not sent in clear (R20)")
 }

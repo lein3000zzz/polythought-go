@@ -10,15 +10,17 @@ package model
 import (
 	"github.com/google/uuid"
 	"github.com/shopspring/decimal"
+	"time"
 )
 
 type OrderFills struct {
-	OrderID uuid.UUID `sql:"primary_key"`
-	Seq     int32     `sql:"primary_key"`
-	Price   decimal.Decimal
-	Shares  decimal.Decimal
-	Dollars decimal.Decimal
-	Fee     decimal.Decimal
-	TradeID string
-	Status  string
+	OrderID  uuid.UUID `sql:"primary_key"`
+	Seq      int32     `sql:"primary_key"`
+	Price    decimal.Decimal
+	Shares   decimal.Decimal
+	Dollars  decimal.Decimal
+	Fee      decimal.Decimal
+	TradeID  string
+	Status   string
+	FilledAt *time.Time
 }

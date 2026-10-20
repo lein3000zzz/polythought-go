@@ -3373,7 +3373,7 @@ export interface operations {
             /** @description OK */
             200: {
                 headers: {
-                    /** @description The polythought_session cookie */
+                    /** @description The polythought_session cookie, __Host-polythought_session over https */
                     "Set-Cookie"?: string;
                     [name: string]: unknown;
                 };
@@ -7338,7 +7338,7 @@ export interface operations {
                     "application/json": components["schemas"]["Error"];
                 };
             };
-            /** @description holds_live: its wallet stays while it holds live shares */
+            /** @description holds_live: its wallet stays while it holds live shares; orders_live: or while its live orders rest or are pending */
             409: {
                 headers: {
                     [name: string]: unknown;

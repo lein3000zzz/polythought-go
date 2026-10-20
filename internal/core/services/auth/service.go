@@ -71,12 +71,14 @@ type Repositories struct {
 }
 
 type Service struct {
-	config  func() Config
-	repos   Repositories
-	hasher  ports.PasswordHasher
-	limiter ports.RateLimiter
-	log     logging.Logger
-	now     func() time.Time
+	config   func() Config
+	repos    Repositories
+	hasher   ports.PasswordHasher
+	limiter  ports.RateLimiter
+	later    func(func())      // runs work after the answer; tests run it at once
+	accounts ports.RateLimiter // optional: a looser limit per address, from every IP together (R9)
+	log      logging.Logger
+	now      func() time.Time
 
 	workflows WorkflowStopper   // optional; commands without the engine have none
 	live      LiveStopper       // optional; without it, disabling stops no live trading
@@ -92,6 +94,30 @@ type Option func(*Service)
 // WorkflowStopper stops a user's workflows. Disabling a user calls it.
 type WorkflowStopper interface {
 	StopAll(ctx context.Context, owner domain.UserID) error
+}
+
+// WithLater replaces how work after an answer is run, for tests: run it at once.
+func WithLater(later func(func())) Option {
+	return func(s *Service) { s.later = later }
+}
+
+// laterFor is how long work after an answer may take.
+const laterFor = time.Minute
+
+// background runs f after the answer, with ctx's values but not its end.
+func (s *Service) background(ctx context.Context, f func(ctx context.Context)) {
+	ctx, cancel := context.WithTimeout(context.WithoutCancel(ctx), laterFor)
+
+	s.later(func() {
+		defer cancel()
+		f(ctx)
+	})
+}
+
+// WithAccountLimiter limits sign-in attempts per address from all IPs together: looser
+// than the limit per IP and address, so nobody locks another out (R9).
+func WithAccountLimiter(l ports.RateLimiter) Option {
+	return func(s *Service) { s.accounts = l }
 }
 
 // WithWorkflowStopper stops a user's workflows when an admin disables them.
@@ -143,6 +169,7 @@ func New(cfg Config, repos Repositories, hasher ports.PasswordHasher, limiter po
 		log:       log.With("component", "auth"),
 		now:       now,
 		dummyHash: dummy,
+		later:     func(f func()) { go f() },
 	}
 
 	for _, opt := range opts {

@@ -2,6 +2,7 @@ package triggers_test
 
 import (
 	"context"
+	"sync"
 	"testing"
 	"time"
 
@@ -57,7 +58,7 @@ func follow(t *testing.T, params map[string]any, resumed bool, batch ...domain.T
 	t.Helper()
 
 	feed := &traderFeed{sub: traderSub{ch: make(chan []domain.TraderTrade, 1)}}
-	w := triggers.NewWalletActivity(feed, observability.NoopUtility().Logger, func() time.Time { return startedAt })
+	w := triggers.NewWalletActivity(feed, observability.NoopUtility().Logger, func() time.Time { return startedAt }, nil)
 
 	tc := triggerContext(t, w.Type(), params)
 	tc.Resumed = resumed
@@ -184,11 +185,76 @@ func TestWalletActivityWithEveryoneOff(t *testing.T) {
 }
 
 func TestWalletActivityConfig(t *testing.T) {
-	w := triggers.NewWalletActivity(&traderFeed{}, observability.NoopUtility().Logger, time.Now)
+	w := triggers.NewWalletActivity(&traderFeed{}, observability.NoopUtility().Logger, time.Now, nil)
 
 	err := w.Start(context.Background(), triggerContext(t, w.Type(), map[string]any{
 		"traders": traders(map[string]any{"label": "Alice", "address": "0x5f3C00000000000000000000000000000000a1b2"}),
 	}), nil)
 	require.ErrorIs(t, err, engine.ErrInvalidParam)
 	assert.ErrorContains(t, err, "row 1")
+}
+
+// remembered is node memory for Remember alone: the keys held, without expiry.
+type remembered struct {
+	ports.NodeMemory
+
+	mu   sync.Mutex
+	keys map[string]bool
+}
+
+func (m *remembered) Remember(_ context.Context, _ domain.WorkflowID, _ domain.NodeID, keys []string, _, _ time.Time) ([]string, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	var fresh []string
+
+	for _, k := range keys {
+		if !m.keys[k] {
+			m.keys[k] = true
+			fresh = append(fresh, k)
+		}
+	}
+
+	return fresh, nil
+}
+
+func TestWalletActivityAfterARestart(t *testing.T) {
+	params := map[string]any{"traders": traders(map[string]any{"label": "Alice", "address": aliceLower}), "catchUp": "10m"}
+	memory := &remembered{keys: map[string]bool{}}
+
+	start := func(resumed bool, batch ...domain.TraderTrade) []engine.Ports {
+		feed := &traderFeed{sub: traderSub{ch: make(chan []domain.TraderTrade, 1)}}
+		w := triggers.NewWalletActivity(feed, observability.NoopUtility().Logger, func() time.Time { return startedAt }, memory)
+
+		tc := triggerContext(t, w.Type(), params)
+		tc.Resumed = resumed
+
+		rec := &recorder{}
+		ctx, cancel := context.WithCancel(context.Background())
+		done := make(chan error, 1)
+
+		go func() { done <- w.Start(ctx, tc, rec.emit) }()
+
+		feed.sub.ch <- batch
+		time.Sleep(30 * time.Millisecond)
+		cancel()
+		require.NoError(t, <-done)
+
+		rec.mu.Lock()
+		defer rec.mu.Unlock()
+
+		return rec.emitted
+	}
+
+	copied := trade(t, aliceLower, domain.SideBuy, "20", time.Second)
+	first := start(false, copied)
+	require.Len(t, first, 1)
+	assert.NotContains(t, first[0][engine.DefaultPort][0].JSON, "tradeKey", "its key is its own business")
+
+	// Back up, its catch-up hands the same trade over again, and one it missed.
+	missed := trade(t, aliceLower, domain.SideBuy, "40", 2*time.Minute)
+	again := start(true, copied, missed)
+	require.Len(t, again, 1)
+	require.Len(t, again[0][engine.DefaultPort], 1, "the trade copied before the restart is not copied twice (R3)")
+	assert.Equal(t, missed.TxHash, again[0][engine.DefaultPort][0].JSON["txHash"])
 }

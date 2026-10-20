@@ -48,13 +48,16 @@ var sides = []string{string(domain.SideBuy), string(domain.SideSell)}
 // WalletActivity starts a workflow on the trades of the traders it follows, as they
 // happen (D83 to D88): an item a trade, its fills summed.
 type WalletActivity struct {
-	feed ports.TraderFeed
-	log  logging.Logger
-	now  func() time.Time
+	feed   ports.TraderFeed
+	log    logging.Logger
+	now    func() time.Time
+	memory ports.NodeMemory // optional: what it started workflows on, across restarts (R3)
 }
 
-func NewWalletActivity(feed ports.TraderFeed, log logging.Logger, now func() time.Time) *WalletActivity {
-	return &WalletActivity{feed: feed, log: log, now: now}
+// NewWalletActivity makes the trigger; with memory, a trade it started the workflow on is
+// never started on again, a restart's catch-up included (R3).
+func NewWalletActivity(feed ports.TraderFeed, log logging.Logger, now func() time.Time, memory ports.NodeMemory) *WalletActivity {
+	return &WalletActivity{feed: feed, log: log, now: now, memory: memory}
 }
 
 func (*WalletActivity) Type() engine.NodeType {
@@ -176,7 +179,7 @@ func (w *WalletActivity) Start(ctx context.Context, tc engine.TriggerContext, em
 				return nil // the feed is shutting down
 			}
 
-			if items := w.items(ctx, tc, cfg, batch, notBefore); len(items) > 0 {
+			if items := w.unseen(ctx, tc, w.items(ctx, tc, cfg, batch, notBefore)); len(items) > 0 {
 				_ = emit(ctx, engine.Ports{engine.DefaultPort: items})
 			}
 		}
@@ -206,10 +209,55 @@ func (w *WalletActivity) items(ctx context.Context, tc engine.TriggerContext, cf
 			continue
 		}
 
-		items = append(items, engine.Item{JSON: tradeItem(tr, t)})
+		j := tradeItem(tr, t)
+		if w.memory != nil {
+			j["tradeKey"] = tradeKey(t) // for unseen, which takes it off
+		}
+
+		items = append(items, engine.Item{JSON: j})
 	}
 
 	return items
+}
+
+// unseen are the items whose trades it has not started the workflow on before, as the
+// node's memory has it: the trader feed's own record of what it delivered goes with a
+// restart, and a resumed start catches up on the last minutes (R3). Without memory, or
+// when it fails, all go: a missed copy is worse than a doubtful one.
+func (w *WalletActivity) unseen(ctx context.Context, tc engine.TriggerContext, items []engine.Item) []engine.Item {
+	if w.memory == nil || len(items) == 0 {
+		return items
+	}
+
+	keys := make([]string, len(items))
+	for i, item := range items {
+		keys[i] = item.JSON["tradeKey"].(string)
+	}
+
+	now := w.now()
+
+	fresh, err := w.memory.Remember(ctx, tc.WorkflowID, tc.NodeID, keys, now, now.Add(maxCatchUp+time.Minute))
+	if err != nil {
+		w.log.Warn(ctx, "Trades not checked against those copied before", "workflow_id", tc.WorkflowID, logging.Err(err))
+		return items
+	}
+
+	out := items[:0]
+
+	for _, item := range items {
+		if slices.Contains(fresh, item.JSON["tradeKey"].(string)) {
+			delete(item.JSON, "tradeKey")
+			out = append(out, item)
+		}
+	}
+
+	return out
+}
+
+// tradeKey tells a trade apart as the trader feed does: its wallet, transaction, token
+// and side.
+func tradeKey(t domain.TraderTrade) string {
+	return strings.ToLower(string(t.Wallet)) + "/" + strings.ToLower(t.TxHash) + "/" + string(t.TokenID) + "/" + string(t.Side)
 }
 
 func tradeItem(tr followed, t domain.TraderTrade) map[string]any {

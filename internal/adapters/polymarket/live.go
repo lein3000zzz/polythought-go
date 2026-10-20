@@ -100,6 +100,8 @@ func (e *Exchange) signed(k ports.OrderKey, o ports.LiveOrder) (pm.OrderPost, er
 	var amounts pm.Amounts
 
 	switch {
+	case o.Shares.IsNegative() || o.Dollars.IsNegative() || (!o.Shares.IsPositive() && !o.Dollars.IsPositive()):
+		return pm.OrderPost{}, fmt.Errorf("%w: an order of %s shares and $%s", domain.ErrInvalidInput, o.Shares, o.Dollars)
 	case o.Side == domain.SideBuy && o.Dollars.IsPositive():
 		amounts, err = pm.MarketAmounts(side, o.Dollars, o.Price, o.TickSize, true)
 	case o.Side == domain.SideSell:
@@ -263,7 +265,7 @@ var one = decimal.NewFromInt(1)
 
 func fills(t pm.ClobTrade, order string, token domain.TokenID, maker bool) []domain.OrderFill {
 	fill := func(shares, price decimal.Decimal) domain.OrderFill {
-		return domain.OrderFill{Price: price, Shares: shares, Dollars: shares.Mul(price), Fee: decimal.Zero, TradeID: t.ID}
+		return domain.OrderFill{Price: price, Shares: shares, Dollars: shares.Mul(price), Fee: decimal.Zero, TradeID: t.ID, At: t.MatchTime.UTC()}
 	}
 
 	// A maker order in the other outcome matched ours by minting or merging: its price

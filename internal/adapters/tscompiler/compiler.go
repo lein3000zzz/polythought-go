@@ -12,6 +12,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"runtime"
 	"strings"
 	"unicode/utf8"
 
@@ -71,6 +72,7 @@ var _ ports.CodeCompiler = (*Compiler)(nil)
 type Compiler struct {
 	cache       *lru.Cache[string, string] // scripts by the source's hash
 	expressions *lru.Cache[string, string] // JavaScript by the expression
+	slots       chan struct{}              // compiles at once: a slow one cannot take every CPU (R5)
 	kit         *redkit.Kit
 	scope       tracing.Scope
 }
@@ -90,6 +92,7 @@ func New(util *observability.Utility) (*Compiler, error) {
 	return &Compiler{
 		cache:       lru.New[string, string](cacheSize),
 		expressions: lru.New[string, string](expressionCacheSize),
+		slots:       make(chan struct{}, max(2, runtime.NumCPU()/2)),
 		kit:         kit,
 		scope:       tracing.Scope{Manager: util.TracerManager, TracerName: tracerName},
 	}, nil
@@ -132,7 +135,19 @@ func (c *Compiler) compileCached(ctx context.Context, op, source string, workflo
 		span.SetAttributes(attribute.Bool("code.cached", cached), attribute.Bool("code.workflow", workflow))
 
 		if !cached {
-			if script, err = compile(source, workflow); err != nil {
+			if why := tooNested(source, maxArrows); why != "" {
+				return ports.CompiledCode{}, &domain.CodeError{Kind: domain.CodeDidNotCompile, Message: why}
+			}
+
+			release, err := c.slot(ctx)
+			if err != nil {
+				return ports.CompiledCode{}, err
+			}
+
+			script, err = compile(source, workflow)
+			release()
+
+			if err != nil {
 				return ports.CompiledCode{}, err
 			}
 
@@ -183,7 +198,7 @@ func compile(source string, workflow bool) (string, error) {
 
 // CompileExpression turns one TypeScript expression, the inside of {{ }}, into the same
 // expression in JavaScript. Statements and imports are not expressions, and fail.
-func (c *Compiler) CompileExpression(_ context.Context, expr string) (string, error) {
+func (c *Compiler) CompileExpression(ctx context.Context, expr string) (string, error) {
 	if len(expr) > MaxExpression {
 		return "", &domain.CodeError{
 			Kind:    domain.CodeDidNotCompile,
@@ -194,6 +209,16 @@ func (c *Compiler) CompileExpression(_ context.Context, expr string) (string, er
 	if js, ok := c.expressions.Get(expr); ok {
 		return js, nil
 	}
+
+	if why := tooNested(expr, maxExprArrs); why != "" {
+		return "", &domain.CodeError{Kind: domain.CodeDidNotCompile, Message: strings.Replace(why, "the code", "the expression", 1)}
+	}
+
+	release, err := c.slot(ctx)
+	if err != nil {
+		return "", err
+	}
+	defer release()
 
 	// In parentheses, only an expression parses; on lines of their own, a // comment at
 	// the end cannot swallow the closing one.
@@ -230,6 +255,16 @@ func (c *Compiler) CompileExpression(_ context.Context, expr string) (string, er
 	c.expressions.Put(expr, js)
 
 	return js, nil
+}
+
+// slot waits for a compile's turn.
+func (c *Compiler) slot(ctx context.Context) (func(), error) {
+	select {
+	case c.slots <- struct{}{}:
+		return func() { <-c.slots }, nil
+	case <-ctx.Done():
+		return nil, ctx.Err()
+	}
 }
 
 // onlySDK refuses every import but the SDK's, which becomes the global the runtime sets;

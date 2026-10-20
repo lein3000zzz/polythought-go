@@ -263,7 +263,7 @@ func TestTrading(t *testing.T) {
 			LoggedOrder: ports.LoggedOrder{
 				PlacedOrder: domain.PlacedOrder{
 					OrderRequest: domain.OrderRequest{
-						WorkflowID: "wf-9", NodeID: "copy", Mode: domain.ModeLive, TokenID: "t-yes", MarketID: "0xm",
+						WorkflowID: "wf-9", NodeID: "copy", Mode: domain.ModeLive, TokenID: "=t-yes", MarketID: "0xm",
 						Side: domain.SideBuy, Type: domain.OrderGTC, Price: num("0.4"), Shares: num("10"),
 					},
 					ID: "o-3", WalletID: "w-1", ClobID: "0xabc", Status: domain.OrderCanceled, CreatedAt: at,
@@ -282,7 +282,7 @@ func TestTrading(t *testing.T) {
 		w := get("/api/v1/orders?wallet=w-1&status=canceled&limit=2").do(t, srv)
 		assert.Equal(t, http.StatusOK, w.Code, w.Body.String())
 		assert.JSONEq(t, `{"nextCursor":"o-3","orders":[{
-			"id":"o-3","nodeId":"copy","mode":"live","tokenId":"t-yes","marketId":"0xm","side":"buy","type":"GTC",
+			"id":"o-3","nodeId":"copy","mode":"live","tokenId":"=t-yes","marketId":"0xm","side":"buy","type":"GTC",
 			"postOnly":false,"price":"0.4","shares":"10","status":"canceled",
 			"reason":"=cancelled by its owner, 4 of 10 shares filled","at":"2026-10-17T12:00:00Z",
 			"fills":[{"price":"0.4","shares":"4","dollars":"1.6","fee":"0"}],
@@ -300,7 +300,7 @@ func TestTrading(t *testing.T) {
 		assert.Equal(t, `attachment; filename="live-orders.csv"`, w.Header().Get("Content-Disposition"))
 		assert.Equal(t, "at,workflow,workflow_deleted,wallet_id,market,outcome,token_id,side,type,post_only,price,shares,"+
 			"dollars,status,filled_shares,filled_dollars,fees,reason,trader,trader_label,clob_id,order_id\n"+
-			`2026-10-17T12:00:00Z,"Copy, old",true,w-1,Will it?,Yes,t-yes,buy,GTC,false,0.4,10,0,canceled,4,1.6,0,`+
+			`2026-10-17T12:00:00Z,"Copy, old",true,w-1,Will it?,Yes,'=t-yes,buy,GTC,false,0.4,10,0,canceled,4,1.6,0,`+
 			`"'=cancelled by its owner, 4 of 10 shares filled",,,0xabc,o-3`+"\n", w.Body.String(), "a formula is kept text")
 	})
 

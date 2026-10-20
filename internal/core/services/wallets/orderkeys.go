@@ -37,8 +37,8 @@ func (s *Service) OrderKey(ctx context.Context, owner domain.UserID, id domain.W
 		return ports.OrderKey{}, err
 	}
 
-	var key []byte
-
+	// A session key signs only while its row is active and in date; once active, the key
+	// itself is kept as the credentials' signing key (activateSessionKey).
 	if w.HasSessionKey {
 		if s.sessionKeys == nil {
 			return ports.OrderKey{}, domain.ErrWalletCannotTrade
@@ -57,22 +57,41 @@ func (s *Service) OrderKey(ctx context.Context, owner domain.UserID, id domain.W
 			return ports.OrderKey{}, fmt.Errorf("%w: its session key expired on %s", domain.ErrWalletCannotTrade,
 				k.Info.ValidUntil.UTC().Format("2 January 2006"))
 		}
-
-		if key, err = s.box.Open(ctx, k.Key, sessionKeyAAD(w.ID, k.Info.Signer)); err != nil {
-			return ports.OrderKey{}, fmt.Errorf("open session key: %w", err)
-		}
-	} else {
-		c, err := s.repo.Credentials(ctx, w.ID)
-		if err != nil {
-			return ports.OrderKey{}, err
-		}
-
-		if key, err = s.box.Open(ctx, c.PrivateKey, aad(w.ID, "private_key")); err != nil {
-			return ports.OrderKey{}, fmt.Errorf("open private key: %w", err)
-		}
 	}
 
+	c, err := s.repo.Credentials(ctx, w.ID)
+	if err != nil {
+		return ports.OrderKey{}, err
+	}
+
+	key, err := s.box.Open(ctx, c.PrivateKey, aad(w.ID, "private_key"))
+	if err != nil {
+		return ports.OrderKey{}, fmt.Errorf("open signing key: %w", err)
+	}
+	defer clear(key)
+
 	return ports.OrderKey{Wallet: w, Credentials: creds, Key: string(key)}, nil
+}
+
+// AccessKey is the wallet and its API credentials, decrypted for the trading service
+// only, without a signing key: following, cancelling and heartbeats need no more, and
+// go on once the wallet can no longer sign (R8).
+func (s *Service) AccessKey(ctx context.Context, owner domain.UserID, id domain.WalletID) (ports.OrderKey, error) {
+	w, err := s.repo.Get(ctx, owner, id)
+	if err != nil {
+		return ports.OrderKey{}, err
+	}
+
+	if !w.HasCredentials {
+		return ports.OrderKey{}, domain.ErrWalletCannotTrade
+	}
+
+	creds, err := s.Credentials(ctx, owner, id)
+	if err != nil {
+		return ports.OrderKey{}, err
+	}
+
+	return ports.OrderKey{Wallet: w, Credentials: creds}, nil
 }
 
 // release frees a wallet from the workflows trading live from it before it is unlinked

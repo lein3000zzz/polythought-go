@@ -148,11 +148,12 @@ func (e *exchange) setTrade(t ports.LiveTrade) {
 	e.trades[t.ID] = t
 }
 
-// keys gives every wallet a key, unless told it cannot trade; those beating have
-// heartbeats on.
+// keys gives every wallet a key, unless told it cannot trade (err), and its credentials,
+// which outlast a key (R8), unless told otherwise; those beating have heartbeats on.
 type keys struct {
-	err     error
-	beating map[domain.WalletID]bool
+	err       error
+	accessErr error
+	beating   map[domain.WalletID]bool
 }
 
 func (k keys) OrderKey(_ context.Context, owner domain.UserID, w domain.WalletID) (ports.OrderKey, error) {
@@ -161,6 +162,14 @@ func (k keys) OrderKey(_ context.Context, owner domain.UserID, w domain.WalletID
 	}
 
 	return ports.OrderKey{Wallet: domain.Wallet{ID: w, UserID: owner, Heartbeat: k.beating[w]}, Key: "0xkey"}, nil
+}
+
+func (k keys) AccessKey(_ context.Context, owner domain.UserID, w domain.WalletID) (ports.OrderKey, error) {
+	if k.accessErr != nil {
+		return ports.OrderKey{}, k.accessErr
+	}
+
+	return ports.OrderKey{Wallet: domain.Wallet{ID: w, UserID: owner, Heartbeat: k.beating[w]}}, nil
 }
 
 type tradingRepo struct {

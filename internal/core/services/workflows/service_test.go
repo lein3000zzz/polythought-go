@@ -648,6 +648,28 @@ func TestFieldChecks(t *testing.T) {
 		assert.Equal(t, []domain.Problem{field, off}, v.Problems)
 	})
 
+	t.Run("code its owner may not write is never compiled (R5)", func(t *testing.T) {
+		d := deps{
+			repo: portsmocks.NewMockWorkflowRepository(t), executions: portsmocks.NewMockExecutionRepository(t),
+			validator: workflowsmocks.NewMockValidator(t), executor: workflowsmocks.NewMockExecutor(t),
+			supervisor: workflowsmocks.NewMockSupervisor(t),
+		}
+		ec := workflowsmocks.NewMockExpressionChecker(t) // fails the test if asked
+		cc := workflowsmocks.NewMockCodeAccessChecker(t)
+
+		s := workflows.New(d.repo, d.executions, d.validator, d.executor, d.supervisor, logging.Noop(),
+			workflows.WithExpressionChecks(ec), workflows.WithCodeAccess(cc))
+
+		off := domain.Problem{NodeID: "keep", Message: `node "keep": an admin has turned code off for you`, Err: domain.ErrCodeOff}
+
+		d.repo.EXPECT().Count(mock.Anything, mock.Anything).Return(0, 0, nil)
+		d.validator.EXPECT().Validate(mock.Anything, mock.Anything).Return(nil)
+		cc.EXPECT().CheckCodeAccess(mock.Anything, mock.Anything).Return(&domain.ValidationError{Problems: []domain.Problem{off}})
+
+		_, err := s.Create(ctx, alice, def)
+		require.ErrorIs(t, err, domain.ErrCodeOff)
+	})
+
 	t.Run("code access failing to tell is an error of its own, not a problem", func(t *testing.T) {
 		d := deps{
 			repo: portsmocks.NewMockWorkflowRepository(t), executions: portsmocks.NewMockExecutionRepository(t),

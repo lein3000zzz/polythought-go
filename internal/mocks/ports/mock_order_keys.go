@@ -48,6 +48,78 @@ func (_m *MockOrderKeys) EXPECT() *MockOrderKeys_Expecter {
 	return &MockOrderKeys_Expecter{mock: &_m.Mock}
 }
 
+// AccessKey provides a mock function for the type MockOrderKeys
+func (_mock *MockOrderKeys) AccessKey(ctx context.Context, owner domain.UserID, wallet domain.WalletID) (ports.OrderKey, error) {
+	ret := _mock.Called(ctx, owner, wallet)
+
+	if len(ret) == 0 {
+		panic("no return value specified for AccessKey")
+	}
+
+	var r0 ports.OrderKey
+	var r1 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context, domain.UserID, domain.WalletID) (ports.OrderKey, error)); ok {
+		return returnFunc(ctx, owner, wallet)
+	}
+	if returnFunc, ok := ret.Get(0).(func(context.Context, domain.UserID, domain.WalletID) ports.OrderKey); ok {
+		r0 = returnFunc(ctx, owner, wallet)
+	} else {
+		r0 = ret.Get(0).(ports.OrderKey)
+	}
+	if returnFunc, ok := ret.Get(1).(func(context.Context, domain.UserID, domain.WalletID) error); ok {
+		r1 = returnFunc(ctx, owner, wallet)
+	} else {
+		r1 = ret.Error(1)
+	}
+	return r0, r1
+}
+
+// MockOrderKeys_AccessKey_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'AccessKey'
+type MockOrderKeys_AccessKey_Call struct {
+	*mock.Call
+}
+
+// AccessKey is a helper method to define mock.On call
+//   - ctx context.Context
+//   - owner domain.UserID
+//   - wallet domain.WalletID
+func (_e *MockOrderKeys_Expecter) AccessKey(ctx any, owner any, wallet any) *MockOrderKeys_AccessKey_Call {
+	return &MockOrderKeys_AccessKey_Call{Call: _e.mock.On("AccessKey", ctx, owner, wallet)}
+}
+
+func (_c *MockOrderKeys_AccessKey_Call) Run(run func(ctx context.Context, owner domain.UserID, wallet domain.WalletID)) *MockOrderKeys_AccessKey_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		var arg1 domain.UserID
+		if args[1] != nil {
+			arg1 = args[1].(domain.UserID)
+		}
+		var arg2 domain.WalletID
+		if args[2] != nil {
+			arg2 = args[2].(domain.WalletID)
+		}
+		run(
+			arg0,
+			arg1,
+			arg2,
+		)
+	})
+	return _c
+}
+
+func (_c *MockOrderKeys_AccessKey_Call) Return(orderKey ports.OrderKey, err error) *MockOrderKeys_AccessKey_Call {
+	_c.Call.Return(orderKey, err)
+	return _c
+}
+
+func (_c *MockOrderKeys_AccessKey_Call) RunAndReturn(run func(ctx context.Context, owner domain.UserID, wallet domain.WalletID) (ports.OrderKey, error)) *MockOrderKeys_AccessKey_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // OrderKey provides a mock function for the type MockOrderKeys
 func (_mock *MockOrderKeys) OrderKey(ctx context.Context, owner domain.UserID, wallet domain.WalletID) (ports.OrderKey, error) {
 	ret := _mock.Called(ctx, owner, wallet)

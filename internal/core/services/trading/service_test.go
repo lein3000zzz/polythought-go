@@ -1,6 +1,7 @@
 package trading_test
 
 import (
+	"cmp"
 	"context"
 	"slices"
 	"sync"
@@ -102,12 +103,13 @@ func (l *ledger) OwnerSpent(_ context.Context, owner domain.UserID, mode domain.
 	spent := decimal.Zero
 
 	for _, o := range l.orders {
-		if o.OwnerID != owner || o.Mode != mode || o.Side != domain.SideBuy || o.CreatedAt.Before(since) {
+		if o.OwnerID != owner || o.Mode != mode || o.Side != domain.SideBuy {
 			continue
 		}
 
 		for _, f := range o.Fills {
-			if f.Status != domain.FillFailed {
+			at := cmp.Or(f.At, o.CreatedAt) // by when it filled (R6)
+			if f.Status != domain.FillFailed && !at.Before(since) {
 				spent = spent.Add(f.Dollars).Add(f.Fee)
 			}
 		}

@@ -139,8 +139,8 @@ func (s *Service) VerifyEmail(ctx context.Context, token, ip string) (string, er
 }
 
 // ResendVerification mails a new link to an account of email that must still verify. It
-// answers the same whether or not there is one, so it tells nobody which addresses have
-// accounts.
+// answers the same whether or not there is one, and as fast, the account looked up and
+// mailed after the answer: it tells nobody which addresses have accounts (R17).
 func (s *Service) ResendVerification(ctx context.Context, email, ip string) error {
 	if !s.limiter.Allow("verify:ip:" + ip) {
 		return domain.ErrRateLimited
@@ -150,22 +150,25 @@ func (s *Service) ResendVerification(ctx context.Context, email, ip string) erro
 		return domain.ErrMailNotSetUp
 	}
 
-	u, _, err := s.repos.Users.ByEmail(ctx, normalizeEmail(email))
-	if errors.Is(err, domain.ErrNotFound) {
-		return nil
-	}
+	s.background(ctx, func(ctx context.Context) {
+		u, _, err := s.repos.Users.ByEmail(ctx, normalizeEmail(email))
+		if errors.Is(err, domain.ErrNotFound) {
+			return
+		}
 
-	if err != nil {
-		return err
-	}
+		if err != nil {
+			s.log.Warn(ctx, "Verification link not sent again", logging.Err(err))
+			return
+		}
 
-	if !u.EmailVerifiedAt.IsZero() || u.Disabled() {
-		return nil
-	}
+		if !u.EmailVerifiedAt.IsZero() || u.Disabled() {
+			return
+		}
 
-	if err := s.sendVerification(ctx, u); err != nil && !errors.Is(err, domain.ErrRateLimited) {
-		s.log.Warn(ctx, "Verification link not sent again", "user_id", u.ID, logging.Err(err))
-	}
+		if err := s.sendVerification(ctx, u); err != nil && !errors.Is(err, domain.ErrRateLimited) {
+			s.log.Warn(ctx, "Verification link not sent again", "user_id", u.ID, logging.Err(err))
+		}
+	})
 
 	return nil
 }

@@ -556,12 +556,26 @@ func (s *Service) check(ctx context.Context, w domain.Workflow) error {
 		checks = append(checks, func() error { return s.fields.CheckFields(ctx, w) })
 	}
 
-	if s.exprs != nil {
-		checks = append(checks, func() error { return s.exprs.CheckExpressions(ctx, w) })
-	}
+	// Who may write code first: code they may not is never compiled (R5).
+	codeRefused := false
 
 	if s.code != nil {
-		checks = append(checks, func() error { return s.code.CheckCodeAccess(ctx, w) })
+		checks = append(checks, func() error {
+			err := s.code.CheckCodeAccess(ctx, w)
+			codeRefused = err != nil
+
+			return err
+		})
+	}
+
+	if s.exprs != nil {
+		checks = append(checks, func() error {
+			if codeRefused {
+				return nil
+			}
+
+			return s.exprs.CheckExpressions(ctx, w)
+		})
 	}
 
 	for _, check := range checks {

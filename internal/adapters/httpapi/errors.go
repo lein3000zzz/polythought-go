@@ -97,6 +97,7 @@ var errorMapping = []struct {
 	{domain.ErrNotConfirmed, http.StatusBadRequest, "not_confirmed"},
 	{domain.ErrWalletCannotTrade, http.StatusBadRequest, "wallet_cannot_trade"},
 	{domain.ErrHoldsLive, http.StatusConflict, "holds_live"},
+	{domain.ErrOrdersLive, http.StatusConflict, "orders_live"},
 	{domain.ErrNotOpen, http.StatusConflict, "not_open"},
 	{domain.ErrWalletTradesLive, http.StatusConflict, "wallet_trades_live"},
 	{domain.ErrMailNotSetUp, http.StatusConflict, "mail_not_set_up"},

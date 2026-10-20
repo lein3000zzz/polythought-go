@@ -103,6 +103,14 @@ func TestCancelledOnTheirOwn(t *testing.T) {
 		assert.Equal(t, domain.OrderCanceled, got.Status)
 	})
 
+	t.Run("its wallet stays while its live orders rest from it (R7)", func(t *testing.T) {
+		l, _ := resting(t)
+
+		_, err := l.svc.SetSetup(ctx, owner, "wf", trading.SetupChange{Mode: domain.ModeLive, WalletID: "w-2", Confirmed: true})
+		require.ErrorIs(t, err, domain.ErrOrdersLive)
+		assert.Equal(t, domain.WalletID("w-1"), l.repo.m["wf"].WalletID)
+	})
+
 	t.Run("those Polymarket would not cancel are counted", func(t *testing.T) {
 		l, _ := resting(t)
 		l.exchange.cancel = ports.LiveCancel{Reason: "Polymarket did not say"}

@@ -362,6 +362,11 @@ func TestLiveSafety(t *testing.T) {
 		open := order(two, domain.ModeLive, domain.SideBuy, domain.OrderOpen, at)
 		pending := order(one, domain.ModeLive, domain.SideBuy, domain.OrderPending, at)
 
+		// It rested for hours, and filled lately: it counts by when it filled (R6).
+		lately := fill(domain.FillConfirmed)
+		lately.At = at.Add(-time.Minute)
+		rested := order(two, domain.ModeLive, domain.SideBuy, domain.OrderFilled, at.Add(-3*time.Hour), lately)
+
 		for _, o := range []domain.PlacedOrder{
 			order(one, domain.ModeLive, domain.SideBuy, domain.OrderFilled, at, fill(domain.FillConfirmed)),                   // counts
 			order(two, domain.ModeLive, domain.SideBuy, domain.OrderFilled, at, fill(domain.FillMatched)),                     // counts
@@ -371,14 +376,18 @@ func TestLiveSafety(t *testing.T) {
 			order(one, domain.ModePaper, domain.SideBuy, domain.OrderFilled, at, domain.OrderFill{Price: num("0.5"), Shares: num("10"), Dollars: num("5"), Fee: num("0")}),
 			order(bobs, domain.ModeLive, domain.SideBuy, domain.OrderFilled, at, fill(domain.FillConfirmed)), // bob's
 			order(bobs, domain.ModeLive, domain.SideBuy, domain.OrderOpen, at),
-			open, pending,
+			open, pending, rested,
 		} {
 			require.NoError(t, ledger.Record(ctx, o, nil))
 		}
 
 		spent, err := ledger.OwnerSpent(ctx, alice.ID, domain.ModeLive, at.Add(-time.Hour))
 		require.NoError(t, err)
-		assert.Equal(t, "10.2", spent.String(), "two buys of $5, with $0.10 in fees each")
+		assert.Equal(t, "15.3", spent.String(), "three buys of $5, with $0.10 in fees each, one by its fill's time")
+
+		got, err := ledger.Order(ctx, rested.ID)
+		require.NoError(t, err)
+		assert.Equal(t, lately.At, got.Fills[0].At, "a fill keeps its time")
 
 		unsettled, err := ledger.OwnerUnsettled(ctx, alice.ID, domain.ModeLive)
 		require.NoError(t, err)

@@ -57,17 +57,17 @@ func TestOrderKey(t *testing.T) {
 		assert.Equal(t, w, k.Wallet)
 	})
 
-	t.Run("the active session key", func(t *testing.T) {
+	t.Run("the active session key, kept as the credentials' key once active (R15)", func(t *testing.T) {
 		svc, m, c := sessionService(t, true)
 		w := domain.Wallet{ID: "w-1", UserID: owner, Address: walletAddr, HasCredentials: true, HasSessionKey: true}
 		info := domain.CredentialsInfo{WalletID: w.ID, Signer: keySigner, SignatureType: domain.SignatureDepositWallet, SessionKey: true}
+		// As the schema has it: an active row holds no key of its own.
 		active := ports.SealedSessionKey{
 			Info: domain.SessionKey{WalletID: w.ID, Signer: keySigner, State: domain.SessionKeyActive, ValidUntil: now.Add(24 * time.Hour)},
-			Key:  sealed("session-keys/"+string(w.ID)+"/"+string(keySigner), sessionKey),
 		}
 
 		m.repo.EXPECT().Get(mock.Anything, owner, w.ID).Return(w, nil)
-		m.repo.EXPECT().Credentials(mock.Anything, w.ID).Return(sealedCredentials(w.ID, info, ""), nil)
+		m.repo.EXPECT().Credentials(mock.Anything, w.ID).Return(sealedCredentials(w.ID, info, sessionKey), nil)
 		m.store.EXPECT().SessionKeys(mock.Anything, w.ID).Return([]ports.SealedSessionKey{active}, nil)
 
 		k, err := svc.OrderKey(ctx, owner, w.ID)
@@ -100,6 +100,39 @@ func TestOrderKey(t *testing.T) {
 
 		_, err := svc.OrderKey(ctx, owner, "w-2")
 		require.ErrorIs(t, err, domain.ErrNotFound)
+
+		repo.EXPECT().Get(mock.Anything, owner, domain.WalletID("w-2")).Return(domain.Wallet{}, domain.ErrNotFound)
+
+		_, err = svc.AccessKey(ctx, owner, "w-2")
+		require.ErrorIs(t, err, domain.ErrNotFound)
+	})
+}
+
+func TestAccessKey(t *testing.T) {
+	ctx := context.Background()
+	owner := domain.UserID("u-1")
+
+	t.Run("credentials only, whether it can sign or not (R8)", func(t *testing.T) {
+		svc, repo, _ := keyService(t, false)
+		w := domain.Wallet{ID: "w-1", UserID: owner, Address: walletAddr, HasCredentials: true, HasSessionKey: true}
+		info := domain.CredentialsInfo{WalletID: w.ID, Signer: keySigner, SignatureType: domain.SignatureDepositWallet, SessionKey: true}
+
+		repo.EXPECT().Get(mock.Anything, owner, w.ID).Return(w, nil)
+		repo.EXPECT().Credentials(mock.Anything, w.ID).Return(sealedCredentials(w.ID, info, sessionKey), nil)
+
+		k, err := svc.AccessKey(ctx, owner, w.ID)
+		require.NoError(t, err)
+		assert.Empty(t, k.Key, "no signing key")
+		assert.Equal(t, apiKey, k.Credentials.APIKey)
+		assert.Equal(t, secret, k.Credentials.Secret)
+	})
+
+	t.Run("no credentials, no access", func(t *testing.T) {
+		svc, repo, _ := keyService(t, false)
+		repo.EXPECT().Get(mock.Anything, owner, domain.WalletID("w-1")).Return(domain.Wallet{ID: "w-1", UserID: owner}, nil)
+
+		_, err := svc.AccessKey(ctx, owner, "w-1")
+		require.ErrorIs(t, err, domain.ErrWalletCannotTrade)
 	})
 }
 

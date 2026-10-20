@@ -17,14 +17,15 @@ type orderFillsTable struct {
 	postgres.Table
 
 	// Columns
-	OrderID postgres.ColumnString
-	Seq     postgres.ColumnInteger
-	Price   postgres.ColumnFloat
-	Shares  postgres.ColumnFloat
-	Dollars postgres.ColumnFloat
-	Fee     postgres.ColumnFloat
-	TradeID postgres.ColumnString
-	Status  postgres.ColumnString
+	OrderID  postgres.ColumnString
+	Seq      postgres.ColumnInteger
+	Price    postgres.ColumnFloat
+	Shares   postgres.ColumnFloat
+	Dollars  postgres.ColumnFloat
+	Fee      postgres.ColumnFloat
+	TradeID  postgres.ColumnString
+	Status   postgres.ColumnString
+	FilledAt postgres.ColumnTimestampz
 
 	AllColumns     postgres.ColumnList
 	MutableColumns postgres.ColumnList
@@ -74,8 +75,9 @@ func newOrderFillsTableImpl(schemaName, tableName, alias string) orderFillsTable
 		FeeColumn      = postgres.FloatColumn("fee")
 		TradeIDColumn  = postgres.StringColumn("trade_id")
 		StatusColumn   = postgres.StringColumn("status")
-		allColumns     = postgres.ColumnList{OrderIDColumn, SeqColumn, PriceColumn, SharesColumn, DollarsColumn, FeeColumn, TradeIDColumn, StatusColumn}
-		mutableColumns = postgres.ColumnList{PriceColumn, SharesColumn, DollarsColumn, FeeColumn, TradeIDColumn, StatusColumn}
+		FilledAtColumn = postgres.TimestampzColumn("filled_at")
+		allColumns     = postgres.ColumnList{OrderIDColumn, SeqColumn, PriceColumn, SharesColumn, DollarsColumn, FeeColumn, TradeIDColumn, StatusColumn, FilledAtColumn}
+		mutableColumns = postgres.ColumnList{PriceColumn, SharesColumn, DollarsColumn, FeeColumn, TradeIDColumn, StatusColumn, FilledAtColumn}
 		defaultColumns = postgres.ColumnList{TradeIDColumn, StatusColumn}
 	)
 
@@ -83,14 +85,15 @@ func newOrderFillsTableImpl(schemaName, tableName, alias string) orderFillsTable
 		Table: postgres.NewTable(schemaName, tableName, alias, allColumns...),
 
 		//Columns
-		OrderID: OrderIDColumn,
-		Seq:     SeqColumn,
-		Price:   PriceColumn,
-		Shares:  SharesColumn,
-		Dollars: DollarsColumn,
-		Fee:     FeeColumn,
-		TradeID: TradeIDColumn,
-		Status:  StatusColumn,
+		OrderID:  OrderIDColumn,
+		Seq:      SeqColumn,
+		Price:    PriceColumn,
+		Shares:   SharesColumn,
+		Dollars:  DollarsColumn,
+		Fee:      FeeColumn,
+		TradeID:  TradeIDColumn,
+		Status:   StatusColumn,
+		FilledAt: FilledAtColumn,
 
 		AllColumns:     allColumns,
 		MutableColumns: mutableColumns,

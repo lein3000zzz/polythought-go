@@ -1,0 +1,5 @@
+# pnpm settings for the docs.
+
+# postcss-selector-parser before 7.1.6 can take quadratic time on flat selectors (R24).
+overrides:
+  postcss-selector-parser: ^7.1.6

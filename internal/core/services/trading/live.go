@@ -404,9 +404,9 @@ func (s *Service) follow(ctx context.Context, o domain.PlacedOrder) error {
 		o = now
 	}
 
-	k, err := s.d.Keys.OrderKey(ctx, o.OwnerID, o.WalletID)
+	k, err := s.d.Keys.AccessKey(ctx, o.OwnerID, o.WalletID)
 	if err != nil {
-		return fmt.Errorf("its wallet's key: %w", err)
+		return fmt.Errorf("its wallet's credentials: %w", err)
 	}
 
 	rules, err := s.d.Rules.TradingRules(ctx, o.MarketID)

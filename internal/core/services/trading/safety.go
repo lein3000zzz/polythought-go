@@ -265,7 +265,7 @@ func (s *Service) admit(ctx context.Context, o domain.PlacedOrder) (release func
 	}
 
 	caps := u.LiveCaps.Over(instance)
-	value := o.Dollars.Add(o.Shares.Mul(o.Price))
+	value := spends(o)
 
 	if limit, ok := capOf(caps.PerOrder); ok && value.GreaterThan(limit) {
 		return release, fmt.Sprintf("$%s is over the $%s a live order may spend: an admin's cap", value.StringFixed(2), limit), nil
@@ -303,6 +303,16 @@ func (s *Service) admit(ctx context.Context, o domain.PlacedOrder) (release func
 			e.mu.Unlock()
 		})
 	}, "", nil
+}
+
+// spends is the most a buy may spend, as it is sent: its dollars, or its shares at its
+// limit.
+func spends(o domain.PlacedOrder) decimal.Decimal {
+	if o.Dollars.IsPositive() {
+		return o.Dollars
+	}
+
+	return o.Shares.Mul(o.Price)
 }
 
 // capOf is a cap in dollars, if there is one.

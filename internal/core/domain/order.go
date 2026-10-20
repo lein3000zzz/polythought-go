@@ -135,6 +135,10 @@ type OrderFill struct {
 	// A live fill's trade on the CLOB, and how far it has come.
 	TradeID string
 	Status  FillStatus
+
+	// At is when it filled: a live trade's match time, or when a paper order filled.
+	// Zero for fills recorded before 3r: their order's time stands for it.
+	At time.Time
 }
 
 // Totals sums an order's fills, but those whose trades failed.
@@ -235,6 +239,9 @@ var (
 	// ErrHoldsLive means a workflow's wallet cannot change while it holds live shares
 	// (D202).
 	ErrHoldsLive = errors.New("the workflow holds live shares: its wallet changes once they are sold or settled")
+	// ErrOrdersLive means a workflow's wallet cannot change while its live orders rest on
+	// the book or are pending from it (R7).
+	ErrOrdersLive = errors.New("the workflow has live orders resting or pending from its wallet: its wallet changes once they are done or cancelled")
 	// ErrNotOpen means an order is not resting on the book: there is nothing to cancel.
 	ErrNotOpen = errors.New("the order is not resting on the book")
 	// ErrWalletTradesLive means a wallet cannot be unlinked while a workflow trades live

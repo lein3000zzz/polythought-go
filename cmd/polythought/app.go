@@ -265,6 +265,7 @@ func (a *app) init(ctx context.Context) error {
 		a.util.Logger,
 		auth.WithWorkflowStopper(a.workflows),
 		auth.WithLiveStopper(laterTrading{a}),
+		auth.WithAccountLimiter(ratelimit.NewMemory(6*time.Second, 50)), // per address, from every IP
 		auth.WithLiveConfig(func() auth.Config { return authConfig(a.settings.Current()) }),
 		auth.WithAccountMail(a.mail),
 	)
@@ -486,7 +487,7 @@ func (w workflowCode) Build(ctx context.Context, p auth.Principal, source string
 		return domain.Workflow{}, domain.ErrCodeOff
 	}
 
-	return w.code.Workflow(ctx, source)
+	return w.code.Workflow(ports.WithCodeOwner(ctx, p.User.ID), source)
 }
 
 // codeLimits are the most one run of user code may use.

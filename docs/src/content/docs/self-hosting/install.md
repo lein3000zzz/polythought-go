@@ -45,7 +45,8 @@ The Compose file in `deployments/` suits a single machine. Before others use it:
 
 - **Address.** Set `POLYTHOUGHT_PUBLIC_URL` in `deployments/docker-compose.yml` to the address
   people use, such as `https://polythought.example.com`. Only that origin may make changes
-  with a signed-in session, and an `https` address makes the session cookie secure.
+  with a signed-in session, and an `https` address makes the session cookie secure, named
+  `__Host-polythought_session` so no other site of the domain can set it.
 - **HTTPS.** Put a proxy that handles TLS in front of the `web` container, or give Caddy your
   domain in `web/Caddyfile` instead of `:80` and let it get certificates itself.
 - **Database password.** Change `POSTGRES_PASSWORD` and the password in
@@ -226,7 +227,7 @@ together with your keys.
 
 | Command | What it does |
 |---|---|
-| `make db-up` | Starts PostgreSQL alone on port 5432. |
+| `make db-up` | Starts PostgreSQL alone on port 5432, reachable from this machine only. |
 | `make run` | Runs the API on port 8080 with the settings in `.env`. |
 | `make web-dev` | Runs the app on port 5173, with live reload. |
 | `make docs-dev` | Runs these docs on port 4321, at `/docs`. |

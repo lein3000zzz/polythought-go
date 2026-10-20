@@ -69,18 +69,20 @@ func (d deps) allow(ok bool) {
 	d.limiter.EXPECT().Allow(mock.Anything).Return(ok).Maybe()
 }
 
-func newService(t *testing.T, d deps, cfg auth.Config) *auth.Service {
+func newService(t *testing.T, d deps, cfg auth.Config, extra ...auth.Option) *auth.Service {
 	t.Helper()
 
 	d.hasher.EXPECT().Hash("polythought-dummy-password").Return(dummyHash, nil).Once()
 
 	s, err := auth.New(cfg, auth.Repositories{
 		Users: d.users, Sessions: d.sessions, Tokens: d.tokens, Invites: d.invites, EmailTokens: d.links, Tx: d.tx,
-	}, d.hasher, d.limiter, logging.Noop(),
+	}, d.hasher, d.limiter, logging.Noop(), append([]auth.Option{
 		auth.WithClock(func() time.Time { return now }),
+		auth.WithLater(func(f func()) { f() }), // what comes after an answer, at once
 		auth.WithWorkflowStopper(d.workflows),
 		auth.WithLiveStopper(d.live),
 		auth.WithAccountMail(d.mail),
+	}, extra...)...,
 	)
 	require.NoError(t, err)
 

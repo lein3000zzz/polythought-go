@@ -478,7 +478,7 @@ func (s *Server) getTradingSetup(ctx context.Context, c *app.RequestContext) {
 //	@Failure	401		{object}	errorBody	"unauthenticated"
 //	@Failure	403		{object}	errorBody	"live_trading_off"
 //	@Failure	404		{object}	errorBody	"not_found: the workflow, or the wallet"
-//	@Failure	409		{object}	errorBody	"holds_live: its wallet stays while it holds live shares"
+//	@Failure	409		{object}	errorBody	"holds_live: its wallet stays while it holds live shares; orders_live: or while its live orders rest or are pending"
 //	@Security	SessionCookie
 //	@Security	APIToken
 //	@Router		/workflows/{id}/trading/setup [put]
@@ -741,11 +741,13 @@ func (s *Server) exportLiveOrders(ctx context.Context, c *app.RequestContext) {
 
 	for _, e := range orders {
 		shares, dollars, fees := e.Totals()
+		// Every text a spreadsheet could take for a formula, kept text: a token ID, say,
+		// can be anything an item held (R14).
 		_ = w.Write([]string{
-			e.CreatedAt.UTC().Format(time.RFC3339), cell(e.Workflow), strconv.FormatBool(e.Deleted), string(e.WalletID),
-			cell(e.Question), cell(e.Outcome), string(e.TokenID), string(e.Side), string(e.Type), strconv.FormatBool(e.PostOnly),
+			e.CreatedAt.UTC().Format(time.RFC3339), cell(e.Workflow), strconv.FormatBool(e.Deleted), cell(string(e.WalletID)),
+			cell(e.Question), cell(e.Outcome), cell(string(e.TokenID)), string(e.Side), string(e.Type), strconv.FormatBool(e.PostOnly),
 			e.Price.String(), e.Shares.String(), e.Dollars.String(), string(e.Status), shares.String(), dollars.String(),
-			fees.String(), cell(e.Reason), string(e.Trader), cell(e.TraderLabel), e.ClobID, string(e.ID),
+			fees.String(), cell(e.Reason), cell(string(e.Trader)), cell(e.TraderLabel), cell(e.ClobID), cell(string(e.ID)),
 		})
 	}
 

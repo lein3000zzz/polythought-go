@@ -343,6 +343,13 @@ func TestStatusAndReconfiguring(t *testing.T) {
 	b.Configure(telegram.Config{Enabled: true, Token: token, Mode: telegram.ModeWebhook, PublicURL: "http://localhost:3000"})
 	status = waitStatus(t, b, func(s ports.TelegramStatus) bool { return strings.Contains(s.Error, "https") })
 	assert.Equal(t, "webhook mode needs an https public URL; use polling", status.Error)
+
+	// A token the URL cannot hold is never quoted in the error (R11).
+	broken := "123456:SECRET\r"
+	b.Configure(telegram.Config{Enabled: true, Token: broken, Mode: telegram.ModePolling})
+	status = waitStatus(t, b, func(s ports.TelegramStatus) bool { return strings.Contains(s.Error, "reaching Telegram") })
+	assert.NotContains(t, status.Error, "SECRET")
+	assert.Contains(t, status.Error, "<bot token>")
 }
 
 func TestWebhook(t *testing.T) {

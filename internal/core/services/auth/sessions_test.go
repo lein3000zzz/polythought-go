@@ -2,6 +2,7 @@ package auth_test
 
 import (
 	"context"
+	"strings"
 	"testing"
 	"time"
 
@@ -11,6 +12,7 @@ import (
 
 	"github.com/lein3000zzz/polythought-go/internal/core/domain"
 	"github.com/lein3000zzz/polythought-go/internal/core/services/auth"
+	portsmocks "github.com/lein3000zzz/polythought-go/internal/mocks/ports"
 )
 
 func TestLogin(t *testing.T) {
@@ -139,13 +141,48 @@ func TestLogin(t *testing.T) {
 	}
 }
 
-func TestLoginChargesIPAndEmail(t *testing.T) {
-	d := newDeps(t)
-	d.limiter.EXPECT().Allow("login:ip:1.2.3.4").Return(true).Once()
-	d.limiter.EXPECT().Allow("login:email:bob@example.com").Return(false).Once()
+func TestLoginLimits(t *testing.T) {
+	ctx := context.Background()
+	login := auth.LoginInput{Email: "Bob@Example.com", Password: "pw", IP: "1.2.3.4"}
 
-	_, err := newService(t, d, config(domain.RegistrationOpen)).Login(context.Background(), auth.LoginInput{Email: "Bob@Example.com", IP: "1.2.3.4"})
-	require.ErrorIs(t, err, domain.ErrRateLimited)
+	t.Run("an IP stopped charges nothing else (R4)", func(t *testing.T) {
+		d := newDeps(t) // the mock fails the test on any other key
+		d.limiter.EXPECT().Allow("login:ip:1.2.3.4").Return(false).Once()
+
+		_, err := newService(t, d, config(domain.RegistrationOpen)).Login(ctx, login)
+		require.ErrorIs(t, err, domain.ErrRateLimited)
+	})
+
+	t.Run("an address longer than any account's is refused before it is charged (R4)", func(t *testing.T) {
+		d := newDeps(t)
+		d.limiter.EXPECT().Allow("login:ip:1.2.3.4").Return(true).Once()
+
+		long := login
+		long.Email = strings.Repeat("a", 300) + "@example.com"
+
+		_, err := newService(t, d, config(domain.RegistrationOpen)).Login(ctx, long)
+		require.ErrorIs(t, err, domain.ErrInvalidCredentials)
+	})
+
+	t.Run("few guesses at an address from one IP", func(t *testing.T) {
+		d := newDeps(t)
+		d.limiter.EXPECT().Allow("login:ip:1.2.3.4").Return(true).Once()
+		d.limiter.EXPECT().Allow("login:ip-email:1.2.3.4 bob@example.com").Return(false).Once()
+
+		_, err := newService(t, d, config(domain.RegistrationOpen)).Login(ctx, login)
+		require.ErrorIs(t, err, domain.ErrRateLimited)
+	})
+
+	t.Run("and more from all IPs together, with a limiter of its own (R9)", func(t *testing.T) {
+		d := newDeps(t)
+		d.limiter.EXPECT().Allow(mock.Anything).Return(true).Twice()
+
+		accounts := portsmocks.NewMockRateLimiter(t)
+		accounts.EXPECT().Allow("login:email:bob@example.com").Return(false).Once()
+
+		_, err := newService(t, d, config(domain.RegistrationOpen), auth.WithAccountLimiter(accounts)).Login(ctx, login)
+		require.ErrorIs(t, err, domain.ErrRateLimited)
+	})
 }
 
 func TestAuthenticateSession(t *testing.T) {

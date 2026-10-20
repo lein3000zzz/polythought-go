@@ -1,6 +1,6 @@
 GO            ?= go
 GOLANGCI_LINT ?= $(GO) run github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.14.0
-MOCKERY       ?= $(GO) run github.com/vektra/mockery/v3@v3.8.0 --config tools/mockery/.mockery.yml
+MOCKERY       ?= $(GO) run github.com/vektra/mockery/v3@v3.8.1 --config tools/mockery/.mockery.yml
 SWAG          ?= $(GO) run github.com/swaggo/swag/v2/cmd/swag@v2.0.0-rc6
 # The pnpm version is pinned in web/package.json; corepack (bundled with Node) fetches it.
 PNPM          ?= COREPACK_ENABLE_DOWNLOAD_PROMPT=0 corepack pnpm

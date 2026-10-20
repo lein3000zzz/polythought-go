@@ -44,6 +44,21 @@ func TestRequestPasswordReset(t *testing.T) {
 		require.NoError(t, request(t, d))
 	})
 
+	t.Run("answered before the account is looked up, so as fast for any address (R17)", func(t *testing.T) {
+		d := newDeps(t) // the mocks fail the test on a lookup or a mail now
+		d.allow(true)
+		d.mail.EXPECT().SetUp().Return(true)
+
+		var after func()
+		svc := newService(t, d, config(domain.RegistrationOpen), auth.WithLater(func(f func()) { after = f }))
+
+		require.NoError(t, svc.RequestPasswordReset(context.Background(), "bob@example.com", "1.2.3.4"))
+		require.NotNil(t, after, "the rest comes after")
+
+		d.users.EXPECT().ByEmail(mock.Anything, "bob@example.com").Return(domain.User{}, "", domain.ErrNotFound).Once()
+		after()
+	})
+
 	t.Run("the same answer for no account, a disabled one, or too many", func(t *testing.T) {
 		for _, setup := range []func(d deps){
 			func(d deps) {

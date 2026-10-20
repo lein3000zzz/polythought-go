@@ -20,6 +20,7 @@ import (
 	"net/netip"
 	"net/textproto"
 	"net/url"
+	"slices"
 	"syscall"
 	"time"
 
@@ -27,7 +28,6 @@ import (
 	"github.com/lein3000zzz/the-watchers/pkg/observability/logging"
 	"github.com/lein3000zzz/the-watchers/pkg/observability/metrics/redkit"
 	"github.com/lein3000zzz/the-watchers/pkg/observability/tracing"
-	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/trace"
 
@@ -118,24 +118,11 @@ func New(util *observability.Utility, cfg Config) (*Sender, error) {
 
 	return &Sender{
 		client: &http.Client{
-			Timeout:   timeout,
-			Transport: otelhttp.NewTransport(transport),
-			CheckRedirect: func(req *http.Request, via []*http.Request) error {
-				if len(via) >= maxRedirects {
-					return fmt.Errorf("more than %d redirects", maxRedirects)
-				}
-
-				// Go drops Authorization and cookies on a redirect to another host, but
-				// not headers like X-Api-Key.
-				if req.URL.Host != via[0].URL.Host {
-					names, _ := req.Context().Value(extraHeadersKey{}).([]string)
-					for _, name := range names {
-						req.Header.Del(name)
-					}
-				}
-
-				return nil
-			},
+			Timeout: timeout,
+			// No otelhttp: its spans hold the whole URL, and a webhook's often has its
+			// token in the path (R19). The kit times each send.
+			Transport:     transport,
+			CheckRedirect: redirected,
 		},
 		kit:   kit,
 		scope: tracing.Scope{Manager: util.TracerManager, TracerName: tracerName},
@@ -235,10 +222,42 @@ func refuseInternal(_, address string, _ syscall.RawConn) error {
 	return nil
 }
 
+// redirected follows a redirect, at most maxRedirects of them, leaving the extra headers
+// behind once it leaves the first URL's host or scheme: Go drops Authorization and cookies
+// on another host, but not headers like X-Api-Key, nor any on one from https to http
+// (R20).
+func redirected(req *http.Request, via []*http.Request) error {
+	if len(via) >= maxRedirects {
+		return fmt.Errorf("more than %d redirects", maxRedirects)
+	}
+
+	if req.URL.Host != via[0].URL.Host || req.URL.Scheme != via[0].URL.Scheme {
+		names, _ := req.Context().Value(extraHeadersKey{}).([]string)
+		for _, name := range names {
+			req.Header.Del(name)
+		}
+	}
+
+	return nil
+}
+
 func public(addr netip.Addr) bool {
 	addr = addr.Unmap()
 
 	thisNetwork := addr.Is4() && addr.As4()[0] == 0 // 0.0.0.0/8
 
-	return addr.IsGlobalUnicast() && !addr.IsPrivate() && !carrierGradeNAT.Contains(addr) && !thisNetwork
+	return addr.IsGlobalUnicast() && !addr.IsPrivate() && !carrierGradeNAT.Contains(addr) && !thisNetwork &&
+		!slices.ContainsFunc(reserved, func(p netip.Prefix) bool { return p.Contains(addr) })
+}
+
+// reserved are the ranges netip counts as global that are not, or that carry an IPv4
+// address inside an IPv6 one, which a gateway may reach inside the network (R13).
+var reserved = []netip.Prefix{
+	netip.MustParsePrefix("64:ff9b::/96"),   // NAT64
+	netip.MustParsePrefix("64:ff9b:1::/48"), // NAT64, local
+	netip.MustParsePrefix("2002::/16"),      // 6to4
+	netip.MustParsePrefix("2001::/32"),      // Teredo
+	netip.MustParsePrefix("192.0.0.0/24"),   // IETF protocol assignments
+	netip.MustParsePrefix("198.18.0.0/15"),  // benchmarking
+	netip.MustParsePrefix("240.0.0.0/4"),    // reserved, and broadcast
 }
