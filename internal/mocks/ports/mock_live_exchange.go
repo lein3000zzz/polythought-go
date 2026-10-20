@@ -409,6 +409,86 @@ func (_c *MockLiveExchange_Place_Call) RunAndReturn(run func(ctx context.Context
 	return _c
 }
 
+// PlaceBatch provides a mock function for the type MockLiveExchange
+func (_mock *MockLiveExchange) PlaceBatch(ctx context.Context, k ports.OrderKey, os []ports.LiveOrder, signed func(i int, id string) error) ([]ports.LivePlacement, error) {
+	ret := _mock.Called(ctx, k, os, signed)
+
+	if len(ret) == 0 {
+		panic("no return value specified for PlaceBatch")
+	}
+
+	var r0 []ports.LivePlacement
+	var r1 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context, ports.OrderKey, []ports.LiveOrder, func(i int, id string) error) ([]ports.LivePlacement, error)); ok {
+		return returnFunc(ctx, k, os, signed)
+	}
+	if returnFunc, ok := ret.Get(0).(func(context.Context, ports.OrderKey, []ports.LiveOrder, func(i int, id string) error) []ports.LivePlacement); ok {
+		r0 = returnFunc(ctx, k, os, signed)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).([]ports.LivePlacement)
+		}
+	}
+	if returnFunc, ok := ret.Get(1).(func(context.Context, ports.OrderKey, []ports.LiveOrder, func(i int, id string) error) error); ok {
+		r1 = returnFunc(ctx, k, os, signed)
+	} else {
+		r1 = ret.Error(1)
+	}
+	return r0, r1
+}
+
+// MockLiveExchange_PlaceBatch_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'PlaceBatch'
+type MockLiveExchange_PlaceBatch_Call struct {
+	*mock.Call
+}
+
+// PlaceBatch is a helper method to define mock.On call
+//   - ctx context.Context
+//   - k ports.OrderKey
+//   - os []ports.LiveOrder
+//   - signed func(i int, id string) error
+func (_e *MockLiveExchange_Expecter) PlaceBatch(ctx any, k any, os any, signed any) *MockLiveExchange_PlaceBatch_Call {
+	return &MockLiveExchange_PlaceBatch_Call{Call: _e.mock.On("PlaceBatch", ctx, k, os, signed)}
+}
+
+func (_c *MockLiveExchange_PlaceBatch_Call) Run(run func(ctx context.Context, k ports.OrderKey, os []ports.LiveOrder, signed func(i int, id string) error)) *MockLiveExchange_PlaceBatch_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		var arg1 ports.OrderKey
+		if args[1] != nil {
+			arg1 = args[1].(ports.OrderKey)
+		}
+		var arg2 []ports.LiveOrder
+		if args[2] != nil {
+			arg2 = args[2].([]ports.LiveOrder)
+		}
+		var arg3 func(i int, id string) error
+		if args[3] != nil {
+			arg3 = args[3].(func(i int, id string) error)
+		}
+		run(
+			arg0,
+			arg1,
+			arg2,
+			arg3,
+		)
+	})
+	return _c
+}
+
+func (_c *MockLiveExchange_PlaceBatch_Call) Return(livePlacements []ports.LivePlacement, err error) *MockLiveExchange_PlaceBatch_Call {
+	_c.Call.Return(livePlacements, err)
+	return _c
+}
+
+func (_c *MockLiveExchange_PlaceBatch_Call) RunAndReturn(run func(ctx context.Context, k ports.OrderKey, os []ports.LiveOrder, signed func(i int, id string) error) ([]ports.LivePlacement, error)) *MockLiveExchange_PlaceBatch_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // Trades provides a mock function for the type MockLiveExchange
 func (_mock *MockLiveExchange) Trades(ctx context.Context, k ports.OrderKey, order string, token domain.TokenID, ids []string) ([]ports.LiveTrade, error) {
 	ret := _mock.Called(ctx, k, order, token, ids)

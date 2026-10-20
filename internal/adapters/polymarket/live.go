@@ -1,6 +1,7 @@
 package polymarket
 
 import (
+	"cmp"
 	"context"
 	"errors"
 	"fmt"
@@ -54,6 +55,64 @@ func (e *Exchange) Place(ctx context.Context, k ports.OrderKey, o ports.LiveOrde
 
 	posted, err := e.clob.PostOrder(ctx, toL2(k.Credentials), post)
 
+	return placement(id, posted, err)
+}
+
+// PlaceBatch signs the orders and sends them MaxBatchOrders to a request (D244).
+func (e *Exchange) PlaceBatch(ctx context.Context, k ports.OrderKey, os []ports.LiveOrder, signed func(i int, id string) error) ([]ports.LivePlacement, error) {
+	posts := make([]pm.OrderPost, len(os))
+	ids := make([]string, len(os))
+
+	for i, o := range os {
+		post, err := e.signed(k, o)
+		if err != nil {
+			return nil, err
+		}
+
+		if ids[i], err = post.ID(); err != nil {
+			return nil, err
+		}
+
+		posts[i] = post
+	}
+
+	if signed != nil {
+		for i, id := range ids {
+			if err := signed(i, id); err != nil {
+				return nil, err
+			}
+		}
+	}
+
+	out := make([]ports.LivePlacement, len(os))
+
+	for start := 0; start < len(posts); start += pm.MaxBatchOrders {
+		end := min(start+pm.MaxBatchOrders, len(posts))
+
+		results, err := e.clob.PostOrders(ctx, toL2(k.Credentials), posts[start:end])
+		if err != nil {
+			results = make([]pm.PostResult, end-start)
+			for i := range results {
+				results[i].Err = err // the whole request: each order the same
+			}
+		}
+
+		for i, r := range results {
+			p, err := placement(ids[start+i], r.Order, r.Err)
+			if err != nil {
+				p = ports.LivePlacement{ID: ids[start+i], State: ports.LiveRefused, Reason: "it could not be sent to Polymarket: " + err.Error()}
+			}
+
+			out[start+i] = p
+		}
+	}
+
+	return out, nil
+}
+
+// placement is how an order's send went, as the CLOB answered: placed, refused, a FAK or
+// FOK it could not fill, or unknown. The error is for an order not sent at all.
+func placement(id string, posted pm.PostedOrder, err error) (ports.LivePlacement, error) {
 	var (
 		refused   *pm.OrderRefusedError
 		uncertain *pm.OrderUncertainError
@@ -73,7 +132,7 @@ func (e *Exchange) Place(ctx context.Context, k ports.OrderKey, o ports.LiveOrde
 		return ports.LivePlacement{}, fmt.Errorf("%w: %w", domain.ErrUnavailable, err)
 	}
 
-	return ports.LivePlacement{ID: posted.ID, State: postState(posted.Status), TradeIDs: posted.TradeIDs}, nil
+	return ports.LivePlacement{ID: cmp.Or(posted.ID, id), State: postState(posted.Status), TradeIDs: posted.TradeIDs}, nil
 }
 
 // signed is o as the wallet's order, signed with its key: made by the wallet, signed by

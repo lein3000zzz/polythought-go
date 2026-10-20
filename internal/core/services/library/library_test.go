@@ -53,6 +53,7 @@ func registry(t *testing.T) *engine.Registry {
 		Orders:       noOrders{},
 		Canceller:    noOrders{},
 		OrderEvents:  noOrders{},
+		Batches:      noOrders{},
 		Books:        noBooks{},
 		Accounts:     noAccounts{},
 		Memory:       noMemory{},
@@ -84,6 +85,10 @@ func (noTelegram) CloseQuestion(context.Context, domain.UserID, int, string) err
 
 func (noOrders) Place(context.Context, domain.OrderRequest) (domain.PlacedOrder, error) {
 	return domain.PlacedOrder{}, nil
+}
+
+func (noOrders) PlaceBatch(context.Context, []domain.OrderRequest) ([]ports.PlaceResult, error) {
+	return nil, nil
 }
 
 func (noOrders) CancelOrders(context.Context, ports.CancelRequest) ([]ports.CancelResult, error) {

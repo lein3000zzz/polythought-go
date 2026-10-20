@@ -80,7 +80,7 @@ func build() (Pages, map[string]string, error) {
 	err := nodes.Register(registry, nodes.Deps{
 		Feed: noFeed{}, Traders: noTraders{}, Messenger: noTelegram{}, TelegramInbox: noTelegram{}, Asker: noTelegram{}, Code: noCode{},
 		Orders: noOrders{}, Books: noBooks{}, Accounts: noAccounts{}, Memory: noMemory{},
-		Canceller: noOrders{}, OrderEvents: noOrders{},
+		Canceller: noOrders{}, OrderEvents: noOrders{}, Batches: noOrders{},
 		Logger: logging.Noop(),
 	})
 	if err != nil {
@@ -187,6 +187,10 @@ type (
 
 func (noOrders) Place(context.Context, domain.OrderRequest) (domain.PlacedOrder, error) {
 	return domain.PlacedOrder{}, nil
+}
+
+func (noOrders) PlaceBatch(context.Context, []domain.OrderRequest) ([]ports.PlaceResult, error) {
+	return nil, nil
 }
 
 func (noOrders) CancelOrders(context.Context, ports.CancelRequest) ([]ports.CancelResult, error) {

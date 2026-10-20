@@ -287,3 +287,47 @@ test('the live orders page lists none on paper, and downloads them as CSV (D228)
       'dollars,status,filled_shares,filled_dollars,fees,reason,trader,trader_label,clob_id,order_id',
   )
 })
+
+test('Place orders sends a basket, an item out per order (D244, D248)', async ({ page }) => {
+  const id = await createWorkflow(page, unique('basket'), [
+    { id: 'manual', type: 'trigger.manual' },
+    { id: 'markets', type: 'polymarket.markets', params: { limit: 1 } },
+    {
+      id: 'basket',
+      type: 'trading.placeOrders',
+      params: {
+        // Both outcomes at the lowest price there is: nobody sells there, so both rest.
+        orders:
+          "{{ outcomes.map(o => ({ tokenId: o.tokenId, side: 'buy', price: tickSize, shares: minOrderSize, type: 'GTC' })) }}",
+      },
+    },
+  ])
+
+  const res = await page.request.post(`/api/v1/workflows/${id}/run`)
+  expect(res.status()).toBe(200)
+  const run = (await res.json()) as {
+    status: string
+    runs: { nodeId: string; output?: Record<string, number> }[]
+  }
+  expect(run.status).toBe('succeeded')
+  expect(run.runs.find((r) => r.nodeId === 'basket')?.output).toEqual({ resting: 2 })
+
+  const orders = (
+    (await (await page.request.get(`/api/v1/workflows/${id}/orders`)).json()) as {
+      orders: { status: string; tokenId: string }[]
+    }
+  ).orders
+  expect(orders.map((o) => o.status)).toEqual(['open', 'open'])
+  expect(new Set(orders.map((o) => o.tokenId)).size).toBe(2)
+
+  // Cancelled, they free their cash.
+  for (const o of (
+    (await (await page.request.get(`/api/v1/workflows/${id}/orders`)).json()) as {
+      orders: { id: string }[]
+    }
+  ).orders) {
+    expect(
+      (await page.request.post(`/api/v1/workflows/${id}/orders/${o.id}/cancel`)).status(),
+    ).toBe(200)
+  }
+})

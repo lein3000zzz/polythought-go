@@ -16,6 +16,18 @@ type OrderPlacer interface {
 	Place(ctx context.Context, req domain.OrderRequest) (domain.PlacedOrder, error)
 }
 
+// BatchPlacer places a workflow's orders together (D244): live, those that pass their
+// checks reach Polymarket in requests of up to 15. How each went, in their order.
+type BatchPlacer interface {
+	PlaceBatch(ctx context.Context, reqs []domain.OrderRequest) ([]PlaceResult, error)
+}
+
+// PlaceResult is how one order of a batch went: what OrderPlacer.Place gives for it.
+type PlaceResult struct {
+	Order domain.PlacedOrder
+	Err   error
+}
+
 // TradingRulesReader says what a market's orders must keep to and what its fills cost.
 type TradingRulesReader interface {
 	TradingRules(ctx context.Context, market domain.MarketID) (domain.TradingRules, error)

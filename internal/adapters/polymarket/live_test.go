@@ -166,6 +166,57 @@ func TestLiveOrdersAreSignedAsTheOfficialClientSignsThem(t *testing.T) {
 	}
 }
 
+func TestLiveBatch(t *testing.T) {
+	e, clob, _ := exchange(t)
+	key := ports.OrderKey{
+		Wallet: domain.Wallet{Address: ownerAddress}, Key: loadLiveVectors(t).Keys.Owner,
+		Credentials: domain.PolymarketCredentials{Signer: ownerAddress, SignatureType: domain.SignatureEOA},
+	}
+
+	orders := make([]ports.LiveOrder, 16)
+	for i := range orders {
+		orders[i] = ports.LiveOrder{TokenID: vectorToken, Side: domain.SideBuy, Type: domain.OrderGTC, Price: d("0.40"), Shares: d("10"), TickSize: d("0.01")}
+	}
+
+	var told []string
+
+	// 15 to a request: the first answered, the second not sent at all.
+	clob.EXPECT().PostOrders(mock.Anything, mock.Anything, mock.MatchedBy(func(ps []pm.OrderPost) bool { return len(ps) == 15 })).
+		RunAndReturn(func(_ context.Context, _ pm.L2Credentials, ps []pm.OrderPost) ([]pm.PostResult, error) {
+			assert.Len(t, told, 16, "every ID told before any goes (D233)")
+
+			out := make([]pm.PostResult, len(ps))
+			for i, p := range ps {
+				id, _ := p.ID()
+				out[i] = pm.PostResult{Order: pm.PostedOrder{ID: id, Status: pm.PostLive}}
+			}
+
+			out[3].Err = &pm.OrderRefusedError{Code: pm.RefusedBalance, Message: "not enough balance"}
+
+			return out, nil
+		}).Once()
+	clob.EXPECT().PostOrders(mock.Anything, mock.Anything, mock.MatchedBy(func(ps []pm.OrderPost) bool { return len(ps) == 1 })).
+		Return(nil, errors.New("connection reset")).Once()
+
+	got, err := e.PlaceBatch(context.Background(), key, orders, func(i int, id string) error {
+		told = append(told, id)
+		return nil
+	})
+	require.NoError(t, err)
+	require.Len(t, got, 16)
+
+	assert.Equal(t, ports.LiveResting, got[0].State)
+	assert.Equal(t, told[0], got[0].ID)
+	assert.Equal(t, ports.LiveRefused, got[3].State, "each on its own")
+	assert.Equal(t, ports.LiveRefused, got[15].State)
+	assert.Contains(t, got[15].Reason, "it could not be sent to Polymarket")
+
+	t.Run("not told, none is sent", func(t *testing.T) {
+		_, err := e.PlaceBatch(context.Background(), key, orders[:2], func(int, string) error { return errors.New("the database is down") })
+		require.Error(t, err)
+	})
+}
+
 func TestLiveOrderOfNoSizeNotSigned(t *testing.T) {
 	e, _, _ := exchange(t) // nothing posted
 	key := ports.OrderKey{

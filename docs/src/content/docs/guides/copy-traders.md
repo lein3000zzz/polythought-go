@@ -143,6 +143,19 @@ settings, which take [expressions](/docs/guides/expressions/): a **Token**, a **
 [Markets](/docs/reference/nodes/polymarket/markets/), say, `{{ outcomes[0].tokenId }}` as
 the token buys the first outcome of each market.
 
+### Several at once
+
+[Place orders](/docs/reference/nodes/trading/place-orders/) places a list of orders for
+each item, together: live, they reach Polymarket in one request, up to 15 at a time, so
+they reach the book at the same prices and go easy on Polymarket's limits. The list is its
+**Orders** table, a row per order typed in, or the whole table an expression giving a
+list, like `{{ outcomes.map(o => ({ tokenId: o.tokenId, side: 'buy', price: 0.4, shares:
+5, type: 'GTC' })) }}` to buy every outcome of a market. Each order is checked on its own,
+the caps counting those before it: a refused one goes out of `missed` with why, and the
+others go all the same. Polymarket's batch is not all or nothing, and neither is this. An
+item comes out per order, as from Place order, with `order.index`, its place in the list.
+On paper, the orders are placed one after another.
+
 ### Resting orders
 
 A FAK takes what the book has within its price and cancels the rest; a FOK fills wholly or

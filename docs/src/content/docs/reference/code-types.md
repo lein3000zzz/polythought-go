@@ -721,6 +721,38 @@ export interface TradingPlaceOrderSettings {
     postOnly?: boolean | Expression;
 }
 
+/** The settings of Place orders (trading.placeOrders). */
+export interface TradingPlaceOrdersSettings {
+    /** A row per order; or the whole table an expression giving a list of them, like {{ basket }}, each with tokenId, side, price, shares or dollars, and type. A table: a row each. */
+    orders: {
+        /** The outcome's token ID. */
+        tokenId: string;
+        side: "buy" | "sell";
+        /** The limit: the most a buy pays per share, the least a sell takes. */
+        price: DecimalText | number;
+        /** How many to buy or sell. */
+        shares?: DecimalText | number;
+        /** A buy of so many dollars instead of shares. */
+        dollars?: DecimalText | number;
+        /**
+         * @default "FAK"
+         */
+        type?: "FAK" | "FOK" | "GTC" | "GTD";
+        /** Its market's condition ID; looked up when empty. */
+        marketId?: string;
+    }[] | Expression;
+    /**
+     * For GTD rows: how long they rest, 3 minutes at the least; then what is left is cancelled.
+     * @default "1h"
+     */
+    expiresAfter?: DurationText | Expression;
+    /**
+     * For GTC and GTD rows: refused rather than matched at once, so they only ever rest.
+     * @default false
+     */
+    postOnly?: boolean | Expression;
+}
+
 /** The settings of Risk guard (trading.riskGuard). */
 export interface TradingRiskGuardSettings {
     /** The most one copy spends. */
@@ -1200,6 +1232,13 @@ export interface NodeTypes {
     };
     "trading.placeOrder": {
         settings: TradingPlaceOrderSettings;
+        items: "received";
+        trigger: false;
+        inputs: "main";
+        outputs: "main" | "resting" | "missed";
+    };
+    "trading.placeOrders": {
+        settings: TradingPlaceOrdersSettings;
         items: "received";
         trigger: false;
         inputs: "main";

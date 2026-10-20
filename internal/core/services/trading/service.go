@@ -118,39 +118,14 @@ func (s *Service) place(ctx context.Context, req domain.OrderRequest) (domain.Pl
 		return domain.PlacedOrder{}, err
 	}
 
-	req.Mode = t.Mode
+	return s.placeIn(ctx, req, t)
+}
 
-	req, reason := request(req)
-	o := domain.PlacedOrder{OrderRequest: req, ID: domain.OrderID(uuid.Must(uuid.NewV7()).String()), CreatedAt: s.d.Now().UTC()}
-
-	if reason == "" {
-		o, reason = s.asResting(o)
-	}
-
-	if reason != "" {
-		return s.refuse(ctx, o, reason)
-	}
-
-	if o.MarketID == "" {
-		market, err := s.marketOf(ctx, o.TokenID)
-		if errors.Is(err, domain.ErrNotFound) {
-			return s.refuse(ctx, o, "no market trades this token")
-		}
-
-		if err != nil {
-			return domain.PlacedOrder{}, err
-		}
-
-		o.MarketID = market
-	}
-
-	rules, err := s.d.Rules.TradingRules(ctx, o.MarketID)
-	if err != nil {
-		return domain.PlacedOrder{}, fmt.Errorf("the market's rules: %w", err)
-	}
-
-	if reason := keepsRules(o.OrderRequest, rules); reason != "" {
-		return s.refuse(ctx, o, reason)
+// placeIn places an order as the workflow trades, t, its lock held.
+func (s *Service) placeIn(ctx context.Context, req domain.OrderRequest, t domain.WorkflowTrading) (domain.PlacedOrder, error) {
+	o, rules, refused, err := s.prepare(ctx, req, t)
+	if err != nil || refused {
+		return o, err
 	}
 
 	if o.Mode == domain.ModeLive {
@@ -237,6 +212,52 @@ func (s *Service) place(ctx context.Context, req domain.OrderRequest) (domain.Pl
 		"status", o.Status, "token_id", o.TokenID, "cash", cash)
 
 	return o, nil
+}
+
+// prepare makes an order of req as the workflow trades, t, and checks it against what
+// any order keeps to and its market's rules, before anything of the mode's: refused, it
+// is recorded so, with why.
+func (s *Service) prepare(ctx context.Context, req domain.OrderRequest, t domain.WorkflowTrading) (o domain.PlacedOrder, rules domain.TradingRules, refused bool, err error) {
+	req.Mode = t.Mode
+
+	req, reason := request(req)
+	o = domain.PlacedOrder{OrderRequest: req, ID: domain.OrderID(uuid.Must(uuid.NewV7()).String()), CreatedAt: s.d.Now().UTC()}
+
+	if reason == "" {
+		o, reason = s.asResting(o)
+	}
+
+	refuse := func(why string) (domain.PlacedOrder, domain.TradingRules, bool, error) {
+		o, err := s.refuse(ctx, o, why)
+		return o, domain.TradingRules{}, true, err
+	}
+
+	if reason != "" {
+		return refuse(reason)
+	}
+
+	if o.MarketID == "" {
+		market, err := s.marketOf(ctx, o.TokenID)
+		if errors.Is(err, domain.ErrNotFound) {
+			return refuse("no market trades this token")
+		}
+
+		if err != nil {
+			return domain.PlacedOrder{}, rules, false, err
+		}
+
+		o.MarketID = market
+	}
+
+	if rules, err = s.d.Rules.TradingRules(ctx, o.MarketID); err != nil {
+		return domain.PlacedOrder{}, rules, false, fmt.Errorf("the market's rules: %w", err)
+	}
+
+	if reason := keepsRules(o.OrderRequest, rules); reason != "" {
+		return refuse(reason)
+	}
+
+	return o, rules, false, nil
 }
 
 func (s *Service) refuse(ctx context.Context, o domain.PlacedOrder, reason string) (domain.PlacedOrder, error) {

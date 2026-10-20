@@ -38,6 +38,9 @@ type exchange struct {
 	beats     []string
 
 	gate chan struct{} // when set, placing waits for it to close
+
+	batches [][]ports.LiveOrder   // what each batch sent
+	batched []ports.LivePlacement // how each order of a batch is answered, by its place
 }
 
 // Place signs as the adapter does: the order's ID, told before it goes (D233), is what
@@ -73,6 +76,41 @@ func (e *exchange) cancelledIDs() []string {
 	defer e.mu.Unlock()
 
 	return slices.Clone(e.cancelled)
+}
+
+// PlaceBatch signs each as Place does, the IDs 0xb0, 0xb1 and so on, tells signed of
+// them all, then answers each with batched, or with what placing answers.
+func (e *exchange) PlaceBatch(_ context.Context, _ ports.OrderKey, os []ports.LiveOrder, signed func(int, string) error) ([]ports.LivePlacement, error) {
+	ids := make([]string, len(os))
+	for i := range os {
+		ids[i] = "0xb" + strconv.Itoa(i)
+	}
+
+	if signed != nil {
+		for i, id := range ids {
+			if err := signed(i, id); err != nil {
+				return nil, err
+			}
+		}
+	}
+
+	e.mu.Lock()
+	defer e.mu.Unlock()
+
+	e.batches = append(e.batches, slices.Clone(os))
+
+	out := make([]ports.LivePlacement, len(os))
+	for i := range os {
+		p := e.placed
+		if i < len(e.batched) {
+			p = e.batched[i]
+		}
+
+		p.ID = ids[i]
+		out[i] = p
+	}
+
+	return out, nil
 }
 
 func (e *exchange) lookupCount() int {

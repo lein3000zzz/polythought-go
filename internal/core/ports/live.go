@@ -119,6 +119,11 @@ type LiveExchange interface {
 	// order's ID, its hash: an error then stops it going, and is Place's (D233). The
 	// error is for an order not sent at all.
 	Place(ctx context.Context, k OrderKey, o LiveOrder, signed func(id string) error) (LivePlacement, error)
+	// PlaceBatch signs each order and sends them together, as many to a request as
+	// Polymarket takes (D244): how each went, in their order. Every order is signed, and
+	// signed told its index and ID, before any goes; an error then sends none, and is
+	// PlaceBatch's. An order whose request was not sent at all is refused, saying so.
+	PlaceBatch(ctx context.Context, k OrderKey, os []LiveOrder, signed func(i int, id string) error) ([]LivePlacement, error)
 	// Order is how the order with id stands; LiveNotFound when the CLOB has none.
 	Order(ctx context.Context, k OrderKey, id string) (LiveOrderState, error)
 	// Trades are the order's part in the trades with ids, of its outcome token; the CLOB

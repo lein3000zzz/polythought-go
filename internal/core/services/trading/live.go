@@ -75,122 +75,204 @@ func (s *Service) builderCode() string {
 }
 
 // placeLive places o from the workflow's wallet, waits for what it came to (D204), and
-// records it. The error is for an order not sent at all, which is not recorded.
+// records it. The error is for an order not sent at all, which is recorded refused when it
+// was recorded before it went (D233).
 func (s *Service) placeLive(ctx context.Context, o domain.PlacedOrder, rules domain.TradingRules, t domain.WorkflowTrading) (domain.PlacedOrder, error) {
+	r, refused, err := s.readyLive(ctx, o, rules, t, nil)
+	if err != nil || r == nil {
+		return refused, err
+	}
+
+	defer r.done(s)
+
+	placed, err := s.d.Exchange.Place(ctx, r.k, s.liveOrder(r), func(id string) error { return s.recordFirst(ctx, r, id) })
+	if err != nil {
+		s.notSent(ctx, r, err)
+		return domain.PlacedOrder{}, err
+	}
+
+	if o, done, err := s.answered(ctx, r, placed); done || err != nil {
+		return o, err
+	}
+
+	settled, err := s.await(ctx, r.k, r.o, r.rules, placed)
+	if err != nil {
+		return domain.PlacedOrder{}, err
+	}
+
+	return s.finishLive(ctx, r, settled)
+}
+
+// liveReady is a live order checked and ready to go: the key that signs it, and what it
+// holds of its owner's caps until it is in the books.
+type liveReady struct {
+	o        domain.PlacedOrder
+	rules    domain.TradingRules
+	k        ports.OrderKey
+	release  func()
+	recorded bool
+}
+
+// done ends what r held: its part of the caps, and its being on its way.
+func (r *liveReady) done(s *Service) {
+	r.release()
+	s.onTheWay(r.o.ID, false)
+}
+
+// readyLive checks a live order before it goes: live trading on, the workflow's wallet,
+// the owner's kill switch and caps (D220, D223), the shares a sell needs, and the key.
+// Refused, it is recorded so and given back, r nil. selling are shares the orders before
+// it in its batch sell, by holding, which this one cannot sell too.
+func (s *Service) readyLive(ctx context.Context, o domain.PlacedOrder, rules domain.TradingRules, t domain.WorkflowTrading,
+	selling map[domain.HoldingKey]decimal.Decimal,
+) (r *liveReady, refused domain.PlacedOrder, err error) {
+	refuse := func(why string) (*liveReady, domain.PlacedOrder, error) {
+		o, err := s.refuse(ctx, o, why)
+		return nil, o, err
+	}
+
 	if ok, why := s.liveAvailable(); !ok {
-		return s.refuse(ctx, o, why)
+		return refuse(why)
 	}
 
 	if t.WalletID == "" {
-		return s.refuse(ctx, o, "the workflow has no wallet to trade from: choose one in its Trading view")
+		return refuse("the workflow has no wallet to trade from: choose one in its Trading view")
 	}
 
 	o.WalletID = t.WalletID
 
 	release, why, err := s.admit(ctx, o)
 	if err != nil {
-		return domain.PlacedOrder{}, err
+		return nil, domain.PlacedOrder{}, err
 	}
 
 	if why != "" {
-		return s.refuse(ctx, o, why)
+		return refuse(why)
 	}
 
-	defer release()
-
-	held, err := s.holding(ctx, o)
-	if err != nil {
-		return domain.PlacedOrder{}, err
-	}
+	// From here on, what it holds of the caps goes with any end but its going.
+	ready := false
+	defer func() {
+		if !ready {
+			release()
+		}
+	}()
 
 	if o.Side == domain.SideSell {
-		_, selling, err := s.committed(ctx, o.WorkflowID, o.Mode)
+		held, err := s.holding(ctx, o)
 		if err != nil {
-			return domain.PlacedOrder{}, err
+			return nil, domain.PlacedOrder{}, err
 		}
 
-		if free := held.Shares.Sub(selling[held.Key()]); o.Shares.GreaterThan(free) {
-			return s.refuse(ctx, o, fmt.Sprintf("not enough shares: %s to sell, %s held%s", o.Shares, free, restingSells(selling[held.Key()], o)))
+		_, resting, err := s.committed(ctx, o.WorkflowID, o.Mode)
+		if err != nil {
+			return nil, domain.PlacedOrder{}, err
+		}
+
+		heldBack := resting[held.Key()].Add(selling[held.Key()])
+		if free := held.Shares.Sub(heldBack); o.Shares.GreaterThan(free) {
+			return refuse(fmt.Sprintf("not enough shares: %s to sell, %s held%s", o.Shares, free, restingSells(heldBack, o)))
 		}
 	}
 
 	k, err := s.d.Keys.OrderKey(ctx, o.OwnerID, t.WalletID)
 	if errors.Is(err, domain.ErrWalletCannotTrade) {
-		return s.refuse(ctx, o, err.Error())
+		return refuse(err.Error())
 	}
 
 	if errors.Is(err, domain.ErrNotFound) {
-		return s.refuse(ctx, o, "the workflow's wallet is gone: choose another in its Trading view")
+		return refuse("the workflow's wallet is gone: choose another in its Trading view")
 	}
 
 	if err != nil {
-		return domain.PlacedOrder{}, err
+		return nil, domain.PlacedOrder{}, err
 	}
 
-	// In the books before it goes (D233): pending, under its ID once signed. A crash, or
-	// the database failing, after it went leaves it pending, for the follower to find.
-	recorded := false
-	signed := func(id string) error {
-		o.ClobID, o.Status, o.Reason = id, domain.OrderPending, "sending to Polymarket"
+	ready = true
 
-		if err := s.d.Ledger.Record(ctx, o, nil); err != nil {
-			return fmt.Errorf("not sent, as it could not be recorded first: %w", err)
-		}
+	return &liveReady{o: o, rules: rules, k: k, release: release}, domain.PlacedOrder{}, nil
+}
 
-		recorded = true
-		s.onTheWay(o.ID, true)
-		release() // the books count it now
+// liveOrder is what the exchange signs and sends for r.
+func (s *Service) liveOrder(r *liveReady) ports.LiveOrder {
+	o := r.o
 
-		return nil
-	}
-
-	defer s.onTheWay(o.ID, false)
-
-	placed, err := s.d.Exchange.Place(ctx, k, ports.LiveOrder{
+	return ports.LiveOrder{
 		TokenID: o.TokenID, Side: o.Side, Type: o.Type, Price: o.Price, Shares: o.Shares, Dollars: o.Dollars,
-		TickSize: rules.TickSize, NegRisk: rules.NegRisk, Builder: s.builderCode(),
+		TickSize: r.rules.TickSize, NegRisk: r.rules.NegRisk, Builder: s.builderCode(),
 		PostOnly: o.PostOnly, Expires: o.Expires,
-	}, signed)
-	if err != nil {
-		if recorded {
-			o.Status, o.Reason = domain.OrderRefused, "it could not be sent to Polymarket: "+err.Error()
-			if uerr := s.d.Ledger.Update(ctx, o, nil); uerr != nil {
-				s.d.Logger.Error(ctx, "Live order not sent, and left pending", "order_id", o.ID, logging.Err(uerr))
-			}
-		}
+	}
+}
 
-		return domain.PlacedOrder{}, err
+// recordFirst puts r in the books before it goes (D233): pending, under its ID once
+// signed. A crash, or the database failing, after it went leaves it pending, for the
+// follower to find. Not recorded, it is not sent.
+func (s *Service) recordFirst(ctx context.Context, r *liveReady, id string) error {
+	r.o.ClobID, r.o.Status, r.o.Reason = id, domain.OrderPending, "sending to Polymarket"
+
+	if err := s.d.Ledger.Record(ctx, r.o, nil); err != nil {
+		return fmt.Errorf("not sent, as it could not be recorded first: %w", err)
 	}
 
-	if !recorded { // an exchange that never signed: as safe as can be, in the books now
-		o.ClobID = placed.ID
-		if err := signed(placed.ID); err != nil {
-			return domain.PlacedOrder{}, err
+	r.recorded = true
+	s.onTheWay(r.o.ID, true)
+	r.release() // the books count it now
+
+	return nil
+}
+
+// notSent records r refused, when it was recorded before it went.
+func (s *Service) notSent(ctx context.Context, r *liveReady, err error) {
+	if !r.recorded {
+		return
+	}
+
+	r.o.Status, r.o.Reason = domain.OrderRefused, "it could not be sent to Polymarket: "+err.Error()
+	if uerr := s.d.Ledger.Update(ctx, r.o, nil); uerr != nil {
+		s.d.Logger.Error(ctx, "Live order not sent, and left pending", "order_id", r.o.ID, logging.Err(uerr))
+	}
+}
+
+// answered records what Polymarket's answer settles at once: refused, or a FAK or FOK it
+// could not fill. done is false for an order to wait for.
+func (s *Service) answered(ctx context.Context, r *liveReady, placed ports.LivePlacement) (domain.PlacedOrder, bool, error) {
+	if !r.recorded { // an exchange that never signed: as safe as can be, in the books now
+		if err := s.recordFirst(ctx, r, placed.ID); err != nil {
+			return domain.PlacedOrder{}, true, err
 		}
 	}
+
+	o := r.o
 
 	switch {
 	case placed.State == ports.LiveRefused:
 		o.Status, o.Reason = domain.OrderRefused, placed.Reason
-
-		return o, s.d.Ledger.Update(ctx, o, nil)
 	case placed.State == ports.LiveDone && len(placed.TradeIDs) == 0 && !o.Type.Rests():
 		o.Status, o.Reason = domain.OrderUnfilled, placed.Reason
-
-		return o, s.d.Ledger.Update(ctx, o, nil)
+	default:
+		return o, false, nil
 	}
 
-	settled, err := s.await(ctx, k, o, rules, placed)
-	if err != nil {
-		return domain.PlacedOrder{}, err
-	}
+	return o, true, s.d.Ledger.Update(ctx, o, nil)
+}
+
+// finishLive records what a live order came to, its fills in its holding as it stands
+// now: the orders before it in its batch may have changed it.
+func (s *Service) finishLive(ctx context.Context, r *liveReady, settled domain.PlacedOrder) (domain.PlacedOrder, error) {
+	o := r.o
 
 	if settled.Status == domain.OrderPending {
 		settled.Reason = "sent: what it came to is not known yet, and is followed"
 	}
 
 	var change *ports.LedgerChange
+
 	if len(settled.Fills) > 0 {
+		held, err := s.holding(ctx, settled)
+		if err != nil {
+			return domain.PlacedOrder{}, err
+		}
+
 		_, after := apply(settled, held)
 		change = &ports.LedgerChange{Holding: after}
 	}

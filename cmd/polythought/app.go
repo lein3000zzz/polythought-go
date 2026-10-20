@@ -691,6 +691,7 @@ func (a *app) initEngine(ctx context.Context, pmc polymarket) error {
 		Books:         ledger,
 		Accounts:      a.trading,
 		Canceller:     a.trading,
+		Batches:       a.trading,
 		OrderEvents:   a.trading,
 		TradingRules:  pmc.reader,
 		Portfolios:    pmc.reader,

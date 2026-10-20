@@ -56,8 +56,10 @@ type Deps struct {
 	Accounts trading.Accounts
 	// Canceller cancels a workflow's resting orders, for Cancel orders; OrderEvents is
 	// what happens to them later, for Order activity. Optional, each.
-	Canceller    ports.OrderCanceller
-	OrderEvents  ports.OrderEvents
+	Canceller   ports.OrderCanceller
+	OrderEvents ports.OrderEvents
+	// Batches places a list of orders together, for Place orders (D244); optional.
+	Batches      ports.BatchPlacer
 	TradingRules ports.TradingRulesReader
 	Portfolios   ports.PortfolioReader
 
@@ -118,6 +120,10 @@ func Register(r *engine.Registry, d Deps) error {
 
 		if d.Canceller != nil {
 			trade = append(trade, r.RegisterNode(trading.NewCancelOrders(d.Canceller)))
+		}
+
+		if d.Batches != nil {
+			trade = append(trade, r.RegisterNode(trading.NewPlaceOrders(d.Batches)))
 		}
 
 		if d.OrderEvents != nil {
