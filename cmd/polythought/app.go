@@ -97,34 +97,35 @@ const restartDelay = 300 * time.Millisecond
 
 // app is everything the server and the operator tools share.
 type app struct {
-	cfg         config.Config
-	file        config.File // the config file's values, for the settings' file layer
-	util        *observability.Utility
-	db          *postgres.DB
-	box         ports.SecretBox
-	settings    *settings.Service
-	auth        *auth.Service
-	wallets     *wallets.Service
-	workflows   *workflows.Service
-	registry    *engine.Registry
-	supervisor  *engine.Supervisor
-	feed        *feed.Hub
-	traders     *traders.Hub
-	trading     *trading.Service
-	nodeMemory  *postgres.NodeMemory
-	memory      *memory.Service
-	events      *events.Hub
-	library     *library.Service
-	customNodes *customnodes.Service
-	credentials *credentials.Service
-	telegramBot *tgadapter.Bot
-	telegram    *telegram.Service
-	notify      *notify.Service
-	mail        *mail.Service
-	geoblock    *geoblock.Service
-	waits       *waits.Service
-	code        *code.Service
-	codeGate    auth.CodeGate
+	cfg             config.Config
+	file            config.File // the config file's values, for the settings' file layer
+	util            *observability.Utility
+	db              *postgres.DB
+	box             ports.SecretBox
+	settings        *settings.Service
+	auth            *auth.Service
+	wallets         *wallets.Service
+	workflows       *workflows.Service
+	registry        *engine.Registry
+	supervisor      *engine.Supervisor
+	feed            *feed.Hub
+	traders         *traders.Hub
+	trading         *trading.Service
+	workflowTrading *postgres.WorkflowTrading
+	nodeMemory      *postgres.NodeMemory
+	memory          *memory.Service
+	events          *events.Hub
+	library         *library.Service
+	customNodes     *customnodes.Service
+	credentials     *credentials.Service
+	telegramBot     *tgadapter.Bot
+	telegram        *telegram.Service
+	notify          *notify.Service
+	mail            *mail.Service
+	geoblock        *geoblock.Service
+	waits           *waits.Service
+	code            *code.Service
+	codeGate        auth.CodeGate
 
 	restartOnce sync.Once
 	restartc    chan struct{} // closed when an admin asked for a restart
@@ -228,9 +229,12 @@ func (a *app) init(ctx context.Context) error {
 	// Whether Polymarket takes orders from here (D186); serve checks it every 6 hours.
 	a.geoblock = geoblock.New(pmc.geoblock, a.util.Logger)
 
-	// After notify, which reminds of expiring session keys.
+	// After notify, which reminds of expiring session keys. A wallet a workflow trades
+	// live from is not unlinked.
 	walletRepo := postgres.NewWallets(a.db)
+	a.workflowTrading = postgres.NewWorkflowTrading(a.db)
 	a.wallets = wallets.New(walletRepo, a.box, pmc.account, a.util.Logger,
+		wallets.WithWorkflowTrading(a.workflowTrading),
 		wallets.WithKeys(pmc.keys, func() bool {
 			s := a.settings.Current()
 			return config.TakesKeys(s.String(config.KeyKeyImport), domain.RegistrationMode(s.String(config.KeyRegistration)))
@@ -489,6 +493,7 @@ type polymarket struct {
 	sessionKeys *pmadapter.SessionKeys
 	approvals   *pmadapter.Approvals
 	geoblock    *pmadapter.Geoblock
+	exchange    *pmadapter.Exchange
 }
 
 func newPolymarket(a *app) (polymarket, error) {
@@ -540,6 +545,7 @@ func newPolymarket(a *app) (polymarket, error) {
 		sessionKeys: pmadapter.NewSessionKeys(relayer, builder),
 		approvals:   pmadapter.NewApprovals(data, rpc, relayer, builder),
 		geoblock:    pmadapter.NewGeoblock(geo),
+		exchange:    pmadapter.NewExchange(clob, clob),
 	}, nil
 }
 
@@ -611,9 +617,10 @@ func (a *app) initEngine(ctx context.Context, pmc polymarket) error {
 		return err
 	}
 
-	// Orders, on paper for now: simulated against the live book, a paper account per
-	// workflow (D89 to D92). Place order places them; the books are shown to their owner,
-	// whom the workflows service, made later, knows.
+	// Orders: on paper, simulated against the live book with a paper account per workflow
+	// (D89 to D92); live, from the workflow's wallet through Polymarket's CLOB, while an
+	// admin lets workflows trade live (D192). Place order places them; the books are shown
+	// to their owner, whom the workflows service, made later, knows.
 	ledger := postgres.NewLedger(a.db)
 	paperBalance := func() decimal.Decimal {
 		return decimal.NewFromInt(int64(a.settings.Current().Int(config.KeyPaperBalance)))
@@ -623,6 +630,9 @@ func (a *app) initEngine(ctx context.Context, pmc polymarket) error {
 	a.trading = trading.New(trading.Deps{
 		Ledger: ledger, Books: pmc.reader, Rules: pmc.reader, Markets: pmc.reader,
 		Workflows: laterWorkflows{a}, Logger: a.util.Logger, PaperBalance: paperBalance,
+		Trading: a.workflowTrading, Exchange: pmc.exchange, Keys: a.wallets, Wallets: a.wallets, Notifier: a.notify,
+		LiveOn:      func() bool { return a.settings.Current().Bool(config.KeyLiveTrading) },
+		BuilderCode: func() string { return a.settings.Current().String(config.KeyBuilderCode) },
 	})
 
 	err = nodes.Register(a.registry, nodes.Deps{
@@ -645,9 +655,9 @@ func (a *app) initEngine(ctx context.Context, pmc polymarket) error {
 		Traders:       a.traders,
 		Orders:        a.trading,
 		Books:         ledger,
+		Accounts:      a.trading,
 		TradingRules:  pmc.reader,
 		Portfolios:    pmc.reader,
-		PaperBalance:  paperBalance,
 		Memory:        a.nodeMemory,
 		Logger:        a.util.Logger,
 		MinInterval:   current.Duration(config.KeyScheduleMinInterval),

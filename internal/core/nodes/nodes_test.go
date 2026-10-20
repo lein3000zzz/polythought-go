@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/lein3000zzz/polythought-go/internal/core/nodes"
+	"github.com/lein3000zzz/polythought-go/internal/core/nodes/trading"
 	"github.com/lein3000zzz/the-watchers/pkg/observability/logging"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -65,7 +66,7 @@ func TestRegister(t *testing.T) {
 		all := engine.NewRegistry()
 		require.NoError(t, nodes.Register(all, nodes.Deps{
 			Logger: logging.Noop(), Feed: portsmocks.NewMockMarketFeed(t), Traders: tradersStub{},
-			Orders: ordersStub{}, Books: booksStub{},
+			Orders: ordersStub{}, Books: booksStub{}, Accounts: accountsStub{},
 			Messenger: telegramStub{}, TelegramInbox: telegramStub{}, Asker: telegramStub{}, Code: codeStub{},
 			Memory: memoryStub{},
 		}))
@@ -119,8 +120,9 @@ func (tradersStub) Follow(context.Context, []domain.WalletAddress, time.Time) (p
 }
 
 type (
-	ordersStub struct{}
-	booksStub  struct{ ports.Ledger } // never called
+	ordersStub   struct{}
+	booksStub    struct{ ports.Ledger }     // never called
+	accountsStub struct{ trading.Accounts } // never called
 )
 
 func (ordersStub) Place(context.Context, domain.OrderRequest) (domain.PlacedOrder, error) {

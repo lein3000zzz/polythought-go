@@ -64,7 +64,7 @@ func TestSummary(t *testing.T) {
 	ctx := context.Background()
 
 	t.Run("before any order, what the account would start with", func(t *testing.T) {
-		s, err := resultsService(newLedger(), markets{}, twoSided).Summary(ctx, owner, "wf")
+		s, err := resultsService(newLedger(), markets{}, twoSided).Summary(ctx, owner, "wf", "")
 		require.NoError(t, err)
 
 		assert.False(t, s.Account.Open)
@@ -77,7 +77,7 @@ func TestSummary(t *testing.T) {
 		svc := resultsService(l, markets{}, twoSided)
 		copies(t, svc)
 
-		s, err := svc.Summary(ctx, owner, "wf")
+		s, err := svc.Summary(ctx, owner, "wf", "")
 		require.NoError(t, err)
 
 		assert.Equal(t, "89.40016", s.Account.Cash.String(), "100 less 10.20 and 5.10 bought, and 4.70016 back")
@@ -109,13 +109,13 @@ func TestSummary(t *testing.T) {
 		l := newLedger()
 		copies(t, resultsService(l, markets{}, twoSided))
 
-		s, err := resultsService(l, markets{}, domain.OrderBook{Bids: twoSided.Bids}).Summary(ctx, owner, "wf")
+		s, err := resultsService(l, markets{}, domain.OrderBook{Bids: twoSided.Bids}).Summary(ctx, owner, "wf", "")
 		require.NoError(t, err)
 		assert.Equal(t, "0.49", s.Holdings[0].Mark.String(), "Gamma's price for Yes")
 	})
 
 	t.Run("someone else's workflow is not there", func(t *testing.T) {
-		_, err := resultsService(newLedger(), markets{}, twoSided).Summary(ctx, auth.Principal{User: domain.User{ID: "bob"}}, "wf")
+		_, err := resultsService(newLedger(), markets{}, twoSided).Summary(ctx, auth.Principal{User: domain.User{ID: "bob"}}, "wf", "")
 		require.ErrorIs(t, err, domain.ErrNotFound)
 	})
 }
@@ -132,7 +132,7 @@ func TestReset(t *testing.T) {
 	assert.Equal(t, "100", a.Cash.String())
 	assert.False(t, a.ResetAt.IsZero())
 
-	s, err := svc.Summary(ctx, owner, "wf")
+	s, err := svc.Summary(ctx, owner, "wf", "")
 	require.NoError(t, err)
 	assert.Equal(t, "100", s.Account.Worth.String())
 	assert.Empty(t, s.Holdings, "emptied")
@@ -161,7 +161,7 @@ func TestSettle(t *testing.T) {
 	assert.Equal(t, domain.SideSell, settled.Side)
 	assert.Equal(t, "Will it? resolved: Yes pays $1.00 a share", settled.Reason)
 
-	s, err := svc.Summary(ctx, owner, "wf")
+	s, err := svc.Summary(ctx, owner, "wf", "")
 	require.NoError(t, err)
 	assert.Empty(t, s.Holdings, "nothing left open")
 	assert.Equal(t, "109.40016", s.Account.Cash.String(), "20 shares paying $1 each")

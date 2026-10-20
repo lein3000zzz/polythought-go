@@ -1,13 +1,14 @@
 ---
 title: Copy traders
-description: Follow Polymarket traders and copy their trades, on paper, as they make them.
+description: Follow Polymarket traders and copy their trades, on paper or live, as they make them.
 ---
 
 A copytrading workflow is a few nodes in a row: **Wallet activity** follows the traders,
 **Copy sizing** works out a copy of each of their trades, **Risk guard** holds the copies
-to your limits, and **Place order** places them. Orders are on paper for now: they fill
-against the live order book, out of a paper account of the workflow's own, and spend no
-real money.
+to your limits, and **Place order** places them. A workflow trades on paper until you
+switch it to live: on paper its orders fill against the live order book, out of a paper
+account of its own, and spend no real money; live, they go to Polymarket from one of your
+wallets and spend its pUSD.
 
 The [library](/docs/guides/library/) has it ready to use, three ways. **Copy traders**
 copies $10 of each buy, at most $50 in a market and $200 a day, and asks only for the
@@ -76,11 +77,12 @@ that copies it, as `copy` on the item.
 |---|---|
 | `fixed` | **Dollars**, $10 by default |
 | `multiple` | **Multiple** times what they spent: `0.1` is a tenth |
-| `proportional` | the share of their portfolio they spent, of what the workflow's paper account is worth |
+| `proportional` | the share of their portfolio they spent, of what the workflow is worth |
 
 Their portfolio is what their open positions are worth, as Polymarket's data says; the
-paper account is worth its cash and what its holdings cost. Then the trader's **Size ×**
-scales the copy and their **Max $** caps it.
+workflow is worth its cash and what its holdings cost: on paper, the paper account's cash,
+live, its wallet's pUSD. Then the trader's **Size ×** scales the copy and their **Max $**
+caps it.
 
 **Sells** sell the same share: when they sell 40% of their shares in an outcome, the copy
 sells 40% of what it holds copying them, and when they sell out, all of it. What is bought
@@ -130,8 +132,9 @@ the guard let it into.
 
 [Place order](/docs/reference/nodes/trading/place-order/) places each item's copy. An order
 that filled, wholly or in part, goes out of `main`; one that did not, out of `missed`. Both
-carry `order`: its status (`filled`, `partial`, `unfilled` or `refused`), the shares,
-dollars and fees it came to, the average price, and why when it did not fill.
+carry `order`: its mode, its status (`filled`, `partial`, `unfilled` or `refused`, and live
+also `pending` or `failed`, below), the shares, dollars and fees it came to, the average
+price, and why when it did not fill.
 
 Set **Order** to `settings` and Place order places an order of its own instead, from its
 settings, which take [expressions](/docs/guides/expressions/): a **Token**, a **Side**, a
@@ -155,6 +158,60 @@ When a market resolves, what the workflow holds in it settles on its own within 
 minutes, at what a share pays: $1 for the outcome that won, nothing for the others. The
 cash goes to the paper account, and the order list shows it as settled.
 
+## Trading live
+
+Live, a workflow's orders are real: Polymarket fills them from one of your wallets, with
+its pUSD. Three things come first:
+
+- An admin turns on **Live trading** on the Config page, under Trading. Off, which it is
+  to start with, every workflow trades on paper; a workflow already switched to live keeps
+  its switch, but its orders are refused until it is on again.
+- A wallet that can trade, on the [Wallets](/docs/guides/concepts/#wallets) page: its
+  private key imported, or a session key authorised; its trading approvals granted; and
+  pUSD in it.
+- The server somewhere Polymarket takes orders from: the Config page warns when it does
+  not (see [Where the server runs](/docs/self-hosting/install/#where-the-server-runs)).
+
+### Switching
+
+In the **Trading** view, **Trade live…** asks first: from which of your wallets that can
+trade, how much pUSD it holds, and that its orders now spend real money. Ticking **I
+understand** unlocks **Switch to live**. **Back to paper** goes back at once, and the
+next order is on paper.
+
+A workflow's live holdings are its own books: going back to paper keeps them, and live
+again finds them. While it holds live shares its wallet stays, so a copied sell never goes
+to a wallet without them. A wallet a workflow trades live from cannot be unlinked until it
+is back on paper.
+
+### What happens to an order
+
+Each order is checked as on paper: on the market's tick, at least its least order, and a
+sell only of shares the workflow holds live copying that trader. Polythought then signs
+it with the wallet's key, as Polymarket's own client does, and sends it, a FAK or a FOK.
+
+- **It counts at match.** As soon as Polymarket matches it, its fills are in the books and
+  the item goes on. The trades then settle on chain, and the order list says *confirming
+  on chain* until they have. A trade that fails on chain is taken out of the books, the
+  order shows as `failed`, and you are told: the notification **A live trade fails**, on by
+  default, in [Settings](/docs/guides/telegram/#notifications).
+- **Some markets make takers wait** a few seconds, sports ones among them; Place order
+  waits for such an order, up to 30 seconds, and so for one whose sending got no answer.
+  Still undecided after that, it goes out of `missed` as `pending`, and is followed: the
+  books show what it came to once Polymarket says. An order's ID is known before it is
+  sent, so one sent again after a lost answer is found, never placed twice.
+- **Fees** are Polymarket's taker fee, worked out per fill as Polymarket charges it: on top
+  of a buy, out of a sell. With a builder code set (below), the builder's fee is on top.
+- **The cash** is the wallet's pUSD, which every workflow trading from it shares; the
+  Risk guard's caps count each workflow's own live buys and holdings.
+
+When a market resolves, the live holdings in it settle in the books as on paper, at what a
+share pays. Redeeming the shares themselves is Polymarket's, which redeems resolved
+positions on its own, or yours, on polymarket.com.
+
+Deleting a workflow keeps its live orders and holdings, as the record of real money spent;
+its paper books go with it.
+
 ## See how it does
 
 A workflow with trading nodes has a third view beside **Canvas** and **Code**: **Trading**.
@@ -169,14 +226,21 @@ It shows, refreshed every half minute:
 - **Holdings**: what is held, per trader and outcome, with what it cost and what it is
   worth now, at the midpoint of the order book; when the book has only one side, at the
   market's own price.
-- **Orders**: every order, the newest first, with how it went.
+- **Orders**: every order, the newest first, with how it went; live ones marked so.
+
+Live, the account is the wallet's: what the workflow is worth, the wallet's pUSD, and the
+profit or loss its live holdings made, sold and still held. A workflow set up to trade
+live has **Paper books** and **Live books** to look at either.
 
 **Reset**, after asking, starts the paper account over: its cash goes back to the Paper
 balance and its holdings are emptied. The orders stay in the list, under the reset, and
 the results count from it.
 
-The same is in the API: `GET /api/v1/workflows/{id}/trading`, `/orders`, `/holdings` and
-`/paper-account`, and `POST /api/v1/workflows/{id}/paper-account/reset`.
+The same is in the API: `GET /api/v1/workflows/{id}/trading`, with `?mode=paper` or
+`live`, `/orders`, `/holdings` and `/paper-account`, and
+`POST /api/v1/workflows/{id}/paper-account/reset`. How it trades is
+`GET` and `PUT /api/v1/workflows/{id}/trading/setup`; going live there needs
+`"confirm": true`. A wallet's pUSD is `GET /api/v1/wallets/{id}/cash`.
 
 ### On Telegram
 

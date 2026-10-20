@@ -14,14 +14,16 @@ import (
 )
 
 type Holdings struct {
-	WorkflowID  uuid.UUID `sql:"primary_key"`
-	Mode        string    `sql:"primary_key"`
-	Trader      string    `sql:"primary_key"`
-	TraderLabel string
-	TokenID     string `sql:"primary_key"`
-	MarketID    string
-	Shares      decimal.Decimal
-	Cost        decimal.Decimal
-	Realized    decimal.Decimal
-	UpdatedAt   time.Time
+	WorkflowID   uuid.UUID `sql:"primary_key"`
+	Mode         string    `sql:"primary_key"`
+	Trader       string    `sql:"primary_key"`
+	TraderLabel  string
+	TokenID      string `sql:"primary_key"`
+	MarketID     string
+	Shares       decimal.Decimal
+	Cost         decimal.Decimal
+	Realized     decimal.Decimal
+	UpdatedAt    time.Time
+	OwnerID      uuid.UUID
+	WorkflowName string
 }

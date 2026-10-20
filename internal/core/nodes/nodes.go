@@ -16,7 +16,6 @@ import (
 	"github.com/lein3000zzz/polythought-go/internal/core/nodes/transform"
 	"github.com/lein3000zzz/polythought-go/internal/core/nodes/triggers"
 	"github.com/lein3000zzz/the-watchers/pkg/observability/logging"
-	"github.com/shopspring/decimal"
 
 	"github.com/lein3000zzz/polythought-go/internal/core/engine"
 	"github.com/lein3000zzz/polythought-go/internal/core/ports"
@@ -49,14 +48,14 @@ type Deps struct {
 	// Code runs code nodes; optional: without it they are not available.
 	Code ports.CodeCaller
 
-	// Orders places orders, on paper for now; optional: without it, and the ledger
-	// (Books), the trading nodes are not available. TradingRules and Portfolios are for
-	// Copy sizing, PaperBalance what a paper account starts with.
+	// Orders places orders, on paper or live; optional: without it, the ledger (Books)
+	// and how workflows trade (Accounts), the trading nodes are not available.
+	// TradingRules and Portfolios are for Copy sizing.
 	Orders       ports.OrderPlacer
 	Books        trading.Books
+	Accounts     trading.Accounts
 	TradingRules ports.TradingRulesReader
 	Portfolios   ports.PortfolioReader
-	PaperBalance func() decimal.Decimal
 
 	// MinInterval is the shortest interval schedules and market triggers may use. Zero
 	// means triggers.DefaultMinInterval.
@@ -103,13 +102,13 @@ func Register(r *engine.Registry, d Deps) error {
 	}
 
 	var trade []error
-	if d.Orders != nil && d.Books != nil {
+	if d.Orders != nil && d.Books != nil && d.Accounts != nil {
 		trade = append(trade,
 			r.RegisterNode(trading.NewCopySize(trading.Sources{
-				Books: d.Books, Rules: d.TradingRules, Markets: d.Markets, Positions: d.Positions,
-				Portfolios: d.Portfolios, PaperBalance: d.PaperBalance,
+				Books: d.Books, Accounts: d.Accounts, Rules: d.TradingRules, Markets: d.Markets, Positions: d.Positions,
+				Portfolios: d.Portfolios,
 			})),
-			r.RegisterNode(trading.NewRiskGuard(d.Books, d.TradingRules, d.Markets, time.Now)),
+			r.RegisterNode(trading.NewRiskGuard(d.Books, d.Accounts, d.TradingRules, d.Markets, time.Now)),
 			r.RegisterNode(trading.NewPlaceOrder(d.Orders)),
 		)
 	}

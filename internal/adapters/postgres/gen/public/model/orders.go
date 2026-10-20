@@ -14,24 +14,27 @@ import (
 )
 
 type Orders struct {
-	ID          uuid.UUID `sql:"primary_key"`
-	WorkflowID  uuid.UUID
-	OwnerID     uuid.UUID
-	ExecutionID *uuid.UUID
-	NodeID      string
-	Mode        string
-	Trader      string
-	TraderLabel string
-	TokenID     string
-	MarketID    string
-	Side        string
-	OrderType   string
-	PostOnly    bool
-	Price       decimal.Decimal
-	Shares      decimal.Decimal
-	Dollars     decimal.Decimal
-	ExpiresAt   *time.Time
-	Status      string
-	Reason      string
-	CreatedAt   time.Time
+	ID           uuid.UUID `sql:"primary_key"`
+	WorkflowID   uuid.UUID
+	OwnerID      uuid.UUID
+	ExecutionID  *uuid.UUID
+	NodeID       string
+	Mode         string
+	Trader       string
+	TraderLabel  string
+	TokenID      string
+	MarketID     string
+	Side         string
+	OrderType    string
+	PostOnly     bool
+	Price        decimal.Decimal
+	Shares       decimal.Decimal
+	Dollars      decimal.Decimal
+	ExpiresAt    *time.Time
+	Status       string
+	Reason       string
+	CreatedAt    time.Time
+	WorkflowName string
+	WalletID     *uuid.UUID
+	ClobID       string
 }

@@ -22,6 +22,7 @@ import (
 	"github.com/lein3000zzz/polythought-go/internal/core/domain"
 	"github.com/lein3000zzz/polythought-go/internal/core/engine"
 	"github.com/lein3000zzz/polythought-go/internal/core/nodes"
+	"github.com/lein3000zzz/polythought-go/internal/core/nodes/trading"
 	"github.com/lein3000zzz/polythought-go/internal/core/ports"
 )
 
@@ -78,7 +79,7 @@ func build() (Pages, map[string]string, error) {
 	// wallet triggers register only with a feed, and the Telegram nodes only with the bot.
 	err := nodes.Register(registry, nodes.Deps{
 		Feed: noFeed{}, Traders: noTraders{}, Messenger: noTelegram{}, TelegramInbox: noTelegram{}, Asker: noTelegram{}, Code: noCode{},
-		Orders: noOrders{}, Books: noBooks{}, Memory: noMemory{},
+		Orders: noOrders{}, Books: noBooks{}, Accounts: noAccounts{}, Memory: noMemory{},
 		Logger: logging.Noop(),
 	})
 	if err != nil {
@@ -174,11 +175,13 @@ func (noTraders) Follow(context.Context, []domain.WalletAddress, time.Time) (por
 	return nil, nil //nolint:nilnil // never called: only the node types are read
 }
 
-// noOrders, noBooks and noMemory stand in for the trading service, the ledger and node memory.
+// noOrders, noBooks, noAccounts and noMemory stand in for the trading service, the
+// ledger and node memory.
 type (
-	noOrders struct{}
-	noBooks  struct{ ports.Ledger }
-	noMemory struct{ ports.NodeMemory }
+	noOrders   struct{}
+	noBooks    struct{ ports.Ledger }
+	noAccounts struct{ trading.Accounts }
+	noMemory   struct{ ports.NodeMemory }
 )
 
 func (noOrders) Place(context.Context, domain.OrderRequest) (domain.PlacedOrder, error) {

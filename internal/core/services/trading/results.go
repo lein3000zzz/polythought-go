@@ -18,8 +18,8 @@ import (
 	"github.com/lein3000zzz/polythought-go/internal/core/services/auth"
 )
 
-// Summary is how a workflow's trading went (D104): its paper account, each trader it
-// copies, and what it holds, marked to market.
+// Summary is how a workflow's trading went in one mode (D104): its paper account or its
+// wallet, each trader it copies, and what it holds, marked to market.
 type Summary struct {
 	Account  AccountSummary
 	Traders  []TraderSummary
@@ -27,13 +27,21 @@ type Summary struct {
 }
 
 type AccountSummary struct {
-	Open        bool // false until the first order; the rest is then what it would start with
+	Mode domain.TradingMode
+
+	Open        bool // paper: false until the first order; the rest is then what it would start with
 	Cash        decimal.Decimal
-	StartedWith decimal.Decimal
+	StartedWith decimal.Decimal // paper
 	Worth       decimal.Decimal // cash and what its holdings are worth now
-	Profit      decimal.Decimal // worth less what it started with
-	StartedAt   time.Time
-	ResetAt     time.Time
+	// Profit is, on paper, the worth less what it started with; live, what its holdings
+	// made, sold and still held.
+	Profit    decimal.Decimal
+	StartedAt time.Time // paper
+	ResetAt   time.Time // paper
+
+	// Live: the wallet trading, and whether its pUSD could be read (D198).
+	Wallet    *domain.Wallet
+	CashKnown bool
 }
 
 // TraderSummary is what copying one trader came to since the account (re)started; an
@@ -63,19 +71,37 @@ func (h HoldingSummary) Unrealized() decimal.Decimal {
 	return h.Value.Sub(h.Cost)
 }
 
-// Summary is a workflow's results, for its owner.
-func (s *Service) Summary(ctx context.Context, p auth.Principal, id domain.WorkflowID) (Summary, error) {
+// Summary is a workflow's results in a mode, for its owner; with no mode, in the one it
+// trades in now.
+func (s *Service) Summary(ctx context.Context, p auth.Principal, id domain.WorkflowID, mode domain.TradingMode) (Summary, error) {
 	if _, err := s.d.Workflows.Get(ctx, p, id); err != nil {
 		return Summary{}, err
 	}
 
-	var out Summary
+	t, err := s.tradingOf(ctx, id)
+	if err != nil {
+		return Summary{}, err
+	}
+
+	switch mode {
+	case "":
+		mode = t.Mode
+	case domain.ModePaper, domain.ModeLive:
+	default:
+		return Summary{}, fmt.Errorf("%w: a mode is paper or live", domain.ErrInvalidInput)
+	}
+
+	if mode == domain.ModeLive {
+		return s.liveSummary(ctx, p.User.ID, t)
+	}
+
+	out := Summary{Account: AccountSummary{Mode: domain.ModePaper}}
 
 	a, err := s.d.Ledger.PaperAccount(ctx, id)
 	switch {
 	case errors.Is(err, domain.ErrNotFound):
 		balance := s.d.PaperBalance()
-		out.Account = AccountSummary{Cash: balance, StartedWith: balance, Worth: balance}
+		out.Account.Cash, out.Account.StartedWith, out.Account.Worth = balance, balance, balance
 
 		return out, nil
 	case err != nil:
@@ -92,7 +118,7 @@ func (s *Service) Summary(ctx context.Context, p auth.Principal, id domain.Workf
 		return Summary{}, err
 	}
 
-	marked, err := s.mark(ctx, holdings)
+	marked, err := s.mark(ctx, holdings, domain.ModePaper)
 	if err != nil {
 		return Summary{}, err
 	}
@@ -103,18 +129,65 @@ func (s *Service) Summary(ctx context.Context, p auth.Principal, id domain.Workf
 	}
 
 	out.Account = AccountSummary{
-		Open: true, Cash: a.Cash, StartedWith: a.StartedWith, Worth: worth, Profit: worth.Sub(a.StartedWith),
-		StartedAt: a.StartedAt, ResetAt: a.ResetAt,
+		Mode: domain.ModePaper, Open: true, Cash: a.Cash, StartedWith: a.StartedWith, Worth: worth,
+		Profit: worth.Sub(a.StartedWith), StartedAt: a.StartedAt, ResetAt: a.ResetAt,
 	}
 	out.Holdings = marked
-	out.Traders = traderSummaries(totals, holdings, marked)
+	out.Traders = traderSummaries(totals, holdings, marked, domain.ModePaper)
 
 	return out, nil
 }
 
-// mark puts a price on each open paper holding (D105): the book's midpoint, or with a
+// liveSummary is a workflow's live results: its wallet's pUSD (D198), and what its live
+// holdings made since its first live order.
+func (s *Service) liveSummary(ctx context.Context, owner domain.UserID, t domain.WorkflowTrading) (Summary, error) {
+	setup, err := s.setupOf(ctx, owner, t)
+	if err != nil {
+		return Summary{}, err
+	}
+
+	holdings, err := s.d.Ledger.Holdings(ctx, t.WorkflowID)
+	if err != nil {
+		return Summary{}, err
+	}
+
+	totals, err := s.d.Ledger.TraderTotals(ctx, t.WorkflowID, domain.ModeLive, time.Time{})
+	if err != nil {
+		return Summary{}, err
+	}
+
+	marked, err := s.mark(ctx, holdings, domain.ModeLive)
+	if err != nil {
+		return Summary{}, err
+	}
+
+	account := AccountSummary{Mode: domain.ModeLive, Open: true, Wallet: setup.Wallet}
+
+	if cash, err := s.liveCash(ctx, owner, t); err == nil {
+		account.Cash, account.CashKnown = cash, true
+	} else {
+		s.d.Logger.Debug(ctx, "Live cash not read", "workflow_id", t.WorkflowID, logging.Err(err))
+	}
+
+	account.Worth = account.Cash
+
+	for _, h := range marked {
+		account.Worth = account.Worth.Add(h.Value)
+		account.Profit = account.Profit.Add(h.Unrealized())
+	}
+
+	for _, h := range holdings {
+		if h.Mode == domain.ModeLive {
+			account.Profit = account.Profit.Add(h.Realized)
+		}
+	}
+
+	return Summary{Account: account, Holdings: marked, Traders: traderSummaries(totals, holdings, marked, domain.ModeLive)}, nil
+}
+
+// mark puts a price on each open holding in mode (D105): the book's midpoint, or with a
 // one-sided or empty book, the market's own price for the outcome.
-func (s *Service) mark(ctx context.Context, holdings []domain.Holding) ([]HoldingSummary, error) {
+func (s *Service) mark(ctx context.Context, holdings []domain.Holding, mode domain.TradingMode) ([]HoldingSummary, error) {
 	var (
 		open    []HoldingSummary
 		tokens  []domain.TokenID
@@ -122,7 +195,7 @@ func (s *Service) mark(ctx context.Context, holdings []domain.Holding) ([]Holdin
 	)
 
 	for _, h := range holdings {
-		if h.Mode != domain.ModePaper || !h.Shares.IsPositive() {
+		if h.Mode != mode || !h.Shares.IsPositive() {
 			continue
 		}
 
@@ -185,9 +258,9 @@ func (s *Service) mark(ctx context.Context, holdings []domain.Holding) ([]Holdin
 	return open, nil
 }
 
-// traderSummaries puts each trader's copies together: their orders, and their holdings,
-// open and closed, since the account (re)started.
-func traderSummaries(totals []domain.TraderTotal, holdings []domain.Holding, open []HoldingSummary) []TraderSummary {
+// traderSummaries puts each trader's copies in mode together: their orders, and their
+// holdings, open and closed, since the account (re)started.
+func traderSummaries(totals []domain.TraderTotal, holdings []domain.Holding, open []HoldingSummary, mode domain.TradingMode) []TraderSummary {
 	by := map[domain.WalletAddress]*TraderSummary{}
 	get := func(w domain.WalletAddress) *TraderSummary {
 		if t, ok := by[w]; ok {
@@ -206,7 +279,7 @@ func traderSummaries(totals []domain.TraderTotal, holdings []domain.Holding, ope
 	}
 
 	for _, h := range holdings {
-		if h.Mode != domain.ModePaper {
+		if h.Mode != mode {
 			continue
 		}
 
@@ -305,13 +378,21 @@ func (s *Service) SettleEvery(ctx context.Context, every time.Duration) {
 	}
 }
 
-// Settle closes paper holdings in resolved markets at what a share pays (D106): a sell
-// at the outcome's resolved price, no fee, in the ledger as an order of its own.
+// Settle closes holdings in resolved markets at what a share pays (D106): a sell at the
+// outcome's resolved price, no fee, in the ledger as an order of its own. Live ones too
+// (D200): redeeming their shares on chain is Polymarket's, or their owner's.
 func (s *Service) Settle(ctx context.Context) error {
 	open, err := s.d.Ledger.OpenHoldings(ctx, domain.ModePaper)
 	if err != nil {
 		return err
 	}
+
+	live, err := s.d.Ledger.OpenHoldings(ctx, domain.ModeLive)
+	if err != nil {
+		return err
+	}
+
+	open = append(open, live...)
 
 	markets := map[domain.MarketID]*domain.Market{}
 
@@ -357,15 +438,14 @@ func (s *Service) settle(ctx context.Context, key domain.HoldingKey, o domain.Ou
 		return err
 	}
 
-	a, err := s.d.Ledger.PaperAccount(ctx, key.WorkflowID)
-	if err != nil {
-		return err
+	reason := fmt.Sprintf("%s resolved: %s pays $%s a share", question, o.Label, o.Price.StringFixed(2))
+	if key.Mode == domain.ModeLive {
+		reason += "; the shares are redeemed on Polymarket"
 	}
 
-	reason := fmt.Sprintf("%s resolved: %s pays $%s a share", question, o.Label, o.Price.StringFixed(2))
 	order := domain.PlacedOrder{
 		OrderRequest: domain.OrderRequest{
-			WorkflowID: key.WorkflowID, OwnerID: a.OwnerID, Mode: domain.ModePaper, Trader: h.Trader,
+			WorkflowID: key.WorkflowID, OwnerID: h.OwnerID, Mode: key.Mode, Trader: h.Trader,
 			TraderLabel: h.TraderLabel, TokenID: h.TokenID, MarketID: h.MarketID, Side: domain.SideSell,
 			Type: domain.OrderSettle, Price: o.Price, Shares: h.Shares,
 		},
@@ -379,7 +459,7 @@ func (s *Service) settle(ctx context.Context, key domain.HoldingKey, o domain.Ou
 		return err
 	}
 
-	s.d.Logger.Info(ctx, "Paper holding settled", "workflow_id", key.WorkflowID, "token_id", h.TokenID,
+	s.d.Logger.Info(ctx, "Holding settled", "workflow_id", key.WorkflowID, "mode", key.Mode, "token_id", h.TokenID,
 		"shares", h.Shares, "price", o.Price)
 
 	return nil

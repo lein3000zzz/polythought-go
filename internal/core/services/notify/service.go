@@ -53,8 +53,16 @@ var SessionKeyExpiring = Kind{
 	Default: true,
 }
 
+var LiveTradeFailed = Kind{
+	Key:   "live_trade_failed",
+	Label: "A live trade fails",
+	Description: "A live order matched on Polymarket, but its trade failed on chain: the workflow's books undo it. " +
+		"Once per order.",
+	Default: true,
+}
+
 // Kinds lists every kind, in the order Settings shows them.
-var Kinds = []Kind{WorkflowFailed, ApprovalWaiting, SessionKeyExpiring}
+var Kinds = []Kind{WorkflowFailed, ApprovalWaiting, SessionKeyExpiring, LiveTradeFailed}
 
 const (
 	failureCooldown = time.Hour
@@ -67,6 +75,7 @@ var (
 	_ ports.ExecutionNotifier  = (*Service)(nil)
 	_ ports.QuestionReminder   = (*Service)(nil)
 	_ ports.SessionKeyReminder = (*Service)(nil)
+	_ ports.LiveTradeNotifier  = (*Service)(nil)
 )
 
 type Service struct {
@@ -406,6 +415,55 @@ func (s *Service) RemindSessionKey(ctx context.Context, user domain.UserID, w do
 	var buttons [][]ports.TelegramButton
 	if strings.HasPrefix(s.publicURL, "https://") {
 		buttons = [][]ports.TelegramButton{{{Text: "Open wallets", URL: s.publicURL + "/wallets"}}}
+	}
+
+	err = s.messenger.MessageUser(ctx, user, ports.UserMessage{HTML: text, Buttons: buttons})
+	if err == nil || mailed || errors.Is(err, domain.ErrTelegramNotLinked) || errors.Is(err, domain.ErrTelegramUnavailable) {
+		return nil
+	}
+
+	return err
+}
+
+// LiveTradeFailed tells the owner a live order's trade failed on chain, undone in the
+// workflow's books (D193), each way they chose. With nowhere to send it, nobody is told.
+func (s *Service) LiveTradeFailed(ctx context.Context, user domain.UserID, o domain.PlacedOrder) error {
+	telegram, mail, err := s.channels(ctx, user, LiveTradeFailed)
+	if err != nil || (!telegram && !mail) {
+		return err
+	}
+
+	name := "a deleted workflow"
+	if w, err := s.workflows.Get(ctx, user, o.WorkflowID); err == nil {
+		name = w.Name
+	}
+
+	shares, dollars, _ := o.Totals()
+	what := func(name string) string { return fmt.Sprintf("A live %s of %s's order", o.Side, name) }
+	undone := "Its trade failed on chain, so the shares never changed hands; the workflow's books undo it."
+	if o.Status != domain.OrderFailed {
+		undone = fmt.Sprintf("Part of its trade failed on chain; the books undo that part and keep %s shares for $%s.",
+			shares.String(), dollars.StringFixed(2))
+	}
+
+	mailed := false
+	if mail {
+		mailed = s.mailUser(ctx, user, LiveTradeFailed, ports.UserMail{
+			Subject:    "A live trade of " + name + " failed",
+			Paragraphs: []string{what(name) + " matched on Polymarket, but " + strings.ToLower(undone[:1]) + undone[1:]},
+			LinkText:   "Open the workflow", LinkURL: s.publicURL + "/workflows/" + string(o.WorkflowID),
+		}) == nil
+	}
+
+	if !telegram {
+		return nil
+	}
+
+	text := "⚠️ " + what("<b>"+html.EscapeString(name)+"</b>") + " matched on Polymarket. " + undone
+
+	var buttons [][]ports.TelegramButton
+	if strings.HasPrefix(s.publicURL, "https://") {
+		buttons = [][]ports.TelegramButton{{{Text: "Open the workflow", URL: s.publicURL + "/workflows/" + string(o.WorkflowID)}}}
 	}
 
 	err = s.messenger.MessageUser(ctx, user, ports.UserMessage{HTML: text, Buttons: buttons})

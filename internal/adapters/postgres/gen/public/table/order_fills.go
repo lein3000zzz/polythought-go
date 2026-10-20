@@ -23,6 +23,8 @@ type orderFillsTable struct {
 	Shares  postgres.ColumnFloat
 	Dollars postgres.ColumnFloat
 	Fee     postgres.ColumnFloat
+	TradeID postgres.ColumnString
+	Status  postgres.ColumnString
 
 	AllColumns     postgres.ColumnList
 	MutableColumns postgres.ColumnList
@@ -70,9 +72,11 @@ func newOrderFillsTableImpl(schemaName, tableName, alias string) orderFillsTable
 		SharesColumn   = postgres.FloatColumn("shares")
 		DollarsColumn  = postgres.FloatColumn("dollars")
 		FeeColumn      = postgres.FloatColumn("fee")
-		allColumns     = postgres.ColumnList{OrderIDColumn, SeqColumn, PriceColumn, SharesColumn, DollarsColumn, FeeColumn}
-		mutableColumns = postgres.ColumnList{PriceColumn, SharesColumn, DollarsColumn, FeeColumn}
-		defaultColumns = postgres.ColumnList{}
+		TradeIDColumn  = postgres.StringColumn("trade_id")
+		StatusColumn   = postgres.StringColumn("status")
+		allColumns     = postgres.ColumnList{OrderIDColumn, SeqColumn, PriceColumn, SharesColumn, DollarsColumn, FeeColumn, TradeIDColumn, StatusColumn}
+		mutableColumns = postgres.ColumnList{PriceColumn, SharesColumn, DollarsColumn, FeeColumn, TradeIDColumn, StatusColumn}
+		defaultColumns = postgres.ColumnList{TradeIDColumn, StatusColumn}
 	)
 
 	return orderFillsTable{
@@ -85,6 +89,8 @@ func newOrderFillsTableImpl(schemaName, tableName, alias string) orderFillsTable
 		Shares:  SharesColumn,
 		Dollars: DollarsColumn,
 		Fee:     FeeColumn,
+		TradeID: TradeIDColumn,
+		Status:  StatusColumn,
 
 		AllColumns:     allColumns,
 		MutableColumns: mutableColumns,

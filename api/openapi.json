@@ -58,6 +58,16 @@
                         "example": "989.65",
                         "type": "string"
                     },
+                    "cashKnown": {
+                        "type": "boolean"
+                    },
+                    "mode": {
+                        "enum": [
+                            "paper",
+                            "live"
+                        ],
+                        "type": "string"
+                    },
                     "open": {
                         "description": "Open is false until the workflow's first paper order; the rest is then what an\naccount would start with.",
                         "type": "boolean"
@@ -78,13 +88,19 @@
                         "example": "1000",
                         "type": "string"
                     },
+                    "wallet": {
+                        "$ref": "#/components/schemas/Wallet",
+                        "description": "Live: the wallet trading, and whether its pUSD, the cash, could be read."
+                    },
                     "worth": {
-                        "description": "Worth is the cash and what the holdings are worth now; Profit is it less what the\naccount started with.",
+                        "description": "Worth is the cash and what the holdings are worth now. Profit is, on paper, the\nworth less what the account started with; live, what the holdings made, sold and\nstill held.",
                         "type": "string"
                     }
                 },
                 "required": [
                     "cash",
+                    "cashKnown",
+                    "mode",
                     "open",
                     "profit",
                     "startedWith",
@@ -1649,11 +1665,14 @@
                         "type": "string"
                     },
                     "status": {
+                        "description": "Status pending is a live order sent whose outcome is not known yet, followed;\nfailed, one that matched but whose trades failed on chain, undone.",
                         "enum": [
                             "filled",
                             "partial",
                             "unfilled",
-                            "refused"
+                            "refused",
+                            "pending",
+                            "failed"
                         ],
                         "type": "string"
                     },
@@ -1707,6 +1726,17 @@
                         "type": "string"
                     },
                     "shares": {
+                        "type": "string"
+                    },
+                    "status": {
+                        "description": "Status is how far a live fill's trade has come on chain; absent on paper.",
+                        "enum": [
+                            "matched",
+                            "mined",
+                            "retrying",
+                            "confirmed",
+                            "failed"
+                        ],
                         "type": "string"
                     }
                 },
@@ -2596,6 +2626,61 @@
                 ],
                 "type": "object"
             },
+            "TradingSetup": {
+                "properties": {
+                    "holdsLive": {
+                        "description": "HoldsLive says it holds live shares: its wallet changes once they are sold or\nsettled (D202).",
+                        "type": "boolean"
+                    },
+                    "liveAvailable": {
+                        "description": "LiveAvailable says whether the server places live orders now; Why, why not.",
+                        "type": "boolean"
+                    },
+                    "mode": {
+                        "enum": [
+                            "paper",
+                            "live"
+                        ],
+                        "type": "string"
+                    },
+                    "wallet": {
+                        "$ref": "#/components/schemas/Wallet",
+                        "description": "Wallet is the one live orders spend; absent when none is chosen, or it is gone."
+                    },
+                    "why": {
+                        "type": "string"
+                    }
+                },
+                "required": [
+                    "holdsLive",
+                    "liveAvailable",
+                    "mode"
+                ],
+                "type": "object"
+            },
+            "TradingSetupRequest": {
+                "properties": {
+                    "confirm": {
+                        "description": "Confirm is the owner's yes to orders spending real money (D201): going live, or\nlive from another wallet, needs it.",
+                        "type": "boolean"
+                    },
+                    "mode": {
+                        "enum": [
+                            "paper",
+                            "live"
+                        ],
+                        "type": "string"
+                    },
+                    "walletId": {
+                        "type": "string"
+                    }
+                },
+                "required": [
+                    "confirm",
+                    "mode"
+                ],
+                "type": "object"
+            },
             "TradingSummary": {
                 "properties": {
                     "account": {
@@ -2904,6 +2989,19 @@
                     "hasSessionKey",
                     "id",
                     "label"
+                ],
+                "type": "object"
+            },
+            "WalletCash": {
+                "properties": {
+                    "cash": {
+                        "description": "Cash is the wallet's pUSD on Polymarket's CLOB, what its live orders spend.",
+                        "example": "152.25",
+                        "type": "string"
+                    }
+                },
+                "required": [
+                    "cash"
                 ],
                 "type": "object"
             },
@@ -6331,6 +6429,16 @@
                             }
                         },
                         "description": "not_found"
+                    },
+                    "409": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "wallet_trades_live: switch its workflows to paper first"
                     }
                 },
                 "security": [
@@ -6719,6 +6827,86 @@
                     }
                 ],
                 "summary": "Start setting up approvals in the browser",
+                "tags": [
+                    "wallets"
+                ]
+            }
+        },
+        "/wallets/{id}/cash": {
+            "get": {
+                "operationId": "getWalletCash",
+                "parameters": [
+                    {
+                        "description": "Wallet ID",
+                        "in": "path",
+                        "name": "id",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/WalletCash"
+                                }
+                            }
+                        },
+                        "description": "OK"
+                    },
+                    "400": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "wallet_cannot_trade"
+                    },
+                    "401": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "unauthenticated"
+                    },
+                    "404": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "not_found"
+                    },
+                    "503": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "upstream_unavailable: Polymarket could not be reached"
+                    }
+                },
+                "security": [
+                    {
+                        "SessionCookie": []
+                    },
+                    {
+                        "APIToken": []
+                    }
+                ],
+                "summary": "A wallet's cash",
                 "tags": [
                     "wallets"
                 ]
@@ -8938,6 +9126,18 @@
                         "schema": {
                             "type": "string"
                         }
+                    },
+                    {
+                        "description": "paper or live; the mode it trades in now when absent",
+                        "in": "query",
+                        "name": "mode",
+                        "schema": {
+                            "enum": [
+                                "paper",
+                                "live"
+                            ],
+                            "type": "string"
+                        }
                     }
                 ],
                 "responses": {
@@ -8946,6 +9146,76 @@
                             "application/json": {
                                 "schema": {
                                     "$ref": "#/components/schemas/TradingSummary"
+                                }
+                            }
+                        },
+                        "description": "OK"
+                    },
+                    "400": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "invalid_input"
+                    },
+                    "401": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "unauthenticated"
+                    },
+                    "404": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "not_found"
+                    }
+                },
+                "security": [
+                    {
+                        "SessionCookie": []
+                    },
+                    {
+                        "APIToken": []
+                    }
+                ],
+                "summary": "Trading results",
+                "tags": [
+                    "trading"
+                ]
+            }
+        },
+        "/workflows/{id}/trading/setup": {
+            "get": {
+                "operationId": "getTradingSetup",
+                "parameters": [
+                    {
+                        "description": "Workflow ID",
+                        "in": "path",
+                        "name": "id",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/TradingSetup"
                                 }
                             }
                         },
@@ -8980,7 +9250,108 @@
                         "APIToken": []
                     }
                 ],
-                "summary": "Trading results",
+                "summary": "How a workflow trades",
+                "tags": [
+                    "trading"
+                ]
+            },
+            "put": {
+                "operationId": "setTradingSetup",
+                "parameters": [
+                    {
+                        "description": "Workflow ID",
+                        "in": "path",
+                        "name": "id",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/TradingSetupRequest",
+                                "summary": "body",
+                                "description": "Its mode and wallet"
+                            }
+                        }
+                    },
+                    "description": "Its mode and wallet",
+                    "required": true
+                },
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/TradingSetup"
+                                }
+                            }
+                        },
+                        "description": "OK"
+                    },
+                    "400": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "invalid_input, not_confirmed or wallet_cannot_trade"
+                    },
+                    "401": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "unauthenticated"
+                    },
+                    "403": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "live_trading_off"
+                    },
+                    "404": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "not_found: the workflow, or the wallet"
+                    },
+                    "409": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "holds_live: its wallet stays while it holds live shares"
+                    }
+                },
+                "security": [
+                    {
+                        "SessionCookie": []
+                    },
+                    {
+                        "APIToken": []
+                    }
+                ],
+                "summary": "Change how a workflow trades",
                 "tags": [
                     "trading"
                 ]

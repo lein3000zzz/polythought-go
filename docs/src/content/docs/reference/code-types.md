@@ -648,7 +648,7 @@ export interface TelegramSendSettings {
 /** The settings of Copy sizing (trading.copySize). */
 export interface TradingCopySizeSettings {
     /**
-     * fixed: Dollars a buy. multiple: Multiple times what they spent. proportional: the share of their portfolio they spent, of what the workflow's paper account is worth.
+     * fixed: Dollars a buy. multiple: Multiple times what they spent. proportional: the share of their portfolio they spent, of what the workflow is worth: its cash (the paper account's, or live its wallet's pUSD) and what its holdings cost.
      * @default "fixed"
      */
     sizing?: "fixed" | "multiple" | "proportional" | Expression;

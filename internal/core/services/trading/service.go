@@ -1,7 +1,8 @@
 // Package trading places workflows' orders and keeps their books. On paper (D89 to D92),
 // an order fills at once against the live order book, as the CLOB would fill it, paying
-// the market's taker fees, out of a paper account of the workflow's own; every order is
-// in the ledger, refused ones with why.
+// the market's taker fees, out of a paper account of the workflow's own; live (3p2), it
+// goes to Polymarket's CLOB from the workflow's wallet. Every order is in the ledger,
+// refused ones with why.
 package trading
 
 import (
@@ -38,6 +39,21 @@ type Deps struct {
 	// PaperBalance is what a paper account starts with, read when one opens.
 	PaperBalance func() decimal.Decimal
 	Now          func() time.Time
+
+	// Live orders (3p2); without Exchange and Keys, workflows trade on paper only.
+	Trading  ports.WorkflowTradingRepository
+	Exchange ports.LiveExchange
+	Keys     ports.OrderKeys
+	Wallets  ports.WalletDirectory   // the wallet a workflow trades from, for its owner
+	Notifier ports.LiveTradeNotifier // optional: who is told of a failed live trade
+
+	// LiveOn says whether the instance takes live orders now (D192); BuilderCode is the
+	// builder code they carry, empty for none (D203).
+	LiveOn      func() bool
+	BuilderCode func() string
+
+	// Patience is how long a placed order is waited for, looked at every Poll (D204).
+	Patience, Poll time.Duration
 }
 
 type Service struct {
@@ -52,21 +68,33 @@ func New(d Deps) *Service {
 		d.Now = time.Now
 	}
 
+	if d.Poll <= 0 {
+		d.Poll = defaultPoll
+	}
+
+	if d.Patience <= 0 {
+		d.Patience = defaultPatience
+	}
+
 	return &Service{d: d, locks: make(map[domain.WorkflowID]*sync.Mutex)}
 }
 
-// Place tries an order and records how it went. One workflow's orders go one at a time:
-// each sees the cash and shares the one before left.
+// Place tries an order, in the mode the workflow trades in now, and records how it went.
+// One workflow's orders go one at a time: each sees the cash and shares the one before
+// left.
 func (s *Service) Place(ctx context.Context, req domain.OrderRequest) (domain.PlacedOrder, error) {
 	unlock := s.lock(req.WorkflowID)
 	defer unlock()
 
+	t, err := s.tradingOf(ctx, req.WorkflowID)
+	if err != nil {
+		return domain.PlacedOrder{}, err
+	}
+
+	req.Mode = t.Mode
+
 	req, reason := request(req)
 	o := domain.PlacedOrder{OrderRequest: req, ID: domain.OrderID(uuid.Must(uuid.NewV7()).String()), CreatedAt: s.d.Now().UTC()}
-
-	if reason == "" && req.Mode != domain.ModePaper {
-		reason = "live trading is not available yet: orders are on paper"
-	}
 
 	if reason != "" {
 		return s.refuse(ctx, o, reason)
@@ -92,6 +120,10 @@ func (s *Service) Place(ctx context.Context, req domain.OrderRequest) (domain.Pl
 
 	if reason := keepsRules(o.OrderRequest, rules); reason != "" {
 		return s.refuse(ctx, o, reason)
+	}
+
+	if o.Mode == domain.ModeLive {
+		return s.placeLive(ctx, o, rules, t)
 	}
 
 	key := domain.HoldingKey{WorkflowID: o.WorkflowID, Mode: o.Mode, Trader: o.Trader, TokenID: o.TokenID}

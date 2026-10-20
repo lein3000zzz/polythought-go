@@ -33,14 +33,15 @@ var errNoCopy = errors.New("no copy to guard: put Copy sizing before it")
 // day, a price band and categories. A copy over a cap is shrunk to fit (D100); one it
 // cannot let through goes out of blocked, saying why (D96). Sells always go ahead (D101).
 type RiskGuard struct {
-	books   Books
-	rules   ports.TradingRulesReader
-	markets ports.MarketReader // a market's tags, for categories
-	now     func() time.Time
+	books    Books
+	accounts Accounts
+	rules    ports.TradingRulesReader
+	markets  ports.MarketReader // a market's tags, for categories
+	now      func() time.Time
 }
 
-func NewRiskGuard(books Books, rules ports.TradingRulesReader, markets ports.MarketReader, now func() time.Time) *RiskGuard {
-	return &RiskGuard{books: books, rules: rules, markets: markets, now: now}
+func NewRiskGuard(books Books, accounts Accounts, rules ports.TradingRulesReader, markets ports.MarketReader, now func() time.Time) *RiskGuard {
+	return &RiskGuard{books: books, accounts: accounts, rules: rules, markets: markets, now: now}
 }
 
 func (*RiskGuard) Type() engine.NodeType {
@@ -144,6 +145,12 @@ func (g *RiskGuard) Run(ctx context.Context, rc engine.RunContext, in engine.Por
 		}
 
 		if spent == nil && l.perDay != nil {
+			mode, err := g.accounts.Mode(ctx, rc.WorkflowID)
+			if err != nil {
+				out.Fail(item, src, err)
+				continue
+			}
+
 			s, err := g.books.Spent(ctx, rc.WorkflowID, mode, g.now().Add(-day))
 			if err != nil {
 				out.Fail(item, src, err)
@@ -293,6 +300,11 @@ func categories(l limits, tags []string) string {
 
 // held is what the workflow holds in each market, at cost, all traders together (D103).
 func (g *RiskGuard) held(ctx context.Context, w domain.WorkflowID) (map[domain.MarketID]decimal.Decimal, error) {
+	mode, err := g.accounts.Mode(ctx, w)
+	if err != nil {
+		return nil, err
+	}
+
 	holdings, err := g.books.Holdings(ctx, w)
 	if err != nil {
 		return nil, err

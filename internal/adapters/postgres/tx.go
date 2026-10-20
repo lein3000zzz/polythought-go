@@ -64,8 +64,9 @@ func (db *DB) WithinTx(ctx context.Context, fn func(ctx context.Context) error) 
 }
 
 const (
-	uniqueViolation = "23505"
-	checkViolation  = "23514"
+	uniqueViolation     = "23505"
+	checkViolation      = "23514"
+	foreignKeyViolation = "23503"
 )
 
 func isUniqueViolation(err error, constraint string) bool {
@@ -78,6 +79,12 @@ func isUniqueViolation(err error, constraint string) bool {
 func isCheckViolation(err error) bool {
 	var pgErr *pgconn.PgError
 	return errors.As(err, &pgErr) && pgErr.Code == checkViolation
+}
+
+// isForeignKeyViolation reports a row naming one that is not there.
+func isForeignKeyViolation(err error) bool {
+	var pgErr *pgconn.PgError
+	return errors.As(err, &pgErr) && pgErr.Code == foreignKeyViolation
 }
 
 // notFound maps jet's empty-result error to domain.ErrNotFound.

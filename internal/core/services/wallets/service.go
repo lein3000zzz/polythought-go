@@ -41,6 +41,9 @@ type Service struct {
 	setups    ports.ApprovalSetupRepository
 	approvals ports.TradingApprovals
 
+	// Optional: without it, a wallet is unlinked whatever trades from it.
+	trading ports.WorkflowTradingRepository
+
 	log        logging.Logger
 	now        func() time.Time
 	maxWallets int
@@ -123,8 +126,17 @@ func (s *Service) List(ctx context.Context, p auth.Principal) ([]domain.Wallet, 
 	return s.repo.ListForUser(ctx, p.User.ID)
 }
 
-// Unlink removes a wallet together with its credentials.
+// Unlink removes a wallet together with its credentials, unless a workflow trades live
+// from it.
 func (s *Service) Unlink(ctx context.Context, p auth.Principal, id domain.WalletID) error {
+	if _, err := s.repo.Get(ctx, p.User.ID, id); err != nil {
+		return err
+	}
+
+	if err := s.tradesLive(ctx, id); err != nil {
+		return err
+	}
+
 	if err := s.repo.Delete(ctx, p.User.ID, id); err != nil {
 		return err
 	}

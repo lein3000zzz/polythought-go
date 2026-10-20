@@ -49,3 +49,52 @@ func TestEmailVerificationMigration(t *testing.T) {
 	require.NoError(t, db.SQL.QueryRowContext(ctx, `SELECT email_verified_at FROM users WHERE email = 'old@example.com'`).Scan(&verified))
 	assert.True(t, verified.Equal(created), "verified as of when it was made")
 }
+
+// TestLiveTradingMigration checks that holdings from before live trading get their owner
+// from their workflow, as those of workflows deleted later need it (D199).
+func TestLiveTradingMigration(t *testing.T) {
+	ctx := context.Background()
+
+	pg, err := pgtest.Start(ctx)
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = pg.Terminate(ctx) })
+
+	db, err := Open(ctx, pg.DSN)
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = db.Close(ctx) })
+
+	fsys, err := fs.Sub(migrationFiles, "migrations")
+	require.NoError(t, err)
+
+	provider, err := goose.NewProvider(goose.DialectPostgres, db.SQL, fsys)
+	require.NoError(t, err)
+
+	_, err = provider.UpTo(ctx, 23)
+	require.NoError(t, err)
+
+	const (
+		user     = "0192f0c4-0000-7000-8000-000000000001"
+		workflow = "0192f0c4-0000-7000-8000-000000000002"
+	)
+
+	now := time.Date(2026, 10, 1, 12, 0, 0, 0, time.UTC)
+	_, err = db.SQL.ExecContext(ctx, `INSERT INTO users (id, email, email_normalized, password_hash, role, created_at, updated_at)
+		VALUES ($1, 'old@example.com', 'old@example.com', 'x', 'user', $2, $2)`, user, now)
+	require.NoError(t, err)
+	_, err = db.SQL.ExecContext(ctx, `INSERT INTO workflows (id, owner_id, name, active, definition, version, created_at, updated_at)
+		VALUES ($1, $2, 'copy', false, '{}', 1, $3, $3)`, workflow, user, now)
+	require.NoError(t, err)
+	_, err = db.SQL.ExecContext(ctx, `INSERT INTO holdings (workflow_id, mode, token_id, shares, cost, realized, updated_at)
+		VALUES ($1, 'paper', 't-yes', 10, 5.5, 0, $2)`, workflow, now)
+	require.NoError(t, err)
+
+	_, err = provider.UpTo(ctx, 24)
+	require.NoError(t, err)
+
+	var owner string
+	require.NoError(t, db.SQL.QueryRowContext(ctx, `SELECT owner_id FROM holdings WHERE workflow_id = $1`, workflow).Scan(&owner))
+	assert.Equal(t, user, owner)
+
+	_, err = provider.DownTo(ctx, 23)
+	require.NoError(t, err, "and back")
+}

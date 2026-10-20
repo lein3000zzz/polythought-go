@@ -4,8 +4,15 @@ import { Fragment, useState } from 'react'
 import { toast } from 'sonner'
 
 import { errorMessage, type Schemas } from '@/api/client'
-import { useOrders, useResetPaperAccount, useTradingSummary } from '@/api/trading'
+import {
+  type TradingMode,
+  useOrders,
+  useResetPaperAccount,
+  useTradingSetup,
+  useTradingSummary,
+} from '@/api/trading'
 import { ConfirmDialog } from '@/components/ConfirmDialog'
+import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import {
   Table,
@@ -23,15 +30,21 @@ import {
   shortAddress,
 } from '@/lib/format'
 
+import { HowItTrades } from './HowItTrades'
+
 type Summary = Schemas['TradingSummary']
 type Order = Schemas['Order']
 
 /**
- * How a workflow's trading went (D104): its paper account, each trader it copies, what
- * it holds marked to market, and its orders. Refreshed while it shows.
+ * How a workflow trades and how its trading went (D104, D191): paper or live, its paper
+ * account or its wallet, each trader it copies, what it holds marked to market, and its
+ * orders. The books shown are those of the mode it trades in, or the other's on asking.
+ * Refreshed while it shows.
  */
 export function TradingView({ workflowId }: { workflowId: string }) {
-  const summary = useTradingSummary(workflowId)
+  const [shown, setShown] = useState<TradingMode>()
+  const setup = useTradingSetup(workflowId)
+  const summary = useTradingSummary(workflowId, shown)
   const orders = useOrders(workflowId)
 
   if (summary.isPending) return <p className="p-6 text-sm text-muted-foreground">Loading…</p>
@@ -40,10 +53,35 @@ export function TradingView({ workflowId }: { workflowId: string }) {
 
   const s = summary.data
   const names = questions(s)
+  const mode = s.account.mode
+  // Books of both modes once it was ever set up to trade live.
+  const both = setup.data?.wallet !== undefined || setup.data?.mode === 'live' || mode === 'live'
 
   return (
     <div className="flex h-full flex-col gap-8 overflow-y-auto p-6">
-      <Account workflowId={workflowId} account={s.account} />
+      <HowItTrades workflowId={workflowId} />
+
+      {both && (
+        <div role="group" aria-label="Books" className="-mb-4 flex gap-2">
+          {(['paper', 'live'] as const).map((m) => (
+            <Button
+              key={m}
+              variant={m === mode ? 'secondary' : 'ghost'}
+              size="sm"
+              aria-pressed={m === mode}
+              onClick={() => setShown(m)}
+            >
+              {m === 'paper' ? 'Paper books' : 'Live books'}
+            </Button>
+          ))}
+        </div>
+      )}
+
+      {mode === 'live' ? (
+        <LiveAccount account={s.account} />
+      ) : (
+        <Account workflowId={workflowId} account={s.account} />
+      )}
 
       <section aria-labelledby="traders-heading" className="flex flex-col gap-2">
         <h2 id="traders-heading" className="font-medium">
@@ -196,6 +234,26 @@ function Account({ workflowId, account }: { workflowId: string; account: Summary
   )
 }
 
+/** A workflow's live books (D198): its wallet's pUSD, shared, and what it holds live. */
+function LiveAccount({ account }: { account: Summary['account'] }) {
+  const wallet = account.wallet
+  const name = wallet ? wallet.label || shortAddress(wallet.address) : undefined
+
+  return (
+    <section aria-label="Live account" className="flex flex-wrap items-end gap-x-8 gap-y-3">
+      <Figure label="Worth" value={account.cashKnown ? formatDollars(account.worth) : '—'} />
+      <Figure label="Cash (pUSD)" value={account.cashKnown ? formatDollars(account.cash) : '—'} />
+      <Figure label="Profit" value={<Profit text={account.profit} />} />
+      <p className="text-xs text-muted-foreground">
+        {name
+          ? `The pUSD of ${name} on Polymarket, which other workflows trading from it share, and what this workflow holds live.`
+          : 'No wallet: choose one to trade live.'}
+        {name && !account.cashKnown && ' Its pUSD could not be read just now.'}
+      </p>
+    </section>
+  )
+}
+
 function Figure({ label, value }: { label: string; value: React.ReactNode }) {
   return (
     <div className="flex flex-col">
@@ -259,7 +317,14 @@ function Orders({
             <TableRow className={cn(before(o) && 'text-muted-foreground')}>
               <TableCell className="whitespace-nowrap">{formatDateTime(o.at)}</TableCell>
               <TableCell>{traderName(o.traderLabel, o.trader)}</TableCell>
-              <TableCell className="whitespace-nowrap">{orderText(o)}</TableCell>
+              <TableCell className="whitespace-nowrap">
+                {o.mode === 'live' && (
+                  <Badge variant="destructive" className="mr-2">
+                    live
+                  </Badge>
+                )}
+                {orderText(o)}
+              </TableCell>
               <TableCell className="max-w-64 truncate" title={names.get(o.tokenId)}>
                 {names.get(o.tokenId) ?? shortAddress(o.tokenId)}
               </TableCell>
@@ -296,14 +361,20 @@ function orderText(o: Order): string {
 }
 
 function resultText(o: Order): string {
-  const shares = o.fills.reduce((n, f) => n + Number(f.shares), 0)
-  const dollars = o.fills.reduce((n, f) => n + Number(f.dollars), 0)
-  const fees = o.fills.reduce((n, f) => n + Number(f.fee), 0)
+  // A live fill whose trade failed was undone (D193).
+  const fills = o.fills.filter((f) => f.status !== 'failed')
+  const shares = fills.reduce((n, f) => n + Number(f.shares), 0)
+  const dollars = fills.reduce((n, f) => n + Number(f.dollars), 0)
+  const fees = fills.reduce((n, f) => n + Number(f.fee), 0)
 
-  if (o.status === 'refused' || o.status === 'unfilled')
+  if (o.status !== 'filled' && o.status !== 'partial')
     return `${o.status}: ${o.reason ?? ''}`.trim()
 
-  const what = `${o.status}: ${formatShares(String(shares))} shares for ${formatDollars(String(dollars))}`
+  let what = `${o.status}: ${formatShares(String(shares))} shares for ${formatDollars(String(dollars))}`
+  if (fees > 0) what += `, ${formatDollars(String(fees))} in fees`
 
-  return fees > 0 ? `${what}, ${formatDollars(String(fees))} in fees` : what
+  // Counted at match, followed until its trades are final on chain (D193).
+  const settling = fills.some((f) => f.status !== undefined && f.status !== 'confirmed')
+
+  return settling ? `${what}, confirming on chain` : what
 }

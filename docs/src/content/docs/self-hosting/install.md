@@ -97,6 +97,25 @@ To change keys, put the new one first and keep the old one after it, as in
 Saved secrets keep the key they were saved with, so keep an old key listed as long as
 anything saved with it remains.
 
+## Live trading
+
+Workflows trade on paper until an admin turns on **Live trading** under Trading on the
+Config page: then an owner can switch a workflow to live in its Trading view, confirming
+it, and its orders go to Polymarket from one of their wallets, spending its pUSD (see
+[Trading live](/docs/guides/copy-traders/#trading-live)). Turned off again, workflows
+already switched keep their switch, but their orders are refused. Like every setting, it
+can be fixed in the environment instead, `POLYTHOUGHT_TRADING_LIVE=false`, which the Config
+page then shows locked.
+
+Live orders go from the server to Polymarket's CLOB at clob.polymarket.com, signed there
+with the wallet's imported or session key. The server follows each until its trades are
+final on chain, and tells the owner when one fails.
+
+**Builder code**, also under Trading, is your Polymarket builder code, from
+polymarket.com/settings?tab=builder: live orders then carry it, crediting your builder
+account with their volume, and pay the builder fee you set there on top of Polymarket's.
+Empty, which it is to start with, orders carry none.
+
 ## Where the server runs
 
 Polymarket refuses new orders from restricted regions: the United States, the United

@@ -327,6 +327,7 @@ func TestScopedOperations(t *testing.T) {
 		{
 			name: "unlink",
 			setup: func(r *portsmocks.MockWalletRepository) {
+				r.EXPECT().Get(mock.Anything, owner.ID, wallet.ID).Return(wallet, nil)
 				r.EXPECT().Delete(mock.Anything, owner.ID, wallet.ID).Return(nil)
 			},
 			call: func(s *wallets.Service) error { return s.Unlink(context.Background(), token, wallet.ID) },

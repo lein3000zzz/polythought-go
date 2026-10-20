@@ -145,7 +145,8 @@ func (s *Server) linkWallet(ctx context.Context, c *app.RequestContext) {
 	c.JSON(http.StatusCreated, toWalletDTO(w))
 }
 
-// unlinkWallet removes a wallet and its credentials.
+// unlinkWallet removes a wallet and its credentials, unless a workflow trades live from
+// it.
 //
 //	@Summary	Unlink a wallet
 //	@ID			unlinkWallet
@@ -154,6 +155,7 @@ func (s *Server) linkWallet(ctx context.Context, c *app.RequestContext) {
 //	@Success	204
 //	@Failure	401	{object}	errorBody	"unauthenticated"
 //	@Failure	404	{object}	errorBody	"not_found"
+//	@Failure	409	{object}	errorBody	"wallet_trades_live: switch its workflows to paper first"
 //	@Security	SessionCookie
 //	@Security	APIToken
 //	@Router		/wallets/{id} [delete]

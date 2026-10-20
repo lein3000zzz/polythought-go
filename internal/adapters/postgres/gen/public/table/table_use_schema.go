@@ -34,5 +34,6 @@ func UseSchema(schema string) {
 	Users = Users.FromSchema(schema)
 	Waits = Waits.FromSchema(schema)
 	Wallets = Wallets.FromSchema(schema)
+	WorkflowTrading = WorkflowTrading.FromSchema(schema)
 	Workflows = Workflows.FromSchema(schema)
 }

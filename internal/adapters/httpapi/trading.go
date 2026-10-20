@@ -15,13 +15,17 @@ import (
 )
 
 // TradingService shows a workflow's books to its owner: its paper account, its orders
-// and its holdings (D91).
+// and its holdings (D91), and how it trades: on paper, or live from a wallet (D191).
 type TradingService interface {
 	PaperAccount(ctx context.Context, p auth.Principal, id domain.WorkflowID) (domain.PaperAccount, bool, decimal.Decimal, error)
 	Orders(ctx context.Context, p auth.Principal, id domain.WorkflowID, f ports.PageFilter) (ports.Page[domain.PlacedOrder], error)
 	Holdings(ctx context.Context, p auth.Principal, id domain.WorkflowID) ([]domain.Holding, error)
-	Summary(ctx context.Context, p auth.Principal, id domain.WorkflowID) (trading.Summary, error)
+	Summary(ctx context.Context, p auth.Principal, id domain.WorkflowID, mode domain.TradingMode) (trading.Summary, error)
 	Reset(ctx context.Context, p auth.Principal, id domain.WorkflowID) (domain.PaperAccount, error)
+
+	Setup(ctx context.Context, p auth.Principal, id domain.WorkflowID) (trading.Setup, error)
+	SetSetup(ctx context.Context, p auth.Principal, id domain.WorkflowID, c trading.SetupChange) (trading.Setup, error)
+	WalletCash(ctx context.Context, p auth.Principal, wallet domain.WalletID) (decimal.Decimal, error)
 }
 
 // Amounts are text, as items carry decimals: exact.
@@ -42,6 +46,8 @@ type orderFillDTO struct {
 	Shares  string `json:"shares"`
 	Dollars string `json:"dollars"`
 	Fee     string `json:"fee"` // in dollars, on top of a buy, out of a sell
+	// Status is how far a live fill's trade has come on chain; absent on paper.
+	Status string `json:"status,omitempty" validate:"optional" enums:"matched,mined,retrying,confirmed,failed"`
 } // @name OrderFill
 
 type orderDTO struct {
@@ -61,12 +67,14 @@ type orderDTO struct {
 	// Price is the limit: the most a buy pays per share, the least a sell takes.
 	Price string `json:"price"`
 	// Shares asked for, or for a buy of dollars, Dollars.
-	Shares  string         `json:"shares,omitempty" validate:"optional"`
-	Dollars string         `json:"dollars,omitempty" validate:"optional"`
-	Status  string         `json:"status" enums:"filled,partial,unfilled,refused"`
-	Reason  string         `json:"reason,omitempty" validate:"optional"`
-	Fills   []orderFillDTO `json:"fills"`
-	At      time.Time      `json:"at" format:"date-time"`
+	Shares  string `json:"shares,omitempty" validate:"optional"`
+	Dollars string `json:"dollars,omitempty" validate:"optional"`
+	// Status pending is a live order sent whose outcome is not known yet, followed;
+	// failed, one that matched but whose trades failed on chain, undone.
+	Status string         `json:"status" enums:"filled,partial,unfilled,refused,pending,failed"`
+	Reason string         `json:"reason,omitempty" validate:"optional"`
+	Fills  []orderFillDTO `json:"fills"`
+	At     time.Time      `json:"at" format:"date-time"`
 } // @name Order
 
 type orderPage struct {
@@ -224,7 +232,10 @@ func toOrderDTO(o domain.PlacedOrder) orderDTO {
 	}
 
 	for i, f := range o.Fills {
-		out.Fills[i] = orderFillDTO{Price: f.Price.String(), Shares: f.Shares.String(), Dollars: f.Dollars.String(), Fee: f.Fee.String()}
+		out.Fills[i] = orderFillDTO{
+			Price: f.Price.String(), Shares: f.Shares.String(), Dollars: f.Dollars.String(), Fee: f.Fee.String(),
+			Status: string(f.Status),
+		}
 	}
 
 	return out
@@ -233,10 +244,15 @@ func toOrderDTO(o domain.PlacedOrder) orderDTO {
 type accountSummaryDTO struct {
 	paperAccountDTO
 
-	// Worth is the cash and what the holdings are worth now; Profit is it less what the
-	// account started with.
+	Mode string `json:"mode" enums:"paper,live"`
+	// Worth is the cash and what the holdings are worth now. Profit is, on paper, the
+	// worth less what the account started with; live, what the holdings made, sold and
+	// still held.
 	Worth  string `json:"worth"`
 	Profit string `json:"profit"`
+	// Live: the wallet trading, and whether its pUSD, the cash, could be read.
+	Wallet    *walletDTO `json:"wallet,omitempty" validate:"optional"`
+	CashKnown bool       `json:"cashKnown"`
 } // @name AccountSummary
 
 type traderSummaryDTO struct {
@@ -269,23 +285,25 @@ type tradingSummaryDTO struct {
 	Holdings []holdingSummaryDTO `json:"holdings"` // open ones
 } // @name TradingSummary
 
-// getTradingSummary is how a workflow's trading went: its paper account, each trader it
-// copies since the account (re)started, and its open holdings marked to market (D104).
+// getTradingSummary is how a workflow's trading went in a mode: its paper account or
+// its wallet, each trader it copies, and its open holdings marked to market (D104).
 //
 //	@Summary	Trading results
 //	@ID			getTradingSummary
 //	@Tags		trading
-//	@Param		id	path		string	true	"Workflow ID"
-//	@Success	200	{object}	tradingSummaryDTO
-//	@Failure	401	{object}	errorBody	"unauthenticated"
-//	@Failure	404	{object}	errorBody	"not_found"
+//	@Param		id		path		string	true	"Workflow ID"
+//	@Param		mode	query		string	false	"paper or live; the mode it trades in now when absent"	Enums(paper, live)
+//	@Success	200		{object}	tradingSummaryDTO
+//	@Failure	400		{object}	errorBody	"invalid_input"
+//	@Failure	401		{object}	errorBody	"unauthenticated"
+//	@Failure	404		{object}	errorBody	"not_found"
 //	@Security	SessionCookie
 //	@Security	APIToken
 //	@Router		/workflows/{id}/trading [get]
 func (s *Server) getTradingSummary(ctx context.Context, c *app.RequestContext) {
 	p, _ := principal(c)
 
-	sum, err := s.trading.Summary(ctx, p, domain.WorkflowID(c.Param("id")))
+	sum, err := s.trading.Summary(ctx, p, domain.WorkflowID(c.Param("id")), domain.TradingMode(c.Query("mode")))
 	if err != nil {
 		s.fail(ctx, c, err)
 		return
@@ -295,17 +313,22 @@ func (s *Server) getTradingSummary(ctx context.Context, c *app.RequestContext) {
 	out := tradingSummaryDTO{
 		Account: accountSummaryDTO{
 			paperAccountDTO: paperAccountDTO{Open: a.Open, Cash: a.Cash.String(), StartedWith: a.StartedWith.String()},
-			Worth:           a.Worth.String(), Profit: a.Profit.String(),
+			Mode:            string(a.Mode), Worth: a.Worth.String(), Profit: a.Profit.String(), CashKnown: a.CashKnown,
 		},
 		Traders:  make([]traderSummaryDTO, len(sum.Traders)),
 		Holdings: make([]holdingSummaryDTO, len(sum.Holdings)),
 	}
 
-	if a.Open {
+	if a.Open && a.Mode == domain.ModePaper {
 		out.Account.StartedAt = &a.StartedAt
 		if !a.ResetAt.IsZero() {
 			out.Account.ResetAt = &a.ResetAt
 		}
+	}
+
+	if a.Wallet != nil {
+		w := toWalletDTO(*a.Wallet)
+		out.Account.Wallet = &w
 	}
 
 	for i, t := range sum.Traders {
@@ -354,4 +377,131 @@ func (s *Server) resetPaperAccount(ctx context.Context, c *app.RequestContext) {
 	}
 
 	c.JSON(http.StatusOK, toPaperAccountDTO(a))
+}
+
+type tradingSetupDTO struct {
+	Mode string `json:"mode" enums:"paper,live"`
+	// Wallet is the one live orders spend; absent when none is chosen, or it is gone.
+	Wallet *walletDTO `json:"wallet,omitempty" validate:"optional"`
+	// HoldsLive says it holds live shares: its wallet changes once they are sold or
+	// settled (D202).
+	HoldsLive bool `json:"holdsLive"`
+	// LiveAvailable says whether the server places live orders now; Why, why not.
+	LiveAvailable bool   `json:"liveAvailable"`
+	Why           string `json:"why,omitempty" validate:"optional"`
+} // @name TradingSetup
+
+type tradingSetupRequest struct {
+	Mode     string `json:"mode" enums:"paper,live"`
+	WalletID string `json:"walletId,omitempty" validate:"optional"`
+	// Confirm is the owner's yes to orders spending real money (D201): going live, or
+	// live from another wallet, needs it.
+	Confirm bool `json:"confirm"`
+} // @name TradingSetupRequest
+
+func toTradingSetupDTO(t trading.Setup) tradingSetupDTO {
+	out := tradingSetupDTO{Mode: string(t.Mode), HoldsLive: t.HoldsLive, LiveAvailable: t.LiveAvailable, Why: t.Why}
+
+	if t.Wallet != nil {
+		w := toWalletDTO(*t.Wallet)
+		out.Wallet = &w
+	}
+
+	return out
+}
+
+// getTradingSetup is how a workflow trades: on paper, or live from one of its owner's
+// wallets (D191).
+//
+//	@Summary	How a workflow trades
+//	@ID			getTradingSetup
+//	@Tags		trading
+//	@Param		id	path		string	true	"Workflow ID"
+//	@Success	200	{object}	tradingSetupDTO
+//	@Failure	401	{object}	errorBody	"unauthenticated"
+//	@Failure	404	{object}	errorBody	"not_found"
+//	@Security	SessionCookie
+//	@Security	APIToken
+//	@Router		/workflows/{id}/trading/setup [get]
+func (s *Server) getTradingSetup(ctx context.Context, c *app.RequestContext) {
+	p, _ := principal(c)
+
+	t, err := s.trading.Setup(ctx, p, domain.WorkflowID(c.Param("id")))
+	if err != nil {
+		s.fail(ctx, c, err)
+		return
+	}
+
+	c.JSON(http.StatusOK, toTradingSetupDTO(t))
+}
+
+// setTradingSetup switches a workflow between paper and live, and picks its wallet. Live
+// needs Live trading on (D192), a wallet that can trade and the owner's confirmation
+// (D201); the wallet changes only while the workflow holds nothing live (D202).
+//
+//	@Summary	Change how a workflow trades
+//	@ID			setTradingSetup
+//	@Tags		trading
+//	@Param		id		path		string				true	"Workflow ID"
+//	@Param		body	body		tradingSetupRequest	true	"Its mode and wallet"
+//	@Success	200		{object}	tradingSetupDTO
+//	@Failure	400		{object}	errorBody	"invalid_input, not_confirmed or wallet_cannot_trade"
+//	@Failure	401		{object}	errorBody	"unauthenticated"
+//	@Failure	403		{object}	errorBody	"live_trading_off"
+//	@Failure	404		{object}	errorBody	"not_found: the workflow, or the wallet"
+//	@Failure	409		{object}	errorBody	"holds_live: its wallet stays while it holds live shares"
+//	@Security	SessionCookie
+//	@Security	APIToken
+//	@Router		/workflows/{id}/trading/setup [put]
+func (s *Server) setTradingSetup(ctx context.Context, c *app.RequestContext) {
+	var req tradingSetupRequest
+
+	if err := decodeJSON(c, &req); err != nil {
+		s.fail(ctx, c, err)
+		return
+	}
+
+	p, _ := principal(c)
+
+	t, err := s.trading.SetSetup(ctx, p, domain.WorkflowID(c.Param("id")), trading.SetupChange{
+		Mode: domain.TradingMode(req.Mode), WalletID: domain.WalletID(req.WalletID), Confirmed: req.Confirm,
+	})
+	if err != nil {
+		s.fail(ctx, c, err)
+		return
+	}
+
+	c.JSON(http.StatusOK, toTradingSetupDTO(t))
+}
+
+type walletCashDTO struct {
+	// Cash is the wallet's pUSD on Polymarket's CLOB, what its live orders spend.
+	Cash string `json:"cash" example:"152.25"`
+} // @name WalletCash
+
+// getWalletCash is a wallet's pUSD, for a wallet that can trade: what switching a
+// workflow to live spends (D201).
+//
+//	@Summary	A wallet's cash
+//	@ID			getWalletCash
+//	@Tags		wallets
+//	@Param		id	path		string	true	"Wallet ID"
+//	@Success	200	{object}	walletCashDTO
+//	@Failure	400	{object}	errorBody	"wallet_cannot_trade"
+//	@Failure	401	{object}	errorBody	"unauthenticated"
+//	@Failure	404	{object}	errorBody	"not_found"
+//	@Failure	503	{object}	errorBody	"upstream_unavailable: Polymarket could not be reached"
+//	@Security	SessionCookie
+//	@Security	APIToken
+//	@Router		/wallets/{id}/cash [get]
+func (s *Server) getWalletCash(ctx context.Context, c *app.RequestContext) {
+	p, _ := principal(c)
+
+	cash, err := s.trading.WalletCash(ctx, p, domain.WalletID(c.Param("id")))
+	if err != nil {
+		s.fail(ctx, c, err)
+		return
+	}
+
+	c.JSON(http.StatusOK, walletCashDTO{Cash: cash.String()})
 }

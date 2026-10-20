@@ -2,6 +2,7 @@ package config
 
 import (
 	"encoding/base64"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"net"
@@ -45,6 +46,8 @@ const (
 	KeyBuilderSecret       = "trading.builder_secret"
 	KeyBuilderPassphrase   = "trading.builder_passphrase"
 	KeyPolygonRPC          = "trading.polygon_rpc"
+	KeyLiveTrading         = "trading.live"
+	KeyBuilderCode         = "trading.builder_code"
 	KeyTrustedProxies      = "http.trusted_proxies"
 	KeyWebhookAllowPrivate = "webhook.allow_private"
 	KeyLogLevel            = "log.level"
@@ -235,6 +238,16 @@ func Settings() (*settings.Registry, error) {
 			Key: KeyPaperBalance, Group: groupTrading, Label: "Paper balance ($)",
 			Description: "What a workflow's paper account starts with, in dollars: its paper buys spend it and its sells add to it. Accounts already open keep theirs.",
 			Kind:        settings.KindInt, Default: 1000, Check: between(1, 10_000_000),
+		},
+		settings.Spec{
+			Key: KeyLiveTrading, Group: groupTrading, Label: "Live trading",
+			Description: "Whether workflows may trade live: real orders on Polymarket from their owner's wallet, spending its pUSD. Off, every workflow trades on paper and live orders are refused. On, an owner switches a workflow to live in its Trading view, confirming it. Workflows switched to live stay so when it is turned off, but place no orders until it is on again.",
+			Kind:        settings.KindBool, Default: false,
+		},
+		settings.Spec{
+			Key: KeyBuilderCode, Group: groupTrading, Label: "Builder code",
+			Description: "Your Polymarket builder code, 0x and 64 hex digits, from polymarket.com/settings?tab=builder: live orders then carry it, crediting your builder account with their volume, and pay the builder fee you set there on top of Polymarket's. Empty, orders carry none and pay no builder fee.",
+			Kind:        settings.KindString, Default: "", Check: builderCode,
 		},
 		settings.Spec{
 			Key: KeyKeyImport, Group: groupTrading, Label: "Private keys",
@@ -430,6 +443,24 @@ func rpcURL(v any) error {
 	u, err := url.Parse(v.(string))
 	if err != nil || (u.Scheme != "https" && u.Scheme != "http") || u.Host == "" {
 		return errors.New("is not an http or https URL")
+	}
+
+	return nil
+}
+
+// builderCode checks a builder code: empty, or 32 bytes of hex after 0x.
+func builderCode(v any) error {
+	s := v.(string)
+	if s == "" {
+		return nil
+	}
+
+	if len(s) != 66 || !strings.HasPrefix(s, "0x") {
+		return errors.New("is not 0x and 64 hex digits")
+	}
+
+	if _, err := hex.DecodeString(s[2:]); err != nil {
+		return errors.New("is not 0x and 64 hex digits")
 	}
 
 	return nil

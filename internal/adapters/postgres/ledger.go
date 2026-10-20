@@ -160,7 +160,8 @@ func (r *Ledger) TraderTotals(ctx context.Context, workflow domain.WorkflowID, m
 		WHERE(o.WorkflowID.EQ(jet.UUID(wid)).
 			AND(o.Mode.EQ(jet.String(string(mode)))).
 			AND(o.OrderType.NOT_EQ(jet.String(string(domain.OrderSettle)))).
-			AND(o.CreatedAt.GT_EQ(jet.TimestampzT(since)))).
+			AND(o.CreatedAt.GT_EQ(jet.TimestampzT(since))).
+			AND(f.Status.NOT_EQ(jet.String(string(domain.FillFailed))))). // undone (D193)
 		GROUP_BY(o.Trader).
 		ORDER_BY(o.Trader).
 		QueryContext(ctx, r.db.conn(ctx), &rows)
@@ -218,7 +219,8 @@ func (r *Ledger) Spent(ctx context.Context, workflow domain.WorkflowID, mode dom
 		WHERE(o.WorkflowID.EQ(jet.UUID(wid)).
 			AND(o.Mode.EQ(jet.String(string(mode)))).
 			AND(o.Side.EQ(jet.String(string(domain.SideBuy)))).
-			AND(o.CreatedAt.GT_EQ(jet.TimestampzT(since)))).
+			AND(o.CreatedAt.GT_EQ(jet.TimestampzT(since))).
+			AND(f.Status.NOT_EQ(jet.String(string(domain.FillFailed))))). // undone (D193)
 		QueryContext(ctx, r.db.conn(ctx), &row)
 	if err != nil {
 		return decimal.Zero, err
@@ -238,15 +240,8 @@ func (r *Ledger) Record(ctx context.Context, o domain.PlacedOrder, change *ports
 			return err
 		}
 
-		if len(o.Fills) > 0 {
-			fills := make([]model.OrderFills, len(o.Fills))
-			for i, f := range o.Fills {
-				fills[i] = model.OrderFills{OrderID: m.ID, Seq: int32(i), Price: f.Price, Shares: f.Shares, Dollars: f.Dollars, Fee: f.Fee}
-			}
-
-			if _, err := table.OrderFills.INSERT(table.OrderFills.AllColumns).MODELS(fills).ExecContext(ctx, r.db.conn(ctx)); err != nil {
-				return err
-			}
+		if err := r.insertFills(ctx, m.ID, o.Fills); err != nil {
+			return err
 		}
 
 		if change == nil {
@@ -268,23 +263,145 @@ func (r *Ledger) Record(ctx context.Context, o domain.PlacedOrder, change *ports
 			}
 		}
 
-		hm := toHoldingModel(change.Holding, m.WorkflowID)
-		h := table.Holdings
+		change.Holding.OwnerID = o.OwnerID
 
-		_, err := h.INSERT(h.AllColumns).MODEL(hm).
-			ON_CONFLICT(h.WorkflowID, h.Mode, h.Trader, h.TokenID).
-			DO_UPDATE(jet.SET(
-				h.TraderLabel.SET(h.EXCLUDED.TraderLabel), h.MarketID.SET(h.EXCLUDED.MarketID),
-				h.Shares.SET(h.EXCLUDED.Shares), h.Cost.SET(h.EXCLUDED.Cost),
-				h.Realized.SET(h.EXCLUDED.Realized), h.UpdatedAt.SET(h.EXCLUDED.UpdatedAt),
-			)).
+		return r.saveHolding(ctx, change.Holding, m.WorkflowID)
+	})
+}
+
+func (r *Ledger) insertFills(ctx context.Context, order uuid.UUID, fills []domain.OrderFill) error {
+	if len(fills) == 0 {
+		return nil
+	}
+
+	rows := make([]model.OrderFills, len(fills))
+	for i, f := range fills {
+		rows[i] = model.OrderFills{
+			OrderID: order, Seq: int32(i), Price: f.Price, Shares: f.Shares, Dollars: f.Dollars, Fee: f.Fee,
+			TradeID: f.TradeID, Status: string(f.Status),
+		}
+	}
+
+	_, err := table.OrderFills.INSERT(table.OrderFills.AllColumns).MODELS(rows).ExecContext(ctx, r.db.conn(ctx))
+
+	return err
+}
+
+// saveHolding sets a holding as given; its owner is the one it was opened by.
+func (r *Ledger) saveHolding(ctx context.Context, holding domain.Holding, workflow uuid.UUID) error {
+	hm, err := toHoldingModel(holding, workflow)
+	if err != nil {
+		return err
+	}
+
+	h := table.Holdings
+
+	_, err = h.INSERT(h.AllColumns).MODEL(hm).
+		ON_CONFLICT(h.WorkflowID, h.Mode, h.Trader, h.TokenID).
+		DO_UPDATE(jet.SET(
+			h.TraderLabel.SET(h.EXCLUDED.TraderLabel), h.MarketID.SET(h.EXCLUDED.MarketID),
+			h.Shares.SET(h.EXCLUDED.Shares), h.Cost.SET(h.EXCLUDED.Cost),
+			h.Realized.SET(h.EXCLUDED.Realized), h.UpdatedAt.SET(h.EXCLUDED.UpdatedAt),
+		)).
+		ExecContext(ctx, r.db.conn(ctx))
+	if isCheckViolation(err) {
+		return domain.ErrNotEnoughShares
+	}
+
+	return err
+}
+
+func (r *Ledger) Update(ctx context.Context, o domain.PlacedOrder, holding *domain.Holding) error {
+	id, err := uuid.Parse(string(o.ID))
+	if err != nil {
+		return err
+	}
+
+	wid, err := parseID(o.WorkflowID)
+	if err != nil {
+		return err
+	}
+
+	return r.db.WithinTx(ctx, func(ctx context.Context) error {
+		t := table.Orders
+
+		res, err := t.UPDATE(t.Status, t.Reason).SET(jet.String(string(o.Status)), jet.String(o.Reason)).
+			WHERE(t.ID.EQ(jet.UUID(id))).
 			ExecContext(ctx, r.db.conn(ctx))
-		if isCheckViolation(err) {
-			return domain.ErrNotEnoughShares
+		if err := affectedOne(res, err); err != nil {
+			return err
 		}
 
-		return err
+		f := table.OrderFills
+		if _, err := f.DELETE().WHERE(f.OrderID.EQ(jet.UUID(id))).ExecContext(ctx, r.db.conn(ctx)); err != nil {
+			return err
+		}
+
+		if err := r.insertFills(ctx, id, o.Fills); err != nil {
+			return err
+		}
+
+		if holding == nil {
+			return nil
+		}
+
+		h := *holding
+		h.OwnerID = o.OwnerID
+
+		return r.saveHolding(ctx, h, wid)
 	})
+}
+
+func (r *Ledger) OrdersOf(ctx context.Context, key domain.HoldingKey) ([]domain.PlacedOrder, error) {
+	wid, err := parseID(key.WorkflowID)
+	if err != nil {
+		return nil, err
+	}
+
+	o := table.Orders
+
+	return r.ordersWhere(ctx, o.WorkflowID.EQ(jet.UUID(wid)).
+		AND(o.Mode.EQ(jet.String(string(key.Mode)))).
+		AND(o.Trader.EQ(jet.String(string(key.Trader)))).
+		AND(o.TokenID.EQ(jet.String(string(key.TokenID)))), o.ID.ASC())
+}
+
+func (r *Ledger) Following(ctx context.Context, since time.Time) ([]domain.PlacedOrder, error) {
+	o, f := table.Orders, table.OrderFills
+	unsettled := jet.SELECT(f.OrderID).FROM(f).WHERE(f.Status.IN(
+		jet.String(string(domain.FillMatched)), jet.String(string(domain.FillMined)), jet.String(string(domain.FillRetrying)),
+	))
+
+	return r.ordersWhere(ctx, o.Mode.EQ(jet.String(string(domain.ModeLive))).
+		AND(o.CreatedAt.GT_EQ(jet.TimestampzT(since))).
+		AND(o.Status.EQ(jet.String(string(domain.OrderPending))).OR(o.ID.IN(unsettled))), o.ID.ASC())
+}
+
+// ordersWhere are the orders where says, in order, their fills with them.
+func (r *Ledger) ordersWhere(ctx context.Context, where jet.BoolExpression, order jet.OrderByClause) ([]domain.PlacedOrder, error) {
+	o, f := table.Orders, table.OrderFills
+
+	var rows []struct {
+		model.Orders
+
+		Fills []model.OrderFills
+	}
+
+	err := jet.SELECT(o.AllColumns, f.AllColumns).
+		FROM(o.LEFT_JOIN(f, f.OrderID.EQ(o.ID))).
+		WHERE(where).
+		ORDER_BY(order, f.Seq).
+		QueryContext(ctx, r.db.conn(ctx), &rows)
+	if err != nil && !errors.Is(err, qrm.ErrNoRows) {
+		return nil, err
+	}
+
+	out := make([]domain.PlacedOrder, len(rows))
+	for i, row := range rows {
+		out[i] = toPlacedOrder(row.Orders, row.Fills)
+	}
+
+	return out, nil
 }
 
 // Orders lists the newest first, their fills with them.
@@ -362,12 +479,23 @@ func toOrderModel(o domain.PlacedOrder) (model.Orders, error) {
 		execution = &e
 	}
 
+	var wallet *uuid.UUID
+	if o.WalletID != "" {
+		w, err := uuid.Parse(string(o.WalletID))
+		if err != nil {
+			return model.Orders{}, err
+		}
+
+		wallet = &w
+	}
+
 	return model.Orders{
 		ID: id, WorkflowID: wid, OwnerID: oid, ExecutionID: execution, NodeID: string(o.NodeID),
 		Mode: string(o.Mode), Trader: string(o.Trader), TraderLabel: o.TraderLabel,
 		TokenID: string(o.TokenID), MarketID: string(o.MarketID), Side: string(o.Side),
 		OrderType: string(o.Type), PostOnly: o.PostOnly, Price: o.Price, Shares: o.Shares, Dollars: o.Dollars,
 		ExpiresAt: timePtr(o.Expires), Status: string(o.Status), Reason: o.Reason, CreatedAt: o.CreatedAt,
+		WalletID: wallet, ClobID: o.ClobID,
 	}, nil
 }
 
@@ -381,7 +509,11 @@ func toPlacedOrder(m model.Orders, fills []model.OrderFills) domain.PlacedOrder 
 			Type: domain.OrderType(m.OrderType), PostOnly: m.PostOnly, Price: m.Price, Shares: m.Shares, Dollars: m.Dollars,
 		},
 		ID: domain.OrderID(m.ID.String()), Status: domain.OrderStatus(m.Status), Reason: m.Reason,
-		CreatedAt: m.CreatedAt.UTC(),
+		CreatedAt: m.CreatedAt.UTC(), ClobID: m.ClobID,
+	}
+
+	if m.WalletID != nil {
+		o.WalletID = domain.WalletID(m.WalletID.String())
 	}
 
 	if m.ExecutionID != nil {
@@ -393,7 +525,10 @@ func toPlacedOrder(m model.Orders, fills []model.OrderFills) domain.PlacedOrder 
 	}
 
 	for _, f := range fills {
-		o.Fills = append(o.Fills, domain.OrderFill{Price: f.Price, Shares: f.Shares, Dollars: f.Dollars, Fee: f.Fee})
+		o.Fills = append(o.Fills, domain.OrderFill{
+			Price: f.Price, Shares: f.Shares, Dollars: f.Dollars, Fee: f.Fee,
+			TradeID: f.TradeID, Status: domain.FillStatus(f.Status),
+		})
 	}
 
 	return o
@@ -414,17 +549,23 @@ func toPaperAccount(m model.PaperAccounts) domain.PaperAccount {
 
 func toHolding(m model.Holdings) domain.Holding {
 	return domain.Holding{
-		WorkflowID: domain.WorkflowID(m.WorkflowID.String()), Mode: domain.TradingMode(m.Mode),
+		WorkflowID: domain.WorkflowID(m.WorkflowID.String()), OwnerID: domain.UserID(m.OwnerID.String()),
+		Mode:   domain.TradingMode(m.Mode),
 		Trader: domain.WalletAddress(m.Trader), TraderLabel: m.TraderLabel,
 		TokenID: domain.TokenID(m.TokenID), MarketID: domain.MarketID(m.MarketID),
 		Shares: m.Shares, Cost: m.Cost, Realized: m.Realized, UpdatedAt: m.UpdatedAt.UTC(),
 	}
 }
 
-func toHoldingModel(h domain.Holding, workflow uuid.UUID) model.Holdings {
+func toHoldingModel(h domain.Holding, workflow uuid.UUID) (model.Holdings, error) {
+	owner, err := parseID(h.OwnerID)
+	if err != nil {
+		return model.Holdings{}, err
+	}
+
 	return model.Holdings{
-		WorkflowID: workflow, Mode: string(h.Mode), Trader: string(h.Trader), TraderLabel: h.TraderLabel,
+		WorkflowID: workflow, OwnerID: owner, Mode: string(h.Mode), Trader: string(h.Trader), TraderLabel: h.TraderLabel,
 		TokenID: string(h.TokenID), MarketID: string(h.MarketID),
 		Shares: h.Shares, Cost: h.Cost, Realized: h.Realized, UpdatedAt: h.UpdatedAt,
-	}
+	}, nil
 }

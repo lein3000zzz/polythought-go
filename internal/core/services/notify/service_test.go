@@ -4,11 +4,13 @@ import (
 	"context"
 	"errors"
 	"maps"
+	"slices"
 	"sync"
 	"testing"
 	"time"
 
 	"github.com/lein3000zzz/the-watchers/pkg/observability/logging"
+	"github.com/shopspring/decimal"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
@@ -245,10 +247,11 @@ func TestPrefs(t *testing.T) {
 
 	got, err := s.Prefs(ctx, alice)
 	require.NoError(t, err)
-	require.Len(t, got, 3)
+	require.Len(t, got, 4)
 	assert.Equal(t, "workflow_failed", got[0].Key)
 	assert.Equal(t, "approval_waiting", got[1].Key)
 	assert.Equal(t, "session_key_expiring", got[2].Key)
+	assert.Equal(t, "live_trade_failed", got[3].Key)
 
 	for _, p := range got {
 		assert.True(t, p.Enabled, "%s on by default", p.Key)
@@ -482,5 +485,66 @@ func TestRemindersByEmail(t *testing.T) {
 
 		require.Error(t, s.RemindSessionKey(ctx, "alice", domain.Wallet{ID: "w-1"}, now.Add(time.Hour)))
 		assert.Empty(t, d.mail.mails())
+	})
+}
+
+func TestLiveTradeFailed(t *testing.T) {
+	ctx := context.Background()
+	d := func(s string) decimal.Decimal { return decimal.RequireFromString(s) }
+
+	failedBuy := domain.PlacedOrder{
+		OrderRequest: domain.OrderRequest{WorkflowID: "wf-1", OwnerID: "alice", Mode: domain.ModeLive, Side: domain.SideBuy},
+		Status:       domain.OrderFailed,
+		Fills:        []domain.OrderFill{{Price: d("0.5"), Shares: d("10"), Dollars: d("5"), Status: domain.FillFailed}},
+	}
+
+	t.Run("on Telegram, with a link to the workflow", func(t *testing.T) {
+		s, deps := newService(t, "https://poly.example/")
+
+		require.NoError(t, s.LiveTradeFailed(ctx, "alice", failedBuy))
+
+		require.Len(t, deps.messenger.sent, 1)
+		msg := deps.messenger.sent[0]
+		assert.Equal(t, "⚠️ A live buy of <b>Spreads &lt;tight&gt;</b>'s order matched on Polymarket. Its trade failed on chain, "+
+			"so the shares never changed hands; the workflow's books undo it.", msg.HTML)
+		assert.Equal(t, [][]ports.TelegramButton{{{Text: "Open the workflow", URL: "https://poly.example/workflows/wf-1"}}}, msg.Buttons)
+	})
+
+	t.Run("part of it, by mail too when chosen", func(t *testing.T) {
+		s, deps := newService(t, "https://poly.example")
+		_, err := s.SetEmailPref(ctx, alice, "live_trade_failed", true)
+		require.NoError(t, err)
+
+		partly := failedBuy
+		partly.Status = domain.OrderPartial
+		partly.Fills = append(slices.Clone(failedBuy.Fills), domain.OrderFill{Price: d("0.5"), Shares: d("4"), Dollars: d("2"), Status: domain.FillConfirmed})
+
+		require.NoError(t, s.LiveTradeFailed(ctx, "alice", partly))
+
+		require.Len(t, deps.mail.sent, 1)
+		assert.Equal(t, "A live trade of Spreads <tight> failed", deps.mail.sent[0].Subject)
+		assert.Contains(t, deps.mail.sent[0].Paragraphs[0], "but part of its trade failed on chain; the books undo that part and keep 4 shares for $2.00.")
+		require.Len(t, deps.messenger.sent, 1)
+	})
+
+	t.Run("not when switched off", func(t *testing.T) {
+		s, deps := newService(t, "")
+		_, err := s.SetPref(ctx, alice, "live_trade_failed", false)
+		require.NoError(t, err)
+
+		require.NoError(t, s.LiveTradeFailed(ctx, "alice", failedBuy))
+		assert.Zero(t, deps.messenger.count())
+	})
+
+	t.Run("a deleted workflow", func(t *testing.T) {
+		s, deps := newService(t, "")
+		deps.workflows.EXPECT().Get(mock.Anything, domain.UserID("alice"), domain.WorkflowID("gone")).Return(domain.Workflow{}, domain.ErrNotFound)
+
+		gone := failedBuy
+		gone.WorkflowID = "gone"
+
+		require.NoError(t, s.LiveTradeFailed(ctx, "alice", gone))
+		require.Len(t, deps.messenger.sent, 1)
+		assert.Contains(t, deps.messenger.sent[0].HTML, "A live buy of <b>a deleted workflow</b>'s order")
 	})
 }

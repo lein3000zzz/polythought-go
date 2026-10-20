@@ -79,6 +79,10 @@ packages:
       AccountMail: {}
       EmailTokenRepository: {}
       GeoblockChecker: {}
+      WorkflowTradingRepository: {}
+      OrderKeys: {}
+      LiveExchange: {}
+      LiveTradeNotifier: {}
   github.com/lein3000zzz/polythought-go/internal/core/services/auth:
     config:
       dir: internal/mocks/auth

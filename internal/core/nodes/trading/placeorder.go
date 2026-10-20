@@ -27,9 +27,10 @@ const (
 
 var _ engine.Node = (*PlaceOrder)(nil)
 
-// PlaceOrder places an order for each item, on paper for now: the copy Copy sizing
-// worked out, or one its settings make (D99). Filled ones, wholly or in part, go out of
-// main; unfilled and refused ones out of missed, saying why (D96).
+// PlaceOrder places an order for each item, on paper or live as the workflow trades
+// (D191): the copy Copy sizing worked out, or one its settings make (D99). Filled ones,
+// wholly or in part, go out of main; unfilled, refused, pending and failed ones out of
+// missed, saying why (D96, D204).
 type PlaceOrder struct {
 	placer ports.OrderPlacer
 }
@@ -44,8 +45,8 @@ func (*PlaceOrder) Type() engine.NodeType {
 	return engine.NodeType{
 		Name:  PlaceOrderType,
 		Label: "Place order",
-		Description: "Places an order for each item, on paper: the copy Copy sizing worked out, or one of its " +
-			"own settings. Filled orders go out of main, those that did not fill out of missed.",
+		Description: "Places an order for each item, on paper or live as the workflow trades: the copy Copy sizing " +
+			"worked out, or one of its own settings. Filled orders go out of main, those that did not fill out of missed.",
 		Inputs:  []string{engine.DefaultPort},
 		Outputs: []string{engine.DefaultPort, PortMissed},
 		Items:   &engine.Items{Passed: true, Fields: orderFields()},
@@ -79,9 +80,12 @@ func orderFields() []engine.Field {
 		Name: "order", Kind: engine.FieldObject, Description: "The order placed, and how it went.",
 		Fields: []engine.Field{
 			shape.Text("id", "Its ID in the workflow's orders."),
-			shape.OneOf("mode", "paper: simulated against the live book.", string(domain.ModePaper), string(domain.ModeLive)),
-			shape.OneOf("status", "filled, partial (the rest cancelled), unfilled or refused.",
-				string(domain.OrderFilled), string(domain.OrderPartial), string(domain.OrderUnfilled), string(domain.OrderRefused)),
+			shape.OneOf("mode", "paper: simulated against the live book. live: on Polymarket, from the workflow's wallet.",
+				string(domain.ModePaper), string(domain.ModeLive)),
+			shape.OneOf("status", "filled, partial (the rest cancelled), unfilled or refused; live, also pending (sent, "+
+				"its outcome not known yet: followed) or failed (matched, but its trades failed on chain).",
+				string(domain.OrderFilled), string(domain.OrderPartial), string(domain.OrderUnfilled), string(domain.OrderRefused),
+				string(domain.OrderPending), string(domain.OrderFailed)),
 			shape.Nullable(shape.Text("reason", "Why it was refused or did not fill wholly.")),
 			shape.Decimal("shares", "Shares it got or sold."),
 			shape.Decimal("dollars", "Dollars they came to."),
@@ -117,9 +121,9 @@ func (n *PlaceOrder) Run(ctx context.Context, rc engine.RunContext, in engine.Po
 		j := maps.Clone(item.JSON)
 		j["order"] = orderItem(placed)
 
-		port := engine.DefaultPort
-		if placed.Status == domain.OrderUnfilled || placed.Status == domain.OrderRefused {
-			port = PortMissed
+		port := PortMissed
+		if placed.Status == domain.OrderFilled || placed.Status == domain.OrderPartial {
+			port = engine.DefaultPort
 		}
 
 		out.Add(port, engine.Item{JSON: j, Source: []engine.ItemRef{src}})
@@ -131,9 +135,8 @@ func (n *PlaceOrder) Run(ctx context.Context, rc engine.RunContext, in engine.Po
 // request is the item's order: its copy, or the node's settings, with the trader it
 // copies when there is one, so the copy is held as theirs (D92).
 func request(rc engine.RunContext, p engine.Params, j map[string]any) (domain.OrderRequest, error) {
-	req := domain.OrderRequest{
-		WorkflowID: rc.WorkflowID, OwnerID: rc.OwnerID, ExecutionID: rc.ExecutionID, NodeID: rc.NodeID, Mode: mode,
-	}
+	// The mode is the workflow's when the order goes: the trading service's to say.
+	req := domain.OrderRequest{WorkflowID: rc.WorkflowID, OwnerID: rc.OwnerID, ExecutionID: rc.ExecutionID, NodeID: rc.NodeID}
 
 	if who, ok := j["trader"].(map[string]any); ok {
 		row := engine.Params(who)

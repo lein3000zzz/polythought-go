@@ -31,21 +31,52 @@ func address(lower string) domain.WalletAddress {
 
 var alice = address("0x5f3c00000000000000000000000000000000a1b2")
 
-// books is a workflow's books: a paper account, if open, holdings, and what its buys
-// spent of late.
+// books is a workflow's books: how it trades, a paper account, if open, or live its
+// wallet's cash, holdings, and what its buys spent of late. It is the trading service
+// for the nodes too: its mode, and what it is worth.
 type books struct {
+	live     bool
+	cash     string // live: the wallet's pUSD
 	account  *domain.PaperAccount
 	holdings []domain.Holding
 	spent    string
 	since    *time.Time // what Spent was asked
+	modes    *[]domain.TradingMode
 }
 
-func (b books) PaperAccount(context.Context, domain.WorkflowID) (domain.PaperAccount, error) {
-	if b.account == nil {
-		return domain.PaperAccount{}, domain.ErrNotFound
+func (b books) mode() domain.TradingMode {
+	if b.live {
+		return domain.ModeLive
 	}
 
-	return *b.account, nil
+	return domain.ModePaper
+}
+
+func (b books) Mode(context.Context, domain.WorkflowID) (domain.TradingMode, error) {
+	return b.mode(), nil
+}
+
+// Worth is as the trading service works it out (D97, D198): the paper account's cash,
+// 1000 before it opens, or live the wallet's, and what the holdings in the mode cost.
+func (b books) Worth(context.Context, domain.UserID, domain.WorkflowID) (decimal.Decimal, error) {
+	worth := d("1000")
+
+	switch {
+	case b.live:
+		worth = d(b.cash)
+	case b.account == nil:
+		return worth, nil
+	default:
+		worth = b.account.Cash
+	}
+
+	for _, h := range b.holdings {
+		if h.Mode == b.mode() {
+			worth = worth.Add(h.Cost)
+		}
+	}
+
+	return worth, nil
 }
 
 func (b books) Holding(_ context.Context, k domain.HoldingKey) (domain.Holding, error) {
@@ -62,9 +93,13 @@ func (b books) Holdings(context.Context, domain.WorkflowID) ([]domain.Holding, e
 	return b.holdings, nil
 }
 
-func (b books) Spent(_ context.Context, _ domain.WorkflowID, _ domain.TradingMode, since time.Time) (decimal.Decimal, error) {
+func (b books) Spent(_ context.Context, _ domain.WorkflowID, mode domain.TradingMode, since time.Time) (decimal.Decimal, error) {
 	if b.since != nil {
 		*b.since = since
+	}
+
+	if b.modes != nil {
+		*b.modes = append(*b.modes, mode)
 	}
 
 	if b.spent == "" {
@@ -141,8 +176,7 @@ func sized(t *testing.T, b books, th theirs, params map[string]any, item engine.
 	t.Helper()
 
 	n := trading.NewCopySize(trading.Sources{
-		Books: b, Rules: rules{}, Markets: markets{}, Positions: th, Portfolios: th,
-		PaperBalance: func() decimal.Decimal { return d("1000") },
+		Books: b, Accounts: b, Rules: rules{}, Markets: markets{}, Positions: th, Portfolios: th,
 	})
 
 	out, err := n.Run(context.Background(), engine.RunContext{
@@ -192,6 +226,14 @@ func TestCopySizingBuys(t *testing.T) {
 		"in proportion, before the account opens": {
 			params: map[string]any{"sizing": "proportional"}, theirs: theirs{value: "2500"}, dollars: "100",
 		},
+		"in proportion, live: of the wallet's pUSD and the live holdings": {
+			params: map[string]any{"sizing": "proportional"}, theirs: theirs{value: "2500"},
+			books: books{live: true, cash: "200", account: &domain.PaperAccount{Cash: d("500")}, holdings: []domain.Holding{
+				{Mode: domain.ModePaper, TokenID: "t-no", Cost: d("100")},
+				{Mode: domain.ModeLive, TokenID: "t-no", Cost: d("50")},
+			}},
+			dollars: "25", // a tenth of 250: the paper books play no part
+		},
 	} {
 		t.Run(name, func(t *testing.T) {
 			port, j := sized(t, tc.books, tc.theirs, tc.params, tradeItem(domain.SideBuy, "0.503", "250", "497.01", tc.row))
@@ -229,6 +271,19 @@ func TestCopySizingSells(t *testing.T) {
 	t.Run("all of it when they sold all of theirs", func(t *testing.T) {
 		_, j := sized(t, held("33.33"), theirs{}, nil, tradeItem(domain.SideSell, "0.5", "20", "40", nil))
 		assert.True(t, d("33.33").Equal(copied(t, j)["shares"].(decimal.Decimal)))
+	})
+
+	t.Run("live, what it holds live", func(t *testing.T) {
+		b := held("100")
+		b.live = true
+
+		port, j := sized(t, b, theirs{left: "60"}, nil, tradeItem(domain.SideSell, "0.5", "20", "40", nil))
+		require.Equal(t, trading.PortSkipped, port, "the paper shares are not the live books'")
+		assert.Equal(t, "nothing held copying Alice to sell", j["skipped"].(map[string]any)["reason"])
+
+		b.holdings[0].Mode = domain.ModeLive
+		_, j = sized(t, b, theirs{left: "60"}, nil, tradeItem(domain.SideSell, "0.5", "20", "40", nil))
+		assert.True(t, d("40").Equal(copied(t, j)["shares"].(decimal.Decimal)))
 	})
 
 	for name, tc := range map[string]struct {

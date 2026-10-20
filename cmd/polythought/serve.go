@@ -85,6 +85,9 @@ func serve(ctx context.Context) error {
 	// Paper holdings of resolved markets settle on their own (D106).
 	go a.trading.SettleEvery(ctx, 5*time.Minute)
 
+	// Live orders still settling: pending ones, and trades not final (D193, D204).
+	go a.trading.FollowEvery(ctx, 5*time.Second)
+
 	// What nodes remember goes when it expires (D121).
 	go a.memory.SweepEvery(ctx, 10*time.Minute)
 

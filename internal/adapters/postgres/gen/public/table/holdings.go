@@ -17,16 +17,18 @@ type holdingsTable struct {
 	postgres.Table
 
 	// Columns
-	WorkflowID  postgres.ColumnString
-	Mode        postgres.ColumnString
-	Trader      postgres.ColumnString
-	TraderLabel postgres.ColumnString
-	TokenID     postgres.ColumnString
-	MarketID    postgres.ColumnString
-	Shares      postgres.ColumnFloat
-	Cost        postgres.ColumnFloat
-	Realized    postgres.ColumnFloat
-	UpdatedAt   postgres.ColumnTimestampz
+	WorkflowID   postgres.ColumnString
+	Mode         postgres.ColumnString
+	Trader       postgres.ColumnString
+	TraderLabel  postgres.ColumnString
+	TokenID      postgres.ColumnString
+	MarketID     postgres.ColumnString
+	Shares       postgres.ColumnFloat
+	Cost         postgres.ColumnFloat
+	Realized     postgres.ColumnFloat
+	UpdatedAt    postgres.ColumnTimestampz
+	OwnerID      postgres.ColumnString
+	WorkflowName postgres.ColumnString
 
 	AllColumns     postgres.ColumnList
 	MutableColumns postgres.ColumnList
@@ -68,35 +70,39 @@ func newHoldingsTable(schemaName, tableName, alias string) *HoldingsTable {
 
 func newHoldingsTableImpl(schemaName, tableName, alias string) holdingsTable {
 	var (
-		WorkflowIDColumn  = postgres.StringColumn("workflow_id")
-		ModeColumn        = postgres.StringColumn("mode")
-		TraderColumn      = postgres.StringColumn("trader")
-		TraderLabelColumn = postgres.StringColumn("trader_label")
-		TokenIDColumn     = postgres.StringColumn("token_id")
-		MarketIDColumn    = postgres.StringColumn("market_id")
-		SharesColumn      = postgres.FloatColumn("shares")
-		CostColumn        = postgres.FloatColumn("cost")
-		RealizedColumn    = postgres.FloatColumn("realized")
-		UpdatedAtColumn   = postgres.TimestampzColumn("updated_at")
-		allColumns        = postgres.ColumnList{WorkflowIDColumn, ModeColumn, TraderColumn, TraderLabelColumn, TokenIDColumn, MarketIDColumn, SharesColumn, CostColumn, RealizedColumn, UpdatedAtColumn}
-		mutableColumns    = postgres.ColumnList{TraderLabelColumn, MarketIDColumn, SharesColumn, CostColumn, RealizedColumn, UpdatedAtColumn}
-		defaultColumns    = postgres.ColumnList{TraderColumn, TraderLabelColumn, MarketIDColumn}
+		WorkflowIDColumn   = postgres.StringColumn("workflow_id")
+		ModeColumn         = postgres.StringColumn("mode")
+		TraderColumn       = postgres.StringColumn("trader")
+		TraderLabelColumn  = postgres.StringColumn("trader_label")
+		TokenIDColumn      = postgres.StringColumn("token_id")
+		MarketIDColumn     = postgres.StringColumn("market_id")
+		SharesColumn       = postgres.FloatColumn("shares")
+		CostColumn         = postgres.FloatColumn("cost")
+		RealizedColumn     = postgres.FloatColumn("realized")
+		UpdatedAtColumn    = postgres.TimestampzColumn("updated_at")
+		OwnerIDColumn      = postgres.StringColumn("owner_id")
+		WorkflowNameColumn = postgres.StringColumn("workflow_name")
+		allColumns         = postgres.ColumnList{WorkflowIDColumn, ModeColumn, TraderColumn, TraderLabelColumn, TokenIDColumn, MarketIDColumn, SharesColumn, CostColumn, RealizedColumn, UpdatedAtColumn, OwnerIDColumn, WorkflowNameColumn}
+		mutableColumns     = postgres.ColumnList{TraderLabelColumn, MarketIDColumn, SharesColumn, CostColumn, RealizedColumn, UpdatedAtColumn, OwnerIDColumn, WorkflowNameColumn}
+		defaultColumns     = postgres.ColumnList{TraderColumn, TraderLabelColumn, MarketIDColumn, WorkflowNameColumn}
 	)
 
 	return holdingsTable{
 		Table: postgres.NewTable(schemaName, tableName, alias, allColumns...),
 
 		//Columns
-		WorkflowID:  WorkflowIDColumn,
-		Mode:        ModeColumn,
-		Trader:      TraderColumn,
-		TraderLabel: TraderLabelColumn,
-		TokenID:     TokenIDColumn,
-		MarketID:    MarketIDColumn,
-		Shares:      SharesColumn,
-		Cost:        CostColumn,
-		Realized:    RealizedColumn,
-		UpdatedAt:   UpdatedAtColumn,
+		WorkflowID:   WorkflowIDColumn,
+		Mode:         ModeColumn,
+		Trader:       TraderColumn,
+		TraderLabel:  TraderLabelColumn,
+		TokenID:      TokenIDColumn,
+		MarketID:     MarketIDColumn,
+		Shares:       SharesColumn,
+		Cost:         CostColumn,
+		Realized:     RealizedColumn,
+		UpdatedAt:    UpdatedAtColumn,
+		OwnerID:      OwnerIDColumn,
+		WorkflowName: WorkflowNameColumn,
 
 		AllColumns:     allColumns,
 		MutableColumns: mutableColumns,

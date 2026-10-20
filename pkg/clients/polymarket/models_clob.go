@@ -61,6 +61,7 @@ type MarketInfo struct {
 	Fees         MarketInfoFees    `json:"fd"`
 	RFQEnabled   bool              `json:"rfqe"`
 	Version      string            `json:"v"`
+	NegRisk      bool              `json:"nr"` // its orders go to the neg risk exchange
 }
 
 type MarketInfoToken struct {

@@ -30,9 +30,6 @@ const (
 	SizeProportional = "proportional"
 )
 
-// mode is the trading mode of every workflow until live orders exist (3j).
-const mode = domain.ModePaper
-
 var (
 	one       = decimal.NewFromInt(1)
 	hundredth = decimal.RequireFromString("0.01")
@@ -40,23 +37,26 @@ var (
 
 // Books is what the trading nodes read of a workflow's books.
 type Books interface {
-	PaperAccount(ctx context.Context, workflow domain.WorkflowID) (domain.PaperAccount, error)
 	Holding(ctx context.Context, key domain.HoldingKey) (domain.Holding, error)
 	Holdings(ctx context.Context, workflow domain.WorkflowID) ([]domain.Holding, error)
 	Spent(ctx context.Context, workflow domain.WorkflowID, mode domain.TradingMode, since time.Time) (decimal.Decimal, error)
 }
 
+// Accounts is how a workflow trades now, and what it has to size copies by: the trading
+// service's (D191, D198).
+type Accounts interface {
+	Mode(ctx context.Context, workflow domain.WorkflowID) (domain.TradingMode, error)
+	Worth(ctx context.Context, owner domain.UserID, workflow domain.WorkflowID) (decimal.Decimal, error)
+}
+
 // Sources are where Copy sizing looks things up.
 type Sources struct {
 	Books      Books
+	Accounts   Accounts
 	Rules      ports.TradingRulesReader
 	Markets    ports.MarketReader // a token's market, when the item does not say
 	Positions  ports.PositionReader
 	Portfolios ports.PortfolioReader
-
-	// PaperBalance is what a paper account starts with, a workflow's worth before it
-	// has one.
-	PaperBalance func() decimal.Decimal
 }
 
 var _ engine.Node = (*CopySize)(nil)
@@ -86,7 +86,8 @@ func (*CopySize) Type() engine.NodeType {
 				Name: "sizing", Label: "Buy size", Kind: engine.ParamString, Default: SizeFixed,
 				Options: []string{SizeFixed, SizeMultiple, SizeProportional},
 				Description: "fixed: Dollars a buy. multiple: Multiple times what they spent. proportional: the " +
-					"share of their portfolio they spent, of what the workflow's paper account is worth.",
+					"share of their portfolio they spent, of what the workflow is worth: its cash (the paper account's, " +
+					"or live its wallet's pUSD) and what its holdings cost.",
 			},
 			{Name: "dollars", Label: "Dollars", Kind: engine.ParamDecimal, Default: "10", Description: "A fixed buy's dollars."},
 			{
@@ -256,7 +257,7 @@ func (c *CopySize) buyDollars(ctx context.Context, rc engine.RunContext, p engin
 			return decimal.Zero, "their portfolio is worth nothing the Data API knows of, so there is no share of it", nil
 		}
 
-		worth, err := c.worth(ctx, rc.WorkflowID)
+		worth, err := c.src.Accounts.Worth(ctx, rc.OwnerID, rc.WorkflowID)
 		if err != nil {
 			return decimal.Zero, "", err
 		}
@@ -286,6 +287,11 @@ func (c *CopySize) buyDollars(ctx context.Context, rc engine.RunContext, p engin
 // sellShares is the same share of the copy as they sold of theirs (D94): their holding
 // before the sale is what the Data API says they hold now, and what they sold.
 func (c *CopySize) sellShares(ctx context.Context, rc engine.RunContext, t trade) (decimal.Decimal, string, error) {
+	mode, err := c.src.Accounts.Mode(ctx, rc.WorkflowID)
+	if err != nil {
+		return decimal.Zero, "", err
+	}
+
 	held, err := c.src.Books.Holding(ctx, domain.HoldingKey{WorkflowID: rc.WorkflowID, Mode: mode, Trader: t.trader, TokenID: t.tokenID})
 	if err != nil && !errors.Is(err, domain.ErrNotFound) {
 		return decimal.Zero, "", err
@@ -314,33 +320,6 @@ func (c *CopySize) sellShares(ctx context.Context, rc engine.RunContext, t trade
 	share := t.shares.Div(left.Add(t.shares))
 
 	return held.Shares.Mul(share).RoundDown(2), "", nil
-}
-
-// worth is what the workflow's paper account is worth: its cash and what its holdings
-// cost; before it opens, what it will start with.
-func (c *CopySize) worth(ctx context.Context, w domain.WorkflowID) (decimal.Decimal, error) {
-	a, err := c.src.Books.PaperAccount(ctx, w)
-	if errors.Is(err, domain.ErrNotFound) {
-		return c.src.PaperBalance(), nil
-	}
-
-	if err != nil {
-		return decimal.Zero, err
-	}
-
-	holdings, err := c.src.Books.Holdings(ctx, w)
-	if err != nil {
-		return decimal.Zero, err
-	}
-
-	worth := a.Cash
-	for _, h := range holdings {
-		if h.Mode == mode {
-			worth = worth.Add(h.Cost)
-		}
-	}
-
-	return worth, nil
 }
 
 func (c *CopySize) marketOf(ctx context.Context, token domain.TokenID) (domain.MarketID, error) {

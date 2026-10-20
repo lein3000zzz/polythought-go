@@ -152,14 +152,19 @@ func (l *ledger) Record(_ context.Context, o domain.PlacedOrder, c *ports.Ledger
 	defer l.mu.Unlock()
 
 	if c != nil {
-		a := l.accounts[o.WorkflowID]
-		if a.Cash.Add(c.Cash).IsNegative() {
-			return domain.ErrNotEnoughCash
+		if o.Mode == domain.ModePaper {
+			a := l.accounts[o.WorkflowID]
+			if a.Cash.Add(c.Cash).IsNegative() {
+				return domain.ErrNotEnoughCash
+			}
+
+			a.Cash = a.Cash.Add(c.Cash)
+			l.accounts[o.WorkflowID] = a
 		}
 
-		a.Cash = a.Cash.Add(c.Cash)
-		l.accounts[o.WorkflowID] = a
-		l.holdings[c.Holding.Key()] = c.Holding
+		h := c.Holding
+		h.OwnerID = o.OwnerID
+		l.holdings[h.Key()] = h
 	}
 
 	l.orders = append(l.orders, o)
@@ -169,6 +174,60 @@ func (l *ledger) Record(_ context.Context, o domain.PlacedOrder, c *ports.Ledger
 
 func (l *ledger) Orders(context.Context, domain.WorkflowID, ports.PageFilter) (ports.Page[domain.PlacedOrder], error) {
 	return ports.Page[domain.PlacedOrder]{Items: l.orders}, nil
+}
+
+func (l *ledger) OrdersOf(_ context.Context, k domain.HoldingKey) ([]domain.PlacedOrder, error) {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+
+	var out []domain.PlacedOrder
+	for _, o := range l.orders {
+		if o.WorkflowID == k.WorkflowID && o.Mode == k.Mode && o.Trader == k.Trader && o.TokenID == k.TokenID {
+			out = append(out, o)
+		}
+	}
+
+	return out, nil
+}
+
+func (l *ledger) Following(_ context.Context, since time.Time) ([]domain.PlacedOrder, error) {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+
+	var out []domain.PlacedOrder
+	for _, o := range l.orders {
+		settling := o.Status == domain.OrderPending
+		for _, f := range o.Fills {
+			settling = settling || !f.Status.Final()
+		}
+
+		if o.Mode == domain.ModeLive && !o.CreatedAt.Before(since) && settling {
+			out = append(out, o)
+		}
+	}
+
+	return out, nil
+}
+
+func (l *ledger) Update(_ context.Context, o domain.PlacedOrder, h *domain.Holding) error {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+
+	for i, have := range l.orders {
+		if have.ID == o.ID {
+			l.orders[i] = o
+
+			if h != nil {
+				held := *h
+				held.OwnerID = o.OwnerID
+				l.holdings[held.Key()] = held
+			}
+
+			return nil
+		}
+	}
+
+	return domain.ErrNotFound
 }
 
 type books struct{ book domain.OrderBook }
@@ -324,13 +383,24 @@ func TestPaperOrders(t *testing.T) {
 		assert.Len(t, l.orders, 1, "kept, with why")
 	})
 
-	t.Run("refused before the book: rules, types, live", func(t *testing.T) {
+	t.Run("the workflow's mode, whatever the request says", func(t *testing.T) {
+		l := newLedger()
+		svc := newService(l, &rules{})
+
+		live := order(domain.SideBuy, alice, "10")
+		live.Mode, live.Price = domain.ModeLive, d("0.50")
+
+		o, err := svc.Place(ctx, live)
+		require.NoError(t, err)
+		assert.Equal(t, domain.ModePaper, o.Mode, "it trades on paper")
+		assert.Equal(t, domain.OrderFilled, o.Status)
+	})
+
+	t.Run("refused before the book: rules, types", func(t *testing.T) {
 		l := newLedger()
 		svc := newService(l, &rules{})
 
 		small := order(domain.SideBuy, alice, "4")
-		live := order(domain.SideBuy, alice, "10")
-		live.Mode = domain.ModeLive
 		rest := order(domain.SideBuy, alice, "10")
 		rest.Type = domain.OrderGTC
 		unknown := order(domain.SideBuy, alice, "10")
@@ -338,7 +408,6 @@ func TestPaperOrders(t *testing.T) {
 
 		for req, want := range map[*domain.OrderRequest]string{
 			&small:   "under the market's least order of 5",
-			&live:    "live trading is not available yet",
 			&rest:    "FOK or FAK",
 			&unknown: "no market trades this token",
 		} {

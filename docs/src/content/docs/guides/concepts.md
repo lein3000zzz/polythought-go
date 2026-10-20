@@ -207,7 +207,8 @@ makes the wallet's API credentials itself, replacing any added by hand, and the 
 deletes it with them, and pasting credentials by hand replaces it.
 
 A private key lets the server sign anything for the wallet, a session key only orders; either
-way, keep in the wallet only what you mean to trade.
+way, keep in the wallet only what you mean to trade. A workflow trades live from one of your
+wallets once you switch it to live; see [Trading live](/docs/guides/copy-traders/#trading-live).
 
 To trade, a wallet must also let Polymarket's exchanges move its pUSD and its outcome
 tokens: 17 **approvals**, as Polymarket's own client grants them. The card says how many are

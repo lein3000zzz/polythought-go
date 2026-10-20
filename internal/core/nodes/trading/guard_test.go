@@ -21,7 +21,7 @@ var now = time.Date(2026, 10, 18, 12, 0, 0, 0, time.UTC)
 func guarded(t *testing.T, b books, params map[string]any, items ...engine.Item) engine.Ports {
 	t.Helper()
 
-	n := trading.NewRiskGuard(b, rules{}, markets{}, func() time.Time { return now })
+	n := trading.NewRiskGuard(b, b, rules{}, markets{}, func() time.Time { return now })
 
 	out, err := n.Run(context.Background(), engine.RunContext{
 		WorkflowID: "wf", OwnerID: "u", NodeID: "guard", Params: engine.LiteralParams(n.Type(), params),
@@ -81,6 +81,18 @@ func TestRiskGuardCaps(t *testing.T) {
 
 		out := guarded(t, b, map[string]any{"maxPerMarket": "100"}, copyOf("50"))
 		assert.Equal(t, "10", dollarsOf(t, out[engine.DefaultPort][0]).String())
+	})
+
+	t.Run("live, its live books: what it holds and spent live", func(t *testing.T) {
+		var modes []domain.TradingMode
+		b := books{live: true, spent: "0", modes: &modes, holdings: []domain.Holding{
+			{Mode: domain.ModePaper, MarketID: "0xm", TokenID: "t-yes", Cost: d("90")},
+			{Mode: domain.ModeLive, MarketID: "0xm", TokenID: "t-yes", Cost: d("70")},
+		}}
+
+		out := guarded(t, b, map[string]any{"maxPerMarket": "100", "maxPerDay": "500"}, copyOf("50"))
+		assert.Equal(t, "30", dollarsOf(t, out[engine.DefaultPort][0]).String(), "the paper holding plays no part")
+		assert.Equal(t, []domain.TradingMode{domain.ModeLive}, modes, "the day's spending, live")
 	})
 
 	t.Run("shrunk under the market's least order, it is blocked", func(t *testing.T) {

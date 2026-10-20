@@ -15,6 +15,7 @@ import (
 	"github.com/lein3000zzz/polythought-go/internal/core/engine"
 	"github.com/lein3000zzz/polythought-go/internal/core/nodes"
 	"github.com/lein3000zzz/polythought-go/internal/core/nodes/customnodes"
+	"github.com/lein3000zzz/polythought-go/internal/core/nodes/trading"
 	"github.com/lein3000zzz/polythought-go/internal/core/ports"
 	"github.com/lein3000zzz/polythought-go/internal/core/services/auth"
 	"github.com/lein3000zzz/polythought-go/internal/core/services/library"
@@ -51,6 +52,7 @@ func registry(t *testing.T) *engine.Registry {
 		Asker:        noTelegram{},
 		Orders:       noOrders{},
 		Books:        noBooks{},
+		Accounts:     noAccounts{},
 		Memory:       noMemory{},
 		Logger:       logging.Noop(),
 	}))
@@ -64,6 +66,7 @@ type (
 	noTelegram struct{}
 	noOrders   struct{}
 	noBooks    struct{ ports.Ledger }
+	noAccounts struct{ trading.Accounts }
 	noMemory   struct{ ports.NodeMemory }
 )
 

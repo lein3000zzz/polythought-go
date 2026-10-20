@@ -39,7 +39,30 @@ const (
 	OrderPartial  OrderStatus = "partial"  // in part, the rest cancelled (FAK)
 	OrderUnfilled OrderStatus = "unfilled" // the book could not fill it, or not wholly (FOK)
 	OrderRefused  OrderStatus = "refused"  // never placed: Reason says why
+	// OrderPending is a live order sent whose outcome is not known yet: held in its
+	// market's delay, or sent without an answer. It is followed (D204).
+	OrderPending OrderStatus = "pending"
+	// OrderFailed is a live order that matched, but whose trades failed on chain: undone
+	// in the books (D193).
+	OrderFailed OrderStatus = "failed"
 )
+
+// FillStatus is how far a live fill's trade has come on chain (D193). Paper fills have
+// none: they are final at once.
+type FillStatus string
+
+const (
+	FillMatched   FillStatus = "matched"  // matched by the CLOB, on its way on chain
+	FillMined     FillStatus = "mined"    // in a block, not final yet
+	FillRetrying  FillStatus = "retrying" // failed for now; it may yet be mined
+	FillConfirmed FillStatus = "confirmed"
+	FillFailed    FillStatus = "failed" // undone in the books
+)
+
+// Final is whether the fill will not change again.
+func (s FillStatus) Final() bool {
+	return s == "" || s == FillConfirmed || s == FillFailed
+}
 
 var (
 	ErrNotEnoughCash   = errors.New("not enough cash for the order")
@@ -85,6 +108,10 @@ type PlacedOrder struct {
 	Reason    string // why it was refused, or did not fill
 	Fills     []OrderFill
 	CreatedAt time.Time
+
+	// A live order's wallet, and its ID on the CLOB: its hash, known before it is sent.
+	WalletID WalletID
+	ClobID   string
 }
 
 // OrderFill is part of an order matched against one price level of the book.
@@ -93,11 +120,19 @@ type OrderFill struct {
 	Shares  decimal.Decimal
 	Dollars decimal.Decimal // shares times price
 	Fee     decimal.Decimal // in dollars, on top of a buy, out of a sell (D90)
+
+	// A live fill's trade on the CLOB, and how far it has come.
+	TradeID string
+	Status  FillStatus
 }
 
-// Totals sums an order's fills.
+// Totals sums an order's fills, but those whose trades failed.
 func (o PlacedOrder) Totals() (shares, dollars, fees decimal.Decimal) {
 	for _, f := range o.Fills {
+		if f.Status == FillFailed {
+			continue
+		}
+
 		shares = shares.Add(f.Shares)
 		dollars = dollars.Add(f.Dollars)
 		fees = fees.Add(f.Fee)
@@ -128,6 +163,7 @@ type TraderTotal struct {
 // (D92), in one mode.
 type Holding struct {
 	WorkflowID  WorkflowID
+	OwnerID     UserID
 	Mode        TradingMode
 	Trader      WalletAddress // empty: copied from no one
 	TraderLabel string        // as of the last order
@@ -157,6 +193,7 @@ type TradingRules struct {
 	TickSize     decimal.Decimal // prices are multiples of it
 	MinOrderSize decimal.Decimal // shares
 	Fees         FeeSchedule
+	NegRisk      bool // its orders are signed for the neg risk exchange
 }
 
 // FeeSchedule is a market's taker fee: shares × rate × (p × (1 − p))^exponent, in
@@ -165,3 +202,29 @@ type FeeSchedule struct {
 	Rate     decimal.Decimal // zero: no fees
 	Exponent decimal.Decimal
 }
+
+// WorkflowTrading is how a workflow trades (D191): on paper, or live from one of its
+// owner's wallets. A workflow that never said trades on paper (D22).
+type WorkflowTrading struct {
+	WorkflowID WorkflowID
+	Mode       TradingMode
+	WalletID   WalletID // the wallet live orders spend; it may stay set on paper
+	UpdatedAt  time.Time
+}
+
+var (
+	// ErrLiveTradingOff means the instance takes no live orders: an admin turns Live
+	// trading on (D192).
+	ErrLiveTradingOff = errors.New("live trading is off on this server")
+	// ErrNotConfirmed means switching to live was not confirmed (D201).
+	ErrNotConfirmed = errors.New("switching to live trading must be confirmed")
+	// ErrWalletCannotTrade means a wallet has no key to sign orders with: an imported
+	// private key or a session key (D153).
+	ErrWalletCannotTrade = errors.New("the wallet cannot trade: import its private key or authorise a session key")
+	// ErrHoldsLive means a workflow's wallet cannot change while it holds live shares
+	// (D202).
+	ErrHoldsLive = errors.New("the workflow holds live shares: its wallet changes once they are sold or settled")
+	// ErrWalletTradesLive means a wallet cannot be unlinked while a workflow trades live
+	// from it.
+	ErrWalletTradesLive = errors.New("a workflow trades live from this wallet: switch it to paper first")
+)

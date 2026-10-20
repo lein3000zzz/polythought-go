@@ -25,7 +25,8 @@ import (
 
 // Trading is what the menu needs from the trading service.
 type Trading interface {
-	Summary(ctx context.Context, p auth.Principal, id domain.WorkflowID) (trading.Summary, error)
+	// Summary is in mode, or with none, the mode the workflow trades in now.
+	Summary(ctx context.Context, p auth.Principal, id domain.WorkflowID, mode domain.TradingMode) (trading.Summary, error)
 }
 
 const (
@@ -332,7 +333,7 @@ func (s *Service) followedFlow(ctx context.Context, user domain.User, id domain.
 		return domain.Workflow{}, trading.Summary{}, err
 	}
 
-	sum, err := s.menu.Trading.Summary(ctx, principal(user), id)
+	sum, err := s.menu.Trading.Summary(ctx, principal(user), id, "")
 
 	return w, sum, err
 }

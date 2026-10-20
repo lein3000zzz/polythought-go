@@ -19,4 +19,6 @@ type OrderFills struct {
 	Shares  decimal.Decimal
 	Dollars decimal.Decimal
 	Fee     decimal.Decimal
+	TradeID string
+	Status  string
 }

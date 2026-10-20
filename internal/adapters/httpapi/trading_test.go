@@ -95,9 +95,9 @@ func TestTrading(t *testing.T) {
 
 	t.Run("the summary: the account, traders and holdings marked to market", func(t *testing.T) {
 		mark := num("0.49")
-		trading.EXPECT().Summary(mock.Anything, byAlice, domain.WorkflowID("wf-1")).Return(tradingsvc.Summary{
+		trading.EXPECT().Summary(mock.Anything, byAlice, domain.WorkflowID("wf-1"), domain.TradingMode("")).Return(tradingsvc.Summary{
 			Account: tradingsvc.AccountSummary{
-				Open: true, Cash: num("89.40016"), StartedWith: num("100"), Worth: num("99.20016"), Profit: num("-0.79984"),
+				Mode: domain.ModePaper, Open: true, Cash: num("89.40016"), StartedWith: num("100"), Worth: num("99.20016"), Profit: num("-0.79984"),
 				StartedAt: at, ResetAt: at,
 			},
 			Traders: []tradingsvc.TraderSummary{{
@@ -116,14 +116,98 @@ func TestTrading(t *testing.T) {
 		w := get("/api/v1/workflows/wf-1/trading").do(t, srv)
 		assert.Equal(t, http.StatusOK, w.Code, w.Body.String())
 		assert.JSONEq(t, `{
-			"account": {"open": true, "cash": "89.40016", "startedWith": "100", "worth": "99.20016", "profit": "-0.79984",
-				"startedAt": "2026-10-17T12:00:00Z", "resetAt": "2026-10-17T12:00:00Z"},
+			"account": {"mode": "paper", "open": true, "cash": "89.40016", "startedWith": "100", "worth": "99.20016",
+				"profit": "-0.79984", "startedAt": "2026-10-17T12:00:00Z", "resetAt": "2026-10-17T12:00:00Z", "cashKnown": false},
 			"traders": [{"trader": "0xA1", "label": "Alice", "copies": 2, "volume": "14.8", "realized": "-0.39984",
 				"unrealized": "-0.2", "wins": 1, "closed": 2}],
 			"holdings": [{"mode": "paper", "trader": "0xA1", "traderLabel": "Alice", "tokenId": "t-yes", "marketId": "0xm",
 				"shares": "10", "cost": "5.1", "realized": "-0.39984", "updatedAt": "2026-10-17T12:00:00Z",
 				"question": "Will it?", "outcome": "Yes", "mark": "0.49", "value": "4.9", "unrealized": "-0.2"}]
 		}`, w.Body.String())
+	})
+
+	t.Run("the live summary: the wallet and its cash", func(t *testing.T) {
+		trading.EXPECT().Summary(mock.Anything, byAlice, domain.WorkflowID("wf-1"), domain.ModeLive).Return(tradingsvc.Summary{
+			Account: tradingsvc.AccountSummary{
+				Mode: domain.ModeLive, Open: true, Cash: num("250"), Worth: num("254.9"), Profit: num("2.4"), CashKnown: true,
+				Wallet: &domain.Wallet{ID: "w-1", Address: "0x1111111111111111111111111111111111111111", Label: "Main", HasKey: true, CreatedAt: at},
+			},
+		}, nil).Once()
+
+		w := get("/api/v1/workflows/wf-1/trading?mode=live").do(t, srv)
+		assert.Equal(t, http.StatusOK, w.Code, w.Body.String())
+		assert.JSONEq(t, `{
+			"account": {"mode": "live", "open": true, "cash": "250", "startedWith": "0", "worth": "254.9", "profit": "2.4",
+				"cashKnown": true, "wallet": {"id": "w-1", "address": "0x1111111111111111111111111111111111111111", "label": "Main",
+				"hasCredentials": false, "hasKey": true, "hasSessionKey": false, "createdAt": "2026-10-17T12:00:00Z"}},
+			"traders": [], "holdings": []
+		}`, w.Body.String())
+	})
+
+	t.Run("a live order: pending, its fills' trades", func(t *testing.T) {
+		trading.EXPECT().Orders(mock.Anything, byAlice, domain.WorkflowID("wf-1"), ports.PageFilter{Limit: 1}).
+			Return(ports.Page[domain.PlacedOrder]{Items: []domain.PlacedOrder{{
+				OrderRequest: domain.OrderRequest{
+					NodeID: "copy", Mode: domain.ModeLive, TokenID: "t-yes", Side: domain.SideBuy, Type: domain.OrderFAK,
+					Price: num("0.5"), Shares: num("10"),
+				},
+				ID: "o-3", Status: domain.OrderPartial, CreatedAt: at,
+				Fills: []domain.OrderFill{{Price: num("0.5"), Shares: num("4"), Dollars: num("2"), Fee: num("0.04"), TradeID: "trade-1", Status: domain.FillMined}},
+			}}}, nil).Once()
+
+		w := get("/api/v1/workflows/wf-1/orders?limit=1").do(t, srv)
+		assert.JSONEq(t, `{"orders":[{"id":"o-3","nodeId":"copy","mode":"live","tokenId":"t-yes","side":"buy","type":"FAK",
+			"postOnly":false,"price":"0.5","shares":"10","status":"partial",
+			"fills":[{"price":"0.5","shares":"4","dollars":"2","fee":"0.04","status":"mined"}],"at":"2026-10-17T12:00:00Z"}]}`, w.Body.String())
+	})
+
+	t.Run("how it trades, and switching to live, confirmed", func(t *testing.T) {
+		wallet := &domain.Wallet{ID: "w-1", Address: "0x1111111111111111111111111111111111111111", Label: "Main", HasKey: true, CreatedAt: at}
+
+		trading.EXPECT().Setup(mock.Anything, byAlice, domain.WorkflowID("wf-1")).
+			Return(tradingsvc.Setup{Mode: domain.ModePaper, LiveAvailable: false, Why: "live trading is off on this server"}, nil).Once()
+
+		w := get("/api/v1/workflows/wf-1/trading/setup").do(t, srv)
+		assert.Equal(t, http.StatusOK, w.Code, w.Body.String())
+		assert.JSONEq(t, `{"mode":"paper","holdsLive":false,"liveAvailable":false,"why":"live trading is off on this server"}`, w.Body.String())
+
+		trading.EXPECT().SetSetup(mock.Anything, byAlice, domain.WorkflowID("wf-1"),
+			tradingsvc.SetupChange{Mode: domain.ModeLive, WalletID: "w-1", Confirmed: true}).
+			Return(tradingsvc.Setup{Mode: domain.ModeLive, Wallet: wallet, LiveAvailable: true}, nil).Once()
+
+		w = request{method: "PUT", path: "/api/v1/workflows/wf-1/trading/setup", headers: cookie,
+			body: `{"mode":"live","walletId":"w-1","confirm":true}`}.do(t, srv)
+		assert.Equal(t, http.StatusOK, w.Code, w.Body.String())
+		assert.JSONEq(t, `{"mode":"live","holdsLive":false,"liveAvailable":true,"wallet":{"id":"w-1",
+			"address":"0x1111111111111111111111111111111111111111","label":"Main","hasCredentials":false,"hasKey":true,
+			"hasSessionKey":false,"createdAt":"2026-10-17T12:00:00Z"}}`, w.Body.String())
+	})
+
+	t.Run("switching refused, each way it can be", func(t *testing.T) {
+		for err, want := range map[error]struct {
+			status int
+			code   string
+		}{
+			domain.ErrNotConfirmed:      {http.StatusBadRequest, "not_confirmed"},
+			domain.ErrWalletCannotTrade: {http.StatusBadRequest, "wallet_cannot_trade"},
+			domain.ErrLiveTradingOff:    {http.StatusForbidden, "live_trading_off"},
+			domain.ErrHoldsLive:         {http.StatusConflict, "holds_live"},
+		} {
+			trading.EXPECT().SetSetup(mock.Anything, byAlice, domain.WorkflowID("wf-1"), mock.Anything).Return(tradingsvc.Setup{}, err).Once()
+
+			w := request{method: "PUT", path: "/api/v1/workflows/wf-1/trading/setup", headers: cookie,
+				body: `{"mode":"live","walletId":"w-1"}`}.do(t, srv)
+			assert.Equal(t, want.status, w.Code, w.Body.String())
+			assert.Contains(t, w.Body.String(), `"code":"`+want.code+`"`)
+		}
+	})
+
+	t.Run("a wallet's cash", func(t *testing.T) {
+		trading.EXPECT().WalletCash(mock.Anything, byAlice, domain.WalletID("w-1")).Return(num("152.25"), nil).Once()
+
+		w := get("/api/v1/wallets/w-1/cash").do(t, srv)
+		assert.Equal(t, http.StatusOK, w.Code, w.Body.String())
+		assert.JSONEq(t, `{"cash":"152.25"}`, w.Body.String())
 	})
 
 	t.Run("reset", func(t *testing.T) {

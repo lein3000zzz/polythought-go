@@ -15,10 +15,14 @@ import (
 	"github.com/lein3000zzz/polythought-go/internal/core/nodes/trading"
 )
 
-// placer fills buys at 0.5, refuses sells, and keeps what it was asked.
+// placer is the trading service: it fills buys at 0.5, refuses sells, in the mode the
+// workflow trades in, paper unless live, and keeps what it was asked. With a status, it
+// answers that instead.
 type placer struct {
-	asked []domain.OrderRequest
-	err   error
+	asked  []domain.OrderRequest
+	err    error
+	live   bool
+	status domain.OrderStatus
 }
 
 func (p *placer) Place(_ context.Context, req domain.OrderRequest) (domain.PlacedOrder, error) {
@@ -28,6 +32,11 @@ func (p *placer) Place(_ context.Context, req domain.OrderRequest) (domain.Place
 		return domain.PlacedOrder{}, p.err
 	}
 
+	req.Mode = domain.ModePaper
+	if p.live {
+		req.Mode = domain.ModeLive
+	}
+
 	o := domain.PlacedOrder{OrderRequest: req, ID: "o-1", Status: domain.OrderRefused, Reason: "not enough shares"}
 	if req.Side == domain.SideBuy {
 		o.Status, o.Reason = domain.OrderFilled, ""
@@ -35,6 +44,10 @@ func (p *placer) Place(_ context.Context, req domain.OrderRequest) (domain.Place
 			{Price: d("0.5"), Shares: d("10"), Dollars: d("5"), Fee: d("0.1")},
 			{Price: d("0.51"), Shares: d("9.8"), Dollars: d("4.998"), Fee: d("0.09996")},
 		}
+	}
+
+	if p.status != "" {
+		o.Status, o.Reason, o.Fills = p.status, "sent: what it came to is not known yet", nil
 	}
 
 	return o, nil
@@ -75,7 +88,7 @@ func TestPlaceOrder(t *testing.T) {
 
 		require.Len(t, p.asked, 1)
 		assert.Equal(t, domain.OrderRequest{
-			WorkflowID: "wf", OwnerID: "u", ExecutionID: "ex-1", NodeID: "place", Mode: domain.ModePaper,
+			WorkflowID: "wf", OwnerID: "u", ExecutionID: "ex-1", NodeID: "place",
 			Trader: alice, TraderLabel: "Alice", TokenID: "t-yes", MarketID: "0xm", Side: domain.SideBuy,
 			Type: domain.OrderFAK, Price: d("0.52"), Dollars: d("10"),
 		}, p.asked[0])
@@ -99,6 +112,21 @@ func TestPlaceOrder(t *testing.T) {
 		assert.Equal(t, "refused", order["status"])
 		assert.Equal(t, "not enough shares", order["reason"])
 		assert.Nil(t, order["price"], "nothing filled")
+	})
+
+	t.Run("live: pending and failed ones go out of missed too (D204)", func(t *testing.T) {
+		for _, status := range []domain.OrderStatus{domain.OrderPending, domain.OrderFailed} {
+			out := place(t, &placer{live: true, status: status}, nil, withCopy(domain.SideBuy, nil))
+
+			require.Len(t, out[trading.PortMissed], 1, status)
+			order := out[trading.PortMissed][0].JSON["order"].(map[string]any)
+			assert.Equal(t, string(status), order["status"])
+			assert.Equal(t, "live", order["mode"])
+		}
+
+		out := place(t, &placer{live: true}, nil, withCopy(domain.SideBuy, nil))
+		require.Len(t, out[engine.DefaultPort], 1, "filled live")
+		assert.Equal(t, "live", out[engine.DefaultPort][0].JSON["order"].(map[string]any)["mode"])
 	})
 
 	t.Run("an order of its own settings (D99)", func(t *testing.T) {
@@ -128,8 +156,7 @@ func TestPlaceOrder(t *testing.T) {
 
 func TestCopySizingFeedsPlaceOrder(t *testing.T) {
 	size := trading.NewCopySize(trading.Sources{
-		Books: books{}, Rules: rules{}, Markets: markets{}, Positions: theirs{}, Portfolios: theirs{},
-		PaperBalance: func() decimal.Decimal { return d("1000") },
+		Books: books{}, Accounts: books{}, Rules: rules{}, Markets: markets{}, Positions: theirs{}, Portfolios: theirs{},
 	})
 
 	rc := engine.RunContext{WorkflowID: "wf", OwnerID: "u", Params: engine.LiteralParams(size.Type(), nil)}

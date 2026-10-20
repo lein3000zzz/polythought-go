@@ -305,6 +305,30 @@ What a workflow's paper account starts with, in dollars: its paper buys spend it
 | Default | `1000` |
 | Applies | at once |
 
+### Live trading
+
+Whether workflows may trade live: real orders on Polymarket from their owner's wallet, spending its pUSD. Off, every workflow trades on paper and live orders are refused. On, an owner switches a workflow to live in its Trading view, confirming it. Workflows switched to live stay so when it is turned off, but place no orders until it is on again.
+
+| | |
+|---|---|
+| Key | `trading.live` |
+| Environment variable | `POLYTHOUGHT_TRADING_LIVE` |
+| Kind | `true` or `false` |
+| Default | `false` |
+| Applies | at once |
+
+### Builder code
+
+Your Polymarket builder code, 0x and 64 hex digits, from polymarket.com/settings?tab=builder: live orders then carry it, crediting your builder account with their volume, and pay the builder fee you set there on top of Polymarket's. Empty, orders carry none and pay no builder fee.
+
+| | |
+|---|---|
+| Key | `trading.builder_code` |
+| Environment variable | `POLYTHOUGHT_TRADING_BUILDER_CODE` |
+| Kind | text |
+| Default | empty |
+| Applies | at once |
+
 ### Private keys
 
 Whether users may import a wallet's private key, so it can trade: on, off, or auto, on unless anyone may sign up (Registration open). The server keeps imported keys encrypted, and could trade with them. Keys imported before stay when it is switched off; new ones are refused.

@@ -49,6 +49,15 @@ type Ledger interface {
 	Record(ctx context.Context, o domain.PlacedOrder, change *LedgerChange) error
 	// Orders lists a workflow's orders, the newest first.
 	Orders(ctx context.Context, workflow domain.WorkflowID, f PageFilter) (Page[domain.PlacedOrder], error)
+
+	// OrdersOf are the orders of a holding, the oldest first: what it is made of.
+	OrdersOf(ctx context.Context, key domain.HoldingKey) ([]domain.PlacedOrder, error)
+	// Following are the live orders since then still pending, or with fills whose
+	// trades are not final: what the follower looks at (D193, D204).
+	Following(ctx context.Context, since time.Time) ([]domain.PlacedOrder, error)
+	// Update replaces a recorded live order's status, reason and fills and, with a
+	// holding, sets it as given, in one transaction.
+	Update(ctx context.Context, o domain.PlacedOrder, holding *domain.Holding) error
 }
 
 // LedgerChange is what a filled order does to the books.

@@ -53,6 +53,9 @@ Under **Settings → Notifications**, choose what Polythought tells you about:
   Only for questions open 10 minutes or more.
 - **A session key is about to expire**: a wallet's [session key](/docs/guides/concepts/#wallets)
   expires in 14 days or less, or has expired. Once per key, with the day it expires.
+- **A live trade fails**: a [live order](/docs/guides/copy-traders/#trading-live) matched on
+  Polymarket, but its trade failed on chain, so the workflow's books undo it. Once per
+  order.
 
 Each has two switches: **Telegram**, to your linked chat (without one, nothing is sent), on
 by default; and **Email**, to your account's address, off until you turn it on. Email works

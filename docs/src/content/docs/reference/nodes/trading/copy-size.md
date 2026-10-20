@@ -22,7 +22,7 @@ Items that fail stop the execution, unless **Continue on failure** is on: then t
 
 | Setting | Kind | Required | Default | Description |
 |---|---|---|---|---|
-| Buy size (`sizing`) | text | no | `fixed` | fixed: Dollars a buy. multiple: Multiple times what they spent. proportional: the share of their portfolio they spent, of what the workflow's paper account is worth. One of `fixed`, `multiple`, `proportional`. |
+| Buy size (`sizing`) | text | no | `fixed` | fixed: Dollars a buy. multiple: Multiple times what they spent. proportional: the share of their portfolio they spent, of what the workflow is worth: its cash (the paper account's, or live its wallet's pUSD) and what its holdings cost. One of `fixed`, `multiple`, `proportional`. |
 | Dollars (`dollars`) | number | no | `10` | A fixed buy's dollars. |
 | Multiple (`multiple`) | number | no | `0.1` | For multiple: 0.1 buys a tenth of what they spent. |
 | Slippage (`slippage`) | number | no | `0.02` | How much worse than their price per share a copy may pay, or take when it sells. |

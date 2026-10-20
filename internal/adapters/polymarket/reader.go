@@ -225,6 +225,7 @@ func (r *Reader) TradingRules(ctx context.Context, market domain.MarketID) (doma
 		TickSize:     info.MinTickSize,
 		MinOrderSize: info.MinOrderSize,
 		Fees:         domain.FeeSchedule{Rate: info.Fees.Rate, Exponent: info.Fees.Exponent},
+		NegRisk:      info.NegRisk,
 	}, nil
 }
 

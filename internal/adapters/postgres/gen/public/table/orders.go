@@ -17,26 +17,29 @@ type ordersTable struct {
 	postgres.Table
 
 	// Columns
-	ID          postgres.ColumnString
-	WorkflowID  postgres.ColumnString
-	OwnerID     postgres.ColumnString
-	ExecutionID postgres.ColumnString
-	NodeID      postgres.ColumnString
-	Mode        postgres.ColumnString
-	Trader      postgres.ColumnString
-	TraderLabel postgres.ColumnString
-	TokenID     postgres.ColumnString
-	MarketID    postgres.ColumnString
-	Side        postgres.ColumnString
-	OrderType   postgres.ColumnString
-	PostOnly    postgres.ColumnBool
-	Price       postgres.ColumnFloat
-	Shares      postgres.ColumnFloat
-	Dollars     postgres.ColumnFloat
-	ExpiresAt   postgres.ColumnTimestampz
-	Status      postgres.ColumnString
-	Reason      postgres.ColumnString
-	CreatedAt   postgres.ColumnTimestampz
+	ID           postgres.ColumnString
+	WorkflowID   postgres.ColumnString
+	OwnerID      postgres.ColumnString
+	ExecutionID  postgres.ColumnString
+	NodeID       postgres.ColumnString
+	Mode         postgres.ColumnString
+	Trader       postgres.ColumnString
+	TraderLabel  postgres.ColumnString
+	TokenID      postgres.ColumnString
+	MarketID     postgres.ColumnString
+	Side         postgres.ColumnString
+	OrderType    postgres.ColumnString
+	PostOnly     postgres.ColumnBool
+	Price        postgres.ColumnFloat
+	Shares       postgres.ColumnFloat
+	Dollars      postgres.ColumnFloat
+	ExpiresAt    postgres.ColumnTimestampz
+	Status       postgres.ColumnString
+	Reason       postgres.ColumnString
+	CreatedAt    postgres.ColumnTimestampz
+	WorkflowName postgres.ColumnString
+	WalletID     postgres.ColumnString
+	ClobID       postgres.ColumnString
 
 	AllColumns     postgres.ColumnList
 	MutableColumns postgres.ColumnList
@@ -78,55 +81,61 @@ func newOrdersTable(schemaName, tableName, alias string) *OrdersTable {
 
 func newOrdersTableImpl(schemaName, tableName, alias string) ordersTable {
 	var (
-		IDColumn          = postgres.StringColumn("id")
-		WorkflowIDColumn  = postgres.StringColumn("workflow_id")
-		OwnerIDColumn     = postgres.StringColumn("owner_id")
-		ExecutionIDColumn = postgres.StringColumn("execution_id")
-		NodeIDColumn      = postgres.StringColumn("node_id")
-		ModeColumn        = postgres.StringColumn("mode")
-		TraderColumn      = postgres.StringColumn("trader")
-		TraderLabelColumn = postgres.StringColumn("trader_label")
-		TokenIDColumn     = postgres.StringColumn("token_id")
-		MarketIDColumn    = postgres.StringColumn("market_id")
-		SideColumn        = postgres.StringColumn("side")
-		OrderTypeColumn   = postgres.StringColumn("order_type")
-		PostOnlyColumn    = postgres.BoolColumn("post_only")
-		PriceColumn       = postgres.FloatColumn("price")
-		SharesColumn      = postgres.FloatColumn("shares")
-		DollarsColumn     = postgres.FloatColumn("dollars")
-		ExpiresAtColumn   = postgres.TimestampzColumn("expires_at")
-		StatusColumn      = postgres.StringColumn("status")
-		ReasonColumn      = postgres.StringColumn("reason")
-		CreatedAtColumn   = postgres.TimestampzColumn("created_at")
-		allColumns        = postgres.ColumnList{IDColumn, WorkflowIDColumn, OwnerIDColumn, ExecutionIDColumn, NodeIDColumn, ModeColumn, TraderColumn, TraderLabelColumn, TokenIDColumn, MarketIDColumn, SideColumn, OrderTypeColumn, PostOnlyColumn, PriceColumn, SharesColumn, DollarsColumn, ExpiresAtColumn, StatusColumn, ReasonColumn, CreatedAtColumn}
-		mutableColumns    = postgres.ColumnList{WorkflowIDColumn, OwnerIDColumn, ExecutionIDColumn, NodeIDColumn, ModeColumn, TraderColumn, TraderLabelColumn, TokenIDColumn, MarketIDColumn, SideColumn, OrderTypeColumn, PostOnlyColumn, PriceColumn, SharesColumn, DollarsColumn, ExpiresAtColumn, StatusColumn, ReasonColumn, CreatedAtColumn}
-		defaultColumns    = postgres.ColumnList{TraderColumn, TraderLabelColumn, MarketIDColumn, PostOnlyColumn, SharesColumn, DollarsColumn, ReasonColumn}
+		IDColumn           = postgres.StringColumn("id")
+		WorkflowIDColumn   = postgres.StringColumn("workflow_id")
+		OwnerIDColumn      = postgres.StringColumn("owner_id")
+		ExecutionIDColumn  = postgres.StringColumn("execution_id")
+		NodeIDColumn       = postgres.StringColumn("node_id")
+		ModeColumn         = postgres.StringColumn("mode")
+		TraderColumn       = postgres.StringColumn("trader")
+		TraderLabelColumn  = postgres.StringColumn("trader_label")
+		TokenIDColumn      = postgres.StringColumn("token_id")
+		MarketIDColumn     = postgres.StringColumn("market_id")
+		SideColumn         = postgres.StringColumn("side")
+		OrderTypeColumn    = postgres.StringColumn("order_type")
+		PostOnlyColumn     = postgres.BoolColumn("post_only")
+		PriceColumn        = postgres.FloatColumn("price")
+		SharesColumn       = postgres.FloatColumn("shares")
+		DollarsColumn      = postgres.FloatColumn("dollars")
+		ExpiresAtColumn    = postgres.TimestampzColumn("expires_at")
+		StatusColumn       = postgres.StringColumn("status")
+		ReasonColumn       = postgres.StringColumn("reason")
+		CreatedAtColumn    = postgres.TimestampzColumn("created_at")
+		WorkflowNameColumn = postgres.StringColumn("workflow_name")
+		WalletIDColumn     = postgres.StringColumn("wallet_id")
+		ClobIDColumn       = postgres.StringColumn("clob_id")
+		allColumns         = postgres.ColumnList{IDColumn, WorkflowIDColumn, OwnerIDColumn, ExecutionIDColumn, NodeIDColumn, ModeColumn, TraderColumn, TraderLabelColumn, TokenIDColumn, MarketIDColumn, SideColumn, OrderTypeColumn, PostOnlyColumn, PriceColumn, SharesColumn, DollarsColumn, ExpiresAtColumn, StatusColumn, ReasonColumn, CreatedAtColumn, WorkflowNameColumn, WalletIDColumn, ClobIDColumn}
+		mutableColumns     = postgres.ColumnList{WorkflowIDColumn, OwnerIDColumn, ExecutionIDColumn, NodeIDColumn, ModeColumn, TraderColumn, TraderLabelColumn, TokenIDColumn, MarketIDColumn, SideColumn, OrderTypeColumn, PostOnlyColumn, PriceColumn, SharesColumn, DollarsColumn, ExpiresAtColumn, StatusColumn, ReasonColumn, CreatedAtColumn, WorkflowNameColumn, WalletIDColumn, ClobIDColumn}
+		defaultColumns     = postgres.ColumnList{TraderColumn, TraderLabelColumn, MarketIDColumn, PostOnlyColumn, SharesColumn, DollarsColumn, ReasonColumn, WorkflowNameColumn, ClobIDColumn}
 	)
 
 	return ordersTable{
 		Table: postgres.NewTable(schemaName, tableName, alias, allColumns...),
 
 		//Columns
-		ID:          IDColumn,
-		WorkflowID:  WorkflowIDColumn,
-		OwnerID:     OwnerIDColumn,
-		ExecutionID: ExecutionIDColumn,
-		NodeID:      NodeIDColumn,
-		Mode:        ModeColumn,
-		Trader:      TraderColumn,
-		TraderLabel: TraderLabelColumn,
-		TokenID:     TokenIDColumn,
-		MarketID:    MarketIDColumn,
-		Side:        SideColumn,
-		OrderType:   OrderTypeColumn,
-		PostOnly:    PostOnlyColumn,
-		Price:       PriceColumn,
-		Shares:      SharesColumn,
-		Dollars:     DollarsColumn,
-		ExpiresAt:   ExpiresAtColumn,
-		Status:      StatusColumn,
-		Reason:      ReasonColumn,
-		CreatedAt:   CreatedAtColumn,
+		ID:           IDColumn,
+		WorkflowID:   WorkflowIDColumn,
+		OwnerID:      OwnerIDColumn,
+		ExecutionID:  ExecutionIDColumn,
+		NodeID:       NodeIDColumn,
+		Mode:         ModeColumn,
+		Trader:       TraderColumn,
+		TraderLabel:  TraderLabelColumn,
+		TokenID:      TokenIDColumn,
+		MarketID:     MarketIDColumn,
+		Side:         SideColumn,
+		OrderType:    OrderTypeColumn,
+		PostOnly:     PostOnlyColumn,
+		Price:        PriceColumn,
+		Shares:       SharesColumn,
+		Dollars:      DollarsColumn,
+		ExpiresAt:    ExpiresAtColumn,
+		Status:       StatusColumn,
+		Reason:       ReasonColumn,
+		CreatedAt:    CreatedAtColumn,
+		WorkflowName: WorkflowNameColumn,
+		WalletID:     WalletIDColumn,
+		ClobID:       ClobIDColumn,
 
 		AllColumns:     allColumns,
 		MutableColumns: mutableColumns,

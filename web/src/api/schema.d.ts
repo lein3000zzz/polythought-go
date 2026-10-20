@@ -818,6 +818,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/wallets/{id}/cash": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** A wallet's cash */
+        get: operations["getWalletCash"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/wallets/{id}/credentials": {
         parameters: {
             query?: never;
@@ -1201,6 +1218,24 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/workflows/{id}/trading/setup": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** How a workflow trades */
+        get: operations["getTradingSetup"];
+        /** Change how a workflow trades */
+        put: operations["setTradingSetup"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -1224,6 +1259,9 @@ export interface components {
         AccountSummary: {
             /** @example 989.65 */
             cash: string;
+            cashKnown: boolean;
+            /** @enum {string} */
+            mode: "paper" | "live";
             /**
              * @description Open is false until the workflow's first paper order; the rest is then what an
              *     account would start with.
@@ -1239,9 +1277,12 @@ export interface components {
             startedAt?: string;
             /** @example 1000 */
             startedWith: string;
+            /** @description Live: the wallet trading, and whether its pUSD, the cash, could be read. */
+            wallet?: components["schemas"]["Wallet"];
             /**
-             * @description Worth is the cash and what the holdings are worth now; Profit is it less what the
-             *     account started with.
+             * @description Worth is the cash and what the holdings are worth now. Profit is, on paper, the
+             *     worth less what the account started with; live, what the holdings made, sold and
+             *     still held.
              */
             worth: string;
         };
@@ -1802,8 +1843,12 @@ export interface components {
             shares?: string;
             /** @enum {string} */
             side: "buy" | "sell";
-            /** @enum {string} */
-            status: "filled" | "partial" | "unfilled" | "refused";
+            /**
+             * @description Status pending is a live order sent whose outcome is not known yet, followed;
+             *     failed, one that matched but whose trades failed on chain, undone.
+             * @enum {string}
+             */
+            status: "filled" | "partial" | "unfilled" | "refused" | "pending" | "failed";
             tokenId: string;
             /**
              * @description Trader is the wallet whose trade it copies, with their label then; absent for an
@@ -1823,6 +1868,11 @@ export interface components {
             fee: string;
             price: string;
             shares: string;
+            /**
+             * @description Status is how far a live fill's trade has come on chain; absent on paper.
+             * @enum {string}
+             */
+            status?: "matched" | "mined" | "retrying" | "confirmed" | "failed";
         };
         OrderPage: {
             nextCursor?: string;
@@ -2144,6 +2194,30 @@ export interface components {
             /** @description closed holdings that made money */
             wins: number;
         };
+        TradingSetup: {
+            /**
+             * @description HoldsLive says it holds live shares: its wallet changes once they are sold or
+             *     settled (D202).
+             */
+            holdsLive: boolean;
+            /** @description LiveAvailable says whether the server places live orders now; Why, why not. */
+            liveAvailable: boolean;
+            /** @enum {string} */
+            mode: "paper" | "live";
+            /** @description Wallet is the one live orders spend; absent when none is chosen, or it is gone. */
+            wallet?: components["schemas"]["Wallet"];
+            why?: string;
+        };
+        TradingSetupRequest: {
+            /**
+             * @description Confirm is the owner's yes to orders spending real money (D201): going live, or
+             *     live from another wallet, needs it.
+             */
+            confirm: boolean;
+            /** @enum {string} */
+            mode: "paper" | "live";
+            walletId?: string;
+        };
         TradingSummary: {
             account: components["schemas"]["AccountSummary"];
             /** @description open ones */
@@ -2263,6 +2337,13 @@ export interface components {
             hasSessionKey: boolean;
             id: string;
             label: string;
+        };
+        WalletCash: {
+            /**
+             * @description Cash is the wallet's pUSD on Polymarket's CLOB, what its live orders spend.
+             * @example 152.25
+             */
+            cash: string;
         };
         WalletList: {
             /** @description TakesKeys says whether the instance takes private keys now, as an admin set it. */
@@ -4765,6 +4846,15 @@ export interface operations {
                     "application/json": components["schemas"]["Error"];
                 };
             };
+            /** @description wallet_trades_live: switch its workflows to paper first */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
         };
     };
     getApprovals: {
@@ -5039,6 +5129,65 @@ export interface operations {
                 };
             };
             /** @description upstream_unavailable: Polymarket or the RPC could not be reached */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    getWalletCash: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Wallet ID */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WalletCash"];
+                };
+            };
+            /** @description wallet_cannot_trade */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description unauthenticated */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description not_found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description upstream_unavailable: Polymarket could not be reached */
             503: {
                 headers: {
                     [name: string]: unknown;
@@ -6587,7 +6736,10 @@ export interface operations {
     };
     getTradingSummary: {
         parameters: {
-            query?: never;
+            query?: {
+                /** @description paper or live; the mode it trades in now when absent */
+                mode?: "paper" | "live";
+            };
             header?: never;
             path: {
                 /** @description Workflow ID */
@@ -6606,6 +6758,15 @@ export interface operations {
                     "application/json": components["schemas"]["TradingSummary"];
                 };
             };
+            /** @description invalid_input */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
             /** @description unauthenticated */
             401: {
                 headers: {
@@ -6617,6 +6778,120 @@ export interface operations {
             };
             /** @description not_found */
             404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    getTradingSetup: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Workflow ID */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TradingSetup"];
+                };
+            };
+            /** @description unauthenticated */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description not_found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    setTradingSetup: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Workflow ID */
+                id: string;
+            };
+            cookie?: never;
+        };
+        /** @description Its mode and wallet */
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TradingSetupRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TradingSetup"];
+                };
+            };
+            /** @description invalid_input, not_confirmed or wallet_cannot_trade */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description unauthenticated */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description live_trading_off */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description not_found: the workflow, or the wallet */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description holds_live: its wallet stays while it holds live shares */
+            409: {
                 headers: {
                     [name: string]: unknown;
                 };

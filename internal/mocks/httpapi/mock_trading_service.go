@@ -359,23 +359,101 @@ func (_c *MockTradingService_Reset_Call) RunAndReturn(run func(ctx context.Conte
 	return _c
 }
 
-// Summary provides a mock function for the type MockTradingService
-func (_mock *MockTradingService) Summary(ctx context.Context, p auth.Principal, id domain.WorkflowID) (trading.Summary, error) {
+// SetSetup provides a mock function for the type MockTradingService
+func (_mock *MockTradingService) SetSetup(ctx context.Context, p auth.Principal, id domain.WorkflowID, c trading.SetupChange) (trading.Setup, error) {
+	ret := _mock.Called(ctx, p, id, c)
+
+	if len(ret) == 0 {
+		panic("no return value specified for SetSetup")
+	}
+
+	var r0 trading.Setup
+	var r1 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context, auth.Principal, domain.WorkflowID, trading.SetupChange) (trading.Setup, error)); ok {
+		return returnFunc(ctx, p, id, c)
+	}
+	if returnFunc, ok := ret.Get(0).(func(context.Context, auth.Principal, domain.WorkflowID, trading.SetupChange) trading.Setup); ok {
+		r0 = returnFunc(ctx, p, id, c)
+	} else {
+		r0 = ret.Get(0).(trading.Setup)
+	}
+	if returnFunc, ok := ret.Get(1).(func(context.Context, auth.Principal, domain.WorkflowID, trading.SetupChange) error); ok {
+		r1 = returnFunc(ctx, p, id, c)
+	} else {
+		r1 = ret.Error(1)
+	}
+	return r0, r1
+}
+
+// MockTradingService_SetSetup_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'SetSetup'
+type MockTradingService_SetSetup_Call struct {
+	*mock.Call
+}
+
+// SetSetup is a helper method to define mock.On call
+//   - ctx context.Context
+//   - p auth.Principal
+//   - id domain.WorkflowID
+//   - c trading.SetupChange
+func (_e *MockTradingService_Expecter) SetSetup(ctx any, p any, id any, c any) *MockTradingService_SetSetup_Call {
+	return &MockTradingService_SetSetup_Call{Call: _e.mock.On("SetSetup", ctx, p, id, c)}
+}
+
+func (_c *MockTradingService_SetSetup_Call) Run(run func(ctx context.Context, p auth.Principal, id domain.WorkflowID, c trading.SetupChange)) *MockTradingService_SetSetup_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		var arg1 auth.Principal
+		if args[1] != nil {
+			arg1 = args[1].(auth.Principal)
+		}
+		var arg2 domain.WorkflowID
+		if args[2] != nil {
+			arg2 = args[2].(domain.WorkflowID)
+		}
+		var arg3 trading.SetupChange
+		if args[3] != nil {
+			arg3 = args[3].(trading.SetupChange)
+		}
+		run(
+			arg0,
+			arg1,
+			arg2,
+			arg3,
+		)
+	})
+	return _c
+}
+
+func (_c *MockTradingService_SetSetup_Call) Return(setup trading.Setup, err error) *MockTradingService_SetSetup_Call {
+	_c.Call.Return(setup, err)
+	return _c
+}
+
+func (_c *MockTradingService_SetSetup_Call) RunAndReturn(run func(ctx context.Context, p auth.Principal, id domain.WorkflowID, c trading.SetupChange) (trading.Setup, error)) *MockTradingService_SetSetup_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// Setup provides a mock function for the type MockTradingService
+func (_mock *MockTradingService) Setup(ctx context.Context, p auth.Principal, id domain.WorkflowID) (trading.Setup, error) {
 	ret := _mock.Called(ctx, p, id)
 
 	if len(ret) == 0 {
-		panic("no return value specified for Summary")
+		panic("no return value specified for Setup")
 	}
 
-	var r0 trading.Summary
+	var r0 trading.Setup
 	var r1 error
-	if returnFunc, ok := ret.Get(0).(func(context.Context, auth.Principal, domain.WorkflowID) (trading.Summary, error)); ok {
+	if returnFunc, ok := ret.Get(0).(func(context.Context, auth.Principal, domain.WorkflowID) (trading.Setup, error)); ok {
 		return returnFunc(ctx, p, id)
 	}
-	if returnFunc, ok := ret.Get(0).(func(context.Context, auth.Principal, domain.WorkflowID) trading.Summary); ok {
+	if returnFunc, ok := ret.Get(0).(func(context.Context, auth.Principal, domain.WorkflowID) trading.Setup); ok {
 		r0 = returnFunc(ctx, p, id)
 	} else {
-		r0 = ret.Get(0).(trading.Summary)
+		r0 = ret.Get(0).(trading.Setup)
 	}
 	if returnFunc, ok := ret.Get(1).(func(context.Context, auth.Principal, domain.WorkflowID) error); ok {
 		r1 = returnFunc(ctx, p, id)
@@ -385,20 +463,20 @@ func (_mock *MockTradingService) Summary(ctx context.Context, p auth.Principal, 
 	return r0, r1
 }
 
-// MockTradingService_Summary_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'Summary'
-type MockTradingService_Summary_Call struct {
+// MockTradingService_Setup_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'Setup'
+type MockTradingService_Setup_Call struct {
 	*mock.Call
 }
 
-// Summary is a helper method to define mock.On call
+// Setup is a helper method to define mock.On call
 //   - ctx context.Context
 //   - p auth.Principal
 //   - id domain.WorkflowID
-func (_e *MockTradingService_Expecter) Summary(ctx any, p any, id any) *MockTradingService_Summary_Call {
-	return &MockTradingService_Summary_Call{Call: _e.mock.On("Summary", ctx, p, id)}
+func (_e *MockTradingService_Expecter) Setup(ctx any, p any, id any) *MockTradingService_Setup_Call {
+	return &MockTradingService_Setup_Call{Call: _e.mock.On("Setup", ctx, p, id)}
 }
 
-func (_c *MockTradingService_Summary_Call) Run(run func(ctx context.Context, p auth.Principal, id domain.WorkflowID)) *MockTradingService_Summary_Call {
+func (_c *MockTradingService_Setup_Call) Run(run func(ctx context.Context, p auth.Principal, id domain.WorkflowID)) *MockTradingService_Setup_Call {
 	_c.Call.Run(func(args mock.Arguments) {
 		var arg0 context.Context
 		if args[0] != nil {
@@ -421,12 +499,162 @@ func (_c *MockTradingService_Summary_Call) Run(run func(ctx context.Context, p a
 	return _c
 }
 
+func (_c *MockTradingService_Setup_Call) Return(setup trading.Setup, err error) *MockTradingService_Setup_Call {
+	_c.Call.Return(setup, err)
+	return _c
+}
+
+func (_c *MockTradingService_Setup_Call) RunAndReturn(run func(ctx context.Context, p auth.Principal, id domain.WorkflowID) (trading.Setup, error)) *MockTradingService_Setup_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// Summary provides a mock function for the type MockTradingService
+func (_mock *MockTradingService) Summary(ctx context.Context, p auth.Principal, id domain.WorkflowID, mode domain.TradingMode) (trading.Summary, error) {
+	ret := _mock.Called(ctx, p, id, mode)
+
+	if len(ret) == 0 {
+		panic("no return value specified for Summary")
+	}
+
+	var r0 trading.Summary
+	var r1 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context, auth.Principal, domain.WorkflowID, domain.TradingMode) (trading.Summary, error)); ok {
+		return returnFunc(ctx, p, id, mode)
+	}
+	if returnFunc, ok := ret.Get(0).(func(context.Context, auth.Principal, domain.WorkflowID, domain.TradingMode) trading.Summary); ok {
+		r0 = returnFunc(ctx, p, id, mode)
+	} else {
+		r0 = ret.Get(0).(trading.Summary)
+	}
+	if returnFunc, ok := ret.Get(1).(func(context.Context, auth.Principal, domain.WorkflowID, domain.TradingMode) error); ok {
+		r1 = returnFunc(ctx, p, id, mode)
+	} else {
+		r1 = ret.Error(1)
+	}
+	return r0, r1
+}
+
+// MockTradingService_Summary_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'Summary'
+type MockTradingService_Summary_Call struct {
+	*mock.Call
+}
+
+// Summary is a helper method to define mock.On call
+//   - ctx context.Context
+//   - p auth.Principal
+//   - id domain.WorkflowID
+//   - mode domain.TradingMode
+func (_e *MockTradingService_Expecter) Summary(ctx any, p any, id any, mode any) *MockTradingService_Summary_Call {
+	return &MockTradingService_Summary_Call{Call: _e.mock.On("Summary", ctx, p, id, mode)}
+}
+
+func (_c *MockTradingService_Summary_Call) Run(run func(ctx context.Context, p auth.Principal, id domain.WorkflowID, mode domain.TradingMode)) *MockTradingService_Summary_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		var arg1 auth.Principal
+		if args[1] != nil {
+			arg1 = args[1].(auth.Principal)
+		}
+		var arg2 domain.WorkflowID
+		if args[2] != nil {
+			arg2 = args[2].(domain.WorkflowID)
+		}
+		var arg3 domain.TradingMode
+		if args[3] != nil {
+			arg3 = args[3].(domain.TradingMode)
+		}
+		run(
+			arg0,
+			arg1,
+			arg2,
+			arg3,
+		)
+	})
+	return _c
+}
+
 func (_c *MockTradingService_Summary_Call) Return(summary trading.Summary, err error) *MockTradingService_Summary_Call {
 	_c.Call.Return(summary, err)
 	return _c
 }
 
-func (_c *MockTradingService_Summary_Call) RunAndReturn(run func(ctx context.Context, p auth.Principal, id domain.WorkflowID) (trading.Summary, error)) *MockTradingService_Summary_Call {
+func (_c *MockTradingService_Summary_Call) RunAndReturn(run func(ctx context.Context, p auth.Principal, id domain.WorkflowID, mode domain.TradingMode) (trading.Summary, error)) *MockTradingService_Summary_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// WalletCash provides a mock function for the type MockTradingService
+func (_mock *MockTradingService) WalletCash(ctx context.Context, p auth.Principal, wallet domain.WalletID) (decimal.Decimal, error) {
+	ret := _mock.Called(ctx, p, wallet)
+
+	if len(ret) == 0 {
+		panic("no return value specified for WalletCash")
+	}
+
+	var r0 decimal.Decimal
+	var r1 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context, auth.Principal, domain.WalletID) (decimal.Decimal, error)); ok {
+		return returnFunc(ctx, p, wallet)
+	}
+	if returnFunc, ok := ret.Get(0).(func(context.Context, auth.Principal, domain.WalletID) decimal.Decimal); ok {
+		r0 = returnFunc(ctx, p, wallet)
+	} else {
+		r0 = ret.Get(0).(decimal.Decimal)
+	}
+	if returnFunc, ok := ret.Get(1).(func(context.Context, auth.Principal, domain.WalletID) error); ok {
+		r1 = returnFunc(ctx, p, wallet)
+	} else {
+		r1 = ret.Error(1)
+	}
+	return r0, r1
+}
+
+// MockTradingService_WalletCash_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'WalletCash'
+type MockTradingService_WalletCash_Call struct {
+	*mock.Call
+}
+
+// WalletCash is a helper method to define mock.On call
+//   - ctx context.Context
+//   - p auth.Principal
+//   - wallet domain.WalletID
+func (_e *MockTradingService_Expecter) WalletCash(ctx any, p any, wallet any) *MockTradingService_WalletCash_Call {
+	return &MockTradingService_WalletCash_Call{Call: _e.mock.On("WalletCash", ctx, p, wallet)}
+}
+
+func (_c *MockTradingService_WalletCash_Call) Run(run func(ctx context.Context, p auth.Principal, wallet domain.WalletID)) *MockTradingService_WalletCash_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		var arg1 auth.Principal
+		if args[1] != nil {
+			arg1 = args[1].(auth.Principal)
+		}
+		var arg2 domain.WalletID
+		if args[2] != nil {
+			arg2 = args[2].(domain.WalletID)
+		}
+		run(
+			arg0,
+			arg1,
+			arg2,
+		)
+	})
+	return _c
+}
+
+func (_c *MockTradingService_WalletCash_Call) Return(decimal1 decimal.Decimal, err error) *MockTradingService_WalletCash_Call {
+	_c.Call.Return(decimal1, err)
+	return _c
+}
+
+func (_c *MockTradingService_WalletCash_Call) RunAndReturn(run func(ctx context.Context, p auth.Principal, wallet domain.WalletID) (decimal.Decimal, error)) *MockTradingService_WalletCash_Call {
 	_c.Call.Return(run)
 	return _c
 }

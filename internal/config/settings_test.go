@@ -2,6 +2,7 @@ package config_test
 
 import (
 	"net"
+	"strings"
 	"testing"
 	"time"
 
@@ -70,6 +71,8 @@ func TestSettingsDefaults(t *testing.T) {
 		config.KeyCodeConcurrency:     0,
 		config.KeyPaperBalance:        1000,
 		config.KeyKeyImport:           config.KeyImportAuto,
+		config.KeyLiveTrading:         false,
+		config.KeyBuilderCode:         "",
 		config.KeyBuilderAPIKey:       "",
 		config.KeyBuilderSecret:       "",
 		config.KeyBuilderPassphrase:   "",
@@ -93,7 +96,7 @@ func TestSettingsDefaults(t *testing.T) {
 		assert.Equal(t, want, spec(t, key).Default, key)
 	}
 
-	assert.Len(t, registry(t).Specs(), 44, "every setting has a default checked above")
+	assert.Len(t, registry(t).Specs(), 46, "every setting has a default checked above")
 
 	for _, key := range []string{
 		config.KeyTelegramToken, config.KeyBuilderAPIKey, config.KeyBuilderSecret, config.KeyBuilderPassphrase, config.KeyPolygonRPC,
@@ -149,6 +152,9 @@ func TestSettingsValidation(t *testing.T) {
 		{config.KeyBuilderSecret, "not base64!", "is not base64"},
 		{config.KeyPolygonRPC, "wss://polygon.example", "is not an http or https URL"},
 		{config.KeyPolygonRPC, "polygon.drpc.org", "is not an http or https URL"},
+		{config.KeyBuilderCode, "0xb1", "is not 0x and 64 hex digits"},
+		{config.KeyBuilderCode, "0x" + strings.Repeat("g", 64), "is not 0x and 64 hex digits"},
+		{config.KeyLiveTrading, "maybe", `"maybe" is not true or false`},
 		{config.KeyMailHost, "smtp://mail.example.com", "without a scheme or port"},
 		{config.KeyMailHost, "mail.example.com:587", "without a scheme or port"},
 		{config.KeyMailPort, "70000", "must be between 1 and 65535"},
@@ -177,6 +183,9 @@ func TestSettingsValidation(t *testing.T) {
 	assert.Equal(t, []*net.IPNet{private, v6}, got)
 
 	assert.True(t, domain.RegistrationMode(spec(t, config.KeyRegistration).Default.(string)).Valid())
+
+	_, err = spec(t, config.KeyBuilderCode).Parse("0x" + strings.Repeat("0b", 32))
+	require.NoError(t, err, "a builder code")
 }
 
 func TestSettingsGroupsAreTogether(t *testing.T) {

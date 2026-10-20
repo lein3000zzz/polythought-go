@@ -131,7 +131,7 @@ func (f *fakeWorkflows) Update(_ context.Context, p auth.Principal, id domain.Wo
 
 type fakeTrading map[domain.WorkflowID]trading.Summary
 
-func (f fakeTrading) Summary(_ context.Context, p auth.Principal, id domain.WorkflowID) (trading.Summary, error) {
+func (f fakeTrading) Summary(_ context.Context, p auth.Principal, id domain.WorkflowID, _ domain.TradingMode) (trading.Summary, error) {
 	if p.User.ID != alice.ID {
 		return trading.Summary{}, domain.ErrNotFound
 	}
