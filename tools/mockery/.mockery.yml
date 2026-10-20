@@ -28,6 +28,7 @@ packages:
       ClobAccountClient: {}
       RelayerClient: {}
       RPCClient: {}
+      GeoblockClient: {}
   github.com/lein3000zzz/the-watchers/pkg/observability/logging:
     config:
       dir: internal/mocks/logging
@@ -76,6 +77,7 @@ packages:
       Mailer: {}
       AccountMail: {}
       EmailTokenRepository: {}
+      GeoblockChecker: {}
   github.com/lein3000zzz/polythought-go/internal/core/services/auth:
     config:
       dir: internal/mocks/auth
@@ -123,3 +125,4 @@ packages:
       NotificationService: {}
       CustomNodeService: {}
       MailService: {}
+      GeoblockService: {}

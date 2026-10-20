@@ -119,6 +119,7 @@ function config(settings: Schemas['Setting'][] = all, restartPending = false) {
     http.get('/api/v1/workflows', () => HttpResponse.json({ workflows: [] })),
     http.get('/api/v1/admin/settings', () => HttpResponse.json({ settings, restartPending })),
     http.get('/api/v1/admin/settings/history', () => HttpResponse.json({ changes: [] })),
+    http.get('/api/v1/admin/geoblock', () => HttpResponse.json({ checked: false, blocked: false })),
   )
 }
 
@@ -344,6 +345,74 @@ describe('admin config page', () => {
       await screen.findByText('Save a mail server and a From address first.'),
     ).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Send test email' })).toBeDisabled()
+  })
+
+  it('says whether Polymarket takes orders from the server, and checks again (D186)', async () => {
+    let checks = 0
+
+    config()
+    server.use(
+      http.get('/api/v1/admin/geoblock', () =>
+        HttpResponse.json({
+          checked: true,
+          blocked: true,
+          ip: '203.0.113.42',
+          country: 'DE',
+          region: 'HE',
+          checkedAt: '2026-10-20T09:00:00Z',
+        }),
+      ),
+      http.post('/api/v1/admin/geoblock/check', () => {
+        checks++
+        return HttpResponse.json({
+          checked: true,
+          blocked: false,
+          ip: '198.51.100.7',
+          country: 'IE',
+          region: 'L',
+          checkedAt: '2026-10-20T10:00:00Z',
+        })
+      }),
+    )
+    const { user } = renderApp('/admin/config')
+
+    expect(await screen.findByText('Polymarket blocks orders from this server')).toBeInTheDocument()
+    expect(screen.getByText(/It answers blocked for DE, HE, from 203.0.113.42/)).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'its list of regions' })).toHaveAttribute(
+      'href',
+      'https://docs.polymarket.com/api-reference/geoblock',
+    )
+
+    await user.click(screen.getByRole('button', { name: 'Check now' }))
+
+    expect(
+      await screen.findByText(
+        'Polymarket takes orders from this server: IE, L, from 198.51.100.7.',
+      ),
+    ).toBeInTheDocument()
+    expect(checks).toBe(1)
+  })
+
+  it('says when the check failed, keeping the answer before', async () => {
+    config()
+    server.use(
+      http.get('/api/v1/admin/geoblock', () =>
+        HttpResponse.json({
+          checked: true,
+          blocked: false,
+          ip: '198.51.100.7',
+          country: 'IE',
+          checkedAt: '2026-10-20T09:00:00Z',
+          error: 'upstream service unavailable',
+        }),
+      ),
+    )
+    renderApp('/admin/config')
+
+    expect(
+      await screen.findByText(/The last check failed: upstream service unavailable/),
+    ).toBeInTheDocument()
+    expect(screen.getByText(/Polymarket takes orders from this server: IE/)).toBeInTheDocument()
   })
 
   it('lists changes, newest first', async () => {

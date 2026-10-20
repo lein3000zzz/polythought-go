@@ -97,3 +97,21 @@ export function useSendTestMail() {
     mutationFn: (to: string) => call(api.POST('/admin/mail/test', { body: { to } })),
   })
 }
+
+/** Whether Polymarket takes orders from the server, as it last answered (D186). */
+export function useGeoblock() {
+  return useQuery({
+    queryKey: ['admin', 'geoblock'],
+    queryFn: () => call(api.GET('/admin/geoblock')),
+  })
+}
+
+/** Asks Polymarket again. */
+export function useCheckGeoblock() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: () => call(api.POST('/admin/geoblock/check')),
+    onSuccess: (data) => queryClient.setQueryData(['admin', 'geoblock'], data),
+  })
+}

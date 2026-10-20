@@ -126,6 +126,7 @@ type Services struct {
 	Notifications   NotificationService
 	CustomNodes     CustomNodeService
 	Mail            MailService
+	Geoblock        GeoblockService
 }
 
 type Config struct {
@@ -162,6 +163,7 @@ type Server struct {
 	telegramHook  TelegramWebhook
 	notifications NotificationService
 	mail          MailService
+	geoblock      GeoblockService
 	log           logging.Logger
 	kit           *redkit.Kit
 	scope         tracing.Scope
@@ -229,6 +231,7 @@ func New(cfg Config, util *observability.Utility, services Services) (*Server, e
 		telegramHook:  services.TelegramWebhook,
 		notifications: services.Notifications,
 		mail:          services.Mail,
+		geoblock:      services.Geoblock,
 		log:           log,
 		kit:           kit,
 		scope:         tracing.Scope{Manager: util.TracerManager, TracerName: tracerName},
@@ -388,6 +391,8 @@ func (s *Server) routes() {
 	admin.GET("/settings/history", s.listSettingChanges)
 	admin.POST("/restart", s.restartServer)
 	admin.POST("/mail/test", s.sendTestMail)
+	admin.GET("/geoblock", s.geoblockStatus)
+	admin.POST("/geoblock/check", s.checkGeoblock)
 }
 
 // Engine exposes the router for in-process tests.

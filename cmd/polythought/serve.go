@@ -57,6 +57,7 @@ func serve(ctx context.Context) error {
 		CustomNodes: a.customNodes, Library: a.library, Settings: a.settings, Credentials: a.credentials, Trading: a.trading,
 		Memory:   a.memory,
 		Telegram: a.telegram, TelegramWebhook: a.telegramBot, Notifications: a.notify, Mail: a.mail,
+		Geoblock: a.geoblock,
 	})
 	if err != nil {
 		return err
@@ -90,6 +91,9 @@ func serve(ctx context.Context) error {
 	// Session keys and approval setups submitted are followed until confirmed; session
 	// keys' owners are reminded before they expire (D156, D161).
 	go a.wallets.FollowEvery(ctx, 5*time.Second, time.Hour)
+
+	// Whether Polymarket takes orders from here, at start and every 6 hours (D186).
+	go a.geoblock.CheckEvery(ctx, 6*time.Hour)
 
 	// The bot follows its settings: a change restarts it, not the server.
 	telegramDone := make(chan struct{})

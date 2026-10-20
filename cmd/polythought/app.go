@@ -34,6 +34,7 @@ import (
 	"github.com/lein3000zzz/polythought-go/internal/core/services/customnodes"
 	"github.com/lein3000zzz/polythought-go/internal/core/services/events"
 	"github.com/lein3000zzz/polythought-go/internal/core/services/feed"
+	"github.com/lein3000zzz/polythought-go/internal/core/services/geoblock"
 	"github.com/lein3000zzz/polythought-go/internal/core/services/library"
 	"github.com/lein3000zzz/polythought-go/internal/core/services/mail"
 	"github.com/lein3000zzz/polythought-go/internal/core/services/memory"
@@ -120,6 +121,7 @@ type app struct {
 	telegram    *telegram.Service
 	notify      *notify.Service
 	mail        *mail.Service
+	geoblock    *geoblock.Service
 	waits       *waits.Service
 	code        *code.Service
 	codeGate    auth.CodeGate
@@ -222,6 +224,9 @@ func (a *app) init(ctx context.Context) error {
 
 	a.notify = notify.New(a.telegram, postgres.NewNotificationPrefs(a.db), postgres.NewWorkflows(a.db), a.cfg.PublicURL, a.util.Logger,
 		notify.WithMail(a.mail))
+
+	// Whether Polymarket takes orders from here (D186); serve checks it every 6 hours.
+	a.geoblock = geoblock.New(pmc.geoblock, a.util.Logger)
 
 	// After notify, which reminds of expiring session keys.
 	walletRepo := postgres.NewWallets(a.db)
@@ -483,6 +488,7 @@ type polymarket struct {
 	keys        *pmadapter.Keys
 	sessionKeys *pmadapter.SessionKeys
 	approvals   *pmadapter.Approvals
+	geoblock    *pmadapter.Geoblock
 }
 
 func newPolymarket(a *app) (polymarket, error) {
@@ -502,6 +508,11 @@ func newPolymarket(a *app) (polymarket, error) {
 	}
 
 	relayer, err := pm.NewRelayerClient(a.util, pm.HTTPConfig{})
+	if err != nil {
+		return polymarket{}, err
+	}
+
+	geo, err := pm.NewGeoblockClient(a.util, pm.HTTPConfig{})
 	if err != nil {
 		return polymarket{}, err
 	}
@@ -528,6 +539,7 @@ func newPolymarket(a *app) (polymarket, error) {
 		reader: pmadapter.NewReader(gamma, clob, data), account: pmadapter.NewAccount(clob), keys: pmadapter.NewKeys(clob),
 		sessionKeys: pmadapter.NewSessionKeys(relayer, builder),
 		approvals:   pmadapter.NewApprovals(data, rpc, relayer, builder),
+		geoblock:    pmadapter.NewGeoblock(geo),
 	}, nil
 }
 

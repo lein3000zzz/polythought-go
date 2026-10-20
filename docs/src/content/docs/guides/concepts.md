@@ -220,6 +220,23 @@ needs the admin's Builder key, as session keys do, and Polythought checks the ap
 chain right before, so nothing is granted twice. Polymarket's index shows new approvals
 within a minute or so.
 
+### Email and Google accounts
+
+A polymarket.com account made with email or Google has no browser wallet of its own: its key
+lives with Magic, the service it signs in with, and polymarket.com cannot yet authorise a
+session key for another app. To trade from here:
+
+1. Signed in to polymarket.com, open [reveal.magic.link/polymarket](https://reveal.magic.link/polymarket),
+   sign in to Magic and export the private key.
+2. Add it to a browser wallet of your own, such as MetaMask or Rabby (Import account).
+3. On the wallet's card here, **Authorise a session key**, and sign with that browser wallet.
+
+The key stays in your browser wallet and never reaches this server; the session key only
+places and cancels orders. Polythought checks that the key controls the wallet, and says so
+when it does not. Accounts made before 4 May 2026 have a proxy wallet, which has no session
+keys yet (Polymarket plans a migration): for those, **Import private key** on the card,
+where an admin allows it, is the way, and the server then holds the key.
+
 A workflow only ever reaches its owner's wallets and credentials, and sharing it leaves them
 out.
 

@@ -4,6 +4,40 @@
  */
 
 export interface paths {
+    "/admin/geoblock": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Polymarket's geoblock for the server */
+        get: operations["getGeoblock"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/geoblock/check": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Check Polymarket's geoblock now */
+        post: operations["checkGeoblock"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/admin/invites": {
         parameters: {
             query?: never;
@@ -1516,6 +1550,25 @@ export interface components {
             /** @description NextCursor is absent on the last page. */
             nextCursor?: string;
         };
+        Geoblock: {
+            /**
+             * @description Blocked says Polymarket refuses orders from the server's IP, or restricts only its
+             *     website there, which the answer does not tell apart.
+             */
+            blocked: boolean;
+            /**
+             * @description Checked says Polymarket answered at least once; the fields below are its last
+             *     answer.
+             */
+            checked: boolean;
+            /** Format: date-time */
+            checkedAt?: string;
+            country?: string;
+            /** @description Error says why the last check failed, when it did; the answer before stays. */
+            error?: string;
+            ip?: string;
+            region?: string;
+        };
         Holding: {
             /**
              * @description Cost is what the shares held cost, fees included; Realized is the profit or loss
@@ -2270,6 +2323,82 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
+    getGeoblock: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Geoblock"];
+                };
+            };
+            /** @description unauthenticated */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    checkGeoblock: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Geoblock"];
+                };
+            };
+            /** @description unauthenticated */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
     listInvites: {
         parameters: {
             query?: never;

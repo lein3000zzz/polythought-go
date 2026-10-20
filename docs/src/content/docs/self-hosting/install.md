@@ -97,6 +97,22 @@ To change keys, put the new one first and keep the old one after it, as in
 Saved secrets keep the key they were saved with, so keep an old key listed as long as
 anything saved with it remains.
 
+## Where the server runs
+
+Polymarket refuses new orders from restricted regions: the United States, the United
+Kingdom, France, Germany and others take only the closing of positions, and sanctioned
+ones nothing at all. Live orders go from the server, so where it runs decides. **Polymarket
+access**, at the top of the Config page, says what Polymarket answers for the server's
+address: checked at start, every 6 hours and on **Check now**, and logged as a warning while
+blocked. Its answer also says blocked where Polymarket restricts only its website and its
+API takes orders (Ireland, the Netherlands, Japan and a few more); see
+[its list of regions](https://docs.polymarket.com/api-reference/geoblock). Polymarket's own
+servers are in AWS eu-west-2, and eu-west-1 is the nearest region it does not restrict.
+Paper trading works anywhere.
+
+Only the server's address is checked: whether each user may trade on Polymarket where they
+are is between them and Polymarket's terms.
+
 ## More admins
 
 Admins can promote users on **Admin → Users**. To create one from the command line, with the

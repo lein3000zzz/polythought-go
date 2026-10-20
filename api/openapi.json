@@ -975,6 +975,40 @@
                 ],
                 "type": "object"
             },
+            "Geoblock": {
+                "properties": {
+                    "blocked": {
+                        "description": "Blocked says Polymarket refuses orders from the server's IP, or restricts only its\nwebsite there, which the answer does not tell apart.",
+                        "type": "boolean"
+                    },
+                    "checked": {
+                        "description": "Checked says Polymarket answered at least once; the fields below are its last\nanswer.",
+                        "type": "boolean"
+                    },
+                    "checkedAt": {
+                        "format": "date-time",
+                        "type": "string"
+                    },
+                    "country": {
+                        "type": "string"
+                    },
+                    "error": {
+                        "description": "Error says why the last check failed, when it did; the answer before stays.",
+                        "type": "string"
+                    },
+                    "ip": {
+                        "type": "string"
+                    },
+                    "region": {
+                        "type": "string"
+                    }
+                },
+                "required": [
+                    "blocked",
+                    "checked"
+                ],
+                "type": "object"
+            },
             "Holding": {
                 "properties": {
                     "cost": {
@@ -3058,6 +3092,104 @@
         "url": "https://github.com/lein3000zzz/polythought-go"
     },
     "paths": {
+        "/admin/geoblock": {
+            "get": {
+                "operationId": "getGeoblock",
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Geoblock"
+                                }
+                            }
+                        },
+                        "description": "OK"
+                    },
+                    "401": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "unauthenticated"
+                    },
+                    "403": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "forbidden"
+                    }
+                },
+                "security": [
+                    {
+                        "SessionCookie": []
+                    },
+                    {
+                        "APIToken": []
+                    }
+                ],
+                "summary": "Polymarket's geoblock for the server",
+                "tags": [
+                    "admin"
+                ]
+            }
+        },
+        "/admin/geoblock/check": {
+            "post": {
+                "operationId": "checkGeoblock",
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Geoblock"
+                                }
+                            }
+                        },
+                        "description": "OK"
+                    },
+                    "401": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "unauthenticated"
+                    },
+                    "403": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "forbidden"
+                    }
+                },
+                "security": [
+                    {
+                        "SessionCookie": []
+                    },
+                    {
+                        "APIToken": []
+                    }
+                ],
+                "summary": "Check Polymarket's geoblock now",
+                "tags": [
+                    "admin"
+                ]
+            }
+        },
         "/admin/invites": {
             "get": {
                 "operationId": "listInvites",
