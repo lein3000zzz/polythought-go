@@ -1,5 +1,5 @@
 import { CircleAlert, Copy, KeyRound, Send } from 'lucide-react'
-import { useState } from 'react'
+import { Fragment, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { Link } from 'react-router'
 import { toast } from 'sonner'
@@ -454,31 +454,39 @@ function NotificationsSection() {
         </div>
       )}
 
-      {notifications.data?.notifications.map((n) => (
-        <div key={n.key} className="flex items-start justify-between gap-4">
-          <div className="flex flex-col gap-0.5">
-            <span className="text-sm font-medium">{n.label}</span>
-            <p id={`notify-${n.key}-hint`} className="text-xs text-muted-foreground">
-              {n.description}
-            </p>
+      {notifications.data?.notifications.map((n, i, all) => (
+        <Fragment key={n.key}>
+          {/* The kinds come grouped: a heading where a group starts. */}
+          {n.group !== all[i - 1]?.group && (
+            <h3 className="pt-2 text-xs font-medium tracking-wide text-muted-foreground uppercase">
+              {n.group}
+            </h3>
+          )}
+          <div className="flex items-start justify-between gap-4">
+            <div className="flex flex-col gap-0.5">
+              <span className="text-sm font-medium">{n.label}</span>
+              <p id={`notify-${n.key}-hint`} className="text-xs text-muted-foreground">
+                {n.description}
+              </p>
+            </div>
+            <div className="flex shrink-0 gap-6">
+              <Switch
+                aria-label={`${n.label}, on Telegram`}
+                aria-describedby={`notify-${n.key}-hint`}
+                checked={n.enabled}
+                disabled={set.isPending}
+                onCheckedChange={(enabled) => change(n.key, { enabled })}
+              />
+              <Switch
+                aria-label={`${n.label}, by email`}
+                aria-describedby={`notify-${n.key}-hint`}
+                checked={n.email}
+                disabled={set.isPending || !mailOn}
+                onCheckedChange={(email) => change(n.key, { email })}
+              />
+            </div>
           </div>
-          <div className="flex shrink-0 gap-6">
-            <Switch
-              aria-label={`${n.label}, on Telegram`}
-              aria-describedby={`notify-${n.key}-hint`}
-              checked={n.enabled}
-              disabled={set.isPending}
-              onCheckedChange={(enabled) => change(n.key, { enabled })}
-            />
-            <Switch
-              aria-label={`${n.label}, by email`}
-              aria-describedby={`notify-${n.key}-hint`}
-              checked={n.email}
-              disabled={set.isPending || !mailOn}
-              onCheckedChange={(email) => change(n.key, { email })}
-            />
-          </div>
-        </div>
+        </Fragment>
       ))}
     </section>
   )

@@ -1,8 +1,14 @@
 package httpapi
 
 import (
+	"bytes"
 	"context"
+	"encoding/csv"
+	"fmt"
 	"net/http"
+	"slices"
+	"strconv"
+	"strings"
 	"time"
 
 	"github.com/cloudwego/hertz/pkg/app"
@@ -30,6 +36,9 @@ type TradingService interface {
 	WalletCash(ctx context.Context, p auth.Principal, wallet domain.WalletID) (decimal.Decimal, error)
 
 	SetKillSwitch(ctx context.Context, p auth.Principal, on bool) (trading.KillSwitch, error)
+
+	OrderLog(ctx context.Context, p auth.Principal, f ports.OrderLogFilter) (ports.Page[trading.LogEntry], error)
+	ExportOrders(ctx context.Context, p auth.Principal, f ports.OrderLogFilter) ([]trading.LogEntry, error)
 }
 
 // Amounts are text, as items carry decimals: exact.
@@ -598,4 +607,159 @@ func (s *Server) setKillSwitch(ctx context.Context, c *app.RequestContext) {
 	}
 
 	c.JSON(http.StatusOK, killSwitchDTO{On: ks.On, Since: optionalTime(ks.Since), Cancelled: ks.Cancelled, Left: ks.Left})
+}
+
+type loggedOrderDTO struct {
+	orderDTO
+
+	// WorkflowID is the workflow it came from, and Workflow its name, or the one it had
+	// when it was deleted, Deleted then.
+	WorkflowID string `json:"workflowId"`
+	Workflow   string `json:"workflow"`
+	Deleted    bool   `json:"deleted"`
+	WalletID   string `json:"walletId,omitempty" validate:"optional"`
+	// Question and Outcome name its market and outcome, when known.
+	Question string `json:"question,omitempty" validate:"optional"`
+	Outcome  string `json:"outcome,omitempty" validate:"optional"`
+} // @name LoggedOrder
+
+type loggedOrderPage struct {
+	Orders     []loggedOrderDTO `json:"orders"`
+	NextCursor string           `json:"nextCursor,omitempty" validate:"optional"`
+} // @name LoggedOrderPage
+
+var orderStatuses = []domain.OrderStatus{
+	domain.OrderFilled, domain.OrderPartial, domain.OrderOpen, domain.OrderCanceled, domain.OrderExpired,
+	domain.OrderUnfilled, domain.OrderRefused, domain.OrderPending, domain.OrderFailed,
+}
+
+// orderLogFilter reads the log's filters from the query.
+func orderLogFilter(c *app.RequestContext) (ports.OrderLogFilter, error) {
+	page, err := pageFilter(c)
+	if err != nil {
+		return ports.OrderLogFilter{}, err
+	}
+
+	f := ports.OrderLogFilter{
+		PageFilter: page, WalletID: domain.WalletID(c.Query("wallet")), WorkflowID: domain.WorkflowID(c.Query("workflow")),
+		Status: domain.OrderStatus(c.Query("status")),
+	}
+
+	if f.Status != "" && !slices.Contains(orderStatuses, f.Status) {
+		return ports.OrderLogFilter{}, fmt.Errorf("%w: no order status %q", domain.ErrInvalidInput, f.Status)
+	}
+
+	return f, nil
+}
+
+func toLoggedOrderDTO(e trading.LogEntry) loggedOrderDTO {
+	return loggedOrderDTO{
+		orderDTO: toOrderDTO(e.PlacedOrder), WorkflowID: string(e.WorkflowID), Workflow: e.Workflow, Deleted: e.Deleted,
+		WalletID: string(e.WalletID), Question: e.Question, Outcome: e.Outcome,
+	}
+}
+
+// listLiveOrders lists your live orders, all your workflows', deleted ones' too (D228):
+// the record of the real money they spent, the newest first.
+//
+//	@Summary	List your live orders
+//	@ID			listLiveOrders
+//	@Tags		trading
+//	@Param		wallet		query		string	false	"Only those from this wallet"
+//	@Param		workflow	query		string	false	"Only those of this workflow"
+//	@Param		status		query		string	false	"Only those with this status"	Enums(filled,partial,open,canceled,expired,unfilled,refused,pending,failed)
+//	@Param		limit		query		int		false	"Page size"						minimum(1)
+//	@Param		cursor		query		string	false	"nextCursor of the previous page"
+//	@Success	200			{object}	loggedOrderPage
+//	@Failure	400			{object}	errorBody	"invalid_input"
+//	@Failure	401			{object}	errorBody	"unauthenticated"
+//	@Security	SessionCookie
+//	@Security	APIToken
+//	@Router		/orders [get]
+func (s *Server) listLiveOrders(ctx context.Context, c *app.RequestContext) {
+	f, err := orderLogFilter(c)
+	if err != nil {
+		s.fail(ctx, c, err)
+		return
+	}
+
+	p, _ := principal(c)
+
+	page, err := s.trading.OrderLog(ctx, p, f)
+	if err != nil {
+		s.fail(ctx, c, err)
+		return
+	}
+
+	out := loggedOrderPage{Orders: make([]loggedOrderDTO, len(page.Items)), NextCursor: page.NextCursor}
+	for i, e := range page.Items {
+		out.Orders[i] = toLoggedOrderDTO(e)
+	}
+
+	c.JSON(http.StatusOK, out)
+}
+
+// exportLiveOrders downloads your live orders as CSV, the newest 10,000 the filters keep,
+// a row per order (D228).
+//
+//	@Summary	Download your live orders
+//	@ID			exportLiveOrders
+//	@Tags		trading
+//	@Produce	text/csv
+//	@Param		wallet		query		string	false	"Only those from this wallet"
+//	@Param		workflow	query		string	false	"Only those of this workflow"
+//	@Param		status		query		string	false	"Only those with this status"	Enums(filled,partial,open,canceled,expired,unfilled,refused,pending,failed)
+//	@Success	200			{string}	string	"CSV, a header row first"
+//	@Failure	400			{object}	errorBody	"invalid_input"
+//	@Failure	401			{object}	errorBody	"unauthenticated"
+//	@Security	SessionCookie
+//	@Security	APIToken
+//	@Router		/orders/export [get]
+func (s *Server) exportLiveOrders(ctx context.Context, c *app.RequestContext) {
+	f, err := orderLogFilter(c)
+	if err != nil {
+		s.fail(ctx, c, err)
+		return
+	}
+
+	p, _ := principal(c)
+
+	orders, err := s.trading.ExportOrders(ctx, p, f)
+	if err != nil {
+		s.fail(ctx, c, err)
+		return
+	}
+
+	var buf bytes.Buffer
+
+	w := csv.NewWriter(&buf)
+	_ = w.Write([]string{
+		"at", "workflow", "workflow_deleted", "wallet_id", "market", "outcome", "token_id", "side", "type", "post_only",
+		"price", "shares", "dollars", "status", "filled_shares", "filled_dollars", "fees", "reason", "trader",
+		"trader_label", "clob_id", "order_id",
+	})
+
+	for _, e := range orders {
+		shares, dollars, fees := e.Totals()
+		_ = w.Write([]string{
+			e.CreatedAt.UTC().Format(time.RFC3339), cell(e.Workflow), strconv.FormatBool(e.Deleted), string(e.WalletID),
+			cell(e.Question), cell(e.Outcome), string(e.TokenID), string(e.Side), string(e.Type), strconv.FormatBool(e.PostOnly),
+			e.Price.String(), e.Shares.String(), e.Dollars.String(), string(e.Status), shares.String(), dollars.String(),
+			fees.String(), cell(e.Reason), string(e.Trader), cell(e.TraderLabel), e.ClobID, string(e.ID),
+		})
+	}
+
+	w.Flush()
+
+	c.Header("Content-Disposition", `attachment; filename="live-orders.csv"`)
+	c.Data(http.StatusOK, "text/csv; charset=utf-8", buf.Bytes())
+}
+
+// cell keeps text a spreadsheet would read as a formula, like =HYPERLINK(…), text.
+func cell(s string) string {
+	if s != "" && strings.ContainsRune("=+-@\t\r", rune(s[0])) {
+		return "'" + s
+	}
+
+	return s
 }

@@ -15,6 +15,7 @@ const navLinks = [
   ['/library', 'Library'],
   ['/nodes', 'Nodes'],
   ['/wallets', 'Wallets'],
+  ['/orders', 'Live orders'],
   ['/credentials', 'Credentials'],
   ['/settings', 'Settings'],
 ] as const

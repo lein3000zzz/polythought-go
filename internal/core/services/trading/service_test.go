@@ -2,6 +2,7 @@ package trading_test
 
 import (
 	"context"
+	"slices"
 	"sync"
 	"testing"
 	"time"
@@ -25,6 +26,16 @@ type ledger struct {
 	accounts map[domain.WorkflowID]domain.PaperAccount
 	holdings map[domain.HoldingKey]domain.Holding
 	orders   []domain.PlacedOrder
+
+	failRecord error // when set, recording fails
+}
+
+// all is a copy of the orders recorded.
+func (l *ledger) all() []domain.PlacedOrder {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+
+	return slices.Clone(l.orders)
 }
 
 func newLedger() *ledger {
@@ -120,6 +131,24 @@ func (l *ledger) OwnerUnsettled(_ context.Context, owner domain.UserID, mode dom
 	return out, nil
 }
 
+func (l *ledger) OwnerOrders(_ context.Context, owner domain.UserID, f ports.OrderLogFilter) (ports.Page[ports.LoggedOrder], error) {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+
+	var page ports.Page[ports.LoggedOrder]
+
+	for _, o := range slices.Backward(l.orders) {
+		if o.OwnerID != owner || o.Mode != f.Mode || (f.WalletID != "" && o.WalletID != f.WalletID) ||
+			(f.WorkflowID != "" && o.WorkflowID != f.WorkflowID) || (f.Status != "" && o.Status != f.Status) {
+			continue
+		}
+
+		page.Items = append(page.Items, ports.LoggedOrder{PlacedOrder: o, Workflow: "Copy " + string(o.WorkflowID)})
+	}
+
+	return page, nil
+}
+
 func (l *ledger) OpenHoldings(_ context.Context, mode domain.TradingMode) ([]domain.Holding, error) {
 	l.mu.Lock()
 	defer l.mu.Unlock()
@@ -186,6 +215,10 @@ func (l *ledger) ResetPaperAccount(_ context.Context, a domain.PaperAccount) err
 func (l *ledger) Record(_ context.Context, o domain.PlacedOrder, c *ports.LedgerChange) error {
 	l.mu.Lock()
 	defer l.mu.Unlock()
+
+	if l.failRecord != nil {
+		return l.failRecord
+	}
 
 	if c != nil {
 		if o.Mode == domain.ModePaper {

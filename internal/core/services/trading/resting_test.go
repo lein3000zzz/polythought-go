@@ -86,8 +86,8 @@ func (s stream) Watch(ctx context.Context, _ ports.OrderKey) <-chan ports.LiveOr
 	return out
 }
 
-func paperService(l *ledger, f *feed, now *time.Time) *trading.Service {
-	return trading.New(trading.Deps{
+func paperService(l *ledger, f *feed, now *time.Time, opts ...func(*trading.Deps)) *trading.Service {
+	deps := trading.Deps{
 		Ledger: l, Rules: &rules{}, Markets: markets{}, Workflows: workflows{}, Logger: observability.NoopUtility().Logger,
 		Books: books{book: domain.OrderBook{
 			Asks: []domain.Level{{Price: d("0.50"), Size: d("4")}},
@@ -96,7 +96,13 @@ func paperService(l *ledger, f *feed, now *time.Time) *trading.Service {
 		PaperBalance: func() decimal.Decimal { return d("100") },
 		Now:          func() time.Time { return *now },
 		Feed:         f,
-	})
+	}
+
+	for _, o := range opts {
+		o(&deps)
+	}
+
+	return trading.New(deps)
 }
 
 func rest(typ domain.OrderType, side domain.Side, price, shares string) domain.OrderRequest {

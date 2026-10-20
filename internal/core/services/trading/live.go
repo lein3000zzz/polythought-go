@@ -127,27 +127,58 @@ func (s *Service) placeLive(ctx context.Context, o domain.PlacedOrder, rules dom
 		return domain.PlacedOrder{}, err
 	}
 
+	// In the books before it goes (D233): pending, under its ID once signed. A crash, or
+	// the database failing, after it went leaves it pending, for the follower to find.
+	recorded := false
+	signed := func(id string) error {
+		o.ClobID, o.Status, o.Reason = id, domain.OrderPending, "sending to Polymarket"
+
+		if err := s.d.Ledger.Record(ctx, o, nil); err != nil {
+			return fmt.Errorf("not sent, as it could not be recorded first: %w", err)
+		}
+
+		recorded = true
+		s.onTheWay(o.ID, true)
+		release() // the books count it now
+
+		return nil
+	}
+
+	defer s.onTheWay(o.ID, false)
+
 	placed, err := s.d.Exchange.Place(ctx, k, ports.LiveOrder{
 		TokenID: o.TokenID, Side: o.Side, Type: o.Type, Price: o.Price, Shares: o.Shares, Dollars: o.Dollars,
 		TickSize: rules.TickSize, NegRisk: rules.NegRisk, Builder: s.builderCode(),
 		PostOnly: o.PostOnly, Expires: o.Expires,
-	})
+	}, signed)
 	if err != nil {
+		if recorded {
+			o.Status, o.Reason = domain.OrderRefused, "it could not be sent to Polymarket: "+err.Error()
+			if uerr := s.d.Ledger.Update(ctx, o, nil); uerr != nil {
+				s.d.Logger.Error(ctx, "Live order not sent, and left pending", "order_id", o.ID, logging.Err(uerr))
+			}
+		}
+
 		return domain.PlacedOrder{}, err
 	}
 
-	o.ClobID = placed.ID
+	if !recorded { // an exchange that never signed: as safe as can be, in the books now
+		o.ClobID = placed.ID
+		if err := signed(placed.ID); err != nil {
+			return domain.PlacedOrder{}, err
+		}
+	}
 
 	switch {
 	case placed.State == ports.LiveRefused:
-		return s.refuse(ctx, o, placed.Reason)
+		o.Status, o.Reason = domain.OrderRefused, placed.Reason
+
+		return o, s.d.Ledger.Update(ctx, o, nil)
 	case placed.State == ports.LiveDone && len(placed.TradeIDs) == 0 && !o.Type.Rests():
 		o.Status, o.Reason = domain.OrderUnfilled, placed.Reason
 
-		return o, s.d.Ledger.Record(ctx, o, nil)
+		return o, s.d.Ledger.Update(ctx, o, nil)
 	}
-
-	o.Status = domain.OrderPending
 
 	settled, err := s.await(ctx, k, o, rules, placed)
 	if err != nil {
@@ -164,11 +195,10 @@ func (s *Service) placeLive(ctx context.Context, o domain.PlacedOrder, rules dom
 		change = &ports.LedgerChange{Holding: after}
 	}
 
-	if err := s.d.Ledger.Record(ctx, settled, change); err != nil {
-		// On Polymarket, yet not in the books: all there is to find it again.
-		s.d.Logger.Error(ctx, "Live order placed but not recorded", "workflow_id", o.WorkflowID, "order_id", o.ID,
-			"clob_id", o.ClobID, "wallet_id", o.WalletID, "side", o.Side, "token_id", o.TokenID,
-			"status", settled.Status, logging.Err(err))
+	if err := s.d.Ledger.Update(ctx, settled, change); err != nil {
+		// Pending in the books still: the follower finds what it came to.
+		s.d.Logger.Error(ctx, "Live order placed, what it came to not recorded: left pending", "workflow_id", o.WorkflowID,
+			"order_id", o.ID, "clob_id", o.ClobID, "wallet_id", o.WalletID, "status", settled.Status, logging.Err(err))
 
 		return domain.PlacedOrder{}, err
 	}
@@ -353,6 +383,10 @@ func (s *Service) Follow(ctx context.Context) error {
 	var errs []error
 
 	for _, o := range orders {
+		if s.isOnTheWay(o.ID) { // its run follows it
+			continue
+		}
+
 		if err := s.follow(ctx, o); err != nil {
 			errs = append(errs, fmt.Errorf("order %s: %w", o.ID, err))
 		}

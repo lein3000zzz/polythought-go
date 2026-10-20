@@ -3,6 +3,7 @@ package trading
 import (
 	"context"
 	"slices"
+	"time"
 
 	"github.com/lein3000zzz/polythought-go/internal/core/domain"
 	"github.com/lein3000zzz/polythought-go/internal/core/ports"
@@ -44,8 +45,11 @@ func (s *Service) OrderEvents(ctx context.Context, w domain.WorkflowID) <-chan d
 	return ch
 }
 
-// publish tells the workflow's listeners of what happened to one of its orders.
+// publish tells the workflow's listeners of what happened to one of its orders, and its
+// owner, as they chose.
 func (s *Service) publish(ctx context.Context, events ...domain.OrderEvent) {
+	s.tell(events...)
+
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -105,7 +109,50 @@ func (s *Service) changes(before, after domain.PlacedOrder) []domain.OrderEvent 
 		out = append(out, domain.OrderEvent{Kind: kind, Order: after, At: at})
 	}
 
+	// A pending live order, once known, as if it was placed so.
+	if before.Status == domain.OrderPending && after.Status != domain.OrderPending {
+		if kind, ok := placedKinds[after.Status]; ok {
+			out = append(out, domain.OrderEvent{Kind: kind, Order: after, At: at})
+		}
+	}
+
 	return out
+}
+
+var placedKinds = map[domain.OrderStatus]domain.OrderEventKind{
+	domain.OrderRefused:  domain.OrderEventRefused,
+	domain.OrderUnfilled: domain.OrderEventUnfilled,
+	domain.OrderOpen:     domain.OrderEventRested,
+}
+
+// placed is what an order came to as it was placed: its fills, and refused, unfilled or
+// resting. A pending one says once it is known.
+func placed(o domain.PlacedOrder, at time.Time) []domain.OrderEvent {
+	var out []domain.OrderEvent
+
+	if fills := slices.DeleteFunc(slices.Clone(o.Fills), func(f domain.OrderFill) bool { return f.Status == domain.FillFailed }); len(fills) > 0 {
+		out = append(out, domain.OrderEvent{Kind: domain.OrderEventFilled, Order: o, Fills: fills, At: at})
+	}
+
+	if kind, ok := placedKinds[o.Status]; ok {
+		out = append(out, domain.OrderEvent{Kind: kind, Order: o, At: at})
+	}
+
+	return out
+}
+
+// tell hands what happened to orders to whoever tells their owners; failed trades have a
+// notification of their own (D193).
+func (s *Service) tell(events ...domain.OrderEvent) {
+	if s.d.Notices == nil {
+		return
+	}
+
+	for _, e := range events {
+		if e.Kind != domain.OrderEventFailed {
+			s.d.Notices.OrderHappened(e)
+		}
+	}
 }
 
 // fillKey tells a live fill apart by its trade and price; a paper fill has neither, so

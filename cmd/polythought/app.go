@@ -224,7 +224,7 @@ func (a *app) init(ctx context.Context) error {
 		mail.WithNotifications(postgres.NewUsers(a.db), func() bool { return a.settings.Current().Bool(config.KeyMailNotifications) }))
 
 	a.notify = notify.New(a.telegram, postgres.NewNotificationPrefs(a.db), postgres.NewWorkflows(a.db), a.cfg.PublicURL, a.util.Logger,
-		notify.WithMail(a.mail))
+		notify.WithMail(a.mail), notify.WithMarkets(pmc.reader))
 
 	// Whether Polymarket takes orders from here (D186); serve checks it every 6 hours.
 	a.geoblock = geoblock.New(pmc.geoblock, a.util.Logger)
@@ -659,6 +659,7 @@ func (a *app) initEngine(ctx context.Context, pmc polymarket) error {
 		LiveOn:      func() bool { return a.settings.Current().Bool(config.KeyLiveTrading) },
 		BuilderCode: func() string { return a.settings.Current().String(config.KeyBuilderCode) },
 		Users:       postgres.NewUsers(a.db),
+		Notices:     a.notify,
 		Caps: func() domain.LiveCaps {
 			s := a.settings.Current()
 			perOrder, perDay := s.Int(config.KeyMaxLiveOrder), s.Int(config.KeyMaxLiveDay)

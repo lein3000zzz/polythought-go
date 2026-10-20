@@ -391,3 +391,111 @@ func TestLiveSafety(t *testing.T) {
 		assert.ElementsMatch(t, []domain.OrderID{open.ID, pending.ID}, ids)
 	})
 }
+
+func TestOrderLog(t *testing.T) {
+	ctx := context.Background()
+
+	db := fresh(t)
+	ledger := postgres.NewLedger(db)
+	workflows := postgres.NewWorkflows(db)
+	alice := seedUser(t, db, "alice@example.com", domain.RoleUser)
+	bob := seedUser(t, db, "bob@example.com", domain.RoleUser)
+	main := seedWallet(t, db, alice, "0x4444444444444444444444444444444444444444")
+	spare := seedWallet(t, db, alice, "0x5555555555555555555555555555555555555555")
+	theirs := seedWallet(t, db, bob, "0x6666666666666666666666666666666666666666")
+
+	kept, gone, bobs := newWorkflow(alice.ID, "kept"), newWorkflow(alice.ID, "gone"), newWorkflow(bob.ID, "bob's")
+	for _, w := range []domain.Workflow{kept, gone, bobs} {
+		require.NoError(t, workflows.Create(ctx, w))
+	}
+
+	at := at
+	order := func(w domain.Workflow, wallet domain.Wallet, mode domain.TradingMode, status domain.OrderStatus) domain.PlacedOrder {
+		at = at.Add(time.Second)
+
+		o := domain.PlacedOrder{
+			OrderRequest: domain.OrderRequest{
+				WorkflowID: w.ID, OwnerID: w.OwnerID, NodeID: "buy", Mode: mode, TokenID: "t-yes", MarketID: "0xm",
+				Side: domain.SideBuy, Type: domain.OrderFAK, Price: num("0.5"), Shares: num("10"),
+			},
+			ID: domain.OrderID(newID()), Status: status, CreatedAt: at,
+		}
+
+		if mode == domain.ModeLive {
+			o.WalletID, o.ClobID = wallet.ID, "0x"+newID()
+		}
+
+		require.NoError(t, ledger.Record(ctx, o, nil))
+
+		return o
+	}
+
+	first := order(gone, main, domain.ModeLive, domain.OrderFilled)
+	second := order(kept, spare, domain.ModeLive, domain.OrderRefused)
+	third := order(kept, main, domain.ModeLive, domain.OrderFilled)
+	order(kept, main, domain.ModePaper, domain.OrderFilled)
+	order(bobs, theirs, domain.ModeLive, domain.OrderFilled)
+
+	require.NoError(t, workflows.Delete(ctx, alice.ID, gone.ID))
+
+	ids := func(p ports.Page[ports.LoggedOrder]) []domain.OrderID {
+		out := make([]domain.OrderID, len(p.Items))
+		for i, o := range p.Items {
+			out[i] = o.ID
+		}
+
+		return out
+	}
+
+	live := ports.OrderLogFilter{Mode: domain.ModeLive}
+
+	t.Run("every live order of theirs, the newest first, a deleted workflow's under its name (D228, D199)", func(t *testing.T) {
+		page, err := ledger.OwnerOrders(ctx, alice.ID, live)
+		require.NoError(t, err)
+		assert.Equal(t, []domain.OrderID{third.ID, second.ID, first.ID}, ids(page))
+		assert.Equal(t, "kept", page.Items[0].Workflow)
+		assert.False(t, page.Items[0].Deleted)
+		assert.Equal(t, "gone", page.Items[2].Workflow)
+		assert.True(t, page.Items[2].Deleted)
+	})
+
+	t.Run("by wallet, workflow and status", func(t *testing.T) {
+		f := live
+		f.WalletID = spare.ID
+		page, err := ledger.OwnerOrders(ctx, alice.ID, f)
+		require.NoError(t, err)
+		assert.Equal(t, []domain.OrderID{second.ID}, ids(page))
+
+		f = live
+		f.WorkflowID = gone.ID
+		page, err = ledger.OwnerOrders(ctx, alice.ID, f)
+		require.NoError(t, err)
+		assert.Equal(t, []domain.OrderID{first.ID}, ids(page), "a deleted workflow's too")
+
+		f = live
+		f.Status = domain.OrderFilled
+		page, err = ledger.OwnerOrders(ctx, alice.ID, f)
+		require.NoError(t, err)
+		assert.Equal(t, []domain.OrderID{third.ID, first.ID}, ids(page))
+
+		f = live
+		f.WalletID = "not-a-wallet"
+		page, err = ledger.OwnerOrders(ctx, alice.ID, f)
+		require.NoError(t, err)
+		assert.Empty(t, page.Items)
+	})
+
+	t.Run("a page at a time", func(t *testing.T) {
+		f := live
+		f.Limit = 2
+		page, err := ledger.OwnerOrders(ctx, alice.ID, f)
+		require.NoError(t, err)
+		assert.Equal(t, []domain.OrderID{third.ID, second.ID}, ids(page))
+		require.NotEmpty(t, page.NextCursor)
+
+		f.Cursor = page.NextCursor
+		page, err = ledger.OwnerOrders(ctx, alice.ID, f)
+		require.NoError(t, err)
+		assert.Equal(t, []domain.OrderID{first.ID}, ids(page))
+	})
+}

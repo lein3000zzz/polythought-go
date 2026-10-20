@@ -645,6 +645,40 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/orders": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List your live orders */
+        get: operations["listLiveOrders"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/orders/export": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Download your live orders */
+        get: operations["exportLiveOrders"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/telegram": {
         parameters: {
             query?: never;
@@ -1794,6 +1828,66 @@ export interface components {
             perDay?: number;
             perOrder?: number;
         };
+        LoggedOrder: {
+            /** Format: date-time */
+            at: string;
+            deleted: boolean;
+            dollars?: string;
+            executionId?: string;
+            /**
+             * Format: date-time
+             * @description ExpiresAt is when a GTD's rest is cancelled.
+             */
+            expiresAt?: string;
+            fills: components["schemas"]["OrderFill"][];
+            id: string;
+            marketId?: string;
+            /** @enum {string} */
+            mode: "paper" | "live";
+            nodeId: string;
+            outcome?: string;
+            postOnly: boolean;
+            /** @description Price is the limit: the most a buy pays per share, the least a sell takes. */
+            price: string;
+            /** @description Question and Outcome name its market and outcome, when known. */
+            question?: string;
+            reason?: string;
+            /** @description Shares asked for, or for a buy of dollars, Dollars. */
+            shares?: string;
+            /** @enum {string} */
+            side: "buy" | "sell";
+            /**
+             * @description Status open is an order resting on the book, filled in part or not yet, then
+             *     filled, canceled or expired with what it filled; pending, a live order sent whose
+             *     outcome is not known yet, followed; failed, one that matched but whose trades
+             *     failed on chain, undone.
+             * @enum {string}
+             */
+            status: "filled" | "partial" | "open" | "canceled" | "expired" | "unfilled" | "refused" | "pending" | "failed";
+            tokenId: string;
+            /**
+             * @description Trader is the wallet whose trade it copies, with their label then; absent for an
+             *     order copied from no one.
+             */
+            trader?: string;
+            traderLabel?: string;
+            /**
+             * @description SETTLE: a holding closed by its market's resolution
+             * @enum {string}
+             */
+            type: "FOK" | "FAK" | "GTC" | "GTD" | "SETTLE";
+            walletId?: string;
+            workflow: string;
+            /**
+             * @description WorkflowID is the workflow it came from, and Workflow its name, or the one it had
+             *     when it was deleted, Deleted then.
+             */
+            workflowId: string;
+        };
+        LoggedOrderPage: {
+            nextCursor?: string;
+            orders: components["schemas"]["LoggedOrder"][];
+        };
         LoginRequest: {
             email: string;
             password: string;
@@ -1887,6 +1981,11 @@ export interface components {
             email: boolean;
             /** @description Enabled is on Telegram, to your linked chat. */
             enabled: boolean;
+            /**
+             * @description Group is what the kind is about, to show the kinds under: Workflows, Wallets, Live
+             *     orders, Paper orders.
+             */
+            group: string;
             key: string;
             label: string;
         };
@@ -4622,6 +4721,100 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    listLiveOrders: {
+        parameters: {
+            query?: {
+                /** @description Only those from this wallet */
+                wallet?: string;
+                /** @description Only those of this workflow */
+                workflow?: string;
+                /** @description Only those with this status */
+                status?: "filled" | "partial" | "open" | "canceled" | "expired" | "unfilled" | "refused" | "pending" | "failed";
+                /** @description Page size */
+                limit?: number;
+                /** @description nextCursor of the previous page */
+                cursor?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LoggedOrderPage"];
+                };
+            };
+            /** @description invalid_input */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description unauthenticated */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    exportLiveOrders: {
+        parameters: {
+            query?: {
+                /** @description Only those from this wallet */
+                wallet?: string;
+                /** @description Only those of this workflow */
+                workflow?: string;
+                /** @description Only those with this status */
+                status?: "filled" | "partial" | "open" | "canceled" | "expired" | "unfilled" | "refused" | "pending" | "failed";
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description CSV, a header row first */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "text/csv": string;
+                };
+            };
+            /** @description invalid_input */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "text/csv": components["schemas"]["Error"];
+                };
+            };
+            /** @description unauthenticated */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "text/csv": components["schemas"]["Error"];
                 };
             };
         };

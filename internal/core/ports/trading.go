@@ -49,6 +49,9 @@ type Ledger interface {
 	// OwnerUnsettled are a user's orders in a mode resting or pending: what may still
 	// spend.
 	OwnerUnsettled(ctx context.Context, owner domain.UserID, mode domain.TradingMode) ([]domain.PlacedOrder, error)
+	// OwnerOrders are a user's orders in a mode, all their workflows', deleted ones' too,
+	// the newest first, as the filter narrows them: the order log (D228).
+	OwnerOrders(ctx context.Context, owner domain.UserID, f OrderLogFilter) (Page[LoggedOrder], error)
 
 	// Record adds an order with its fills and, with a change, what it did: in one
 	// transaction, so the books always add up.
@@ -77,4 +80,24 @@ type Ledger interface {
 type LedgerChange struct {
 	Cash    decimal.Decimal // added to the paper account; a buy's is negative
 	Holding domain.Holding  // as the order leaves it
+}
+
+// OrderLogFilter narrows a user's orders in a mode: to a wallet, a workflow or a status,
+// when set.
+type OrderLogFilter struct {
+	PageFilter
+
+	Mode       domain.TradingMode
+	WalletID   domain.WalletID
+	WorkflowID domain.WorkflowID
+	Status     domain.OrderStatus
+}
+
+// LoggedOrder is an order in the log, with its workflow's name, or the one it had when
+// it was deleted (D199).
+type LoggedOrder struct {
+	domain.PlacedOrder
+
+	Workflow string
+	Deleted  bool
 }

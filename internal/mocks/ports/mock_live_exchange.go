@@ -332,8 +332,8 @@ func (_c *MockLiveExchange_Order_Call) RunAndReturn(run func(ctx context.Context
 }
 
 // Place provides a mock function for the type MockLiveExchange
-func (_mock *MockLiveExchange) Place(ctx context.Context, k ports.OrderKey, o ports.LiveOrder) (ports.LivePlacement, error) {
-	ret := _mock.Called(ctx, k, o)
+func (_mock *MockLiveExchange) Place(ctx context.Context, k ports.OrderKey, o ports.LiveOrder, signed func(id string) error) (ports.LivePlacement, error) {
+	ret := _mock.Called(ctx, k, o, signed)
 
 	if len(ret) == 0 {
 		panic("no return value specified for Place")
@@ -341,16 +341,16 @@ func (_mock *MockLiveExchange) Place(ctx context.Context, k ports.OrderKey, o po
 
 	var r0 ports.LivePlacement
 	var r1 error
-	if returnFunc, ok := ret.Get(0).(func(context.Context, ports.OrderKey, ports.LiveOrder) (ports.LivePlacement, error)); ok {
-		return returnFunc(ctx, k, o)
+	if returnFunc, ok := ret.Get(0).(func(context.Context, ports.OrderKey, ports.LiveOrder, func(id string) error) (ports.LivePlacement, error)); ok {
+		return returnFunc(ctx, k, o, signed)
 	}
-	if returnFunc, ok := ret.Get(0).(func(context.Context, ports.OrderKey, ports.LiveOrder) ports.LivePlacement); ok {
-		r0 = returnFunc(ctx, k, o)
+	if returnFunc, ok := ret.Get(0).(func(context.Context, ports.OrderKey, ports.LiveOrder, func(id string) error) ports.LivePlacement); ok {
+		r0 = returnFunc(ctx, k, o, signed)
 	} else {
 		r0 = ret.Get(0).(ports.LivePlacement)
 	}
-	if returnFunc, ok := ret.Get(1).(func(context.Context, ports.OrderKey, ports.LiveOrder) error); ok {
-		r1 = returnFunc(ctx, k, o)
+	if returnFunc, ok := ret.Get(1).(func(context.Context, ports.OrderKey, ports.LiveOrder, func(id string) error) error); ok {
+		r1 = returnFunc(ctx, k, o, signed)
 	} else {
 		r1 = ret.Error(1)
 	}
@@ -366,11 +366,12 @@ type MockLiveExchange_Place_Call struct {
 //   - ctx context.Context
 //   - k ports.OrderKey
 //   - o ports.LiveOrder
-func (_e *MockLiveExchange_Expecter) Place(ctx any, k any, o any) *MockLiveExchange_Place_Call {
-	return &MockLiveExchange_Place_Call{Call: _e.mock.On("Place", ctx, k, o)}
+//   - signed func(id string) error
+func (_e *MockLiveExchange_Expecter) Place(ctx any, k any, o any, signed any) *MockLiveExchange_Place_Call {
+	return &MockLiveExchange_Place_Call{Call: _e.mock.On("Place", ctx, k, o, signed)}
 }
 
-func (_c *MockLiveExchange_Place_Call) Run(run func(ctx context.Context, k ports.OrderKey, o ports.LiveOrder)) *MockLiveExchange_Place_Call {
+func (_c *MockLiveExchange_Place_Call) Run(run func(ctx context.Context, k ports.OrderKey, o ports.LiveOrder, signed func(id string) error)) *MockLiveExchange_Place_Call {
 	_c.Call.Run(func(args mock.Arguments) {
 		var arg0 context.Context
 		if args[0] != nil {
@@ -384,10 +385,15 @@ func (_c *MockLiveExchange_Place_Call) Run(run func(ctx context.Context, k ports
 		if args[2] != nil {
 			arg2 = args[2].(ports.LiveOrder)
 		}
+		var arg3 func(id string) error
+		if args[3] != nil {
+			arg3 = args[3].(func(id string) error)
+		}
 		run(
 			arg0,
 			arg1,
 			arg2,
+			arg3,
 		)
 	})
 	return _c
@@ -398,7 +404,7 @@ func (_c *MockLiveExchange_Place_Call) Return(livePlacement ports.LivePlacement,
 	return _c
 }
 
-func (_c *MockLiveExchange_Place_Call) RunAndReturn(run func(ctx context.Context, k ports.OrderKey, o ports.LiveOrder) (ports.LivePlacement, error)) *MockLiveExchange_Place_Call {
+func (_c *MockLiveExchange_Place_Call) RunAndReturn(run func(ctx context.Context, k ports.OrderKey, o ports.LiveOrder, signed func(id string) error) (ports.LivePlacement, error)) *MockLiveExchange_Place_Call {
 	_c.Call.Return(run)
 	return _c
 }

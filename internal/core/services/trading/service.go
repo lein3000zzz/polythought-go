@@ -57,6 +57,9 @@ type Deps struct {
 	Users ports.LiveUsers
 	Caps  func() domain.LiveCaps
 
+	// Notices hears what happens to orders, to tell their owners (D229); optional.
+	Notices ports.OrderNotifier
+
 	// Patience is how long a placed order is waited for, looked at every Poll (D204).
 	Patience, Poll time.Duration
 
@@ -73,6 +76,7 @@ type Service struct {
 	locks     map[domain.WorkflowID]*sync.Mutex
 	listeners map[domain.WorkflowID]map[chan domain.OrderEvent]struct{} // Order activity (D211)
 	sending   map[domain.UserID]*sending                                // live buys let through (D223)
+	inFlight  map[domain.OrderID]struct{}                               // live orders on their way (D233)
 
 	nudges chan struct{} // a live order now rests: WatchLive looks at once
 }
@@ -95,8 +99,17 @@ func New(d Deps) *Service {
 
 // Place tries an order, in the mode the workflow trades in now, and records how it went.
 // One workflow's orders go one at a time: each sees the cash and shares the one before
-// left.
+// left. Its owner is told how it went, as they chose (D229).
 func (s *Service) Place(ctx context.Context, req domain.OrderRequest) (domain.PlacedOrder, error) {
+	o, err := s.place(ctx, req)
+	if err == nil {
+		s.tell(placed(o, s.d.Now().UTC())...)
+	}
+
+	return o, err
+}
+
+func (s *Service) place(ctx context.Context, req domain.OrderRequest) (domain.PlacedOrder, error) {
 	unlock := s.lock(req.WorkflowID)
 	defer unlock()
 

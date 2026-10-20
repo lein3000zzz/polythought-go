@@ -111,8 +111,10 @@ type LiveOrderStream interface {
 // LiveExchange places a wallet's orders on Polymarket's CLOB and follows them (3p).
 type LiveExchange interface {
 	// Place signs o with the key and sends it, settling a send without an answer by
-	// looking the order up (D194). The error is for an order not sent at all.
-	Place(ctx context.Context, k OrderKey, o LiveOrder) (LivePlacement, error)
+	// looking the order up (D194). Signed, and before it is sent, it calls signed with the
+	// order's ID, its hash: an error then stops it going, and is Place's (D233). The
+	// error is for an order not sent at all.
+	Place(ctx context.Context, k OrderKey, o LiveOrder, signed func(id string) error) (LivePlacement, error)
 	// Order is how the order with id stands; LiveNotFound when the CLOB has none.
 	Order(ctx context.Context, k OrderKey, id string) (LiveOrderState, error)
 	// Trades are the order's part in the trades with ids, of its outcome token; the CLOB
@@ -175,4 +177,10 @@ type WalletReleaser interface {
 type LiveUsers interface {
 	ByID(ctx context.Context, id domain.UserID) (domain.User, error)
 	SetLiveStopped(ctx context.Context, id domain.UserID, at time.Time) error
+}
+
+// OrderNotifier hears what happens to orders, paper and live, to tell their owners as
+// they chose (D229): it must not block.
+type OrderNotifier interface {
+	OrderHappened(e domain.OrderEvent)
 }

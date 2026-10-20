@@ -20,6 +20,7 @@ const noTelegram = http.get('/api/v1/telegram', () => HttpResponse.json({ availa
 
 const failedPref: Schemas['Notification'] = {
   key: 'workflow_failed',
+  group: 'Workflows',
   label: 'A workflow fails',
   description: 'A run of one of your workflows failed.',
   enabled: true,
@@ -235,6 +236,43 @@ describe('settings page', () => {
 
     await waitFor(() => expect(toggle).not.toBeChecked())
     expect(sent).toEqual({ enabled: false })
+  })
+
+  it('shows the kinds under their groups, live and paper orders apart (D229)', async () => {
+    const pref = (key: string, group: string, label: string, enabled: boolean) => ({
+      ...failedPref,
+      key,
+      group,
+      label,
+      enabled,
+    })
+
+    server.use(
+      signedIn,
+      noTelegram,
+      http.get('/api/v1/tokens', () => HttpResponse.json({ tokens: [] })),
+      http.get('/api/v1/notifications', () =>
+        HttpResponse.json({
+          notifications: [
+            failedPref,
+            pref('live_order_filled', 'Live orders', 'A live order fills', true),
+            pref('live_order_rests', 'Live orders', 'A live order rests on the book', false),
+            pref('paper_order_filled', 'Paper orders', 'A paper order fills', false),
+          ],
+          mailOn: false,
+        }),
+      ),
+    )
+    renderApp('/settings')
+
+    expect(await screen.findByRole('heading', { name: 'Live orders' })).toBeInTheDocument()
+    expect(screen.getAllByRole('heading', { name: 'Live orders' })).toHaveLength(1)
+    expect(screen.getByRole('heading', { name: 'Paper orders' })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'Workflows' })).toBeInTheDocument()
+    expect(screen.getByRole('switch', { name: 'A live order fills, on Telegram' })).toBeChecked()
+    expect(
+      screen.getByRole('switch', { name: 'A paper order fills, on Telegram' }),
+    ).not.toBeChecked()
   })
 
   it('switches a notification on by email, to the account address (D170)', async () => {

@@ -60,9 +60,23 @@ Under **Settings → Notifications**, choose what Polythought tells you about:
 - **A live trade fails**: a [live order](/docs/guides/copy-traders/#trading-live) matched on
   Polymarket, but its trade failed on chain, so the workflow's books undo it. Once per
   order.
+- **Live orders** and **Paper orders**, the same five kinds each, about your workflows'
+  orders, with what the order was, its market and the workflow:
+  - **fills**: it filled, wholly or in part, as it matched, or later as it rested on the
+    book;
+  - **is refused**: before it was sent (your kill switch, an admin's cap, too few shares or
+    too little cash) or by Polymarket, with why;
+  - **goes unfilled**: a FAK or FOK the book could not fill within its price;
+  - **rests on the book**: a GTC or GTD came to rest; its fills tell you later;
+  - **is cancelled or expires**: what was left of a resting order went.
+
+  Live fills and refusals are on to start with, the rest off, and every paper kind off. At
+  most 20 messages of a kind an hour; past that, they are held, and one message at the
+  end of the hour says how many more there were, for which workflows.
 
 Each has two switches: **Telegram**, to your linked chat (without one, nothing is sent), on
-by default; and **Email**, to your account's address, off until you turn it on. Email works
+by default unless said above; and **Email**, to your account's address, off until you turn
+it on. Email works
 once an admin allows notifications by email and mail is set up; until then its switches are
 greyed out. A failing workflow's once an hour holds for both together, and a question's
 reminder by email points you to Telegram, where you answer it.

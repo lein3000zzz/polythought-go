@@ -130,17 +130,26 @@ func TestLiveOrdersAreSignedAsTheOfficialClientSignsThem(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			e, clob, _ := exchange(t)
 
-			var sent pm.OrderPost
+			var (
+				sent     pm.OrderPost
+				recorded string // the ID it gave before sending (D233)
+			)
+
 			clob.EXPECT().PostOrder(mock.Anything, toL2(tt.key.Credentials), mock.Anything).
 				RunAndReturn(func(_ context.Context, _ pm.L2Credentials, p pm.OrderPost) (pm.PostedOrder, error) {
 					sent = p
 					id, err := p.ID()
+					assert.Equal(t, id, recorded, "told before it went")
 
 					return pm.PostedOrder{ID: id, Status: pm.PostMatched, TradeIDs: []string{"trade-1"}}, err
 				})
 
-			placed, err := e.Place(context.Background(), tt.key, tt.order)
+			placed, err := e.Place(context.Background(), tt.key, tt.order, func(id string) error {
+				recorded = id
+				return nil
+			})
 			require.NoError(t, err)
+			assert.Equal(t, recorded, placed.ID)
 
 			// Byte for byte: the official client writes a session signer's address into its
 			// envelope's hex checksummed, the same bytes.
@@ -155,6 +164,19 @@ func TestLiveOrdersAreSignedAsTheOfficialClientSignsThem(t *testing.T) {
 			assert.Equal(t, id, placed.ID)
 		})
 	}
+}
+
+func TestLiveOrderNotRecordedNotSent(t *testing.T) {
+	e, _, _ := exchange(t) // the CLOB mock fails the test if anything is posted
+	key := ports.OrderKey{
+		Wallet: domain.Wallet{Address: ownerAddress}, Key: loadLiveVectors(t).Keys.Owner,
+		Credentials: domain.PolymarketCredentials{Signer: ownerAddress, SignatureType: domain.SignatureEOA},
+	}
+	order := ports.LiveOrder{TokenID: vectorToken, Side: domain.SideBuy, Type: domain.OrderFAK, Price: d("0.55"), Shares: d("10"), TickSize: d("0.01")}
+
+	notRecorded := errors.New("the database is down")
+	_, err := e.Place(context.Background(), key, order, func(string) error { return notRecorded })
+	require.ErrorIs(t, err, notRecorded)
 }
 
 func TestLiveOrderWithABuilderCode(t *testing.T) {
@@ -173,12 +195,12 @@ func TestLiveOrderWithABuilderCode(t *testing.T) {
 		})
 
 	order.Builder = "0x00000000000000000000000000000000000000000000000000000000000000b1"
-	_, err := e.Place(context.Background(), key, order)
+	_, err := e.Place(context.Background(), key, order, nil)
 	require.NoError(t, err)
 	assert.Equal(t, byte(0xb1), sent.Order.Builder[31])
 
 	order.Builder = "b1"
-	_, err = e.Place(context.Background(), key, order)
+	_, err = e.Place(context.Background(), key, order, nil)
 	require.ErrorContains(t, err, "not 32 bytes")
 }
 
@@ -249,7 +271,7 @@ func TestLivePlacements(t *testing.T) {
 			e, clob, _ := exchange(t)
 			clob.EXPECT().PostOrder(mock.Anything, mock.Anything, mock.Anything).Return(tt.posted, tt.err)
 
-			p, err := e.Place(context.Background(), key, order)
+			p, err := e.Place(context.Background(), key, order, nil)
 			tt.check(t, p, err)
 		})
 	}
@@ -260,7 +282,7 @@ func TestLivePlacements(t *testing.T) {
 		off := order
 		off.Price = d("0.555")
 
-		_, err := e.Place(context.Background(), key, off)
+		_, err := e.Place(context.Background(), key, off, nil)
 		require.ErrorIs(t, err, pm.ErrOffGrid)
 	})
 }
@@ -356,7 +378,7 @@ func TestLiveRestingOrder(t *testing.T) {
 	placed, err := e.Place(context.Background(), key, ports.LiveOrder{
 		TokenID: vectorToken, Side: domain.SideBuy, Type: domain.OrderGTD, Price: d("0.55"), Shares: d("10"),
 		TickSize: d("0.01"), PostOnly: true, Expires: expires,
-	})
+	}, nil)
 	require.NoError(t, err)
 	assert.Equal(t, ports.LiveResting, placed.State)
 	assert.True(t, sent.PostOnly)

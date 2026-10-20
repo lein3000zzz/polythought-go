@@ -1395,6 +1395,160 @@
                 },
                 "type": "object"
             },
+            "LoggedOrder": {
+                "properties": {
+                    "at": {
+                        "format": "date-time",
+                        "type": "string"
+                    },
+                    "deleted": {
+                        "type": "boolean"
+                    },
+                    "dollars": {
+                        "type": "string"
+                    },
+                    "executionId": {
+                        "type": "string"
+                    },
+                    "expiresAt": {
+                        "description": "ExpiresAt is when a GTD's rest is cancelled.",
+                        "format": "date-time",
+                        "type": "string"
+                    },
+                    "fills": {
+                        "items": {
+                            "$ref": "#/components/schemas/OrderFill"
+                        },
+                        "type": "array",
+                        "uniqueItems": false
+                    },
+                    "id": {
+                        "type": "string"
+                    },
+                    "marketId": {
+                        "type": "string"
+                    },
+                    "mode": {
+                        "enum": [
+                            "paper",
+                            "live"
+                        ],
+                        "type": "string"
+                    },
+                    "nodeId": {
+                        "type": "string"
+                    },
+                    "outcome": {
+                        "type": "string"
+                    },
+                    "postOnly": {
+                        "type": "boolean"
+                    },
+                    "price": {
+                        "description": "Price is the limit: the most a buy pays per share, the least a sell takes.",
+                        "type": "string"
+                    },
+                    "question": {
+                        "description": "Question and Outcome name its market and outcome, when known.",
+                        "type": "string"
+                    },
+                    "reason": {
+                        "type": "string"
+                    },
+                    "shares": {
+                        "description": "Shares asked for, or for a buy of dollars, Dollars.",
+                        "type": "string"
+                    },
+                    "side": {
+                        "enum": [
+                            "buy",
+                            "sell"
+                        ],
+                        "type": "string"
+                    },
+                    "status": {
+                        "description": "Status open is an order resting on the book, filled in part or not yet, then\nfilled, canceled or expired with what it filled; pending, a live order sent whose\noutcome is not known yet, followed; failed, one that matched but whose trades\nfailed on chain, undone.",
+                        "enum": [
+                            "filled",
+                            "partial",
+                            "open",
+                            "canceled",
+                            "expired",
+                            "unfilled",
+                            "refused",
+                            "pending",
+                            "failed"
+                        ],
+                        "type": "string"
+                    },
+                    "tokenId": {
+                        "type": "string"
+                    },
+                    "trader": {
+                        "description": "Trader is the wallet whose trade it copies, with their label then; absent for an\norder copied from no one.",
+                        "type": "string"
+                    },
+                    "traderLabel": {
+                        "type": "string"
+                    },
+                    "type": {
+                        "description": "SETTLE: a holding closed by its market's resolution",
+                        "enum": [
+                            "FOK",
+                            "FAK",
+                            "GTC",
+                            "GTD",
+                            "SETTLE"
+                        ],
+                        "type": "string"
+                    },
+                    "walletId": {
+                        "type": "string"
+                    },
+                    "workflow": {
+                        "type": "string"
+                    },
+                    "workflowId": {
+                        "description": "WorkflowID is the workflow it came from, and Workflow its name, or the one it had\nwhen it was deleted, Deleted then.",
+                        "type": "string"
+                    }
+                },
+                "required": [
+                    "at",
+                    "deleted",
+                    "fills",
+                    "id",
+                    "mode",
+                    "nodeId",
+                    "postOnly",
+                    "price",
+                    "side",
+                    "status",
+                    "tokenId",
+                    "type",
+                    "workflow",
+                    "workflowId"
+                ],
+                "type": "object"
+            },
+            "LoggedOrderPage": {
+                "properties": {
+                    "nextCursor": {
+                        "type": "string"
+                    },
+                    "orders": {
+                        "items": {
+                            "$ref": "#/components/schemas/LoggedOrder"
+                        },
+                        "type": "array",
+                        "uniqueItems": false
+                    }
+                },
+                "required": [
+                    "orders"
+                ],
+                "type": "object"
+            },
             "LoginRequest": {
                 "properties": {
                     "email": {
@@ -1638,6 +1792,10 @@
                         "description": "Enabled is on Telegram, to your linked chat.",
                         "type": "boolean"
                     },
+                    "group": {
+                        "description": "Group is what the kind is about, to show the kinds under: Workflows, Wallets, Live\norders, Paper orders.",
+                        "type": "string"
+                    },
                     "key": {
                         "type": "string"
                     },
@@ -1649,6 +1807,7 @@
                     "description",
                     "email",
                     "enabled",
+                    "group",
                     "key",
                     "label"
                 ],
@@ -6129,6 +6288,195 @@
                 "summary": "Switch a notification on or off",
                 "tags": [
                     "notifications"
+                ]
+            }
+        },
+        "/orders": {
+            "get": {
+                "operationId": "listLiveOrders",
+                "parameters": [
+                    {
+                        "description": "Only those from this wallet",
+                        "in": "query",
+                        "name": "wallet",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "description": "Only those of this workflow",
+                        "in": "query",
+                        "name": "workflow",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "description": "Only those with this status",
+                        "in": "query",
+                        "name": "status",
+                        "schema": {
+                            "enum": [
+                                "filled",
+                                "partial",
+                                "open",
+                                "canceled",
+                                "expired",
+                                "unfilled",
+                                "refused",
+                                "pending",
+                                "failed"
+                            ],
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "description": "Page size",
+                        "in": "query",
+                        "name": "limit",
+                        "schema": {
+                            "minimum": 1,
+                            "type": "integer"
+                        }
+                    },
+                    {
+                        "description": "nextCursor of the previous page",
+                        "in": "query",
+                        "name": "cursor",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/LoggedOrderPage"
+                                }
+                            }
+                        },
+                        "description": "OK"
+                    },
+                    "400": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "invalid_input"
+                    },
+                    "401": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "unauthenticated"
+                    }
+                },
+                "security": [
+                    {
+                        "SessionCookie": []
+                    },
+                    {
+                        "APIToken": []
+                    }
+                ],
+                "summary": "List your live orders",
+                "tags": [
+                    "trading"
+                ]
+            }
+        },
+        "/orders/export": {
+            "get": {
+                "operationId": "exportLiveOrders",
+                "parameters": [
+                    {
+                        "description": "Only those from this wallet",
+                        "in": "query",
+                        "name": "wallet",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "description": "Only those of this workflow",
+                        "in": "query",
+                        "name": "workflow",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "description": "Only those with this status",
+                        "in": "query",
+                        "name": "status",
+                        "schema": {
+                            "enum": [
+                                "filled",
+                                "partial",
+                                "open",
+                                "canceled",
+                                "expired",
+                                "unfilled",
+                                "refused",
+                                "pending",
+                                "failed"
+                            ],
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "text/csv": {
+                                "schema": {
+                                    "type": "string"
+                                }
+                            }
+                        },
+                        "description": "CSV, a header row first"
+                    },
+                    "400": {
+                        "content": {
+                            "text/csv": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "invalid_input"
+                    },
+                    "401": {
+                        "content": {
+                            "text/csv": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "unauthenticated"
+                    }
+                },
+                "security": [
+                    {
+                        "SessionCookie": []
+                    },
+                    {
+                        "APIToken": []
+                    }
+                ],
+                "summary": "Download your live orders",
+                "tags": [
+                    "trading"
                 ]
             }
         },

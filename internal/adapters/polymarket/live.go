@@ -35,7 +35,7 @@ func NewExchange(clob pm.ClobTradingClient, account pm.ClobAccountClient) *Excha
 
 // Place signs o for the wallet and sends it. A refusal, and an order the CLOB could not
 // fill, are answers; the error is for an order not sent at all.
-func (e *Exchange) Place(ctx context.Context, k ports.OrderKey, o ports.LiveOrder) (ports.LivePlacement, error) {
+func (e *Exchange) Place(ctx context.Context, k ports.OrderKey, o ports.LiveOrder, signed func(id string) error) (ports.LivePlacement, error) {
 	post, err := e.signed(k, o)
 	if err != nil {
 		return ports.LivePlacement{}, err
@@ -44,6 +44,12 @@ func (e *Exchange) Place(ctx context.Context, k ports.OrderKey, o ports.LiveOrde
 	id, err := post.ID()
 	if err != nil {
 		return ports.LivePlacement{}, err
+	}
+
+	if signed != nil {
+		if err := signed(id); err != nil {
+			return ports.LivePlacement{}, err
+		}
 	}
 
 	posted, err := e.clob.PostOrder(ctx, toL2(k.Credentials), post)

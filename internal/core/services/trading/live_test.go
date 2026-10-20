@@ -1,6 +1,7 @@
 package trading_test
 
 import (
+	"cmp"
 	"context"
 	"errors"
 	"slices"
@@ -39,7 +40,19 @@ type exchange struct {
 	gate chan struct{} // when set, placing waits for it to close
 }
 
-func (e *exchange) Place(_ context.Context, k ports.OrderKey, o ports.LiveOrder) (ports.LivePlacement, error) {
+// Place signs as the adapter does: the order's ID, told before it goes (D233), is what
+// placing answers, or one of its own.
+func (e *exchange) Place(_ context.Context, k ports.OrderKey, o ports.LiveOrder, signed func(string) error) (ports.LivePlacement, error) {
+	e.mu.Lock()
+	id := cmp.Or(e.placed.ID, "0xsigned")
+	e.mu.Unlock()
+
+	if signed != nil {
+		if err := signed(id); err != nil {
+			return ports.LivePlacement{}, err
+		}
+	}
+
 	e.mu.Lock()
 	e.sent = append(e.sent, o)
 	gate := e.gate
@@ -60,6 +73,13 @@ func (e *exchange) cancelledIDs() []string {
 	defer e.mu.Unlock()
 
 	return slices.Clone(e.cancelled)
+}
+
+func (e *exchange) lookupCount() int {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+
+	return e.lookups
 }
 
 func (e *exchange) sentCount() int {
@@ -439,13 +459,56 @@ func TestLiveOrders(t *testing.T) {
 		}
 	})
 
-	t.Run("not sent at all: no order, the item fails", func(t *testing.T) {
+	t.Run("not sent at all: the item fails, the order refused in the books (D233)", func(t *testing.T) {
 		l := liveService(t)
 		l.exchange.err = domain.ErrUnavailable
 
 		_, err := l.svc.Place(ctx, liveBuy("10"))
 		require.ErrorIs(t, err, domain.ErrUnavailable)
-		assert.Empty(t, l.ledger.orders)
+		require.Len(t, l.ledger.orders, 1)
+		assert.Equal(t, domain.OrderRefused, l.ledger.orders[0].Status)
+		assert.Equal(t, "it could not be sent to Polymarket: upstream service unavailable", l.ledger.orders[0].Reason)
+	})
+
+	t.Run("recorded before it goes, pending under its ID; not recorded, not sent (D233)", func(t *testing.T) {
+		l := liveService(t)
+		l.exchange.placed = ports.LivePlacement{ID: "0xabc", State: ports.LiveResting}
+
+		gate := make(chan struct{})
+		l.exchange.gate = gate
+
+		done := make(chan domain.PlacedOrder)
+
+		go func() {
+			o, err := l.svc.Place(ctx, rest(domain.OrderGTC, domain.SideBuy, "0.40", "10"))
+			assert.NoError(t, err)
+			done <- o
+		}()
+
+		require.Eventually(t, func() bool { return l.exchange.sentCount() == 1 }, time.Second, time.Millisecond)
+
+		got := l.ledger.all()
+		require.Len(t, got, 1, "in the books while it is on its way")
+		assert.Equal(t, domain.OrderPending, got[0].Status)
+		assert.Equal(t, "0xabc", got[0].ClobID)
+		assert.Equal(t, "sending to Polymarket", got[0].Reason)
+
+		require.NoError(t, l.svc.Follow(ctx), "the follower leaves it to its run")
+		assert.Zero(t, l.exchange.lookupCount())
+
+		close(gate)
+		assert.Equal(t, domain.OrderOpen, (<-done).Status)
+
+		after := l.ledger.all()
+		require.Len(t, after, 1, "updated, not recorded twice")
+		assert.Equal(t, domain.OrderOpen, after[0].Status)
+
+		l.ledger.failRecord = errors.New("the database is down")
+		l.exchange.gate = nil
+
+		_, err := l.svc.Place(ctx, liveBuy("10"))
+		require.ErrorContains(t, err, "not sent, as it could not be recorded first")
+		assert.Equal(t, 1, l.exchange.sentCount(), "nothing more sent")
 	})
 }
 

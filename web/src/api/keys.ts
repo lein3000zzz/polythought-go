@@ -48,6 +48,8 @@ export const keys = {
   tradingSetup: (workflowId: string) => ['workflows', 'trading', workflowId, 'setup'],
   walletCash: (walletId: string) => ['wallets', 'cash', walletId],
   orders: (workflowId: string) => ['workflows', 'trading', workflowId, 'orders'],
+  // Under workflows too, so what refreshes a workflow's trading refreshes the log.
+  liveOrders: (filter: object) => ['workflows', 'live-orders', filter],
   memory: (workflowId: string) => ['workflows', 'memory', workflowId],
   nodeMemory: (workflowId: string, nodeId: string) => ['workflows', 'memory', workflowId, nodeId],
 } as const

@@ -16,7 +16,7 @@ import (
 )
 
 func TestNotificationRoutes(t *testing.T) {
-	failed := notify.Pref{Kind: notify.Kind{Key: "workflow_failed", Label: "A workflow fails", Description: "When it fails."}, Enabled: true}
+	failed := notify.Pref{Kind: notify.Kind{Key: "workflow_failed", Group: "Workflows", Label: "A workflow fails", Description: "When it fails."}, Enabled: true}
 
 	tests := []struct {
 		name       string
@@ -34,7 +34,7 @@ func TestNotificationRoutes(t *testing.T) {
 			},
 			wantStatus: http.StatusOK,
 			wantBody: []string{
-				`{"notifications":[{"key":"workflow_failed","label":"A workflow fails","description":"When it fails.","enabled":true,"email":false}],"mailOn":true}`,
+				`{"notifications":[{"key":"workflow_failed","group":"Workflows","label":"A workflow fails","description":"When it fails.","enabled":true,"email":false}],"mailOn":true}`,
 			},
 		},
 		{

@@ -261,3 +261,29 @@ test('Cancel orders cancels the resting order its run placed, and frees its cash
   expect(account.held).toBe('0')
   expect(account.cash).toBe('1000')
 })
+
+test('the live orders page lists none on paper, and downloads them as CSV (D228)', async ({
+  page,
+}) => {
+  await page.goto('/workflows')
+  await page.getByRole('link', { name: 'Live orders' }).click()
+
+  await expect(page.getByRole('heading', { name: 'Live orders' })).toBeVisible()
+  await expect(page.getByText('No live orders yet.')).toBeVisible()
+
+  await page.getByLabel('Status').selectOption('refused')
+  await expect(page).toHaveURL(/\/orders\?status=refused$/)
+  await expect(page.getByText('No live orders like that.')).toBeVisible()
+  await expect(page.getByRole('link', { name: 'Download CSV' })).toHaveAttribute(
+    'href',
+    '/api/v1/orders/export?status=refused',
+  )
+
+  const csv = await page.request.get('/api/v1/orders/export?status=refused')
+  expect(csv.status()).toBe(200)
+  expect(csv.headers()['content-type']).toBe('text/csv; charset=utf-8')
+  expect((await csv.text()).trim()).toBe(
+    'at,workflow,workflow_deleted,wallet_id,market,outcome,token_id,side,type,post_only,price,shares,' +
+      'dollars,status,filled_shares,filled_dollars,fees,reason,trader,trader_label,clob_id,order_id',
+  )
+})

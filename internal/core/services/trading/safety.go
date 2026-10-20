@@ -41,6 +41,33 @@ type sending struct {
 	dollars decimal.Decimal
 }
 
+// onTheWay marks a live order on its way, recorded but not answered: its run follows it,
+// not the follower.
+func (s *Service) onTheWay(id domain.OrderID, on bool) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	if !on {
+		delete(s.inFlight, id)
+		return
+	}
+
+	if s.inFlight == nil {
+		s.inFlight = map[domain.OrderID]struct{}{}
+	}
+
+	s.inFlight[id] = struct{}{}
+}
+
+func (s *Service) isOnTheWay(id domain.OrderID) bool {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	_, ok := s.inFlight[id]
+
+	return ok
+}
+
 func (s *Service) sendingOf(u domain.UserID) *sending {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -267,10 +294,14 @@ func (s *Service) admit(ctx context.Context, o domain.PlacedOrder) (release func
 
 	e.dollars = e.dollars.Add(value)
 
+	var once sync.Once
+
 	return func() {
-		e.mu.Lock()
-		e.dollars = e.dollars.Sub(value)
-		e.mu.Unlock()
+		once.Do(func() {
+			e.mu.Lock()
+			e.dollars = e.dollars.Sub(value)
+			e.mu.Unlock()
+		})
 	}, "", nil
 }
 

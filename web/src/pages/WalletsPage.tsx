@@ -1,6 +1,7 @@
-import { Copy, KeyRound, Trash2 } from 'lucide-react'
+import { Copy, KeyRound, ReceiptText, Trash2 } from 'lucide-react'
 import { useState } from 'react'
 import { useForm } from 'react-hook-form'
+import { Link } from 'react-router'
 import { toast } from 'sonner'
 
 import { ApiError, errorMessage, type Schemas } from '@/api/client'
@@ -168,15 +169,23 @@ function WalletCard({ wallet }: { wallet: Wallet }) {
             </Button>
           </span>
         </div>
-        <Button
-          variant="ghost"
-          size="sm"
-          className="text-destructive"
-          onClick={() => setConfirmUnlink(true)}
-        >
-          <Trash2 />
-          Unlink
-        </Button>
+        <div className="flex shrink-0 gap-1">
+          <Button variant="ghost" size="sm" asChild>
+            <Link to={`/orders?wallet=${wallet.id}`}>
+              <ReceiptText />
+              Live orders
+            </Link>
+          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="text-destructive"
+            onClick={() => setConfirmUnlink(true)}
+          >
+            <Trash2 />
+            Unlink
+          </Button>
+        </div>
       </CardHeader>
 
       <CardContent className="flex flex-col gap-3 text-sm">

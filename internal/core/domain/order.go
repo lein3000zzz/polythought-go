@@ -242,18 +242,24 @@ var (
 	ErrWalletTradesLive = errors.New("workflows trade live from this wallet")
 )
 
-// OrderEventKind is what happened to an order after the run that placed it (D215).
+// OrderEventKind is what happened to an order after the run that placed it (D215), or
+// as it was placed, for notifications (D229).
 type OrderEventKind string
 
 const (
-	OrderEventFilled   OrderEventKind = "filled"   // a resting order filled, in part or wholly
+	OrderEventFilled   OrderEventKind = "filled"   // it filled, in part or wholly
 	OrderEventCanceled OrderEventKind = "canceled" // what was left of it was cancelled
 	OrderEventExpired  OrderEventKind = "expired"  // a GTD's time came
 	OrderEventFailed   OrderEventKind = "failed"   // a live trade of it failed on chain, undone (D193)
+
+	// As it was placed, or a pending one once known; Order activity does not see these.
+	OrderEventRefused  OrderEventKind = "refused"  // refused, before it was sent or by Polymarket
+	OrderEventUnfilled OrderEventKind = "unfilled" // a FAK or FOK the book could not fill
+	OrderEventRested   OrderEventKind = "rested"   // it rests on the book
 )
 
-// OrderEvent is something that happened to one of a workflow's orders later (D211): the
-// order as it is now, and for fills and failures, the fills it was about.
+// OrderEvent is something that happened to one of a workflow's orders (D211): the order
+// as it is now, and for fills and failures, the fills it was about.
 type OrderEvent struct {
 	Kind  OrderEventKind
 	Order PlacedOrder

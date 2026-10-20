@@ -32,6 +32,7 @@ import {
 } from '@/lib/format'
 
 import { HowItTrades } from './HowItTrades'
+import { orderText, resultText, traderName } from './orderText'
 
 type Summary = Schemas['TradingSummary']
 type Order = Schemas['Order']
@@ -366,11 +367,6 @@ function Orders({
   )
 }
 
-function traderName(label?: string, trader?: string): string {
-  if (!trader) return 'Copied from no one'
-  return label || shortAddress(trader)
-}
-
 // questions names the outcomes the holdings know, for the orders of the same tokens.
 function questions(s: Summary): Map<string, string> {
   return new Map(
@@ -378,33 +374,4 @@ function questions(s: Summary): Map<string, string> {
       .filter((h) => h.question)
       .map((h) => [h.tokenId, h.outcome ? `${h.question} · ${h.outcome}` : h.question!]),
   )
-}
-
-function orderText(o: Order): string {
-  if (o.type === 'SETTLE') return `settled at ${o.price}`
-
-  const size = o.dollars ? formatDollars(o.dollars) : `${formatShares(o.shares ?? '0')} shares`
-  const limit = o.side === 'buy' ? `up to ${o.price}` : `at least ${o.price}`
-  const until = o.expiresAt ? ` until ${formatDateTime(o.expiresAt)}` : ''
-
-  return `${o.side} ${size} at ${limit}, ${o.type}${until}`
-}
-
-function resultText(o: Order): string {
-  // A live fill whose trade failed was undone (D193).
-  const fills = o.fills.filter((f) => f.status !== 'failed')
-  const shares = fills.reduce((n, f) => n + Number(f.shares), 0)
-  const dollars = fills.reduce((n, f) => n + Number(f.dollars), 0)
-  const fees = fills.reduce((n, f) => n + Number(f.fee), 0)
-
-  if (o.status !== 'filled' && o.status !== 'partial')
-    return `${o.status}: ${o.reason ?? ''}`.trim()
-
-  let what = `${o.status}: ${formatShares(String(shares))} shares for ${formatDollars(String(dollars))}`
-  if (fees > 0) what += `, ${formatDollars(String(fees))} in fees`
-
-  // Counted at match, followed until its trades are final on chain (D193).
-  const settling = fills.some((f) => f.status !== undefined && f.status !== 'confirmed')
-
-  return settling ? `${what}, confirming on chain` : what
 }

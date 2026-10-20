@@ -21,7 +21,10 @@ type NotificationService interface {
 }
 
 type notificationDTO struct {
-	Key         string `json:"key"`
+	Key string `json:"key"`
+	// Group is what the kind is about, to show the kinds under: Workflows, Wallets, Live
+	// orders, Paper orders.
+	Group       string `json:"group"`
 	Label       string `json:"label"`
 	Description string `json:"description"`
 	// Enabled is on Telegram, to your linked chat.
@@ -44,7 +47,7 @@ type setNotificationRequest struct {
 } // @name SetNotificationRequest
 
 func toNotificationDTO(p notify.Pref) notificationDTO {
-	return notificationDTO{Key: p.Key, Label: p.Label, Description: p.Description, Enabled: p.Enabled, Email: p.Email}
+	return notificationDTO{Key: p.Key, Group: p.Group, Label: p.Label, Description: p.Description, Enabled: p.Enabled, Email: p.Email}
 }
 
 // listNotifications lists the kinds of notification and how you get each: on Telegram, to

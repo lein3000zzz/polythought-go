@@ -129,6 +129,80 @@ func (_c *MockTradingService_Cancel_Call) RunAndReturn(run func(ctx context.Cont
 	return _c
 }
 
+// ExportOrders provides a mock function for the type MockTradingService
+func (_mock *MockTradingService) ExportOrders(ctx context.Context, p auth.Principal, f ports.OrderLogFilter) ([]trading.LogEntry, error) {
+	ret := _mock.Called(ctx, p, f)
+
+	if len(ret) == 0 {
+		panic("no return value specified for ExportOrders")
+	}
+
+	var r0 []trading.LogEntry
+	var r1 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context, auth.Principal, ports.OrderLogFilter) ([]trading.LogEntry, error)); ok {
+		return returnFunc(ctx, p, f)
+	}
+	if returnFunc, ok := ret.Get(0).(func(context.Context, auth.Principal, ports.OrderLogFilter) []trading.LogEntry); ok {
+		r0 = returnFunc(ctx, p, f)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).([]trading.LogEntry)
+		}
+	}
+	if returnFunc, ok := ret.Get(1).(func(context.Context, auth.Principal, ports.OrderLogFilter) error); ok {
+		r1 = returnFunc(ctx, p, f)
+	} else {
+		r1 = ret.Error(1)
+	}
+	return r0, r1
+}
+
+// MockTradingService_ExportOrders_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'ExportOrders'
+type MockTradingService_ExportOrders_Call struct {
+	*mock.Call
+}
+
+// ExportOrders is a helper method to define mock.On call
+//   - ctx context.Context
+//   - p auth.Principal
+//   - f ports.OrderLogFilter
+func (_e *MockTradingService_Expecter) ExportOrders(ctx any, p any, f any) *MockTradingService_ExportOrders_Call {
+	return &MockTradingService_ExportOrders_Call{Call: _e.mock.On("ExportOrders", ctx, p, f)}
+}
+
+func (_c *MockTradingService_ExportOrders_Call) Run(run func(ctx context.Context, p auth.Principal, f ports.OrderLogFilter)) *MockTradingService_ExportOrders_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		var arg1 auth.Principal
+		if args[1] != nil {
+			arg1 = args[1].(auth.Principal)
+		}
+		var arg2 ports.OrderLogFilter
+		if args[2] != nil {
+			arg2 = args[2].(ports.OrderLogFilter)
+		}
+		run(
+			arg0,
+			arg1,
+			arg2,
+		)
+	})
+	return _c
+}
+
+func (_c *MockTradingService_ExportOrders_Call) Return(logEntrys []trading.LogEntry, err error) *MockTradingService_ExportOrders_Call {
+	_c.Call.Return(logEntrys, err)
+	return _c
+}
+
+func (_c *MockTradingService_ExportOrders_Call) RunAndReturn(run func(ctx context.Context, p auth.Principal, f ports.OrderLogFilter) ([]trading.LogEntry, error)) *MockTradingService_ExportOrders_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // Holdings provides a mock function for the type MockTradingService
 func (_mock *MockTradingService) Holdings(ctx context.Context, p auth.Principal, id domain.WorkflowID) ([]domain.Holding, error) {
 	ret := _mock.Called(ctx, p, id)
@@ -199,6 +273,78 @@ func (_c *MockTradingService_Holdings_Call) Return(holdings []domain.Holding, er
 }
 
 func (_c *MockTradingService_Holdings_Call) RunAndReturn(run func(ctx context.Context, p auth.Principal, id domain.WorkflowID) ([]domain.Holding, error)) *MockTradingService_Holdings_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// OrderLog provides a mock function for the type MockTradingService
+func (_mock *MockTradingService) OrderLog(ctx context.Context, p auth.Principal, f ports.OrderLogFilter) (ports.Page[trading.LogEntry], error) {
+	ret := _mock.Called(ctx, p, f)
+
+	if len(ret) == 0 {
+		panic("no return value specified for OrderLog")
+	}
+
+	var r0 ports.Page[trading.LogEntry]
+	var r1 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context, auth.Principal, ports.OrderLogFilter) (ports.Page[trading.LogEntry], error)); ok {
+		return returnFunc(ctx, p, f)
+	}
+	if returnFunc, ok := ret.Get(0).(func(context.Context, auth.Principal, ports.OrderLogFilter) ports.Page[trading.LogEntry]); ok {
+		r0 = returnFunc(ctx, p, f)
+	} else {
+		r0 = ret.Get(0).(ports.Page[trading.LogEntry])
+	}
+	if returnFunc, ok := ret.Get(1).(func(context.Context, auth.Principal, ports.OrderLogFilter) error); ok {
+		r1 = returnFunc(ctx, p, f)
+	} else {
+		r1 = ret.Error(1)
+	}
+	return r0, r1
+}
+
+// MockTradingService_OrderLog_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'OrderLog'
+type MockTradingService_OrderLog_Call struct {
+	*mock.Call
+}
+
+// OrderLog is a helper method to define mock.On call
+//   - ctx context.Context
+//   - p auth.Principal
+//   - f ports.OrderLogFilter
+func (_e *MockTradingService_Expecter) OrderLog(ctx any, p any, f any) *MockTradingService_OrderLog_Call {
+	return &MockTradingService_OrderLog_Call{Call: _e.mock.On("OrderLog", ctx, p, f)}
+}
+
+func (_c *MockTradingService_OrderLog_Call) Run(run func(ctx context.Context, p auth.Principal, f ports.OrderLogFilter)) *MockTradingService_OrderLog_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		var arg1 auth.Principal
+		if args[1] != nil {
+			arg1 = args[1].(auth.Principal)
+		}
+		var arg2 ports.OrderLogFilter
+		if args[2] != nil {
+			arg2 = args[2].(ports.OrderLogFilter)
+		}
+		run(
+			arg0,
+			arg1,
+			arg2,
+		)
+	})
+	return _c
+}
+
+func (_c *MockTradingService_OrderLog_Call) Return(page ports.Page[trading.LogEntry], err error) *MockTradingService_OrderLog_Call {
+	_c.Call.Return(page, err)
+	return _c
+}
+
+func (_c *MockTradingService_OrderLog_Call) RunAndReturn(run func(ctx context.Context, p auth.Principal, f ports.OrderLogFilter) (ports.Page[trading.LogEntry], error)) *MockTradingService_OrderLog_Call {
 	_c.Call.Return(run)
 	return _c
 }

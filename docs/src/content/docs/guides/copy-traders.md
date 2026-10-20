@@ -264,7 +264,10 @@ order resting on the book is cancelled, everyone's.
 Each order is checked as on paper: on the market's tick, at least its least order, and a
 sell only of shares the workflow holds live copying that trader, not held back by its
 resting sells. Polythought then signs it with the wallet's key, as Polymarket's own client
-does, and sends it.
+does, puts it in the books as `pending`, *sending to Polymarket*, and only then sends it.
+Should the server stop, or its database fail, just after, the order is there to be looked
+up on Polymarket and followed; one that never reached Polymarket shows as refused after
+10 minutes. If it cannot be put in the books first, it is not sent.
 
 - **It counts at match.** As soon as Polymarket matches it, its fills are in the books and
   the item goes on. The trades then settle on chain, and the order list says *confirming
@@ -335,6 +338,20 @@ The same is in the API: `GET /api/v1/workflows/{id}/trading`, with `?mode=paper`
 `POST /api/v1/workflows/{id}/paper-account/reset`. How it trades is
 `GET` and `PUT /api/v1/workflows/{id}/trading/setup`; going live there needs
 `"confirm": true`. A wallet's pUSD is `GET /api/v1/wallets/{id}/cash`.
+
+### Live orders
+
+**Live orders**, beside Wallets in the top bar, lists every live order of all your
+workflows, the newest first, deleted workflows' too, under the name they had: the record of
+the real money they spent. Each says its workflow, its wallet, what it was, its market and
+what came of it, with its fees. **Wallet**, **Workflow** and **Status** narrow the list,
+and **Download CSV** downloads what they keep, the newest 10,000, a row per order. Each
+wallet on the Wallets page has **Live orders** too, opening the list for that wallet. In the
+API, it is `GET /api/v1/orders`, with `wallet`, `workflow` and `status`, and
+`GET /api/v1/orders/export` for the CSV.
+
+To hear of orders as they happen, switch on the order
+[notifications](/docs/guides/telegram/#notifications) you want, live and paper.
 
 ### On Telegram
 

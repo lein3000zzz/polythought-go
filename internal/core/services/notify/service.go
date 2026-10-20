@@ -21,16 +21,25 @@ import (
 	"github.com/lein3000zzz/polythought-go/internal/core/services/auth"
 )
 
-// Kind is a kind of notification a user can switch on or off.
+// Kind is a kind of notification a user can switch on or off, under a group of kinds.
 type Kind struct {
 	Key         string
+	Group       string
 	Label       string
 	Description string
 	Default     bool
 }
 
+// The groups Settings shows the kinds under.
+const (
+	groupWorkflows = "Workflows"
+	groupWallets   = "Wallets"
+	groupLive      = "Live orders"
+	groupPaper     = "Paper orders"
+)
+
 var WorkflowFailed = Kind{
-	Key:   "workflow_failed",
+	Key: "workflow_failed", Group: groupWorkflows,
 	Label: "A workflow fails",
 	Description: "A run of one of your workflows failed. At most once an hour for each workflow, " +
 		"and never for runs you start by hand.",
@@ -38,7 +47,7 @@ var WorkflowFailed = Kind{
 }
 
 var ApprovalWaiting = Kind{
-	Key:   "approval_waiting",
+	Key: "approval_waiting", Group: groupWorkflows,
 	Label: "A question waits for your answer",
 	Description: "A Telegram question from one of your workflows is still unanswered with a quarter of its time left. " +
 		"Once per question, for questions open 10 minutes or more.",
@@ -46,7 +55,7 @@ var ApprovalWaiting = Kind{
 }
 
 var SessionKeyExpiring = Kind{
-	Key:   "session_key_expiring",
+	Key: "session_key_expiring", Group: groupWallets,
 	Label: "A session key is about to expire",
 	Description: "A wallet's session key expires in 14 days or less: authorise a new one before then, so the wallet keeps " +
 		"trading. Once per key.",
@@ -54,7 +63,7 @@ var SessionKeyExpiring = Kind{
 }
 
 var LiveTradeFailed = Kind{
-	Key:   "live_trade_failed",
+	Key: "live_trade_failed", Group: groupLive,
 	Label: "A live trade fails",
 	Description: "A live order matched on Polymarket, but its trade failed on chain: the workflow's books undo it. " +
 		"Once per order.",
@@ -62,7 +71,11 @@ var LiveTradeFailed = Kind{
 }
 
 // Kinds lists every kind, in the order Settings shows them.
-var Kinds = []Kind{WorkflowFailed, ApprovalWaiting, SessionKeyExpiring, LiveTradeFailed}
+var Kinds = []Kind{
+	WorkflowFailed, ApprovalWaiting, SessionKeyExpiring, LiveTradeFailed,
+	LiveOrderFilled, LiveOrderRefused, LiveOrderUnfilled, LiveOrderRests, LiveOrderEnded,
+	PaperOrderFilled, PaperOrderRefused, PaperOrderUnfilled, PaperOrderRests, PaperOrderEnded,
+}
 
 const (
 	failureCooldown = time.Hour
@@ -89,8 +102,13 @@ type Service struct {
 
 	queue chan failure
 
+	markets ports.MarketReader // optional: an order's market, for what it says
+	orders  chan domain.OrderEvent
+	tick    time.Duration // how often held order notifications are looked at
+
 	mu        sync.Mutex
 	cooldowns map[domain.WorkflowID]cooldown
+	windows   map[windowKey]*window // order notifications sent and held this hour (D231)
 }
 
 type failure struct {
@@ -109,6 +127,16 @@ type Option func(*Service)
 // WithClock replaces the clock, for tests.
 func WithClock(now func() time.Time) Option {
 	return func(s *Service) { s.now = now }
+}
+
+// WithMarkets has order notifications name their market and outcome.
+func WithMarkets(m ports.MarketReader) Option {
+	return func(s *Service) { s.markets = m }
+}
+
+// WithTick replaces how often held order notifications are looked at, for tests.
+func WithTick(every time.Duration) Option {
+	return func(s *Service) { s.tick = every }
 }
 
 // WithMail sends notifications by mail too, to users who choose it per kind (D170).
@@ -135,6 +163,9 @@ func New(messenger ports.UserMessenger, prefs ports.NotificationPrefRepository, 
 		now:       time.Now,
 		queue:     make(chan failure, queueSize),
 		cooldowns: make(map[domain.WorkflowID]cooldown),
+		orders:    make(chan domain.OrderEvent, orderQueueSize),
+		tick:      time.Minute,
+		windows:   make(map[windowKey]*window),
 	}
 
 	for _, opt := range opts {
@@ -253,14 +284,22 @@ func (s *Service) ExecutionFinished(owner domain.UserID, e domain.Execution) {
 	}
 }
 
-// Run sends the queued notifications until ctx is done.
+// Run sends the queued notifications until ctx is done, and the summaries of the order
+// notifications held (D231) as their hour ends.
 func (s *Service) Run(ctx context.Context) {
+	t := time.NewTicker(s.tick)
+	defer t.Stop()
+
 	for {
 		select {
 		case <-ctx.Done():
 			return
 		case f := <-s.queue:
 			s.workflowFailed(ctx, f)
+		case e := <-s.orders:
+			s.orderHappened(ctx, e)
+		case <-t.C:
+			s.summarise(ctx)
 		}
 	}
 }

@@ -422,6 +422,83 @@ func (r *Ledger) OwnerUnsettled(ctx context.Context, owner domain.UserID, mode d
 		AND(o.Status.IN(jet.String(string(domain.OrderOpen)), jet.String(string(domain.OrderPending)))), o.ID.ASC())
 }
 
+func (r *Ledger) OwnerOrders(ctx context.Context, owner domain.UserID, f ports.OrderLogFilter) (ports.Page[ports.LoggedOrder], error) {
+	uid, err := parseID(owner)
+	if err != nil {
+		return ports.Page[ports.LoggedOrder]{}, err
+	}
+
+	o, fl, w := table.Orders, table.OrderFills, table.Workflows
+	where := o.OwnerID.EQ(jet.UUID(uid)).AND(o.Mode.EQ(jet.String(string(f.Mode))))
+
+	if f.WalletID != "" {
+		wallet, err := uuid.Parse(string(f.WalletID))
+		if err != nil {
+			return ports.Page[ports.LoggedOrder]{}, nil // no such wallet: no orders
+		}
+
+		where = where.AND(o.WalletID.EQ(jet.UUID(wallet)))
+	}
+
+	if f.WorkflowID != "" {
+		workflow, err := uuid.Parse(string(f.WorkflowID))
+		if err != nil {
+			return ports.Page[ports.LoggedOrder]{}, nil
+		}
+
+		where = where.AND(o.WorkflowID.EQ(jet.UUID(workflow)))
+	}
+
+	if f.Status != "" {
+		where = where.AND(o.Status.EQ(jet.String(string(f.Status))))
+	}
+
+	if f.Cursor != "" {
+		before, err := uuid.Parse(f.Cursor)
+		if err != nil {
+			return ports.Page[ports.LoggedOrder]{}, domain.ErrInvalidInput
+		}
+
+		where = where.AND(o.ID.LT(jet.UUID(before)))
+	}
+
+	limit := pageLimit(f.Limit)
+
+	var rows []struct {
+		model.Orders
+
+		Fills []model.OrderFills
+		Now   *string `alias:"workflow_now"` // its workflow's name; NULL once deleted
+	}
+
+	err = jet.SELECT(o.AllColumns, fl.AllColumns, w.Name.AS("workflow_now")).
+		FROM(o.LEFT_JOIN(fl, fl.OrderID.EQ(o.ID)).LEFT_JOIN(w, w.ID.EQ(o.WorkflowID))).
+		WHERE(o.ID.IN(
+			jet.SELECT(o.ID).FROM(o).WHERE(where).ORDER_BY(o.ID.DESC()).LIMIT(int64(limit)),
+		)).
+		ORDER_BY(o.ID.DESC(), fl.Seq).
+		QueryContext(ctx, r.db.conn(ctx), &rows)
+	if err != nil && !errors.Is(err, qrm.ErrNoRows) {
+		return ports.Page[ports.LoggedOrder]{}, err
+	}
+
+	page := ports.Page[ports.LoggedOrder]{Items: make([]ports.LoggedOrder, len(rows))}
+	for i, row := range rows {
+		page.Items[i] = ports.LoggedOrder{PlacedOrder: toPlacedOrder(row.Orders, row.Fills), Workflow: row.WorkflowName}
+		if row.Now != nil {
+			page.Items[i].Workflow = *row.Now
+		} else {
+			page.Items[i].Deleted = true
+		}
+	}
+
+	if len(rows) == limit {
+		page.NextCursor = rows[len(rows)-1].ID.String()
+	}
+
+	return page, nil
+}
+
 // moveCash adds cash to a paper order's account; live cash is the wallet's. The check
 // stops the books going below zero whatever got here first.
 func (r *Ledger) moveCash(ctx context.Context, o domain.PlacedOrder, workflow uuid.UUID, cash decimal.Decimal) error {

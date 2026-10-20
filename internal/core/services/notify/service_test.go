@@ -247,15 +247,24 @@ func TestPrefs(t *testing.T) {
 
 	got, err := s.Prefs(ctx, alice)
 	require.NoError(t, err)
-	require.Len(t, got, 4)
-	assert.Equal(t, "workflow_failed", got[0].Key)
-	assert.Equal(t, "approval_waiting", got[1].Key)
-	assert.Equal(t, "session_key_expiring", got[2].Key)
-	assert.Equal(t, "live_trade_failed", got[3].Key)
+
+	on := map[string]bool{}
+	groups := map[string]string{}
 
 	for _, p := range got {
-		assert.True(t, p.Enabled, "%s on by default", p.Key)
+		on[p.Key], groups[p.Key] = p.Enabled, p.Group
 	}
+
+	assert.Equal(t, map[string]bool{
+		"workflow_failed": true, "approval_waiting": true, "session_key_expiring": true, "live_trade_failed": true,
+		"live_order_filled": true, "live_order_refused": true, // D230
+		"live_order_unfilled": false, "live_order_rests": false, "live_order_ended": false,
+		"paper_order_filled": false, "paper_order_refused": false, "paper_order_unfilled": false, // D232
+		"paper_order_rests": false, "paper_order_ended": false,
+	}, on, "what is on by default")
+	assert.Equal(t, "workflow_failed", got[0].Key, "in Settings' order")
+	assert.Equal(t, "Live orders", groups["live_trade_failed"])
+	assert.Equal(t, "Paper orders", groups["paper_order_ended"])
 
 	pref, err := s.SetPref(ctx, alice, "workflow_failed", false)
 	require.NoError(t, err)
@@ -376,7 +385,7 @@ func TestEmailPrefs(t *testing.T) {
 	require.NoError(t, err)
 
 	for _, p := range got {
-		assert.True(t, p.Enabled, "%s on Telegram by default", p.Key)
+		assert.Equal(t, p.Default, p.Enabled, "%s on Telegram as its kind has it", p.Key)
 		assert.False(t, p.Email, "%s off by email until chosen (D170)", p.Key)
 	}
 
