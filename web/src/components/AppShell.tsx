@@ -4,6 +4,7 @@ import { cn } from 'cn'
 
 import { useLogout, useMe } from '@/api/auth'
 import { useLiveEvents } from '@/api/events'
+import { StopLiveButton, StoppedBanner } from '@/components/KillSwitch'
 import { ThemeToggle } from '@/components/ThemeToggle'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -47,6 +48,7 @@ export function AppShell() {
         </nav>
 
         <div className="ml-auto flex items-center gap-3 text-sm">
+          {user && <StopLiveButton user={user} />}
           {/* Outside the app's router; a new tab keeps unsaved work in the editor. */}
           <a
             href="/docs/"
@@ -71,6 +73,8 @@ export function AppShell() {
           </Button>
         </div>
       </header>
+
+      {user && <StoppedBanner user={user} />}
 
       <main className="min-h-0 flex-1 overflow-auto">
         <Outlet />

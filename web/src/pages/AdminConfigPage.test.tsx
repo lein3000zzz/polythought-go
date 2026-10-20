@@ -225,6 +225,42 @@ describe('admin config page', () => {
     expect(screen.queryByText(/unsaved change/)).not.toBeInTheDocument()
   })
 
+  it('asks before turning live trading off, which cancels every resting live order (D226)', async () => {
+    const sent: unknown[] = []
+    const live = setting({
+      key: 'trading.live',
+      group: 'Trading',
+      label: 'Live trading',
+      kind: 'bool',
+      value: true,
+      default: false,
+      source: 'database',
+    })
+    config([live])
+    server.use(
+      http.patch('/api/v1/admin/settings', async ({ request }) => {
+        sent.push(await request.json())
+        return HttpResponse.json({ settings: [{ ...live, value: false }], restartPending: false })
+      }),
+    )
+    const { user } = renderApp('/admin/config')
+
+    await user.click(await screen.findByLabelText('Live trading'))
+    await user.click(screen.getByRole('button', { name: 'Save' }))
+
+    const asked = await screen.findByRole('alertdialog', { name: 'Turn live trading off?' })
+    expect(
+      within(asked).getByText(/Every live order resting on the book is cancelled/),
+    ).toBeInTheDocument()
+    await user.click(within(asked).getByRole('button', { name: 'Cancel' }))
+    expect(sent).toEqual([])
+
+    await user.click(screen.getByRole('button', { name: 'Save' }))
+    await user.click(await screen.findByRole('button', { name: 'Turn off and cancel' }))
+
+    await waitFor(() => expect(sent).toEqual([{ values: { 'trading.live': false } }]))
+  })
+
   it('shows the server’s problems on their settings', async () => {
     config()
     server.use(

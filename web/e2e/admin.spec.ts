@@ -1,6 +1,6 @@
 import { createWorkflow, expect, signedOut, signIn, test, unique } from './fixtures'
 
-test('an invited user, disabled and enabled again, comes back to stopped workflows', async ({
+test('an invited user, disabled and enabled again, comes back to stopped workflows and live trading (D226)', async ({
   page,
   browser,
 }) => {
@@ -29,11 +29,30 @@ test('an invited user, disabled and enabled again, comes back to stopped workflo
   await page.reload()
   await expect(page.getByText(/^Used /)).toBeVisible()
 
-  // Disabling signs them out and stops their workflows.
+  // An admin's caps for their live buys, over the instance's (D222).
   const row = page.getByRole('row', { name: new RegExp(person.email) })
+  await expect(row.getByRole('button', { name: `Live caps of ${person.email}` })).toHaveText(
+    'Default',
+  )
+  await row.getByRole('button', { name: `Live caps of ${person.email}` }).click()
+  const caps = page.getByRole('dialog')
+  await expect(caps.getByLabel('Max $ a live order')).toHaveAttribute(
+    'placeholder',
+    'Default: $100',
+  )
+  await caps.getByLabel('Max $ a live order').fill('250')
+  await caps.getByRole('button', { name: 'Save' }).click()
+  await expect(row.getByRole('button', { name: `Live caps of ${person.email}` })).toHaveText(
+    '$250 an order, default a day',
+  )
+
+  // Disabling signs them out, stops their workflows and turns their kill switch on.
   await row.getByRole('button', { name: 'Disable' }).click()
-  await page.getByRole('alertdialog').getByRole('button', { name: 'Disable' }).click()
+  const disabling = page.getByRole('alertdialog')
+  await expect(disabling.getByText(/Their live trading stops/)).toBeVisible()
+  await disabling.getByRole('button', { name: 'Disable' }).click()
   await expect(row.getByText('Disabled')).toBeVisible()
+  await expect(row.getByText('Live stopped')).toBeVisible()
 
   await them.reload()
   await expect(them).toHaveURL(/\/login/)
@@ -50,6 +69,17 @@ test('an invited user, disabled and enabled again, comes back to stopped workflo
   await signIn(them, person)
   const listed = them.getByRole('row', { name: /hourly/ })
   await expect(listed.getByText('Inactive')).toBeVisible()
+
+  // Their live trading stays stopped until they resume it, after a question.
+  const banner = them.getByRole('status').filter({ hasText: 'Live trading is stopped' })
+  await expect(banner).toBeVisible()
+  await banner.getByRole('button', { name: 'Resume live trading' }).click()
+  await them.getByRole('alertdialog').getByRole('button', { name: 'Resume' }).click()
+  await expect(them.getByText('Live trading resumed')).toBeVisible()
+  await expect(banner).toBeHidden()
+
+  const me = (await (await them.request.get('/api/v1/me')).json()) as { liveStopped: boolean }
+  expect(me.liveStopped).toBe(false)
 
   await theirs.close()
 })

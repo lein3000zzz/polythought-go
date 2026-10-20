@@ -57,11 +57,11 @@ func (*RiskGuard) Type() engine.NodeType {
 			{Name: "maxPerCopy", Label: "Max $ a copy", Kind: engine.ParamDecimal, Description: "The most one copy spends."},
 			{
 				Name: "maxPerMarket", Label: "Max $ a market", Kind: engine.ParamDecimal,
-				Description: "The most the workflow holds in one market, at cost, all traders' copies together.",
+				Description: "The most the workflow holds in one market, at cost, all traders' copies together, with what its resting buys there hold.",
 			},
 			{
 				Name: "maxPerDay", Label: "Max $ a day", Kind: engine.ParamDecimal,
-				Description: "The most the workflow's buys spend in 24 hours.",
+				Description: "The most the workflow's buys spend in 24 hours, with what its resting buys hold.",
 			},
 			{Name: "minPrice", Label: "Least price", Kind: engine.ParamDecimal, Description: "Buys at a lower price are blocked."},
 			{Name: "maxPrice", Label: "Most price", Kind: engine.ParamDecimal, Description: "Buys at a higher price are blocked."},
@@ -109,6 +109,7 @@ func (g *RiskGuard) Run(ctx context.Context, rc engine.RunContext, in engine.Por
 		inMarket = map[domain.MarketID]decimal.Decimal{}
 		spent    *decimal.Decimal
 		held     map[domain.MarketID]decimal.Decimal
+		resting  map[domain.MarketID]decimal.Decimal // what resting buys hold: they count too (D219)
 	)
 
 	for i, item := range in[engine.DefaultPort] {
@@ -167,12 +168,23 @@ func (g *RiskGuard) Run(ctx context.Context, rc engine.RunContext, in engine.Por
 			}
 		}
 
+		if resting == nil && (l.perDay != nil || l.perMarket != nil) {
+			if resting, err = g.accounts.Resting(ctx, rc.WorkflowID); err != nil {
+				out.Fail(item, src, err)
+				continue
+			}
+		}
+
 		used := usage{day: added, market: inMarket[c.market]}
 		if spent != nil {
 			used.day = used.day.Add(*spent)
 		}
 
-		used.market = used.market.Add(held[c.market])
+		for _, r := range resting {
+			used.day = used.day.Add(r)
+		}
+
+		used.market = used.market.Add(held[c.market]).Add(resting[c.market])
 
 		dollars, note, block, err := g.check(ctx, l, c, used)
 		if err != nil {

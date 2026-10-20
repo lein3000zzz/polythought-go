@@ -89,7 +89,12 @@ type UserUpdate struct {
 	// EmailVerified true marks the address verified, an admin's word for it (D175); an
 	// address cannot be unverified.
 	EmailVerified *bool
+	// LiveCaps replace the user's own caps on their live buys (D222).
+	LiveCaps *domain.LiveCaps
 }
+
+// maxLiveCap is the most a cap may be, as the instance's settings have it.
+const maxLiveCap = 10_000_000
 
 // UpdateUser changes a user's role, disabled state or code access. Disabling signs the user out
 // everywhere. The last active admin cannot be demoted or disabled, so an instance can
@@ -105,6 +110,14 @@ func (s *Service) UpdateUser(ctx context.Context, actor Principal, id domain.Use
 
 	if upd.EmailVerified != nil && !*upd.EmailVerified {
 		return domain.User{}, fmt.Errorf("%w: an address cannot be unverified", domain.ErrInvalidInput)
+	}
+
+	if upd.LiveCaps != nil {
+		for _, c := range []*int{upd.LiveCaps.PerOrder, upd.LiveCaps.PerDay} {
+			if c != nil && (*c < 0 || *c > maxLiveCap) {
+				return domain.User{}, fmt.Errorf("%w: a cap must be between 0 and %d dollars", domain.ErrInvalidInput, maxLiveCap)
+			}
+		}
 	}
 
 	var updated domain.User
@@ -131,6 +144,10 @@ func (s *Service) UpdateUser(ctx context.Context, actor Principal, id domain.Use
 
 		if upd.CodeChosen != nil {
 			user.CodeChosen = *upd.CodeChosen
+		}
+
+		if upd.LiveCaps != nil {
+			user.LiveCaps = *upd.LiveCaps
 		}
 
 		if upd.Disabled != nil {
@@ -175,7 +192,8 @@ func (s *Service) UpdateUser(ctx context.Context, actor Principal, id domain.Use
 	}
 
 	s.log.Info(ctx, "User updated", "actor_id", actor.User.ID, "user_id", id,
-		"role", updated.Role, "disabled", updated.Disabled(), "code_chosen", updated.CodeChosen)
+		"role", updated.Role, "disabled", updated.Disabled(), "code_chosen", updated.CodeChosen,
+		"max_live_order", capLog(updated.LiveCaps.PerOrder), "max_live_day", capLog(updated.LiveCaps.PerDay))
 
 	// After the commit, so a running workflow never outlives a disable that went through.
 	// Asking to disable an already disabled user stops them again, which repairs a stop
@@ -183,6 +201,14 @@ func (s *Service) UpdateUser(ctx context.Context, actor Principal, id domain.Use
 	if upd.Disabled != nil && *upd.Disabled && s.workflows != nil {
 		if err := s.workflows.StopAll(ctx, id); err != nil {
 			return domain.User{}, fmt.Errorf("user disabled, but stopping their workflows failed: %w", err)
+		}
+	}
+
+	// Their kill switch goes on, cancelling what rests on the book; enabled again, it
+	// stays on until they turn it off (D226).
+	if upd.Disabled != nil && *upd.Disabled && s.live != nil {
+		if err := s.live.StopLive(ctx, id); err != nil {
+			return domain.User{}, fmt.Errorf("user disabled, but stopping their live trading failed: %w", err)
 		}
 	}
 
@@ -302,4 +328,13 @@ func (s *Service) MinPasswordLength() int {
 // CodeAccess says who may write code now.
 func (s *Service) CodeAccess() domain.CodeAccess {
 	return s.config().CodeAccess
+}
+
+// capLog is a cap as the log has it: "default" for the instance's.
+func capLog(c *int) any {
+	if c == nil {
+		return "default"
+	}
+
+	return *c
 }

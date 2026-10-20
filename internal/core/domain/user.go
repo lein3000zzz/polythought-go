@@ -96,12 +96,35 @@ type User struct {
 	EmailVerifiedAt time.Time // zero until verified
 	DisabledAt      time.Time // zero while enabled
 	CodeChosen      bool      // an admin picked them to write code, for CodeChosen
+	LiveStoppedAt   time.Time // zero unless their kill switch is on (D220)
+	LiveCaps        LiveCaps  // an admin's caps for them, over the instance's (D222)
 	CreatedAt       time.Time
 	UpdatedAt       time.Time
 }
 
-func (u User) IsAdmin() bool  { return u.Role == RoleAdmin }
-func (u User) Disabled() bool { return !u.DisabledAt.IsZero() }
+func (u User) IsAdmin() bool     { return u.Role == RoleAdmin }
+func (u User) Disabled() bool    { return !u.DisabledAt.IsZero() }
+func (u User) LiveStopped() bool { return !u.LiveStoppedAt.IsZero() }
+
+// LiveCaps cap a user's live buys in whole dollars (D222): what one order may spend, and
+// what they may spend and hold in a day. Nil is the instance's cap, 0 none.
+type LiveCaps struct {
+	PerOrder *int
+	PerDay   *int
+}
+
+// Over is the user's caps, or the instance's where they have none of their own.
+func (c LiveCaps) Over(instance LiveCaps) LiveCaps {
+	if c.PerOrder == nil {
+		c.PerOrder = instance.PerOrder
+	}
+
+	if c.PerDay == nil {
+		c.PerDay = instance.PerDay
+	}
+
+	return c
+}
 
 // Session is a browser login. Its token is only ever stored hashed.
 type Session struct {

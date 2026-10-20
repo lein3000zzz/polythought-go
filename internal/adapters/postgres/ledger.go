@@ -229,6 +229,33 @@ func (r *Ledger) Spent(ctx context.Context, workflow domain.WorkflowID, mode dom
 	return row.Spent, nil
 }
 
+func (r *Ledger) OwnerSpent(ctx context.Context, owner domain.UserID, mode domain.TradingMode, since time.Time) (decimal.Decimal, error) {
+	uid, err := parseID(owner)
+	if err != nil {
+		return decimal.Zero, err
+	}
+
+	o, f := table.Orders, table.OrderFills
+
+	var row struct {
+		Spent decimal.Decimal `alias:"spent"`
+	}
+
+	err = jet.SELECT(jet.COALESCE(jet.SUM(f.Dollars.ADD(f.Fee)), jet.Decimal("0")).AS("spent")).
+		FROM(f.INNER_JOIN(o, o.ID.EQ(f.OrderID))).
+		WHERE(o.OwnerID.EQ(jet.UUID(uid)).
+			AND(o.Mode.EQ(jet.String(string(mode)))).
+			AND(o.Side.EQ(jet.String(string(domain.SideBuy)))).
+			AND(o.CreatedAt.GT_EQ(jet.TimestampzT(since))).
+			AND(f.Status.NOT_EQ(jet.String(string(domain.FillFailed))))). // undone (D193)
+		QueryContext(ctx, r.db.conn(ctx), &row)
+	if err != nil {
+		return decimal.Zero, err
+	}
+
+	return row.Spent, nil
+}
+
 func (r *Ledger) Record(ctx context.Context, o domain.PlacedOrder, change *ports.LedgerChange) error {
 	m, err := toOrderModel(o)
 	if err != nil {
@@ -380,6 +407,19 @@ func (r *Ledger) WorkflowOpenOrders(ctx context.Context, workflow domain.Workflo
 	return r.ordersWhere(ctx, o.Status.EQ(jet.String(string(domain.OrderOpen))).
 		AND(o.Mode.EQ(jet.String(string(mode)))).
 		AND(o.WorkflowID.EQ(jet.UUID(wid))), o.ID.ASC())
+}
+
+func (r *Ledger) OwnerUnsettled(ctx context.Context, owner domain.UserID, mode domain.TradingMode) ([]domain.PlacedOrder, error) {
+	uid, err := parseID(owner)
+	if err != nil {
+		return nil, err
+	}
+
+	o := table.Orders
+
+	return r.ordersWhere(ctx, o.OwnerID.EQ(jet.UUID(uid)).
+		AND(o.Mode.EQ(jet.String(string(mode)))).
+		AND(o.Status.IN(jet.String(string(domain.OrderOpen)), jet.String(string(domain.OrderPending)))), o.ID.ASC())
 }
 
 // moveCash adds cash to a paper order's account; live cash is the wallet's. The check

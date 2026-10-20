@@ -42,6 +42,11 @@ type books struct {
 	spent    string
 	since    *time.Time // what Spent was asked
 	modes    *[]domain.TradingMode
+	resting  map[domain.MarketID]decimal.Decimal // what resting buys hold
+}
+
+func (b books) Resting(context.Context, domain.WorkflowID) (map[domain.MarketID]decimal.Decimal, error) {
+	return b.resting, nil
 }
 
 func (b books) mode() domain.TradingMode {

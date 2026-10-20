@@ -118,3 +118,20 @@ export function useResetPaperAccount(workflowId: string) {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: keys.trading(workflowId) }),
   })
 }
+
+/**
+ * Turns the user's kill switch on or off (D220): on, their workflows' live orders are
+ * refused and those resting on the book cancelled (D221).
+ */
+export function useKillSwitch() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: (on: boolean) => call(api.PUT('/me/kill-switch', { body: { on } })),
+    onSuccess: () =>
+      Promise.all([
+        queryClient.invalidateQueries({ queryKey: keys.me }),
+        queryClient.invalidateQueries({ queryKey: keys.workflows }),
+      ]),
+  })
+}

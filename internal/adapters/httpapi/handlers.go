@@ -28,9 +28,22 @@ type userDTO struct {
 	CodeChosen bool `json:"codeChosen"`
 	// MayWriteCode says whether they may write code now, as code access and CodeChosen
 	// have it.
-	MayWriteCode bool      `json:"mayWriteCode"`
-	CreatedAt    time.Time `json:"createdAt" format:"date-time"`
+	MayWriteCode bool `json:"mayWriteCode"`
+	// LiveStopped says their kill switch is on, since LiveStoppedAt: their workflows place
+	// no live orders (D220).
+	LiveStopped   bool       `json:"liveStopped"`
+	LiveStoppedAt *time.Time `json:"liveStoppedAt,omitempty" validate:"optional" format:"date-time"`
+	// LiveCaps are an admin's caps for them; those left out are the instance's (D222).
+	LiveCaps  liveCapsDTO `json:"liveCaps"`
+	CreatedAt time.Time   `json:"createdAt" format:"date-time"`
 } // @name User
+
+// liveCapsDTO caps a user's live buys in whole dollars: one order, and 24 hours. Left out,
+// the instance's cap; 0, none.
+type liveCapsDTO struct {
+	PerOrder *int `json:"perOrder,omitempty" validate:"optional" minimum:"0" maximum:"10000000"`
+	PerDay   *int `json:"perDay,omitempty" validate:"optional" minimum:"0" maximum:"10000000"`
+} // @name LiveCaps
 
 func (s *Server) userDTO(u domain.User) userDTO {
 	return userDTO{
@@ -41,6 +54,9 @@ func (s *Server) userDTO(u domain.User) userDTO {
 		Disabled:      u.Disabled(),
 		CodeChosen:    u.CodeChosen,
 		MayWriteCode:  s.auth.CodeAccess().Allows(u),
+		LiveStopped:   u.LiveStopped(),
+		LiveStoppedAt: optionalTime(u.LiveStoppedAt),
+		LiveCaps:      liveCapsDTO{PerOrder: u.LiveCaps.PerOrder, PerDay: u.LiveCaps.PerDay},
 		CreatedAt:     u.CreatedAt,
 	}
 }
@@ -168,6 +184,8 @@ type updateUserRequest struct {
 	CodeChosen *bool   `json:"codeChosen" validate:"optional"`
 	// EmailVerified true marks the address verified; it cannot be made false.
 	EmailVerified *bool `json:"emailVerified" validate:"optional"`
+	// LiveCaps replace the user's caps; a cap left out is the instance's again.
+	LiveCaps *liveCapsDTO `json:"liveCaps" validate:"optional"`
 } // @name UpdateUserRequest
 
 // decodeJSON reads the body strictly: unknown fields are an error, so typos in field
@@ -715,6 +733,10 @@ func (s *Server) updateUser(ctx context.Context, c *app.RequestContext) {
 	}
 
 	upd := auth.UserUpdate{Disabled: req.Disabled, CodeChosen: req.CodeChosen, EmailVerified: req.EmailVerified}
+	if req.LiveCaps != nil {
+		upd.LiveCaps = &domain.LiveCaps{PerOrder: req.LiveCaps.PerOrder, PerDay: req.LiveCaps.PerDay}
+	}
+
 	if req.Role != nil {
 		role := domain.Role(*req.Role)
 		upd.Role = &role

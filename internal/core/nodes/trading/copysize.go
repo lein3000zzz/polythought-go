@@ -47,6 +47,8 @@ type Books interface {
 type Accounts interface {
 	Mode(ctx context.Context, workflow domain.WorkflowID) (domain.TradingMode, error)
 	Worth(ctx context.Context, owner domain.UserID, workflow domain.WorkflowID) (decimal.Decimal, error)
+	// Resting is the cash the workflow's resting buys hold, by market, in its mode now.
+	Resting(ctx context.Context, workflow domain.WorkflowID) (map[domain.MarketID]decimal.Decimal, error)
 }
 
 // Sources are where Copy sizing looks things up.

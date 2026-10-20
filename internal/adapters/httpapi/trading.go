@@ -28,6 +28,8 @@ type TradingService interface {
 	Setup(ctx context.Context, p auth.Principal, id domain.WorkflowID) (trading.Setup, error)
 	SetSetup(ctx context.Context, p auth.Principal, id domain.WorkflowID, c trading.SetupChange) (trading.Setup, error)
 	WalletCash(ctx context.Context, p auth.Principal, wallet domain.WalletID) (decimal.Decimal, error)
+
+	SetKillSwitch(ctx context.Context, p auth.Principal, on bool) (trading.KillSwitch, error)
 }
 
 // Amounts are text, as items carry decimals: exact.
@@ -550,4 +552,50 @@ func (s *Server) cancelOrder(ctx context.Context, c *app.RequestContext) {
 	}
 
 	c.JSON(http.StatusOK, toOrderDTO(o))
+}
+
+type killSwitchRequest struct {
+	On bool `json:"on"`
+} // @name KillSwitchRequest
+
+type killSwitchDTO struct {
+	On    bool       `json:"on"`
+	Since *time.Time `json:"since,omitempty" validate:"optional" format:"date-time"`
+	// Cancelled are the resting live orders it cancelled as it went on; Left those still
+	// resting, Polymarket not cancelling them.
+	Cancelled int `json:"cancelled"`
+	Left      int `json:"left"`
+} // @name KillSwitch
+
+// setKillSwitch turns the user's kill switch on or off (D220). On, their workflows' live
+// orders are refused and those resting on the book cancelled (D221); off, they trade
+// live as before.
+//
+//	@Summary	Stop or resume live trading
+//	@ID			setKillSwitch
+//	@Tags		me
+//	@Param		body	body		killSwitchRequest	true	"On or off"
+//	@Success	200		{object}	killSwitchDTO
+//	@Failure	400		{object}	errorBody	"invalid_input"
+//	@Failure	401		{object}	errorBody	"unauthenticated"
+//	@Security	SessionCookie
+//	@Security	APIToken
+//	@Router		/me/kill-switch [put]
+func (s *Server) setKillSwitch(ctx context.Context, c *app.RequestContext) {
+	var req killSwitchRequest
+
+	if err := decodeJSON(c, &req); err != nil {
+		s.fail(ctx, c, err)
+		return
+	}
+
+	p, _ := principal(c)
+
+	ks, err := s.trading.SetKillSwitch(ctx, p, req.On)
+	if err != nil {
+		s.fail(ctx, c, err)
+		return
+	}
+
+	c.JSON(http.StatusOK, killSwitchDTO{On: ks.On, Since: optionalTime(ks.Since), Cancelled: ks.Cancelled, Left: ks.Left})
 }

@@ -169,3 +169,10 @@ type WalletReleaser interface {
 	TradingLive(ctx context.Context, owner domain.UserID, wallet domain.WalletID) ([]string, error)
 	ReleaseWallet(ctx context.Context, owner domain.UserID, wallet domain.WalletID) error
 }
+
+// LiveUsers are the accounts whose workflows trade live, for their kill switch and caps
+// (D220, D222).
+type LiveUsers interface {
+	ByID(ctx context.Context, id domain.UserID) (domain.User, error)
+	SetLiveStopped(ctx context.Context, id domain.UserID, at time.Time) error
+}

@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"errors"
+	"sync/atomic"
 	"time"
 
 	"github.com/lein3000zzz/the-watchers/pkg/observability/logging"
@@ -122,6 +123,20 @@ func serve(ctx context.Context) error {
 		a.waits.Run(ctx)
 	}()
 	a.settings.Subscribe(func(s *settings.Snapshot) { a.telegramBot.Configure(a.telegramConfig(s)) })
+
+	// Live trading turned off cancels every live order resting on the book (D226).
+	var liveOn atomic.Bool
+
+	liveOn.Store(a.settings.Current().Bool(config.KeyLiveTrading))
+	a.settings.Subscribe(func(s *settings.Snapshot) {
+		if on := s.Bool(config.KeyLiveTrading); liveOn.Swap(on) && !on {
+			go func() {
+				if _, err := a.trading.CancelAllLive(ctx); err != nil {
+					log.Error(ctx, "Live trading off, but not every resting live order cancelled", logging.Err(err))
+				}
+			}()
+		}
+	})
 
 	if err := a.workflows.StartActive(ctx); err != nil {
 		return err

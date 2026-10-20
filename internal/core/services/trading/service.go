@@ -52,6 +52,11 @@ type Deps struct {
 	LiveOn      func() bool
 	BuilderCode func() string
 
+	// Users are the owners' kill switches and caps (D220, D222), Caps the instance's
+	// caps (D224); without them, nothing is stopped or capped.
+	Users ports.LiveUsers
+	Caps  func() domain.LiveCaps
+
 	// Patience is how long a placed order is waited for, looked at every Poll (D204).
 	Patience, Poll time.Duration
 
@@ -67,6 +72,7 @@ type Service struct {
 	mu        sync.Mutex
 	locks     map[domain.WorkflowID]*sync.Mutex
 	listeners map[domain.WorkflowID]map[chan domain.OrderEvent]struct{} // Order activity (D211)
+	sending   map[domain.UserID]*sending                                // live buys let through (D223)
 
 	nudges chan struct{} // a live order now rests: WatchLive looks at once
 }

@@ -3,6 +3,7 @@ package trading_test
 import (
 	"context"
 	"errors"
+	"slices"
 	"strconv"
 	"sync"
 	"testing"
@@ -34,15 +35,38 @@ type exchange struct {
 	cancel    ports.LiveCancel
 	cancelled []string
 	beats     []string
+
+	gate chan struct{} // when set, placing waits for it to close
 }
 
 func (e *exchange) Place(_ context.Context, k ports.OrderKey, o ports.LiveOrder) (ports.LivePlacement, error) {
 	e.mu.Lock()
+	e.sent = append(e.sent, o)
+	gate := e.gate
+	e.mu.Unlock()
+
+	if gate != nil {
+		<-gate
+	}
+
+	e.mu.Lock()
 	defer e.mu.Unlock()
 
-	e.sent = append(e.sent, o)
-
 	return e.placed, e.err
+}
+
+func (e *exchange) cancelledIDs() []string {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+
+	return slices.Clone(e.cancelled)
+}
+
+func (e *exchange) sentCount() int {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+
+	return len(e.sent)
 }
 
 func (e *exchange) Order(context.Context, ports.OrderKey, string) (ports.LiveOrderState, error) {

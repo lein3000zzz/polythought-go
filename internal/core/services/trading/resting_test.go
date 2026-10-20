@@ -460,7 +460,7 @@ func TestLiveRestingOrders(t *testing.T) {
 		require.NoError(t, err)
 		assert.Equal(t, []string{"0xabc"}, l.exchange.cancelled)
 		assert.Equal(t, domain.OrderCanceled, got.Status)
-		assert.Equal(t, "cancelled on Polymarket, 4 of 10 shares filled", got.Reason)
+		assert.Equal(t, "cancelled by its owner, 4 of 10 shares filled", got.Reason, "why it was asked, not the CLOB's word")
 		require.Len(t, got.Fills, 1)
 	})
 

@@ -62,6 +62,7 @@ function Config() {
   // Bumped to remount fields, so they show saved values again instead of what was typed.
   const [version, setVersion] = useState(0)
   const [resets, setResets] = useState<Record<string, number>>({})
+  const [askLiveOff, setAskLiveOff] = useState(false)
 
   if (settings.isPending) return <Skeleton className="h-96" />
   if (settings.isError) {
@@ -103,7 +104,7 @@ function Config() {
     update.reset()
   }
 
-  const save = () =>
+  const store = () =>
     update.mutate(changes, {
       onSuccess: (data) => {
         clear()
@@ -112,6 +113,15 @@ function Config() {
         )
       },
     })
+
+  // Turning live trading off cancels every live order resting on the book (D226): asked
+  // first. A reset goes back to its default, off.
+  const turnsLiveOff =
+    byKey.get(liveTrading)?.value === true &&
+    liveTrading in changes &&
+    (changes[liveTrading] === false || changes[liveTrading] === null)
+
+  const save = () => (turnsLiveOff ? setAskLiveOff(true) : store())
 
   return (
     <div className="flex flex-col gap-8">
@@ -168,11 +178,26 @@ function Config() {
       )}
 
       <History settings={list} />
+
+      <ConfirmDialog
+        open={askLiveOff}
+        title="Turn live trading off?"
+        description="Every live order resting on the book is cancelled, every user's, and workflows place no live orders until it is on again. What the orders filled before stays."
+        confirm="Turn off and cancel"
+        destructive
+        onCancel={() => setAskLiveOff(false)}
+        onConfirm={() => {
+          setAskLiveOff(false)
+          store()
+        }}
+      />
     </div>
   )
 }
 
 const mailGroup = 'Mail'
+
+const liveTrading = 'trading.live'
 
 const geoblockTiers = 'https://docs.polymarket.com/api-reference/geoblock'
 

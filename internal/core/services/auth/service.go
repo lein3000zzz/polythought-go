@@ -79,6 +79,7 @@ type Service struct {
 	now     func() time.Time
 
 	workflows WorkflowStopper   // optional; commands without the engine have none
+	live      LiveStopper       // optional; without it, disabling stops no live trading
 	mail      ports.AccountMail // optional; without it, nothing is mailed
 
 	// dummyHash is verified against when an email is unknown, so a miss takes as long
@@ -96,6 +97,17 @@ type WorkflowStopper interface {
 // WithWorkflowStopper stops a user's workflows when an admin disables them.
 func WithWorkflowStopper(w WorkflowStopper) Option {
 	return func(s *Service) { s.workflows = w }
+}
+
+// LiveStopper turns a user's kill switch on, cancelling their resting live orders.
+// Disabling a user calls it (D226).
+type LiveStopper interface {
+	StopLive(ctx context.Context, owner domain.UserID) error
+}
+
+// WithLiveStopper stops a user's live trading when an admin disables them.
+func WithLiveStopper(l LiveStopper) Option {
+	return func(s *Service) { s.live = l }
 }
 
 // WithLiveConfig reads the configuration through config on every use, so changes to it

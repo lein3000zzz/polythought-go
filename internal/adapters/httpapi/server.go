@@ -299,6 +299,7 @@ func (s *Server) routes() {
 
 	v1.GET("/me", s.requireAuth, s.me)
 	v1.PUT("/me/password", s.requireAuth, s.changePassword)
+	v1.PUT("/me/kill-switch", s.requireAuth, s.setKillSwitch)
 
 	v1.GET("/tokens", s.requireAuth, s.listTokens)
 	v1.POST("/tokens", s.requireAuth, s.createToken)

@@ -23,8 +23,8 @@ Items that fail stop the execution, unless **Continue on failure** is on: then t
 | Setting | Kind | Required | Default | Description |
 |---|---|---|---|---|
 | Max $ a copy (`maxPerCopy`) | number | no |  | The most one copy spends. |
-| Max $ a market (`maxPerMarket`) | number | no |  | The most the workflow holds in one market, at cost, all traders' copies together. |
-| Max $ a day (`maxPerDay`) | number | no |  | The most the workflow's buys spend in 24 hours. |
+| Max $ a market (`maxPerMarket`) | number | no |  | The most the workflow holds in one market, at cost, all traders' copies together, with what its resting buys there hold. |
+| Max $ a day (`maxPerDay`) | number | no |  | The most the workflow's buys spend in 24 hours, with what its resting buys hold. |
 | Least price (`minPrice`) | number | no |  | Buys at a lower price are blocked. |
 | Most price (`maxPrice`) | number | no |  | Buys at a higher price are blocked. |
 | Only categories (`categories`) | list of text | no |  | Buys only in markets with one of these tags, like Politics; empty: any. |

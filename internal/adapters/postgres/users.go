@@ -48,6 +48,9 @@ func (r *Users) Create(ctx context.Context, u domain.User, passwordHash string) 
 		EmailVerifiedAt: timePtr(u.EmailVerifiedAt),
 		DisabledAt:      timePtr(u.DisabledAt),
 		CodeChosen:      u.CodeChosen,
+		LiveStoppedAt:   timePtr(u.LiveStoppedAt),
+		MaxLiveOrder:    capOf(u.LiveCaps.PerOrder),
+		MaxLiveDay:      capOf(u.LiveCaps.PerDay),
 		CreatedAt:       u.CreatedAt,
 		UpdatedAt:       u.UpdatedAt,
 	}
@@ -121,11 +124,48 @@ func (r *Users) Update(ctx context.Context, u domain.User) error {
 		return err
 	}
 
-	return affectedOne(table.Users.
-		UPDATE(table.Users.Role, table.Users.DisabledAt, table.Users.CodeChosen, table.Users.UpdatedAt).
-		SET(string(u.Role), timePtr(u.DisabledAt), u.CodeChosen, u.UpdatedAt).
-		WHERE(table.Users.ID.EQ(jet.UUID(uid))).
+	t := table.Users
+
+	return affectedOne(t.
+		UPDATE(t.Role, t.DisabledAt, t.CodeChosen, t.MaxLiveOrder, t.MaxLiveDay, t.UpdatedAt).
+		SET(string(u.Role), timePtr(u.DisabledAt), u.CodeChosen, capOf(u.LiveCaps.PerOrder), capOf(u.LiveCaps.PerDay), u.UpdatedAt).
+		WHERE(t.ID.EQ(jet.UUID(uid))).
 		ExecContext(ctx, r.db.conn(ctx)))
+}
+
+// SetLiveStopped turns the user's kill switch on at at, or off with the zero time (D220).
+func (r *Users) SetLiveStopped(ctx context.Context, id domain.UserID, at time.Time) error {
+	uid, err := parseID(id)
+	if err != nil {
+		return err
+	}
+
+	t := table.Users
+
+	return affectedOne(t.UPDATE(t.LiveStoppedAt).
+		SET(timePtr(at)).
+		WHERE(t.ID.EQ(jet.UUID(uid))).
+		ExecContext(ctx, r.db.conn(ctx)))
+}
+
+func capOf(c *int) *int32 {
+	if c == nil {
+		return nil
+	}
+
+	v := int32(*c) //nolint:gosec // caps are checked to at most 10,000,000
+
+	return &v
+}
+
+func capFrom(c *int32) *int {
+	if c == nil {
+		return nil
+	}
+
+	v := int(*c)
+
+	return &v
 }
 
 // List pages by ID; UUIDv7 IDs sort by creation time.
@@ -219,6 +259,8 @@ func toUser(m model.Users) domain.User {
 		EmailVerifiedAt: timeOf(m.EmailVerifiedAt),
 		DisabledAt:      timeOf(m.DisabledAt),
 		CodeChosen:      m.CodeChosen,
+		LiveStoppedAt:   timeOf(m.LiveStoppedAt),
+		LiveCaps:        domain.LiveCaps{PerOrder: capFrom(m.MaxLiveOrder), PerDay: capFrom(m.MaxLiveDay)},
 		CreatedAt:       m.CreatedAt.UTC(),
 		UpdatedAt:       m.UpdatedAt.UTC(),
 	}

@@ -10,6 +10,8 @@ export const alice: Schemas['User'] = {
   disabled: false,
   codeChosen: false,
   mayWriteCode: true,
+  liveStopped: false,
+  liveCaps: {},
   createdAt: '2026-10-01T10:00:00Z',
 }
 

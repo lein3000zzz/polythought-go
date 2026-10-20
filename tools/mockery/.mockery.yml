@@ -84,12 +84,14 @@ packages:
       LiveExchange: {}
       LiveTradeNotifier: {}
       WalletReleaser: {}
+      LiveUsers: {}
   github.com/lein3000zzz/polythought-go/internal/core/services/auth:
     config:
       dir: internal/mocks/auth
       pkgname: authmocks
     interfaces:
       WorkflowStopper: {}
+      LiveStopper: {}
   github.com/lein3000zzz/polythought-go/internal/core/services/library:
     config:
       dir: internal/mocks/library

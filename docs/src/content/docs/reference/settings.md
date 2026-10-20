@@ -307,7 +307,7 @@ What a workflow's paper account starts with, in dollars: its paper buys spend it
 
 ### Live trading
 
-Whether workflows may trade live: real orders on Polymarket from their owner's wallet, spending its pUSD. Off, every workflow trades on paper and live orders are refused. On, an owner switches a workflow to live in its Trading view, confirming it. Workflows switched to live stay so when it is turned off, but place no orders until it is on again.
+Whether workflows may trade live: real orders on Polymarket from their owner's wallet, spending its pUSD. Off, every workflow trades on paper and live orders are refused. On, an owner switches a workflow to live in its Trading view, confirming it. Turning it off cancels every live order resting on the book, every user's; workflows switched to live stay so, but place no orders until it is on again.
 
 | | |
 |---|---|
@@ -315,6 +315,30 @@ Whether workflows may trade live: real orders on Polymarket from their owner's w
 | Environment variable | `POLYTHOUGHT_TRADING_LIVE` |
 | Kind | `true` or `false` |
 | Default | `false` |
+| Applies | at once |
+
+### Max $ a live order
+
+The most one live buy may spend, in whole dollars, for every user: one over it is refused before it is sent. 0 for no cap. An admin can give a user a cap of their own on the Users page.
+
+| | |
+|---|---|
+| Key | `trading.max_live_order` |
+| Environment variable | `POLYTHOUGHT_TRADING_MAX_LIVE_ORDER` |
+| Kind | whole number |
+| Default | `100` |
+| Applies | at once |
+
+### Max $ a day of live buys
+
+The most a user's live buys may spend and hold in 24 hours, in whole dollars, all their workflows together: what they spent, and what their resting buys may still spend. A buy that would go over is refused before it is sent. 0 for no cap. An admin can give a user a cap of their own on the Users page.
+
+| | |
+|---|---|
+| Key | `trading.max_live_day` |
+| Environment variable | `POLYTHOUGHT_TRADING_MAX_LIVE_DAY` |
+| Kind | whole number |
+| Default | `1000` |
 | Applies | at once |
 
 ### Builder code

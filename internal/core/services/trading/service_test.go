@@ -84,6 +84,42 @@ func (l *ledger) Spent(context.Context, domain.WorkflowID, domain.TradingMode, t
 	return decimal.Zero, nil
 }
 
+func (l *ledger) OwnerSpent(_ context.Context, owner domain.UserID, mode domain.TradingMode, since time.Time) (decimal.Decimal, error) {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+
+	spent := decimal.Zero
+
+	for _, o := range l.orders {
+		if o.OwnerID != owner || o.Mode != mode || o.Side != domain.SideBuy || o.CreatedAt.Before(since) {
+			continue
+		}
+
+		for _, f := range o.Fills {
+			if f.Status != domain.FillFailed {
+				spent = spent.Add(f.Dollars).Add(f.Fee)
+			}
+		}
+	}
+
+	return spent, nil
+}
+
+func (l *ledger) OwnerUnsettled(_ context.Context, owner domain.UserID, mode domain.TradingMode) ([]domain.PlacedOrder, error) {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+
+	var out []domain.PlacedOrder
+
+	for _, o := range l.orders {
+		if o.OwnerID == owner && o.Mode == mode && (o.Status == domain.OrderOpen || o.Status == domain.OrderPending) {
+			out = append(out, o)
+		}
+	}
+
+	return out, nil
+}
+
 func (l *ledger) OpenHoldings(_ context.Context, mode domain.TradingMode) ([]domain.Holding, error) {
 	l.mu.Lock()
 	defer l.mu.Unlock()

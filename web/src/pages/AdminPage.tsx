@@ -21,6 +21,14 @@ import { ErrorAlert } from '@/components/ErrorAlert'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { NativeSelect, NativeSelectOption } from '@/components/ui/native-select'
@@ -74,10 +82,17 @@ function UsersSection({ me }: { me: User }) {
   const update = useUpdateUser()
   const sendVerification = useSendVerificationLink()
   const [change, setChange] = useState<{ user: User; patch: Schemas['UpdateUserRequest'] }>()
+  const [capping, setCapping] = useState<User>()
   const items = users.data?.pages.flatMap((page) => page.users) ?? []
   const settings = useSettings()
   const codeAccess = settings.data?.settings.find((s) => s.key === 'code.access')?.value as
     CodeAccess | undefined
+  const instanceCaps = {
+    perOrder: settings.data?.settings.find((s) => s.key === 'trading.max_live_order')?.value as
+      number | undefined,
+    perDay: settings.data?.settings.find((s) => s.key === 'trading.max_live_day')?.value as
+      number | undefined,
+  }
 
   const chooseForCode = (user: User, chosen: boolean) =>
     update.mutate(
@@ -111,7 +126,7 @@ function UsersSection({ me }: { me: User }) {
     if (patch.disabled) {
       return [
         'Disable',
-        `${user.email} is signed out, their API tokens stop working and they cannot sign in. Their active workflows are turned off and stay off if you enable them again.`,
+        `${user.email} is signed out, their API tokens stop working and they cannot sign in. Their active workflows are turned off and stay off if you enable them again. Their live trading stops: their kill switch goes on, cancelling their resting live orders, and stays on until they turn it off.`,
       ]
     }
     if (patch.disabled === false) {
@@ -152,6 +167,7 @@ function UsersSection({ me }: { me: User }) {
               <TableHead>Role</TableHead>
               <TableHead>Status</TableHead>
               <TableHead>Code</TableHead>
+              <TableHead>Live caps</TableHead>
               <TableHead>Created</TableHead>
               <TableHead />
             </TableRow>
@@ -168,6 +184,7 @@ function UsersSection({ me }: { me: User }) {
                     {u.disabled ? 'Disabled' : 'Active'}
                   </Badge>{' '}
                   {!u.emailVerified && <Badge variant="outline">Unverified</Badge>}
+                  {u.liveStopped && <Badge variant="destructive">Live stopped</Badge>}
                 </TableCell>
                 <TableCell>
                   {codeAccess === 'chosen' && u.role !== 'admin' ? (
@@ -183,6 +200,17 @@ function UsersSection({ me }: { me: User }) {
                   ) : (
                     'No'
                   )}
+                </TableCell>
+                <TableCell>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="-ml-2 font-normal"
+                    aria-label={`Live caps of ${u.email}`}
+                    onClick={() => setCapping(u)}
+                  >
+                    {capsText(u.liveCaps)}
+                  </Button>
                 </TableCell>
                 <TableCell>{formatDateTime(u.createdAt)}</TableCell>
                 <TableCell className="text-right">
@@ -238,6 +266,10 @@ function UsersSection({ me }: { me: User }) {
         </Button>
       )}
 
+      {capping && (
+        <CapsDialog user={capping} instance={instanceCaps} onClose={() => setCapping(undefined)} />
+      )}
+
       {change && (
         <ConfirmDialog
           open
@@ -264,6 +296,115 @@ function UsersSection({ me }: { me: User }) {
         />
       )}
     </section>
+  )
+}
+
+type LiveCaps = Schemas['LiveCaps']
+
+/** A user's caps in the table: theirs, or the instance's. */
+function capsText(caps: LiveCaps): string {
+  if (caps.perOrder === undefined && caps.perDay === undefined) return 'Default'
+
+  const one = (cap: number | undefined, per: string) =>
+    cap === undefined
+      ? `default ${per}`
+      : cap === 0
+        ? `no cap ${per}`
+        : `$${cap.toLocaleString('en-US')} ${per}`
+
+  return `${one(caps.perOrder, 'an order')}, ${one(caps.perDay, 'a day')}`
+}
+
+/** An admin's caps for one user's live buys (D222): empty is the instance's, 0 none. */
+function CapsDialog({
+  user,
+  instance,
+  onClose,
+}: {
+  user: User
+  instance: LiveCaps
+  onClose: () => void
+}) {
+  const update = useUpdateUser()
+  const [perOrder, setPerOrder] = useState(user.liveCaps.perOrder?.toString() ?? '')
+  const [perDay, setPerDay] = useState(user.liveCaps.perDay?.toString() ?? '')
+
+  const read = (text: string) => (text.trim() === '' ? undefined : Number(text))
+  const placeholder = (cap: number | undefined) =>
+    cap === undefined
+      ? 'Default'
+      : cap === 0
+        ? 'Default: no cap'
+        : `Default: $${cap.toLocaleString('en-US')}`
+
+  return (
+    <Dialog open onOpenChange={(isOpen) => !isOpen && onClose()}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Live caps of {user.email}</DialogTitle>
+          <DialogDescription>
+            What their live buys may spend, in whole dollars, over the Config page&apos;s caps.
+            Empty is the instance&apos;s cap, 0 none. A buy over a cap is refused before it is sent.
+          </DialogDescription>
+        </DialogHeader>
+
+        <form
+          id="live-caps"
+          className="flex flex-col gap-4"
+          onSubmit={(e) => {
+            e.preventDefault()
+            update.mutate(
+              { id: user.id, liveCaps: { perOrder: read(perOrder), perDay: read(perDay) } },
+              {
+                onSuccess: () => {
+                  toast.success(`Live caps of ${user.email} saved`)
+                  onClose()
+                },
+              },
+            )
+          }}
+        >
+          {update.isError && <ErrorAlert error={update.error} />}
+
+          <div className="flex flex-col gap-2">
+            <Label htmlFor="cap-order">Max $ a live order</Label>
+            <Input
+              id="cap-order"
+              type="number"
+              min={0}
+              max={10_000_000}
+              step={1}
+              value={perOrder}
+              placeholder={placeholder(instance.perOrder)}
+              onChange={(e) => setPerOrder(e.target.value)}
+            />
+          </div>
+
+          <div className="flex flex-col gap-2">
+            <Label htmlFor="cap-day">Max $ a day of live buys</Label>
+            <Input
+              id="cap-day"
+              type="number"
+              min={0}
+              max={10_000_000}
+              step={1}
+              value={perDay}
+              placeholder={placeholder(instance.perDay)}
+              onChange={(e) => setPerDay(e.target.value)}
+            />
+          </div>
+        </form>
+
+        <DialogFooter>
+          <Button variant="ghost" onClick={onClose}>
+            Cancel
+          </Button>
+          <Button type="submit" form="live-caps" disabled={update.isPending}>
+            Save
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   )
 }
 

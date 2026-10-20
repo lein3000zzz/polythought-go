@@ -87,6 +87,17 @@ func (s *Service) placeLive(ctx context.Context, o domain.PlacedOrder, rules dom
 
 	o.WalletID = t.WalletID
 
+	release, why, err := s.admit(ctx, o)
+	if err != nil {
+		return domain.PlacedOrder{}, err
+	}
+
+	if why != "" {
+		return s.refuse(ctx, o, why)
+	}
+
+	defer release()
+
 	held, err := s.holding(ctx, o)
 	if err != nil {
 		return domain.PlacedOrder{}, err
@@ -449,8 +460,9 @@ func (s *Service) followTrades(ctx context.Context, k ports.OrderKey, o domain.P
 		}
 	}
 
-	// Ended with all its trades failed, it failed; one resting still rests.
-	allFailed := !slices.ContainsFunc(o.Fills, func(f domain.OrderFill) bool { return f.Status != domain.FillFailed })
+	// Ended with all its trades failed, it failed; one resting still rests, and one with
+	// none never matched.
+	allFailed := len(o.Fills) > 0 && !slices.ContainsFunc(o.Fills, func(f domain.OrderFill) bool { return f.Status != domain.FillFailed })
 	if allFailed && o.Status != domain.OrderOpen && o.Status != domain.OrderPending {
 		o.Status, o.Reason = domain.OrderFailed, "it matched, but its trades failed on chain: undone"
 	}

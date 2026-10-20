@@ -23,4 +23,7 @@ type Users struct {
 	CreatedAt       time.Time
 	UpdatedAt       time.Time
 	CodeChosen      bool
+	LiveStoppedAt   *time.Time
+	MaxLiveOrder    *int32
+	MaxLiveDay      *int32
 }

@@ -1331,6 +1331,41 @@
                 },
                 "type": "object"
             },
+            "KillSwitch": {
+                "properties": {
+                    "cancelled": {
+                        "description": "Cancelled are the resting live orders it cancelled as it went on; Left those still\nresting, Polymarket not cancelling them.",
+                        "type": "integer"
+                    },
+                    "left": {
+                        "type": "integer"
+                    },
+                    "on": {
+                        "type": "boolean"
+                    },
+                    "since": {
+                        "format": "date-time",
+                        "type": "string"
+                    }
+                },
+                "required": [
+                    "cancelled",
+                    "left",
+                    "on"
+                ],
+                "type": "object"
+            },
+            "KillSwitchRequest": {
+                "properties": {
+                    "on": {
+                        "type": "boolean"
+                    }
+                },
+                "required": [
+                    "on"
+                ],
+                "type": "object"
+            },
             "LinkWalletRequest": {
                 "properties": {
                     "address": {
@@ -1343,6 +1378,21 @@
                 "required": [
                     "address"
                 ],
+                "type": "object"
+            },
+            "LiveCaps": {
+                "properties": {
+                    "perDay": {
+                        "maximum": 10000000,
+                        "minimum": 0,
+                        "type": "integer"
+                    },
+                    "perOrder": {
+                        "maximum": 10000000,
+                        "minimum": 0,
+                        "type": "integer"
+                    }
+                },
                 "type": "object"
             },
             "LoginRequest": {
@@ -2835,6 +2885,10 @@
                         "description": "EmailVerified true marks the address verified; it cannot be made false.",
                         "type": "boolean"
                     },
+                    "liveCaps": {
+                        "$ref": "#/components/schemas/LiveCaps",
+                        "description": "LiveCaps replace the user's caps; a cap left out is the instance's again."
+                    },
                     "role": {
                         "enum": [
                             "admin",
@@ -2916,6 +2970,18 @@
                     "id": {
                         "type": "string"
                     },
+                    "liveCaps": {
+                        "$ref": "#/components/schemas/LiveCaps",
+                        "description": "LiveCaps are an admin's caps for them; those left out are the instance's (D222)."
+                    },
+                    "liveStopped": {
+                        "description": "LiveStopped says their kill switch is on, since LiveStoppedAt: their workflows place\nno live orders (D220).",
+                        "type": "boolean"
+                    },
+                    "liveStoppedAt": {
+                        "format": "date-time",
+                        "type": "string"
+                    },
                     "mayWriteCode": {
                         "description": "MayWriteCode says whether they may write code now, as code access and CodeChosen\nhave it.",
                         "type": "boolean"
@@ -2935,6 +3001,8 @@
                     "email",
                     "emailVerified",
                     "id",
+                    "liveCaps",
+                    "liveStopped",
                     "mayWriteCode",
                     "role"
                 ],
@@ -5781,6 +5849,68 @@
                     }
                 ],
                 "summary": "Current user",
+                "tags": [
+                    "me"
+                ]
+            }
+        },
+        "/me/kill-switch": {
+            "put": {
+                "operationId": "setKillSwitch",
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/KillSwitchRequest",
+                                "summary": "body",
+                                "description": "On or off"
+                            }
+                        }
+                    },
+                    "description": "On or off",
+                    "required": true
+                },
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/KillSwitch"
+                                }
+                            }
+                        },
+                        "description": "OK"
+                    },
+                    "400": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "invalid_input"
+                    },
+                    "401": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "unauthenticated"
+                    }
+                },
+                "security": [
+                    {
+                        "SessionCookie": []
+                    },
+                    {
+                        "APIToken": []
+                    }
+                ],
+                "summary": "Stop or resume live trading",
                 "tags": [
                     "me"
                 ]

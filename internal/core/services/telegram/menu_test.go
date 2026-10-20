@@ -189,15 +189,35 @@ func (f *fakeNotifications) SetPref(_ context.Context, _ auth.Principal, key str
 	return notify.Pref{Kind: notify.WorkflowFailed, Enabled: enabled}, nil
 }
 
+// fakeKillSwitch flips alice's kill switch, cancelling two resting orders as it goes on.
+type fakeKillSwitch struct {
+	calls []bool
+}
+
+func (f *fakeKillSwitch) SetKillSwitch(_ context.Context, p auth.Principal, on bool) (trading.KillSwitch, error) {
+	if p.User.ID != alice.ID {
+		return trading.KillSwitch{}, domain.ErrNotFound
+	}
+
+	f.calls = append(f.calls, on)
+
+	if !on {
+		return trading.KillSwitch{}, nil
+	}
+
+	return trading.KillSwitch{On: true, Since: now, Cancelled: 2}, nil
+}
+
 type menuDeps struct {
 	deps
 	workflows     *fakeWorkflows
 	positions     *fakePositions
 	notifications *fakeNotifications
 	trading       fakeTrading
+	live          *fakeKillSwitch
 }
 
-func newMenu(t *testing.T) (*telegram.Service, menuDeps) {
+func newMenu(t *testing.T, opts ...func(*telegram.Menu)) (*telegram.Service, menuDeps) {
 	t.Helper()
 
 	s, d := newService(t)
@@ -221,15 +241,23 @@ func newMenu(t *testing.T) (*telegram.Service, menuDeps) {
 		positions:     &fakePositions{},
 		notifications: &fakeNotifications{on: true},
 		trading:       fakeTrading{},
+		live:          &fakeKillSwitch{},
 	}
 
-	s.UseMenu(telegram.Menu{
+	menu := telegram.Menu{
 		Workflows:     m.workflows,
 		Wallets:       fakeWallets{{ID: "w-1", Address: "0x5aAeb6053F3E94C9b9A09f33669435E7Ef1BeAed", Label: "Main"}},
 		Positions:     m.positions,
 		Notifications: m.notifications,
 		Trading:       m.trading,
-	})
+		Live:          m.live,
+	}
+
+	for _, o := range opts {
+		o(&menu)
+	}
+
+	s.UseMenu(menu)
 
 	return s, m
 }
@@ -337,6 +365,46 @@ func TestMenuStatus(t *testing.T) {
 	assert.Contains(t, status, "• Spreads &lt;tight&gt;: last run ❌ 5 min ago")
 	assert.Contains(t, status, "1 failure in the last 24 hours, in 1 workflow.", "the older failure is not counted")
 	assert.Equal(t, []string{"↻ Refresh=s:s"}, buttons(m.bot.last(t)))
+}
+
+func TestMenuKillSwitch(t *testing.T) {
+	ctx := context.Background()
+	canTrade := func(m *telegram.Menu) {
+		m.Wallets = fakeWallets{{ID: "w-1", Address: "0x5aAeb6053F3E94C9b9A09f33669435E7Ef1BeAed", HasKey: true}}
+	}
+
+	t.Run("under Status: stopped at once, resumed once asked (D225)", func(t *testing.T) {
+		s, m := newMenu(t, canTrade)
+
+		s.HandleUpdate(ctx, message("status"))
+		assert.Equal(t, []string{"🛑 Stop live trading=ks:on", "↻ Refresh=s:s"}, buttons(m.bot.last(t)))
+
+		s.HandleUpdate(ctx, press("ks:on"))
+		stopped := m.bot.lastEdit(t)
+		assert.Contains(t, stopped.HTML, "🛑 Live trading stopped. 2 resting orders cancelled.")
+		assert.Contains(t, stopped.HTML, "Live trading is stopped (just now): your workflows place no live orders.")
+		assert.Equal(t, []string{"▶️ Resume live trading=ks:ask", "↻ Refresh=s:s"}, buttons(stopped))
+		assert.Equal(t, []bool{true}, m.live.calls, "no question to stop")
+
+		s.HandleUpdate(ctx, press("ks:ask"))
+		asked := m.bot.lastEdit(t)
+		assert.Contains(t, asked.HTML, "Resume live trading?")
+		assert.Equal(t, []string{"▶️ Resume=ks:off", "Keep stopped=s:s"}, buttons(asked))
+		assert.Equal(t, []bool{true}, m.live.calls, "asking changes nothing")
+
+		s.HandleUpdate(ctx, press("ks:off"))
+		resumed := m.bot.lastEdit(t)
+		assert.Contains(t, resumed.HTML, "▶️ Live trading resumed.")
+		assert.Equal(t, []string{"🛑 Stop live trading=ks:on", "↻ Refresh=s:s"}, buttons(resumed))
+		assert.Equal(t, []bool{true, false}, m.live.calls)
+	})
+
+	t.Run("no wallet that can trade, no button", func(t *testing.T) {
+		s, m := newMenu(t)
+
+		s.HandleUpdate(ctx, message("status"))
+		assert.Equal(t, []string{"↻ Refresh=s:s"}, buttons(m.bot.last(t)))
+	})
 }
 
 func TestMenuPositions(t *testing.T) {

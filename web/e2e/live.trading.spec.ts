@@ -73,6 +73,20 @@ test('a workflow goes live only once Live trading is on, from a wallet that can 
       await page.request.get(`/api/v1/workflows/${id}/trading/setup`)
     ).json()) as { mode: string; liveAvailable: boolean }
     expect(setup).toEqual(expect.objectContaining({ mode: 'paper', liveAvailable: true }))
+
+    // Turning it off cancels every resting live order: the Config page asks first (D226).
+    await page.goto('/admin/config')
+    await page.getByLabel('Live trading', { exact: true }).click()
+    await page.getByRole('button', { name: 'Save' }).click()
+    const asked = page.getByRole('alertdialog')
+    await expect(asked.getByText('Turn live trading off?')).toBeVisible()
+    await asked.getByRole('button', { name: 'Turn off and cancel' }).click()
+    await expect(page.getByText('Settings saved')).toBeVisible()
+
+    const after = (await (
+      await page.request.get(`/api/v1/workflows/${id}/trading/setup`)
+    ).json()) as { liveAvailable: boolean }
+    expect(after.liveAvailable).toBe(false)
   } finally {
     await settings(false)
   }

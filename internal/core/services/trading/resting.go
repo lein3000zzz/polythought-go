@@ -497,6 +497,10 @@ func (s *Service) WatchLive(ctx context.Context, every time.Duration) {
 
 		watch(open)
 
+		if wallet == "" {
+			s.stopped(ctx, open)
+		}
+
 		for _, o := range open {
 			if (wallet != "" && o.WalletID != wallet) || (named != nil && !slices.Contains(named, o.ClobID)) {
 				continue
@@ -627,15 +631,18 @@ func (s *Service) cancelLive(ctx context.Context, o domain.PlacedOrder, why stri
 		return domain.PlacedOrder{}, "", err
 	}
 
-	if c.Canceled && got.Status == domain.OrderOpen { // the CLOB's registry may lag
+	// Cancelled as asked, it says why; still open, the CLOB's registry lags.
+	if c.Canceled && (got.Status == domain.OrderOpen || got.Status == domain.OrderCanceled) {
 		before := got
 		got.Status, got.Reason = domain.OrderCanceled, why+", "+filledOf(got)
 
-		if err := s.d.Ledger.Update(ctx, got, nil); err != nil {
-			return domain.PlacedOrder{}, "", err
-		}
+		if !unchanged(before, got) {
+			if err := s.d.Ledger.Update(ctx, got, nil); err != nil {
+				return domain.PlacedOrder{}, "", err
+			}
 
-		s.publish(ctx, s.changes(before, got)...)
+			s.publish(ctx, s.changes(before, got)...)
+		}
 	}
 
 	if c.Canceled {
@@ -721,26 +728,12 @@ func (s *Service) CancelResting(ctx context.Context, w domain.WorkflowID, why st
 		return 0, err
 	}
 
-	left := 0
-
-	var errs []error
-
-	for _, o := range open {
-		got, _, err := s.cancelLive(ctx, o, why)
-		if err != nil {
-			errs = append(errs, fmt.Errorf("order %s: %w", o.ID, err))
-		}
-
-		if err != nil || got.Status == domain.OrderOpen {
-			left++
-		}
-	}
-
+	_, left, err := s.cancelEach(ctx, open, why)
 	if left > 0 {
-		s.d.Logger.Warn(ctx, "Live resting orders not all cancelled", "workflow_id", w, "left", left, logging.Err(errors.Join(errs...)))
+		s.d.Logger.Warn(ctx, "Live resting orders not all cancelled", "workflow_id", w, "left", left, logging.Err(err))
 	}
 
-	return left, errors.Join(errs...)
+	return left, err
 }
 
 func (s *Service) nudge() {

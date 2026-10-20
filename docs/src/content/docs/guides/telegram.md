@@ -36,7 +36,9 @@ if it is gone. Each section answers with a message whose buttons change it in pl
   and how many closed copies made money. Pick a trader to see more and **Switch** them
   **on** or **off**, which saves the workflow as a new version, like saving it in the editor.
 - **📊 Status**: which workflows are on, how each last run went, and how many runs failed in
-  the last 24 hours.
+  the last 24 hours. With a wallet that can trade, **🛑 Stop live trading** is your
+  [kill switch](/docs/guides/copy-traders/#stopping-it): at once, without asking; **▶️
+  Resume live trading** asks first.
 - **💼 Positions**: pick one of your [wallets](/docs/guides/concepts/#wallets) to see its
   biggest positions, with what they are worth and what they made or lost.
 - **🔔 Notifications**: the same switches as in Settings, and **Unlink this chat**.

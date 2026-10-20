@@ -289,3 +289,105 @@ func TestRestingOrders(t *testing.T) {
 		}
 	})
 }
+
+func TestLiveSafety(t *testing.T) {
+	ctx := context.Background()
+
+	db := fresh(t)
+	users := postgres.NewUsers(db)
+	ledger := postgres.NewLedger(db)
+	alice := seedUser(t, db, "alice@example.com", domain.RoleUser)
+	bob := seedUser(t, db, "bob@example.com", domain.RoleUser)
+
+	t.Run("the kill switch, and an admin's caps, which updates leave it be (D220, D222)", func(t *testing.T) {
+		require.NoError(t, users.SetLiveStopped(ctx, alice.ID, at))
+
+		u, err := users.ByID(ctx, alice.ID)
+		require.NoError(t, err)
+		assert.Equal(t, at, u.LiveStoppedAt)
+		assert.Equal(t, domain.LiveCaps{}, u.LiveCaps, "the instance's")
+
+		perOrder, perDay := 250, 0
+		u.LiveCaps = domain.LiveCaps{PerOrder: &perOrder, PerDay: &perDay}
+		u.LiveStoppedAt = time.Time{}
+		require.NoError(t, users.Update(ctx, u))
+
+		got, err := users.ByID(ctx, alice.ID)
+		require.NoError(t, err)
+		assert.Equal(t, 250, *got.LiveCaps.PerOrder)
+		assert.Equal(t, 0, *got.LiveCaps.PerDay, "0 is none, not the instance's")
+		assert.Equal(t, at, got.LiveStoppedAt, "only SetLiveStopped turns it off")
+
+		require.NoError(t, users.SetLiveStopped(ctx, alice.ID, time.Time{}))
+
+		got, err = users.ByID(ctx, alice.ID)
+		require.NoError(t, err)
+		assert.False(t, got.LiveStopped())
+
+		assert.ErrorIs(t, users.SetLiveStopped(ctx, domain.UserID(newID()), at), domain.ErrNotFound)
+	})
+
+	t.Run("what a user's live buys spent and may still spend, all their workflows' (D223)", func(t *testing.T) {
+		wallet := seedWallet(t, db, alice, "0x2222222222222222222222222222222222222222")
+		theirs := seedWallet(t, db, bob, "0x3333333333333333333333333333333333333333")
+
+		one, two, bobs := newWorkflow(alice.ID, "one"), newWorkflow(alice.ID, "two"), newWorkflow(bob.ID, "bob's")
+		for _, w := range []domain.Workflow{one, two, bobs} {
+			require.NoError(t, postgres.NewWorkflows(db).Create(ctx, w))
+		}
+
+		order := func(w domain.Workflow, mode domain.TradingMode, side domain.Side, status domain.OrderStatus, created time.Time, fills ...domain.OrderFill) domain.PlacedOrder {
+			o := domain.PlacedOrder{
+				OrderRequest: domain.OrderRequest{
+					WorkflowID: w.ID, OwnerID: w.OwnerID, NodeID: "buy", Mode: mode, TokenID: "t-yes", MarketID: "0xm",
+					Side: side, Type: domain.OrderGTC, Price: num("0.5"), Shares: num("10"),
+				},
+				ID: domain.OrderID(newID()), Status: status, Fills: fills, CreatedAt: created,
+			}
+
+			if mode == domain.ModeLive {
+				o.WalletID, o.ClobID = wallet.ID, "0x"+newID()
+				if w.OwnerID == bob.ID {
+					o.WalletID = theirs.ID
+				}
+			}
+
+			return o
+		}
+
+		fill := func(status domain.FillStatus) domain.OrderFill {
+			return domain.OrderFill{Price: num("0.5"), Shares: num("10"), Dollars: num("5"), Fee: num("0.1"), TradeID: "trade-" + newID(), Status: status}
+		}
+
+		open := order(two, domain.ModeLive, domain.SideBuy, domain.OrderOpen, at)
+		pending := order(one, domain.ModeLive, domain.SideBuy, domain.OrderPending, at)
+
+		for _, o := range []domain.PlacedOrder{
+			order(one, domain.ModeLive, domain.SideBuy, domain.OrderFilled, at, fill(domain.FillConfirmed)),                   // counts
+			order(two, domain.ModeLive, domain.SideBuy, domain.OrderFilled, at, fill(domain.FillMatched)),                     // counts
+			order(one, domain.ModeLive, domain.SideBuy, domain.OrderFailed, at, fill(domain.FillFailed)),                      // undone
+			order(one, domain.ModeLive, domain.SideBuy, domain.OrderFilled, at.Add(-2*time.Hour), fill(domain.FillConfirmed)), // before
+			order(one, domain.ModeLive, domain.SideSell, domain.OrderFilled, at, fill(domain.FillConfirmed)),                  // a sell
+			order(one, domain.ModePaper, domain.SideBuy, domain.OrderFilled, at, domain.OrderFill{Price: num("0.5"), Shares: num("10"), Dollars: num("5"), Fee: num("0")}),
+			order(bobs, domain.ModeLive, domain.SideBuy, domain.OrderFilled, at, fill(domain.FillConfirmed)), // bob's
+			order(bobs, domain.ModeLive, domain.SideBuy, domain.OrderOpen, at),
+			open, pending,
+		} {
+			require.NoError(t, ledger.Record(ctx, o, nil))
+		}
+
+		spent, err := ledger.OwnerSpent(ctx, alice.ID, domain.ModeLive, at.Add(-time.Hour))
+		require.NoError(t, err)
+		assert.Equal(t, "10.2", spent.String(), "two buys of $5, with $0.10 in fees each")
+
+		unsettled, err := ledger.OwnerUnsettled(ctx, alice.ID, domain.ModeLive)
+		require.NoError(t, err)
+
+		ids := make([]domain.OrderID, len(unsettled))
+		for i, o := range unsettled {
+			ids[i] = o.ID
+		}
+
+		assert.ElementsMatch(t, []domain.OrderID{open.ID, pending.ID}, ids)
+	})
+}

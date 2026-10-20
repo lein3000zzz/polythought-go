@@ -725,9 +725,9 @@ export interface TradingPlaceOrderSettings {
 export interface TradingRiskGuardSettings {
     /** The most one copy spends. */
     maxPerCopy?: DecimalText | number | Expression;
-    /** The most the workflow holds in one market, at cost, all traders' copies together. */
+    /** The most the workflow holds in one market, at cost, all traders' copies together, with what its resting buys there hold. */
     maxPerMarket?: DecimalText | number | Expression;
-    /** The most the workflow's buys spend in 24 hours. */
+    /** The most the workflow's buys spend in 24 hours, with what its resting buys hold. */
     maxPerDay?: DecimalText | number | Expression;
     /** Buys at a lower price are blocked. */
     minPrice?: DecimalText | number | Expression;

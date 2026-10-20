@@ -27,6 +27,9 @@ type usersTable struct {
 	CreatedAt       postgres.ColumnTimestampz
 	UpdatedAt       postgres.ColumnTimestampz
 	CodeChosen      postgres.ColumnBool
+	LiveStoppedAt   postgres.ColumnTimestampz
+	MaxLiveOrder    postgres.ColumnInteger
+	MaxLiveDay      postgres.ColumnInteger
 
 	AllColumns     postgres.ColumnList
 	MutableColumns postgres.ColumnList
@@ -78,8 +81,11 @@ func newUsersTableImpl(schemaName, tableName, alias string) usersTable {
 		CreatedAtColumn       = postgres.TimestampzColumn("created_at")
 		UpdatedAtColumn       = postgres.TimestampzColumn("updated_at")
 		CodeChosenColumn      = postgres.BoolColumn("code_chosen")
-		allColumns            = postgres.ColumnList{IDColumn, EmailColumn, EmailNormalizedColumn, PasswordHashColumn, RoleColumn, EmailVerifiedAtColumn, DisabledAtColumn, CreatedAtColumn, UpdatedAtColumn, CodeChosenColumn}
-		mutableColumns        = postgres.ColumnList{EmailColumn, EmailNormalizedColumn, PasswordHashColumn, RoleColumn, EmailVerifiedAtColumn, DisabledAtColumn, CreatedAtColumn, UpdatedAtColumn, CodeChosenColumn}
+		LiveStoppedAtColumn   = postgres.TimestampzColumn("live_stopped_at")
+		MaxLiveOrderColumn    = postgres.IntegerColumn("max_live_order")
+		MaxLiveDayColumn      = postgres.IntegerColumn("max_live_day")
+		allColumns            = postgres.ColumnList{IDColumn, EmailColumn, EmailNormalizedColumn, PasswordHashColumn, RoleColumn, EmailVerifiedAtColumn, DisabledAtColumn, CreatedAtColumn, UpdatedAtColumn, CodeChosenColumn, LiveStoppedAtColumn, MaxLiveOrderColumn, MaxLiveDayColumn}
+		mutableColumns        = postgres.ColumnList{EmailColumn, EmailNormalizedColumn, PasswordHashColumn, RoleColumn, EmailVerifiedAtColumn, DisabledAtColumn, CreatedAtColumn, UpdatedAtColumn, CodeChosenColumn, LiveStoppedAtColumn, MaxLiveOrderColumn, MaxLiveDayColumn}
 		defaultColumns        = postgres.ColumnList{CodeChosenColumn}
 	)
 
@@ -97,6 +103,9 @@ func newUsersTableImpl(schemaName, tableName, alias string) usersTable {
 		CreatedAt:       CreatedAtColumn,
 		UpdatedAt:       UpdatedAtColumn,
 		CodeChosen:      CodeChosenColumn,
+		LiveStoppedAt:   LiveStoppedAtColumn,
+		MaxLiveOrder:    MaxLiveOrderColumn,
+		MaxLiveDay:      MaxLiveDayColumn,
 
 		AllColumns:     allColumns,
 		MutableColumns: mutableColumns,

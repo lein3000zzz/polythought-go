@@ -434,6 +434,22 @@ func TestRoutes(t *testing.T) {
 			wantStatus: http.StatusOK,
 		},
 		{
+			name: "an admin's caps for a user's live buys (D222)",
+			req:  request{method: "PATCH", path: "/api/v1/admin/users/u-1", body: `{"liveCaps":{"perOrder":250}}`, headers: bearer},
+			setup: func(svc *httpapimocks.MockAuthService) {
+				withToken(svc, root)
+
+				perOrder, capped := 250, alice
+				capped.LiveCaps.PerOrder = &perOrder
+
+				svc.EXPECT().UpdateUser(mock.Anything, mock.Anything, domain.UserID("u-1"), mock.MatchedBy(func(u auth.UserUpdate) bool {
+					return u.LiveCaps != nil && *u.LiveCaps.PerOrder == 250 && u.LiveCaps.PerDay == nil && u.Role == nil
+				})).Return(capped, nil)
+			},
+			wantStatus: http.StatusOK,
+			wantBody:   []string{`"liveCaps":{"perOrder":250}`, `"liveStopped":false`},
+		},
+		{
 			name: "pick a user to write code",
 			req:  request{method: "PATCH", path: "/api/v1/admin/users/u-1", body: `{"codeChosen":true}`, headers: bearer},
 			setup: func(svc *httpapimocks.MockAuthService) {

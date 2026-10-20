@@ -43,6 +43,12 @@ type Ledger interface {
 
 	// Spent is what a workflow's buys in a mode spent since then, fees included.
 	Spent(ctx context.Context, workflow domain.WorkflowID, mode domain.TradingMode, since time.Time) (decimal.Decimal, error)
+	// OwnerSpent is what a user's buys in a mode spent since then, fees included, all
+	// their workflows', deleted ones' too: for the admin's day cap (D223).
+	OwnerSpent(ctx context.Context, owner domain.UserID, mode domain.TradingMode, since time.Time) (decimal.Decimal, error)
+	// OwnerUnsettled are a user's orders in a mode resting or pending: what may still
+	// spend.
+	OwnerUnsettled(ctx context.Context, owner domain.UserID, mode domain.TradingMode) ([]domain.PlacedOrder, error)
 
 	// Record adds an order with its fills and, with a change, what it did: in one
 	// transaction, so the books always add up.

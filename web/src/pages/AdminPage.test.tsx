@@ -81,7 +81,12 @@ describe('admin page', () => {
     expect(await screen.findByRole('link', { name: 'Admin' })).toBeInTheDocument()
     await screen.findByText('alice@example.com')
     expect(within(userRow('root@example.com')).getByText('You')).toBeInTheDocument()
-    expect(within(userRow('root@example.com')).queryByRole('button')).not.toBeInTheDocument()
+    // Their own caps only: no role or disabling for themselves.
+    expect(
+      within(userRow('root@example.com'))
+        .getAllByRole('button')
+        .map((b) => b.getAttribute('aria-label')),
+    ).toEqual(['Live caps of root@example.com'])
 
     await user.type(screen.getByLabelText('Email'), 'bob@example.com')
     await user.type(screen.getByLabelText('Password'), 'a long enough password')
@@ -99,6 +104,63 @@ describe('admin page', () => {
       { email: 'bob@example.com', password: 'a long enough password', role: 'admin' },
       { disabled: true },
     ])
+  })
+
+  it("caps a user's live buys over the instance's, and shows whose live trading stopped (D222)", async () => {
+    const sent: unknown[] = []
+    const cap = (key: string, label: string, value: number): Schemas['Setting'] => ({
+      key,
+      group: 'Trading',
+      label,
+      description: label,
+      kind: 'int',
+      secret: false,
+      isSet: false,
+      apply: 'live',
+      value,
+      default: value,
+      source: 'default',
+      env: '',
+      pending: false,
+    })
+
+    admin([root, { ...alice, liveStopped: true, liveStoppedAt: '2026-10-20T10:00:00Z' }])
+    server.use(
+      http.get('/api/v1/admin/settings', () =>
+        HttpResponse.json({
+          settings: [
+            cap('trading.max_live_order', 'Max $ a live order', 100),
+            cap('trading.max_live_day', 'Max $ a day of live buys', 1000),
+          ],
+          restartPending: false,
+        }),
+      ),
+      http.patch('/api/v1/admin/users/u-1', async ({ request }) => {
+        sent.push(await request.json())
+        return HttpResponse.json({ ...alice, liveCaps: { perOrder: 250 } })
+      }),
+    )
+    const { user } = renderApp('/admin')
+
+    await screen.findByText('alice@example.com')
+    const row = userRow('alice@example.com')
+    expect(within(row).getByText('Live stopped')).toBeInTheDocument()
+
+    await user.click(within(row).getByRole('button', { name: 'Live caps of alice@example.com' }))
+    expect(screen.getByLabelText('Max $ a live order')).toHaveAttribute(
+      'placeholder',
+      'Default: $100',
+    )
+    expect(screen.getByLabelText('Max $ a day of live buys')).toHaveAttribute(
+      'placeholder',
+      'Default: $1,000',
+    )
+
+    await user.type(screen.getByLabelText('Max $ a live order'), '250')
+    await user.click(screen.getByRole('button', { name: 'Save' }))
+
+    expect(await screen.findByText('Live caps of alice@example.com saved')).toBeInTheDocument()
+    expect(sent).toEqual([{ liveCaps: { perOrder: 250 } }])
   })
 
   it('marks an unverified address verified, or sends its link again', async () => {

@@ -22,8 +22,11 @@ type UserRepository interface {
 	ByEmail(ctx context.Context, email string) (domain.User, string, error)
 	PasswordHash(ctx context.Context, id domain.UserID) (string, error)
 	SetPasswordHash(ctx context.Context, id domain.UserID, hash string, at time.Time) error
-	// Update writes Role and DisabledAt.
+	// Update writes Role, DisabledAt, CodeChosen and LiveCaps; not LiveStoppedAt.
 	Update(ctx context.Context, u domain.User) error
+	// SetLiveStopped turns the user's kill switch on at at, or off with the zero time
+	// (D220).
+	SetLiveStopped(ctx context.Context, id domain.UserID, at time.Time) error
 	List(ctx context.Context, f PageFilter) (Page[domain.User], error)
 	CountActiveAdmins(ctx context.Context) (int, error)
 	// LockActiveAdmins locks the active admins' rows until the surrounding transaction

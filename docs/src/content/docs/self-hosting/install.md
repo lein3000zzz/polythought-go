@@ -103,9 +103,18 @@ Workflows trade on paper until an admin turns on **Live trading** under Trading 
 Config page: then an owner can switch a workflow to live in its Trading view, confirming
 it, and its orders go to Polymarket from one of their wallets, spending its pUSD (see
 [Trading live](/docs/guides/copy-traders/#trading-live)). Turned off again, workflows
-already switched keep their switch, but their orders are refused. Like every setting, it
-can be fixed in the environment instead, `POLYTHOUGHT_TRADING_LIVE=false`, which the Config
-page then shows locked.
+already switched keep their switch, but their orders are refused, and every live order
+resting on the book is cancelled, after the page asks. Like every setting, it can be fixed
+in the environment instead, `POLYTHOUGHT_TRADING_LIVE=false`, which the Config page then
+shows locked.
+
+**Max $ a live order** and **Max $ a day of live buys**, also under Trading, cap what each
+user's live buys may spend: $100 an order and $1,000 in 24 hours to start with, 0 for no
+cap. The day counts what a user's live buys spent and what their resting ones may still
+spend, all their workflows together; a buy over either cap is refused before it is sent.
+On the Users page, **Live caps** gives a user caps of their own, over these, empty for the
+instance's. Disabling a user turns their kill switch on, cancelling their resting live
+orders (see [Stopping it](/docs/guides/copy-traders/#stopping-it)).
 
 Live orders go from the server to Polymarket's CLOB at clob.polymarket.com, signed there
 with the wallet's imported or session key. The server follows each until its trades are

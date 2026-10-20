@@ -48,6 +48,8 @@ const (
 	KeyPolygonRPC          = "trading.polygon_rpc"
 	KeyLiveTrading         = "trading.live"
 	KeyBuilderCode         = "trading.builder_code"
+	KeyMaxLiveOrder        = "trading.max_live_order"
+	KeyMaxLiveDay          = "trading.max_live_day"
 	KeyTrustedProxies      = "http.trusted_proxies"
 	KeyWebhookAllowPrivate = "webhook.allow_private"
 	KeyLogLevel            = "log.level"
@@ -241,8 +243,18 @@ func Settings() (*settings.Registry, error) {
 		},
 		settings.Spec{
 			Key: KeyLiveTrading, Group: groupTrading, Label: "Live trading",
-			Description: "Whether workflows may trade live: real orders on Polymarket from their owner's wallet, spending its pUSD. Off, every workflow trades on paper and live orders are refused. On, an owner switches a workflow to live in its Trading view, confirming it. Workflows switched to live stay so when it is turned off, but place no orders until it is on again.",
+			Description: "Whether workflows may trade live: real orders on Polymarket from their owner's wallet, spending its pUSD. Off, every workflow trades on paper and live orders are refused. On, an owner switches a workflow to live in its Trading view, confirming it. Turning it off cancels every live order resting on the book, every user's; workflows switched to live stay so, but place no orders until it is on again.",
 			Kind:        settings.KindBool, Default: false,
+		},
+		settings.Spec{
+			Key: KeyMaxLiveOrder, Group: groupTrading, Label: "Max $ a live order",
+			Description: "The most one live buy may spend, in whole dollars, for every user: one over it is refused before it is sent. 0 for no cap. An admin can give a user a cap of their own on the Users page.",
+			Kind:        settings.KindInt, Default: 100, Check: between(0, 10_000_000),
+		},
+		settings.Spec{
+			Key: KeyMaxLiveDay, Group: groupTrading, Label: "Max $ a day of live buys",
+			Description: "The most a user's live buys may spend and hold in 24 hours, in whole dollars, all their workflows together: what they spent, and what their resting buys may still spend. A buy that would go over is refused before it is sent. 0 for no cap. An admin can give a user a cap of their own on the Users page.",
+			Kind:        settings.KindInt, Default: 1000, Check: between(0, 10_000_000),
 		},
 		settings.Spec{
 			Key: KeyBuilderCode, Group: groupTrading, Label: "Builder code",

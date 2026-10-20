@@ -181,10 +181,23 @@ trading:
   # Whether workflows may trade live: real orders on Polymarket from their owner's
   # wallet, spending its pUSD. Off, every workflow trades on paper and live orders are
   # refused. On, an owner switches a workflow to live in its Trading view, confirming
-  # it. Workflows switched to live stay so when it is turned off, but place no orders
-  # until it is on again.
+  # it. Turning it off cancels every live order resting on the book, every user's;
+  # workflows switched to live stay so, but place no orders until it is on again.
   # Environment: POLYTHOUGHT_TRADING_LIVE.
   # live: false
+
+  # The most one live buy may spend, in whole dollars, for every user: one over it is
+  # refused before it is sent. 0 for no cap. An admin can give a user a cap of their own
+  # on the Users page.
+  # Environment: POLYTHOUGHT_TRADING_MAX_LIVE_ORDER.
+  # max_live_order: 100
+
+  # The most a user's live buys may spend and hold in 24 hours, in whole dollars, all
+  # their workflows together: what they spent, and what their resting buys may still
+  # spend. A buy that would go over is refused before it is sent. 0 for no cap. An admin
+  # can give a user a cap of their own on the Users page.
+  # Environment: POLYTHOUGHT_TRADING_MAX_LIVE_DAY.
+  # max_live_day: 1000
 
   # Your Polymarket builder code, 0x and 64 hex digits, from
   # polymarket.com/settings?tab=builder: live orders then carry it, crediting your

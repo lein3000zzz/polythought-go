@@ -437,6 +437,78 @@ func (_c *MockTradingService_Reset_Call) RunAndReturn(run func(ctx context.Conte
 	return _c
 }
 
+// SetKillSwitch provides a mock function for the type MockTradingService
+func (_mock *MockTradingService) SetKillSwitch(ctx context.Context, p auth.Principal, on bool) (trading.KillSwitch, error) {
+	ret := _mock.Called(ctx, p, on)
+
+	if len(ret) == 0 {
+		panic("no return value specified for SetKillSwitch")
+	}
+
+	var r0 trading.KillSwitch
+	var r1 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context, auth.Principal, bool) (trading.KillSwitch, error)); ok {
+		return returnFunc(ctx, p, on)
+	}
+	if returnFunc, ok := ret.Get(0).(func(context.Context, auth.Principal, bool) trading.KillSwitch); ok {
+		r0 = returnFunc(ctx, p, on)
+	} else {
+		r0 = ret.Get(0).(trading.KillSwitch)
+	}
+	if returnFunc, ok := ret.Get(1).(func(context.Context, auth.Principal, bool) error); ok {
+		r1 = returnFunc(ctx, p, on)
+	} else {
+		r1 = ret.Error(1)
+	}
+	return r0, r1
+}
+
+// MockTradingService_SetKillSwitch_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'SetKillSwitch'
+type MockTradingService_SetKillSwitch_Call struct {
+	*mock.Call
+}
+
+// SetKillSwitch is a helper method to define mock.On call
+//   - ctx context.Context
+//   - p auth.Principal
+//   - on bool
+func (_e *MockTradingService_Expecter) SetKillSwitch(ctx any, p any, on any) *MockTradingService_SetKillSwitch_Call {
+	return &MockTradingService_SetKillSwitch_Call{Call: _e.mock.On("SetKillSwitch", ctx, p, on)}
+}
+
+func (_c *MockTradingService_SetKillSwitch_Call) Run(run func(ctx context.Context, p auth.Principal, on bool)) *MockTradingService_SetKillSwitch_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		var arg1 auth.Principal
+		if args[1] != nil {
+			arg1 = args[1].(auth.Principal)
+		}
+		var arg2 bool
+		if args[2] != nil {
+			arg2 = args[2].(bool)
+		}
+		run(
+			arg0,
+			arg1,
+			arg2,
+		)
+	})
+	return _c
+}
+
+func (_c *MockTradingService_SetKillSwitch_Call) Return(killSwitch trading.KillSwitch, err error) *MockTradingService_SetKillSwitch_Call {
+	_c.Call.Return(killSwitch, err)
+	return _c
+}
+
+func (_c *MockTradingService_SetKillSwitch_Call) RunAndReturn(run func(ctx context.Context, p auth.Principal, on bool) (trading.KillSwitch, error)) *MockTradingService_SetKillSwitch_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // SetSetup provides a mock function for the type MockTradingService
 func (_mock *MockTradingService) SetSetup(ctx context.Context, p auth.Principal, id domain.WorkflowID, c trading.SetupChange) (trading.Setup, error) {
 	ret := _mock.Called(ctx, p, id, c)

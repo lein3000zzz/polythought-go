@@ -119,6 +119,7 @@ func TestUpdateUser(t *testing.T) {
 
 	role := func(r domain.Role) *domain.Role { return &r }
 	flag := func(b bool) *bool { return &b }
+	dollars := func(n int) *int { return &n }
 
 	tests := []struct {
 		name    string
@@ -155,6 +156,7 @@ func TestUpdateUser(t *testing.T) {
 				d.users.EXPECT().Update(mock.Anything, mock.Anything).Return(nil)
 				d.sessions.EXPECT().DeleteForUser(mock.Anything, target.ID, domain.SessionID("")).Return(nil)
 				d.workflows.EXPECT().StopAll(mock.Anything, target.ID).Return(nil).Once()
+				d.live.EXPECT().StopLive(mock.Anything, target.ID).Return(nil).Once()
 			},
 			check: func(t *testing.T, u domain.User) { assert.Equal(t, now, u.DisabledAt) },
 		},
@@ -167,6 +169,7 @@ func TestUpdateUser(t *testing.T) {
 				d.users.EXPECT().Update(mock.Anything, mock.Anything).Return(nil)
 				d.sessions.EXPECT().DeleteForUser(mock.Anything, target.ID, domain.SessionID("")).Return(nil)
 				d.workflows.EXPECT().StopAll(mock.Anything, target.ID).Return(nil).Once()
+				d.live.EXPECT().StopLive(mock.Anything, target.ID).Return(nil).Once()
 			},
 			check: func(t *testing.T, u domain.User) {
 				assert.Equal(t, now.Add(-time.Hour), u.DisabledAt, "the first disable time stays")
@@ -181,6 +184,37 @@ func TestUpdateUser(t *testing.T) {
 				d.workflows.EXPECT().StopAll(mock.Anything, target.ID).Return(domain.ErrUnavailable)
 			},
 			wantErr: domain.ErrUnavailable,
+		},
+		{
+			name: "disabling turns their kill switch on, a failure reported (D226)", actor: sessionPrincipal(admin), id: target.ID, upd: auth.UserUpdate{Disabled: flag(true)},
+			setup: func(d deps) {
+				d.users.EXPECT().ByID(mock.Anything, target.ID).Return(target, nil)
+				d.users.EXPECT().Update(mock.Anything, mock.Anything).Return(nil)
+				d.sessions.EXPECT().DeleteForUser(mock.Anything, target.ID, domain.SessionID("")).Return(nil)
+				d.workflows.EXPECT().StopAll(mock.Anything, target.ID).Return(nil).Once()
+				d.live.EXPECT().StopLive(mock.Anything, target.ID).Return(domain.ErrUnavailable).Once()
+			},
+			wantErr: domain.ErrUnavailable,
+		},
+		{
+			name: "an admin's caps for a user (D222)", actor: sessionPrincipal(admin), id: target.ID,
+			upd: auth.UserUpdate{LiveCaps: &domain.LiveCaps{PerOrder: dollars(250)}},
+			setup: func(d deps) {
+				capped := target
+				capped.LiveCaps = domain.LiveCaps{PerOrder: dollars(50), PerDay: dollars(500)}
+				d.users.EXPECT().ByID(mock.Anything, target.ID).Return(capped, nil)
+				d.users.EXPECT().Update(mock.Anything, mock.MatchedBy(func(u domain.User) bool {
+					return *u.LiveCaps.PerOrder == 250 && u.LiveCaps.PerDay == nil
+				})).Return(nil)
+			},
+			check: func(t *testing.T, u domain.User) {
+				assert.Equal(t, 250, *u.LiveCaps.PerOrder)
+				assert.Nil(t, u.LiveCaps.PerDay, "back to the instance's")
+			},
+		},
+		{
+			name: "a cap below 0 is refused", actor: sessionPrincipal(admin), id: target.ID,
+			upd: auth.UserUpdate{LiveCaps: &domain.LiveCaps{PerDay: dollars(-1)}}, setup: func(deps) {}, wantErr: domain.ErrInvalidInput,
 		},
 		{
 			// The mock fails the test if StopAll is called: enabling does not restart anything.

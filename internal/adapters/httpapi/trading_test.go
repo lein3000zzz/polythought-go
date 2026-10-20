@@ -244,6 +244,20 @@ func TestTrading(t *testing.T) {
 		assert.JSONEq(t, `{"open":true,"cash":"1000","startedWith":"1000","startedAt":"2026-10-17T12:00:00Z","resetAt":"2026-10-17T12:00:00Z"}`, w.Body.String())
 	})
 
+	t.Run("the kill switch, on and off (D220)", func(t *testing.T) {
+		trading.EXPECT().SetKillSwitch(mock.Anything, byAlice, true).
+			Return(tradingsvc.KillSwitch{On: true, Since: at, Cancelled: 2, Left: 1}, nil).Once()
+
+		w := request{method: "PUT", path: "/api/v1/me/kill-switch", headers: cookie, body: `{"on":true}`}.do(t, srv)
+		assert.Equal(t, http.StatusOK, w.Code, w.Body.String())
+		assert.JSONEq(t, `{"on":true,"since":"2026-10-17T12:00:00Z","cancelled":2,"left":1}`, w.Body.String())
+
+		trading.EXPECT().SetKillSwitch(mock.Anything, byAlice, false).Return(tradingsvc.KillSwitch{}, nil).Once()
+
+		w = request{method: "PUT", path: "/api/v1/me/kill-switch", headers: cookie, body: `{"on":false}`}.do(t, srv)
+		assert.JSONEq(t, `{"on":false,"cancelled":0,"left":0}`, w.Body.String())
+	})
+
 	t.Run("someone else's workflow is not there", func(t *testing.T) {
 		trading.EXPECT().Holdings(mock.Anything, byAlice, domain.WorkflowID("wf-bob")).Return(nil, domain.ErrNotFound).Once()
 

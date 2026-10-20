@@ -17,6 +17,7 @@ import (
 	"github.com/lein3000zzz/polythought-go/internal/core/ports"
 	"github.com/lein3000zzz/polythought-go/internal/core/services/auth"
 	"github.com/lein3000zzz/polythought-go/internal/core/services/notify"
+	"github.com/lein3000zzz/polythought-go/internal/core/services/trading"
 	"github.com/lein3000zzz/polythought-go/internal/core/services/workflows"
 )
 
@@ -47,13 +48,19 @@ type Notifications interface {
 	SetPref(ctx context.Context, p auth.Principal, key string, enabled bool) (notify.Pref, error)
 }
 
+// KillSwitch is the trading service's kill switch, for the Status section (D225).
+type KillSwitch interface {
+	SetKillSwitch(ctx context.Context, p auth.Principal, on bool) (trading.KillSwitch, error)
+}
+
 // Menu is what the bot's menu reads and does for the linked user.
 type Menu struct {
 	Workflows     Workflows
 	Wallets       Wallets
 	Positions     ports.PositionReader
 	Notifications Notifications
-	Trading       Trading // optional: without it, the Traders section is not available
+	Trading       Trading    // optional: without it, the Traders section is not available
+	Live          KillSwitch // optional: without it, Status has no kill switch
 }
 
 // UseMenu gives the bot its menu. Call it before the bot runs.
@@ -87,6 +94,7 @@ const (
 	dataDeactivate = "wd:" // wd:<id>: switch it off
 	dataWallet     = "pw:" // pw:<wallet id>: its positions
 	dataNotify     = "n:"  // n:<kind>: switch a notification
+	dataKill       = "ks:" // ks:on stops live trading at once; ks:ask asks before ks:off resumes it
 )
 
 // screen is what a menu message shows.
@@ -186,6 +194,8 @@ func (s *Service) menuPress(ctx context.Context, cb ports.TelegramCallback, user
 		sc = s.positions(ctx, user, domain.WalletID(arg))
 	case dataNotify:
 		sc = s.notifications(ctx, user, arg)
+	case dataKill:
+		sc = s.killSwitch(ctx, user, arg)
 	case dataTraderFlows:
 		sc = s.traderFlows(ctx, user)
 	case dataTraderFlow, dataTrader, dataTraderSwitch:
@@ -368,7 +378,15 @@ func (s *Service) setActive(ctx context.Context, user domain.User, id domain.Wor
 // Status.
 
 func (s *Service) status(ctx context.Context, user domain.User) screen {
+	return s.statusWith(ctx, user, "")
+}
+
+// statusWith is Status, with a note on what was just done above it.
+func (s *Service) statusWith(ctx context.Context, user domain.User, note string) screen {
 	refresh := [][]ports.TelegramButton{{{Text: "↻ Refresh", Data: dataSection + "s"}}}
+	if b, ok := s.killButton(ctx, user); ok {
+		refresh = append([][]ports.TelegramButton{{b}}, refresh...)
+	}
 
 	var active []domain.Workflow
 
@@ -394,6 +412,14 @@ func (s *Service) status(ctx context.Context, user domain.User) screen {
 	var b strings.Builder
 
 	b.WriteString("<b>Status</b>\n")
+
+	if note != "" {
+		b.WriteString("\n" + note + "\n")
+	}
+
+	if user.LiveStopped() {
+		b.WriteString("\n🛑 Live trading is stopped (" + s.ago(user.LiveStoppedAt) + "): your workflows place no live orders.\n")
+	}
 
 	if len(active) == 0 {
 		b.WriteString("\nNo workflow is on.")
@@ -448,6 +474,72 @@ func (s *Service) status(ctx context.Context, user domain.User) screen {
 	}
 
 	return screen{html: b.String(), buttons: refresh}
+}
+
+// killButton stops live trading, or offers to resume it (D225): for users with a wallet
+// that can trade, or whose kill switch is on.
+func (s *Service) killButton(ctx context.Context, user domain.User) (ports.TelegramButton, bool) {
+	if s.menu.Live == nil {
+		return ports.TelegramButton{}, false
+	}
+
+	if user.LiveStopped() {
+		return ports.TelegramButton{Text: "▶️ Resume live trading", Data: dataKill + "ask"}, true
+	}
+
+	wallets, err := s.menu.Wallets.List(ctx, principal(user))
+	if err != nil {
+		s.ignored(ctx, "Wallets not read for the kill switch", err)
+		return ports.TelegramButton{}, false
+	}
+
+	if !slices.ContainsFunc(wallets, func(w domain.Wallet) bool { return w.HasKey || w.HasSessionKey }) {
+		return ports.TelegramButton{}, false
+	}
+
+	return ports.TelegramButton{Text: "🛑 Stop live trading", Data: dataKill + "on"}, true
+}
+
+// killSwitch stops live trading at once, or resumes it once asked (D225).
+func (s *Service) killSwitch(ctx context.Context, user domain.User, arg string) screen {
+	if s.menu.Live == nil {
+		return screen{html: textStale}
+	}
+
+	switch arg {
+	case "ask":
+		return screen{
+			html: "<b>Resume live trading?</b>\n\nYour workflows trading live place orders again, as before.",
+			buttons: [][]ports.TelegramButton{{
+				{Text: "▶️ Resume", Data: dataKill + "off"}, {Text: "Keep stopped", Data: dataSection + "s"},
+			}},
+		}
+	case "on", "off":
+		ks, err := s.menu.Live.SetKillSwitch(ctx, principal(user), arg == "on")
+		if err != nil {
+			return s.trouble(ctx, err)
+		}
+
+		user.LiveStoppedAt = ks.Since
+
+		if !ks.On {
+			return s.statusWith(ctx, user, "▶️ Live trading resumed.")
+		}
+
+		note := "🛑 Live trading stopped."
+		if ks.Cancelled > 0 {
+			note += fmt.Sprintf(" %d resting %s cancelled.", ks.Cancelled, plural(ks.Cancelled, "order", "orders"))
+		}
+
+		if ks.Left > 0 {
+			note += fmt.Sprintf(" %d still %s: Polymarket did not cancel %s; see their workflows' Trading view.",
+				ks.Left, plural(ks.Left, "rests", "rest"), plural(ks.Left, "it", "them"))
+		}
+
+		return s.statusWith(ctx, user, note)
+	}
+
+	return screen{html: textStale}
 }
 
 // Positions.

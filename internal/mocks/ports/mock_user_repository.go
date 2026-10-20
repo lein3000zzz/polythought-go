@@ -688,6 +688,69 @@ func (_c *MockUserRepository_SetEmailVerified_Call) RunAndReturn(run func(ctx co
 	return _c
 }
 
+// SetLiveStopped provides a mock function for the type MockUserRepository
+func (_mock *MockUserRepository) SetLiveStopped(ctx context.Context, id domain.UserID, at time.Time) error {
+	ret := _mock.Called(ctx, id, at)
+
+	if len(ret) == 0 {
+		panic("no return value specified for SetLiveStopped")
+	}
+
+	var r0 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context, domain.UserID, time.Time) error); ok {
+		r0 = returnFunc(ctx, id, at)
+	} else {
+		r0 = ret.Error(0)
+	}
+	return r0
+}
+
+// MockUserRepository_SetLiveStopped_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'SetLiveStopped'
+type MockUserRepository_SetLiveStopped_Call struct {
+	*mock.Call
+}
+
+// SetLiveStopped is a helper method to define mock.On call
+//   - ctx context.Context
+//   - id domain.UserID
+//   - at time.Time
+func (_e *MockUserRepository_Expecter) SetLiveStopped(ctx any, id any, at any) *MockUserRepository_SetLiveStopped_Call {
+	return &MockUserRepository_SetLiveStopped_Call{Call: _e.mock.On("SetLiveStopped", ctx, id, at)}
+}
+
+func (_c *MockUserRepository_SetLiveStopped_Call) Run(run func(ctx context.Context, id domain.UserID, at time.Time)) *MockUserRepository_SetLiveStopped_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		var arg1 domain.UserID
+		if args[1] != nil {
+			arg1 = args[1].(domain.UserID)
+		}
+		var arg2 time.Time
+		if args[2] != nil {
+			arg2 = args[2].(time.Time)
+		}
+		run(
+			arg0,
+			arg1,
+			arg2,
+		)
+	})
+	return _c
+}
+
+func (_c *MockUserRepository_SetLiveStopped_Call) Return(err error) *MockUserRepository_SetLiveStopped_Call {
+	_c.Call.Return(err)
+	return _c
+}
+
+func (_c *MockUserRepository_SetLiveStopped_Call) RunAndReturn(run func(ctx context.Context, id domain.UserID, at time.Time) error) *MockUserRepository_SetLiveStopped_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // SetPasswordHash provides a mock function for the type MockUserRepository
 func (_mock *MockUserRepository) SetPasswordHash(ctx context.Context, id domain.UserID, hash string, at time.Time) error {
 	ret := _mock.Called(ctx, id, hash, at)

@@ -83,6 +83,17 @@ func TestRiskGuardCaps(t *testing.T) {
 		assert.Equal(t, "10", dollarsOf(t, out[engine.DefaultPort][0]).String())
 	})
 
+	t.Run("what resting buys hold counts in the day's and the market's caps (D219)", func(t *testing.T) {
+		resting := map[domain.MarketID]decimal.Decimal{"0xm": d("60"), "0xother": d("20")}
+
+		out := guarded(t, books{spent: "400", resting: resting}, map[string]any{"maxPerDay": "500"}, copyOf("50"))
+		assert.Equal(t, "20", dollarsOf(t, out[engine.DefaultPort][0]).String(), "$400 spent and $80 held")
+
+		b := books{resting: resting, holdings: []domain.Holding{{Mode: domain.ModePaper, MarketID: "0xm", TokenID: "t-yes", Cost: d("30")}}}
+		out = guarded(t, b, map[string]any{"maxPerMarket": "100"}, copyOf("50"))
+		assert.Equal(t, "10", dollarsOf(t, out[engine.DefaultPort][0]).String(), "$30 held and $60 resting in the market")
+	})
+
 	t.Run("live, its live books: what it holds and spent live", func(t *testing.T) {
 		var modes []domain.TradingMode
 		b := books{live: true, spent: "0", modes: &modes, holdings: []domain.Holding{

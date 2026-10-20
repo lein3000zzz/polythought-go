@@ -115,8 +115,8 @@ order, holds copies of buys to the limits you set; a limit left empty does not a
 | Setting | Holds a copy to |
 |---|---|
 | **Max $ a copy** | the most one copy spends |
-| **Max $ a market** | the most the workflow holds in one market, at cost, all traders' copies together: selling makes room again |
-| **Max $ a day** | the most its buys spend in any 24 hours |
+| **Max $ a market** | the most the workflow holds in one market, at cost, all traders' copies together, with what its resting buys there may still spend: selling makes room again |
+| **Max $ a day** | the most its buys spend in any 24 hours, with what its resting buys may still spend |
 | **Least price**, **Most price** | buys at prices within them |
 | **Only categories**, **Not categories** | markets with one of these tags, or none of them, like `Politics` or `Sports` |
 
@@ -233,8 +233,31 @@ next order is on paper.
 
 A workflow's live holdings are its own books: going back to paper keeps them, and live
 again finds them. While it holds live shares its wallet stays, so a copied sell never goes
-to a wallet without them. A wallet a workflow trades live from cannot be unlinked until it
-is back on paper.
+to a wallet without them.
+
+### Stopping it
+
+**Stop live trading**, in the top bar once you have a wallet that can trade, is your kill
+switch. It works at once, without asking: every live order of your workflows is refused
+from then on, out of Place order's `missed` saying so, and those resting on the book are
+cancelled; your own orders on polymarket.com are left alone. A red bar on every page says
+it is on. Your workflows stay live and keep running, paper ones trading on, so **Resume
+live trading** in that bar, after asking, has them trade live again as before. On
+Telegram, it is the 🛑 button under [Status](/docs/guides/telegram/#the-menu). An order on
+its way to Polymarket as you press it, and coming back to rest, is cancelled within half
+a minute.
+
+An admin caps what each user's live buys may spend, on the Config page under Trading:
+**Max $ a live order**, $100 to start with, and **Max $ a day of live buys**, $1,000, for
+what your live buys spent in the last 24 hours and what your resting ones may still
+spend, all your workflows together. A buy over either is refused before it is sent,
+saying which cap and what is left; sells are never capped. Unlike the Risk guard's caps,
+which make a copy smaller, these are a hard stop the Risk guard cannot raise. An admin can
+give you caps of your own on the Users page.
+
+When an admin disables an account, its kill switch goes on, and stays on if it is enabled
+again, for its owner to turn off. When an admin turns **Live trading** off, every live
+order resting on the book is cancelled, everyone's.
 
 ### What happens to an order
 
@@ -272,7 +295,8 @@ does, and sends it.
   off while orders rest, the heartbeats go on until none do, as stopping them would cancel
   the orders at once.
 - **The cash** is the wallet's pUSD, which every workflow trading from it shares; the
-  Risk guard's caps count each workflow's own live buys and holdings.
+  Risk guard's caps count each workflow's own live buys and holdings, an admin's caps all
+  of yours.
 
 When a market resolves, the live holdings in it settle in the books as on paper, at what a
 share pays. Redeeming the shares themselves is Polymarket's, which redeems resolved

@@ -248,6 +248,7 @@ func (a *app) init(ctx context.Context) error {
 
 	a.telegram.UseMenu(telegram.Menu{
 		Workflows: a.workflows, Wallets: a.wallets, Positions: pmc.reader, Notifications: a.notify, Trading: a.trading,
+		Live: a.trading,
 	})
 	a.telegram.UseAnswers(a.waits)
 
@@ -263,6 +264,7 @@ func (a *app) init(ctx context.Context) error {
 		ratelimit.NewMemory(30*time.Second, 10), // 10 attempts, then one every 30 s per key
 		a.util.Logger,
 		auth.WithWorkflowStopper(a.workflows),
+		auth.WithLiveStopper(laterTrading{a}),
 		auth.WithLiveConfig(func() auth.Config { return authConfig(a.settings.Current()) }),
 		auth.WithAccountMail(a.mail),
 	)
@@ -449,6 +451,14 @@ func (l laterTrading) TradingLive(ctx context.Context, owner domain.UserID, wall
 
 func (l laterTrading) ReleaseWallet(ctx context.Context, owner domain.UserID, wallet domain.WalletID) error {
 	return l.a.trading.ReleaseWallet(ctx, owner, wallet)
+}
+
+// StopLive turns on the kill switch of a user an admin disabled (D226), for the auth
+// service, made before the trading service.
+func (l laterTrading) StopLive(ctx context.Context, owner domain.UserID) error {
+	_, err := l.a.trading.StopLive(ctx, owner, "cancelled: an admin disabled the account")
+
+	return err
 }
 
 // laterWorkflows is the workflows service, made after the trading service that asks it
@@ -648,6 +658,13 @@ func (a *app) initEngine(ctx context.Context, pmc polymarket) error {
 		Feed: a.feed, Stream: pmc.orders,
 		LiveOn:      func() bool { return a.settings.Current().Bool(config.KeyLiveTrading) },
 		BuilderCode: func() string { return a.settings.Current().String(config.KeyBuilderCode) },
+		Users:       postgres.NewUsers(a.db),
+		Caps: func() domain.LiveCaps {
+			s := a.settings.Current()
+			perOrder, perDay := s.Int(config.KeyMaxLiveOrder), s.Int(config.KeyMaxLiveDay)
+
+			return domain.LiveCaps{PerOrder: &perOrder, PerDay: &perDay}
+		},
 	})
 
 	err = nodes.Register(a.registry, nodes.Deps{

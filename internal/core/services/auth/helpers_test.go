@@ -36,6 +36,7 @@ type deps struct {
 	limiter  *portsmocks.MockRateLimiter
 
 	workflows *authmocks.MockWorkflowStopper
+	live      *authmocks.MockLiveStopper
 }
 
 func newDeps(t *testing.T) deps {
@@ -53,6 +54,7 @@ func newDeps(t *testing.T) deps {
 		limiter:  portsmocks.NewMockRateLimiter(t),
 
 		workflows: authmocks.NewMockWorkflowStopper(t),
+		live:      authmocks.NewMockLiveStopper(t),
 	}
 
 	d.tx.EXPECT().WithinTx(mock.Anything, mock.Anything).
@@ -77,6 +79,7 @@ func newService(t *testing.T, d deps, cfg auth.Config) *auth.Service {
 	}, d.hasher, d.limiter, logging.Noop(),
 		auth.WithClock(func() time.Time { return now }),
 		auth.WithWorkflowStopper(d.workflows),
+		auth.WithLiveStopper(d.live),
 		auth.WithAccountMail(d.mail),
 	)
 	require.NoError(t, err)

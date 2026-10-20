@@ -560,6 +560,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/me/kill-switch": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Stop or resume live trading */
+        put: operations["setKillSwitch"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/me/password": {
         parameters: {
             query?: never;
@@ -1755,9 +1772,27 @@ export interface components {
                 [key: string]: unknown;
             };
         };
+        KillSwitch: {
+            /**
+             * @description Cancelled are the resting live orders it cancelled as it went on; Left those still
+             *     resting, Polymarket not cancelling them.
+             */
+            cancelled: number;
+            left: number;
+            on: boolean;
+            /** Format: date-time */
+            since?: string;
+        };
+        KillSwitchRequest: {
+            on: boolean;
+        };
         LinkWalletRequest: {
             address: string;
             label?: string;
+        };
+        LiveCaps: {
+            perDay?: number;
+            perOrder?: number;
         };
         LoginRequest: {
             email: string;
@@ -2324,6 +2359,8 @@ export interface components {
             disabled?: boolean;
             /** @description EmailVerified true marks the address verified; it cannot be made false. */
             emailVerified?: boolean;
+            /** @description LiveCaps replace the user's caps; a cap left out is the instance's again. */
+            liveCaps?: components["schemas"]["LiveCaps"];
             /** @enum {string} */
             role?: "admin" | "user";
         };
@@ -2356,6 +2393,15 @@ export interface components {
             email: string;
             emailVerified: boolean;
             id: string;
+            /** @description LiveCaps are an admin's caps for them; those left out are the instance's (D222). */
+            liveCaps: components["schemas"]["LiveCaps"];
+            /**
+             * @description LiveStopped says their kill switch is on, since LiveStoppedAt: their workflows place
+             *     no live orders (D220).
+             */
+            liveStopped: boolean;
+            /** Format: date-time */
+            liveStoppedAt?: string;
             /**
              * @description MayWriteCode says whether they may write code now, as code access and CodeChosen
              *     have it.
@@ -4370,6 +4416,49 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["User"];
+                };
+            };
+            /** @description unauthenticated */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    setKillSwitch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description On or off */
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["KillSwitchRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["KillSwitch"];
+                };
+            };
+            /** @description invalid_input */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
                 };
             };
             /** @description unauthenticated */
