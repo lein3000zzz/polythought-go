@@ -4762,5 +4762,246 @@
       "body": "{\"walletAddress\":\"0x1111111111111111111111111111111111111111\"}",
       "signature": "kFVQR1MrNEi7626kWep99jOQ2LvtJZ0LkG3GqYKeks8="
     }
+  ],
+  "posts": [
+    {
+      "name": "a FAK buy",
+      "owner": "f4f247b7-4ac7-ff29-a152-04fda0a8755a",
+      "orders": [
+        {
+          "vector": "an EOA, a buy, on ctf",
+          "orderType": "FAK"
+        }
+      ],
+      "method": "POST",
+      "path": "/order",
+      "body": {
+        "deferExec": false,
+        "order": {
+          "builder": "0x0000000000000000000000000000000000000000000000000000000000000000",
+          "expiration": "0",
+          "maker": "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266",
+          "makerAmount": "5500000",
+          "metadata": "0x0000000000000000000000000000000000000000000000000000000000000000",
+          "salt": 479249096354,
+          "side": "BUY",
+          "signature": "0x79b9e5392009f233b3aeb6b23a03d15b888d8595bc16aac10cc7566ac5096e536bf365f55dc224266def10c3e35a56224b93a6bdee70e21023d850534af141001b",
+          "signatureType": 0,
+          "signer": "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266",
+          "takerAmount": "10000000",
+          "timestamp": "1760875200000",
+          "tokenId": "71321045679252212594626385532706912750332728571942532289631379312455583992563"
+        },
+        "orderType": "FAK",
+        "owner": "f4f247b7-4ac7-ff29-a152-04fda0a8755a"
+      }
+    },
+    {
+      "name": "a FOK sell",
+      "owner": "f4f247b7-4ac7-ff29-a152-04fda0a8755a",
+      "orders": [
+        {
+          "vector": "a proxy wallet, a sell, on negRisk",
+          "orderType": "FOK"
+        }
+      ],
+      "method": "POST",
+      "path": "/order",
+      "body": {
+        "deferExec": false,
+        "order": {
+          "builder": "0x0000000000000000000000000000000000000000000000000000000000000000",
+          "expiration": "0",
+          "maker": "0x2222222222222222222222222222222222222222",
+          "makerAmount": "10000000",
+          "metadata": "0x0000000000000000000000000000000000000000000000000000000000000000",
+          "salt": 479249096354,
+          "side": "SELL",
+          "signature": "0xd617c7b776c34302205cc41c65708be5fbb5ae3812b01f0b4f6e4d99552d02947976412ae61685d3c4336596bd7e299b9397444dc0f6578fb9f008593906173d1b",
+          "signatureType": 1,
+          "signer": "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266",
+          "takerAmount": "5500000",
+          "timestamp": "1760875200000",
+          "tokenId": "71321045679252212594626385532706912750332728571942532289631379312455583992563"
+        },
+        "orderType": "FOK",
+        "owner": "f4f247b7-4ac7-ff29-a152-04fda0a8755a"
+      }
+    },
+    {
+      "name": "a post-only GTC sell",
+      "owner": "f4f247b7-4ac7-ff29-a152-04fda0a8755a",
+      "orders": [
+        {
+          "vector": "a Safe, a sell, on v3",
+          "orderType": "GTC",
+          "postOnly": true
+        }
+      ],
+      "method": "POST",
+      "path": "/order",
+      "body": {
+        "deferExec": false,
+        "order": {
+          "builder": "0x0000000000000000000000000000000000000000000000000000000000000000",
+          "expiration": "0",
+          "maker": "0x3333333333333333333333333333333333333333",
+          "makerAmount": "10000000",
+          "metadata": "0x0000000000000000000000000000000000000000000000000000000000000000",
+          "salt": 479249096354,
+          "side": "SELL",
+          "signature": "0x463ae756dc1a4d58c82d06f8ba4be119a977fc67e92481731090d6097d92726f41286281285714be4b907ba69ea396444edaa64a3c9b31361aef1402e96a40cb1c",
+          "signatureType": 2,
+          "signer": "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266",
+          "takerAmount": "5500000",
+          "timestamp": "1760875200000",
+          "tokenId": "71321045679252212594626385532706912750332728571942532289631379312455583992563"
+        },
+        "orderType": "GTC",
+        "owner": "f4f247b7-4ac7-ff29-a152-04fda0a8755a",
+        "postOnly": true
+      }
+    },
+    {
+      "name": "a GTD buy by a session key",
+      "owner": "f4f247b7-4ac7-ff29-a152-04fda0a8755a",
+      "orders": [
+        {
+          "vector": "a session key for a Deposit Wallet, a buy, on ctf",
+          "orderType": "GTD",
+          "expiration": 1760875500
+        }
+      ],
+      "method": "POST",
+      "path": "/order",
+      "body": {
+        "deferExec": false,
+        "order": {
+          "builder": "0x0000000000000000000000000000000000000000000000000000000000000000",
+          "expiration": "1760875500",
+          "maker": "0x1111111111111111111111111111111111111111",
+          "makerAmount": "5500000",
+          "metadata": "0x0000000000000000000000000000000000000000000000000000000000000000",
+          "salt": 479249096354,
+          "side": "BUY",
+          "signature": "0x00000000000000000000000070997970C51812dc3A010C7d01b50e0d17dc79C800000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000060000000000000000000000000000000000000000000000000000000000000013dd405ec1c08323d04284623c567d3e166f32e0b308659ac02b9f4b1983b21c2861676e37f19f50ddd1673ba17f28916bd37f884cac1d3062f7a2bb21295a7d6f31b3264e159346253e26a64e00b69032db0e7d32f94628de3e6eecb50304d7af3d28164c43b1c0c796011e03973367ffe92cf9d5b20bb30fbafc309462daeedb1624f726465722875696e743235362073616c742c61646472657373206d616b65722c61646472657373207369676e65722c75696e7432353620746f6b656e49642c75696e74323536206d616b6572416d6f756e742c75696e743235362074616b6572416d6f756e742c75696e743820736964652c75696e7438207369676e6174757265547970652c75696e743235362074696d657374616d702c62797465733332206d657461646174612c62797465733332206275696c6465722900ba0000006492649264926492649264926492649264926492649264926492649264926492",
+          "signatureType": 3,
+          "signer": "0x1111111111111111111111111111111111111111",
+          "takerAmount": "10000000",
+          "timestamp": "1760875200000",
+          "tokenId": "71321045679252212594626385532706912750332728571942532289631379312455583992563"
+        },
+        "orderType": "GTD",
+        "owner": "f4f247b7-4ac7-ff29-a152-04fda0a8755a"
+      }
+    },
+    {
+      "name": "a batch",
+      "owner": "f4f247b7-4ac7-ff29-a152-04fda0a8755a",
+      "orders": [
+        {
+          "vector": "a Deposit Wallet, a buy, on negRisk",
+          "orderType": "FAK"
+        },
+        {
+          "vector": "an EOA with a builder code and metadata",
+          "orderType": "GTC"
+        }
+      ],
+      "method": "POST",
+      "path": "/orders",
+      "body": [
+        {
+          "deferExec": false,
+          "order": {
+            "builder": "0x0000000000000000000000000000000000000000000000000000000000000000",
+            "expiration": "0",
+            "maker": "0x1111111111111111111111111111111111111111",
+            "makerAmount": "5500000",
+            "metadata": "0x0000000000000000000000000000000000000000000000000000000000000000",
+            "salt": 479249096354,
+            "side": "BUY",
+            "signature": "0x0670329cb9bc72a5c5ae4f11619d0f1afbd3490b7483a05f0bbf2a70862993b467ff9e0e5493b34c15ca1d90f8da6c64c1507eadb2c443fa986c1098d14c5b121c9b858f53327b0bd13af8ec14cfb35234fb9eb7b0504d1a4e61f433840d30e81a8164c43b1c0c796011e03973367ffe92cf9d5b20bb30fbafc309462daeedb1624f726465722875696e743235362073616c742c61646472657373206d616b65722c61646472657373207369676e65722c75696e7432353620746f6b656e49642c75696e74323536206d616b6572416d6f756e742c75696e743235362074616b6572416d6f756e742c75696e743820736964652c75696e7438207369676e6174757265547970652c75696e743235362074696d657374616d702c62797465733332206d657461646174612c62797465733332206275696c6465722900ba",
+            "signatureType": 3,
+            "signer": "0x1111111111111111111111111111111111111111",
+            "takerAmount": "10000000",
+            "timestamp": "1760875200000",
+            "tokenId": "71321045679252212594626385532706912750332728571942532289631379312455583992563"
+          },
+          "orderType": "FAK",
+          "owner": "f4f247b7-4ac7-ff29-a152-04fda0a8755a"
+        },
+        {
+          "deferExec": false,
+          "order": {
+            "builder": "0x00000000000000000000000000000000000000000000000000000000000000b1",
+            "expiration": "0",
+            "maker": "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266",
+            "makerAmount": "5500000",
+            "metadata": "0x00000000000000000000000000000000000000000000000000000000000000a1",
+            "salt": 479249096354,
+            "side": "BUY",
+            "signature": "0x72c68ca2f38326d917dfb74d2d310ae6f9eb0709951177d74975c54af2b3e9e47be1c5303734871997537fffcced2ac6db2d61c19b8307eeda54f9d1ad678c1d1c",
+            "signatureType": 0,
+            "signer": "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266",
+            "takerAmount": "10000000",
+            "timestamp": "1760875200000",
+            "tokenId": "71321045679252212594626385532706912750332728571942532289631379312455583992563"
+          },
+          "orderType": "GTC",
+          "owner": "f4f247b7-4ac7-ff29-a152-04fda0a8755a"
+        }
+      ]
+    }
+  ],
+  "cancels": [
+    {
+      "name": "one order",
+      "method": "DELETE",
+      "path": "/order",
+      "body": {
+        "orderID": "0xa1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1"
+      }
+    },
+    {
+      "name": "orders",
+      "method": "DELETE",
+      "path": "/orders",
+      "body": [
+        "0xa1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1",
+        "0xb2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2"
+      ]
+    },
+    {
+      "name": "all",
+      "method": "DELETE",
+      "path": "/cancel-all",
+      "body": null
+    },
+    {
+      "name": "a market's",
+      "method": "DELETE",
+      "path": "/cancel-market-orders",
+      "body": {
+        "market": "0x5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c"
+      }
+    },
+    {
+      "name": "an outcome's",
+      "method": "DELETE",
+      "path": "/cancel-market-orders",
+      "body": {
+        "asset_id": "71321045679252212594626385532706912750332728571942532289631379312455583992563"
+      }
+    },
+    {
+      "name": "an outcome's in its market",
+      "method": "DELETE",
+      "path": "/cancel-market-orders",
+      "body": {
+        "asset_id": "71321045679252212594626385532706912750332728571942532289631379312455583992563",
+        "market": "0x5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c"
+      }
+    }
   ]
 }

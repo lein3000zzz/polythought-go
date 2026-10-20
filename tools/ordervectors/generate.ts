@@ -6,7 +6,7 @@
 // SDK. It first signs the vector Polymarket publishes (py-clob-client-v2 and
 // rs-clob-client-v2 tests) and stops if that does not come out the same.
 
-import { OrderSide } from '@polymarket/bindings';
+import { OrderSide, OrderType } from '@polymarket/bindings';
 import { SignatureType } from '@polymarket/bindings/clob';
 import { WalletType } from '@polymarket/bindings/gamma';
 import { TypedData } from 'ox';
@@ -26,6 +26,8 @@ import { authorizeSessionSignerCall, revokeSessionSignerCall } from './abis';
 import { prepareTradingApprovals } from './actions/approvals';
 import { buildDepositWalletExecuteRequest } from './actions/gasless';
 import { completeWith } from './workflow';
+import { postOrder, postOrders } from './actions/orders/post';
+import { cancelAll, cancelMarketOrders, cancelOrder, cancelOrders } from './actions/orders/cancel';
 import { createApiKeyAuthTypedDataPayload } from './authentication';
 import { buildHmacSignature } from './hmac';
 import { production } from './environments';
@@ -349,6 +351,69 @@ async function main() {
     signature: await buildHmacSignature(builderSecret, now, 'POST', '/v1/session-signers/authorizations', builderBody),
   }];
 
+  // Posting and cancelling (D196): the bodies @polymarket/client's postOrder, postOrders
+  // and cancels send, caught by a stub CLOB. Each order is a signature vector above, with
+  // how long it may wait.
+  const apiKey = 'f4f247b7-4ac7-ff29-a152-04fda0a8755a';
+  let caught: { method: string; path: string; body: unknown } | undefined;
+  const clob = {
+    credentials: { key: apiKey },
+    secureClob: {
+      post: async (path: string, options: { json: unknown }) => {
+        caught = { method: 'POST', path, body: options.json };
+        return {};
+      },
+      del: async (path: string, options: { json?: unknown }) => {
+        caught = { method: 'DELETE', path, body: options.json ?? null };
+        return {};
+      },
+    },
+  };
+
+  type Waiting = { vector: string; orderType: OrderType; expiration?: number; postOnly?: boolean };
+  const signedOrder = ({ vector, orderType, expiration, postOnly }: Waiting) => {
+    const v = signatures.find((s) => s.name === vector);
+    if (!v) throw new Error(`no signature vector ${vector}`);
+
+    return { ...v.order, expiration: expiration ?? 0, orderType, signature: v.signature, ...(postOnly ? { postOnly } : {}) };
+  };
+
+  const posts = [];
+  for (const [name, orders] of [
+    ['a FAK buy', [{ vector: 'an EOA, a buy, on ctf', orderType: OrderType.FAK }]],
+    ['a FOK sell', [{ vector: 'a proxy wallet, a sell, on negRisk', orderType: OrderType.FOK }]],
+    ['a post-only GTC sell', [{ vector: 'a Safe, a sell, on v3', orderType: OrderType.GTC, postOnly: true }]],
+    ['a GTD buy by a session key', [{ vector: 'a session key for a Deposit Wallet, a buy, on ctf', orderType: OrderType.GTD, expiration: 1760875500 }]],
+    ['a batch', [
+      { vector: 'a Deposit Wallet, a buy, on negRisk', orderType: OrderType.FAK },
+      { vector: 'an EOA with a builder code and metadata', orderType: OrderType.GTC },
+    ]],
+  ] as [string, Waiting[]][]) {
+    caught = undefined;
+    if (orders.length === 1) {
+      await postOrder(clob as never)(signedOrder(orders[0]) as never);
+    } else {
+      await postOrders(clob as never)(orders.map(signedOrder) as never);
+    }
+    posts.push({ name, owner: apiKey, orders, ...caught });
+  }
+
+  const cancels = [];
+  const assetId = '71321045679252212594626385532706912750332728571942532289631379312455583992563';
+  const market = `0x${'5c'.repeat(32)}`;
+  for (const [name, cancel] of [
+    ['one order', () => cancelOrder(clob as never, { orderId: `0x${'a1'.repeat(32)}` })],
+    ['orders', () => cancelOrders(clob as never, { orderIds: [`0x${'a1'.repeat(32)}`, `0x${'b2'.repeat(32)}`] })],
+    ['all', () => cancelAll(clob as never)],
+    ["a market's", () => cancelMarketOrders(clob as never, { market })],
+    ["an outcome's", () => cancelMarketOrders(clob as never, { assetId })],
+    ["an outcome's in its market", () => cancelMarketOrders(clob as never, { market, assetId })],
+  ] as [string, () => Promise<unknown>][]) {
+    caught = undefined;
+    await cancel();
+    cancels.push({ name, ...caught });
+  }
+
   process.stdout.write(
     `${JSON.stringify(
       {
@@ -363,6 +428,8 @@ async function main() {
         sessionBatches,
         approvals,
         builderHmac,
+        posts,
+        cancels,
       },
       null,
       2,

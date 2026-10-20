@@ -83,43 +83,16 @@ func (c *httpCore) do(ctx context.Context, method, path string, query url.Values
 		}
 	}
 
-	target := c.baseURL + path
-	if len(query) > 0 {
-		target += "?" + query.Encode()
-	}
-
 	span := trace.SpanFromContext(ctx)
 
 	for attempt := 0; ; attempt++ {
-		if err := c.limiter.Wait(ctx); err != nil {
+		resp, err := c.once(ctx, method, path, query, payload, creds)
+		if err != nil {
 			return err
 		}
 
-		var err error
-
-		// Signed per attempt: a retry needs a fresh timestamp.
-		var auth http.Header
-		if creds != nil {
-			if auth, err = creds.headers(c.now(), method, path, payload); err != nil {
-				return err
-			}
-		}
-
-		status, header, respBody, err := c.send(ctx, method, target, payload, auth)
-		if err != nil {
-			return fmt.Errorf("polymarket: %s %s: %w", method, path, err)
-		}
-
-		if isRetryable(status) && attempt < c.maxRetries {
-			wait := retryDelay(header, attempt)
-			c.log.Warn(ctx, "Retrying polymarket request",
-				"path", path,
-				"status", status,
-				"attempt", attempt+1,
-				"wait", wait,
-			)
-
-			if err := sleep(ctx, wait); err != nil {
+		if isRetryable(resp.status) && attempt < c.maxRetries {
+			if err := c.backOff(ctx, path, resp, attempt); err != nil {
 				return err
 			}
 
@@ -128,11 +101,72 @@ func (c *httpCore) do(ctx context.Context, method, path string, query url.Values
 
 		span.SetAttributes(
 			attribute.Int(attrAttempts, attempt+1),
-			attribute.Int(attrStatusCode, status),
+			attribute.Int(attrStatusCode, resp.status),
 		)
 
-		return decodeResponse(path, status, respBody, out)
+		return decodeResponse(path, resp.status, resp.body, out)
 	}
+}
+
+// response is what a request got back.
+type response struct {
+	status int
+	header http.Header
+	body   []byte
+}
+
+// SendError is a request that went out and got no answer: the server may or may not
+// have acted on it.
+type SendError struct {
+	Method, Path string
+	Err          error
+}
+
+func (e *SendError) Error() string {
+	return fmt.Sprintf("polymarket: %s %s: %v", e.Method, e.Path, e.Err)
+}
+
+func (e *SendError) Unwrap() error { return e.Err }
+
+// once sends a request a single time, signed now (a retry needs a fresh timestamp). Its
+// error is a *SendError once the request may have gone out.
+func (c *httpCore) once(ctx context.Context, method, path string, query url.Values, payload []byte, creds authorizer) (response, error) {
+	if err := c.limiter.Wait(ctx); err != nil {
+		return response{}, err
+	}
+
+	var auth http.Header
+	if creds != nil {
+		var err error
+		if auth, err = creds.headers(c.now(), method, path, payload); err != nil {
+			return response{}, err
+		}
+	}
+
+	target := c.baseURL + path
+	if len(query) > 0 {
+		target += "?" + query.Encode()
+	}
+
+	status, header, body, err := c.send(ctx, method, target, payload, auth)
+	if err != nil {
+		return response{}, &SendError{Method: method, Path: path, Err: err}
+	}
+
+	return response{status: status, header: header, body: body}, nil
+}
+
+// backOff waits before attempt's retry, as the answer asks or exponentially.
+func (c *httpCore) backOff(ctx context.Context, path string, resp response, attempt int) error {
+	wait := retryDelay(resp.header, attempt)
+	c.log.Warn(ctx, "Retrying polymarket request",
+		"path", path,
+		"status", resp.status,
+		"attempt", attempt+1,
+		"wait", wait,
+	)
+
+	return sleep(ctx, wait)
 }
 
 func (c *httpCore) send(ctx context.Context, method, target string, payload []byte, auth http.Header) (int, http.Header, []byte, error) {

@@ -190,15 +190,20 @@ func exchangeDomain(chainID int64, ex Exchange) apitypes.TypedDataDomain {
 	}
 }
 
-// typedData is what an order's signature signs: the order itself, or for a Deposit
-// Wallet the TypedDataSign that wraps it, on the exchange's domain still.
-func (o Order) typedData(chainID int64, ex Exchange) apitypes.TypedData {
-	td := apitypes.TypedData{
+// plainTypedData is the order itself on the exchange's domain.
+func (o Order) plainTypedData(chainID int64, ex Exchange) apitypes.TypedData {
+	return apitypes.TypedData{
 		Types:       apitypes.Types{"EIP712Domain": domainType, "Order": orderType},
 		PrimaryType: "Order",
 		Domain:      exchangeDomain(chainID, ex),
 		Message:     o.message(),
 	}
+}
+
+// typedData is what an order's signature signs: the order itself, or for a Deposit
+// Wallet the TypedDataSign that wraps it, on the exchange's domain still.
+func (o Order) typedData(chainID int64, ex Exchange) apitypes.TypedData {
+	td := o.plainTypedData(chainID, ex)
 
 	if o.SignatureType != SignatureDepositWallet {
 		return td
@@ -224,6 +229,22 @@ func (o Order) Digest(chainID int64, ex Exchange) ([]byte, error) {
 	digest, _, err := apitypes.TypedDataAndHash(o.typedData(chainID, ex))
 
 	return digest, err
+}
+
+// Hash is the order's hash as the exchange's hashOrder makes it, the EIP-712 hash of the
+// order itself whatever wraps its signature: the order's ID on the CLOB, known before it
+// is sent (D194). It is Digest but for a Deposit Wallet's orders.
+func (o Order) Hash(chainID int64, ex Exchange) (string, error) {
+	if err := o.check(); err != nil {
+		return "", err
+	}
+
+	hash, _, err := apitypes.TypedDataAndHash(o.plainTypedData(chainID, ex))
+	if err != nil {
+		return "", err
+	}
+
+	return hexutil.Encode(hash), nil
 }
 
 // OrderSigner signs orders with a private key: the account's own, or a session key

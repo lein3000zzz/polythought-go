@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common/hexutil"
+	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/shopspring/decimal"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -17,18 +18,7 @@ type vectors struct {
 	SDK  struct{ Commit string }
 	Keys struct{ Owner, Session string }
 
-	Signatures []struct {
-		Name     string
-		ChainID  int64
-		Exchange struct{ Address, Version string }
-		Session  bool
-		Order    struct {
-			Salt, Maker, Signer, TokenID, MakerAmount, TakerAmount, Side string
-			SignatureType                                                uint8
-			Timestamp, Metadata, Builder                                 string
-		}
-		Digest, Signature string
-	}
+	Signatures []signatureVector
 
 	LimitAmounts []struct {
 		Tick, Side, Price, Size, Maker, Taker string
@@ -41,6 +31,61 @@ type vectors struct {
 		TokenID string
 		V2      bool
 	}
+
+	// What postOrder, postOrders and the cancels send: orders from Signatures, by name.
+	Posts []struct {
+		Name, Owner, Method, Path string
+		Orders                    []struct {
+			Vector     string
+			OrderType  OrderType
+			Expiration int64
+			PostOnly   bool
+		}
+		Body json.RawMessage
+	}
+	Cancels []struct {
+		Name, Method, Path string
+		Body               json.RawMessage
+	}
+}
+
+type signatureVector struct {
+	Name     string
+	ChainID  int64
+	Exchange struct{ Address, Version string }
+	Session  bool
+	Order    struct {
+		Salt, Maker, Signer, TokenID, MakerAmount, TakerAmount, Side string
+		SignatureType                                                uint8
+		Timestamp, Metadata, Builder                                 string
+	}
+	Digest, Signature string
+}
+
+// order is the vector's order, and the exchange it is signed for.
+func (tc signatureVector) order(t *testing.T) (Order, Exchange) {
+	t.Helper()
+
+	return Order{
+		Salt: u64(t, tc.Order.Salt), Maker: tc.Order.Maker, Signer: tc.Order.Signer, TokenID: tc.Order.TokenID,
+		MakerAmount: u64(t, tc.Order.MakerAmount), TakerAmount: u64(t, tc.Order.TakerAmount),
+		Side: Side(tc.Order.Side), SignatureType: SignatureType(tc.Order.SignatureType),
+		Timestamp: u64(t, tc.Order.Timestamp), Metadata: b32(t, tc.Order.Metadata), Builder: b32(t, tc.Order.Builder),
+	}, Exchange{Address: tc.Exchange.Address, Version: tc.Exchange.Version}
+}
+
+func (v vectors) signature(t *testing.T, name string) signatureVector {
+	t.Helper()
+
+	for _, s := range v.Signatures {
+		if s.Name == name {
+			return s
+		}
+	}
+
+	t.Fatalf("no signature vector %q", name)
+
+	return signatureVector{}
 }
 
 func loadVectors(t *testing.T) vectors {
@@ -78,13 +123,7 @@ func TestOrderSigningMatchesTheOfficialClient(t *testing.T) {
 
 	for _, tc := range v.Signatures {
 		t.Run(tc.Name, func(t *testing.T) {
-			o := Order{
-				Salt: u64(t, tc.Order.Salt), Maker: tc.Order.Maker, Signer: tc.Order.Signer, TokenID: tc.Order.TokenID,
-				MakerAmount: u64(t, tc.Order.MakerAmount), TakerAmount: u64(t, tc.Order.TakerAmount),
-				Side: Side(tc.Order.Side), SignatureType: SignatureType(tc.Order.SignatureType),
-				Timestamp: u64(t, tc.Order.Timestamp), Metadata: b32(t, tc.Order.Metadata), Builder: b32(t, tc.Order.Builder),
-			}
-			ex := Exchange{Address: tc.Exchange.Address, Version: tc.Exchange.Version}
+			o, ex := tc.order(t)
 
 			digest, err := o.Digest(tc.ChainID, ex)
 			require.NoError(t, err)
@@ -105,6 +144,35 @@ func TestOrderSigningMatchesTheOfficialClient(t *testing.T) {
 			// envelope's hex as checksummed, mixed case, the same bytes.
 			want, got := hexutil.MustDecode(tc.Signature), hexutil.MustDecode(sig)
 			assert.Equal(t, want, got)
+		})
+	}
+}
+
+// An order's ID on the CLOB is its hash, the exchange's hashOrder (D194): the signed
+// digest for an EOA, a proxy and a Safe; for a Deposit Wallet, the hash of the domain
+// separator and struct hash the official client put into its signature's wrap.
+func TestOrderHashIsTheExchangesHash(t *testing.T) {
+	for _, tc := range loadVectors(t).Signatures {
+		t.Run(tc.Name, func(t *testing.T) {
+			o, ex := tc.order(t)
+
+			hash, err := o.Hash(tc.ChainID, ex)
+			require.NoError(t, err)
+
+			if o.SignatureType != SignatureDepositWallet {
+				assert.Equal(t, tc.Digest, hash)
+				return
+			}
+
+			wrap := hexutil.MustDecode(tc.Signature)
+			if tc.Session { // abi.encode(signer, kind, wrap): the wrap after three words and its length
+				wrap = wrap[128 : 128+317]
+			}
+
+			require.Len(t, wrap, 317)
+			want := crypto.Keccak256([]byte{0x19, 0x01}, wrap[65:97], wrap[97:129])
+			assert.Equal(t, hexutil.Encode(want), hash)
+			assert.NotEqual(t, tc.Digest, hash, "a Deposit Wallet signs the wrap, not the order")
 		})
 	}
 }

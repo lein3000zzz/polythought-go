@@ -46,6 +46,26 @@ type ClobAccountClient interface {
 	BalanceAllowance(ctx context.Context, creds L2Credentials, q BalanceQuery) (BalanceAllowance, error)
 }
 
+// ClobTradingClient places and cancels an account's orders and reads them back, with L2
+// credentials. An order refused is an *OrderRefusedError; one sent without an answer and
+// not found after, an *OrderUncertainError (D194).
+type ClobTradingClient interface {
+	// PostOrder places an order; sent again it is found, not placed twice.
+	PostOrder(ctx context.Context, creds L2Credentials, p OrderPost) (PostedOrder, error)
+	// PostOrders places 1 to MaxBatchOrders orders: how each went, in their order.
+	PostOrders(ctx context.Context, creds L2Credentials, ps []OrderPost) ([]PostResult, error)
+	// Order is one of the account's orders by its ID, whatever its status; ErrNotFound
+	// when the CLOB has none.
+	Order(ctx context.Context, creds L2Credentials, id string) (OpenOrder, error)
+	Trades(ctx context.Context, creds L2Credentials, q ClobTradesQuery) (Page[ClobTrade], error)
+
+	CancelOrder(ctx context.Context, creds L2Credentials, id string) (Cancellation, error)
+	// CancelOrders cancels 1 to MaxBatchCancels orders.
+	CancelOrders(ctx context.Context, creds L2Credentials, ids []string) (Cancellation, error)
+	CancelAll(ctx context.Context, creds L2Credentials) (Cancellation, error)
+	CancelMarketOrders(ctx context.Context, creds L2Credentials, q CancelMarketQuery) (Cancellation, error)
+}
+
 // DataClient reads positions, trades and analytics from data-api.polymarket.com/v2.
 type DataClient interface {
 	Positions(ctx context.Context, q PositionsQuery) (Page[Position], error)

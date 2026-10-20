@@ -26,6 +26,7 @@ packages:
       DataClient: {}
       MarketStreamClient: {}
       ClobAccountClient: {}
+      ClobTradingClient: {}
       RelayerClient: {}
       RPCClient: {}
       GeoblockClient: {}

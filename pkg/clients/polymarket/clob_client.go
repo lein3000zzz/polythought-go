@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"net/url"
+	"time"
 
 	"github.com/lein3000zzz/the-watchers/pkg/observability"
 	"github.com/lein3000zzz/the-watchers/pkg/observability/logging"
@@ -33,6 +34,8 @@ type DefaultClobClient struct {
 	kit   *redkit.Kit
 	scope tracing.Scope
 	log   logging.Logger
+
+	lookupWait time.Duration // before an order sent without an answer is looked up (D194)
 }
 
 type tokenRequest struct {
@@ -58,6 +61,8 @@ func NewClobClient(util *observability.Utility, cfg HTTPConfig) (*DefaultClobCli
 		kit:   kit,
 		scope: tracing.Scope{Manager: util.TracerManager, TracerName: tracerName},
 		log:   log,
+
+		lookupWait: lookupWait,
 	}, nil
 }
 
