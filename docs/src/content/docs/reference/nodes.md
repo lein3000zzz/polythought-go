@@ -13,6 +13,7 @@ Each node has a page with its settings. In the editor, the node list on the left
 |---|---|---|
 | [Manual](/docs/reference/nodes/triggers/manual/) | `trigger.manual` | Starts the workflow when you run it by hand. |
 | [Market activity](/docs/reference/nodes/triggers/market/) | `trigger.market` | Starts the workflow on live trades, book changes or resolutions of the chosen tokens, batched per window. |
+| [Order activity](/docs/reference/nodes/triggers/order-activity/) | `trigger.orderActivity` | Starts the workflow on what happens to its own orders after the runs that placed them: a resting order filling, what is left of it cancelled or expired, a live trade failing on chain. |
 | [Schedule](/docs/reference/nodes/triggers/schedule/) | `trigger.schedule` | Starts the workflow at a fixed interval. |
 | [Telegram message](/docs/reference/nodes/triggers/telegram/) | `trigger.telegram` | Starts the workflow when you send the instance's bot a message, one item per message. |
 | [Wallet activity](/docs/reference/nodes/triggers/wallet-activity/) | `trigger.walletActivity` | Starts the workflow on the trades of the traders you follow as they happen, about two seconds after: a trade each item, its fills summed. |
@@ -79,6 +80,7 @@ Each node has a page with its settings. In the editor, the node list on the left
 
 | Node | Type | What it does |
 |---|---|---|
+| [Cancel orders](/docs/reference/nodes/trading/cancel-orders/) | `trading.cancelOrders` | Cancels the workflow's own orders resting on the book, for each item: the item's order, all of them, or those of a market or an outcome. |
 | [Copy sizing](/docs/reference/nodes/trading/copy-size/) | `trading.copySize` | Works out a copy of each trade a followed trader made: how much to buy, or how much of your copy to sell, and at what price. |
 | [Place order](/docs/reference/nodes/trading/place-order/) | `trading.placeOrder` | Places an order for each item, on paper or live as the workflow trades: the copy Copy sizing worked out, or one of its own settings, at once or resting on the book. |
 | [Risk guard](/docs/reference/nodes/trading/risk-guard/) | `trading.riskGuard` | Holds copies of buys to the workflow's limits: caps a copy, a market and a day, a price band and categories. |

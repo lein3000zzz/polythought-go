@@ -26,6 +26,8 @@ type WalletRepository interface {
 	CountForUser(ctx context.Context, userID domain.UserID) (int, error)
 	// Delete removes the wallet and its credentials.
 	Delete(ctx context.Context, userID domain.UserID, id domain.WalletID) error
+	// SetHeartbeat sets whether the wallet's resting orders go when the server goes quiet.
+	SetHeartbeat(ctx context.Context, userID domain.UserID, id domain.WalletID, on bool) error
 
 	// SaveCredentials creates or replaces a wallet's credentials.
 	SaveCredentials(ctx context.Context, c SealedCredentials) error

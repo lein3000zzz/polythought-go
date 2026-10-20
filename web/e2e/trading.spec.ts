@@ -179,3 +179,85 @@ test('a paper GTC under the book rests, holding its cash, until cancelled (D206,
   expect((await orders())[0].status).toBe('canceled')
   expect((await held()).held).toBe('0')
 })
+
+test('Cancel orders cancels the resting order its run placed, and frees its cash (D207)', async ({
+  page,
+}) => {
+  const id = await createWorkflow(page, unique('cancel'), [
+    { id: 'manual', type: 'trigger.manual' },
+    { id: 'markets', type: 'polymarket.markets', params: { limit: 1 } },
+    {
+      id: 'buy',
+      type: 'trading.placeOrder',
+      params: {
+        from: 'settings',
+        tokenId: '{{ outcomes[0].tokenId }}',
+        side: 'buy',
+        price: '{{ tickSize }}',
+        shares: '{{ minOrderSize }}',
+        type: 'GTC',
+      },
+    },
+  ])
+
+  // A resting order leaves Place order on its resting port: Cancel orders goes there.
+  const workflow = (await (await page.request.get(`/api/v1/workflows/${id}`)).json()) as {
+    name: string
+    version: number
+    nodes: object[]
+    connections: object[]
+  }
+  const saved = await page.request.put(`/api/v1/workflows/${id}`, {
+    data: {
+      name: workflow.name,
+      version: workflow.version,
+      nodes: [
+        ...workflow.nodes,
+        {
+          id: 'cancel',
+          type: 'trading.cancelOrders',
+          params: { which: 'order' },
+          position: { x: 900, y: 0 },
+        },
+      ],
+      connections: [
+        ...workflow.connections,
+        { from: 'buy', fromPort: 'resting', to: 'cancel', toPort: 'main' },
+      ],
+    },
+  })
+  expect(saved.status(), await saved.text()).toBe(200)
+
+  const res = await page.request.post(`/api/v1/workflows/${id}/run`)
+  expect(res.status()).toBe(200)
+  const run = (await res.json()) as {
+    status: string
+    runs: {
+      nodeId: string
+      output?: Record<string, number>
+      samples?: Record<string, { json?: { cancel?: { cancelled: { status: string }[] } } }[]>
+    }[]
+  }
+  expect(run.status).toBe('succeeded')
+
+  const cancel = run.runs.find((r) => r.nodeId === 'cancel')
+  expect(cancel?.output).toEqual({ main: 1 })
+  expect(cancel?.samples?.main[0].json?.cancel?.cancelled.map((o) => o.status)).toEqual([
+    'canceled',
+  ])
+
+  const orders = (
+    (await (await page.request.get(`/api/v1/workflows/${id}/orders`)).json()) as {
+      orders: { status: string }[]
+    }
+  ).orders
+  expect(orders.map((o) => o.status)).toEqual(['canceled'])
+
+  const account = (
+    (await (await page.request.get(`/api/v1/workflows/${id}/trading`)).json()) as {
+      account: { held: string; cash: string }
+    }
+  ).account
+  expect(account.held).toBe('0')
+  expect(account.cash).toBe('1000')
+})

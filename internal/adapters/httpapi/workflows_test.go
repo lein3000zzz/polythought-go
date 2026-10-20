@@ -209,10 +209,18 @@ func TestWorkflowRoutes(t *testing.T) {
 			name: "deactivate",
 			req:  request{method: "POST", path: "/api/v1/workflows/wf-1/deactivate", headers: cookie},
 			setup: func(w *httpapimocks.MockWorkflowService, _ *httpapimocks.MockNodeTypes) {
-				w.EXPECT().Deactivate(mock.Anything, mock.Anything, domain.WorkflowID("wf-1")).Return(flow, nil)
+				w.EXPECT().SwitchOff(mock.Anything, mock.Anything, domain.WorkflowID("wf-1"), false).Return(flow, nil)
 			},
 			wantStatus: http.StatusOK,
 			wantBody:   []string{`"active":false`},
+		},
+		{
+			name: "deactivate, its resting orders cancelled",
+			req:  request{method: "POST", path: "/api/v1/workflows/wf-1/deactivate?cancelOrders=true", headers: cookie},
+			setup: func(w *httpapimocks.MockWorkflowService, _ *httpapimocks.MockNodeTypes) {
+				w.EXPECT().SwitchOff(mock.Anything, mock.Anything, domain.WorkflowID("wf-1"), true).Return(flow, nil)
+			},
+			wantStatus: http.StatusOK,
 		},
 		{
 			name: "run without a body uses the manual trigger",

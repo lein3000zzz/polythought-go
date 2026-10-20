@@ -23,6 +23,7 @@ type walletsTable struct {
 	AddressNormalized postgres.ColumnString
 	Label             postgres.ColumnString
 	CreatedAt         postgres.ColumnTimestampz
+	Heartbeat         postgres.ColumnBool
 
 	AllColumns     postgres.ColumnList
 	MutableColumns postgres.ColumnList
@@ -70,9 +71,10 @@ func newWalletsTableImpl(schemaName, tableName, alias string) walletsTable {
 		AddressNormalizedColumn = postgres.StringColumn("address_normalized")
 		LabelColumn             = postgres.StringColumn("label")
 		CreatedAtColumn         = postgres.TimestampzColumn("created_at")
-		allColumns              = postgres.ColumnList{IDColumn, UserIDColumn, AddressColumn, AddressNormalizedColumn, LabelColumn, CreatedAtColumn}
-		mutableColumns          = postgres.ColumnList{UserIDColumn, AddressColumn, AddressNormalizedColumn, LabelColumn, CreatedAtColumn}
-		defaultColumns          = postgres.ColumnList{LabelColumn}
+		HeartbeatColumn         = postgres.BoolColumn("heartbeat")
+		allColumns              = postgres.ColumnList{IDColumn, UserIDColumn, AddressColumn, AddressNormalizedColumn, LabelColumn, CreatedAtColumn, HeartbeatColumn}
+		mutableColumns          = postgres.ColumnList{UserIDColumn, AddressColumn, AddressNormalizedColumn, LabelColumn, CreatedAtColumn, HeartbeatColumn}
+		defaultColumns          = postgres.ColumnList{LabelColumn, HeartbeatColumn}
 	)
 
 	return walletsTable{
@@ -85,6 +87,7 @@ func newWalletsTableImpl(schemaName, tableName, alias string) walletsTable {
 		AddressNormalized: AddressNormalizedColumn,
 		Label:             LabelColumn,
 		CreatedAt:         CreatedAtColumn,
+		Heartbeat:         HeartbeatColumn,
 
 		AllColumns:     allColumns,
 		MutableColumns: mutableColumns,

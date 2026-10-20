@@ -854,6 +854,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/wallets/{id}/heartbeat": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Heartbeats for a wallet's resting orders */
+        put: operations["setHeartbeat"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/wallets/{id}/key": {
         parameters: {
             query?: never;
@@ -1629,6 +1646,9 @@ export interface components {
             ip?: string;
             region?: string;
         };
+        HeartbeatRequest: {
+            on: boolean;
+        };
         Holding: {
             /**
              * @description Cost is what the shares held cost, fees included; Realized is the profit or loss
@@ -2230,6 +2250,11 @@ export interface components {
             liveAvailable: boolean;
             /** @enum {string} */
             mode: "paper" | "live";
+            /**
+             * @description Resting is how many of its live orders rest on the book: switching it off asks
+             *     whether to cancel them; going back to paper cancels them.
+             */
+            resting: number;
             /** @description Wallet is the one live orders spend; absent when none is chosen, or it is gone. */
             wallet?: components["schemas"]["Wallet"];
             why?: string;
@@ -2361,6 +2386,8 @@ export interface components {
             hasKey: boolean;
             /** @description HasSessionKey says the key is an authorised session key. */
             hasSessionKey: boolean;
+            /** @description Heartbeat says Polymarket cancels its resting orders when the server goes quiet. */
+            heartbeat: boolean;
             id: string;
             label: string;
         };
@@ -4837,7 +4864,10 @@ export interface operations {
     };
     unlinkWallet: {
         parameters: {
-            query?: never;
+            query?: {
+                /** @description Yes to cancelling the resting orders of the workflows trading live from it, and their going back to paper */
+                confirm?: boolean;
+            };
             header?: never;
             path: {
                 /** @description Wallet ID */
@@ -4872,7 +4902,7 @@ export interface operations {
                     "application/json": components["schemas"]["Error"];
                 };
             };
-            /** @description wallet_trades_live: switch its workflows to paper first */
+            /** @description wallet_trades_live: the message names them; send confirm */
             409: {
                 headers: {
                     [name: string]: unknown;
@@ -5377,6 +5407,52 @@ export interface operations {
             };
             /** @description session_key_in_use: remove the session key instead */
             409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    setHeartbeat: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Wallet ID */
+                id: string;
+            };
+            cookie?: never;
+        };
+        /** @description On or off */
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["HeartbeatRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Wallet"];
+                };
+            };
+            /** @description unauthenticated */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description not_found */
+            404: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -6117,7 +6193,10 @@ export interface operations {
     };
     deactivateWorkflow: {
         parameters: {
-            query?: never;
+            query?: {
+                /** @description Also cancel its live resting orders */
+                cancelOrders?: boolean;
+            };
             header?: never;
             path: {
                 /** @description Workflow ID */

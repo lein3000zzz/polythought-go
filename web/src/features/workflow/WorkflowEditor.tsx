@@ -47,9 +47,21 @@ import {
   useUpdateWorkflow,
   useWorkflowProblems,
 } from '@/api/workflows'
+import { useTradingSetup } from '@/api/trading'
 import { ConfirmDialog } from '@/components/ConfirmDialog'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
+import { Checkbox } from '@/components/ui/checkbox'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -978,6 +990,21 @@ function InspectBar({ workflowId, execution: e, version, onClose }: InspectBarPr
 
 function ActiveSwitch({ workflow, dirty }: { workflow: Workflow; dirty: boolean }) {
   const setActive = useSetActive(workflow.id)
+  const setup = useTradingSetup(workflow.id, workflow.active)
+  const [asking, setAsking] = useState(false)
+  const [cancelOrders, setCancelOrders] = useState(false)
+  const resting = setup.data?.resting ?? 0
+
+  const change = (active: boolean, cancel = false) => {
+    setAsking(false)
+    setActive.mutate(
+      { active, cancelOrders: cancel },
+      {
+        onSuccess: (w) => toast.success(w.active ? 'Workflow activated' : 'Workflow deactivated'),
+        onError: (error) => toast.error(errorMessage(error)),
+      },
+    )
+  }
 
   return (
     <div className="flex items-center gap-2" title={dirty ? 'Save your changes first' : undefined}>
@@ -988,14 +1015,50 @@ function ActiveSwitch({ workflow, dirty }: { workflow: Workflow; dirty: boolean 
         id="workflow-active"
         checked={workflow.active}
         disabled={dirty || setActive.isPending}
-        onCheckedChange={(on) =>
-          setActive.mutate(on, {
-            onSuccess: (w) =>
-              toast.success(w.active ? 'Workflow activated' : 'Workflow deactivated'),
-            onError: (error) => toast.error(errorMessage(error)),
-          })
-        }
+        onCheckedChange={(on) => {
+          // Switched off, its live orders keep resting unless its owner says (D217).
+          if (!on && resting > 0) {
+            setCancelOrders(false)
+            setAsking(true)
+            return
+          }
+
+          change(on)
+        }}
       />
+
+      <AlertDialog open={asking} onOpenChange={(open) => !open && setAsking(false)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Switch off {workflow.name}?</AlertDialogTitle>
+            <AlertDialogDescription>
+              {resting === 1 ? 'Its live order rests' : `Its ${resting} live orders rest`} on the
+              book:
+              {resting === 1
+                ? ' it keeps resting, and may fill,'
+                : ' they keep resting, and may fill,'}{' '}
+              unless you cancel {resting === 1 ? 'it' : 'them'}.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <div className="flex items-center gap-2 text-sm">
+            <Checkbox
+              id="cancel-resting"
+              checked={cancelOrders}
+              onCheckedChange={(checked) => setCancelOrders(checked === true)}
+            />
+            <Label htmlFor="cancel-resting">
+              Also cancel{' '}
+              {resting === 1 ? 'its resting live order' : `its ${resting} resting live orders`}
+            </Label>
+          </div>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={() => change(false, cancelOrders)}>
+              Switch off
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 }

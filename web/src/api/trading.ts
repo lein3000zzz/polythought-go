@@ -29,11 +29,12 @@ export function useTradingSummary(workflowId: string, mode?: TradingMode, enable
 }
 
 /** How a workflow trades (D191): on paper, or live from one of its owner's wallets. */
-export function useTradingSetup(workflowId: string) {
+export function useTradingSetup(workflowId: string, enabled = true) {
   return useQuery({
     queryKey: keys.tradingSetup(workflowId),
     queryFn: () =>
       call(api.GET('/workflows/{id}/trading/setup', { params: { path: { id: workflowId } } })),
+    enabled,
   })
 }
 

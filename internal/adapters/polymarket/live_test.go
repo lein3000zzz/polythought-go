@@ -431,3 +431,15 @@ func TestLiveCash(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, "12.345678", cash.String())
 }
+
+func TestLiveHeartbeat(t *testing.T) {
+	key := ports.OrderKey{Credentials: domain.PolymarketCredentials{Signer: ownerAddress}}
+
+	e, clob, _ := exchange(t)
+	clob.EXPECT().Heartbeat(mock.Anything, toL2(key.Credentials), "hb-1").Return("", &pm.HeartbeatMismatchError{Expected: "hb-5"})
+	clob.EXPECT().Heartbeat(mock.Anything, toL2(key.Credentials), "hb-5").Return("hb-6", nil)
+
+	next, err := e.Heartbeat(context.Background(), key, "hb-1")
+	require.NoError(t, err)
+	assert.Equal(t, "hb-6", next, "once more with the ID expected")
+}

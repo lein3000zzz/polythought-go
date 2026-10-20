@@ -160,3 +160,25 @@ func TestWallets(t *testing.T) {
 		})
 	}
 }
+
+func TestWalletHeartbeat(t *testing.T) {
+	ctx := context.Background()
+
+	db := fresh(t)
+	repo := postgres.NewWallets(db)
+	alice := seedUser(t, db, "alice@example.com", domain.RoleUser)
+	bob := seedUser(t, db, "bob@example.com", domain.RoleUser)
+	w := seedWallet(t, db, alice, "0x1111111111111111111111111111111111111111")
+
+	got, err := repo.Get(ctx, alice.ID, w.ID)
+	require.NoError(t, err)
+	assert.False(t, got.Heartbeat, "off until its owner turns it on (D214)")
+
+	require.NoError(t, repo.SetHeartbeat(ctx, alice.ID, w.ID, true))
+
+	got, err = repo.Get(ctx, alice.ID, w.ID)
+	require.NoError(t, err)
+	assert.True(t, got.Heartbeat)
+
+	require.ErrorIs(t, repo.SetHeartbeat(ctx, bob.ID, w.ID, false), domain.ErrNotFound, "someone else's")
+}

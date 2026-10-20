@@ -399,6 +399,9 @@ type tradingSetupDTO struct {
 	// HoldsLive says it holds live shares: its wallet changes once they are sold or
 	// settled (D202).
 	HoldsLive bool `json:"holdsLive"`
+	// Resting is how many of its live orders rest on the book: switching it off asks
+	// whether to cancel them; going back to paper cancels them.
+	Resting int `json:"resting"`
 	// LiveAvailable says whether the server places live orders now; Why, why not.
 	LiveAvailable bool   `json:"liveAvailable"`
 	Why           string `json:"why,omitempty" validate:"optional"`
@@ -413,7 +416,9 @@ type tradingSetupRequest struct {
 } // @name TradingSetupRequest
 
 func toTradingSetupDTO(t trading.Setup) tradingSetupDTO {
-	out := tradingSetupDTO{Mode: string(t.Mode), HoldsLive: t.HoldsLive, LiveAvailable: t.LiveAvailable, Why: t.Why}
+	out := tradingSetupDTO{
+		Mode: string(t.Mode), HoldsLive: t.HoldsLive, Resting: t.Resting, LiveAvailable: t.LiveAvailable, Why: t.Why,
+	}
 
 	if t.Wallet != nil {
 		w := toWalletDTO(*t.Wallet)

@@ -330,7 +330,7 @@ func TestScopedOperations(t *testing.T) {
 				r.EXPECT().Get(mock.Anything, owner.ID, wallet.ID).Return(wallet, nil)
 				r.EXPECT().Delete(mock.Anything, owner.ID, wallet.ID).Return(nil)
 			},
-			call: func(s *wallets.Service) error { return s.Unlink(context.Background(), token, wallet.ID) },
+			call: func(s *wallets.Service) error { return s.Unlink(context.Background(), token, wallet.ID, false) },
 		},
 		{
 			name: "credentials info",

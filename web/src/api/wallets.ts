@@ -42,12 +42,36 @@ export function useLinkWallet() {
   })
 }
 
+/**
+ * Unlinks a wallet. Workflows trading live from it are named first (wallet_trades_live);
+ * confirmed, their resting orders are cancelled and they go back to paper (D218).
+ */
 export function useUnlinkWallet() {
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: (id: string) => call(api.DELETE('/wallets/{id}', { params: { path: { id } } })),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: keys.wallets }),
+    mutationFn: ({ id, confirm }: { id: string; confirm?: boolean }) =>
+      call(
+        api.DELETE('/wallets/{id}', {
+          params: { path: { id }, query: confirm ? { confirm } : {} },
+        }),
+      ),
+    onSuccess: () =>
+      Promise.all([
+        queryClient.invalidateQueries({ queryKey: keys.wallets }),
+        queryClient.invalidateQueries({ queryKey: keys.workflows }),
+      ]),
+  })
+}
+
+/** Has Polymarket cancel a wallet's resting orders when the server goes quiet (D214). */
+export function useSetHeartbeat(id: string) {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: (on: boolean) =>
+      call(api.PUT('/wallets/{id}/heartbeat', { params: { path: { id } }, body: { on } })),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: keys.walletList }),
   })
 }
 

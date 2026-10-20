@@ -19,8 +19,10 @@ type walletDTO struct {
 	// HasKey says it has a key to trade with: its private key, or a session key.
 	HasKey bool `json:"hasKey"`
 	// HasSessionKey says the key is an authorised session key.
-	HasSessionKey bool      `json:"hasSessionKey"`
-	CreatedAt     time.Time `json:"createdAt" format:"date-time"`
+	HasSessionKey bool `json:"hasSessionKey"`
+	// Heartbeat says Polymarket cancels its resting orders when the server goes quiet.
+	Heartbeat bool      `json:"heartbeat"`
+	CreatedAt time.Time `json:"createdAt" format:"date-time"`
 } // @name Wallet
 
 func toWalletDTO(w domain.Wallet) walletDTO {
@@ -31,6 +33,7 @@ func toWalletDTO(w domain.Wallet) walletDTO {
 		HasCredentials: w.HasCredentials,
 		HasKey:         w.HasKey,
 		HasSessionKey:  w.HasSessionKey,
+		Heartbeat:      w.Heartbeat,
 		CreatedAt:      w.CreatedAt,
 	}
 }
@@ -145,29 +148,69 @@ func (s *Server) linkWallet(ctx context.Context, c *app.RequestContext) {
 	c.JSON(http.StatusCreated, toWalletDTO(w))
 }
 
-// unlinkWallet removes a wallet and its credentials, unless a workflow trades live from
-// it.
+// unlinkWallet removes a wallet and its credentials. Workflows trading live from it are
+// named first; with confirm, their resting orders are cancelled and they go back to paper
+// (D218).
 //
 //	@Summary	Unlink a wallet
 //	@ID			unlinkWallet
 //	@Tags		wallets
-//	@Param		id	path	string	true	"Wallet ID"
+//	@Param		id		path	string	true	"Wallet ID"
+//	@Param		confirm	query	bool	false	"Yes to cancelling the resting orders of the workflows trading live from it, and their going back to paper"
 //	@Success	204
 //	@Failure	401	{object}	errorBody	"unauthenticated"
 //	@Failure	404	{object}	errorBody	"not_found"
-//	@Failure	409	{object}	errorBody	"wallet_trades_live: switch its workflows to paper first"
+//	@Failure	409	{object}	errorBody	"wallet_trades_live: the message names them; send confirm"
 //	@Security	SessionCookie
 //	@Security	APIToken
 //	@Router		/wallets/{id} [delete]
 func (s *Server) unlinkWallet(ctx context.Context, c *app.RequestContext) {
 	p, _ := principal(c)
 
-	if err := s.wallets.Unlink(ctx, p, domain.WalletID(c.Param("id"))); err != nil {
+	if err := s.wallets.Unlink(ctx, p, domain.WalletID(c.Param("id")), c.Query("confirm") == "true"); err != nil {
 		s.fail(ctx, c, err)
 		return
 	}
 
 	c.Status(http.StatusNoContent)
+}
+
+type heartbeatRequest struct {
+	On bool `json:"on"`
+} // @name HeartbeatRequest
+
+// setHeartbeat sets whether Polymarket cancels the wallet's resting orders when the server
+// goes quiet for 10 seconds: the server then sends a heartbeat every 5 s while it has
+// resting orders (D214).
+//
+//	@Summary	Heartbeats for a wallet's resting orders
+//	@ID			setHeartbeat
+//	@Tags		wallets
+//	@Param		id		path		string				true	"Wallet ID"
+//	@Param		body	body		heartbeatRequest	true	"On or off"
+//	@Success	200		{object}	walletDTO
+//	@Failure	401		{object}	errorBody	"unauthenticated"
+//	@Failure	404		{object}	errorBody	"not_found"
+//	@Security	SessionCookie
+//	@Security	APIToken
+//	@Router		/wallets/{id}/heartbeat [put]
+func (s *Server) setHeartbeat(ctx context.Context, c *app.RequestContext) {
+	var req heartbeatRequest
+
+	if err := decodeJSON(c, &req); err != nil {
+		s.fail(ctx, c, err)
+		return
+	}
+
+	p, _ := principal(c)
+
+	w, err := s.wallets.SetHeartbeat(ctx, p, domain.WalletID(c.Param("id")), req.On)
+	if err != nil {
+		s.fail(ctx, c, err)
+		return
+	}
+
+	c.JSON(http.StatusOK, toWalletDTO(w))
 }
 
 // credentialsInfo describes the stored credentials without revealing them.

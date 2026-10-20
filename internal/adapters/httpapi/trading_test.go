@@ -140,7 +140,7 @@ func TestTrading(t *testing.T) {
 		assert.JSONEq(t, `{
 			"account": {"mode": "live", "open": true, "cash": "250", "startedWith": "0", "worth": "254.9", "profit": "2.4",
 				"cashKnown": true, "held": "0", "wallet": {"id": "w-1", "address": "0x1111111111111111111111111111111111111111", "label": "Main",
-				"hasCredentials": false, "hasKey": true, "hasSessionKey": false, "createdAt": "2026-10-17T12:00:00Z"}},
+				"hasCredentials": false, "hasKey": true, "hasSessionKey": false, "heartbeat": false, "createdAt": "2026-10-17T12:00:00Z"}},
 			"traders": [], "holdings": []
 		}`, w.Body.String())
 	})
@@ -170,7 +170,7 @@ func TestTrading(t *testing.T) {
 
 		w := get("/api/v1/workflows/wf-1/trading/setup").do(t, srv)
 		assert.Equal(t, http.StatusOK, w.Code, w.Body.String())
-		assert.JSONEq(t, `{"mode":"paper","holdsLive":false,"liveAvailable":false,"why":"live trading is off on this server"}`, w.Body.String())
+		assert.JSONEq(t, `{"mode":"paper","holdsLive":false,"resting":0,"liveAvailable":false,"why":"live trading is off on this server"}`, w.Body.String())
 
 		trading.EXPECT().SetSetup(mock.Anything, byAlice, domain.WorkflowID("wf-1"),
 			tradingsvc.SetupChange{Mode: domain.ModeLive, WalletID: "w-1", Confirmed: true}).
@@ -179,9 +179,9 @@ func TestTrading(t *testing.T) {
 		w = request{method: "PUT", path: "/api/v1/workflows/wf-1/trading/setup", headers: cookie,
 			body: `{"mode":"live","walletId":"w-1","confirm":true}`}.do(t, srv)
 		assert.Equal(t, http.StatusOK, w.Code, w.Body.String())
-		assert.JSONEq(t, `{"mode":"live","holdsLive":false,"liveAvailable":true,"wallet":{"id":"w-1",
+		assert.JSONEq(t, `{"mode":"live","holdsLive":false,"resting":0,"liveAvailable":true,"wallet":{"id":"w-1",
 			"address":"0x1111111111111111111111111111111111111111","label":"Main","hasCredentials":false,"hasKey":true,
-			"hasSessionKey":false,"createdAt":"2026-10-17T12:00:00Z"}}`, w.Body.String())
+			"hasSessionKey":false,"heartbeat":false,"createdAt":"2026-10-17T12:00:00Z"}}`, w.Body.String())
 	})
 
 	t.Run("switching refused, each way it can be", func(t *testing.T) {

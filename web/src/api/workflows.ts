@@ -80,19 +80,24 @@ export function useUpdateWorkflow(id: string) {
   })
 }
 
+/** Switches a workflow on or off; off, cancelOrders cancels its live resting orders (D217). */
 export function useSetActive(id: string) {
   const saved = useSaved()
+  const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: (active: boolean) => {
-      const params = { params: { path: { id } } }
-      return call(
+    mutationFn: ({ active, cancelOrders }: { active: boolean; cancelOrders?: boolean }) =>
+      call(
         active
-          ? api.POST('/workflows/{id}/activate', params)
-          : api.POST('/workflows/{id}/deactivate', params),
-      )
+          ? api.POST('/workflows/{id}/activate', { params: { path: { id } } })
+          : api.POST('/workflows/{id}/deactivate', {
+              params: { path: { id }, query: cancelOrders ? { cancelOrders } : {} },
+            }),
+      ),
+    onSuccess: (w) => {
+      saved(w)
+      return queryClient.invalidateQueries({ queryKey: keys.trading(id) })
     },
-    onSuccess: saved,
   })
 }
 

@@ -165,6 +165,10 @@ func (s *Service) placeLive(ctx context.Context, o domain.PlacedOrder, rules dom
 	s.d.Logger.Info(ctx, "Live order placed", "workflow_id", o.WorkflowID, "order_id", o.ID, "clob_id", o.ClobID,
 		"wallet_id", o.WalletID, "side", o.Side, "status", settled.Status, "token_id", o.TokenID)
 
+	if settled.Status == domain.OrderOpen {
+		s.nudge()
+	}
+
 	return settled, nil
 }
 
@@ -350,6 +354,11 @@ func (s *Service) follow(ctx context.Context, o domain.PlacedOrder) error {
 	unlock := s.lock(o.WorkflowID)
 	defer unlock()
 
+	// As it is now: another follow, or a cancel, may have changed it meanwhile.
+	if now, err := s.d.Ledger.Order(ctx, o.ID); err == nil {
+		o = now
+	}
+
 	k, err := s.d.Keys.OrderKey(ctx, o.OwnerID, o.WalletID)
 	if err != nil {
 		return fmt.Errorf("its wallet's key: %w", err)
@@ -394,6 +403,8 @@ func (s *Service) follow(ctx context.Context, o domain.PlacedOrder) error {
 	if err := s.d.Ledger.Update(ctx, o, &ports.LedgerChange{Holding: h}); err != nil {
 		return err
 	}
+
+	s.publish(ctx, s.changes(before, o)...)
 
 	s.d.Logger.Info(ctx, "Live order followed", "workflow_id", o.WorkflowID, "order_id", o.ID, "status", o.Status)
 

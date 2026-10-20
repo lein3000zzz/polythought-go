@@ -771,6 +771,84 @@ func (_c *MockWalletService_SetCredentials_Call) RunAndReturn(run func(ctx conte
 	return _c
 }
 
+// SetHeartbeat provides a mock function for the type MockWalletService
+func (_mock *MockWalletService) SetHeartbeat(ctx context.Context, p auth.Principal, id domain.WalletID, on bool) (domain.Wallet, error) {
+	ret := _mock.Called(ctx, p, id, on)
+
+	if len(ret) == 0 {
+		panic("no return value specified for SetHeartbeat")
+	}
+
+	var r0 domain.Wallet
+	var r1 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context, auth.Principal, domain.WalletID, bool) (domain.Wallet, error)); ok {
+		return returnFunc(ctx, p, id, on)
+	}
+	if returnFunc, ok := ret.Get(0).(func(context.Context, auth.Principal, domain.WalletID, bool) domain.Wallet); ok {
+		r0 = returnFunc(ctx, p, id, on)
+	} else {
+		r0 = ret.Get(0).(domain.Wallet)
+	}
+	if returnFunc, ok := ret.Get(1).(func(context.Context, auth.Principal, domain.WalletID, bool) error); ok {
+		r1 = returnFunc(ctx, p, id, on)
+	} else {
+		r1 = ret.Error(1)
+	}
+	return r0, r1
+}
+
+// MockWalletService_SetHeartbeat_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'SetHeartbeat'
+type MockWalletService_SetHeartbeat_Call struct {
+	*mock.Call
+}
+
+// SetHeartbeat is a helper method to define mock.On call
+//   - ctx context.Context
+//   - p auth.Principal
+//   - id domain.WalletID
+//   - on bool
+func (_e *MockWalletService_Expecter) SetHeartbeat(ctx any, p any, id any, on any) *MockWalletService_SetHeartbeat_Call {
+	return &MockWalletService_SetHeartbeat_Call{Call: _e.mock.On("SetHeartbeat", ctx, p, id, on)}
+}
+
+func (_c *MockWalletService_SetHeartbeat_Call) Run(run func(ctx context.Context, p auth.Principal, id domain.WalletID, on bool)) *MockWalletService_SetHeartbeat_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		var arg1 auth.Principal
+		if args[1] != nil {
+			arg1 = args[1].(auth.Principal)
+		}
+		var arg2 domain.WalletID
+		if args[2] != nil {
+			arg2 = args[2].(domain.WalletID)
+		}
+		var arg3 bool
+		if args[3] != nil {
+			arg3 = args[3].(bool)
+		}
+		run(
+			arg0,
+			arg1,
+			arg2,
+			arg3,
+		)
+	})
+	return _c
+}
+
+func (_c *MockWalletService_SetHeartbeat_Call) Return(wallet domain.Wallet, err error) *MockWalletService_SetHeartbeat_Call {
+	_c.Call.Return(wallet, err)
+	return _c
+}
+
+func (_c *MockWalletService_SetHeartbeat_Call) RunAndReturn(run func(ctx context.Context, p auth.Principal, id domain.WalletID, on bool) (domain.Wallet, error)) *MockWalletService_SetHeartbeat_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // SetUpApprovals provides a mock function for the type MockWalletService
 func (_mock *MockWalletService) SetUpApprovals(ctx context.Context, p auth.Principal, id domain.WalletID) (domain.ApprovalSetup, error) {
 	ret := _mock.Called(ctx, p, id)
@@ -1316,16 +1394,16 @@ func (_c *MockWalletService_TakesSessionKeys_Call) RunAndReturn(run func() bool)
 }
 
 // Unlink provides a mock function for the type MockWalletService
-func (_mock *MockWalletService) Unlink(ctx context.Context, p auth.Principal, id domain.WalletID) error {
-	ret := _mock.Called(ctx, p, id)
+func (_mock *MockWalletService) Unlink(ctx context.Context, p auth.Principal, id domain.WalletID, confirmed bool) error {
+	ret := _mock.Called(ctx, p, id, confirmed)
 
 	if len(ret) == 0 {
 		panic("no return value specified for Unlink")
 	}
 
 	var r0 error
-	if returnFunc, ok := ret.Get(0).(func(context.Context, auth.Principal, domain.WalletID) error); ok {
-		r0 = returnFunc(ctx, p, id)
+	if returnFunc, ok := ret.Get(0).(func(context.Context, auth.Principal, domain.WalletID, bool) error); ok {
+		r0 = returnFunc(ctx, p, id, confirmed)
 	} else {
 		r0 = ret.Error(0)
 	}
@@ -1341,11 +1419,12 @@ type MockWalletService_Unlink_Call struct {
 //   - ctx context.Context
 //   - p auth.Principal
 //   - id domain.WalletID
-func (_e *MockWalletService_Expecter) Unlink(ctx any, p any, id any) *MockWalletService_Unlink_Call {
-	return &MockWalletService_Unlink_Call{Call: _e.mock.On("Unlink", ctx, p, id)}
+//   - confirmed bool
+func (_e *MockWalletService_Expecter) Unlink(ctx any, p any, id any, confirmed any) *MockWalletService_Unlink_Call {
+	return &MockWalletService_Unlink_Call{Call: _e.mock.On("Unlink", ctx, p, id, confirmed)}
 }
 
-func (_c *MockWalletService_Unlink_Call) Run(run func(ctx context.Context, p auth.Principal, id domain.WalletID)) *MockWalletService_Unlink_Call {
+func (_c *MockWalletService_Unlink_Call) Run(run func(ctx context.Context, p auth.Principal, id domain.WalletID, confirmed bool)) *MockWalletService_Unlink_Call {
 	_c.Call.Run(func(args mock.Arguments) {
 		var arg0 context.Context
 		if args[0] != nil {
@@ -1359,10 +1438,15 @@ func (_c *MockWalletService_Unlink_Call) Run(run func(ctx context.Context, p aut
 		if args[2] != nil {
 			arg2 = args[2].(domain.WalletID)
 		}
+		var arg3 bool
+		if args[3] != nil {
+			arg3 = args[3].(bool)
+		}
 		run(
 			arg0,
 			arg1,
 			arg2,
+			arg3,
 		)
 	})
 	return _c
@@ -1373,7 +1457,7 @@ func (_c *MockWalletService_Unlink_Call) Return(err error) *MockWalletService_Un
 	return _c
 }
 
-func (_c *MockWalletService_Unlink_Call) RunAndReturn(run func(ctx context.Context, p auth.Principal, id domain.WalletID) error) *MockWalletService_Unlink_Call {
+func (_c *MockWalletService_Unlink_Call) RunAndReturn(run func(ctx context.Context, p auth.Principal, id domain.WalletID, confirmed bool) error) *MockWalletService_Unlink_Call {
 	_c.Call.Return(run)
 	return _c
 }

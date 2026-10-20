@@ -329,6 +329,23 @@ func (e *Exchange) Cancel(ctx context.Context, k ports.OrderKey, id string) (por
 	return ports.LiveCancel{Reason: "Polymarket did not say"}, nil
 }
 
+// Heartbeat sends one heartbeat for the wallet's API key (D214); after a mismatch, once
+// more with the ID Polymarket expected, as its client does.
+func (e *Exchange) Heartbeat(ctx context.Context, k ports.OrderKey, last string) (string, error) {
+	next, err := e.clob.Heartbeat(ctx, toL2(k.Credentials), last)
+
+	var mismatch *pm.HeartbeatMismatchError
+	if errors.As(err, &mismatch) {
+		next, err = e.clob.Heartbeat(ctx, toL2(k.Credentials), mismatch.Expected)
+	}
+
+	if err != nil {
+		return "", accountError(err)
+	}
+
+	return next, nil
+}
+
 func (e *Exchange) Cash(ctx context.Context, k ports.OrderKey) (decimal.Decimal, error) {
 	b, err := e.account.BalanceAllowance(ctx, toL2(k.Credentials), pm.BalanceQuery{
 		AssetType: pm.AssetCollateral, SignatureType: int(k.Credentials.SignatureType),

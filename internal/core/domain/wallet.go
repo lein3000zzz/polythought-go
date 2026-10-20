@@ -71,6 +71,9 @@ type Wallet struct {
 	HasCredentials bool
 	HasKey         bool // a private key imported: it can trade (D153)
 	HasSessionKey  bool // the key is an authorised session key (D156)
+	// Heartbeat has Polymarket cancel the wallet's resting orders when the server goes
+	// quiet (D214).
+	Heartbeat bool
 }
 
 // SignatureType is how a Polymarket account signs orders.

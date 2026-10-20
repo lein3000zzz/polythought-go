@@ -353,9 +353,16 @@ func (s *Service) setActive(ctx context.Context, user domain.User, id domain.Wor
 		return "Could not switch it: " + html.EscapeString(truncate(err.Error(), maxNoteText))
 	case on:
 		return "Switched on."
-	default:
-		return "Switched off."
 	}
+
+	// Switched off here, its live orders keep resting (D217): the app cancels them.
+	if setup, err := s.menu.Trading.Setup(ctx, principal(user), id); err == nil && setup.Resting > 0 {
+		return fmt.Sprintf("Switched off. Its %d live %s still %s on the book: cancel %s in its Trading view if you want.",
+			setup.Resting, plural(setup.Resting, "order", "orders"), plural(setup.Resting, "rests", "rest"),
+			plural(setup.Resting, "it", "them"))
+	}
+
+	return "Switched off."
 }
 
 // Status.

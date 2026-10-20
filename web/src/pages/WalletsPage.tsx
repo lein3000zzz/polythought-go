@@ -3,7 +3,7 @@ import { useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { toast } from 'sonner'
 
-import { errorMessage, type Schemas } from '@/api/client'
+import { ApiError, errorMessage, type Schemas } from '@/api/client'
 import {
   useCredentials,
   useImportKey,
@@ -13,6 +13,7 @@ import {
   useSetCredentials,
   useTakesKeys,
   useTakesSessionKeys,
+  useSetHeartbeat,
   useUnlinkWallet,
   useWallets,
 } from '@/api/wallets'
@@ -33,6 +34,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { NativeSelect, NativeSelectOption } from '@/components/ui/native-select'
 import { Skeleton } from '@/components/ui/skeleton'
+import { Switch } from '@/components/ui/switch'
 import { WalletApprovals } from '@/features/wallets/Approvals'
 import {
   AuthoriseSessionKeyDialog,
@@ -141,7 +143,9 @@ function WalletCard({ wallet }: { wallet: Wallet }) {
   const [authorising, setAuthorising] = useState(false)
   const [removingKey, setRemovingKey] = useState(false)
   const [confirmUnlink, setConfirmUnlink] = useState(false)
+  const [tradingLive, setTradingLive] = useState<string>()
   const [confirmRemove, setConfirmRemove] = useState(false)
+  const heartbeat = useSetHeartbeat(wallet.id)
 
   return (
     <Card>
@@ -199,6 +203,34 @@ function WalletCard({ wallet }: { wallet: Wallet }) {
 
         {sessionKeys.data && <SessionKeyStatus keys={sessionKeys.data} />}
         <WalletApprovals wallet={wallet} />
+
+        {(wallet.hasKey || wallet.hasSessionKey) && (
+          <div className="flex items-start gap-2">
+            <Switch
+              id={`heartbeat-${wallet.id}`}
+              checked={wallet.heartbeat}
+              disabled={heartbeat.isPending}
+              onCheckedChange={(on) =>
+                heartbeat.mutate(on, {
+                  onSuccess: () =>
+                    toast.success(on ? 'Heartbeats on' : 'Heartbeats off once nothing rests'),
+                  onError: (error) => toast.error(errorMessage(error)),
+                })
+              }
+            />
+            <div className="flex flex-col gap-0.5">
+              <Label htmlFor={`heartbeat-${wallet.id}`}>
+                Cancel its resting orders if the server goes quiet
+              </Label>
+              <span className="text-xs text-muted-foreground">
+                While live orders rest, the server tells Polymarket every 5 seconds that it is
+                there; missed for 10 seconds, by a restart or a network blip too, Polymarket cancels
+                every order of the wallet resting on the book. Turned off, the heartbeats stop once
+                no orders rest.
+              </span>
+            </div>
+          </div>
+        )}
 
         <div className="flex flex-wrap gap-2">
           {takesSessionKeys && (
@@ -266,10 +298,35 @@ function WalletCard({ wallet }: { wallet: Wallet }) {
         destructive
         onCancel={() => setConfirmUnlink(false)}
         onConfirm={() =>
-          unlink.mutate(wallet.id, {
-            onSuccess: () => toast.success('Wallet unlinked'),
-            onError: (error) => toast.error(errorMessage(error)),
-          })
+          unlink.mutate(
+            { id: wallet.id },
+            {
+              onSuccess: () => toast.success('Wallet unlinked'),
+              onError: (error) =>
+                // Workflows trade live from it: they are named, and asked about (D218).
+                error instanceof ApiError && error.code === 'wallet_trades_live'
+                  ? setTradingLive(errorMessage(error))
+                  : toast.error(errorMessage(error)),
+            },
+          )
+        }
+      />
+
+      <ConfirmDialog
+        open={tradingLive !== undefined}
+        title={`Unlink ${wallet.label || shortAddress(wallet.address)} from live trading?`}
+        description={`${tradingLive ?? ''}.`}
+        confirm="Unlink, back to paper"
+        destructive
+        onCancel={() => setTradingLive(undefined)}
+        onConfirm={() =>
+          unlink.mutate(
+            { id: wallet.id, confirm: true },
+            {
+              onSuccess: () => toast.success('Wallet unlinked; its workflows trade on paper'),
+              onError: (error) => toast.error(errorMessage(error)),
+            },
+          )
         }
       />
 

@@ -51,9 +51,13 @@ type Deps struct {
 	// Orders places orders, on paper or live; optional: without it, the ledger (Books)
 	// and how workflows trade (Accounts), the trading nodes are not available.
 	// TradingRules and Portfolios are for Copy sizing.
-	Orders       ports.OrderPlacer
-	Books        trading.Books
-	Accounts     trading.Accounts
+	Orders   ports.OrderPlacer
+	Books    trading.Books
+	Accounts trading.Accounts
+	// Canceller cancels a workflow's resting orders, for Cancel orders; OrderEvents is
+	// what happens to them later, for Order activity. Optional, each.
+	Canceller    ports.OrderCanceller
+	OrderEvents  ports.OrderEvents
 	TradingRules ports.TradingRulesReader
 	Portfolios   ports.PortfolioReader
 
@@ -111,6 +115,14 @@ func Register(r *engine.Registry, d Deps) error {
 			r.RegisterNode(trading.NewRiskGuard(d.Books, d.Accounts, d.TradingRules, d.Markets, time.Now)),
 			r.RegisterNode(trading.NewPlaceOrder(d.Orders)),
 		)
+
+		if d.Canceller != nil {
+			trade = append(trade, r.RegisterNode(trading.NewCancelOrders(d.Canceller)))
+		}
+
+		if d.OrderEvents != nil {
+			trade = append(trade, r.RegisterTrigger(triggers.NewOrderActivity(d.OrderEvents)))
+		}
 	}
 
 	var code []error

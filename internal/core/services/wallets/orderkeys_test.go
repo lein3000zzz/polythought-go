@@ -109,29 +109,49 @@ func TestUnlinkWhileTradingLive(t *testing.T) {
 	p := auth.Principal{User: owner}
 	w := domain.Wallet{ID: "w-1", UserID: owner.ID, Address: walletAddr}
 
-	service := func(t *testing.T, from ...domain.WorkflowTrading) (*wallets.Service, *portsmocks.MockWalletRepository) {
+	service := func(t *testing.T, names ...string) (*wallets.Service, *portsmocks.MockWalletRepository, *portsmocks.MockWalletReleaser) {
 		repo := portsmocks.NewMockWalletRepository(t)
-		trading := portsmocks.NewMockWorkflowTradingRepository(t)
-		trading.EXPECT().TradingFrom(mock.Anything, w.ID).Return(from, nil)
+		releaser := portsmocks.NewMockWalletReleaser(t)
+		releaser.EXPECT().TradingLive(mock.Anything, owner.ID, w.ID).Return(names, nil)
 		repo.EXPECT().Get(mock.Anything, owner.ID, w.ID).Return(w, nil)
 
 		return wallets.New(repo, fakeBox(t), portsmocks.NewMockCredentialsVerifier(t), logging.Noop(),
-			wallets.WithWorkflowTrading(trading)), repo
+			wallets.WithWalletRelease(releaser)), repo, releaser
 	}
 
-	t.Run("refused while a workflow trades live from it", func(t *testing.T) {
-		svc, _ := service(t,
-			domain.WorkflowTrading{WorkflowID: "wf-1", Mode: domain.ModePaper, WalletID: w.ID},
-			domain.WorkflowTrading{WorkflowID: "wf-2", Mode: domain.ModeLive, WalletID: w.ID},
-		)
+	t.Run("unconfirmed, it names the workflows trading live from it (D218)", func(t *testing.T) {
+		svc, _, _ := service(t, "Copy A", "Copy B")
 
-		require.ErrorIs(t, svc.Unlink(ctx, p, w.ID), domain.ErrWalletTradesLive)
+		err := svc.Unlink(ctx, p, w.ID, false)
+		require.ErrorIs(t, err, domain.ErrWalletTradesLive)
+		assert.ErrorContains(t, err, "“Copy A” and “Copy B”; unlinking it cancels their resting orders and puts them back on paper")
 	})
 
-	t.Run("unlinked when they trade on paper", func(t *testing.T) {
-		svc, repo := service(t, domain.WorkflowTrading{WorkflowID: "wf-1", Mode: domain.ModePaper, WalletID: w.ID})
+	t.Run("confirmed, they are freed of it, then it goes", func(t *testing.T) {
+		svc, repo, releaser := service(t, "Copy A")
+		releaser.EXPECT().ReleaseWallet(mock.Anything, owner.ID, w.ID).Return(nil)
 		repo.EXPECT().Delete(mock.Anything, owner.ID, w.ID).Return(nil)
 
-		require.NoError(t, svc.Unlink(ctx, p, w.ID))
+		require.NoError(t, svc.Unlink(ctx, p, w.ID, true))
 	})
+
+	t.Run("nothing trading live from it: it goes", func(t *testing.T) {
+		svc, repo, _ := service(t)
+		repo.EXPECT().Delete(mock.Anything, owner.ID, w.ID).Return(nil)
+
+		require.NoError(t, svc.Unlink(ctx, p, w.ID, false))
+	})
+}
+
+func TestSetHeartbeat(t *testing.T) {
+	svc, repo, _ := keyService(t, false)
+	p := auth.Principal{User: domain.User{ID: "u-1"}}
+	w := domain.Wallet{ID: "w-1", UserID: "u-1", Address: walletAddr, Heartbeat: true}
+
+	repo.EXPECT().SetHeartbeat(mock.Anything, domain.UserID("u-1"), w.ID, true).Return(nil)
+	repo.EXPECT().Get(mock.Anything, domain.UserID("u-1"), w.ID).Return(w, nil)
+
+	got, err := svc.SetHeartbeat(context.Background(), p, w.ID, true)
+	require.NoError(t, err)
+	assert.True(t, got.Heartbeat)
 }

@@ -715,3 +715,43 @@ func TestRefusalsAreNotServiceFailures(t *testing.T) {
 	assert.True(t, placedOrRefused(fmt.Errorf("wrapped: %w", ErrUnauthorized)))
 	assert.False(t, placedOrRefused(&OrderUncertainError{ID: "0x1", Err: io.EOF}))
 }
+
+func TestHeartbeat(t *testing.T) {
+	t.Run("the first arms it, each gives the next", func(t *testing.T) {
+		c, seen := clob(t,
+			step{method: http.MethodPost, path: "/v1/heartbeats", status: 200, body: `{"heartbeat_id":"hb-1"}`},
+			step{method: http.MethodPost, path: "/v1/heartbeats", status: 200, body: `{"heartbeat_id":"hb-2"}`},
+		)
+
+		next, err := c.Heartbeat(context.Background(), testCreds, "")
+		require.NoError(t, err)
+		assert.Equal(t, "hb-1", next)
+
+		next, err = c.Heartbeat(context.Background(), testCreds, next)
+		require.NoError(t, err)
+		assert.Equal(t, "hb-2", next)
+
+		got := seen()
+		assert.JSONEq(t, `{"heartbeat_id":""}`, string(got[0].body))
+		assert.JSONEq(t, `{"heartbeat_id":"hb-1"}`, string(got[1].body))
+		assertSigned(t, got[1], testCreds)
+	})
+
+	t.Run("a mismatch says the ID expected", func(t *testing.T) {
+		c, _ := clob(t, step{method: http.MethodPost, path: "/v1/heartbeats", status: 400,
+			body: `{"error_msg":"Invalid Heartbeat ID","heartbeat_id":"hb-7"}`})
+
+		_, err := c.Heartbeat(context.Background(), testCreds, "hb-1")
+
+		var mismatch *HeartbeatMismatchError
+		require.ErrorAs(t, err, &mismatch)
+		assert.Equal(t, "hb-7", mismatch.Expected)
+	})
+
+	t.Run("not retried", func(t *testing.T) {
+		c, _ := clob(t, step{method: http.MethodPost, path: "/v1/heartbeats", status: 502})
+
+		_, err := c.Heartbeat(context.Background(), testCreds, "hb-1")
+		require.Error(t, err)
+	})
+}

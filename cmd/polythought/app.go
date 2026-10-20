@@ -234,7 +234,7 @@ func (a *app) init(ctx context.Context) error {
 	walletRepo := postgres.NewWallets(a.db)
 	a.workflowTrading = postgres.NewWorkflowTrading(a.db)
 	a.wallets = wallets.New(walletRepo, a.box, pmc.account, a.util.Logger,
-		wallets.WithWorkflowTrading(a.workflowTrading),
+		wallets.WithWalletRelease(laterTrading{a}),
 		wallets.WithKeys(pmc.keys, func() bool {
 			s := a.settings.Current()
 			return config.TakesKeys(s.String(config.KeyKeyImport), domain.RegistrationMode(s.String(config.KeyRegistration)))
@@ -437,6 +437,18 @@ func (c codeTypes) Declarations(ctx context.Context, p auth.Principal) ([]ports.
 	}
 
 	return tscompiler.Declarations(reg.Types()), nil
+}
+
+// laterTrading is the trading service, made after the wallets service that asks it which
+// workflows trade live from a wallet being unlinked (D218).
+type laterTrading struct{ a *app }
+
+func (l laterTrading) TradingLive(ctx context.Context, owner domain.UserID, wallet domain.WalletID) ([]string, error) {
+	return l.a.trading.TradingLive(ctx, owner, wallet)
+}
+
+func (l laterTrading) ReleaseWallet(ctx context.Context, owner domain.UserID, wallet domain.WalletID) error {
+	return l.a.trading.ReleaseWallet(ctx, owner, wallet)
 }
 
 // laterWorkflows is the workflows service, made after the trading service that asks it
@@ -659,6 +671,8 @@ func (a *app) initEngine(ctx context.Context, pmc polymarket) error {
 		Orders:        a.trading,
 		Books:         ledger,
 		Accounts:      a.trading,
+		Canceller:     a.trading,
+		OrderEvents:   a.trading,
 		TradingRules:  pmc.reader,
 		Portfolios:    pmc.reader,
 		Memory:        a.nodeMemory,
@@ -706,7 +720,8 @@ func (a *app) initEngine(ctx context.Context, pmc polymarket) error {
 	a.workflows = workflows.New(postgres.NewWorkflows(a.db), executions, checks, executor, a.supervisor, a.util.Logger,
 		workflows.WithLiveLimits(func() workflows.Limits { return workflowLimits(a.settings.Current()) }),
 		workflows.WithWaits(a.waits), workflows.WithFieldChecks(checks),
-		workflows.WithExpressionChecks(checks), workflows.WithCodeAccess(checks), workflows.WithNodeMemory(a.nodeMemory))
+		workflows.WithExpressionChecks(checks), workflows.WithCodeAccess(checks), workflows.WithNodeMemory(a.nodeMemory),
+		workflows.WithRestingOrders(a.trading))
 	a.memory = memory.New(a.nodeMemory, a.workflows, a.util.Logger)
 
 	if a.library, err = library.New(postgres.NewTemplates(a.db), a.workflows, a.registry, a.util.Logger,

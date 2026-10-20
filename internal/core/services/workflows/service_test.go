@@ -748,3 +748,60 @@ func TestCheck(t *testing.T) {
 		require.ErrorIs(t, err, domain.ErrNotFound)
 	})
 }
+
+// resting counts the cancels asked of the trading service.
+type resting struct{ asked []string }
+
+func (r *resting) CancelResting(_ context.Context, w domain.WorkflowID, why string) (int, error) {
+	r.asked = append(r.asked, string(w)+": "+why)
+	return 0, nil
+}
+
+func TestRestingOrders(t *testing.T) {
+	ctx := context.Background()
+
+	withOrders := func(t *testing.T) (*workflows.Service, deps, *resting) {
+		_, d := newService(t, workflows.Limits{})
+		r := &resting{}
+
+		svc := workflows.New(d.repo, d.executions, d.validator, d.executor, d.supervisor, logging.Noop(),
+			workflows.WithClock(func() time.Time { return now }), workflows.WithRestingOrders(r))
+
+		return svc, d, r
+	}
+
+	off := func(d deps) {
+		d.repo.EXPECT().Get(mock.Anything, domain.UserID("u-1"), domain.WorkflowID("wf-1")).Return(active(stored), nil)
+		d.repo.EXPECT().SetActive(mock.Anything, domain.UserID("u-1"), domain.WorkflowID("wf-1"), false, now).Return(nil)
+		d.supervisor.EXPECT().Stop(domain.WorkflowID("wf-1")).Once()
+	}
+
+	t.Run("deleted, its live resting orders are cancelled first (D213)", func(t *testing.T) {
+		s, d, r := withOrders(t)
+		d.repo.EXPECT().Get(mock.Anything, mock.Anything, mock.Anything).Return(active(stored), nil)
+		d.supervisor.EXPECT().Stop(domain.WorkflowID("wf-1")).Once()
+		d.repo.EXPECT().Delete(mock.Anything, domain.UserID("u-1"), domain.WorkflowID("wf-1")).Return(nil)
+
+		require.NoError(t, s.Delete(ctx, alice, "wf-1"))
+		assert.Equal(t, []string{"wf-1: cancelled: the workflow was deleted"}, r.asked)
+	})
+
+	t.Run("switched off, they keep resting unless asked (D217)", func(t *testing.T) {
+		s, d, r := withOrders(t)
+		off(d)
+
+		w, err := s.SwitchOff(ctx, alice, "wf-1", false)
+		require.NoError(t, err)
+		assert.False(t, w.Active)
+		assert.Empty(t, r.asked)
+	})
+
+	t.Run("switched off and asked, they are cancelled", func(t *testing.T) {
+		s, d, r := withOrders(t)
+		off(d)
+
+		_, err := s.SwitchOff(ctx, alice, "wf-1", true)
+		require.NoError(t, err)
+		assert.Equal(t, []string{"wf-1: cancelled: the workflow was switched off"}, r.asked)
+	})
+}

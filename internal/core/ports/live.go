@@ -120,6 +120,9 @@ type LiveExchange interface {
 	Trades(ctx context.Context, k OrderKey, order string, token domain.TokenID, ids []string) ([]LiveTrade, error)
 	// Cancel cancels what is left of an order on the book.
 	Cancel(ctx context.Context, k OrderKey, id string) (LiveCancel, error)
+	// Heartbeat tells Polymarket the server is there, armed by the first (D214): last is
+	// the ID the one before gave, empty to start; it gives the next.
+	Heartbeat(ctx context.Context, k OrderKey, last string) (string, error)
 	// Cash is the wallet's pUSD on the CLOB.
 	Cash(ctx context.Context, k OrderKey) (decimal.Decimal, error)
 }
@@ -128,4 +131,41 @@ type LiveExchange interface {
 // books (D193).
 type LiveTradeNotifier interface {
 	LiveTradeFailed(ctx context.Context, user domain.UserID, o domain.PlacedOrder) error
+}
+
+// OrderEvents says what happens to a workflow's orders after the runs that placed them
+// (D211, D215): the trading service's, for Order activity.
+type OrderEvents interface {
+	// OrderEvents streams the workflow's order events until ctx is done.
+	OrderEvents(ctx context.Context, workflow domain.WorkflowID) <-chan domain.OrderEvent
+}
+
+// OrderCanceller cancels a workflow's own resting orders (D207), for Cancel orders.
+type OrderCanceller interface {
+	CancelOrders(ctx context.Context, c CancelRequest) ([]CancelResult, error)
+}
+
+// CancelRequest names the orders to cancel, of the workflow's that rest on the book: one
+// by its ID, or those of a market or an outcome, or all of them.
+type CancelRequest struct {
+	WorkflowID domain.WorkflowID
+	OwnerID    domain.UserID
+	OrderID    domain.OrderID
+	MarketID   domain.MarketID
+	TokenID    domain.TokenID
+	All        bool
+}
+
+// CancelResult is how cancelling one order went: the order as it is now, or why it was
+// not cancelled.
+type CancelResult struct {
+	Order  domain.PlacedOrder
+	Reason string // empty when cancelled
+}
+
+// WalletReleaser frees a wallet the owner unlinks (D218): which workflows trade live from
+// it, and, confirmed, their resting orders cancelled and them back on paper.
+type WalletReleaser interface {
+	TradingLive(ctx context.Context, owner domain.UserID, wallet domain.WalletID) ([]string, error)
+	ReleaseWallet(ctx context.Context, owner domain.UserID, wallet domain.WalletID) error
 }

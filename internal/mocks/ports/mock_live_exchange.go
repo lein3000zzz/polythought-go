@@ -187,6 +187,78 @@ func (_c *MockLiveExchange_Cash_Call) RunAndReturn(run func(ctx context.Context,
 	return _c
 }
 
+// Heartbeat provides a mock function for the type MockLiveExchange
+func (_mock *MockLiveExchange) Heartbeat(ctx context.Context, k ports.OrderKey, last string) (string, error) {
+	ret := _mock.Called(ctx, k, last)
+
+	if len(ret) == 0 {
+		panic("no return value specified for Heartbeat")
+	}
+
+	var r0 string
+	var r1 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context, ports.OrderKey, string) (string, error)); ok {
+		return returnFunc(ctx, k, last)
+	}
+	if returnFunc, ok := ret.Get(0).(func(context.Context, ports.OrderKey, string) string); ok {
+		r0 = returnFunc(ctx, k, last)
+	} else {
+		r0 = ret.Get(0).(string)
+	}
+	if returnFunc, ok := ret.Get(1).(func(context.Context, ports.OrderKey, string) error); ok {
+		r1 = returnFunc(ctx, k, last)
+	} else {
+		r1 = ret.Error(1)
+	}
+	return r0, r1
+}
+
+// MockLiveExchange_Heartbeat_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'Heartbeat'
+type MockLiveExchange_Heartbeat_Call struct {
+	*mock.Call
+}
+
+// Heartbeat is a helper method to define mock.On call
+//   - ctx context.Context
+//   - k ports.OrderKey
+//   - last string
+func (_e *MockLiveExchange_Expecter) Heartbeat(ctx any, k any, last any) *MockLiveExchange_Heartbeat_Call {
+	return &MockLiveExchange_Heartbeat_Call{Call: _e.mock.On("Heartbeat", ctx, k, last)}
+}
+
+func (_c *MockLiveExchange_Heartbeat_Call) Run(run func(ctx context.Context, k ports.OrderKey, last string)) *MockLiveExchange_Heartbeat_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		var arg1 ports.OrderKey
+		if args[1] != nil {
+			arg1 = args[1].(ports.OrderKey)
+		}
+		var arg2 string
+		if args[2] != nil {
+			arg2 = args[2].(string)
+		}
+		run(
+			arg0,
+			arg1,
+			arg2,
+		)
+	})
+	return _c
+}
+
+func (_c *MockLiveExchange_Heartbeat_Call) Return(s string, err error) *MockLiveExchange_Heartbeat_Call {
+	_c.Call.Return(s, err)
+	return _c
+}
+
+func (_c *MockLiveExchange_Heartbeat_Call) RunAndReturn(run func(ctx context.Context, k ports.OrderKey, last string) (string, error)) *MockLiveExchange_Heartbeat_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // Order provides a mock function for the type MockLiveExchange
 func (_mock *MockLiveExchange) Order(ctx context.Context, k ports.OrderKey, id string) (ports.LiveOrderState, error) {
 	ret := _mock.Called(ctx, k, id)

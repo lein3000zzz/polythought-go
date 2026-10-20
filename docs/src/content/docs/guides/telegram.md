@@ -27,7 +27,9 @@ Once linked, a keyboard with five sections sits under the chat's input field. Se
 if it is gone. Each section answers with a message whose buttons change it in place:
 
 - **📋 Workflows**: your workflows, ● on and ○ off, a page at a time. Pick one to see its last
-  runs, run it now, or switch it on or off.
+  runs, run it now, or switch it on or off. Switching off a workflow that
+  [trades live](/docs/guides/copy-traders/#trading-live) leaves its resting orders on the
+  book, and the bot says how many: cancel them in its Trading view.
 - **👥 Traders**: the workflows that [copy traders](/docs/guides/copy-traders/), with how
   many of their traders are on. Pick one to see what its paper account is worth and, for
   each trader, the profit or loss made on what was sold, what is held would make sold now,

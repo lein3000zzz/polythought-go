@@ -81,6 +81,7 @@ const main: Schemas['Wallet'] = {
   hasCredentials: true,
   hasKey: true,
   hasSessionKey: false,
+  heartbeat: false,
   createdAt: at,
 }
 const watchOnly: Schemas['Wallet'] = {
@@ -94,6 +95,7 @@ const watchOnly: Schemas['Wallet'] = {
 const paperSetup: Schemas['TradingSetup'] = {
   mode: 'paper',
   holdsLive: false,
+  resting: 0,
   liveAvailable: true,
 }
 
@@ -265,7 +267,7 @@ describe('trading view', () => {
   })
 
   it('shows the live books, and goes back to paper at once', async () => {
-    trading({ mode: 'live', wallet: main, holdsLive: true, liveAvailable: true })
+    trading({ mode: 'live', wallet: main, holdsLive: true, resting: 0, liveAvailable: true })
     let asked: unknown
     const modes: (string | null)[] = []
     server.use(

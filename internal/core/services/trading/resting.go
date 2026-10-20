@@ -356,6 +356,8 @@ func (s *Service) paperFill(ctx context.Context, id domain.OrderID, most decimal
 		return decimal.Zero, err
 	}
 
+	s.publish(ctx, domain.OrderEvent{Kind: domain.OrderEventFilled, Order: o, Fills: part.Fills, At: s.d.Now().UTC()})
+
 	s.d.Logger.Info(ctx, "Paper resting order filled", "workflow_id", o.WorkflowID, "order_id", o.ID,
 		"shares", take, "price", o.Price, "status", o.Status)
 
@@ -382,11 +384,14 @@ func (s *Service) endPaperLocked(ctx context.Context, id domain.OrderID, status 
 		return err
 	}
 
+	before := o
 	o.Status, o.Reason = status, why+", "+filledOf(o)
 
 	if err := s.d.Ledger.Update(ctx, o, nil); err != nil {
 		return err
 	}
+
+	s.publish(ctx, s.changes(before, o)...)
 
 	s.d.Logger.Info(ctx, "Paper resting order ended", "workflow_id", o.WorkflowID, "order_id", o.ID, "status", status)
 
@@ -412,10 +417,15 @@ func (s *Service) WatchLive(ctx context.Context, every time.Duration) {
 	var (
 		changes = make(chan change, 64)
 		streams = map[domain.WalletID]context.CancelFunc{}
+		beats   = map[domain.WalletID]context.CancelFunc{}
 	)
 
 	defer func() {
 		for _, stop := range streams {
+			stop()
+		}
+
+		for _, stop := range beats {
 			stop()
 		}
 	}()
@@ -426,15 +436,22 @@ func (s *Service) WatchLive(ctx context.Context, every time.Duration) {
 			wanted[o.WalletID] = o.OwnerID
 		}
 
-		for w, stop := range streams {
-			if _, ok := wanted[w]; !ok {
-				stop()
-				delete(streams, w)
+		// A wallet with nothing resting is no longer watched; its heartbeats stop, and
+		// Polymarket's switch has nothing to cancel.
+		for _, running := range []map[domain.WalletID]context.CancelFunc{streams, beats} {
+			for w, stop := range running {
+				if _, ok := wanted[w]; !ok {
+					stop()
+					delete(running, w)
+				}
 			}
 		}
 
 		for w, owner := range wanted {
-			if _, ok := streams[w]; ok || s.d.Stream == nil {
+			_, streaming := streams[w]
+			_, beating := beats[w]
+
+			if streaming && beating {
 				continue
 			}
 
@@ -444,18 +461,29 @@ func (s *Service) WatchLive(ctx context.Context, every time.Duration) {
 				continue
 			}
 
-			wctx, stop := context.WithCancel(ctx)
-			streams[w] = stop
+			if !streaming && s.d.Stream != nil {
+				wctx, stop := context.WithCancel(ctx)
+				streams[w] = stop
 
-			go func() {
-				for e := range s.d.Stream.Watch(wctx, k) {
-					select {
-					case changes <- change{wallet: w, event: e}:
-					case <-wctx.Done():
-						return
+				go func() {
+					for e := range s.d.Stream.Watch(wctx, k) {
+						select {
+						case changes <- change{wallet: w, event: e}:
+						case <-wctx.Done():
+							return
+						}
 					}
-				}
-			}()
+				}()
+			}
+
+			// Once beating, it beats while orders rest, the setting off or not: stopping
+			// would have Polymarket cancel them (D214).
+			if !beating && k.Wallet.Heartbeat {
+				bctx, stop := context.WithCancel(ctx)
+				beats[w] = stop
+
+				go s.beat(bctx, k)
+			}
 		}
 	}
 
@@ -489,6 +517,8 @@ func (s *Service) WatchLive(ctx context.Context, every time.Duration) {
 				return
 			case <-t.C:
 				wait = false
+			case <-s.nudges:
+				wait = false
 			case c := <-changes:
 				if c.event.Gap {
 					follow(c.wallet, nil)
@@ -496,6 +526,40 @@ func (s *Service) WatchLive(ctx context.Context, every time.Duration) {
 					follow(c.wallet, c.event.Orders)
 				}
 			}
+		}
+	}
+}
+
+// heartbeatEvery is how often a wallet's heartbeat goes: Polymarket cancels its orders
+// once none came for 10 s.
+const heartbeatEvery = 5 * time.Second
+
+// beat sends the wallet's heartbeats until ctx is done (D214).
+func (s *Service) beat(ctx context.Context, k ports.OrderKey) {
+	t := time.NewTicker(heartbeatEvery)
+	defer t.Stop()
+
+	last := ""
+
+	for {
+		next, err := s.d.Exchange.Heartbeat(ctx, k, last)
+
+		switch {
+		case err == nil:
+			if last == "" {
+				s.d.Logger.Info(ctx, "Heartbeats started: Polymarket cancels the wallet's resting orders if they stop",
+					"wallet_id", k.Wallet.ID)
+			}
+
+			last = next
+		case ctx.Err() == nil:
+			s.d.Logger.Warn(ctx, "Heartbeat not sent", "wallet_id", k.Wallet.ID, logging.Err(err))
+		}
+
+		select {
+		case <-ctx.Done():
+			return
+		case <-t.C:
 		}
 	}
 }
@@ -524,47 +588,166 @@ func (s *Service) Cancel(ctx context.Context, p auth.Principal, w domain.Workflo
 		return s.d.Ledger.Order(ctx, id)
 	}
 
+	got, _, err := s.cancelLive(ctx, o, "cancelled by its owner")
+
+	return got, err
+}
+
+// cancelLive has Polymarket cancel what is left of a live resting order, then reads it
+// again, what it filled before included: the order as it is now, and why Polymarket did
+// not cancel it, when it did not.
+func (s *Service) cancelLive(ctx context.Context, o domain.PlacedOrder, why string) (domain.PlacedOrder, string, error) {
 	if s.d.Exchange == nil || s.d.Keys == nil {
-		return domain.PlacedOrder{}, domain.ErrLiveTradingOff
+		return domain.PlacedOrder{}, "", domain.ErrLiveTradingOff
 	}
 
 	k, err := s.d.Keys.OrderKey(ctx, o.OwnerID, o.WalletID)
 	if err != nil {
-		return domain.PlacedOrder{}, err
+		return domain.PlacedOrder{}, "", err
 	}
 
 	c, err := s.d.Exchange.Cancel(ctx, k, o.ClobID)
 	if err != nil {
-		return domain.PlacedOrder{}, err
+		return domain.PlacedOrder{}, "", err
 	}
 
 	if !c.Canceled {
 		s.d.Logger.Info(ctx, "Live order not cancelled", "order_id", o.ID, "reason", c.Reason)
 	}
 
-	// What it is now, filled before the cancel included.
 	if err := s.follow(ctx, o); err != nil {
-		return domain.PlacedOrder{}, err
+		return domain.PlacedOrder{}, "", err
 	}
 
 	unlock := s.lock(o.WorkflowID)
 	defer unlock()
 
-	got, err := s.d.Ledger.Order(ctx, id)
+	got, err := s.d.Ledger.Order(ctx, o.ID)
 	if err != nil {
-		return domain.PlacedOrder{}, err
+		return domain.PlacedOrder{}, "", err
 	}
 
 	if c.Canceled && got.Status == domain.OrderOpen { // the CLOB's registry may lag
-		got.Status, got.Reason = domain.OrderCanceled, "cancelled by its owner, "+filledOf(got)
+		before := got
+		got.Status, got.Reason = domain.OrderCanceled, why+", "+filledOf(got)
+
 		if err := s.d.Ledger.Update(ctx, got, nil); err != nil {
-			return domain.PlacedOrder{}, err
+			return domain.PlacedOrder{}, "", err
+		}
+
+		s.publish(ctx, s.changes(before, got)...)
+	}
+
+	if c.Canceled {
+		s.d.Logger.Info(ctx, "Live order cancelled", "workflow_id", o.WorkflowID, "order_id", o.ID, "status", got.Status)
+
+		return got, "", nil
+	}
+
+	return got, c.Reason, nil
+}
+
+// CancelOrders cancels the workflow's own resting orders a request names (D207), on paper
+// and live: how each went.
+func (s *Service) CancelOrders(ctx context.Context, c ports.CancelRequest) ([]ports.CancelResult, error) {
+	var open []domain.PlacedOrder
+
+	for _, mode := range []domain.TradingMode{domain.ModePaper, domain.ModeLive} {
+		got, err := s.d.Ledger.WorkflowOpenOrders(ctx, c.WorkflowID, mode)
+		if err != nil {
+			return nil, err
+		}
+
+		open = append(open, got...)
+	}
+
+	if c.OrderID != "" && !slices.ContainsFunc(open, func(o domain.PlacedOrder) bool { return o.ID == c.OrderID }) {
+		o, err := s.d.Ledger.Order(ctx, c.OrderID)
+		if errors.Is(err, domain.ErrNotFound) || (err == nil && o.WorkflowID != c.WorkflowID) {
+			return []ports.CancelResult{{Order: domain.PlacedOrder{ID: c.OrderID}, Reason: "the workflow has no such order"}}, nil
+		}
+
+		if err != nil {
+			return nil, err
+		}
+
+		return []ports.CancelResult{{Order: o, Reason: "it no longer rests on the book: " + string(o.Status)}}, nil
+	}
+
+	var out []ports.CancelResult
+
+	for _, o := range open {
+		switch {
+		case c.OrderID != "" && o.ID != c.OrderID,
+			c.MarketID != "" && o.MarketID != c.MarketID,
+			c.TokenID != "" && o.TokenID != c.TokenID,
+			c.OrderID == "" && c.MarketID == "" && c.TokenID == "" && !c.All:
+			continue
+		}
+
+		r, err := s.cancelOne(ctx, o, "cancelled by Cancel orders")
+		if err != nil {
+			return out, err
+		}
+
+		out = append(out, r)
+	}
+
+	return out, nil
+}
+
+func (s *Service) cancelOne(ctx context.Context, o domain.PlacedOrder, why string) (ports.CancelResult, error) {
+	if o.Mode == domain.ModePaper {
+		if err := s.endPaper(ctx, o.ID, domain.OrderCanceled, why); err != nil {
+			return ports.CancelResult{}, err
+		}
+
+		got, err := s.d.Ledger.Order(ctx, o.ID)
+
+		return ports.CancelResult{Order: got}, err
+	}
+
+	got, reason, err := s.cancelLive(ctx, o, why)
+
+	return ports.CancelResult{Order: got, Reason: reason}, err
+}
+
+// CancelResting cancels a workflow's live resting orders (D213, D217): when it goes back
+// to paper, is deleted, is switched off and its owner asks, or its wallet is unlinked.
+// It says how many still rest: those Polymarket would not or could not cancel.
+func (s *Service) CancelResting(ctx context.Context, w domain.WorkflowID, why string) (int, error) {
+	open, err := s.d.Ledger.WorkflowOpenOrders(ctx, w, domain.ModeLive)
+	if err != nil {
+		return 0, err
+	}
+
+	left := 0
+
+	var errs []error
+
+	for _, o := range open {
+		got, _, err := s.cancelLive(ctx, o, why)
+		if err != nil {
+			errs = append(errs, fmt.Errorf("order %s: %w", o.ID, err))
+		}
+
+		if err != nil || got.Status == domain.OrderOpen {
+			left++
 		}
 	}
 
-	s.d.Logger.Info(ctx, "Live order cancelled", "workflow_id", w, "order_id", o.ID, "status", got.Status)
+	if left > 0 {
+		s.d.Logger.Warn(ctx, "Live resting orders not all cancelled", "workflow_id", w, "left", left, logging.Err(errors.Join(errs...)))
+	}
 
-	return got, nil
+	return left, errors.Join(errs...)
+}
+
+func (s *Service) nudge() {
+	select {
+	case s.nudges <- struct{}{}:
+	default:
+	}
 }
 
 // endPaperOrders ends a workflow's resting paper orders, as when its account starts over.

@@ -54,7 +54,14 @@ export function HowItTrades({ workflowId }: { workflowId: string }) {
     change.mutate(
       { mode: 'paper', walletId: s.wallet?.id, confirm: false },
       {
-        onSuccess: () => toast.success('Trading on paper'),
+        // Its live resting orders are cancelled (D213); those Polymarket would not cancel
+        // still rest.
+        onSuccess: (now) =>
+          now.resting > 0
+            ? toast.warning(
+                `Trading on paper. ${now.resting === 1 ? 'A live order' : `${now.resting} live orders`} could not be cancelled: cancel them in the order list.`,
+              )
+            : toast.success('Trading on paper'),
         onError: (error) => toast.error(errorMessage(error)),
       },
     )

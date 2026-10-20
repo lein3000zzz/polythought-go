@@ -51,6 +51,8 @@ func registry(t *testing.T) *engine.Registry {
 		Messenger:    noTelegram{},
 		Asker:        noTelegram{},
 		Orders:       noOrders{},
+		Canceller:    noOrders{},
+		OrderEvents:  noOrders{},
 		Books:        noBooks{},
 		Accounts:     noAccounts{},
 		Memory:       noMemory{},
@@ -82,6 +84,14 @@ func (noTelegram) CloseQuestion(context.Context, domain.UserID, int, string) err
 
 func (noOrders) Place(context.Context, domain.OrderRequest) (domain.PlacedOrder, error) {
 	return domain.PlacedOrder{}, nil
+}
+
+func (noOrders) CancelOrders(context.Context, ports.CancelRequest) ([]ports.CancelResult, error) {
+	return nil, nil
+}
+
+func (noOrders) OrderEvents(context.Context, domain.WorkflowID) <-chan domain.OrderEvent {
+	return nil
 }
 
 type deps struct {

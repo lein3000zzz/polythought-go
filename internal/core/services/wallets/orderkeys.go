@@ -4,17 +4,19 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 
 	"github.com/lein3000zzz/polythought-go/internal/core/domain"
 	"github.com/lein3000zzz/polythought-go/internal/core/ports"
+	"github.com/lein3000zzz/polythought-go/internal/core/services/auth"
 )
 
 var _ ports.OrderKeys = (*Service)(nil)
 
-// WithWorkflowTrading lets the service see which workflows trade from a wallet, so one a
-// workflow trades live from is not unlinked.
-func WithWorkflowTrading(trading ports.WorkflowTradingRepository) Option {
-	return func(s *Service) { s.trading = trading }
+// WithWalletRelease lets the service see which workflows trade live from a wallet, and
+// free it from them when its owner confirms unlinking it (D218).
+func WithWalletRelease(r ports.WalletReleaser) Option {
+	return func(s *Service) { s.releaser = r }
 }
 
 // OrderKey is what signs a wallet's live orders (D153): its credentials, and its
@@ -73,23 +75,49 @@ func (s *Service) OrderKey(ctx context.Context, owner domain.UserID, id domain.W
 	return ports.OrderKey{Wallet: w, Credentials: creds, Key: string(key)}, nil
 }
 
-// tradesLive refuses unlinking a wallet a workflow trades live from: its orders would
-// have nothing to sign them.
-func (s *Service) tradesLive(ctx context.Context, id domain.WalletID) error {
-	if s.trading == nil {
+// release frees a wallet from the workflows trading live from it before it is unlinked
+// (D218): unconfirmed, it names them; confirmed, their resting orders are cancelled and
+// they go back to paper.
+func (s *Service) release(ctx context.Context, owner domain.UserID, id domain.WalletID, confirmed bool) error {
+	if s.releaser == nil {
 		return nil
 	}
 
-	from, err := s.trading.TradingFrom(ctx, id)
-	if err != nil {
+	names, err := s.releaser.TradingLive(ctx, owner, id)
+	if err != nil || len(names) == 0 {
 		return err
 	}
 
-	for _, t := range from {
-		if t.Mode == domain.ModeLive {
-			return domain.ErrWalletTradesLive
-		}
+	if !confirmed {
+		return fmt.Errorf("%w: %s; unlinking it cancels their resting orders and puts them back on paper",
+			domain.ErrWalletTradesLive, quoteNames(names))
 	}
 
-	return nil
+	return s.releaser.ReleaseWallet(ctx, owner, id)
+}
+
+// quoteNames lists names in a sentence: "A", "A and B", "A, B and C".
+func quoteNames(names []string) string {
+	q := make([]string, len(names))
+	for i, n := range names {
+		q[i] = "“" + n + "”"
+	}
+
+	if len(q) == 1 {
+		return q[0]
+	}
+
+	return strings.Join(q[:len(q)-1], ", ") + " and " + q[len(q)-1]
+}
+
+// SetHeartbeat sets whether Polymarket cancels the wallet's resting orders when the
+// server goes quiet (D214).
+func (s *Service) SetHeartbeat(ctx context.Context, p auth.Principal, id domain.WalletID, on bool) (domain.Wallet, error) {
+	if err := s.repo.SetHeartbeat(ctx, p.User.ID, id, on); err != nil {
+		return domain.Wallet{}, err
+	}
+
+	s.log.Info(ctx, "Wallet heartbeat set", "user_id", p.User.ID, "wallet_id", id, "on", on)
+
+	return s.repo.Get(ctx, p.User.ID, id)
 }

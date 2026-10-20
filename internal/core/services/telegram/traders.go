@@ -27,6 +27,8 @@ import (
 type Trading interface {
 	// Summary is in mode, or with none, the mode the workflow trades in now.
 	Summary(ctx context.Context, p auth.Principal, id domain.WorkflowID, mode domain.TradingMode) (trading.Summary, error)
+	// Setup is how it trades, its live orders resting on the book counted.
+	Setup(ctx context.Context, p auth.Principal, id domain.WorkflowID) (trading.Setup, error)
 }
 
 const (

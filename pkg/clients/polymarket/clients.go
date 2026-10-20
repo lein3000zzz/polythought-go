@@ -64,6 +64,11 @@ type ClobTradingClient interface {
 	CancelOrders(ctx context.Context, creds L2Credentials, ids []string) (Cancellation, error)
 	CancelAll(ctx context.Context, creds L2Credentials) (Cancellation, error)
 	CancelMarketOrders(ctx context.Context, creds L2Credentials, q CancelMarketQuery) (Cancellation, error)
+
+	// Heartbeat keeps the account's dead-man switch from cancelling its open orders: last
+	// is the ID the one before gave, empty for the first, which arms it. A mismatch is a
+	// *HeartbeatMismatchError saying the ID expected.
+	Heartbeat(ctx context.Context, creds L2Credentials, last string) (string, error)
 }
 
 // DataClient reads positions, trades and analytics from data-api.polymarket.com/v2.

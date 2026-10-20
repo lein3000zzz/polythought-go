@@ -63,7 +63,9 @@ type AuthService interface {
 type WalletService interface {
 	Link(ctx context.Context, p auth.Principal, address, label string) (domain.Wallet, error)
 	List(ctx context.Context, p auth.Principal) ([]domain.Wallet, error)
-	Unlink(ctx context.Context, p auth.Principal, id domain.WalletID) error
+	// Unlink, confirmed, frees the wallet from the workflows trading live from it (D218).
+	Unlink(ctx context.Context, p auth.Principal, id domain.WalletID, confirmed bool) error
+	SetHeartbeat(ctx context.Context, p auth.Principal, id domain.WalletID, on bool) (domain.Wallet, error)
 	SetCredentials(ctx context.Context, p auth.Principal, id domain.WalletID, in wallets.CredentialsInput) (domain.CredentialsInfo, error)
 	CredentialsInfo(ctx context.Context, p auth.Principal, id domain.WalletID) (domain.CredentialsInfo, error)
 	RemoveCredentials(ctx context.Context, p auth.Principal, id domain.WalletID) error
@@ -94,6 +96,8 @@ type WorkflowService interface {
 	Delete(ctx context.Context, p auth.Principal, id domain.WorkflowID) error
 	Activate(ctx context.Context, p auth.Principal, id domain.WorkflowID) (domain.Workflow, error)
 	Deactivate(ctx context.Context, p auth.Principal, id domain.WorkflowID) (domain.Workflow, error)
+	// SwitchOff deactivates it and, asked, cancels its live resting orders (D217).
+	SwitchOff(ctx context.Context, p auth.Principal, id domain.WorkflowID, cancelOrders bool) (domain.Workflow, error)
 	Run(ctx context.Context, p auth.Principal, id domain.WorkflowID, trigger domain.NodeID) (domain.Execution, error)
 	Executions(ctx context.Context, p auth.Principal, id domain.WorkflowID, f ports.PageFilter) (ports.Page[domain.Execution], error)
 	Execution(ctx context.Context, p auth.Principal, id domain.WorkflowID, execID domain.ExecutionID) (domain.Execution, error)
@@ -304,6 +308,7 @@ func (s *Server) routes() {
 	w.GET("", s.listWallets)
 	w.POST("", s.linkWallet)
 	w.DELETE("/:id", s.unlinkWallet)
+	w.PUT("/:id/heartbeat", s.setHeartbeat)
 	w.GET("/:id/credentials", s.credentialsInfo)
 	w.PUT("/:id/credentials", s.setCredentials)
 	w.DELETE("/:id/credentials", s.removeCredentials)

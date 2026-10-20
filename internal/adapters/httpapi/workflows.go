@@ -591,20 +591,26 @@ func (s *Server) activateWorkflow(ctx context.Context, c *app.RequestContext) {
 	s.setActive(ctx, c, s.workflows.Activate)
 }
 
-// deactivateWorkflow stops the workflow's triggers.
+// deactivateWorkflow stops the workflow's triggers; with cancelOrders, its live resting
+// orders are cancelled too, which otherwise keep resting (D217).
 //
 //	@Summary	Deactivate a workflow
 //	@ID			deactivateWorkflow
 //	@Tags		workflows
-//	@Param		id	path		string	true	"Workflow ID"
-//	@Success	200	{object}	workflowDTO
-//	@Failure	401	{object}	errorBody	"unauthenticated"
-//	@Failure	404	{object}	errorBody	"not_found"
+//	@Param		id				path		string	true	"Workflow ID"
+//	@Param		cancelOrders	query		bool	false	"Also cancel its live resting orders"
+//	@Success	200				{object}	workflowDTO
+//	@Failure	401				{object}	errorBody	"unauthenticated"
+//	@Failure	404				{object}	errorBody	"not_found"
 //	@Security	SessionCookie
 //	@Security	APIToken
 //	@Router		/workflows/{id}/deactivate [post]
 func (s *Server) deactivateWorkflow(ctx context.Context, c *app.RequestContext) {
-	s.setActive(ctx, c, s.workflows.Deactivate)
+	cancelOrders := c.Query("cancelOrders") == "true"
+
+	s.setActive(ctx, c, func(ctx context.Context, p auth.Principal, id domain.WorkflowID) (domain.Workflow, error) {
+		return s.workflows.SwitchOff(ctx, p, id, cancelOrders)
+	})
 }
 
 func (s *Server) setActive(

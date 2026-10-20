@@ -1030,6 +1030,17 @@
                 ],
                 "type": "object"
             },
+            "HeartbeatRequest": {
+                "properties": {
+                    "on": {
+                        "type": "boolean"
+                    }
+                },
+                "required": [
+                    "on"
+                ],
+                "type": "object"
+            },
             "Holding": {
                 "properties": {
                     "cost": {
@@ -2656,6 +2667,10 @@
                         ],
                         "type": "string"
                     },
+                    "resting": {
+                        "description": "Resting is how many of its live orders rest on the book: switching it off asks\nwhether to cancel them; going back to paper cancels them.",
+                        "type": "integer"
+                    },
                     "wallet": {
                         "$ref": "#/components/schemas/Wallet",
                         "description": "Wallet is the one live orders spend; absent when none is chosen, or it is gone."
@@ -2667,7 +2682,8 @@
                 "required": [
                     "holdsLive",
                     "liveAvailable",
-                    "mode"
+                    "mode",
+                    "resting"
                 ],
                 "type": "object"
             },
@@ -2987,6 +3003,10 @@
                         "description": "HasSessionKey says the key is an authorised session key.",
                         "type": "boolean"
                     },
+                    "heartbeat": {
+                        "description": "Heartbeat says Polymarket cancels its resting orders when the server goes quiet.",
+                        "type": "boolean"
+                    },
                     "id": {
                         "type": "string"
                     },
@@ -3000,6 +3020,7 @@
                     "hasCredentials",
                     "hasKey",
                     "hasSessionKey",
+                    "heartbeat",
                     "id",
                     "label"
                 ],
@@ -6417,6 +6438,14 @@
                         "schema": {
                             "type": "string"
                         }
+                    },
+                    {
+                        "description": "Yes to cancelling the resting orders of the workflows trading live from it, and their going back to paper",
+                        "in": "query",
+                        "name": "confirm",
+                        "schema": {
+                            "type": "boolean"
+                        }
                     }
                 ],
                 "responses": {
@@ -6451,7 +6480,7 @@
                                 }
                             }
                         },
-                        "description": "wallet_trades_live: switch its workflows to paper first"
+                        "description": "wallet_trades_live: the message names them; send confirm"
                     }
                 },
                 "security": [
@@ -7142,6 +7171,79 @@
                     }
                 ],
                 "summary": "Store a wallet's API credentials",
+                "tags": [
+                    "wallets"
+                ]
+            }
+        },
+        "/wallets/{id}/heartbeat": {
+            "put": {
+                "operationId": "setHeartbeat",
+                "parameters": [
+                    {
+                        "description": "Wallet ID",
+                        "in": "path",
+                        "name": "id",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/HeartbeatRequest",
+                                "summary": "body",
+                                "description": "On or off"
+                            }
+                        }
+                    },
+                    "description": "On or off",
+                    "required": true
+                },
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Wallet"
+                                }
+                            }
+                        },
+                        "description": "OK"
+                    },
+                    "401": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "unauthenticated"
+                    },
+                    "404": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "not_found"
+                    }
+                },
+                "security": [
+                    {
+                        "SessionCookie": []
+                    },
+                    {
+                        "APIToken": []
+                    }
+                ],
+                "summary": "Heartbeats for a wallet's resting orders",
                 "tags": [
                     "wallets"
                 ]
@@ -8164,6 +8266,14 @@
                         "required": true,
                         "schema": {
                             "type": "string"
+                        }
+                    },
+                    {
+                        "description": "Also cancel its live resting orders",
+                        "in": "query",
+                        "name": "cancelOrders",
+                        "schema": {
+                            "type": "boolean"
                         }
                     }
                 ],

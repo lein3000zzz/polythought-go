@@ -645,6 +645,19 @@ export interface TelegramSendSettings {
     silent?: boolean | Expression;
 }
 
+/** The settings of Cancel orders (trading.cancelOrders). */
+export interface TradingCancelOrdersSettings {
+    /**
+     * order: the item's order, as Place order or Order activity put it on the item. all: every order of the workflow resting on the book. market or outcome: those in it.
+     * @default "order"
+     */
+    which?: "order" | "all" | "market" | "outcome" | Expression;
+    /** For market: its condition ID. */
+    marketId?: string;
+    /** For outcome: its token ID. */
+    tokenId?: string;
+}
+
 /** The settings of Copy sizing (trading.copySize). */
 export interface TradingCopySizeSettings {
     /**
@@ -806,6 +819,65 @@ export interface TriggerMarketItem {
     winningTokenId?: string;
     /** Resolutions: the outcome that won, like Yes. */
     winningOutcome?: string;
+}
+
+/** The settings of Order activity (trigger.orderActivity). */
+export interface TriggerOrderActivitySettings {
+    /**
+     * filled: a resting order filled, in part or wholly. canceled: what was left of it was cancelled, by Cancel orders, its Trading view, Polymarket or its market resolving. expired: a GTD's time came. failed: a live trade failed on chain and the books undid it.
+     * @default ["filled","canceled","expired","failed"]
+     */
+    events?: ("filled" | "canceled" | "expired" | "failed")[];
+}
+
+/** An item Order activity (trigger.orderActivity) sends on. */
+export interface TriggerOrderActivityItem {
+    /** What happened: filled, canceled, expired or failed. */
+    event: "filled" | "canceled" | "expired" | "failed";
+    /** paper or live. */
+    mode: "paper" | "live";
+    /** The order, as it is now. */
+    order: {
+        /** Its ID in the workflow's orders: Cancel orders cancels it by it. */
+        id: string;
+        /** open, filled, partial, canceled, expired or failed. */
+        status: string;
+        /** buy or sell. */
+        side: "buy" | "sell";
+        /** FAK, FOK, GTC or GTD. */
+        type: string;
+        /** The outcome's token ID. */
+        tokenId: string;
+        /** The market's condition ID. */
+        marketId: string | null;
+        /** Its limit. */
+        price: DecimalText;
+        /** Shares asked for; zero for a buy of dollars. */
+        shares: DecimalText;
+        /** Shares it filled so far. */
+        filled: DecimalText;
+        /** Dollars they came to. */
+        dollars: DecimalText;
+        /** Fees paid, in dollars. */
+        fees: DecimalText;
+        /** How it stands, or why it ended. */
+        reason: string | null;
+        /** The wallet whose trade it copied, if any. */
+        trader: string | null;
+    };
+    /** For filled and failed: the fills it is about. */
+    fills: {
+        /** Its price per share. */
+        price: DecimalText;
+        /** Its shares. */
+        shares: DecimalText;
+        /** Shares times price. */
+        dollars: DecimalText;
+        /** Its fee, in dollars; a maker pays none. */
+        fee: DecimalText;
+    }[];
+    /** When it was seen. */
+    at: TimeText;
 }
 
 /** The settings of Schedule (trigger.schedule). */
@@ -1112,6 +1184,13 @@ export interface NodeTypes {
         inputs: "main";
         outputs: "main";
     };
+    "trading.cancelOrders": {
+        settings: TradingCancelOrdersSettings;
+        items: "received";
+        trigger: false;
+        inputs: "main";
+        outputs: "main" | "missed";
+    };
     "trading.copySize": {
         settings: TradingCopySizeSettings;
         items: "received";
@@ -1164,6 +1243,13 @@ export interface NodeTypes {
     "trigger.market": {
         settings: TriggerMarketSettings;
         items: TriggerMarketItem;
+        trigger: true;
+        inputs: never;
+        outputs: "main";
+    };
+    "trigger.orderActivity": {
+        settings: TriggerOrderActivitySettings;
+        items: TriggerOrderActivityItem;
         trigger: true;
         inputs: never;
         outputs: "main";

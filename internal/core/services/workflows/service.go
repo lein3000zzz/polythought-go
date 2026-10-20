@@ -73,6 +73,7 @@ type Service struct {
 	exprs      ExpressionChecker // optional: without it, expressions go unchecked
 	code       CodeAccessChecker // optional: without it, anyone may save code nodes
 	memory     NodeMemory        // optional: without it, removed nodes' memory waits to expire
+	orders     RestingOrders     // optional: without it, live resting orders outlive their workflow
 	limits     func() Limits
 	log        logging.Logger
 	now        func() time.Time
@@ -134,6 +135,19 @@ func WithNodeMemory(m NodeMemory) Option {
 
 // WithWaits cancels waiting executions when a workflow is switched off, and lets users
 // cancel them.
+// RestingOrders cancels a workflow's live orders resting on the book (D213, D217): the
+// trading service's.
+type RestingOrders interface {
+	// CancelResting says how many still rest: those Polymarket would not or could not cancel.
+	CancelResting(ctx context.Context, w domain.WorkflowID, why string) (int, error)
+}
+
+// WithRestingOrders cancels a workflow's live resting orders when it is deleted, and when
+// it is switched off and its owner asks.
+func WithRestingOrders(o RestingOrders) Option {
+	return func(s *Service) { s.orders = o }
+}
+
 func WithWaits(w Waits) Option {
 	return func(s *Service) { s.waits = w }
 }
@@ -269,6 +283,13 @@ func (s *Service) Delete(ctx context.Context, p auth.Principal, id domain.Workfl
 
 	s.supervisor.Stop(id)
 
+	// Deleted, it leaves no live orders behind (D213); its live books stay (D199).
+	if s.orders != nil {
+		if left, err := s.orders.CancelResting(ctx, id, "cancelled: the workflow was deleted"); err != nil || left > 0 {
+			s.log.Warn(ctx, "Live resting orders of a deleted workflow not all cancelled", "workflow_id", id, "left", left)
+		}
+	}
+
 	if err := s.repo.Delete(ctx, p.User.ID, id); err != nil {
 		return err
 	}
@@ -329,6 +350,22 @@ func (s *Service) Deactivate(ctx context.Context, p auth.Principal, id domain.Wo
 		if err := s.waits.CancelWorkflow(ctx, p.User.ID, id, "cancelled: the workflow was switched off"); err != nil {
 			s.log.Warn(ctx, "Waiting executions not cancelled", "workflow_id", id, "error", err.Error())
 		}
+	}
+
+	return w, nil
+}
+
+// SwitchOff deactivates the workflow and, its owner asking, cancels its live resting
+// orders (D217): without asking, they keep resting. How many still rest, Polymarket not
+// cancelling them, is logged; the workflow is off whatever.
+func (s *Service) SwitchOff(ctx context.Context, p auth.Principal, id domain.WorkflowID, cancelOrders bool) (domain.Workflow, error) {
+	w, err := s.Deactivate(ctx, p, id)
+	if err != nil || !cancelOrders || s.orders == nil {
+		return w, err
+	}
+
+	if left, err := s.orders.CancelResting(ctx, id, "cancelled: the workflow was switched off"); err != nil || left > 0 {
+		s.log.Warn(ctx, "Live resting orders of a workflow switched off not all cancelled", "workflow_id", id, "left", left)
 	}
 
 	return w, nil

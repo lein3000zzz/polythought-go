@@ -469,6 +469,36 @@ describe('running and inspecting', () => {
     ],
   }
 
+  it('asks, switching off, whether to cancel its resting live orders (D217)', async () => {
+    editing({ ...branching(), active: true })
+    let asked: string | null = ''
+
+    server.use(
+      http.get('/api/v1/workflows/wf-1/trading/setup', () =>
+        HttpResponse.json({ mode: 'live', holdsLive: false, resting: 2, liveAvailable: true }),
+      ),
+      http.post('/api/v1/workflows/wf-1/deactivate', ({ request }) => {
+        asked = new URL(request.url).searchParams.get('cancelOrders')
+        return HttpResponse.json({ ...branching(), active: false })
+      }),
+    )
+    const { user } = renderApp('/workflows/wf-1')
+
+    await waitFor(() => expect(screen.getByRole('switch', { name: 'Active' })).toBeChecked())
+    await user.click(screen.getByRole('switch', { name: 'Active' }))
+
+    const dialog = within(await screen.findByRole('alertdialog'))
+    expect(dialog.getByText(/Its 2 live orders rest on the book/)).toBeInTheDocument()
+
+    const cancel = dialog.getByRole('checkbox', { name: 'Also cancel its 2 resting live orders' })
+    expect(cancel).not.toBeChecked()
+    await user.click(cancel)
+    await user.click(dialog.getByRole('button', { name: 'Switch off' }))
+
+    await waitFor(() => expect(asked).toBe('true'))
+    expect(await screen.findByText('Workflow deactivated')).toBeInTheDocument()
+  })
+
   it('runs the workflow and shows what each node did', async () => {
     editing(branching())
     server.use(http.post('/api/v1/workflows/wf-1/run', () => HttpResponse.json(ran)))

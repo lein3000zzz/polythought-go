@@ -1,6 +1,7 @@
 package httpapi_test
 
 import (
+	"fmt"
 	"net/http"
 	"testing"
 
@@ -113,9 +114,37 @@ func TestWalletRoutes(t *testing.T) {
 			name: "unlink",
 			req:  request{method: "DELETE", path: "/api/v1/wallets/w-1", headers: cookie},
 			setup: func(w *httpapimocks.MockWalletService) {
-				w.EXPECT().Unlink(mock.Anything, mock.Anything, domain.WalletID("w-1")).Return(nil)
+				w.EXPECT().Unlink(mock.Anything, mock.Anything, domain.WalletID("w-1"), false).Return(nil)
 			},
 			wantStatus: http.StatusNoContent,
+		},
+		{
+			name: "unlink, workflows trading live from it named",
+			req:  request{method: "DELETE", path: "/api/v1/wallets/w-1", headers: cookie},
+			setup: func(w *httpapimocks.MockWalletService) {
+				w.EXPECT().Unlink(mock.Anything, mock.Anything, domain.WalletID("w-1"), false).
+					Return(fmt.Errorf("%w: “Copy A”; unlinking it cancels their resting orders", domain.ErrWalletTradesLive))
+			},
+			wantStatus: http.StatusConflict,
+			wantBody:   []string{`"code":"wallet_trades_live"`, `Copy A`},
+		},
+		{
+			name: "unlink, confirmed",
+			req:  request{method: "DELETE", path: "/api/v1/wallets/w-1?confirm=true", headers: cookie},
+			setup: func(w *httpapimocks.MockWalletService) {
+				w.EXPECT().Unlink(mock.Anything, mock.Anything, domain.WalletID("w-1"), true).Return(nil)
+			},
+			wantStatus: http.StatusNoContent,
+		},
+		{
+			name: "heartbeats on",
+			req:  request{method: "PUT", path: "/api/v1/wallets/w-1/heartbeat", headers: cookie, body: `{"on":true}`},
+			setup: func(w *httpapimocks.MockWalletService) {
+				w.EXPECT().SetHeartbeat(mock.Anything, mock.Anything, domain.WalletID("w-1"), true).
+					Return(domain.Wallet{ID: "w-1", Address: "0x1", Heartbeat: true}, nil)
+			},
+			wantStatus: http.StatusOK,
+			wantBody:   []string{`"heartbeat":true`},
 		},
 		{
 			name: "set credentials maps every field and echoes no secret",

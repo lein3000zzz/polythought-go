@@ -239,5 +239,24 @@ var (
 	ErrNotOpen = errors.New("the order is not resting on the book")
 	// ErrWalletTradesLive means a wallet cannot be unlinked while a workflow trades live
 	// from it.
-	ErrWalletTradesLive = errors.New("a workflow trades live from this wallet: switch it to paper first")
+	ErrWalletTradesLive = errors.New("workflows trade live from this wallet")
 )
+
+// OrderEventKind is what happened to an order after the run that placed it (D215).
+type OrderEventKind string
+
+const (
+	OrderEventFilled   OrderEventKind = "filled"   // a resting order filled, in part or wholly
+	OrderEventCanceled OrderEventKind = "canceled" // what was left of it was cancelled
+	OrderEventExpired  OrderEventKind = "expired"  // a GTD's time came
+	OrderEventFailed   OrderEventKind = "failed"   // a live trade of it failed on chain, undone (D193)
+)
+
+// OrderEvent is something that happened to one of a workflow's orders later (D211): the
+// order as it is now, and for fills and failures, the fills it was about.
+type OrderEvent struct {
+	Kind  OrderEventKind
+	Order PlacedOrder
+	Fills []OrderFill
+	At    time.Time
+}

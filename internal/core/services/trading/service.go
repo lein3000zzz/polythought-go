@@ -64,8 +64,11 @@ type Deps struct {
 type Service struct {
 	d Deps
 
-	mu    sync.Mutex
-	locks map[domain.WorkflowID]*sync.Mutex
+	mu        sync.Mutex
+	locks     map[domain.WorkflowID]*sync.Mutex
+	listeners map[domain.WorkflowID]map[chan domain.OrderEvent]struct{} // Order activity (D211)
+
+	nudges chan struct{} // a live order now rests: WatchLive looks at once
 }
 
 func New(d Deps) *Service {
@@ -81,7 +84,7 @@ func New(d Deps) *Service {
 		d.Patience = defaultPatience
 	}
 
-	return &Service{d: d, locks: make(map[domain.WorkflowID]*sync.Mutex)}
+	return &Service{d: d, locks: make(map[domain.WorkflowID]*sync.Mutex), nudges: make(chan struct{}, 1)}
 }
 
 // Place tries an order, in the mode the workflow trades in now, and records how it went.

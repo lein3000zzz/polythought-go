@@ -33,6 +33,7 @@ const (
 	opCancelOrders       = "cancel_orders"
 	opCancelAll          = "cancel_all"
 	opCancelMarketOrders = "cancel_market_orders"
+	opHeartbeat          = "heartbeat"
 )
 
 const (
@@ -771,5 +772,52 @@ func (c *DefaultClobClient) cancel(ctx context.Context, creds L2Credentials, op,
 			"not_canceled", len(out.NotCanceled))
 
 		return out, nil
+	})
+}
+
+// HeartbeatMismatchError is a heartbeat with an ID the CLOB did not expect: Expected is
+// the one it did. A heartbeat it refused does not keep the switch from firing.
+type HeartbeatMismatchError struct {
+	Expected string
+}
+
+func (e *HeartbeatMismatchError) Error() string {
+	return "polymarket: heartbeat ID not the one expected"
+}
+
+// Heartbeat sends one heartbeat, as @polymarket/client does: once, not retried, as the
+// next must carry the ID this one gives. Missed for 10 s, the CLOB cancels the API key's
+// open orders.
+func (c *DefaultClobClient) Heartbeat(ctx context.Context, creds L2Credentials, last string) (_ string, err error) {
+	done := c.kit.Start(ctx, opHeartbeat)
+	defer func() { done(succeeded(err)) }()
+
+	return tracing.InScope(ctx, c.scope, opHeartbeat, func(ctx context.Context, span trace.Span) (string, error) {
+		span.SetAttributes(attribute.String(attrAddress, creds.Address))
+
+		payload, err := json.Marshal(map[string]string{"heartbeat_id": last})
+		if err != nil {
+			return "", err
+		}
+
+		resp, err := c.core.once(ctx, http.MethodPost, "/v1/heartbeats", nil, payload, creds)
+		if err != nil {
+			return "", failed(ctx, c.log, opHeartbeat, err)
+		}
+
+		var body struct {
+			HeartbeatID string `json:"heartbeat_id"`
+			ErrorMsg    string `json:"error_msg"`
+		}
+
+		if resp.status == http.StatusBadRequest && json.Unmarshal(resp.body, &body) == nil && body.HeartbeatID != "" {
+			return "", &HeartbeatMismatchError{Expected: body.HeartbeatID}
+		}
+
+		if err := decodeResponse("/v1/heartbeats", resp.status, resp.body, &body); err != nil {
+			return "", failed(ctx, c.log, opHeartbeat, err)
+		}
+
+		return body.HeartbeatID, nil
 	})
 }

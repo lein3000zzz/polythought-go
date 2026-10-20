@@ -18,6 +18,7 @@ const wallet = (overrides: Partial<Schemas['Wallet']> = {}): Schemas['Wallet'] =
   hasCredentials: false,
   hasKey: false,
   hasSessionKey: false,
+  heartbeat: false,
   createdAt: '2026-10-01T10:00:00Z',
   ...overrides,
 })
@@ -188,5 +189,71 @@ describe('wallets page', () => {
     )
 
     expect(await screen.findByText('No wallets linked yet.')).toBeInTheDocument()
+  })
+
+  it('names the workflows trading live from it, and unlinks once confirmed (D218)', async () => {
+    const asked: (string | null)[] = []
+
+    server.use(
+      signedIn,
+      approvalsGranted,
+      http.get('/api/v1/wallets', () =>
+        HttpResponse.json({ wallets: asked.includes('true') ? [] : [wallet()] }),
+      ),
+      http.delete('/api/v1/wallets/w-1', ({ request }) => {
+        const confirm = new URL(request.url).searchParams.get('confirm')
+        asked.push(confirm)
+
+        return confirm === 'true'
+          ? new HttpResponse(null, { status: 204 })
+          : apiError(
+              409,
+              'wallet_trades_live',
+              'workflows trade live from this wallet: “Copy A”; unlinking it cancels their resting orders and puts them back on paper',
+            )
+      }),
+    )
+    const { user } = renderApp('/wallets')
+
+    await user.click(await screen.findByRole('button', { name: 'Unlink' }))
+    await user.click(
+      within(await screen.findByRole('alertdialog')).getByRole('button', { name: 'Unlink' }),
+    )
+
+    const second = await screen.findByRole('alertdialog', { name: /from live trading/ })
+    expect(second).toHaveTextContent('“Copy A”; unlinking it cancels their resting orders')
+    await user.click(within(second).getByRole('button', { name: 'Unlink, back to paper' }))
+
+    expect(
+      await screen.findByText('Wallet unlinked; its workflows trade on paper'),
+    ).toBeInTheDocument()
+    expect(asked).toEqual([null, 'true'])
+  })
+
+  it('turns heartbeats on for a wallet that can trade (D214)', async () => {
+    let body: unknown
+
+    server.use(
+      signedIn,
+      approvalsGranted,
+      http.get('/api/v1/wallets', () =>
+        HttpResponse.json({ wallets: [wallet({ hasCredentials: true, hasKey: true })] }),
+      ),
+      http.get('/api/v1/wallets/w-1/credentials', () => HttpResponse.json(credentials)),
+      http.put('/api/v1/wallets/w-1/heartbeat', async ({ request }) => {
+        body = await request.json()
+        return HttpResponse.json(wallet({ hasCredentials: true, hasKey: true, heartbeat: true }))
+      }),
+    )
+    const { user } = renderApp('/wallets')
+
+    await user.click(
+      await screen.findByRole('switch', {
+        name: 'Cancel its resting orders if the server goes quiet',
+      }),
+    )
+
+    await waitFor(() => expect(body).toEqual({ on: true }))
+    expect(await screen.findByText('Heartbeats on')).toBeInTheDocument()
   })
 })

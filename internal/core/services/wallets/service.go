@@ -41,8 +41,8 @@ type Service struct {
 	setups    ports.ApprovalSetupRepository
 	approvals ports.TradingApprovals
 
-	// Optional: without it, a wallet is unlinked whatever trades from it.
-	trading ports.WorkflowTradingRepository
+	// Optional: without it, a wallet is unlinked whatever trades live from it.
+	releaser ports.WalletReleaser
 
 	log        logging.Logger
 	now        func() time.Time
@@ -126,14 +126,15 @@ func (s *Service) List(ctx context.Context, p auth.Principal) ([]domain.Wallet, 
 	return s.repo.ListForUser(ctx, p.User.ID)
 }
 
-// Unlink removes a wallet together with its credentials, unless a workflow trades live
-// from it.
-func (s *Service) Unlink(ctx context.Context, p auth.Principal, id domain.WalletID) error {
+// Unlink removes a wallet together with its credentials. Workflows trading live from it
+// are named first (domain.ErrWalletTradesLive); confirmed, their resting orders are
+// cancelled and they go back to paper (D218).
+func (s *Service) Unlink(ctx context.Context, p auth.Principal, id domain.WalletID, confirmed bool) error {
 	if _, err := s.repo.Get(ctx, p.User.ID, id); err != nil {
 		return err
 	}
 
-	if err := s.tradesLive(ctx, id); err != nil {
+	if err := s.release(ctx, p.User.ID, id, confirmed); err != nil {
 		return err
 	}
 

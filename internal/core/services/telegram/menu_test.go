@@ -131,6 +131,17 @@ func (f *fakeWorkflows) Update(_ context.Context, p auth.Principal, id domain.Wo
 
 type fakeTrading map[domain.WorkflowID]trading.Summary
 
+// resting are the live orders each workflow has resting on the book.
+var resting = map[domain.WorkflowID]int{"wf-2": 3}
+
+func (f fakeTrading) Setup(_ context.Context, p auth.Principal, id domain.WorkflowID) (trading.Setup, error) {
+	if p.User.ID != alice.ID {
+		return trading.Setup{}, domain.ErrNotFound
+	}
+
+	return trading.Setup{Mode: domain.ModeLive, Resting: resting[id]}, nil
+}
+
 func (f fakeTrading) Summary(_ context.Context, p auth.Principal, id domain.WorkflowID, _ domain.TradingMode) (trading.Summary, error) {
 	if p.User.ID != alice.ID {
 		return trading.Summary{}, domain.ErrNotFound
@@ -296,6 +307,12 @@ func TestMenuWorkflows(t *testing.T) {
 		assert.True(t, m.workflows.items[1].Active)
 		assert.Contains(t, m.bot.lastEdit(t).HTML, "Switched on.")
 		assert.Contains(t, buttons(m.bot.lastEdit(t)), "⏻ Switch off=wd:wf-2")
+
+		// Switched off here, its live orders keep resting, and it says so (D217).
+		s.HandleUpdate(ctx, press("wd:wf-2"))
+		assert.False(t, m.workflows.items[1].Active)
+		assert.Contains(t, m.bot.lastEdit(t).HTML,
+			"Switched off. Its 3 live orders still rest on the book: cancel them in its Trading view if you want.")
 
 		m.workflows.toggleErr = errors.New("invalid input: at most 20 active workflows per user")
 		s.HandleUpdate(ctx, press("wd:wf-2"))

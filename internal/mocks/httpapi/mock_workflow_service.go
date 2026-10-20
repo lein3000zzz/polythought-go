@@ -859,6 +859,84 @@ func (_c *MockWorkflowService_Run_Call) RunAndReturn(run func(ctx context.Contex
 	return _c
 }
 
+// SwitchOff provides a mock function for the type MockWorkflowService
+func (_mock *MockWorkflowService) SwitchOff(ctx context.Context, p auth.Principal, id domain.WorkflowID, cancelOrders bool) (domain.Workflow, error) {
+	ret := _mock.Called(ctx, p, id, cancelOrders)
+
+	if len(ret) == 0 {
+		panic("no return value specified for SwitchOff")
+	}
+
+	var r0 domain.Workflow
+	var r1 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context, auth.Principal, domain.WorkflowID, bool) (domain.Workflow, error)); ok {
+		return returnFunc(ctx, p, id, cancelOrders)
+	}
+	if returnFunc, ok := ret.Get(0).(func(context.Context, auth.Principal, domain.WorkflowID, bool) domain.Workflow); ok {
+		r0 = returnFunc(ctx, p, id, cancelOrders)
+	} else {
+		r0 = ret.Get(0).(domain.Workflow)
+	}
+	if returnFunc, ok := ret.Get(1).(func(context.Context, auth.Principal, domain.WorkflowID, bool) error); ok {
+		r1 = returnFunc(ctx, p, id, cancelOrders)
+	} else {
+		r1 = ret.Error(1)
+	}
+	return r0, r1
+}
+
+// MockWorkflowService_SwitchOff_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'SwitchOff'
+type MockWorkflowService_SwitchOff_Call struct {
+	*mock.Call
+}
+
+// SwitchOff is a helper method to define mock.On call
+//   - ctx context.Context
+//   - p auth.Principal
+//   - id domain.WorkflowID
+//   - cancelOrders bool
+func (_e *MockWorkflowService_Expecter) SwitchOff(ctx any, p any, id any, cancelOrders any) *MockWorkflowService_SwitchOff_Call {
+	return &MockWorkflowService_SwitchOff_Call{Call: _e.mock.On("SwitchOff", ctx, p, id, cancelOrders)}
+}
+
+func (_c *MockWorkflowService_SwitchOff_Call) Run(run func(ctx context.Context, p auth.Principal, id domain.WorkflowID, cancelOrders bool)) *MockWorkflowService_SwitchOff_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		var arg1 auth.Principal
+		if args[1] != nil {
+			arg1 = args[1].(auth.Principal)
+		}
+		var arg2 domain.WorkflowID
+		if args[2] != nil {
+			arg2 = args[2].(domain.WorkflowID)
+		}
+		var arg3 bool
+		if args[3] != nil {
+			arg3 = args[3].(bool)
+		}
+		run(
+			arg0,
+			arg1,
+			arg2,
+			arg3,
+		)
+	})
+	return _c
+}
+
+func (_c *MockWorkflowService_SwitchOff_Call) Return(workflow domain.Workflow, err error) *MockWorkflowService_SwitchOff_Call {
+	_c.Call.Return(workflow, err)
+	return _c
+}
+
+func (_c *MockWorkflowService_SwitchOff_Call) RunAndReturn(run func(ctx context.Context, p auth.Principal, id domain.WorkflowID, cancelOrders bool) (domain.Workflow, error)) *MockWorkflowService_SwitchOff_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // Update provides a mock function for the type MockWorkflowService
 func (_mock *MockWorkflowService) Update(ctx context.Context, p auth.Principal, id domain.WorkflowID, version int, def workflows.Definition) (domain.Workflow, error) {
 	ret := _mock.Called(ctx, p, id, version, def)

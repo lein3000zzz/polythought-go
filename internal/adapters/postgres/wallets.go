@@ -257,5 +257,24 @@ func toWallet(row walletRow) domain.Wallet {
 		HasCredentials: row.Credentials != nil,
 		HasKey:         row.Credentials != nil && row.Credentials.PrivateKeySealed != nil,
 		HasSessionKey:  row.Credentials != nil && row.Credentials.SessionKey,
+		Heartbeat:      row.Heartbeat,
 	}
+}
+
+func (r *Wallets) SetHeartbeat(ctx context.Context, userID domain.UserID, id domain.WalletID, on bool) error {
+	uid, err := parseID(userID)
+	if err != nil {
+		return err
+	}
+
+	wid, err := parseID(id)
+	if err != nil {
+		return err
+	}
+
+	w := table.Wallets
+
+	return affectedOne(w.UPDATE(w.Heartbeat).SET(jet.Bool(on)).
+		WHERE(w.ID.EQ(jet.UUID(wid)).AND(w.UserID.EQ(jet.UUID(uid)))).
+		ExecContext(ctx, r.db.conn(ctx)))
 }

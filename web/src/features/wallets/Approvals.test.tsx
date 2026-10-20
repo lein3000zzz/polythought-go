@@ -20,6 +20,7 @@ const wallet = (overrides: Partial<Schemas['Wallet']> = {}): Schemas['Wallet'] =
   hasCredentials: false,
   hasKey: false,
   hasSessionKey: false,
+  heartbeat: false,
   createdAt: '2026-10-01T10:00:00Z',
   ...overrides,
 })

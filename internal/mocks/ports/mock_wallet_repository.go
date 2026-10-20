@@ -553,3 +553,72 @@ func (_c *MockWalletRepository_SaveCredentials_Call) RunAndReturn(run func(ctx c
 	_c.Call.Return(run)
 	return _c
 }
+
+// SetHeartbeat provides a mock function for the type MockWalletRepository
+func (_mock *MockWalletRepository) SetHeartbeat(ctx context.Context, userID domain.UserID, id domain.WalletID, on bool) error {
+	ret := _mock.Called(ctx, userID, id, on)
+
+	if len(ret) == 0 {
+		panic("no return value specified for SetHeartbeat")
+	}
+
+	var r0 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context, domain.UserID, domain.WalletID, bool) error); ok {
+		r0 = returnFunc(ctx, userID, id, on)
+	} else {
+		r0 = ret.Error(0)
+	}
+	return r0
+}
+
+// MockWalletRepository_SetHeartbeat_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'SetHeartbeat'
+type MockWalletRepository_SetHeartbeat_Call struct {
+	*mock.Call
+}
+
+// SetHeartbeat is a helper method to define mock.On call
+//   - ctx context.Context
+//   - userID domain.UserID
+//   - id domain.WalletID
+//   - on bool
+func (_e *MockWalletRepository_Expecter) SetHeartbeat(ctx any, userID any, id any, on any) *MockWalletRepository_SetHeartbeat_Call {
+	return &MockWalletRepository_SetHeartbeat_Call{Call: _e.mock.On("SetHeartbeat", ctx, userID, id, on)}
+}
+
+func (_c *MockWalletRepository_SetHeartbeat_Call) Run(run func(ctx context.Context, userID domain.UserID, id domain.WalletID, on bool)) *MockWalletRepository_SetHeartbeat_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		var arg1 domain.UserID
+		if args[1] != nil {
+			arg1 = args[1].(domain.UserID)
+		}
+		var arg2 domain.WalletID
+		if args[2] != nil {
+			arg2 = args[2].(domain.WalletID)
+		}
+		var arg3 bool
+		if args[3] != nil {
+			arg3 = args[3].(bool)
+		}
+		run(
+			arg0,
+			arg1,
+			arg2,
+			arg3,
+		)
+	})
+	return _c
+}
+
+func (_c *MockWalletRepository_SetHeartbeat_Call) Return(err error) *MockWalletRepository_SetHeartbeat_Call {
+	_c.Call.Return(err)
+	return _c
+}
+
+func (_c *MockWalletRepository_SetHeartbeat_Call) RunAndReturn(run func(ctx context.Context, userID domain.UserID, id domain.WalletID, on bool) error) *MockWalletRepository_SetHeartbeat_Call {
+	_c.Call.Return(run)
+	return _c
+}

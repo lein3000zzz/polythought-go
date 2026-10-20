@@ -19,4 +19,5 @@ type Wallets struct {
 	AddressNormalized string
 	Label             string
 	CreatedAt         time.Time
+	Heartbeat         bool
 }

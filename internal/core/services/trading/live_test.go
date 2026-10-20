@@ -3,6 +3,7 @@ package trading_test
 import (
 	"context"
 	"errors"
+	"strconv"
 	"sync"
 	"testing"
 	"time"
@@ -32,6 +33,7 @@ type exchange struct {
 
 	cancel    ports.LiveCancel
 	cancelled []string
+	beats     []string
 }
 
 func (e *exchange) Place(_ context.Context, k ports.OrderKey, o ports.LiveOrder) (ports.LivePlacement, error) {
@@ -53,6 +55,15 @@ func (e *exchange) Order(context.Context, ports.OrderKey, string) (ports.LiveOrd
 	}
 
 	return e.states[min(e.lookups, len(e.states))-1], nil
+}
+
+func (e *exchange) Heartbeat(_ context.Context, _ ports.OrderKey, last string) (string, error) {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+
+	e.beats = append(e.beats, last)
+
+	return "hb-" + strconv.Itoa(len(e.beats)), nil
 }
 
 func (e *exchange) Cancel(_ context.Context, _ ports.OrderKey, id string) (ports.LiveCancel, error) {
@@ -93,15 +104,19 @@ func (e *exchange) setTrade(t ports.LiveTrade) {
 	e.trades[t.ID] = t
 }
 
-// keys gives every wallet a key, unless told it cannot trade.
-type keys struct{ err error }
+// keys gives every wallet a key, unless told it cannot trade; those beating have
+// heartbeats on.
+type keys struct {
+	err     error
+	beating map[domain.WalletID]bool
+}
 
 func (k keys) OrderKey(_ context.Context, owner domain.UserID, w domain.WalletID) (ports.OrderKey, error) {
 	if k.err != nil {
 		return ports.OrderKey{}, k.err
 	}
 
-	return ports.OrderKey{Wallet: domain.Wallet{ID: w, UserID: owner}, Key: "0xkey"}, nil
+	return ports.OrderKey{Wallet: domain.Wallet{ID: w, UserID: owner, Heartbeat: k.beating[w]}, Key: "0xkey"}, nil
 }
 
 type tradingRepo struct {
@@ -130,8 +145,18 @@ func (r *tradingRepo) SetTrading(_ context.Context, t domain.WorkflowTrading) er
 	return nil
 }
 
-func (r *tradingRepo) TradingFrom(context.Context, domain.WalletID) ([]domain.WorkflowTrading, error) {
-	return nil, nil
+func (r *tradingRepo) TradingFrom(_ context.Context, w domain.WalletID) ([]domain.WorkflowTrading, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	var out []domain.WorkflowTrading
+	for _, t := range r.m {
+		if t.WalletID == w {
+			out = append(out, t)
+		}
+	}
+
+	return out, nil
 }
 
 // walletDir has alice's wallets: w-1 with a key, w-2 also, w-3 without.

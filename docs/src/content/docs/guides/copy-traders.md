@@ -162,6 +162,30 @@ is left of it and keeps what it filled.
 While it rests, a buy holds back the cash it may spend, and a sell its shares: other orders
 cannot spend them. When its market resolves, what is left of it is cancelled.
 
+### Cancel orders
+
+[Cancel orders](/docs/reference/nodes/trading/cancel-orders/) cancels the workflow's own
+resting orders for each item, paper and live: with **Cancel** `order`, the item's order, as
+Place order or Order activity put it on the item; `all`, every one of the workflow's;
+`market` or `outcome`, those in a **Market** or of a **Token**. Orders placed by hand, or by
+other workflows on the same wallet, are never touched. What an order filled before stays.
+Items with something cancelled go out of `main`, those with nothing, or what Polymarket
+would not cancel (matched already, say), out of `missed`, with why in `cancel`.
+
+### Order activity
+
+[Order activity](/docs/reference/nodes/triggers/order-activity/) starts the workflow on what
+happens to its own orders after the runs that placed them, an item each: `filled`, a
+resting order filled, in part or wholly, with the fills; `canceled`, what was left of one
+was cancelled, by Cancel orders, the Trading view, Polymarket or its market resolving;
+`expired`, a GTD's time came; `failed`, a live trade failed on chain and the books undid it.
+Paper and live alike, `mode` saying which. Put an [If](/docs/reference/nodes/logic/if/) on
+`event` after it to do different things for each, or tick only some under **Events**. What
+happens while the workflow is switched off, or the server is down, does not start it.
+
+A workflow can have both: Wallet activity placing copies as resting orders, and Order
+activity telling you on Telegram as they fill.
+
 ## Paper trading
 
 Each workflow trading on paper has a paper account, opened by its first order with $1000;
@@ -235,6 +259,18 @@ does, and sends it.
   Polymarket's live channel for the wallet, reading each again as it changes, and every
   half minute anyway; a fill of one, as a maker, pays no fee. Polymarket ends a GTD at its
   time; **Cancel** asks Polymarket to cancel what is left.
+- **They are cancelled on their own** when the workflow goes back to paper, when it is
+  deleted, and when its wallet is unlinked: unlinking a wallet that workflows trade live
+  from names them first, and once you confirm, cancels their resting orders and puts them
+  back on paper. Switching a workflow off asks: its resting orders keep resting unless you
+  tick **Also cancel**. From Telegram, switching off keeps them, and says so; the API's
+  `POST /workflows/{id}/deactivate?cancelOrders=true` cancels them too.
+- **Heartbeats**, a switch on each wallet that can trade, off to start with: on, the
+  server tells Polymarket every 5 seconds that it is there while the wallet has orders
+  resting, and if it goes quiet for 10 seconds, a restart or a network blip included,
+  Polymarket cancels every one of the wallet's resting orders, of every workflow. Turned
+  off while orders rest, the heartbeats go on until none do, as stopping them would cancel
+  the orders at once.
 - **The cash** is the wallet's pUSD, which every workflow trading from it shares; the
   Risk guard's caps count each workflow's own live buys and holdings.
 
