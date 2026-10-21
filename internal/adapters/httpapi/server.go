@@ -133,6 +133,8 @@ type Services struct {
 	CustomNodes     CustomNodeService
 	Mail            MailService
 	Geoblock        GeoblockService
+	// Spend is what users' agents spend, and the caps on it; nil when there is no agent.
+	Spend SpendService
 }
 
 type Config struct {
@@ -171,6 +173,7 @@ type Server struct {
 	notifications NotificationService
 	mail          MailService
 	geoblock      GeoblockService
+	spend         SpendService
 	log           logging.Logger
 	kit           *redkit.Kit
 	scope         tracing.Scope
@@ -240,6 +243,7 @@ func New(cfg Config, util *observability.Utility, services Services) (*Server, e
 		notifications: services.Notifications,
 		mail:          services.Mail,
 		geoblock:      services.Geoblock,
+		spend:         services.Spend,
 		log:           log,
 		kit:           kit,
 		scope:         tracing.Scope{Manager: util.TracerManager, TracerName: tracerName},
@@ -304,6 +308,8 @@ func (s *Server) routes() {
 	v1.GET("/me", s.requireAuth, s.me)
 	v1.PUT("/me/password", s.requireAuth, s.changePassword)
 	v1.PUT("/me/kill-switch", s.requireAuth, s.setKillSwitch)
+	v1.GET("/me/agent-spend", s.requireAuth, s.myAgentSpend)
+	v1.PUT("/me/agents", s.requireAuth, s.setAgentChoices)
 
 	v1.GET("/tokens", s.requireAuth, s.listTokens)
 	v1.POST("/tokens", s.requireAuth, s.createToken)
@@ -402,6 +408,7 @@ func (s *Server) routes() {
 	admin.POST("/users", s.createUser)
 	admin.PATCH("/users/:id", s.updateUser)
 	admin.POST("/users/:id/verification", s.sendVerificationLink)
+	admin.GET("/users/:id/agent-spend", s.userAgentSpend)
 	admin.GET("/invites", s.listInvites)
 	admin.POST("/invites", s.createInvite)
 	admin.GET("/settings", s.listSettings)

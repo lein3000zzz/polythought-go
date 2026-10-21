@@ -12,6 +12,8 @@ import (
 	"time"
 	"unicode"
 
+	"github.com/shopspring/decimal"
+
 	"github.com/lein3000zzz/polythought-go/internal/core/domain"
 	"github.com/lein3000zzz/polythought-go/internal/core/services/settings"
 )
@@ -51,6 +53,13 @@ const (
 	KeyBuilderCode         = "trading.builder_code"
 	KeyMaxLiveOrder        = "trading.max_live_order"
 	KeyMaxLiveDay          = "trading.max_live_day"
+
+	// Agent spend caps a month, for every user unless an admin gives them their own
+	// (D271): dollars to the cent, as providers report them, and tokens; 0 is no cap.
+	KeyAgentDollars        = "agents.max_dollars_month"
+	KeyAgentInput          = "agents.max_input_month"
+	KeyAgentOutput         = "agents.max_output_month"
+	KeyAgentTotal          = "agents.max_total_month"
 	KeyTrustedProxies      = "http.trusted_proxies"
 	KeyWebhookAllowPrivate = "webhook.allow_private"
 	KeyLogLevel            = "log.level"
@@ -102,6 +111,7 @@ const (
 	groupExecutions = "Executions"
 	groupCode       = "Code"
 	groupTrading    = "Trading"
+	groupAgents     = "AI agents"
 	groupNetwork    = "Network"
 	groupLogging    = "Logging"
 	groupTelegram   = "Telegram"
@@ -289,6 +299,26 @@ func Settings() (*settings.Registry, error) {
 			Kind:        settings.KindString, Secret: true, Default: DefaultPolygonRPC, Check: rpcURL,
 		},
 		settings.Spec{
+			Key: KeyAgentDollars, Group: groupAgents, Label: "Max $ a month of agent spend",
+			Description: "The most a user's AI agent nodes may spend in a calendar month, UTC, in dollars to the cent, all their workflows together: counted as providers report what they charged, which OpenRouter does and the others do not, so their calls count against the token caps only. Polythought keeps no prices. Once reached, the next call is refused. 0 for no cap. An admin can give a user caps of their own on the Users page.",
+			Kind:        settings.KindString, Default: "20.00", Check: dollars,
+		},
+		settings.Spec{
+			Key: KeyAgentInput, Group: groupAgents, Label: "Max input tokens a month",
+			Description: "The most input tokens a user's AI agent nodes may take in a calendar month, UTC, all their workflows together: what they read, prompts and tool results. A call that could go over is refused before it is made. 0 for no cap.",
+			Kind:        settings.KindInt, Default: 0, Check: between(0, maxTokensMonth),
+		},
+		settings.Spec{
+			Key: KeyAgentOutput, Group: groupAgents, Label: "Max output tokens a month",
+			Description: "The most output tokens a user's AI agent nodes may take in a calendar month, UTC: what the models write, thinking included. A call that could go over, its Max tokens with it, is refused before it is made. 0 for no cap.",
+			Kind:        settings.KindInt, Default: 0, Check: between(0, maxTokensMonth),
+		},
+		settings.Spec{
+			Key: KeyAgentTotal, Group: groupAgents, Label: "Max tokens a month",
+			Description: "The most tokens a user's AI agent nodes may take in a calendar month, UTC, input and output together. A call that could go over is refused before it is made. 0 for no cap.",
+			Kind:        settings.KindInt, Default: 20_000_000, Check: between(0, maxTokensMonth),
+		},
+		settings.Spec{
 			Key: KeyTrustedProxies, Group: groupNetwork, Label: "Trusted proxies",
 			Description: "Address ranges (CIDR, e.g. 10.0.0.0/8) of reverse proxies allowed to report the client's address in X-Forwarded-For. Leave empty without a proxy: anyone could then pick their own address and dodge rate limits.",
 			Kind:        settings.KindList, Default: []string{}, Check: cidrs,
@@ -410,6 +440,28 @@ func within(least, most time.Duration) func(any) error {
 
 		return nil
 	}
+}
+
+// maxTokensMonth bounds a token cap a month: a trillion.
+const maxTokensMonth = 1_000_000_000_000
+
+// maxDollarsMonth bounds the dollar cap a month.
+var maxDollarsMonth = decimal.NewFromInt(10_000_000)
+
+// dollars checks a dollar cap: 0 or more, to the cent.
+func dollars(v any) error {
+	d, err := decimal.NewFromString(strings.TrimSpace(v.(string)))
+
+	switch {
+	case err != nil:
+		return errors.New("must be dollars, like 20 or 12.50")
+	case d.IsNegative() || d.GreaterThan(maxDollarsMonth):
+		return fmt.Errorf("must be between 0 and %s", maxDollarsMonth)
+	case !d.Equal(d.Truncate(2)):
+		return errors.New("must be to the cent at most, like 12.50")
+	}
+
+	return nil
 }
 
 func between(least, most int) func(any) error {

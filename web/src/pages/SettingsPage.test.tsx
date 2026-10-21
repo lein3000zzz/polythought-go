@@ -5,7 +5,7 @@ import { http, HttpResponse } from 'msw'
 import { describe, expect, it } from 'vitest'
 
 import type { Schemas } from '@/api/client'
-import { alice, apiError, signedIn } from '@/test/fixtures'
+import { alice, apiError, registration, signedIn } from '@/test/fixtures'
 import { renderApp } from '@/test/render'
 import { server } from '@/test/server'
 
@@ -301,5 +301,65 @@ describe('settings page', () => {
     await waitFor(() => expect(email).toBeChecked())
     expect(sent).toEqual({ email: true })
     expect(screen.getByRole('switch', { name: 'A workflow fails, on Telegram' })).toBeChecked()
+  })
+
+  it("shows what your agents spent this month against their caps, and your kill switch's reach (D276, D277)", async () => {
+    const spent: Schemas['AgentSpend'] = {
+      month: '2026-10-01T00:00:00Z',
+      resets: '2026-11-01T00:00:00Z',
+      inputTokens: 1_200_000,
+      outputTokens: 300_000,
+      totalTokens: 1_500_000,
+      dollars: '4.20',
+      calls: 70,
+      costedCalls: 20,
+      caps: { dollars: '20.00', inputTokens: 0, outputTokens: 0, totalTokens: 20_000_000 },
+      own: {},
+      killStopsAgents: false,
+    }
+    let sent: unknown
+    server.use(
+      signedIn,
+      noTelegram,
+      notifications,
+      registration('invite'),
+      http.get('/api/v1/tokens', () => HttpResponse.json({ tokens: [] })),
+      http.get('/api/v1/me/agent-spend', () => HttpResponse.json(spent)),
+      http.put('/api/v1/me/agents', async ({ request }) => {
+        sent = await request.json()
+        return HttpResponse.json({ ...spent, killStopsAgents: true })
+      }),
+    )
+    const { user } = renderApp('/settings')
+
+    const spend = await screen.findByLabelText('Agent spend')
+    expect(spend).toHaveTextContent('$4.20 of $20.00 (20 of 70 calls priced by their provider)')
+    expect(spend).toHaveTextContent('Tokens1,500,000 of 20,000,000')
+    expect(spend).toHaveTextContent('Input tokens1,200,000 no cap')
+
+    const choice = screen.getByRole('switch', { name: 'My kill switch stops my agents too' })
+    expect(choice).not.toBeChecked()
+    await user.click(choice)
+
+    await waitFor(() => expect(choice).toBeChecked())
+    expect(sent).toEqual({ killStopsAgents: true })
+    expect(await screen.findByText('Your kill switch stops your agents too')).toBeInTheDocument()
+  })
+
+  it('has no agents section where there are no agents', async () => {
+    server.use(
+      signedIn,
+      noTelegram,
+      notifications,
+      registration('invite'),
+      http.get('/api/v1/tokens', () => HttpResponse.json({ tokens: [] })),
+      http.get('/api/v1/me/agent-spend', () => apiError(404, 'not_found', 'not found')),
+    )
+    renderApp('/settings')
+
+    expect(await screen.findByRole('heading', { name: 'Notifications' })).toBeInTheDocument()
+    await waitFor(() =>
+      expect(screen.queryByRole('heading', { name: 'AI agents' })).not.toBeInTheDocument(),
+    )
   })
 })

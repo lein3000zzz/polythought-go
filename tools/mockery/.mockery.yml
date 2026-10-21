@@ -118,6 +118,7 @@ packages:
       pkgname: httpapimocks
     interfaces:
       ModelService: {}
+      SpendService: {}
       AuthService: {}
       WalletService: {}
       WorkflowService: {}

@@ -174,6 +174,23 @@ func (*Agent) Type() engine.NodeType {
 					"or levels a side of a book.",
 			},
 			{
+				Name: "maxRunDollars", Label: "Max $ a run", Kind: engine.ParamDecimal,
+				Description: "The most this node may spend in one run, to the cent, as the provider reports it: " +
+					"OpenRouter does, the others do not. Empty for no cap of its own; the month's caps apply anyway.",
+			},
+			{
+				Name: "maxRunInput", Label: "Max input tokens a run", Kind: engine.ParamNumber,
+				Description: "The most input tokens this node may take in one run. Empty for no cap.",
+			},
+			{
+				Name: "maxRunOutput", Label: "Max output tokens a run", Kind: engine.ParamNumber,
+				Description: "The most output tokens this node may take in one run, a call counting its Max tokens. Empty for no cap.",
+			},
+			{
+				Name: "maxRunTotal", Label: "Max tokens a run", Kind: engine.ParamNumber,
+				Description: "The most tokens this node may take in one run, input and output together. Empty for no cap.",
+			},
+			{
 				Name: "toolResults", Label: "Tool results", Kind: engine.ParamString, Default: ResultsFull,
 				Options:     []string{ResultsFull, ResultsInputs},
 				Description: "What the answer keeps of each call: full, what it gave too; inputs, only what was asked.",
@@ -238,8 +255,14 @@ func (n *Agent) Run(ctx context.Context, rc engine.RunContext, in engine.Ports) 
 		return nil, err
 	}
 
-	// One budget for the run: its calls, a few at once, go through it.
-	spend := n.budget(rc)
+	// One budget for the run, its own caps read once: its calls, a few at once, go
+	// through it.
+	caps, err := runCaps(p)
+	if err != nil {
+		return nil, err
+	}
+
+	spend := n.budget(rc, caps)
 
 	if call, _ := p.String("call"); call == CallTogether {
 		return n.together(ctx, key, spend, p, items)
@@ -629,12 +652,51 @@ func (n *Agent) complete(ctx context.Context, key ports.LLMKey, spend ports.Spen
 }
 
 // budget is the run's spending, unmetered without a meter.
-func (n *Agent) budget(rc engine.RunContext) ports.SpendBudget {
+func (n *Agent) budget(rc engine.RunContext, caps domain.AgentCaps) ports.SpendBudget {
 	if n.meter == nil {
 		return unmetered{}
 	}
 
-	return n.meter.Run(ports.SpendRun{OwnerID: rc.OwnerID, WorkflowID: rc.WorkflowID, ExecutionID: rc.ExecutionID, NodeID: rc.NodeID})
+	return n.meter.Run(ports.SpendRun{
+		OwnerID: rc.OwnerID, WorkflowID: rc.WorkflowID, ExecutionID: rc.ExecutionID, NodeID: rc.NodeID, Caps: caps,
+	})
+}
+
+// runCaps are the node's own caps for one run (D272): empty settings, none.
+func runCaps(p engine.Params) (domain.AgentCaps, error) {
+	var caps domain.AgentCaps
+
+	if p["maxRunDollars"] != nil {
+		d, err := p.Decimal("maxRunDollars")
+		if err != nil || d.IsNegative() || !d.Equal(d.Truncate(2)) {
+			return caps, errors.New("max $ a run: dollars to the cent, 0 or more")
+		}
+
+		caps.Dollars = &d
+	}
+
+	for _, c := range []struct {
+		name, label string
+		to          **int64
+	}{
+		{"maxRunInput", "max input tokens a run", &caps.InputTokens},
+		{"maxRunOutput", "max output tokens a run", &caps.OutputTokens},
+		{"maxRunTotal", "max tokens a run", &caps.TotalTokens},
+	} {
+		if p[c.name] == nil {
+			continue
+		}
+
+		v, err := p.Int(c.name)
+		if err != nil || v < 0 {
+			return caps, fmt.Errorf("%s: a whole number, 0 or more", c.label)
+		}
+
+		n := int64(v)
+		*c.to = &n
+	}
+
+	return caps, nil
 }
 
 type unmetered struct{}

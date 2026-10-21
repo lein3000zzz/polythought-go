@@ -413,6 +413,56 @@ The Polygon JSON-RPC endpoint the server reads approvals from before it grants a
 | Default | `https://polygon.drpc.org` |
 | Applies | at once |
 
+## AI agents
+
+### Max $ a month of agent spend
+
+The most a user's AI agent nodes may spend in a calendar month, UTC, in dollars to the cent, all their workflows together: counted as providers report what they charged, which OpenRouter does and the others do not, so their calls count against the token caps only. Polythought keeps no prices. Once reached, the next call is refused. 0 for no cap. An admin can give a user caps of their own on the Users page.
+
+| | |
+|---|---|
+| Key | `agents.max_dollars_month` |
+| Environment variable | `POLYTHOUGHT_AGENTS_MAX_DOLLARS_MONTH` |
+| Kind | text |
+| Default | `20.00` |
+| Applies | at once |
+
+### Max input tokens a month
+
+The most input tokens a user's AI agent nodes may take in a calendar month, UTC, all their workflows together: what they read, prompts and tool results. A call that could go over is refused before it is made. 0 for no cap.
+
+| | |
+|---|---|
+| Key | `agents.max_input_month` |
+| Environment variable | `POLYTHOUGHT_AGENTS_MAX_INPUT_MONTH` |
+| Kind | whole number |
+| Default | `0` |
+| Applies | at once |
+
+### Max output tokens a month
+
+The most output tokens a user's AI agent nodes may take in a calendar month, UTC: what the models write, thinking included. A call that could go over, its Max tokens with it, is refused before it is made. 0 for no cap.
+
+| | |
+|---|---|
+| Key | `agents.max_output_month` |
+| Environment variable | `POLYTHOUGHT_AGENTS_MAX_OUTPUT_MONTH` |
+| Kind | whole number |
+| Default | `0` |
+| Applies | at once |
+
+### Max tokens a month
+
+The most tokens a user's AI agent nodes may take in a calendar month, UTC, input and output together. A call that could go over is refused before it is made. 0 for no cap.
+
+| | |
+|---|---|
+| Key | `agents.max_total_month` |
+| Environment variable | `POLYTHOUGHT_AGENTS_MAX_TOTAL_MONTH` |
+| Kind | whole number |
+| Default | `20000000` |
+| Applies | at once |
+
 ## Network
 
 ### Trusted proxies

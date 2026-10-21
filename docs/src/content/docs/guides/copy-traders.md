@@ -259,7 +259,8 @@ it is on. Your workflows stay live and keep running, paper ones trading on, so *
 live trading** in that bar, after asking, has them trade live again as before. On
 Telegram, it is the 🛑 button under [Status](/docs/guides/telegram/#the-menu). An order on
 its way to Polymarket as you press it, and coming back to rest, is cancelled within half
-a minute.
+a minute. It stops your [AI agent nodes](/docs/guides/agents/#caps) too only if you chose so,
+under Settings → AI agents.
 
 An admin caps what each user's live buys may spend, on the Config page under Trading:
 **Max $ a live order**, $100 to start with, and **Max $ a day of live buys**, $1,000, for

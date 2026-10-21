@@ -12,6 +12,7 @@ import (
 
 	"github.com/cloudwego/hertz/pkg/common/ut"
 	"github.com/lein3000zzz/the-watchers/pkg/observability"
+	"github.com/shopspring/decimal"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
@@ -448,6 +449,35 @@ func TestRoutes(t *testing.T) {
 			},
 			wantStatus: http.StatusOK,
 			wantBody:   []string{`"liveCaps":{"perOrder":250}`, `"liveStopped":false`},
+		},
+		{
+			name: "an admin's caps on a user's agents (D271)",
+			req: request{
+				method: "PATCH", path: "/api/v1/admin/users/u-1", headers: bearer,
+				body: `{"agentCaps":{"dollars":"12.50","totalTokens":0}}`,
+			},
+			setup: func(svc *httpapimocks.MockAuthService) {
+				withToken(svc, root)
+
+				dollars, none, capped := decimal.RequireFromString("12.50"), int64(0), alice
+				capped.AgentCaps = domain.AgentCaps{Dollars: &dollars, TotalTokens: &none}
+
+				svc.EXPECT().UpdateUser(mock.Anything, mock.Anything, domain.UserID("u-1"), mock.MatchedBy(func(u auth.UserUpdate) bool {
+					return u.AgentCaps != nil && u.AgentCaps.Dollars.String() == "12.5" && *u.AgentCaps.TotalTokens == 0 &&
+						u.AgentCaps.InputTokens == nil && u.LiveCaps == nil
+				})).Return(capped, nil)
+			},
+			wantStatus: http.StatusOK,
+			wantBody:   []string{`"agentCaps":{"dollars":"12.50","totalTokens":0}`, `"killStopsAgents":false`},
+		},
+		{
+			name: "agent caps that are no amount",
+			req:  request{method: "PATCH", path: "/api/v1/admin/users/u-1", body: `{"agentCaps":{"dollars":"lots"}}`, headers: bearer},
+			setup: func(svc *httpapimocks.MockAuthService) {
+				withToken(svc, root)
+			},
+			wantStatus: http.StatusBadRequest,
+			wantBody:   []string{`is not an amount, like 20.00`},
 		},
 		{
 			name: "pick a user to write code",

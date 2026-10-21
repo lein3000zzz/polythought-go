@@ -87,9 +87,55 @@ func (r *AgentUsage) Month(ctx context.Context, owner domain.UserID, month time.
 	return usageOf(got), nil
 }
 
+// ClaimNotice sets the notice's marker in one statement, the month's row made if there is
+// none yet: of callers racing for it, the one whose statement changed a row sends it.
+func (r *AgentUsage) ClaimNotice(ctx context.Context, owner domain.UserID, month time.Time, n domain.SpendNotice, was, caps string, at time.Time) (bool, error) {
+	uid, err := parseID(owner)
+	if err != nil {
+		return false, err
+	}
+
+	au := table.AgentUsage
+	row := model.AgentUsage{UserID: uid, Month: domain.MonthOf(month), UpdatedAt: at}
+
+	sentAt, sentCaps := au.WarnedAt, au.WarnedCaps
+	if n == domain.NoticeCapped {
+		sentAt, sentCaps = au.CappedAt, au.CappedCaps
+		row.CappedAt, row.CappedCaps = &at, &caps
+	} else {
+		row.WarnedAt, row.WarnedCaps = &at, &caps
+	}
+
+	still := sentCaps.IS_NULL()
+	if was != "" {
+		still = sentCaps.EQ(jet.String(was))
+	}
+
+	var got []model.AgentUsage
+
+	err = au.INSERT(au.AllColumns).MODEL(row).
+		ON_CONFLICT(au.UserID, au.Month).
+		DO_UPDATE(jet.SET(sentAt.SET(jet.TimestampzT(at)), sentCaps.SET(jet.String(caps))).WHERE(still)).
+		RETURNING(au.UserID).
+		QueryContext(ctx, r.db.conn(ctx), &got)
+	if err != nil && !errors.Is(err, qrm.ErrNoRows) {
+		return false, err
+	}
+
+	return len(got) == 1, nil
+}
+
 func usageOf(m model.AgentUsage) domain.AgentUsage {
 	return domain.AgentUsage{
 		Month: m.Month.UTC(), InputTokens: m.InputTokens, OutputTokens: m.OutputTokens, Dollars: m.Dollars,
-		Calls: int(m.Calls), CostedCalls: int(m.CostedCalls),
+		Calls: int(m.Calls), CostedCalls: int(m.CostedCalls), Warned: deref(m.WarnedCaps), Capped: deref(m.CappedCaps),
 	}
+}
+
+func deref(s *string) string {
+	if s == nil {
+		return ""
+	}
+
+	return *s
 }

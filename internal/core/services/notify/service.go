@@ -36,6 +36,7 @@ const (
 	groupWallets   = "Wallets"
 	groupLive      = "Live orders"
 	groupPaper     = "Paper orders"
+	groupAgents    = "AI agents"
 )
 
 var WorkflowFailed = Kind{
@@ -70,11 +71,28 @@ var LiveTradeFailed = Kind{
 	Default: true,
 }
 
+var AgentSpendWarned = Kind{
+	Key: "agent_spend_80", Group: groupAgents,
+	Label: "Agent spend reaches 80% of a monthly cap",
+	Description: "Your AI agent nodes have used 80% of one of their caps this month, in dollars or tokens. " +
+		"Once a month, and again only if the cap is raised.",
+	Default: true,
+}
+
+var AgentSpendCapped = Kind{
+	Key: "agent_spend_cap", Group: groupAgents,
+	Label: "Agent spend reaches a monthly cap",
+	Description: "A call of your AI agent nodes was refused: one of their caps this month is reached, so their " +
+		"items fail until the month ends or an admin raises it. Once a month, and again only if the cap is raised.",
+	Default: true,
+}
+
 // Kinds lists every kind, in the order Settings shows them.
 var Kinds = []Kind{
 	WorkflowFailed, ApprovalWaiting, SessionKeyExpiring, LiveTradeFailed,
 	LiveOrderFilled, LiveOrderRefused, LiveOrderUnfilled, LiveOrderRests, LiveOrderEnded,
 	PaperOrderFilled, PaperOrderRefused, PaperOrderUnfilled, PaperOrderRests, PaperOrderEnded,
+	AgentSpendWarned, AgentSpendCapped,
 }
 
 const (
@@ -104,6 +122,7 @@ type Service struct {
 
 	markets ports.MarketReader // optional: an order's market, for what it says
 	orders  chan domain.OrderEvent
+	spends  chan spendAlert
 	tick    time.Duration // how often held order notifications are looked at
 
 	mu        sync.Mutex
@@ -164,6 +183,7 @@ func New(messenger ports.UserMessenger, prefs ports.NotificationPrefRepository, 
 		queue:     make(chan failure, queueSize),
 		cooldowns: make(map[domain.WorkflowID]cooldown),
 		orders:    make(chan domain.OrderEvent, orderQueueSize),
+		spends:    make(chan spendAlert, queueSize),
 		tick:      time.Minute,
 		windows:   make(map[windowKey]*window),
 	}
@@ -298,6 +318,8 @@ func (s *Service) Run(ctx context.Context) {
 			s.workflowFailed(ctx, f)
 		case e := <-s.orders:
 			s.orderHappened(ctx, e)
+		case a := <-s.spends:
+			s.agentSpend(ctx, a)
 		case <-t.C:
 			s.summarise(ctx)
 		}

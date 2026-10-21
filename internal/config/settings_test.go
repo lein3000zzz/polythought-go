@@ -75,6 +75,10 @@ func TestSettingsDefaults(t *testing.T) {
 		config.KeyBuilderCode:         "",
 		config.KeyMaxLiveOrder:        100,
 		config.KeyMaxLiveDay:          1000,
+		config.KeyAgentDollars:        "20.00",
+		config.KeyAgentInput:          0,
+		config.KeyAgentOutput:         0,
+		config.KeyAgentTotal:          20_000_000,
 		config.KeyBuilderAPIKey:       "",
 		config.KeyBuilderSecret:       "",
 		config.KeyBuilderPassphrase:   "",
@@ -98,7 +102,7 @@ func TestSettingsDefaults(t *testing.T) {
 		assert.Equal(t, want, spec(t, key).Default, key)
 	}
 
-	assert.Len(t, registry(t).Specs(), 48, "every setting has a default checked above")
+	assert.Len(t, registry(t).Specs(), 52, "every setting has a default checked above")
 
 	for _, key := range []string{
 		config.KeyTelegramToken, config.KeyBuilderAPIKey, config.KeyBuilderSecret, config.KeyBuilderPassphrase, config.KeyPolygonRPC,
@@ -251,4 +255,22 @@ func TestVerifyEmailNeedsMail(t *testing.T) {
 
 	on[config.KeyMailFrom] = "p@example.com"
 	require.NoError(t, rule.Check(r.Snapshot(on)))
+}
+
+func TestAgentDollarsCap(t *testing.T) {
+	spec, ok := registry(t).Spec(config.KeyAgentDollars)
+	require.True(t, ok)
+
+	for raw, wantErr := range map[string]string{
+		"20": "", "12.50": "", "0": "", " 7.5 ": "",
+		"12.505": "to the cent", "-1": "between 0", "lots": "must be dollars", "10000001": "between 0",
+	} {
+		_, err := spec.Parse(raw)
+		if wantErr == "" {
+			assert.NoError(t, err, raw)
+			continue
+		}
+
+		assert.ErrorContains(t, err, wantErr, raw)
+	}
 }

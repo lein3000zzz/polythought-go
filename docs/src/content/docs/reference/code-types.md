@@ -112,6 +112,14 @@ export interface AiAgentSettings {
      * @default 20
      */
     results?: number | Expression;
+    /** The most this node may spend in one run, to the cent, as the provider reports it: OpenRouter does, the others do not. Empty for no cap of its own; the month's caps apply anyway. */
+    maxRunDollars?: DecimalText | number | Expression;
+    /** The most input tokens this node may take in one run. Empty for no cap. */
+    maxRunInput?: number | Expression;
+    /** The most output tokens this node may take in one run, a call counting its Max tokens. Empty for no cap. */
+    maxRunOutput?: number | Expression;
+    /** The most tokens this node may take in one run, input and output together. Empty for no cap. */
+    maxRunTotal?: number | Expression;
     /**
      * What the answer keeps of each call: full, what it gave too; inputs, only what was asked.
      * @default "full"

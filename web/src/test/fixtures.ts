@@ -12,6 +12,8 @@ export const alice: Schemas['User'] = {
   mayWriteCode: true,
   liveStopped: false,
   liveCaps: {},
+  agentCaps: {},
+  killStopsAgents: false,
   createdAt: '2026-10-01T10:00:00Z',
 }
 

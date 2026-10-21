@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/lein3000zzz/the-watchers/pkg/observability/logging"
+	"github.com/shopspring/decimal"
 
 	"github.com/lein3000zzz/polythought-go/internal/core/domain"
 	"github.com/lein3000zzz/polythought-go/internal/core/ports"
@@ -91,10 +92,17 @@ type UserUpdate struct {
 	EmailVerified *bool
 	// LiveCaps replace the user's own caps on their live buys (D222).
 	LiveCaps *domain.LiveCaps
+	// AgentCaps replace the user's own caps on their agents' spend a month (D271).
+	AgentCaps *domain.AgentCaps
 }
 
-// maxLiveCap is the most a cap may be, as the instance's settings have it.
-const maxLiveCap = 10_000_000
+// maxLiveCap is the most a cap may be, as the instance's settings have it; for agents,
+// maxAgentDollars and maxAgentTokens.
+const (
+	maxLiveCap      = 10_000_000
+	maxAgentDollars = 10_000_000
+	maxAgentTokens  = 1_000_000_000_000
+)
 
 // UpdateUser changes a user's role, disabled state or code access. Disabling signs the user out
 // everywhere. The last active admin cannot be demoted or disabled, so an instance can
@@ -118,6 +126,10 @@ func (s *Service) UpdateUser(ctx context.Context, actor Principal, id domain.Use
 				return domain.User{}, fmt.Errorf("%w: a cap must be between 0 and %d dollars", domain.ErrInvalidInput, maxLiveCap)
 			}
 		}
+	}
+
+	if err := checkAgentCaps(upd.AgentCaps); err != nil {
+		return domain.User{}, err
 	}
 
 	var updated domain.User
@@ -148,6 +160,10 @@ func (s *Service) UpdateUser(ctx context.Context, actor Principal, id domain.Use
 
 		if upd.LiveCaps != nil {
 			user.LiveCaps = *upd.LiveCaps
+		}
+
+		if upd.AgentCaps != nil {
+			user.AgentCaps = *upd.AgentCaps
 		}
 
 		if upd.Disabled != nil {
@@ -193,7 +209,9 @@ func (s *Service) UpdateUser(ctx context.Context, actor Principal, id domain.Use
 
 	s.log.Info(ctx, "User updated", "actor_id", actor.User.ID, "user_id", id,
 		"role", updated.Role, "disabled", updated.Disabled(), "code_chosen", updated.CodeChosen,
-		"max_live_order", capLog(updated.LiveCaps.PerOrder), "max_live_day", capLog(updated.LiveCaps.PerDay))
+		"max_live_order", capLog(updated.LiveCaps.PerOrder), "max_live_day", capLog(updated.LiveCaps.PerDay),
+		"max_agent_dollars", dollarsLog(updated.AgentCaps.Dollars), "max_agent_input", tokensLog(updated.AgentCaps.InputTokens),
+		"max_agent_output", tokensLog(updated.AgentCaps.OutputTokens), "max_agent_total", tokensLog(updated.AgentCaps.TotalTokens))
 
 	// After the commit, so a running workflow never outlives a disable that went through.
 	// Asking to disable an already disabled user stops them again, which repairs a stop
@@ -337,4 +355,40 @@ func capLog(c *int) any {
 	}
 
 	return *c
+}
+
+// checkAgentCaps keeps a user's agent caps to what the instance's settings allow:
+// dollars to the cent.
+func checkAgentCaps(c *domain.AgentCaps) error {
+	if c == nil {
+		return nil
+	}
+
+	if d := c.Dollars; d != nil && (d.IsNegative() || d.GreaterThan(decimal.NewFromInt(maxAgentDollars)) || !d.Equal(d.Truncate(2))) {
+		return fmt.Errorf("%w: a dollar cap must be between 0 and %d, to the cent", domain.ErrInvalidInput, maxAgentDollars)
+	}
+
+	for _, n := range []*int64{c.InputTokens, c.OutputTokens, c.TotalTokens} {
+		if n != nil && (*n < 0 || *n > maxAgentTokens) {
+			return fmt.Errorf("%w: a token cap must be between 0 and %d", domain.ErrInvalidInput, int64(maxAgentTokens))
+		}
+	}
+
+	return nil
+}
+
+func dollarsLog(d *decimal.Decimal) any {
+	if d == nil {
+		return "default"
+	}
+
+	return d.StringFixed(2)
+}
+
+func tokensLog(n *int64) any {
+	if n == nil {
+		return "default"
+	}
+
+	return *n
 }

@@ -15,6 +15,7 @@ import {
 import { useAuthConfig, useMe, useMinPasswordLength } from '@/api/auth'
 import { errorMessage, type Schemas } from '@/api/client'
 import { useSettings } from '@/api/settings'
+import { type AgentCaps, tokens, useUserAgentSpend } from '@/api/spend'
 import { AdminHeader } from '@/components/AdminHeader'
 import { ConfirmDialog } from '@/components/ConfirmDialog'
 import { ErrorAlert } from '@/components/ErrorAlert'
@@ -83,6 +84,7 @@ function UsersSection({ me }: { me: User }) {
   const sendVerification = useSendVerificationLink()
   const [change, setChange] = useState<{ user: User; patch: Schemas['UpdateUserRequest'] }>()
   const [capping, setCapping] = useState<User>()
+  const [agentCapping, setAgentCapping] = useState<User>()
   const items = users.data?.pages.flatMap((page) => page.users) ?? []
   const settings = useSettings()
   const codeAccess = settings.data?.settings.find((s) => s.key === 'code.access')?.value as
@@ -92,6 +94,13 @@ function UsersSection({ me }: { me: User }) {
       number | undefined,
     perDay: settings.data?.settings.find((s) => s.key === 'trading.max_live_day')?.value as
       number | undefined,
+  }
+  const setting = (key: string) => settings.data?.settings.find((s) => s.key === key)?.value
+  const instanceAgentCaps: AgentCaps = {
+    dollars: setting('agents.max_dollars_month') as string | undefined,
+    inputTokens: setting('agents.max_input_month') as number | undefined,
+    outputTokens: setting('agents.max_output_month') as number | undefined,
+    totalTokens: setting('agents.max_total_month') as number | undefined,
   }
 
   const chooseForCode = (user: User, chosen: boolean) =>
@@ -168,6 +177,7 @@ function UsersSection({ me }: { me: User }) {
               <TableHead>Status</TableHead>
               <TableHead>Code</TableHead>
               <TableHead>Live caps</TableHead>
+              <TableHead>Agent caps</TableHead>
               <TableHead>Created</TableHead>
               <TableHead />
             </TableRow>
@@ -210,6 +220,17 @@ function UsersSection({ me }: { me: User }) {
                     onClick={() => setCapping(u)}
                   >
                     {capsText(u.liveCaps)}
+                  </Button>
+                </TableCell>
+                <TableCell>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="-ml-2 font-normal"
+                    aria-label={`Agent caps of ${u.email}`}
+                    onClick={() => setAgentCapping(u)}
+                  >
+                    {agentCapsText(u.agentCaps)}
                   </Button>
                 </TableCell>
                 <TableCell>{formatDateTime(u.createdAt)}</TableCell>
@@ -268,6 +289,14 @@ function UsersSection({ me }: { me: User }) {
 
       {capping && (
         <CapsDialog user={capping} instance={instanceCaps} onClose={() => setCapping(undefined)} />
+      )}
+
+      {agentCapping && (
+        <AgentCapsDialog
+          user={agentCapping}
+          instance={instanceAgentCaps}
+          onClose={() => setAgentCapping(undefined)}
+        />
       )}
 
       {change && (
@@ -623,5 +652,149 @@ function InvitesSection() {
         </Table>
       )}
     </section>
+  )
+}
+
+/** A user's agent caps in the table: theirs, or the instance's (D271). */
+function agentCapsText(caps: AgentCaps): string {
+  const set = [
+    caps.dollars !== undefined &&
+      (Number(caps.dollars) === 0 ? 'no $ cap' : `$${caps.dollars} a month`),
+    caps.totalTokens !== undefined &&
+      (caps.totalTokens === 0 ? 'no token cap' : `${tokens(caps.totalTokens)} tokens`),
+    caps.inputTokens !== undefined &&
+      (caps.inputTokens === 0 ? 'no input cap' : `${tokens(caps.inputTokens)} in`),
+    caps.outputTokens !== undefined &&
+      (caps.outputTokens === 0 ? 'no output cap' : `${tokens(caps.outputTokens)} out`),
+  ].filter(Boolean)
+
+  return set.length === 0 ? 'Default' : set.join(', ')
+}
+
+/**
+ * An admin's caps on one user's agent spend a month (D271): empty is the instance's, 0
+ * none. Beside them, what the user's agents spent this month (D277).
+ */
+function AgentCapsDialog({
+  user,
+  instance,
+  onClose,
+}: {
+  user: User
+  instance: AgentCaps
+  onClose: () => void
+}) {
+  const update = useUpdateUser()
+  const spend = useUserAgentSpend(user.id)
+  const [dollars, setDollars] = useState(user.agentCaps.dollars ?? '')
+  const [total, setTotal] = useState(user.agentCaps.totalTokens?.toString() ?? '')
+  const [input, setInput] = useState(user.agentCaps.inputTokens?.toString() ?? '')
+  const [output, setOutput] = useState(user.agentCaps.outputTokens?.toString() ?? '')
+
+  const count = (text: string) => (text.trim() === '' ? undefined : Number(text))
+  const placeholder = (cap: number | string | undefined, show: (n: number) => string) =>
+    cap === undefined
+      ? 'Default'
+      : Number(cap) === 0
+        ? 'Default: no cap'
+        : `Default: ${show(Number(cap))}`
+  const d = spend.data
+
+  return (
+    <Dialog open onOpenChange={(isOpen) => !isOpen && onClose()}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Agent caps of {user.email}</DialogTitle>
+          <DialogDescription>
+            What their AI agent nodes may spend in a calendar month, UTC, over the Config
+            page&apos;s caps. Empty is the instance&apos;s cap, 0 none. Dollars count what providers
+            report, which only some do; tokens count every call.
+          </DialogDescription>
+        </DialogHeader>
+
+        {d && (
+          <p className="text-sm" aria-label="Their spend this month">
+            This month: ${d.dollars} ({d.costedCalls} of {d.calls} calls priced),{' '}
+            {tokens(d.totalTokens)} tokens ({tokens(d.inputTokens)} in, {tokens(d.outputTokens)}{' '}
+            out).
+          </p>
+        )}
+        {spend.isError && <ErrorAlert error={spend.error} />}
+
+        <form
+          id="agent-caps"
+          className="flex flex-col gap-4"
+          onSubmit={(e) => {
+            e.preventDefault()
+            update.mutate(
+              {
+                id: user.id,
+                agentCaps: {
+                  dollars: dollars.trim() === '' ? undefined : dollars.trim(),
+                  totalTokens: count(total),
+                  inputTokens: count(input),
+                  outputTokens: count(output),
+                },
+              },
+              {
+                onSuccess: () => {
+                  toast.success(`Agent caps of ${user.email} saved`)
+                  onClose()
+                },
+              },
+            )
+          }}
+        >
+          {update.isError && <ErrorAlert error={update.error} />}
+
+          <div className="flex flex-col gap-2">
+            <Label htmlFor="agent-dollars">Max $ a month</Label>
+            <Input
+              id="agent-dollars"
+              inputMode="decimal"
+              value={dollars}
+              placeholder={placeholder(instance.dollars, (n) => `$${n.toFixed(2)}`)}
+              onChange={(e) => setDollars(e.target.value)}
+            />
+          </div>
+
+          {(
+            [
+              ['agent-total', 'Max tokens a month', total, setTotal, instance.totalTokens],
+              ['agent-input', 'Max input tokens a month', input, setInput, instance.inputTokens],
+              [
+                'agent-output',
+                'Max output tokens a month',
+                output,
+                setOutput,
+                instance.outputTokens,
+              ],
+            ] as const
+          ).map(([id, label, value, set, cap]) => (
+            <div key={id} className="flex flex-col gap-2">
+              <Label htmlFor={id}>{label}</Label>
+              <Input
+                id={id}
+                type="number"
+                min={0}
+                step={1}
+                value={value}
+                placeholder={placeholder(cap, tokens)}
+                onChange={(e) => set(e.target.value)}
+              />
+            </div>
+          ))}
+        </form>
+
+        <DialogFooter>
+          <Button variant="ghost" onClick={onClose}>
+            Cancel
+          </Button>
+          <Button type="submit" form="agent-caps" disabled={update.isPending}>
+            Save
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   )
 }

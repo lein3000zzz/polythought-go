@@ -81,6 +81,26 @@ describe('kill switch', () => {
     expect(screen.queryByText('Live trading is stopped:')).not.toBeInTheDocument()
   })
 
+  it('says the agents stop too, when the user chose so (D276)', async () => {
+    server.use(
+      http.get('/api/v1/me', () =>
+        HttpResponse.json({
+          ...alice,
+          liveStopped: true,
+          liveStoppedAt: '2026-10-20T10:00:00Z',
+          killStopsAgents: true,
+        }),
+      ),
+      http.get('/api/v1/workflows', () => HttpResponse.json({ workflows: [] })),
+    )
+    renderApp('/workflows')
+
+    const banner = await screen.findByRole('status')
+    expect(banner).toHaveTextContent(
+      'your workflows place no live orders, and your AI agent nodes make no calls, until you resume it.',
+    )
+  })
+
   it('is not there without a wallet that can trade', async () => {
     signedInWith([{ ...canTrade, hasKey: false }])
     renderApp('/workflows')

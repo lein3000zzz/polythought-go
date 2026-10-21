@@ -74,6 +74,10 @@ Under **Settings → Notifications**, choose what Polythought tells you about:
   Live fills and refusals are on to start with, the rest off, and every paper kind off. At
   most 20 messages of a kind an hour; past that, they are held, and one message at the
   end of the hour says how many more there were, for which workflows.
+- **AI agents**, two kinds about what your [agent nodes](/docs/guides/agents/#caps) spend:
+  **reaches 80% of a monthly cap**, for the first cap they pass 80% of, and **reaches a
+  monthly cap**, when a call is refused for one. Each once a month, and again only if an
+  admin raises the cap.
 
 Each has two switches: **Telegram**, to your linked chat (without one, nothing is sent), on
 by default unless said above; and **Email**, to your account's address, off until you turn

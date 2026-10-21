@@ -16,12 +16,19 @@ type AgentMeter interface {
 	Run(run SpendRun) SpendBudget
 }
 
-// SpendRun is one run of an agent node.
+// SpendRun is one run of an agent node, with the node's own caps for it (D272).
 type SpendRun struct {
 	OwnerID     domain.UserID
 	WorkflowID  domain.WorkflowID
 	ExecutionID domain.ExecutionID
 	NodeID      domain.NodeID
+	Caps        domain.AgentCaps
+}
+
+// SpendNotifier tells users their agents reached 80% of a monthly cap, or a cap (D274).
+// It must not block.
+type SpendNotifier interface {
+	AgentSpendNoticed(owner domain.UserID, a domain.SpendAlert)
 }
 
 // SpendBudget is one node run's: its calls go through it, a few at once.
@@ -48,4 +55,7 @@ type AgentUsageRepository interface {
 	Add(ctx context.Context, owner domain.UserID, delta domain.AgentUsage, at time.Time) (domain.AgentUsage, error)
 	// Month is owner's spend in the month starting at month: nothing spent when no row.
 	Month(ctx context.Context, owner domain.UserID, month time.Time) (domain.AgentUsage, error)
+	// ClaimNotice marks the month's notice as sent at caps, if it is still at was, empty
+	// for never sent: true for the one caller that does, who then sends it.
+	ClaimNotice(ctx context.Context, owner domain.UserID, month time.Time, n domain.SpendNotice, was, caps string, at time.Time) (bool, error)
 }

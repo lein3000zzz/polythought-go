@@ -25,6 +25,10 @@ type agentUsageTable struct {
 	Calls        postgres.ColumnInteger
 	CostedCalls  postgres.ColumnInteger
 	UpdatedAt    postgres.ColumnTimestampz
+	WarnedAt     postgres.ColumnTimestampz
+	WarnedCaps   postgres.ColumnString
+	CappedAt     postgres.ColumnTimestampz
+	CappedCaps   postgres.ColumnString
 
 	AllColumns     postgres.ColumnList
 	MutableColumns postgres.ColumnList
@@ -74,8 +78,12 @@ func newAgentUsageTableImpl(schemaName, tableName, alias string) agentUsageTable
 		CallsColumn        = postgres.IntegerColumn("calls")
 		CostedCallsColumn  = postgres.IntegerColumn("costed_calls")
 		UpdatedAtColumn    = postgres.TimestampzColumn("updated_at")
-		allColumns         = postgres.ColumnList{UserIDColumn, MonthColumn, InputTokensColumn, OutputTokensColumn, DollarsColumn, CallsColumn, CostedCallsColumn, UpdatedAtColumn}
-		mutableColumns     = postgres.ColumnList{InputTokensColumn, OutputTokensColumn, DollarsColumn, CallsColumn, CostedCallsColumn, UpdatedAtColumn}
+		WarnedAtColumn     = postgres.TimestampzColumn("warned_at")
+		WarnedCapsColumn   = postgres.StringColumn("warned_caps")
+		CappedAtColumn     = postgres.TimestampzColumn("capped_at")
+		CappedCapsColumn   = postgres.StringColumn("capped_caps")
+		allColumns         = postgres.ColumnList{UserIDColumn, MonthColumn, InputTokensColumn, OutputTokensColumn, DollarsColumn, CallsColumn, CostedCallsColumn, UpdatedAtColumn, WarnedAtColumn, WarnedCapsColumn, CappedAtColumn, CappedCapsColumn}
+		mutableColumns     = postgres.ColumnList{InputTokensColumn, OutputTokensColumn, DollarsColumn, CallsColumn, CostedCallsColumn, UpdatedAtColumn, WarnedAtColumn, WarnedCapsColumn, CappedAtColumn, CappedCapsColumn}
 		defaultColumns     = postgres.ColumnList{InputTokensColumn, OutputTokensColumn, DollarsColumn, CallsColumn, CostedCallsColumn}
 	)
 
@@ -91,6 +99,10 @@ func newAgentUsageTableImpl(schemaName, tableName, alias string) agentUsageTable
 		Calls:        CallsColumn,
 		CostedCalls:  CostedCallsColumn,
 		UpdatedAt:    UpdatedAtColumn,
+		WarnedAt:     WarnedAtColumn,
+		WarnedCaps:   WarnedCapsColumn,
+		CappedAt:     CappedAtColumn,
+		CappedCaps:   CappedCapsColumn,
 
 		AllColumns:     allColumns,
 		MutableColumns: mutableColumns,

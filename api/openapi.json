@@ -113,6 +113,95 @@
                 ],
                 "type": "object"
             },
+            "AgentCaps": {
+                "properties": {
+                    "dollars": {
+                        "example": "20.00",
+                        "type": "string"
+                    },
+                    "inputTokens": {
+                        "minimum": 0,
+                        "type": "integer"
+                    },
+                    "outputTokens": {
+                        "minimum": 0,
+                        "type": "integer"
+                    },
+                    "totalTokens": {
+                        "minimum": 0,
+                        "type": "integer"
+                    }
+                },
+                "type": "object"
+            },
+            "AgentChoicesRequest": {
+                "properties": {
+                    "killStopsAgents": {
+                        "type": "boolean"
+                    }
+                },
+                "required": [
+                    "killStopsAgents"
+                ],
+                "type": "object"
+            },
+            "AgentSpend": {
+                "properties": {
+                    "calls": {
+                        "type": "integer"
+                    },
+                    "caps": {
+                        "$ref": "#/components/schemas/AgentCaps",
+                        "description": "Caps are those that apply, 0 for none; Own, an admin's for the user, those left out\nbeing the instance's."
+                    },
+                    "costedCalls": {
+                        "type": "integer"
+                    },
+                    "dollars": {
+                        "example": "4.20",
+                        "type": "string"
+                    },
+                    "inputTokens": {
+                        "description": "Tokens are every call's; dollars, what providers reported, which only some do\n(OpenRouter): CostedCalls of Calls.",
+                        "type": "integer"
+                    },
+                    "killStopsAgents": {
+                        "description": "KillStopsAgents is the user's choice that their kill switch stops their agents too.",
+                        "type": "boolean"
+                    },
+                    "month": {
+                        "format": "date-time",
+                        "type": "string"
+                    },
+                    "outputTokens": {
+                        "type": "integer"
+                    },
+                    "own": {
+                        "$ref": "#/components/schemas/AgentCaps"
+                    },
+                    "resets": {
+                        "format": "date-time",
+                        "type": "string"
+                    },
+                    "totalTokens": {
+                        "type": "integer"
+                    }
+                },
+                "required": [
+                    "calls",
+                    "caps",
+                    "costedCalls",
+                    "dollars",
+                    "inputTokens",
+                    "killStopsAgents",
+                    "month",
+                    "outputTokens",
+                    "own",
+                    "resets",
+                    "totalTokens"
+                ],
+                "type": "object"
+            },
             "Approval": {
                 "properties": {
                     "name": {
@@ -3103,6 +3192,10 @@
             },
             "UpdateUserRequest": {
                 "properties": {
+                    "agentCaps": {
+                        "$ref": "#/components/schemas/AgentCaps",
+                        "description": "AgentCaps replace the user's caps on their agents' spend; a cap left out is the\ninstance's again."
+                    },
                     "codeChosen": {
                         "type": "boolean"
                     },
@@ -3178,6 +3271,10 @@
             },
             "User": {
                 "properties": {
+                    "agentCaps": {
+                        "$ref": "#/components/schemas/AgentCaps",
+                        "description": "AgentCaps are an admin's caps on their agents' spend a month; those left out are\nthe instance's (D271)."
+                    },
                     "codeChosen": {
                         "description": "CodeChosen says an admin picked them to write code, which counts while code access\nis \"chosen\".",
                         "type": "boolean"
@@ -3197,6 +3294,10 @@
                     },
                     "id": {
                         "type": "string"
+                    },
+                    "killStopsAgents": {
+                        "description": "KillStopsAgents is their choice that their kill switch stops their agents too.",
+                        "type": "boolean"
                     },
                     "liveCaps": {
                         "$ref": "#/components/schemas/LiveCaps",
@@ -3223,12 +3324,14 @@
                     }
                 },
                 "required": [
+                    "agentCaps",
                     "codeChosen",
                     "createdAt",
                     "disabled",
                     "email",
                     "emailVerified",
                     "id",
+                    "killStopsAgents",
                     "liveCaps",
                     "liveStopped",
                     "mayWriteCode",
@@ -4326,6 +4429,76 @@
                     }
                 ],
                 "summary": "Change a user's role or disable them",
+                "tags": [
+                    "admin"
+                ]
+            }
+        },
+        "/admin/users/{id}/agent-spend": {
+            "get": {
+                "operationId": "userAgentSpend",
+                "parameters": [
+                    {
+                        "description": "User ID",
+                        "in": "path",
+                        "name": "id",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/AgentSpend"
+                                }
+                            }
+                        },
+                        "description": "OK"
+                    },
+                    "401": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "unauthenticated"
+                    },
+                    "403": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "forbidden: not an admin"
+                    },
+                    "404": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "not_found"
+                    }
+                },
+                "security": [
+                    {
+                        "SessionCookie": []
+                    },
+                    {
+                        "APIToken": []
+                    }
+                ],
+                "summary": "A user's agent spend this month",
                 "tags": [
                     "admin"
                 ]
@@ -6157,6 +6330,107 @@
                     }
                 ],
                 "summary": "Current user",
+                "tags": [
+                    "me"
+                ]
+            }
+        },
+        "/me/agent-spend": {
+            "get": {
+                "operationId": "myAgentSpend",
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/AgentSpend"
+                                }
+                            }
+                        },
+                        "description": "OK"
+                    },
+                    "401": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "unauthenticated"
+                    }
+                },
+                "security": [
+                    {
+                        "SessionCookie": []
+                    },
+                    {
+                        "APIToken": []
+                    }
+                ],
+                "summary": "Your agent spend this month",
+                "tags": [
+                    "me"
+                ]
+            }
+        },
+        "/me/agents": {
+            "put": {
+                "operationId": "setAgentChoices",
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/AgentChoicesRequest",
+                                "summary": "body",
+                                "description": "Your choices"
+                            }
+                        }
+                    },
+                    "description": "Your choices",
+                    "required": true
+                },
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/AgentSpend"
+                                }
+                            }
+                        },
+                        "description": "OK"
+                    },
+                    "400": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "invalid_input"
+                    },
+                    "401": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "unauthenticated"
+                    }
+                },
+                "security": [
+                    {
+                        "SessionCookie": []
+                    },
+                    {
+                        "APIToken": []
+                    }
+                ],
+                "summary": "Set your agent choices",
                 "tags": [
                     "me"
                 ]

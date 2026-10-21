@@ -51,6 +51,11 @@ func (r *Users) Create(ctx context.Context, u domain.User, passwordHash string) 
 		LiveStoppedAt:   timePtr(u.LiveStoppedAt),
 		MaxLiveOrder:    capOf(u.LiveCaps.PerOrder),
 		MaxLiveDay:      capOf(u.LiveCaps.PerDay),
+		MaxAgentDollars: u.AgentCaps.Dollars,
+		MaxAgentInput:   u.AgentCaps.InputTokens,
+		MaxAgentOutput:  u.AgentCaps.OutputTokens,
+		MaxAgentTotal:   u.AgentCaps.TotalTokens,
+		KillStopsAgents: u.KillStopsAgents,
 		CreatedAt:       u.CreatedAt,
 		UpdatedAt:       u.UpdatedAt,
 	}
@@ -127,8 +132,30 @@ func (r *Users) Update(ctx context.Context, u domain.User) error {
 	t := table.Users
 
 	return affectedOne(t.
-		UPDATE(t.Role, t.DisabledAt, t.CodeChosen, t.MaxLiveOrder, t.MaxLiveDay, t.UpdatedAt).
-		SET(string(u.Role), timePtr(u.DisabledAt), u.CodeChosen, capOf(u.LiveCaps.PerOrder), capOf(u.LiveCaps.PerDay), u.UpdatedAt).
+		UPDATE(t.Role, t.DisabledAt, t.CodeChosen, t.MaxLiveOrder, t.MaxLiveDay,
+			t.MaxAgentDollars, t.MaxAgentInput, t.MaxAgentOutput, t.MaxAgentTotal, t.UpdatedAt).
+		MODEL(model.Users{
+			Role: string(u.Role), DisabledAt: timePtr(u.DisabledAt), CodeChosen: u.CodeChosen,
+			MaxLiveOrder: capOf(u.LiveCaps.PerOrder), MaxLiveDay: capOf(u.LiveCaps.PerDay),
+			MaxAgentDollars: u.AgentCaps.Dollars, MaxAgentInput: u.AgentCaps.InputTokens,
+			MaxAgentOutput: u.AgentCaps.OutputTokens, MaxAgentTotal: u.AgentCaps.TotalTokens, UpdatedAt: u.UpdatedAt,
+		}).
+		WHERE(t.ID.EQ(jet.UUID(uid))).
+		ExecContext(ctx, r.db.conn(ctx)))
+}
+
+// SetKillStopsAgents records the user's choice that their kill switch stops their agents
+// too (D276).
+func (r *Users) SetKillStopsAgents(ctx context.Context, id domain.UserID, on bool) error {
+	uid, err := parseID(id)
+	if err != nil {
+		return err
+	}
+
+	t := table.Users
+
+	return affectedOne(t.UPDATE(t.KillStopsAgents).
+		SET(on).
 		WHERE(t.ID.EQ(jet.UUID(uid))).
 		ExecContext(ctx, r.db.conn(ctx)))
 }
@@ -261,6 +288,10 @@ func toUser(m model.Users) domain.User {
 		CodeChosen:      m.CodeChosen,
 		LiveStoppedAt:   timeOf(m.LiveStoppedAt),
 		LiveCaps:        domain.LiveCaps{PerOrder: capFrom(m.MaxLiveOrder), PerDay: capFrom(m.MaxLiveDay)},
+		AgentCaps: domain.AgentCaps{
+			Dollars: m.MaxAgentDollars, InputTokens: m.MaxAgentInput, OutputTokens: m.MaxAgentOutput, TotalTokens: m.MaxAgentTotal,
+		},
+		KillStopsAgents: m.KillStopsAgents,
 		CreatedAt:       m.CreatedAt.UTC(),
 		UpdatedAt:       m.UpdatedAt.UTC(),
 	}

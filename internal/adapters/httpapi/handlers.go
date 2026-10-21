@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/cloudwego/hertz/pkg/app"
+	"github.com/shopspring/decimal"
 
 	"github.com/lein3000zzz/polythought-go/internal/core/domain"
 	"github.com/lein3000zzz/polythought-go/internal/core/ports"
@@ -34,8 +35,13 @@ type userDTO struct {
 	LiveStopped   bool       `json:"liveStopped"`
 	LiveStoppedAt *time.Time `json:"liveStoppedAt,omitempty" validate:"optional" format:"date-time"`
 	// LiveCaps are an admin's caps for them; those left out are the instance's (D222).
-	LiveCaps  liveCapsDTO `json:"liveCaps"`
-	CreatedAt time.Time   `json:"createdAt" format:"date-time"`
+	LiveCaps liveCapsDTO `json:"liveCaps"`
+	// AgentCaps are an admin's caps on their agents' spend a month; those left out are
+	// the instance's (D271).
+	AgentCaps agentCapsDTO `json:"agentCaps"`
+	// KillStopsAgents is their choice that their kill switch stops their agents too.
+	KillStopsAgents bool      `json:"killStopsAgents"`
+	CreatedAt       time.Time `json:"createdAt" format:"date-time"`
 } // @name User
 
 // liveCapsDTO caps a user's live buys in whole dollars: one order, and 24 hours. Left out,
@@ -45,19 +51,56 @@ type liveCapsDTO struct {
 	PerDay   *int `json:"perDay,omitempty" validate:"optional" minimum:"0" maximum:"10000000"`
 } // @name LiveCaps
 
+// agentCapsDTO caps what agents spend a month: dollars to the cent as providers report
+// them, as text like "20.00", and input, output and total tokens. Left out, the
+// instance's cap; 0, none.
+type agentCapsDTO struct {
+	Dollars      *string `json:"dollars,omitempty" validate:"optional" example:"20.00"`
+	InputTokens  *int64  `json:"inputTokens,omitempty" validate:"optional" minimum:"0"`
+	OutputTokens *int64  `json:"outputTokens,omitempty" validate:"optional" minimum:"0"`
+	TotalTokens  *int64  `json:"totalTokens,omitempty" validate:"optional" minimum:"0"`
+} // @name AgentCaps
+
+func toAgentCapsDTO(c domain.AgentCaps) agentCapsDTO {
+	dto := agentCapsDTO{InputTokens: c.InputTokens, OutputTokens: c.OutputTokens, TotalTokens: c.TotalTokens}
+	if c.Dollars != nil {
+		d := c.Dollars.StringFixed(2)
+		dto.Dollars = &d
+	}
+
+	return dto
+}
+
+func (dto agentCapsDTO) caps() (domain.AgentCaps, error) {
+	c := domain.AgentCaps{InputTokens: dto.InputTokens, OutputTokens: dto.OutputTokens, TotalTokens: dto.TotalTokens}
+
+	if dto.Dollars != nil {
+		d, err := decimal.NewFromString(strings.TrimSpace(*dto.Dollars))
+		if err != nil {
+			return c, fmt.Errorf("%w: dollars: %q is not an amount, like 20.00", domain.ErrInvalidInput, *dto.Dollars)
+		}
+
+		c.Dollars = &d
+	}
+
+	return c, nil
+}
+
 func (s *Server) userDTO(u domain.User) userDTO {
 	return userDTO{
-		ID:            string(u.ID),
-		Email:         u.Email,
-		Role:          string(u.Role),
-		EmailVerified: !u.EmailVerifiedAt.IsZero(),
-		Disabled:      u.Disabled(),
-		CodeChosen:    u.CodeChosen,
-		MayWriteCode:  s.auth.CodeAccess().Allows(u),
-		LiveStopped:   u.LiveStopped(),
-		LiveStoppedAt: optionalTime(u.LiveStoppedAt),
-		LiveCaps:      liveCapsDTO{PerOrder: u.LiveCaps.PerOrder, PerDay: u.LiveCaps.PerDay},
-		CreatedAt:     u.CreatedAt,
+		ID:              string(u.ID),
+		Email:           u.Email,
+		Role:            string(u.Role),
+		EmailVerified:   !u.EmailVerifiedAt.IsZero(),
+		Disabled:        u.Disabled(),
+		CodeChosen:      u.CodeChosen,
+		MayWriteCode:    s.auth.CodeAccess().Allows(u),
+		LiveStopped:     u.LiveStopped(),
+		LiveStoppedAt:   optionalTime(u.LiveStoppedAt),
+		LiveCaps:        liveCapsDTO{PerOrder: u.LiveCaps.PerOrder, PerDay: u.LiveCaps.PerDay},
+		AgentCaps:       toAgentCapsDTO(u.AgentCaps),
+		KillStopsAgents: u.KillStopsAgents,
+		CreatedAt:       u.CreatedAt,
 	}
 }
 
@@ -186,6 +229,9 @@ type updateUserRequest struct {
 	EmailVerified *bool `json:"emailVerified" validate:"optional"`
 	// LiveCaps replace the user's caps; a cap left out is the instance's again.
 	LiveCaps *liveCapsDTO `json:"liveCaps" validate:"optional"`
+	// AgentCaps replace the user's caps on their agents' spend; a cap left out is the
+	// instance's again.
+	AgentCaps *agentCapsDTO `json:"agentCaps" validate:"optional"`
 } // @name UpdateUserRequest
 
 // decodeJSON reads the body strictly: unknown fields are an error, so typos in field
@@ -735,6 +781,16 @@ func (s *Server) updateUser(ctx context.Context, c *app.RequestContext) {
 	upd := auth.UserUpdate{Disabled: req.Disabled, CodeChosen: req.CodeChosen, EmailVerified: req.EmailVerified}
 	if req.LiveCaps != nil {
 		upd.LiveCaps = &domain.LiveCaps{PerOrder: req.LiveCaps.PerOrder, PerDay: req.LiveCaps.PerDay}
+	}
+
+	if req.AgentCaps != nil {
+		caps, err := req.AgentCaps.caps()
+		if err != nil {
+			s.fail(ctx, c, err)
+			return
+		}
+
+		upd.AgentCaps = &caps
 	}
 
 	if req.Role != nil {

@@ -7,4 +7,20 @@ import { setupServer } from 'msw/node'
  */
 export const server = setupServer(
   http.get('/api/v1/wallets', () => HttpResponse.json({ wallets: [] })),
+  // Settings asks what the agents spent: nothing, and no caps, unless a test says.
+  http.get('/api/v1/me/agent-spend', () =>
+    HttpResponse.json({
+      month: '2026-10-01T00:00:00Z',
+      resets: '2026-11-01T00:00:00Z',
+      inputTokens: 0,
+      outputTokens: 0,
+      totalTokens: 0,
+      dollars: '0.00',
+      calls: 0,
+      costedCalls: 0,
+      caps: {},
+      own: {},
+      killStopsAgents: false,
+    }),
+  ),
 )

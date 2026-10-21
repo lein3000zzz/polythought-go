@@ -657,7 +657,16 @@ func (a *app) initEngine(ctx context.Context, pmc polymarket) error {
 	// The models a key can use, for the agent node's picker (D251); what the agent spends
 	// with them, counted per user and month (D268).
 	a.models = models.New(models.Deps{Credentials: a.credentials, LLM: llmClient})
-	a.spend = spend.New(spend.Deps{Usage: postgres.NewAgentUsage(a.db), Logger: a.util.Logger})
+	a.spend = spend.New(spend.Deps{
+		Usage: postgres.NewAgentUsage(a.db), Users: postgres.NewUsers(a.db), Notices: a.notify, Logger: a.util.Logger,
+		Caps: func() domain.AgentCaps {
+			s := a.settings.Current()
+			dollars, _ := decimal.NewFromString(s.String(config.KeyAgentDollars))
+			in, out, total := int64(s.Int(config.KeyAgentInput)), int64(s.Int(config.KeyAgentOutput)), int64(s.Int(config.KeyAgentTotal))
+
+			return domain.AgentCaps{Dollars: &dollars, InputTokens: &in, OutputTokens: &out, TotalTokens: &total}
+		},
+	})
 
 	// Orders: on paper, simulated against the live book with a paper account per workflow
 	// (D89 to D92); live, from the workflow's wallet through Polymarket's CLOB, while an

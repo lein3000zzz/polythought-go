@@ -117,6 +117,18 @@ On the Users page, **Live caps** gives a user caps of their own, over these, emp
 instance's. Disabling a user turns their kill switch on, cancelling their resting live
 orders (see [Stopping it](/docs/guides/copy-traders/#stopping-it)).
 
+## AI agents
+
+Users' [agent nodes](/docs/guides/agents/) call language models with their own keys, so their
+calls are billed to them, not to you. Under **AI agents** on the Config page, **Max $ a
+month of agent spend**, **Max tokens a month**, **Max input tokens a month** and **Max
+output tokens a month** cap what each user's agents may spend in a calendar month, UTC:
+$20.00 and 20,000,000 tokens to start with, input and output not capped apart, 0 for no
+cap. Dollars count what providers report, which only OpenRouter does: Polythought keeps no
+prices, so the token caps are what stop the others. On the Users page, **Agent caps** gives
+a user caps of their own, empty for the instance's, and shows what their agents spent this
+month.
+
 Live orders go from the server to Polymarket's CLOB at clob.polymarket.com, signed there
 with the wallet's imported or session key. The server follows each until its trades are
 final on chain, and tells the owner when one fails.

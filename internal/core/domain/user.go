@@ -98,6 +98,10 @@ type User struct {
 	CodeChosen      bool      // an admin picked them to write code, for CodeChosen
 	LiveStoppedAt   time.Time // zero unless their kill switch is on (D220)
 	LiveCaps        LiveCaps  // an admin's caps for them, over the instance's (D222)
+	AgentCaps       AgentCaps // an admin's caps on their agents' spend, over the instance's (D271)
+	// KillStopsAgents is their choice that their kill switch stops their agents too
+	// (D276).
+	KillStopsAgents bool
 	CreatedAt       time.Time
 	UpdatedAt       time.Time
 }

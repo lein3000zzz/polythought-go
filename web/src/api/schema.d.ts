@@ -160,6 +160,23 @@ export interface paths {
         patch: operations["updateUser"];
         trace?: never;
     };
+    "/admin/users/{id}/agent-spend": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** A user's agent spend this month */
+        get: operations["userAgentSpend"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/admin/users/{id}/verification": {
         parameters: {
             query?: never;
@@ -570,6 +587,40 @@ export interface paths {
         /** Current user */
         get: operations["getMe"];
         put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/me/agent-spend": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Your agent spend this month */
+        get: operations["myAgentSpend"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/me/agents": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Set your agent choices */
+        put: operations["setAgentChoices"];
         post?: never;
         delete?: never;
         options?: never;
@@ -1389,6 +1440,41 @@ export interface components {
              *     still held.
              */
             worth: string;
+        };
+        AgentCaps: {
+            /** @example 20.00 */
+            dollars?: string;
+            inputTokens?: number;
+            outputTokens?: number;
+            totalTokens?: number;
+        };
+        AgentChoicesRequest: {
+            killStopsAgents: boolean;
+        };
+        AgentSpend: {
+            calls: number;
+            /**
+             * @description Caps are those that apply, 0 for none; Own, an admin's for the user, those left out
+             *     being the instance's.
+             */
+            caps: components["schemas"]["AgentCaps"];
+            costedCalls: number;
+            /** @example 4.20 */
+            dollars: string;
+            /**
+             * @description Tokens are every call's; dollars, what providers reported, which only some do
+             *     (OpenRouter): CostedCalls of Calls.
+             */
+            inputTokens: number;
+            /** @description KillStopsAgents is the user's choice that their kill switch stops their agents too. */
+            killStopsAgents: boolean;
+            /** Format: date-time */
+            month: string;
+            outputTokens: number;
+            own: components["schemas"]["AgentCaps"];
+            /** Format: date-time */
+            resets: string;
+            totalTokens: number;
         };
         Approval: {
             /** @description Name is what it is for people, like "pUSD to the CTF Exchange". */
@@ -2498,6 +2584,11 @@ export interface components {
             };
         };
         UpdateUserRequest: {
+            /**
+             * @description AgentCaps replace the user's caps on their agents' spend; a cap left out is the
+             *     instance's again.
+             */
+            agentCaps?: components["schemas"]["AgentCaps"];
             codeChosen?: boolean;
             disabled?: boolean;
             /** @description EmailVerified true marks the address verified; it cannot be made false. */
@@ -2526,6 +2617,11 @@ export interface components {
         };
         User: {
             /**
+             * @description AgentCaps are an admin's caps on their agents' spend a month; those left out are
+             *     the instance's (D271).
+             */
+            agentCaps: components["schemas"]["AgentCaps"];
+            /**
              * @description CodeChosen says an admin picked them to write code, which counts while code access
              *     is "chosen".
              */
@@ -2536,6 +2632,8 @@ export interface components {
             email: string;
             emailVerified: boolean;
             id: string;
+            /** @description KillStopsAgents is their choice that their kill switch stops their agents too. */
+            killStopsAgents: boolean;
             /** @description LiveCaps are an admin's caps for them; those left out are the instance's (D222). */
             liveCaps: components["schemas"]["LiveCaps"];
             /**
@@ -3244,6 +3342,56 @@ export interface operations {
             };
             /** @description last_admin */
             409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    userAgentSpend: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description User ID */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AgentSpend"];
+                };
+            };
+            /** @description unauthenticated */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description forbidden: not an admin */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description not_found */
+            404: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -4618,6 +4766,78 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["User"];
+                };
+            };
+            /** @description unauthenticated */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    myAgentSpend: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AgentSpend"];
+                };
+            };
+            /** @description unauthenticated */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    setAgentChoices: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description Your choices */
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AgentChoicesRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AgentSpend"];
+                };
+            };
+            /** @description invalid_input */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
                 };
             };
             /** @description unauthenticated */

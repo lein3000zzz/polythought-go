@@ -60,7 +60,10 @@ export function StoppedBanner({ user }: { user: User }) {
     >
       <OctagonX className="size-4 shrink-0" />
       <span className="font-medium">Live trading is stopped:</span>
-      <span>your workflows place no live orders until you resume it.</span>
+      <span>
+        your workflows place no live orders
+        {user.killStopsAgents && ', and your AI agent nodes make no calls,'} until you resume it.
+      </span>
       <Button
         variant="outline"
         size="sm"

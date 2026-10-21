@@ -99,8 +99,99 @@ func TestAgentUsage(t *testing.T) {
 		require.Error(t, err, "no such user")
 	})
 
+	t.Run("a notice claimed once, again only at other caps", func(t *testing.T) {
+		at := at.Add(time.Hour)
+		carol := seedUser(t, db, "carol@example.com", domain.RoleUser)
+
+		got, err := usage.ClaimNotice(ctx, carol.ID, october, domain.NoticeCapped, "", "total=100", at)
+		require.NoError(t, err)
+		assert.True(t, got, "the month's row made with it, no spend yet")
+
+		got, err = usage.ClaimNotice(ctx, carol.ID, october, domain.NoticeCapped, "", "total=100", at)
+		require.NoError(t, err)
+		assert.False(t, got, "claimed already")
+
+		got, err = usage.ClaimNotice(ctx, carol.ID, october, domain.NoticeWarned, "", "total=100", at)
+		require.NoError(t, err)
+		assert.True(t, got, "each notice its own")
+
+		got, err = usage.ClaimNotice(ctx, carol.ID, october, domain.NoticeCapped, "total=100", "total=200", at)
+		require.NoError(t, err)
+		assert.True(t, got, "raised since")
+
+		month, err := usage.Month(ctx, carol.ID, october)
+		require.NoError(t, err)
+		assert.Equal(t, "total=200", month.Capped)
+		assert.Equal(t, "total=100", month.Warned)
+		assert.Zero(t, month.Calls)
+
+		total, err := usage.Add(ctx, carol.ID, call(5, 5, "0", 0), at)
+		require.NoError(t, err)
+		assert.Equal(t, int64(5), total.InputTokens, "spend adds to the row the notice made")
+		assert.Equal(t, "total=200", total.Capped, "and keeps its marks")
+
+		t.Run("racing for it, one wins", func(t *testing.T) {
+			var (
+				wg   sync.WaitGroup
+				mu   sync.Mutex
+				wins int
+			)
+
+			for range 10 {
+				wg.Go(func() {
+					won, err := usage.ClaimNotice(ctx, carol.ID, october, domain.NoticeWarned, "total=100", "total=300", at)
+					assert.NoError(t, err)
+
+					if won {
+						mu.Lock()
+						wins++
+						mu.Unlock()
+					}
+				})
+			}
+
+			wg.Wait()
+			assert.Equal(t, 1, wins)
+		})
+	})
+
 	t.Run("an id that is no user's", func(t *testing.T) {
 		_, err := usage.Month(ctx, "nope", october)
 		require.ErrorIs(t, err, domain.ErrNotFound)
 	})
+}
+
+func TestUserAgentCaps(t *testing.T) {
+	ctx := context.Background()
+
+	db := fresh(t)
+	users := postgres.NewUsers(db)
+	alice := seedUser(t, db, "alice@example.com", domain.RoleUser)
+
+	u, err := users.ByID(ctx, alice.ID)
+	require.NoError(t, err)
+	assert.Equal(t, domain.AgentCaps{}, u.AgentCaps, "the instance's")
+	assert.False(t, u.KillStopsAgents, "off unless chosen (D276)")
+
+	dollars, total, none := decimal.RequireFromString("12.50"), int64(5_000_000), int64(0)
+	u.AgentCaps = domain.AgentCaps{Dollars: &dollars, TotalTokens: &total, InputTokens: &none}
+	require.NoError(t, users.Update(ctx, u))
+
+	got, err := users.ByID(ctx, alice.ID)
+	require.NoError(t, err)
+	assert.Equal(t, "12.5", got.AgentCaps.Dollars.String())
+	assert.Equal(t, int64(5_000_000), *got.AgentCaps.TotalTokens)
+	assert.Equal(t, int64(0), *got.AgentCaps.InputTokens, "0 is none, not the instance's")
+	assert.Nil(t, got.AgentCaps.OutputTokens)
+
+	require.NoError(t, users.SetKillStopsAgents(ctx, alice.ID, true))
+	got.AgentCaps = domain.AgentCaps{}
+	require.NoError(t, users.Update(ctx, got), "an update leaves the choice be")
+
+	got, err = users.ByID(ctx, alice.ID)
+	require.NoError(t, err)
+	assert.True(t, got.KillStopsAgents)
+	assert.Equal(t, domain.AgentCaps{}, got.AgentCaps, "the instance's again")
+
+	assert.ErrorIs(t, users.SetKillStopsAgents(ctx, domain.UserID(newID()), true), domain.ErrNotFound)
 }

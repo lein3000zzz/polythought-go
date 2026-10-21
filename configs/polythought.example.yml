@@ -235,6 +235,34 @@ trading:
   # Environment: POLYTHOUGHT_TRADING_POLYGON_RPC.
   # polygon_rpc: "https://polygon.drpc.org"
 
+agents:
+
+  # The most a user's AI agent nodes may spend in a calendar month, UTC, in dollars to
+  # the cent, all their workflows together: counted as providers report what they
+  # charged, which OpenRouter does and the others do not, so their calls count against
+  # the token caps only. Polythought keeps no prices. Once reached, the next call is
+  # refused. 0 for no cap. An admin can give a user caps of their own on the Users page.
+  # Environment: POLYTHOUGHT_AGENTS_MAX_DOLLARS_MONTH.
+  # max_dollars_month: "20.00"
+
+  # The most input tokens a user's AI agent nodes may take in a calendar month, UTC, all
+  # their workflows together: what they read, prompts and tool results. A call that
+  # could go over is refused before it is made. 0 for no cap.
+  # Environment: POLYTHOUGHT_AGENTS_MAX_INPUT_MONTH.
+  # max_input_month: 0
+
+  # The most output tokens a user's AI agent nodes may take in a calendar month, UTC:
+  # what the models write, thinking included. A call that could go over, its Max tokens
+  # with it, is refused before it is made. 0 for no cap.
+  # Environment: POLYTHOUGHT_AGENTS_MAX_OUTPUT_MONTH.
+  # max_output_month: 0
+
+  # The most tokens a user's AI agent nodes may take in a calendar month, UTC, input and
+  # output together. A call that could go over is refused before it is made. 0 for no
+  # cap.
+  # Environment: POLYTHOUGHT_AGENTS_MAX_TOTAL_MONTH.
+  # max_total_month: 20000000
+
 webhook:
 
   # Let workflows reach addresses inside the server's network, such as a service on the

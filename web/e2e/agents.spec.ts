@@ -71,3 +71,50 @@ test('an AI agent asks with your own key, and says why it could not', async ({ p
     await page.request.delete(`/api/v1/credentials/${key}`)
   }
 })
+
+test("agents' spend this month shows on Settings, against caps an admin sets (D271, D276, D277)", async ({
+  page,
+}) => {
+  const me = (await (await page.request.get('/api/v1/me')).json()) as { id: string; email: string }
+
+  try {
+    // Nothing spent, as no provider is ever called here, against the instance's caps.
+    await page.goto('/settings')
+    const spend = page.getByLabel('Agent spend', { exact: true })
+    await expect(spend).toContainText('$0.00 of $20.00')
+    await expect(spend).toContainText('0 of 20,000,000')
+
+    // Caps of their own, on the Users page, empty for the instance's.
+    await page.goto('/admin')
+    const row = page.getByRole('row', { name: new RegExp(me.email) })
+    await row.getByRole('button', { name: `Agent caps of ${me.email}` }).click()
+    const dialog = page.getByRole('dialog')
+    await expect(dialog.getByText(/This month: \$0\.00/)).toBeVisible()
+    await expect(dialog.getByLabel('Max $ a month')).toHaveAttribute(
+      'placeholder',
+      'Default: $20.00',
+    )
+    await dialog.getByLabel('Max $ a month').fill('5.50')
+    await dialog.getByLabel('Max output tokens a month').fill('1000')
+    await dialog.getByRole('button', { name: 'Save' }).click()
+    await expect(page.getByText(`Agent caps of ${me.email} saved`)).toBeVisible()
+    await expect(row.getByRole('button', { name: `Agent caps of ${me.email}` })).toHaveText(
+      '$5.50 a month, 1,000 out',
+    )
+
+    await page.goto('/settings')
+    await expect(spend).toContainText('$0.00 of $5.50')
+    await expect(spend).toContainText('Output tokens0 of 1,000')
+
+    // Whether the kill switch stops agents too is their own choice, kept.
+    const choice = page.getByRole('switch', { name: 'My kill switch stops my agents too' })
+    await expect(choice).not.toBeChecked()
+    await choice.click()
+    await expect(choice).toBeChecked()
+    await page.reload()
+    await expect(choice).toBeChecked()
+  } finally {
+    await page.request.put('/api/v1/me/agents', { data: { killStopsAgents: false } })
+    await page.request.patch(`/api/v1/admin/users/${me.id}`, { data: { agentCaps: {} } })
+  }
+})

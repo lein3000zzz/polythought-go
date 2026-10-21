@@ -39,6 +39,10 @@ Items that fail stop the execution, unless **Continue on failure** is on: then t
 | Tools (`tools`) | list of text | no |  | What the model may look up before it answers, read-only: searchMarkets, orderBook, priceHistory, trades in a market, and positions of any address. None by default. One of `searchMarkets`, `orderBook`, `priceHistory`, `trades`, `positions`. |
 | Tool calls (`toolCalls`) | whole number | no | `10` | The most it may make for one answer, up to 25; then it answers with what it has. Each call's result is read as input, and billed. |
 | Results per call (`results`) | whole number | no | `20` | The most one call gives it, up to 50: markets, trades, positions, points of history, or levels a side of a book. |
+| Max $ a run (`maxRunDollars`) | number | no |  | The most this node may spend in one run, to the cent, as the provider reports it: OpenRouter does, the others do not. Empty for no cap of its own; the month's caps apply anyway. |
+| Max input tokens a run (`maxRunInput`) | whole number | no |  | The most input tokens this node may take in one run. Empty for no cap. |
+| Max output tokens a run (`maxRunOutput`) | whole number | no |  | The most output tokens this node may take in one run, a call counting its Max tokens. Empty for no cap. |
+| Max tokens a run (`maxRunTotal`) | whole number | no |  | The most tokens this node may take in one run, input and output together. Empty for no cap. |
 | Tool results (`toolResults`) | text | no | `full` | What the answer keeps of each call: full, what it gave too; inputs, only what was asked. One of `full`, `inputs`. |
 
 ### Fields columns

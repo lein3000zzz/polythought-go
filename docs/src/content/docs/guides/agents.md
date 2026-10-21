@@ -84,6 +84,34 @@ keeps only what was asked. `answer.toolCalls` counts them. A call that fails, su
 outcome that does not exist, says why under `error`, and the model is told too, so it can
 try another way.
 
+## Caps
+
+What your agent nodes spend with your keys is counted by calendar month, UTC, all your
+workflows together, and shown under **Settings → AI agents**: dollars, input, output and
+total tokens, and when the month starts again. Polythought keeps no prices: dollars are what
+providers report, which OpenRouter does and the others do not, so their calls count in
+tokens only.
+
+An admin caps each of them a month, $20.00 and 20,000,000 tokens to start with, input and
+output not capped apart unless they set it; they can give you caps of your own. A call that
+could pass a token cap, its input and its **Max tokens** counted, is refused before it is
+made, and so is every call once the dollars spent reach theirs: a call's dollars are known
+only when it ends, so the last one may pass it. A refused call fails its item, with the
+reason, like
+`this call could take up to 18,000 tokens, past the 20,000,000 a month your agents may use: 19,990,000 used or held`.
+Calls already under way finish, and count.
+
+The node can cap one run of its own, beside the month's: **Max $ a run**, **Max input tokens
+a run**, **Max output tokens a run** and **Max tokens a run**, each empty for none.
+
+Two notifications tell you, each once a month, and again only if an admin raises the cap:
+when your agents pass 80% of a cap, the first that they do, and when one is reached. See
+[Notifications](/docs/guides/telegram/#notifications).
+
+Your [kill switch](/docs/guides/copy-traders/#stopping-it) stops live trading only, unless
+you turn on **My kill switch stops my agents too** under Settings → AI agents: then, while
+it is on, agent nodes make no calls either.
+
 ## When it goes wrong
 
 An answer that is not JSON, or does not fit the shape, is asked for again, with what was

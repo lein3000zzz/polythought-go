@@ -22,4 +22,8 @@ type AgentUsage struct {
 	Calls        int32
 	CostedCalls  int32
 	UpdatedAt    time.Time
+	WarnedAt     *time.Time
+	WarnedCaps   *string
+	CappedAt     *time.Time
+	CappedCaps   *string
 }

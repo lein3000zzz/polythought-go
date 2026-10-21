@@ -15,6 +15,8 @@ export const keys = {
   telegram: ['telegram'],
   notifications: ['notifications'],
   users: ['admin', 'users'],
+  userAgentSpend: (id: string) => ['admin', 'users', 'agent-spend', id], // under users: an update refreshes it
+  agentSpend: ['agent-spend'],
   invites: ['admin', 'invites'],
   settings: ['admin', 'settings'],
   settingList: ['admin', 'settings', 'list'],

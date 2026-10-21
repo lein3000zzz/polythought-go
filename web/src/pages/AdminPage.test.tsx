@@ -86,7 +86,7 @@ describe('admin page', () => {
       within(userRow('root@example.com'))
         .getAllByRole('button')
         .map((b) => b.getAttribute('aria-label')),
-    ).toEqual(['Live caps of root@example.com'])
+    ).toEqual(['Live caps of root@example.com', 'Agent caps of root@example.com'])
 
     await user.type(screen.getByLabelText('Email'), 'bob@example.com')
     await user.type(screen.getByLabelText('Password'), 'a long enough password')
@@ -161,6 +161,93 @@ describe('admin page', () => {
 
     expect(await screen.findByText('Live caps of alice@example.com saved')).toBeInTheDocument()
     expect(sent).toEqual([{ liveCaps: { perOrder: 250 } }])
+  })
+
+  it("sets a user's agent caps, beside their spend this month (D271, D277)", async () => {
+    const sent: unknown[] = []
+    const setting = (
+      key: string,
+      kind: 'int' | 'string',
+      value: number | string,
+    ): Schemas['Setting'] => ({
+      key,
+      group: 'AI agents',
+      label: key,
+      description: key,
+      kind,
+      secret: false,
+      isSet: false,
+      apply: 'live',
+      value,
+      default: value,
+      source: 'default',
+      env: '',
+      pending: false,
+    })
+
+    admin([root, alice])
+    server.use(
+      http.get('/api/v1/admin/settings', () =>
+        HttpResponse.json({
+          settings: [
+            setting('agents.max_dollars_month', 'string', '20.00'),
+            setting('agents.max_input_month', 'int', 0),
+            setting('agents.max_output_month', 'int', 0),
+            setting('agents.max_total_month', 'int', 20_000_000),
+          ],
+          restartPending: false,
+        }),
+      ),
+      http.get('/api/v1/admin/users/u-1/agent-spend', () =>
+        HttpResponse.json({
+          month: '2026-10-01T00:00:00Z',
+          resets: '2026-11-01T00:00:00Z',
+          inputTokens: 1200,
+          outputTokens: 300,
+          totalTokens: 1500,
+          dollars: '4.20',
+          calls: 7,
+          costedCalls: 2,
+          caps: {},
+          own: {},
+          killStopsAgents: false,
+        }),
+      ),
+      http.patch('/api/v1/admin/users/u-1', async ({ request }) => {
+        sent.push(await request.json())
+        return HttpResponse.json({ ...alice, agentCaps: { dollars: '12.50', outputTokens: 0 } })
+      }),
+    )
+    const { user } = renderApp('/admin')
+
+    await screen.findByText('alice@example.com')
+    const row = userRow('alice@example.com')
+    expect(
+      within(row).getByRole('button', { name: 'Agent caps of alice@example.com' }),
+    ).toHaveTextContent('Default')
+
+    await user.click(within(row).getByRole('button', { name: 'Agent caps of alice@example.com' }))
+    expect(
+      await screen.findByText(
+        'This month: $4.20 (2 of 7 calls priced), 1,500 tokens (1,200 in, 300 out).',
+      ),
+    ).toBeInTheDocument()
+    expect(screen.getByLabelText('Max $ a month')).toHaveAttribute('placeholder', 'Default: $20.00')
+    expect(screen.getByLabelText('Max tokens a month')).toHaveAttribute(
+      'placeholder',
+      'Default: 20,000,000',
+    )
+    expect(screen.getByLabelText('Max input tokens a month')).toHaveAttribute(
+      'placeholder',
+      'Default: no cap',
+    )
+
+    await user.type(screen.getByLabelText('Max $ a month'), '12.50')
+    await user.type(screen.getByLabelText('Max output tokens a month'), '0')
+    await user.click(screen.getByRole('button', { name: 'Save' }))
+
+    expect(await screen.findByText('Agent caps of alice@example.com saved')).toBeInTheDocument()
+    expect(sent).toEqual([{ agentCaps: { dollars: '12.50', outputTokens: 0 } }])
   })
 
   it('marks an unverified address verified, or sends its link again', async () => {

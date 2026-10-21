@@ -63,7 +63,8 @@ func run(ctx context.Context, dir string) error {
 }
 
 // skipTables leaves tables out of the generated code, such as goose's bookkeeping table,
-// which nothing should query. Money columns, numeric, are decimals: a float would round.
+// which nothing should query. Money columns, numeric, are decimals: a float would round;
+// a nullable one is a pointer, NULL nil.
 func skipTables(names ...string) template.Template {
 	skip := make(map[string]bool, len(names))
 	for _, n := range names {
@@ -78,7 +79,10 @@ func skipTables(names ...string) template.Template {
 
 				return m.UseField(func(c metadata.Column) template.TableModelField {
 					f := template.DefaultTableModelField(c)
-					if c.DataType.Name == "numeric" {
+					switch {
+					case c.DataType.Name == "numeric" && c.IsNullable:
+						f.Type = template.NewType(new(decimal.Decimal))
+					case c.DataType.Name == "numeric":
 						f.Type = template.NewType(decimal.Decimal{})
 					}
 

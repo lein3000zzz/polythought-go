@@ -7,11 +7,15 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
+	"github.com/lein3000zzz/polythought-go/internal/core/domain"
 	"github.com/lein3000zzz/polythought-go/internal/core/engine"
 	"github.com/lein3000zzz/polythought-go/internal/core/nodes/ai"
+	"github.com/lein3000zzz/polythought-go/internal/core/nodes/credtypes"
 	"github.com/lein3000zzz/polythought-go/internal/core/ports"
+	portsmocks "github.com/lein3000zzz/polythought-go/internal/mocks/ports"
 )
 
 // fakeMeter counts what the node spends, or refuses as it is told.
@@ -129,4 +133,44 @@ func TestSpendRefused(t *testing.T) {
 	out = run(t, llm, nil, map[string]any{})
 	assert.ErrorContains(t, out[engine.ErrorPort][0].Err, "spend: meter down")
 	assert.Empty(t, llm.asked)
+}
+
+func TestRunCapsRead(t *testing.T) {
+	m := metered(t)
+
+	run(t, &fakeLLM{answers: []any{said("ok")}}, map[string]any{"maxRunDollars": "1.50", "maxRunTotal": 5000}, map[string]any{})
+
+	require.Len(t, m.runs, 1)
+	caps := m.runs[0].Caps
+	require.NotNil(t, caps.Dollars)
+	assert.Equal(t, "1.5", caps.Dollars.String())
+	require.NotNil(t, caps.TotalTokens)
+	assert.Equal(t, int64(5000), *caps.TotalTokens)
+	assert.Nil(t, caps.InputTokens, "empty: no cap of its own")
+
+	for name, params := range map[string]map[string]any{
+		"a fraction of a cent": {"maxRunDollars": "0.001"},
+		"below 0":              {"maxRunTotal": -1},
+	} {
+		t.Run(name+" fails the node, unasked", func(t *testing.T) {
+			creds := portsmocks.NewMockCredentialReader(t)
+			creds.EXPECT().Values(mock.Anything, owner, domain.CredentialID("c-1"), credtypes.LLMKeyTypes).
+				Return(credtypes.AnthropicKey, map[string]string{"apiKey": "sk-ant-1"}, nil).Once()
+
+			llm := &fakeLLM{}
+			node := ai.NewAgent(creds, llm, ai.Sources{})
+
+			base := map[string]any{"credential": "c-1", "model": "m", "prompt": "p"}
+			for k, v := range params {
+				base[k] = v
+			}
+
+			in := engine.Ports{}
+			in.Add(engine.DefaultPort, engine.Item{JSON: map[string]any{}})
+
+			_, err := node.Run(context.Background(), engine.RunContext{OwnerID: owner, Params: engine.LiteralParams(node.Type(), base)}, in)
+			require.Error(t, err)
+			assert.Empty(t, llm.asked)
+		})
+	}
 }

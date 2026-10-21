@@ -6,6 +6,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/shopspring/decimal"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
@@ -217,6 +218,28 @@ func TestUpdateUser(t *testing.T) {
 			upd: auth.UserUpdate{LiveCaps: &domain.LiveCaps{PerDay: dollars(-1)}}, setup: func(deps) {}, wantErr: domain.ErrInvalidInput,
 		},
 		{
+			name: "an admin's caps on a user's agents (D271), which leave their live caps be", actor: sessionPrincipal(admin), id: target.ID,
+			upd: auth.UserUpdate{AgentCaps: &domain.AgentCaps{Dollars: agentDollars("12.50"), TotalTokens: tokens(1_000_000)}},
+			setup: func(d deps) {
+				capped := target
+				capped.LiveCaps = domain.LiveCaps{PerOrder: dollars(50)}
+				d.users.EXPECT().ByID(mock.Anything, target.ID).Return(capped, nil)
+				d.users.EXPECT().Update(mock.Anything, mock.MatchedBy(func(u domain.User) bool {
+					return u.AgentCaps.Dollars.String() == "12.5" && *u.AgentCaps.TotalTokens == 1_000_000 &&
+						u.AgentCaps.InputTokens == nil && *u.LiveCaps.PerOrder == 50
+				})).Return(nil)
+			},
+			check: func(t *testing.T, u domain.User) { assert.Equal(t, int64(1_000_000), *u.AgentCaps.TotalTokens) },
+		},
+		{
+			name: "an agent dollar cap past the cent is refused", actor: sessionPrincipal(admin), id: target.ID,
+			upd: auth.UserUpdate{AgentCaps: &domain.AgentCaps{Dollars: agentDollars("1.005")}}, setup: func(deps) {}, wantErr: domain.ErrInvalidInput,
+		},
+		{
+			name: "an agent token cap below 0 is refused", actor: sessionPrincipal(admin), id: target.ID,
+			upd: auth.UserUpdate{AgentCaps: &domain.AgentCaps{OutputTokens: tokens(-1)}}, setup: func(deps) {}, wantErr: domain.ErrInvalidInput,
+		},
+		{
 			// The mock fails the test if StopAll is called: enabling does not restart anything.
 			name: "re-enable", actor: sessionPrincipal(admin), id: target.ID, upd: auth.UserUpdate{Disabled: flag(false)},
 			setup: func(d deps) {
@@ -363,3 +386,10 @@ func TestInvitesAndUserList(t *testing.T) {
 		})
 	}
 }
+
+func agentDollars(s string) *decimal.Decimal {
+	d := decimal.RequireFromString(s)
+	return &d
+}
+
+func tokens(n int64) *int64 { return &n }

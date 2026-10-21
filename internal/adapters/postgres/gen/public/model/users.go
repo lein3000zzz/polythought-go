@@ -9,6 +9,7 @@ package model
 
 import (
 	"github.com/google/uuid"
+	"github.com/shopspring/decimal"
 	"time"
 )
 
@@ -26,4 +27,9 @@ type Users struct {
 	LiveStoppedAt   *time.Time
 	MaxLiveOrder    *int32
 	MaxLiveDay      *int32
+	MaxAgentDollars *decimal.Decimal
+	MaxAgentInput   *int64
+	MaxAgentOutput  *int64
+	MaxAgentTotal   *int64
+	KillStopsAgents bool
 }
