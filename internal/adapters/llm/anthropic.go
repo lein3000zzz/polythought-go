@@ -27,7 +27,7 @@ func (c *Client) anthropic(key ports.LLMKey) anthropic.Client {
 
 // anthropicComplete streams the answer and gathers it whole: a long one would outlast a
 // plain request.
-func (c *Client) anthropicComplete(ctx context.Context, key ports.LLMKey, req ports.LLMRequest) (ports.LLMResponse, error) {
+func (c *Client) anthropicComplete(ctx context.Context, key ports.LLMKey, req ports.LLMRequest, schema map[string]any) (ports.LLMResponse, error) {
 	params := anthropic.MessageNewParams{
 		Model:     anthropic.Model(req.Model),
 		MaxTokens: cmpMax(req.MaxTokens),
@@ -48,6 +48,16 @@ func (c *Client) anthropicComplete(ctx context.Context, key ports.LLMKey, req po
 
 	if req.Temperature != nil {
 		params.Temperature = anthropic.Float(*req.Temperature)
+	}
+
+	// Both in output_config: the answer's shape, and how hard Claude thinks, its depth's
+	// only control on the newest models.
+	if schema != nil {
+		params.OutputConfig.Format = anthropic.JSONOutputFormatParam{Schema: schema}
+	}
+
+	if req.Effort != "" {
+		params.OutputConfig.Effort = anthropic.OutputConfigEffort(req.Effort)
 	}
 
 	client := c.anthropic(key)

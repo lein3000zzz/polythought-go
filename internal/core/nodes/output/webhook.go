@@ -65,7 +65,7 @@ func (*Webhook) Type() engine.NodeType {
 				Description: "message: the text above, for chat apps. json: the items themselves.",
 			},
 			{
-				Name: "credential", Label: "Credential", Kind: engine.ParamCredential, CredentialType: credtypes.HTTPHeader,
+				Name: "credential", Label: "Credential", Kind: engine.ParamCredential, CredentialTypes: []string{credtypes.HTTPHeader},
 				Description: "Optional. A header sent with each request, such as Authorization, from your Credentials page.",
 			},
 		},
@@ -175,7 +175,7 @@ func (n *Webhook) header(ctx context.Context, rc engine.RunContext) (map[string]
 		return nil, errors.New("credentials are not available here")
 	}
 
-	values, err := n.credentials.Values(ctx, rc.OwnerID, domain.CredentialID(id), credtypes.HTTPHeader)
+	_, values, err := n.credentials.Values(ctx, rc.OwnerID, domain.CredentialID(id), []string{credtypes.HTTPHeader})
 	if err != nil {
 		return nil, fmt.Errorf("credential: %w", err)
 	}

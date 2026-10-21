@@ -353,14 +353,16 @@ function WalletField({ spec, value, onChange, problem, scope }: Props) {
   )
 }
 
-/** One of the user's credentials of the kind the param asks for. */
+/** One of the user's credentials of a kind the param takes, such as any provider's key. */
 function CredentialField({ spec, value, onChange, problem, scope }: Props) {
   const credentials = useCredentialList()
   const types = useCredentialTypes()
   const current = typeof value === 'string' ? value : ''
-  const matching = credentials.data?.filter((c) => c.type === spec.credentialType) ?? []
+  const accepted = spec.credentialTypes ?? []
+  const matching = credentials.data?.filter((c) => accepted.includes(c.type)) ?? []
   const known = matching.some((c) => c.id === current)
-  const kind = types.data?.find((t) => t.name === spec.credentialType)?.label ?? 'credential'
+  const labelOf = (name: string) => types.data?.find((t) => t.name === name)?.label ?? name
+  const kind = orList(accepted.map(labelOf)) || 'credential'
 
   return (
     <Field
@@ -390,7 +392,7 @@ function CredentialField({ spec, value, onChange, problem, scope }: Props) {
         </NativeSelectOption>
         {matching.map((c) => (
           <NativeSelectOption key={c.id} value={c.id}>
-            {c.name}
+            {accepted.length > 1 ? `${c.name} (${labelOf(c.type)})` : c.name}
           </NativeSelectOption>
         ))}
         {current && credentials.isSuccess && !known && (
@@ -478,4 +480,9 @@ function Field({ spec, scope, problem, hint, inline, group, action, children }: 
       {notes}
     </div>
   )
+}
+
+/** "a", "a or b", "a, b or c". */
+function orList(items: string[]): string {
+  return items.length < 2 ? (items[0] ?? '') : `${items.slice(0, -1).join(', ')} or ${items.at(-1)}`
 }

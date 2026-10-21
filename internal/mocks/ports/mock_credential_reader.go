@@ -48,31 +48,37 @@ func (_m *MockCredentialReader) EXPECT() *MockCredentialReader_Expecter {
 }
 
 // Values provides a mock function for the type MockCredentialReader
-func (_mock *MockCredentialReader) Values(ctx context.Context, owner domain.UserID, id domain.CredentialID, credType string) (map[string]string, error) {
-	ret := _mock.Called(ctx, owner, id, credType)
+func (_mock *MockCredentialReader) Values(ctx context.Context, owner domain.UserID, id domain.CredentialID, types []string) (string, map[string]string, error) {
+	ret := _mock.Called(ctx, owner, id, types)
 
 	if len(ret) == 0 {
 		panic("no return value specified for Values")
 	}
 
-	var r0 map[string]string
-	var r1 error
-	if returnFunc, ok := ret.Get(0).(func(context.Context, domain.UserID, domain.CredentialID, string) (map[string]string, error)); ok {
-		return returnFunc(ctx, owner, id, credType)
+	var r0 string
+	var r1 map[string]string
+	var r2 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context, domain.UserID, domain.CredentialID, []string) (string, map[string]string, error)); ok {
+		return returnFunc(ctx, owner, id, types)
 	}
-	if returnFunc, ok := ret.Get(0).(func(context.Context, domain.UserID, domain.CredentialID, string) map[string]string); ok {
-		r0 = returnFunc(ctx, owner, id, credType)
+	if returnFunc, ok := ret.Get(0).(func(context.Context, domain.UserID, domain.CredentialID, []string) string); ok {
+		r0 = returnFunc(ctx, owner, id, types)
 	} else {
-		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(map[string]string)
+		r0 = ret.Get(0).(string)
+	}
+	if returnFunc, ok := ret.Get(1).(func(context.Context, domain.UserID, domain.CredentialID, []string) map[string]string); ok {
+		r1 = returnFunc(ctx, owner, id, types)
+	} else {
+		if ret.Get(1) != nil {
+			r1 = ret.Get(1).(map[string]string)
 		}
 	}
-	if returnFunc, ok := ret.Get(1).(func(context.Context, domain.UserID, domain.CredentialID, string) error); ok {
-		r1 = returnFunc(ctx, owner, id, credType)
+	if returnFunc, ok := ret.Get(2).(func(context.Context, domain.UserID, domain.CredentialID, []string) error); ok {
+		r2 = returnFunc(ctx, owner, id, types)
 	} else {
-		r1 = ret.Error(1)
+		r2 = ret.Error(2)
 	}
-	return r0, r1
+	return r0, r1, r2
 }
 
 // MockCredentialReader_Values_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'Values'
@@ -84,12 +90,12 @@ type MockCredentialReader_Values_Call struct {
 //   - ctx context.Context
 //   - owner domain.UserID
 //   - id domain.CredentialID
-//   - credType string
-func (_e *MockCredentialReader_Expecter) Values(ctx any, owner any, id any, credType any) *MockCredentialReader_Values_Call {
-	return &MockCredentialReader_Values_Call{Call: _e.mock.On("Values", ctx, owner, id, credType)}
+//   - types []string
+func (_e *MockCredentialReader_Expecter) Values(ctx any, owner any, id any, types any) *MockCredentialReader_Values_Call {
+	return &MockCredentialReader_Values_Call{Call: _e.mock.On("Values", ctx, owner, id, types)}
 }
 
-func (_c *MockCredentialReader_Values_Call) Run(run func(ctx context.Context, owner domain.UserID, id domain.CredentialID, credType string)) *MockCredentialReader_Values_Call {
+func (_c *MockCredentialReader_Values_Call) Run(run func(ctx context.Context, owner domain.UserID, id domain.CredentialID, types []string)) *MockCredentialReader_Values_Call {
 	_c.Call.Run(func(args mock.Arguments) {
 		var arg0 context.Context
 		if args[0] != nil {
@@ -103,9 +109,9 @@ func (_c *MockCredentialReader_Values_Call) Run(run func(ctx context.Context, ow
 		if args[2] != nil {
 			arg2 = args[2].(domain.CredentialID)
 		}
-		var arg3 string
+		var arg3 []string
 		if args[3] != nil {
-			arg3 = args[3].(string)
+			arg3 = args[3].([]string)
 		}
 		run(
 			arg0,
@@ -117,12 +123,12 @@ func (_c *MockCredentialReader_Values_Call) Run(run func(ctx context.Context, ow
 	return _c
 }
 
-func (_c *MockCredentialReader_Values_Call) Return(stringToString map[string]string, err error) *MockCredentialReader_Values_Call {
-	_c.Call.Return(stringToString, err)
+func (_c *MockCredentialReader_Values_Call) Return(credType string, values map[string]string, err error) *MockCredentialReader_Values_Call {
+	_c.Call.Return(credType, values, err)
 	return _c
 }
 
-func (_c *MockCredentialReader_Values_Call) RunAndReturn(run func(ctx context.Context, owner domain.UserID, id domain.CredentialID, credType string) (map[string]string, error)) *MockCredentialReader_Values_Call {
+func (_c *MockCredentialReader_Values_Call) RunAndReturn(run func(ctx context.Context, owner domain.UserID, id domain.CredentialID, types []string) (string, map[string]string, error)) *MockCredentialReader_Values_Call {
 	_c.Call.Return(run)
 	return _c
 }

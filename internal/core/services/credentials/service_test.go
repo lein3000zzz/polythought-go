@@ -205,7 +205,7 @@ func TestCreate(t *testing.T) {
 		assert.Equal(t, `credential:`+string(c.ID)+`|{"key":"good-key"}`, string(stored.Sealed))
 		assert.NotContains(t, stored.Credential.Fields, "key")
 
-		values, err := s.Values(ctx, "alice", c.ID, "test.api")
+		_, values, err := s.Values(ctx, "alice", c.ID, []string{"test.api"})
 		require.NoError(t, err)
 		assert.Equal(t, map[string]string{"account": "acct-1", "key": "good-key"}, values)
 	})
@@ -268,7 +268,7 @@ func TestUpdate(t *testing.T) {
 		assert.Equal(t, []string{"key", "extra"}, updated.Secrets)
 		assert.Equal(t, now, updated.TestedAt, "same values, so the test still holds")
 
-		values, err := s.Values(ctx, "alice", c.ID, "test.api")
+		_, values, err := s.Values(ctx, "alice", c.ID, []string{"test.api"})
 		require.NoError(t, err)
 		assert.Equal(t, map[string]string{"account": "a", "key": "good-key", "extra": "x"}, values)
 	})
@@ -284,7 +284,7 @@ func TestUpdate(t *testing.T) {
 		assert.Equal(t, map[string]string{"account": "b"}, updated.Fields)
 		assert.True(t, updated.TestedAt.IsZero())
 
-		values, err := s.Values(ctx, "alice", c.ID, "test.api")
+		_, values, err := s.Values(ctx, "alice", c.ID, []string{"test.api"})
 		require.NoError(t, err)
 		assert.Equal(t, "other-key", values["key"])
 	})
@@ -336,12 +336,20 @@ func TestValuesForNodes(t *testing.T) {
 	s, repo := newService(t)
 	c := create(t, s, alice, "Main", map[string]string{"account": "a", "key": "k"})
 
-	_, err := s.Values(ctx, "bob", c.ID, "test.api")
+	_, _, err := s.Values(ctx, "bob", c.ID, []string{"test.api"})
 	require.ErrorIs(t, err, domain.ErrNotFound, "another user's credential does not exist for them")
 
-	_, err = s.Values(ctx, "alice", c.ID, "test.plain")
+	_, _, err = s.Values(ctx, "alice", c.ID, []string{"test.plain"})
 	require.ErrorIs(t, err, domain.ErrInvalidInput)
 	assert.ErrorContains(t, err, `"Main" is a test.api credential, not test.plain`)
+
+	_, _, err = s.Values(ctx, "alice", c.ID, []string{"test.plain", "test.other"})
+	assert.ErrorContains(t, err, "not test.plain or test.other")
+
+	credType, values, err := s.Values(ctx, "alice", c.ID, []string{"test.plain", "test.api"})
+	require.NoError(t, err)
+	assert.Equal(t, "test.api", credType, "one of several, and which")
+	assert.Equal(t, "k", values["key"])
 
 	// Sealed values copied onto another credential cannot be opened there.
 	other := create(t, s, alice, "Other", map[string]string{"account": "a", "key": "k2"})
@@ -349,7 +357,7 @@ func TestValuesForNodes(t *testing.T) {
 	moved.Sealed = repo.rows[c.ID].Sealed
 	repo.rows[other.ID] = moved
 
-	_, err = s.Values(ctx, "alice", other.ID, "test.api")
+	_, _, err = s.Values(ctx, "alice", other.ID, []string{"test.api"})
 	require.ErrorContains(t, err, "cannot decrypt")
 }
 

@@ -124,7 +124,9 @@ type Services struct {
 	Library      LibraryService
 	Settings     SettingsService
 	Credentials  CredentialService
-	Telegram     TelegramService
+	// Models lists the models a language model key can use; nil when there are none.
+	Models   ModelService
+	Telegram TelegramService
 	// TelegramWebhook takes updates in webhook mode; nil when there is no bot.
 	TelegramWebhook TelegramWebhook
 	Notifications   NotificationService
@@ -163,6 +165,7 @@ type Server struct {
 	library       LibraryService
 	settings      SettingsService
 	credentials   CredentialService
+	models        ModelService
 	telegram      TelegramService
 	telegramHook  TelegramWebhook
 	notifications NotificationService
@@ -231,6 +234,7 @@ func New(cfg Config, util *observability.Utility, services Services) (*Server, e
 		library:       services.Library,
 		settings:      services.Settings,
 		credentials:   services.Credentials,
+		models:        services.Models,
 		telegram:      services.Telegram,
 		telegramHook:  services.TelegramWebhook,
 		notifications: services.Notifications,
@@ -337,6 +341,7 @@ func (s *Server) routes() {
 	cr.PATCH("/:id", s.updateCredential)
 	cr.DELETE("/:id", s.deleteCredential)
 	cr.POST("/:id/test", s.testCredential)
+	cr.GET("/:id/models", s.listModels)
 
 	tg := v1.Group("/telegram")
 	tg.GET("", s.requireAuth, s.telegramStatus)

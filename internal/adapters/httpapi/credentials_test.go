@@ -3,6 +3,7 @@ package httpapi_test
 import (
 	"context"
 	"errors"
+	"fmt"
 	"net/http"
 	"testing"
 
@@ -14,6 +15,7 @@ import (
 	"github.com/lein3000zzz/polythought-go/internal/adapters/httpapi"
 	"github.com/lein3000zzz/polythought-go/internal/core/domain"
 	"github.com/lein3000zzz/polythought-go/internal/core/engine"
+	"github.com/lein3000zzz/polythought-go/internal/core/ports"
 	"github.com/lein3000zzz/polythought-go/internal/core/services/credentials"
 	httpapimocks "github.com/lein3000zzz/polythought-go/internal/mocks/httpapi"
 )
@@ -166,4 +168,88 @@ func TestCredentialRoutes(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestModelRoutes(t *testing.T) {
+	tests := []struct {
+		name       string
+		setup      func(s *httpapimocks.MockModelService)
+		wantStatus int
+		wantBody   string
+	}{
+		{
+			name: "a key's models",
+			setup: func(s *httpapimocks.MockModelService) {
+				s.EXPECT().List(mock.Anything, mock.Anything, domain.CredentialID("c-1")).
+					Return([]ports.LLMModel{{ID: "claude-opus-5-5", Name: "Claude Opus 5.5"}}, nil)
+			},
+			wantStatus: http.StatusOK,
+			wantBody:   `{"models":[{"id":"claude-opus-5-5","name":"Claude Opus 5.5"}]}`,
+		},
+		{
+			name: "none is an empty list",
+			setup: func(s *httpapimocks.MockModelService) {
+				s.EXPECT().List(mock.Anything, mock.Anything, domain.CredentialID("c-1")).Return([]ports.LLMModel{}, nil)
+			},
+			wantStatus: http.StatusOK,
+			wantBody:   `{"models":[]}`,
+		},
+		{
+			name: "the provider's refusal, in its words",
+			setup: func(s *httpapimocks.MockModelService) {
+				s.EXPECT().List(mock.Anything, mock.Anything, domain.CredentialID("c-1")).
+					Return(nil, fmt.Errorf("%w: Anthropic answered 401: invalid x-api-key", domain.ErrProviderFailed))
+			},
+			wantStatus: http.StatusBadGateway,
+			wantBody:   `{"error":{"code":"provider_failed","message":"the model provider failed: Anthropic answered 401: invalid x-api-key"}}`,
+		},
+		{
+			name: "a header is no provider's key",
+			setup: func(s *httpapimocks.MockModelService) {
+				s.EXPECT().List(mock.Anything, mock.Anything, domain.CredentialID("c-1")).
+					Return(nil, fmt.Errorf(`%w: "Relay" is a http.header credential, not anthropic.apiKey`, domain.ErrInvalidInput))
+			},
+			wantStatus: http.StatusBadRequest,
+			wantBody:   `"code":"invalid_input"`,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			authSvc := httpapimocks.NewMockAuthService(t)
+			withSession(authSvc, alice)
+
+			svc := httpapimocks.NewMockModelService(t)
+			tt.setup(svc)
+
+			srv, err := httpapi.New(httpapi.Config{PublicURL: publicURL}, observability.NoopUtility(),
+				httpapi.Services{Auth: authSvc, Credentials: httpapimocks.NewMockCredentialService(t), Models: svc})
+			require.NoError(t, err)
+
+			w := request{method: "GET", path: "/api/v1/credentials/c-1/models", headers: cookie}.do(t, srv)
+			assert.Equal(t, tt.wantStatus, w.Code, w.Body.String())
+			assert.Contains(t, w.Body.String(), tt.wantBody)
+		})
+	}
+
+	t.Run("not there without the service", func(t *testing.T) {
+		authSvc := httpapimocks.NewMockAuthService(t)
+		withSession(authSvc, alice)
+
+		srv, err := httpapi.New(httpapi.Config{PublicURL: publicURL}, observability.NoopUtility(),
+			httpapi.Services{Auth: authSvc, Credentials: httpapimocks.NewMockCredentialService(t)})
+		require.NoError(t, err)
+
+		w := request{method: "GET", path: "/api/v1/credentials/c-1/models", headers: cookie}.do(t, srv)
+		assert.Equal(t, http.StatusNotFound, w.Code)
+	})
+
+	t.Run("signed in only", func(t *testing.T) {
+		srv, err := httpapi.New(httpapi.Config{PublicURL: publicURL}, observability.NoopUtility(),
+			httpapi.Services{Auth: httpapimocks.NewMockAuthService(t), Models: httpapimocks.NewMockModelService(t)})
+		require.NoError(t, err)
+
+		w := request{method: "GET", path: "/api/v1/credentials/c-1/models"}.do(t, srv)
+		assert.Equal(t, http.StatusUnauthorized, w.Code)
+	})
 }

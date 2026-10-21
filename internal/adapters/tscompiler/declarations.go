@@ -143,7 +143,7 @@ func writeSettings(b *strings.Builder, t engine.TypeInfo) {
 		case p.Kind == engine.ParamWallet:
 			doc = append(doc, "The ID of one of your wallets.")
 		case p.Kind == engine.ParamCredential:
-			doc = append(doc, fmt.Sprintf("The ID of one of your credentials of type %s.", p.CredentialType))
+			doc = append(doc, fmt.Sprintf("The ID of one of your credentials of type %s.", strings.Join(p.CredentialTypes, " or ")))
 		case p.Kind == engine.ParamTokens:
 			doc = append(doc, "Outcome token IDs.")
 		case p.Kind == engine.ParamAddress:

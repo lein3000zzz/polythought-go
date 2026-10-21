@@ -1564,6 +1564,38 @@
                 ],
                 "type": "object"
             },
+            "Model": {
+                "properties": {
+                    "id": {
+                        "description": "ID is what the provider calls it, the name an agent node asks for.",
+                        "type": "string"
+                    },
+                    "name": {
+                        "description": "Name is for people: the ID when the provider gives none.",
+                        "type": "string"
+                    }
+                },
+                "required": [
+                    "id",
+                    "name"
+                ],
+                "type": "object"
+            },
+            "ModelList": {
+                "properties": {
+                    "models": {
+                        "items": {
+                            "$ref": "#/components/schemas/Model"
+                        },
+                        "type": "array",
+                        "uniqueItems": false
+                    }
+                },
+                "required": [
+                    "models"
+                ],
+                "type": "object"
+            },
             "Node": {
                 "properties": {
                     "continueOnFail": {
@@ -2040,9 +2072,13 @@
                         "type": "array",
                         "uniqueItems": false
                     },
-                    "credentialType": {
-                        "description": "CredentialType is the kind of credential a credential param takes, one of the\nuser's of that type.",
-                        "type": "string"
+                    "credentialTypes": {
+                        "description": "CredentialTypes are the kinds of credential a credential param takes: one of the\nuser's of any of them.",
+                        "items": {
+                            "type": "string"
+                        },
+                        "type": "array",
+                        "uniqueItems": false
                     },
                     "default": {},
                     "description": {
@@ -5238,6 +5274,86 @@
                     }
                 ],
                 "summary": "Change a credential",
+                "tags": [
+                    "credentials"
+                ]
+            }
+        },
+        "/credentials/{id}/models": {
+            "get": {
+                "operationId": "listModels",
+                "parameters": [
+                    {
+                        "description": "Credential ID",
+                        "in": "path",
+                        "name": "id",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ModelList"
+                                }
+                            }
+                        },
+                        "description": "OK"
+                    },
+                    "400": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "invalid_input: not a language model key"
+                    },
+                    "401": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "unauthenticated"
+                    },
+                    "404": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "not_found"
+                    },
+                    "502": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "provider_failed: the provider's answer, e.g. Anthropic answered 401: invalid x-api-key"
+                    }
+                },
+                "security": [
+                    {
+                        "SessionCookie": []
+                    },
+                    {
+                        "APIToken": []
+                    }
+                ],
+                "summary": "List a key's models",
                 "tags": [
                     "credentials"
                 ]

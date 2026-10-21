@@ -7,6 +7,7 @@ package llm
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"net"
@@ -125,27 +126,29 @@ func (c *Client) Complete(ctx context.Context, key ports.LLMKey, req ports.LLMRe
 	return tracing.InScope(ctx, c.scope, opComplete, func(ctx context.Context, span trace.Span) (ports.LLMResponse, error) {
 		span.SetAttributes(attribute.String("llm.provider", string(key.Provider)), attribute.String("llm.model", req.Model))
 
-		if len(req.Schema) > 0 || len(req.Tools) > 0 {
-			return ports.LLMResponse{}, fmt.Errorf("llm: a schema or tools: %w", ports.ErrLLMNotYet)
+		if len(req.Tools) > 0 {
+			return ports.LLMResponse{}, fmt.Errorf("llm: tools: %w", ports.ErrLLMNotYet)
 		}
 
-		var (
-			res ports.LLMResponse
-			err error
-		)
+		schema, err := decodeSchema(req.Schema)
+		if err != nil {
+			return ports.LLMResponse{}, err
+		}
+
+		var res ports.LLMResponse
 
 		switch key.Provider {
 		case ports.LLMAnthropic:
-			res, err = c.anthropicComplete(ctx, key, req)
+			res, err = c.anthropicComplete(ctx, key, req, schema)
 			err = anthropicError(err)
 		case ports.LLMOpenAI:
 			var base string
 			if base, err = c.openAIBase(key); err == nil {
-				res, err = c.openAIComplete(ctx, key, base, req)
+				res, err = c.openAIComplete(ctx, key, base, req, schema)
 				err = c.openAIError(err, base)
 			}
 		case ports.LLMGemini:
-			res, err = c.geminiComplete(ctx, key, req)
+			res, err = c.geminiComplete(ctx, key, req, schema)
 			err = geminiError(err)
 		default:
 			err = fmt.Errorf("llm: no provider %q", key.Provider)
@@ -216,6 +219,21 @@ func (c *Client) openAIBase(key ports.LLMKey) (string, error) {
 	}
 
 	return strings.TrimRight(u.String(), "/") + "/", nil
+}
+
+// decodeSchema is a request's JSON schema as the SDKs take it: an object, or nil for
+// none.
+func decodeSchema(raw json.RawMessage) (map[string]any, error) {
+	if len(raw) == 0 {
+		return nil, nil
+	}
+
+	var schema map[string]any
+	if err := json.Unmarshal(raw, &schema); err != nil || schema == nil {
+		return nil, errors.New("llm: the schema must be a JSON object")
+	}
+
+	return schema, nil
 }
 
 // maxMessage bounds a provider's message: a proxy in the way may answer with a page.

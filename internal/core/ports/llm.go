@@ -65,6 +65,16 @@ type LLMTool struct {
 	Schema      json.RawMessage // its input's JSON schema
 }
 
+// LLMEffort is how hard a model thinks before it answers, mapped to each provider's own
+// setting (D259): Claude's effort, OpenAI's reasoning_effort, Gemini's thinking level.
+type LLMEffort string
+
+const (
+	LLMEffortLow    LLMEffort = "low"
+	LLMEffortMedium LLMEffort = "medium"
+	LLMEffortHigh   LLMEffort = "high"
+)
+
 // LLMRequest is one call.
 type LLMRequest struct {
 	Model     string
@@ -73,9 +83,14 @@ type LLMRequest struct {
 	MaxTokens int64
 	// Temperature is the provider's own when nil; Claude's newest models refuse any.
 	Temperature *float64
+	// Effort is the provider's own when empty.
+	Effort LLMEffort
 
-	Schema json.RawMessage // a JSON schema the answer keeps to (4b)
-	Tools  []LLMTool       // (4c)
+	// Schema is a JSON schema the answer keeps to, its text then the JSON. Claude wants
+	// additionalProperties false on every object; OpenAI holds to it strictly only when
+	// every object also requires all its properties. The answer is not checked here.
+	Schema json.RawMessage
+	Tools  []LLMTool // (4c)
 }
 
 // LLMUsage is what a call took: tokens, and what the provider says it charged, when it
@@ -100,8 +115,7 @@ type LLMModel struct {
 	Name string // for people; the ID when the provider gives none
 }
 
-// ErrLLMNotYet is for what the port has room for but no slice has built yet: a JSON
-// schema (4b), tools (4c).
+// ErrLLMNotYet is for what the port has room for but no slice has built yet: tools (4c).
 var ErrLLMNotYet = errors.New("not supported yet")
 
 // LLM calls a provider with a user's key. Errors from the provider keep its words, never

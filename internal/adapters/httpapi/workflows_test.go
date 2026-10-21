@@ -83,7 +83,7 @@ func TestWorkflowRoutes(t *testing.T) {
 						Items: &engine.Items{Passed: true}}},
 					{NodeType: engine.NodeType{Name: "output.webhook", Inputs: []string{"main"}, Outputs: []string{"main"},
 						Params: []engine.ParamSpec{
-							{Name: "credential", Kind: engine.ParamCredential, CredentialType: "http.header"},
+							{Name: "credential", Kind: engine.ParamCredential, CredentialTypes: []string{"http.header"}},
 							{Name: "traders", Kind: engine.ParamTable, Columns: []engine.ParamSpec{
 								{Name: "address", Label: "Address", Kind: engine.ParamAddress, Required: true},
 								{Name: "on", Kind: engine.ParamBool, Default: true},
@@ -95,7 +95,7 @@ func TestWorkflowRoutes(t *testing.T) {
 			wantStatus: http.StatusOK,
 			wantBody: []string{
 				`"name":"trigger.manual","trigger":true,"inputs":[]`, `"label":"If"`, `"default":"gt","options":["gt","lt"]`,
-				`{"name":"credential","kind":"credential","required":false,"credentialType":"http.header"}`,
+				`{"name":"credential","kind":"credential","required":false,"credentialTypes":["http.header"]}`,
 				`{"name":"traders","kind":"table","required":false,"columns":[` +
 					`{"name":"address","label":"Address","kind":"address","required":true},` +
 					`{"name":"on","kind":"bool","required":false,"default":true}]}`,

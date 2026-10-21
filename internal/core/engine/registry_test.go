@@ -260,7 +260,7 @@ func TestCheckParams(t *testing.T) {
 			{Name: "d", Kind: engine.ParamDecimal},
 			{Name: "wallet", Kind: engine.ParamWallet},
 			{Name: "tokens", Kind: engine.ParamTokens},
-			{Name: "key", Kind: engine.ParamCredential, CredentialType: "test.key"},
+			{Name: "key", Kind: engine.ParamCredential, CredentialTypes: []string{"test.key"}},
 			{Name: "who", Kind: engine.ParamAddress},
 			{Name: "traders", Kind: engine.ParamTable, Columns: []engine.ParamSpec{
 				{Name: "label", Label: "Label", Kind: engine.ParamString, Required: true},
@@ -358,12 +358,14 @@ var keyType = engine.CredentialType{
 }
 
 func TestRegistryCredentialTypes(t *testing.T) {
-	user := func(credType string) fakeNode {
+	user := func(credTypes ...string) fakeNode {
 		return fakeNode{typ: engine.NodeType{
 			Name:   "test.user",
-			Params: []engine.ParamSpec{{Name: "key", Kind: engine.ParamCredential, CredentialType: credType}},
+			Params: []engine.ParamSpec{{Name: "key", Kind: engine.ParamCredential, CredentialTypes: credTypes}},
 		}}
 	}
+
+	other := engine.CredentialType{Name: "test.other", Label: "Other key", Fields: keyType.Fields}
 
 	tests := []struct {
 		name     string
@@ -402,9 +404,30 @@ func TestRegistryCredentialTypes(t *testing.T) {
 			},
 		},
 		{
+			name: "a node taking either of two types",
+			register: func(r *engine.Registry) error {
+				_ = r.RegisterCredentialType(keyType)
+				_ = r.RegisterCredentialType(other)
+				return r.RegisterNode(user("test.key", "test.other"))
+			},
+		},
+		{
 			name:     "a node using an unknown type",
 			register: func(r *engine.Registry) error { return r.RegisterNode(user("test.key")) },
-			wantErr:  `param "key": a credential param must name a registered credential type, not "test.key"`,
+			wantErr:  `param "key": a credential param must name registered credential types, not "test.key"`,
+		},
+		{
+			name: "a node with one of its types unknown",
+			register: func(r *engine.Registry) error {
+				_ = r.RegisterCredentialType(keyType)
+				return r.RegisterNode(user("test.key", "test.other"))
+			},
+			wantErr: `not "test.other"`,
+		},
+		{
+			name:     "a node naming no type",
+			register: func(r *engine.Registry) error { return r.RegisterNode(user()) },
+			wantErr:  "none named",
 		},
 	}
 

@@ -235,9 +235,9 @@ type paramDTO struct {
 	Options []string `json:"options,omitempty" validate:"optional"`
 	// Sensitive values, like a webhook URL, are personal: sharing leaves them out.
 	Sensitive bool `json:"sensitive,omitempty" validate:"optional"`
-	// CredentialType is the kind of credential a credential param takes, one of the
-	// user's of that type.
-	CredentialType string `json:"credentialType,omitempty" validate:"optional"`
+	// CredentialTypes are the kinds of credential a credential param takes: one of the
+	// user's of any of them.
+	CredentialTypes []string `json:"credentialTypes,omitempty" validate:"optional"`
 	// Field marks a string, or each element of a list, as a path to a field of the items
 	// the node receives, like spread or outcomes.0.price. FieldKinds, when present, are
 	// the kinds that field may be.

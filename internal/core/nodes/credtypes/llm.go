@@ -17,6 +17,9 @@ const (
 	GeminiKey    = "gemini.apiKey"
 )
 
+// LLMKeyTypes are the providers' key types, for a setting taking any of them (D254).
+var LLMKeyTypes = []string{AnthropicKey, OpenAIKey, GeminiKey}
+
 var llmProviders = map[string]ports.LLMProvider{
 	AnthropicKey: ports.LLMAnthropic,
 	OpenAIKey:    ports.LLMOpenAI,

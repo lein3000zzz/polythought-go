@@ -32,7 +32,8 @@ type CredentialRepository interface {
 }
 
 // CredentialReader gives a node the values of one of the owner's credentials, secret
-// ones included. It only returns the owner's own credentials, of the type asked for.
+// ones included. It only returns the owner's own credentials, of a type asked for, and
+// says which.
 type CredentialReader interface {
-	Values(ctx context.Context, owner domain.UserID, id domain.CredentialID, credType string) (map[string]string, error)
+	Values(ctx context.Context, owner domain.UserID, id domain.CredentialID, types []string) (credType string, values map[string]string, err error)
 }

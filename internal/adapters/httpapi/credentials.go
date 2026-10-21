@@ -9,6 +9,7 @@ import (
 
 	"github.com/lein3000zzz/polythought-go/internal/core/domain"
 	"github.com/lein3000zzz/polythought-go/internal/core/engine"
+	"github.com/lein3000zzz/polythought-go/internal/core/ports"
 	"github.com/lein3000zzz/polythought-go/internal/core/services/auth"
 	"github.com/lein3000zzz/polythought-go/internal/core/services/credentials"
 )
@@ -269,4 +270,58 @@ func (s *Server) testCredential(ctx context.Context, c *app.RequestContext) {
 	}
 
 	c.JSON(http.StatusOK, toCredentialDTO(cred))
+}
+
+// ModelService lists the models a language model key can use (D251).
+type ModelService interface {
+	List(ctx context.Context, p auth.Principal, id domain.CredentialID) ([]ports.LLMModel, error)
+}
+
+type modelDTO struct {
+	// ID is what the provider calls it, the name an agent node asks for.
+	ID string `json:"id"`
+	// Name is for people: the ID when the provider gives none.
+	Name string `json:"name"`
+} // @name Model
+
+type modelList struct {
+	Models []modelDTO `json:"models"`
+} // @name ModelList
+
+// listModels lists the models the key in one of your credentials can use, as its
+// provider lists them; kept for an hour, so a new model may take that long to show. Any
+// other name can still be typed in an agent node.
+//
+//	@Summary	List a key's models
+//	@ID			listModels
+//	@Tags		credentials
+//	@Param		id	path		string	true	"Credential ID"
+//	@Success	200	{object}	modelList
+//	@Failure	400	{object}	errorBody	"invalid_input: not a language model key"
+//	@Failure	401	{object}	errorBody	"unauthenticated"
+//	@Failure	404	{object}	errorBody	"not_found"
+//	@Failure	502	{object}	errorBody	"provider_failed: the provider's answer, e.g. Anthropic answered 401: invalid x-api-key"
+//	@Security	SessionCookie
+//	@Security	APIToken
+//	@Router		/credentials/{id}/models [get]
+func (s *Server) listModels(ctx context.Context, c *app.RequestContext) {
+	p, _ := principal(c)
+
+	if s.models == nil {
+		s.fail(ctx, c, domain.ErrNotFound)
+		return
+	}
+
+	models, err := s.models.List(ctx, p, domain.CredentialID(c.Param("id")))
+	if err != nil {
+		s.fail(ctx, c, err)
+		return
+	}
+
+	out := modelList{Models: make([]modelDTO, len(models))}
+	for i, m := range models {
+		out.Models[i] = modelDTO{ID: m.ID, Name: m.Name}
+	}
+
+	c.JSON(http.StatusOK, out)
 }

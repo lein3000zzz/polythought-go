@@ -417,6 +417,23 @@ export interface paths {
         patch: operations["updateCredential"];
         trace?: never;
     };
+    "/credentials/{id}/models": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List a key's models */
+        get: operations["listModels"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/credentials/{id}/test": {
         parameters: {
             query?: never;
@@ -1892,6 +1909,15 @@ export interface components {
             email: string;
             password: string;
         };
+        Model: {
+            /** @description ID is what the provider calls it, the name an agent node asks for. */
+            id: string;
+            /** @description Name is for people: the ID when the provider gives none. */
+            name: string;
+        };
+        ModelList: {
+            models: components["schemas"]["Model"][];
+        };
         Node: {
             continueOnFail?: boolean;
             id: string;
@@ -2084,10 +2110,10 @@ export interface components {
              */
             columns?: components["schemas"]["ParamSpec"][];
             /**
-             * @description CredentialType is the kind of credential a credential param takes, one of the
-             *     user's of that type.
+             * @description CredentialTypes are the kinds of credential a credential param takes: one of the
+             *     user's of any of them.
              */
-            credentialType?: string;
+            credentialTypes?: string[];
             default?: unknown;
             description?: string;
             /**
@@ -3969,6 +3995,65 @@ export interface operations {
             };
             /** @description credential_exists */
             409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    listModels: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Credential ID */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ModelList"];
+                };
+            };
+            /** @description invalid_input: not a language model key */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description unauthenticated */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description not_found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description provider_failed: the provider's answer, e.g. Anthropic answered 401: invalid x-api-key */
+            502: {
                 headers: {
                     [name: string]: unknown;
                 };

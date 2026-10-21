@@ -117,6 +117,7 @@ packages:
       dir: internal/mocks/httpapi
       pkgname: httpapimocks
     interfaces:
+      ModelService: {}
       AuthService: {}
       WalletService: {}
       WorkflowService: {}

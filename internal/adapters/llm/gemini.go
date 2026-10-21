@@ -22,7 +22,7 @@ func (c *Client) gemini(ctx context.Context, key ports.LLMKey) (*genai.Client, e
 	})
 }
 
-func (c *Client) geminiComplete(ctx context.Context, key ports.LLMKey, req ports.LLMRequest) (ports.LLMResponse, error) {
+func (c *Client) geminiComplete(ctx context.Context, key ports.LLMKey, req ports.LLMRequest, schema map[string]any) (ports.LLMResponse, error) {
 	client, err := c.gemini(ctx, key)
 	if err != nil {
 		return ports.LLMResponse{}, err
@@ -49,6 +49,14 @@ func (c *Client) geminiComplete(ctx context.Context, key ports.LLMKey, req ports
 		config.Temperature = &t
 	}
 
+	if schema != nil {
+		config.ResponseMIMEType, config.ResponseJsonSchema = "application/json", schema
+	}
+
+	if level, ok := geminiLevels[req.Effort]; ok {
+		config.ThinkingConfig = &genai.ThinkingConfig{ThinkingLevel: level}
+	}
+
 	resp, err := client.Models.GenerateContent(ctx, req.Model, contents, config)
 	if err != nil {
 		return ports.LLMResponse{}, err
@@ -66,6 +74,13 @@ func (c *Client) geminiComplete(ctx context.Context, key ports.LLMKey, req ports
 	}
 
 	return out, nil
+}
+
+// geminiLevels are the thinking levels of the efforts.
+var geminiLevels = map[ports.LLMEffort]genai.ThinkingLevel{
+	ports.LLMEffortLow:    genai.ThinkingLevelLow,
+	ports.LLMEffortMedium: genai.ThinkingLevelMedium,
+	ports.LLMEffortHigh:   genai.ThinkingLevelHigh,
 }
 
 // geminiModels are the models that answer: those that generate content.

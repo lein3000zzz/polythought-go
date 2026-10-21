@@ -15,17 +15,17 @@ const spec: ParamSpec = {
   name: 'credential',
   label: 'Credential',
   kind: 'credential',
-  credentialType: 'http.header',
+  credentialTypes: ['http.header'],
   required: false,
 }
 
-function renderField(value: unknown, onChange = vi.fn()) {
+function renderField(value: unknown, onChange = vi.fn(), field = spec) {
   const queryClient = createQueryClient()
   queryClient.setDefaultOptions({ queries: { retry: false } })
 
   render(
     <QueryClientProvider client={queryClient}>
-      <ParamField spec={spec} scope="use-hook" value={value} onChange={onChange} />
+      <ParamField spec={field} scope="use-hook" value={value} onChange={onChange} />
     </QueryClientProvider>,
   )
 
@@ -38,6 +38,7 @@ function vault(credentials: { id: string; type: string; name: string }[]) {
       HttpResponse.json({
         credentialTypes: [
           { name: 'http.header', label: 'HTTP header', fields: [], testable: false },
+          { name: 'test.api', label: 'Test API key', fields: [], testable: false },
         ],
       }),
     ),
@@ -81,6 +82,28 @@ describe('credential field', () => {
 
     expect(await screen.findByText(/You have no HTTP header credentials yet/)).toBeInTheDocument()
     expect(screen.getByRole('option', { name: 'Missing credential (c-9)' })).toBeInTheDocument()
+  })
+
+  it('takes any of several kinds, each named', async () => {
+    vault([
+      { id: 'c-1', type: 'http.header', name: 'Relay' },
+      { id: 'c-2', type: 'test.api', name: 'Main' },
+      { id: 'c-3', type: 'other.kind', name: 'Elsewhere' },
+    ])
+    renderField(undefined, vi.fn(), { ...spec, credentialTypes: ['http.header', 'test.api'] })
+
+    expect(await screen.findByRole('option', { name: 'Relay (HTTP header)' })).toBeInTheDocument()
+    expect(screen.getByRole('option', { name: 'Main (Test API key)' })).toBeInTheDocument()
+    expect(screen.queryByRole('option', { name: /Elsewhere/ })).not.toBeInTheDocument()
+  })
+
+  it('names every kind it takes when there is none yet', async () => {
+    vault([])
+    renderField(undefined, vi.fn(), { ...spec, credentialTypes: ['http.header', 'test.api'] })
+
+    expect(
+      await screen.findByText(/You have no HTTP header or Test API key credentials yet/),
+    ).toBeInTheDocument()
   })
 })
 

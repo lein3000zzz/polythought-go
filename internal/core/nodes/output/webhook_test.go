@@ -131,8 +131,8 @@ func TestWebhookCredential(t *testing.T) {
 		sender.EXPECT().Post(mock.Anything, hook, mock.Anything, map[string]string{"Authorization": "Bearer t-1"}).Return(nil).Once()
 
 		creds := portsmocks.NewMockCredentialReader(t)
-		creds.EXPECT().Values(mock.Anything, owner, domain.CredentialID("c-1"), credtypes.HTTPHeader).
-			Return(map[string]string{"header": "Authorization", "value": "Bearer t-1"}, nil).Once()
+		creds.EXPECT().Values(mock.Anything, owner, domain.CredentialID("c-1"), []string{credtypes.HTTPHeader}).
+			Return(credtypes.HTTPHeader, map[string]string{"header": "Authorization", "value": "Bearer t-1"}, nil).Once()
 
 		out, err := run(t, output.NewWebhook(sender, creds), map[string]any{"url": hook, "credential": "c-1"})
 		require.NoError(t, err)
@@ -141,7 +141,7 @@ func TestWebhookCredential(t *testing.T) {
 
 	t.Run("a credential that is not the owner's fails the node", func(t *testing.T) {
 		creds := portsmocks.NewMockCredentialReader(t)
-		creds.EXPECT().Values(mock.Anything, owner, domain.CredentialID("c-9"), credtypes.HTTPHeader).Return(nil, domain.ErrNotFound)
+		creds.EXPECT().Values(mock.Anything, owner, domain.CredentialID("c-9"), []string{credtypes.HTTPHeader}).Return("", nil, domain.ErrNotFound)
 
 		_, err := run(t, output.NewWebhook(portsmocks.NewMockWebhookSender(t), creds), map[string]any{"url": hook, "credential": "c-9"})
 		require.ErrorIs(t, err, domain.ErrNotFound)
@@ -162,7 +162,7 @@ func TestWebhookCredential(t *testing.T) {
 		}
 
 		assert.Equal(t, engine.ParamCredential, spec.Kind)
-		assert.Equal(t, credtypes.HTTPHeader, spec.CredentialType)
+		assert.Equal(t, []string{credtypes.HTTPHeader}, spec.CredentialTypes)
 		assert.False(t, spec.Required)
 		assert.True(t, spec.Personal())
 	})

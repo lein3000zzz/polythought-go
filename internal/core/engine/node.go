@@ -108,8 +108,8 @@ const (
 	// (D80): a trader per row, say.
 	ParamTable ParamKind = "table"
 
-	// ParamCredential is the ID of one of the owner's credentials, of the type the
-	// param's CredentialType names.
+	// ParamCredential is the ID of one of the owner's credentials, of a type the param's
+	// CredentialTypes name.
 	ParamCredential ParamKind = "credential"
 
 	// ParamCode is TypeScript, the code of a code node.
@@ -133,8 +133,9 @@ type ParamSpec struct {
 	// leaves them out. Wallet and credential params are personal regardless.
 	Sensitive bool
 
-	// CredentialType names the kind of credential a credential param asks for.
-	CredentialType string
+	// CredentialTypes name the kinds of credential a credential param takes: any one of
+	// them, such as any provider's key (D254).
+	CredentialTypes []string
 
 	// Field marks a text param, or each value of a list param, as a path to a field of
 	// the items the node receives, like spread or outcomes.0.price. FieldKinds, when

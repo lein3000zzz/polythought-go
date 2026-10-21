@@ -241,19 +241,25 @@ func (s *Service) Test(ctx context.Context, p auth.Principal, id domain.Credenti
 }
 
 // Values returns every value of one of owner's credentials, for a node running on their
-// behalf. A credential of another type is refused, so a node never gets a secret meant
-// for a different service.
-func (s *Service) Values(ctx context.Context, owner domain.UserID, id domain.CredentialID, credType string) (map[string]string, error) {
+// behalf, and its type. A credential of none of the types is refused, so a node never
+// gets a secret meant for a different service.
+func (s *Service) Values(ctx context.Context, owner domain.UserID, id domain.CredentialID, types []string) (string, map[string]string, error) {
 	stored, err := s.repo.Get(ctx, owner, id)
 	if err != nil {
-		return nil, err
+		return "", nil, err
 	}
 
-	if stored.Credential.Type != credType {
-		return nil, fmt.Errorf("%w: %q is a %s credential, not %s", domain.ErrInvalidInput, stored.Credential.Name, stored.Credential.Type, credType)
+	c := stored.Credential
+	if !slices.Contains(types, c.Type) {
+		return "", nil, fmt.Errorf("%w: %q is a %s credential, not %s", domain.ErrInvalidInput, c.Name, c.Type, strings.Join(types, " or "))
 	}
 
-	return s.open(ctx, stored)
+	values, err := s.open(ctx, stored)
+	if err != nil {
+		return "", nil, err
+	}
+
+	return c.Type, values, nil
 }
 
 func field(typ engine.CredentialType, name string) (engine.CredentialField, bool) {

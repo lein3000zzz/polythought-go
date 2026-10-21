@@ -276,7 +276,7 @@ func TestNotYetAndScrubbed(t *testing.T) {
 	c := newClient(t, false)
 
 	req := question
-	req.Schema = json.RawMessage(`{"type":"object"}`)
+	req.Tools = []ports.LLMTool{{Name: "search", Schema: json.RawMessage(`{"type":"object"}`)}}
 	_, err := c.Complete(context.Background(), ports.LLMKey{Provider: ports.LLMAnthropic, APIKey: "sk-ant-user"}, req)
 	require.ErrorIs(t, err, ports.ErrLLMNotYet)
 
@@ -329,4 +329,110 @@ func TestRefusals(t *testing.T) {
 	require.Error(t, err)
 	assert.LessOrEqual(t, len([]rune(err.Error())), maxMessage+len(host)+len(" answered 403: …"), "a page in the way, cut short")
 	assert.NotContains(t, err.Error(), "\n")
+}
+
+// verdict is a schema as the fields table makes it: closed, every field required.
+const verdict = `{"type":"object","additionalProperties":false,"required":["watch","reason"],
+	"properties":{"watch":{"type":"boolean"},"reason":{"type":"string"}}}`
+
+// The schema and the effort reach each provider in its own words.
+func TestSchemaAndEffort(t *testing.T) {
+	ctx := context.Background()
+
+	req := question
+	req.Schema, req.Effort = json.RawMessage(verdict), ports.LLMEffortLow
+
+	srv, got := fake(t, map[string]http.HandlerFunc{
+		"/v1/messages": func(w http.ResponseWriter, _ *http.Request) {
+			w.Header().Set("Content-Type", "text/event-stream")
+			_, _ = io.WriteString(w, anthropicStream)
+		},
+		"/v1/chat/completions": func(w http.ResponseWriter, _ *http.Request) {
+			_, _ = io.WriteString(w, `{"id":"c-1","object":"chat.completion","created":1,"model":"gpt-x","choices":[{"index":0,
+				"finish_reason":"stop","message":{"role":"assistant","content":"{}"}}],"usage":{"prompt_tokens":1,"completion_tokens":1}}`)
+		},
+		"/v1beta/models/m-1:generateContent": func(w http.ResponseWriter, _ *http.Request) {
+			_, _ = io.WriteString(w, `{"candidates":[{"content":{"role":"model","parts":[{"text":"{}"}]},"finishReason":"STOP"}]}`)
+		},
+	})
+
+	c := newClient(t, false)
+	c.anthropicURL, c.openAIURL, c.geminiURL = srv.URL+"/", srv.URL+"/v1/", srv.URL+"/"
+
+	var schema map[string]any
+	require.NoError(t, json.Unmarshal([]byte(verdict), &schema))
+
+	t.Run("Claude: output_config", func(t *testing.T) {
+		got.bodies = nil
+		_, err := c.Complete(ctx, ports.LLMKey{Provider: ports.LLMAnthropic, APIKey: "sk-ant-user"}, req)
+		require.NoError(t, err)
+
+		assert.Equal(t, map[string]any{"effort": "low", "format": map[string]any{"type": "json_schema", "schema": schema}},
+			got.bodies[0]["output_config"])
+	})
+
+	t.Run("OpenAI: response_format, strict when it fits, and reasoning_effort", func(t *testing.T) {
+		got.bodies = nil
+		_, err := c.Complete(ctx, ports.LLMKey{Provider: ports.LLMOpenAI, APIKey: "sk-user"}, req)
+		require.NoError(t, err)
+
+		body := got.bodies[0]
+		assert.Equal(t, "low", body["reasoning_effort"])
+		assert.Equal(t, map[string]any{"type": "json_schema", "json_schema": map[string]any{"name": "answer", "strict": true, "schema": schema}},
+			body["response_format"])
+
+		loose := req
+		loose.Schema = json.RawMessage(`{"type":"object","properties":{"tags":{"type":"array","items":{"type":"string"}}}}`)
+		_, err = c.Complete(ctx, ports.LLMKey{Provider: ports.LLMOpenAI, APIKey: "sk-user"}, loose)
+		require.NoError(t, err)
+		assert.Equal(t, false, got.bodies[1]["response_format"].(map[string]any)["json_schema"].(map[string]any)["strict"],
+			"a guide only, rather than refused")
+	})
+
+	t.Run("Gemini: a JSON answer to the schema, and a thinking level", func(t *testing.T) {
+		got.bodies = nil
+		_, err := c.Complete(ctx, ports.LLMKey{Provider: ports.LLMGemini, APIKey: "gem-user"}, req)
+		require.NoError(t, err)
+
+		config := got.bodies[0]["generationConfig"].(map[string]any)
+		assert.Equal(t, "application/json", config["responseMimeType"])
+		assert.Equal(t, schema, config["responseJsonSchema"])
+		assert.Equal(t, map[string]any{"thinkingLevel": "LOW"}, config["thinkingConfig"])
+	})
+
+	t.Run("neither when not asked", func(t *testing.T) {
+		got.bodies = nil
+		_, err := c.Complete(ctx, ports.LLMKey{Provider: ports.LLMAnthropic, APIKey: "sk-ant-user"}, question)
+		require.NoError(t, err)
+		assert.NotContains(t, got.bodies[0], "output_config")
+
+		_, err = c.Complete(ctx, ports.LLMKey{Provider: ports.LLMOpenAI, APIKey: "sk-user"}, question)
+		require.NoError(t, err)
+		assert.NotContains(t, got.bodies[1], "response_format")
+		assert.NotContains(t, got.bodies[1], "reasoning_effort")
+	})
+
+	t.Run("a schema that is no object", func(t *testing.T) {
+		bad := question
+		bad.Schema = json.RawMessage(`["type"]`)
+		_, err := c.Complete(ctx, ports.LLMKey{Provider: ports.LLMAnthropic, APIKey: "sk-ant-user"}, bad)
+		require.ErrorContains(t, err, "the schema must be a JSON object")
+	})
+}
+
+func TestStrict(t *testing.T) {
+	for raw, want := range map[string]bool{
+		verdict: true,
+		`{"type":"object","additionalProperties":false,"required":["a"],"properties":{"a":{"type":"string"},"b":{"type":"string"}}}`: false,
+		`{"type":"object","required":["a"],"properties":{"a":{"type":"string"}}}`:                                                    false,
+		`{"type":"object","additionalProperties":false,"required":["list"],"properties":{"list":{"type":"array","items":
+			{"type":"object","additionalProperties":false,"required":["x"],"properties":{"x":{"type":"number"}}}}}}`: true,
+		`{"type":"object","additionalProperties":false,"required":["list"],"properties":{"list":{"type":"array","items":
+			{"type":"object","properties":{"x":{"type":"number"}}}}}}`: false,
+		`{"type":"object","additionalProperties":false,"required":["a"],"properties":{"a":{"anyOf":[{"type":"string"},{"type":"null"}]}}}`: true,
+	} {
+		var schema map[string]any
+		require.NoError(t, json.Unmarshal([]byte(raw), &schema))
+		assert.Equal(t, want, strict(schema), raw)
+	}
 }

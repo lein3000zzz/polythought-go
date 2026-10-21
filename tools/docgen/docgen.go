@@ -447,15 +447,18 @@ func paramKind(p engine.ParamSpec, credTypes []engine.CredentialType) string {
 	case engine.ParamCode:
 		return "TypeScript; see [Code nodes](" + base + "/guides/code/)"
 	case engine.ParamCredential:
-		label := p.CredentialType
+		links := make([]string, len(p.CredentialTypes))
 
-		for _, ct := range credTypes {
-			if ct.Name == p.CredentialType {
-				label = ct.Label
+		for i, name := range p.CredentialTypes {
+			label := name
+			if j := slices.IndexFunc(credTypes, func(ct engine.CredentialType) bool { return ct.Name == name }); j >= 0 {
+				label = credTypes[j].Label
 			}
+
+			links[i] = fmt.Sprintf("[%s](%s#%s)", label, link("credential-types.md"), anchor(label))
 		}
 
-		return fmt.Sprintf("one of your credentials: [%s](%s#%s)", label, link("credential-types.md"), anchor(label))
+		return "one of your credentials: " + strings.Join(links, " or ")
 	}
 
 	return string(p.Kind)
@@ -553,7 +556,7 @@ func credentialTypesPage(credTypes []engine.CredentialType, nodes []engine.TypeI
 
 		for _, t := range nodes {
 			for _, p := range t.Params {
-				if p.Kind == engine.ParamCredential && p.CredentialType == ct.Name {
+				if p.Kind == engine.ParamCredential && slices.Contains(p.CredentialTypes, ct.Name) {
 					path, _ := NodePath(t)
 					users = append(users, fmt.Sprintf("[%s](%s)", t.Label, link(path)))
 				}

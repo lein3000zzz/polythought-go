@@ -39,6 +39,7 @@ import (
 	"github.com/lein3000zzz/polythought-go/internal/core/services/library"
 	"github.com/lein3000zzz/polythought-go/internal/core/services/mail"
 	"github.com/lein3000zzz/polythought-go/internal/core/services/memory"
+	"github.com/lein3000zzz/polythought-go/internal/core/services/models"
 	"github.com/lein3000zzz/polythought-go/internal/core/services/notify"
 	"github.com/lein3000zzz/polythought-go/internal/core/services/settings"
 	"github.com/lein3000zzz/polythought-go/internal/core/services/telegram"
@@ -119,6 +120,7 @@ type app struct {
 	library         *library.Service
 	customNodes     *customnodes.Service
 	credentials     *credentials.Service
+	models          *models.Service
 	telegramBot     *tgadapter.Bot
 	telegram        *telegram.Service
 	notify          *notify.Service
@@ -645,10 +647,13 @@ func (a *app) initEngine(ctx context.Context, pmc polymarket) error {
 
 	// Language models, each call with its user's own key (D243); an OpenAI-compatible base
 	// URL keeps to public addresses as webhooks do.
-	models, err := llm.New(a.util, llm.Config{AllowPrivate: allowPrivate})
+	llmClient, err := llm.New(a.util, llm.Config{AllowPrivate: allowPrivate})
 	if err != nil {
 		return err
 	}
+
+	// The models a key can use, for the agent node's picker (D251).
+	a.models = models.New(models.Deps{Credentials: a.credentials, LLM: llmClient})
 
 	// Orders: on paper, simulated against the live book with a paper account per workflow
 	// (D89 to D92); live, from the workflow's wallet through Polymarket's CLOB, while an
@@ -693,7 +698,7 @@ func (a *app) initEngine(ctx context.Context, pmc polymarket) error {
 		Asker:         a.telegram,
 		Reminder:      a.notify,
 		Code:          a.code,
-		LLM:           models,
+		LLM:           llmClient,
 		Feed:          a.feed,
 		Traders:       a.traders,
 		Orders:        a.trading,

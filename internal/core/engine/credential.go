@@ -89,18 +89,24 @@ func (r *Registry) CredentialTypes() []CredentialType {
 	return out
 }
 
-var errCredentialParam = errors.New("a credential param must name a registered credential type")
+var errCredentialParam = errors.New("a credential param must name registered credential types")
 
-// checkCredentialParams makes sure every credential param of typ names a known type.
-// The caller holds r.mu.
+// checkCredentialParams makes sure every credential param of typ names known types, at
+// least one. The caller holds r.mu.
 func (r *Registry) checkCredentialParams(typ NodeType) error {
 	for _, p := range typ.Params {
 		if p.Kind != ParamCredential {
 			continue
 		}
 
-		if _, ok := r.credentials[p.CredentialType]; !ok {
-			return fmt.Errorf("register node type %q: param %q: %w, not %q", typ.Name, p.Name, errCredentialParam, p.CredentialType)
+		if len(p.CredentialTypes) == 0 {
+			return fmt.Errorf("register node type %q: param %q: %w, none named", typ.Name, p.Name, errCredentialParam)
+		}
+
+		for _, name := range p.CredentialTypes {
+			if _, ok := r.credentials[name]; !ok {
+				return fmt.Errorf("register node type %q: param %q: %w, not %q", typ.Name, p.Name, errCredentialParam, name)
+			}
 		}
 	}
 

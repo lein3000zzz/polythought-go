@@ -4,10 +4,12 @@ import (
 	"context"
 	"errors"
 	"net/url"
+	"slices"
 	"strings"
 
 	"github.com/openai/openai-go/v3"
 	"github.com/openai/openai-go/v3/option"
+	"github.com/openai/openai-go/v3/shared"
 	"github.com/shopspring/decimal"
 
 	"github.com/lein3000zzz/polythought-go/internal/core/ports"
@@ -36,7 +38,7 @@ func (c *Client) openAIOptions(key ports.LLMKey, base string) []option.RequestOp
 	}
 }
 
-func (c *Client) openAIComplete(ctx context.Context, key ports.LLMKey, base string, req ports.LLMRequest) (ports.LLMResponse, error) {
+func (c *Client) openAIComplete(ctx context.Context, key ports.LLMKey, base string, req ports.LLMRequest, schema map[string]any) (ports.LLMResponse, error) {
 	params := openai.ChatCompletionNewParams{
 		Model:    req.Model,
 		Messages: make([]openai.ChatCompletionMessageParamUnion, 0, len(req.Messages)+1),
@@ -64,6 +66,16 @@ func (c *Client) openAIComplete(ctx context.Context, key ports.LLMKey, base stri
 
 	if req.Temperature != nil {
 		params.Temperature = openai.Float(*req.Temperature)
+	}
+
+	if schema != nil {
+		params.ResponseFormat = openai.ChatCompletionNewParamsResponseFormatUnion{OfJSONSchema: &shared.ResponseFormatJSONSchemaParam{
+			JSONSchema: shared.ResponseFormatJSONSchemaJSONSchemaParam{Name: "answer", Schema: schema, Strict: openai.Bool(strict(schema))},
+		}}
+	}
+
+	if req.Effort != "" {
+		params.ReasoningEffort = shared.ReasoningEffort(req.Effort)
 	}
 
 	chat := openai.NewChatService(c.openAIOptions(key, base)...)
@@ -120,4 +132,41 @@ func (c *Client) openAIError(err error, base string) error {
 	}
 
 	return answered(who, e.StatusCode, e.Message)
+}
+
+// strict is whether a schema fits OpenAI's strict mode, which then holds the answer to it:
+// every object closed, with additionalProperties false, and requiring all its
+// properties. One that does not is sent as a guide only, rather than refused.
+func strict(schema any) bool {
+	switch s := schema.(type) {
+	case map[string]any:
+		if s["type"] == "object" || s["properties"] != nil {
+			if s["additionalProperties"] != false {
+				return false
+			}
+
+			props, _ := s["properties"].(map[string]any)
+			required, _ := s["required"].([]any)
+
+			for name := range props {
+				if !slices.Contains(required, any(name)) {
+					return false
+				}
+			}
+		}
+
+		for _, v := range s {
+			if !strict(v) {
+				return false
+			}
+		}
+	case []any:
+		for _, v := range s {
+			if !strict(v) {
+				return false
+			}
+		}
+	}
+
+	return true
 }
