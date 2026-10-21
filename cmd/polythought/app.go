@@ -16,6 +16,7 @@ import (
 
 	"github.com/lein3000zzz/polythought-go/internal/adapters/crypto"
 	"github.com/lein3000zzz/polythought-go/internal/adapters/jsruntime"
+	"github.com/lein3000zzz/polythought-go/internal/adapters/llm"
 	"github.com/lein3000zzz/polythought-go/internal/adapters/mailer"
 	pmadapter "github.com/lein3000zzz/polythought-go/internal/adapters/polymarket"
 	"github.com/lein3000zzz/polythought-go/internal/adapters/postgres"
@@ -635,9 +636,16 @@ func (a *app) initEngine(ctx context.Context, pmc polymarket) error {
 	// The vault reads credential types from the registry, which nodes.Register fills.
 	a.credentials = credentials.New(a.registry, postgres.NewCredentials(a.db), a.box, a.util.Logger)
 
-	webhooks, err := webhook.New(a.util, webhook.Config{
-		AllowPrivate: func() bool { return a.settings.Current().Bool(config.KeyWebhookAllowPrivate) },
-	})
+	allowPrivate := func() bool { return a.settings.Current().Bool(config.KeyWebhookAllowPrivate) }
+
+	webhooks, err := webhook.New(a.util, webhook.Config{AllowPrivate: allowPrivate})
+	if err != nil {
+		return err
+	}
+
+	// Language models, each call with its user's own key (D243); an OpenAI-compatible base
+	// URL keeps to public addresses as webhooks do.
+	models, err := llm.New(a.util, llm.Config{AllowPrivate: allowPrivate})
 	if err != nil {
 		return err
 	}
@@ -685,6 +693,7 @@ func (a *app) initEngine(ctx context.Context, pmc polymarket) error {
 		Asker:         a.telegram,
 		Reminder:      a.notify,
 		Code:          a.code,
+		LLM:           models,
 		Feed:          a.feed,
 		Traders:       a.traders,
 		Orders:        a.trading,

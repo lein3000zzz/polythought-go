@@ -295,9 +295,11 @@ func Settings() (*settings.Registry, error) {
 			Env: prefix + "TRUSTED_PROXIES",
 		},
 		settings.Spec{
-			Key: KeyWebhookAllowPrivate, Group: groupNetwork, Label: "Webhooks to private addresses",
-			Description: "Let workflows post to addresses inside the server's network, such as a service on the same machine. Leave off on a shared instance.",
-			Kind:        settings.KindBool, Default: false,
+			Key: KeyWebhookAllowPrivate, Group: groupNetwork, Label: "Private addresses",
+			Description: "Let workflows reach addresses inside the server's network, such as a service on the same machine: " +
+				"webhooks, and language models served there through an OpenAI-compatible key, in plain http too (never to a " +
+				"public address). Leave off on a shared instance.",
+			Kind: settings.KindBool, Default: false,
 			Env: prefix + "WEBHOOK_ALLOW_PRIVATE",
 		},
 		settings.Spec{

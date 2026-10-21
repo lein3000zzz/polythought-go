@@ -48,6 +48,7 @@ var (
 
 	ErrInvalidURL       = errors.New("not an http or https address")
 	ErrForbiddenAddress = errors.New("address inside the server's network")
+	ErrPublicInClear    = errors.New("a public address in plain http")
 	ErrReservedHeader   = errors.New("header set by the sender itself")
 )
 
@@ -95,16 +96,7 @@ func New(util *observability.Utility, cfg Config) (*Sender, error) {
 		timeout = defaultTimeout
 	}
 
-	dialer := &net.Dialer{
-		Timeout: 5 * time.Second,
-		Control: func(network, address string, c syscall.RawConn) error {
-			if cfg.AllowPrivate != nil && cfg.AllowPrivate() {
-				return nil
-			}
-
-			return refuseInternal(network, address, c)
-		},
-	}
+	dialer := GuardedDialer(cfg.AllowPrivate)
 
 	transport := &http.Transport{
 		Proxy:                 nil, // a proxy would dial instead of us and hide the address
@@ -203,14 +195,50 @@ func (s *Sender) Post(ctx context.Context, rawURL string, body []byte, header ma
 // carrierGradeNAT is shared address space (RFC 6598), internal like the private ranges.
 var carrierGradeNAT = netip.MustParsePrefix("100.64.0.0/10")
 
+// GuardedDialer dials public addresses only, checked as each connection is made, after
+// DNS, so a name cannot resolve its way inside (redirects included); allowPrivate, asked
+// on every connection, lets internal ones through too. For any request to an address a
+// user chose: webhooks, and OpenAI-compatible base URLs (phase 4).
+func GuardedDialer(allowPrivate func() bool) *net.Dialer {
+	return &net.Dialer{
+		Timeout: 5 * time.Second,
+		Control: func(network, address string, c syscall.RawConn) error {
+			if allowPrivate != nil && allowPrivate() {
+				return nil
+			}
+
+			return refuseInternal(network, address, c)
+		},
+	}
+}
+
+// InternalDialer dials addresses inside the server's network only, and only while
+// allowPrivate says: for plain http to a server there, which must never carry a key
+// across the internet in clear.
+func InternalDialer(allowPrivate func() bool) *net.Dialer {
+	return &net.Dialer{
+		Timeout: 5 * time.Second,
+		Control: func(_, address string, _ syscall.RawConn) error {
+			addr, err := dialed(address)
+			if err != nil {
+				return err
+			}
+
+			switch {
+			case allowPrivate == nil || !allowPrivate():
+				return fmt.Errorf("%w: %s", ErrForbiddenAddress, addr)
+			case public(addr):
+				return fmt.Errorf("%w: %s", ErrPublicInClear, addr)
+			}
+
+			return nil
+		},
+	}
+}
+
 // refuseInternal runs as each connection is made, with the resolved address.
 func refuseInternal(_, address string, _ syscall.RawConn) error {
-	host, _, err := net.SplitHostPort(address)
-	if err != nil {
-		return err
-	}
-
-	addr, err := netip.ParseAddr(host)
+	addr, err := dialed(address)
 	if err != nil {
 		return err
 	}
@@ -220,6 +248,16 @@ func refuseInternal(_, address string, _ syscall.RawConn) error {
 	}
 
 	return nil
+}
+
+// dialed is the address a connection is being made to, resolved.
+func dialed(address string) (netip.Addr, error) {
+	host, _, err := net.SplitHostPort(address)
+	if err != nil {
+		return netip.Addr{}, err
+	}
+
+	return netip.ParseAddr(host)
 }
 
 // redirected follows a redirect, at most maxRedirects of them, leaving the extra headers

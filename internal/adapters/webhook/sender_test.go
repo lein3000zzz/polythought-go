@@ -176,3 +176,20 @@ func TestRedirectedFromHTTPSToHTTP(t *testing.T) {
 	require.NoError(t, redirected(to, []*http.Request{from}))
 	assert.Empty(t, to.Header.Get("X-Api-Key"), "not sent in clear (R20)")
 }
+
+// The dialers decide on the resolved address, before connecting.
+func TestDialers(t *testing.T) {
+	allowed, off := func() bool { return true }, func() bool { return false }
+
+	guarded := GuardedDialer(off).Control
+	require.NoError(t, guarded("tcp4", "8.8.8.8:443", nil))
+	require.ErrorIs(t, guarded("tcp4", "10.0.0.5:443", nil), ErrForbiddenAddress)
+	require.NoError(t, GuardedDialer(allowed).Control("tcp4", "10.0.0.5:443", nil))
+
+	internal := InternalDialer(allowed).Control
+	require.NoError(t, internal("tcp4", "127.0.0.1:11434", nil))
+	require.NoError(t, internal("tcp6", "[fd00::5]:80", nil))
+	require.ErrorIs(t, internal("tcp4", "8.8.8.8:80", nil), ErrPublicInClear, "a key in clear over the internet")
+	require.ErrorIs(t, InternalDialer(off).Control("tcp4", "127.0.0.1:11434", nil), ErrForbiddenAddress, "switched off since")
+	require.ErrorIs(t, InternalDialer(nil).Control("tcp4", "127.0.0.1:11434", nil), ErrForbiddenAddress)
+}

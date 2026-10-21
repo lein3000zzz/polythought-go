@@ -48,6 +48,10 @@ type Deps struct {
 	// Code runs code nodes; optional: without it they are not available.
 	Code ports.CodeCaller
 
+	// LLM calls the language model providers with their users' keys; optional: without
+	// it, their credential types are not available.
+	LLM ports.LLM
+
 	// Orders places orders, on paper or live; optional: without it, the ledger (Books)
 	// and how workflows trade (Accounts), the trading nodes are not available.
 	// TradingRules and Portfolios are for Copy sizing.
@@ -77,6 +81,14 @@ func Register(r *engine.Registry, d Deps) error {
 	// Credential types first: nodes asking for one are checked against them.
 	if err := r.RegisterCredentialType(credtypes.HTTPHeaderType()); err != nil {
 		return err
+	}
+
+	if d.LLM != nil {
+		for _, t := range credtypes.LLMTypes(d.LLM) {
+			if err := r.RegisterCredentialType(t); err != nil {
+				return err
+			}
+		}
 	}
 
 	var market, wallet, dedupe, throttle, consensus error

@@ -427,9 +427,9 @@ Address ranges (CIDR, e.g. 10.0.0.0/8) of reverse proxies allowed to report the 
 | Default | empty |
 | Applies | at once |
 
-### Webhooks to private addresses
+### Private addresses
 
-Let workflows post to addresses inside the server's network, such as a service on the same machine. Leave off on a shared instance.
+Let workflows reach addresses inside the server's network, such as a service on the same machine: webhooks, and language models served there through an OpenAI-compatible key, in plain http too (never to a public address). Leave off on a shared instance.
 
 | | |
 |---|---|

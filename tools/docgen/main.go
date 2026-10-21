@@ -76,11 +76,12 @@ func build() (Pages, map[string]string, error) {
 	registry := engine.NewRegistry()
 
 	// Only the types are read, so the nodes get no real dependencies; the market and
-	// wallet triggers register only with a feed, and the Telegram nodes only with the bot.
+	// wallet triggers register only with a feed, the Telegram nodes only with the bot, and
+	// the providers' credential types only with an LLM.
 	err := nodes.Register(registry, nodes.Deps{
 		Feed: noFeed{}, Traders: noTraders{}, Messenger: noTelegram{}, TelegramInbox: noTelegram{}, Asker: noTelegram{}, Code: noCode{},
 		Orders: noOrders{}, Books: noBooks{}, Accounts: noAccounts{}, Memory: noMemory{},
-		Canceller: noOrders{}, OrderEvents: noOrders{}, Batches: noOrders{},
+		Canceller: noOrders{}, OrderEvents: noOrders{}, Batches: noOrders{}, LLM: noLLM{},
 		Logger: logging.Noop(),
 	})
 	if err != nil {
@@ -218,3 +219,11 @@ type noCode struct{}
 func (noCode) Call(context.Context, ports.CodeCall) (ports.CodeResult, error) {
 	return ports.CodeResult{}, nil
 }
+
+type noLLM struct{}
+
+func (noLLM) Complete(context.Context, ports.LLMKey, ports.LLMRequest) (ports.LLMResponse, error) {
+	return ports.LLMResponse{}, nil
+}
+
+func (noLLM) Models(context.Context, ports.LLMKey) ([]ports.LLMModel, error) { return nil, nil }

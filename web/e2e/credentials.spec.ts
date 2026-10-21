@@ -6,6 +6,7 @@ test('a credential is made once, picked in a webhook node, and kept private', as
   await page.goto('/credentials')
   await page.getByRole('button', { name: 'New credential' }).click()
   const dialog = page.getByRole('dialog')
+  await dialog.getByLabel('Kind').selectOption({ label: 'HTTP header' })
   await dialog.getByLabel('Name').fill(name)
   await dialog.getByLabel('Header').fill('Authorization')
   await dialog.getByLabel('Value').fill('Bearer e2e-secret')
@@ -63,4 +64,36 @@ test('a credential is made once, picked in a webhook node, and kept private', as
   await page.goto(`/workflows/${id}`)
   await canvasNode(page, 'hook').click()
   await expect(settings.getByLabel('Credential')).toContainText('Missing credential')
+})
+
+test('a language model key is checked as saved, and its test sends nothing in clear', async ({
+  page,
+}) => {
+  const name = unique('router')
+
+  await page.goto('/credentials')
+  await page.getByRole('button', { name: 'New credential' }).click()
+  const dialog = page.getByRole('dialog')
+  await dialog.getByLabel('Kind').selectOption({ label: 'OpenAI-compatible API key' })
+  await dialog.getByLabel('Name').fill(name)
+  await dialog.getByLabel('API key').fill('sk-e2e-secret')
+  await dialog.getByLabel('Base URL').fill('openrouter.ai')
+  await dialog.getByRole('button', { name: 'Create' }).click()
+  await expect(dialog.getByText(/the base URL must be an http or https address/)).toBeVisible()
+
+  // A server on the network, in plain http: this instance keeps to public addresses, so
+  // the test refuses before anything is sent.
+  await dialog.getByLabel('Base URL').fill('http://localhost:11434/v1')
+  await dialog.getByRole('button', { name: 'Create' }).click()
+  await expect(page.getByText(`Created ${name}`)).toBeVisible()
+
+  const row = page.getByRole('row', { name: new RegExp(name) })
+  await expect(row.getByText('Base URL: http://localhost:11434/v1')).toBeVisible()
+  await expect(row.getByText('API key saved')).toBeVisible()
+  await row.getByRole('button', { name: 'Test' }).click()
+  await expect(row.getByText(/Failed: the base URL must be https/)).toBeVisible()
+
+  await row.getByRole('button', { name: `Delete ${name}` }).click()
+  await page.getByRole('alertdialog').getByRole('button', { name: 'Delete' }).click()
+  await expect(page.getByText(`Deleted ${name}`)).toBeVisible()
 })

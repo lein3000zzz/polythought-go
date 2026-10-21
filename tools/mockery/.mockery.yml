@@ -85,6 +85,7 @@ packages:
       LiveTradeNotifier: {}
       WalletReleaser: {}
       LiveUsers: {}
+      LLM: {}
   github.com/lein3000zzz/polythought-go/internal/core/services/auth:
     config:
       dir: internal/mocks/auth

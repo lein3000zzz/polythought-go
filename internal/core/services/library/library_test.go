@@ -57,6 +57,7 @@ func registry(t *testing.T) *engine.Registry {
 		Books:        noBooks{},
 		Accounts:     noAccounts{},
 		Memory:       noMemory{},
+		LLM:          portsmocks.NewMockLLM(t),
 		Logger:       logging.Noop(),
 	}))
 

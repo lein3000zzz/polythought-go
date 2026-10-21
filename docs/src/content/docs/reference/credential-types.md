@@ -7,6 +7,26 @@ description: "The kinds of credential nodes can use, and their fields."
 
 Credentials are kept on the **Credentials** page; see [Credentials](/docs/guides/credentials/). Secret fields are stored encrypted and never shown again.
 
+## Anthropic API key
+
+A key for Anthropic's Claude models. Calls made with it are billed to its account, not Polythought's.
+
+Type `anthropic.apiKey`. It can be tested from the Credentials page.
+
+| Field | Required | Secret | Description |
+|---|---|---|---|
+| API key (`apiKey`) | yes | yes | From the Claude Console, under API keys. |
+
+## Google Gemini API key
+
+A key for Google's Gemini models, through the Gemini API. Billed to the key's Google project.
+
+Type `gemini.apiKey`. It can be tested from the Credentials page.
+
+| Field | Required | Secret | Description |
+|---|---|---|---|
+| API key (`apiKey`) | yes | yes | From Google AI Studio, under API keys. |
+
 ## HTTP header
 
 A header sent with each request, for services that want a key or token, e.g. Authorization: Bearer &lt;token&gt;.
@@ -19,3 +39,14 @@ Type `http.header`.
 | Value (`value`) | yes | yes | e.g. Bearer &lt;token&gt;. |
 
 Used by: [Webhook](/docs/reference/nodes/output/webhook/).
+
+## OpenAI-compatible API key
+
+A key for OpenAI, or for any API compatible with it: OpenRouter, or a model served on your own network, at its base URL. Billed to the key's account; OpenRouter also reports what each call cost.
+
+Type `openai.apiKey`. It can be tested from the Credentials page.
+
+| Field | Required | Secret | Description |
+|---|---|---|---|
+| API key (`apiKey`) | yes | yes | From the provider's dashboard, e.g. OpenAI's API keys page. |
+| Base URL (`baseUrl`) | no | no | Where the API is, e.g. https://openrouter.ai/api/v1; empty for OpenAI's own. Plain http only when the administrator allows private addresses, for a server on your network. |
