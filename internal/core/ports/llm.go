@@ -56,13 +56,38 @@ const (
 type LLMMessage struct {
 	Role LLMRole
 	Text string
+
+	// ToolCalls, on the assistant's turn, are the tools it asked for; ToolResults, on the
+	// user's next, answer every one of them.
+	ToolCalls   []LLMToolCall
+	ToolResults []LLMToolResult
+
+	// Native is an assistant's turn in its provider's own form, which the provider wants
+	// back as it was, its thinking and signatures included: opaque here, read only by the
+	// adapter that made it. Without it, the turn is made of Text and ToolCalls.
+	Native any
 }
 
 // LLMTool is a tool the model may ask for (4c).
 type LLMTool struct {
 	Name        string
 	Description string
-	Schema      json.RawMessage // its input's JSON schema
+	Schema      json.RawMessage // its input's JSON schema, an object
+}
+
+// LLMToolCall is a tool the model asks for, with its input.
+type LLMToolCall struct {
+	ID    string // the provider's, which its result answers; empty when it gives none
+	Name  string
+	Input json.RawMessage // a JSON object
+}
+
+// LLMToolResult is what a tool gave, as text, JSON most often, or why it failed.
+type LLMToolResult struct {
+	CallID  string
+	Name    string
+	Content string
+	IsError bool
 }
 
 // LLMEffort is how hard a model thinks before it answers, mapped to each provider's own
@@ -90,7 +115,8 @@ type LLMRequest struct {
 	// additionalProperties false on every object; OpenAI holds to it strictly only when
 	// every object also requires all its properties. The answer is not checked here.
 	Schema json.RawMessage
-	Tools  []LLMTool // (4c)
+	// Tools are those the model may ask for; it decides whether to.
+	Tools []LLMTool
 }
 
 // LLMUsage is what a call took: tokens, and what the provider says it charged, when it
@@ -107,6 +133,10 @@ type LLMResponse struct {
 	Model      string // as the provider names the one that answered
 	StopReason string
 	Usage      LLMUsage
+
+	// Turn is the assistant's turn, to add to the conversation as it is: its ToolCalls
+	// are the tools it asks for, none when it has answered.
+	Turn LLMMessage
 }
 
 // LLMModel is a model a key can use.
@@ -114,9 +144,6 @@ type LLMModel struct {
 	ID   string
 	Name string // for people; the ID when the provider gives none
 }
-
-// ErrLLMNotYet is for what the port has room for but no slice has built yet: tools (4c).
-var ErrLLMNotYet = errors.New("not supported yet")
 
 // LLM calls a provider with a user's key. Errors from the provider keep its words, never
 // the key.

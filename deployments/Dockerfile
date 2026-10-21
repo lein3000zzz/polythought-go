@@ -2,7 +2,9 @@
 
 # The API server. Build from the repository root:
 #   docker build -f deployments/Dockerfile -t polythought .
-FROM golang:1.27-alpine AS build
+# The image's GOTOOLCHAIN is local, so go.mod's toolchain line does not reach it: the patch
+# release is pinned here too, to build with the same Go.
+FROM golang:1.27.3-alpine AS build
 
 WORKDIR /src
 

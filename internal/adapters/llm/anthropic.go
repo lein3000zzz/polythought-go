@@ -27,7 +27,8 @@ func (c *Client) anthropic(key ports.LLMKey) anthropic.Client {
 
 // anthropicComplete streams the answer and gathers it whole: a long one would outlast a
 // plain request.
-func (c *Client) anthropicComplete(ctx context.Context, key ports.LLMKey, req ports.LLMRequest, schema map[string]any) (ports.LLMResponse, error) {
+func (c *Client) anthropicComplete(ctx context.Context, key ports.LLMKey, cl call) (ports.LLMResponse, error) {
+	req := cl.req
 	params := anthropic.MessageNewParams{
 		Model:     anthropic.Model(req.Model),
 		MaxTokens: cmpMax(req.MaxTokens),
@@ -35,11 +36,7 @@ func (c *Client) anthropicComplete(ctx context.Context, key ports.LLMKey, req po
 	}
 
 	for i, m := range req.Messages {
-		if m.Role == ports.LLMAssistant {
-			params.Messages[i] = anthropic.NewAssistantMessage(anthropic.NewTextBlock(m.Text))
-		} else {
-			params.Messages[i] = anthropic.NewUserMessage(anthropic.NewTextBlock(m.Text))
-		}
+		params.Messages[i] = anthropicMessage(m)
 	}
 
 	if req.System != "" {
@@ -52,12 +49,16 @@ func (c *Client) anthropicComplete(ctx context.Context, key ports.LLMKey, req po
 
 	// Both in output_config: the answer's shape, and how hard Claude thinks, its depth's
 	// only control on the newest models.
-	if schema != nil {
-		params.OutputConfig.Format = anthropic.JSONOutputFormatParam{Schema: schema}
+	if cl.schema != nil {
+		params.OutputConfig.Format = anthropic.JSONOutputFormatParam{Schema: cl.schema}
 	}
 
 	if req.Effort != "" {
 		params.OutputConfig.Effort = anthropic.OutputConfigEffort(req.Effort)
+	}
+
+	for _, t := range cl.tools {
+		params.Tools = append(params.Tools, anthropicTool(t))
 	}
 
 	client := c.anthropic(key)
@@ -74,18 +75,97 @@ func (c *Client) anthropicComplete(ctx context.Context, key ports.LLMKey, req po
 		return ports.LLMResponse{}, err
 	}
 
+	// The turn goes back as it came, thinking blocks and their signatures with it, which
+	// Claude checks when tool results follow.
 	var text strings.Builder
 
+	turn := ports.LLMMessage{Role: ports.LLMAssistant, Native: message.ToParam()}
+
 	for _, block := range message.Content {
-		if t, ok := block.AsAny().(anthropic.TextBlock); ok {
-			text.WriteString(t.Text)
+		switch b := block.AsAny().(type) {
+		case anthropic.TextBlock:
+			text.WriteString(b.Text)
+		case anthropic.ToolUseBlock:
+			turn.ToolCalls = append(turn.ToolCalls, ports.LLMToolCall{ID: b.ID, Name: b.Name, Input: b.Input})
 		}
 	}
 
+	turn.Text = text.String()
+
 	return ports.LLMResponse{
-		Text: text.String(), Model: string(message.Model), StopReason: string(message.StopReason),
+		Text: turn.Text, Model: string(message.Model), StopReason: string(message.StopReason),
 		Usage: ports.LLMUsage{InputTokens: message.Usage.InputTokens, OutputTokens: message.Usage.OutputTokens},
+		Turn:  turn,
 	}, nil
+}
+
+// anthropicMessage is a turn as Claude takes it: an assistant's own as it was when there
+// is one, tool results first in a user's.
+func anthropicMessage(m ports.LLMMessage) anthropic.MessageParam {
+	var blocks []anthropic.ContentBlockParamUnion
+
+	if m.Role == ports.LLMAssistant {
+		if native, ok := m.Native.(anthropic.MessageParam); ok {
+			return native
+		}
+
+		if m.Text != "" {
+			blocks = append(blocks, anthropic.NewTextBlock(m.Text))
+		}
+
+		for _, tc := range m.ToolCalls {
+			blocks = append(blocks, anthropic.NewToolUseBlock(tc.ID, tc.Input, tc.Name))
+		}
+
+		return anthropic.NewAssistantMessage(blocks...)
+	}
+
+	for _, r := range m.ToolResults {
+		blocks = append(blocks, anthropic.NewToolResultBlock(r.CallID, r.Content, r.IsError))
+	}
+
+	if m.Text != "" || len(blocks) == 0 {
+		blocks = append(blocks, anthropic.NewTextBlock(m.Text))
+	}
+
+	return anthropic.NewUserMessage(blocks...)
+}
+
+// anthropicTool is a tool as Claude takes it: strict when its schema fits, and its input
+// streamed as it is written. Claude then does not check that input, so the tool must.
+func anthropicTool(t tool) anthropic.ToolUnionParam {
+	input := anthropic.ToolInputSchemaParam{Properties: t.schema["properties"], ExtraFields: map[string]any{}}
+
+	for k, v := range t.schema {
+		switch k {
+		case "type", "properties":
+		case "required":
+			for _, r := range asList(v) {
+				if name, ok := r.(string); ok {
+					input.Required = append(input.Required, name)
+				}
+			}
+		default:
+			input.ExtraFields[k] = v
+		}
+	}
+
+	param := anthropic.ToolParam{Name: t.Name, InputSchema: input, EagerInputStreaming: anthropic.Bool(true)}
+
+	if t.Description != "" {
+		param.Description = anthropic.String(t.Description)
+	}
+
+	if strict(t.schema) {
+		param.Strict = anthropic.Bool(true)
+	}
+
+	return anthropic.ToolUnionParam{OfTool: &param}
+}
+
+func asList(v any) []any {
+	list, _ := v.([]any)
+	return list
 }
 
 func (c *Client) anthropicModels(ctx context.Context, key ports.LLMKey) ([]ports.LLMModel, error) {

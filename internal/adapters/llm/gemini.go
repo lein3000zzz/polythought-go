@@ -2,6 +2,7 @@ package llm
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"slices"
 	"strings"
@@ -27,7 +28,9 @@ func (c *Client) gemini(ctx context.Context, key ports.LLMKey) (*genai.Client, e
 	})
 }
 
-func (c *Client) geminiComplete(ctx context.Context, key ports.LLMKey, req ports.LLMRequest, schema map[string]any) (ports.LLMResponse, error) {
+func (c *Client) geminiComplete(ctx context.Context, key ports.LLMKey, cl call) (ports.LLMResponse, error) {
+	req := cl.req
+
 	client, err := c.gemini(ctx, key)
 	if err != nil {
 		return ports.LLMResponse{}, err
@@ -35,12 +38,7 @@ func (c *Client) geminiComplete(ctx context.Context, key ports.LLMKey, req ports
 
 	contents := make([]*genai.Content, len(req.Messages))
 	for i, m := range req.Messages {
-		role := genai.Role(genai.RoleUser)
-		if m.Role == ports.LLMAssistant {
-			role = genai.RoleModel
-		}
-
-		contents[i] = genai.NewContentFromText(m.Text, role)
+		contents[i] = geminiContent(m)
 	}
 
 	config := &genai.GenerateContentConfig{MaxOutputTokens: int32(min(cmpMax(req.MaxTokens), 1<<31-1))} //nolint:gosec // bounded just before
@@ -54,12 +52,21 @@ func (c *Client) geminiComplete(ctx context.Context, key ports.LLMKey, req ports
 		config.Temperature = &t
 	}
 
-	if schema != nil {
-		config.ResponseMIMEType, config.ResponseJsonSchema = "application/json", schema
+	if cl.schema != nil {
+		config.ResponseMIMEType, config.ResponseJsonSchema = "application/json", cl.schema
 	}
 
 	if level, ok := geminiLevels[req.Effort]; ok {
 		config.ThinkingConfig = &genai.ThinkingConfig{ThinkingLevel: level}
+	}
+
+	if len(cl.tools) > 0 {
+		decls := make([]*genai.FunctionDeclaration, len(cl.tools))
+		for i, t := range cl.tools {
+			decls[i] = &genai.FunctionDeclaration{Name: t.Name, Description: t.Description, ParametersJsonSchema: t.schema}
+		}
+
+		config.Tools = []*genai.Tool{{FunctionDeclarations: decls}}
 	}
 
 	resp, err := client.Models.GenerateContent(ctx, req.Model, contents, config)
@@ -67,10 +74,23 @@ func (c *Client) geminiComplete(ctx context.Context, key ports.LLMKey, req ports
 		return ports.LLMResponse{}, err
 	}
 
-	out := ports.LLMResponse{Text: resp.Text(), Model: resp.ModelVersion}
+	out := ports.LLMResponse{Text: geminiText(resp), Model: resp.ModelVersion, Turn: ports.LLMMessage{Role: ports.LLMAssistant}}
+	out.Turn.Text = out.Text
 
+	// The model's content goes back as it came: its function calls carry thought
+	// signatures that Gemini checks.
 	if len(resp.Candidates) > 0 {
 		out.StopReason = string(resp.Candidates[0].FinishReason)
+		out.Turn.Native = resp.Candidates[0].Content
+	}
+
+	for _, fc := range resp.FunctionCalls() {
+		input, err := json.Marshal(fc.Args)
+		if err != nil || fc.Args == nil {
+			input = json.RawMessage(`{}`)
+		}
+
+		out.Turn.ToolCalls = append(out.Turn.ToolCalls, ports.LLMToolCall{ID: fc.ID, Name: fc.Name, Input: input})
 	}
 
 	// Thoughts are billed as output too.
@@ -79,6 +99,72 @@ func (c *Client) geminiComplete(ctx context.Context, key ports.LLMKey, req ports
 	}
 
 	return out, nil
+}
+
+// geminiText is the answer's text, its thoughts left out. genai's own Text says so on
+// the standard logger whenever there are function calls too.
+func geminiText(resp *genai.GenerateContentResponse) string {
+	if len(resp.Candidates) == 0 || resp.Candidates[0].Content == nil {
+		return ""
+	}
+
+	var b strings.Builder
+
+	for _, p := range resp.Candidates[0].Content.Parts {
+		if p != nil && !p.Thought {
+			b.WriteString(p.Text)
+		}
+	}
+
+	return b.String()
+}
+
+// geminiContent is a turn as Gemini takes it: the model's own as it was when there is
+// one, and a function response for each result.
+func geminiContent(m ports.LLMMessage) *genai.Content {
+	if m.Role == ports.LLMAssistant {
+		if native, ok := m.Native.(*genai.Content); ok && native != nil {
+			return native
+		}
+
+		var parts []*genai.Part
+		if m.Text != "" {
+			parts = append(parts, genai.NewPartFromText(m.Text))
+		}
+
+		for _, tc := range m.ToolCalls {
+			var args map[string]any
+			_ = json.Unmarshal(tc.Input, &args)
+
+			parts = append(parts, &genai.Part{FunctionCall: &genai.FunctionCall{ID: tc.ID, Name: tc.Name, Args: args}})
+		}
+
+		return genai.NewContentFromParts(parts, genai.RoleModel)
+	}
+
+	var parts []*genai.Part
+
+	for _, r := range m.ToolResults {
+		// A function's response is an object: what the tool gave, or why it failed.
+		response := map[string]any{"error": r.Content}
+
+		if !r.IsError {
+			var v any
+			if err := json.Unmarshal([]byte(r.Content), &v); err != nil {
+				v = r.Content
+			}
+
+			response = map[string]any{"output": v}
+		}
+
+		parts = append(parts, &genai.Part{FunctionResponse: &genai.FunctionResponse{ID: r.CallID, Name: r.Name, Response: response}})
+	}
+
+	if m.Text != "" || len(parts) == 0 {
+		parts = append(parts, genai.NewPartFromText(m.Text))
+	}
+
+	return genai.NewContentFromParts(parts, genai.RoleUser)
 }
 
 // geminiLevels are the thinking levels of the efforts.

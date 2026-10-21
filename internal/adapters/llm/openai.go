@@ -2,9 +2,9 @@ package llm
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"net/url"
-	"slices"
 	"strings"
 
 	"github.com/openai/openai-go/v3"
@@ -38,7 +38,8 @@ func (c *Client) openAIOptions(key ports.LLMKey, base string) []option.RequestOp
 	}
 }
 
-func (c *Client) openAIComplete(ctx context.Context, key ports.LLMKey, base string, req ports.LLMRequest, schema map[string]any) (ports.LLMResponse, error) {
+func (c *Client) openAIComplete(ctx context.Context, key ports.LLMKey, base string, cl call) (ports.LLMResponse, error) {
+	req := cl.req
 	params := openai.ChatCompletionNewParams{
 		Model:    req.Model,
 		Messages: make([]openai.ChatCompletionMessageParamUnion, 0, len(req.Messages)+1),
@@ -49,11 +50,7 @@ func (c *Client) openAIComplete(ctx context.Context, key ports.LLMKey, base stri
 	}
 
 	for _, m := range req.Messages {
-		if m.Role == ports.LLMAssistant {
-			params.Messages = append(params.Messages, openai.AssistantMessage(m.Text))
-		} else {
-			params.Messages = append(params.Messages, openai.UserMessage(m.Text))
-		}
+		params.Messages = append(params.Messages, openAIMessages(m)...)
 	}
 
 	// OpenAI's own wants max_completion_tokens for its newer models; compatible APIs
@@ -68,14 +65,23 @@ func (c *Client) openAIComplete(ctx context.Context, key ports.LLMKey, base stri
 		params.Temperature = openai.Float(*req.Temperature)
 	}
 
-	if schema != nil {
+	if cl.schema != nil {
 		params.ResponseFormat = openai.ChatCompletionNewParamsResponseFormatUnion{OfJSONSchema: &shared.ResponseFormatJSONSchemaParam{
-			JSONSchema: shared.ResponseFormatJSONSchemaJSONSchemaParam{Name: "answer", Schema: schema, Strict: openai.Bool(strict(schema))},
+			JSONSchema: shared.ResponseFormatJSONSchemaJSONSchemaParam{Name: "answer", Schema: cl.schema, Strict: openai.Bool(strict(cl.schema))},
 		}}
 	}
 
 	if req.Effort != "" {
 		params.ReasoningEffort = shared.ReasoningEffort(req.Effort)
+	}
+
+	for _, t := range cl.tools {
+		fn := shared.FunctionDefinitionParam{Name: t.Name, Parameters: shared.FunctionParameters(t.schema), Strict: openai.Bool(strict(t.schema))}
+		if t.Description != "" {
+			fn.Description = openai.String(t.Description)
+		}
+
+		params.Tools = append(params.Tools, openai.ChatCompletionToolUnionParam{OfFunction: &openai.ChatCompletionFunctionToolParam{Function: fn}})
 	}
 
 	chat := openai.NewChatService(c.openAIOptions(key, base)...)
@@ -88,10 +94,23 @@ func (c *Client) openAIComplete(ctx context.Context, key ports.LLMKey, base stri
 	out := ports.LLMResponse{
 		Model: resp.Model,
 		Usage: ports.LLMUsage{InputTokens: resp.Usage.PromptTokens, OutputTokens: resp.Usage.CompletionTokens},
+		Turn:  ports.LLMMessage{Role: ports.LLMAssistant},
 	}
 
 	if len(resp.Choices) > 0 {
-		out.Text, out.StopReason = resp.Choices[0].Message.Content, resp.Choices[0].FinishReason
+		msg := resp.Choices[0].Message
+		out.Text, out.StopReason = msg.Content, resp.Choices[0].FinishReason
+		out.Turn.Text, out.Turn.Native = msg.Content, msg.ToParam()
+
+		for _, tc := range msg.ToolCalls {
+			if tc.Type != "function" {
+				continue
+			}
+
+			out.Turn.ToolCalls = append(out.Turn.ToolCalls, ports.LLMToolCall{
+				ID: tc.ID, Name: tc.Function.Name, Input: json.RawMessage(tc.Function.Arguments),
+			})
+		}
 	}
 
 	// OpenRouter says what it charged, in its credits: dollars (D250). A field the SDK
@@ -103,6 +122,48 @@ func (c *Client) openAIComplete(ctx context.Context, key ports.LLMKey, base stri
 	}
 
 	return out, nil
+}
+
+// openAIMessages are a turn as Chat Completions takes it: an assistant's own as it was
+// when there is one, and a tool message for each result.
+func openAIMessages(m ports.LLMMessage) []openai.ChatCompletionMessageParamUnion {
+	if m.Role == ports.LLMAssistant {
+		if native, ok := m.Native.(openai.ChatCompletionMessageParamUnion); ok {
+			return []openai.ChatCompletionMessageParamUnion{native}
+		}
+
+		asst := openai.ChatCompletionAssistantMessageParam{}
+		if m.Text != "" {
+			asst.Content.OfString = openai.String(m.Text)
+		}
+
+		for _, tc := range m.ToolCalls {
+			asst.ToolCalls = append(asst.ToolCalls, openai.ChatCompletionMessageToolCallUnionParam{
+				OfFunction: &openai.ChatCompletionMessageFunctionToolCallParam{
+					ID:       tc.ID,
+					Function: openai.ChatCompletionMessageFunctionToolCallFunctionParam{Name: tc.Name, Arguments: string(tc.Input)},
+				},
+			})
+		}
+
+		return []openai.ChatCompletionMessageParamUnion{{OfAssistant: &asst}}
+	}
+
+	out := make([]openai.ChatCompletionMessageParamUnion, 0, len(m.ToolResults)+1)
+	for _, r := range m.ToolResults {
+		content := r.Content
+		if r.IsError {
+			content = "Error: " + content
+		}
+
+		out = append(out, openai.ToolMessage(content, r.CallID))
+	}
+
+	if m.Text != "" || len(out) == 0 {
+		out = append(out, openai.UserMessage(m.Text))
+	}
+
+	return out
 }
 
 func (c *Client) openAIModels(ctx context.Context, key ports.LLMKey, base string) ([]ports.LLMModel, error) {
@@ -132,41 +193,4 @@ func (c *Client) openAIError(err error, base string) error {
 	}
 
 	return answered(who, e.StatusCode, e.Message)
-}
-
-// strict is whether a schema fits OpenAI's strict mode, which then holds the answer to it:
-// every object closed, with additionalProperties false, and requiring all its
-// properties. One that does not is sent as a guide only, rather than refused.
-func strict(schema any) bool {
-	switch s := schema.(type) {
-	case map[string]any:
-		if s["type"] == "object" || s["properties"] != nil {
-			if s["additionalProperties"] != false {
-				return false
-			}
-
-			props, _ := s["properties"].(map[string]any)
-			required, _ := s["required"].([]any)
-
-			for name := range props {
-				if !slices.Contains(required, any(name)) {
-					return false
-				}
-			}
-		}
-
-		for _, v := range s {
-			if !strict(v) {
-				return false
-			}
-		}
-	case []any:
-		for _, v := range s {
-			if !strict(v) {
-				return false
-			}
-		}
-	}
-
-	return true
 }

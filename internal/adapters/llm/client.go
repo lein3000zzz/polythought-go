@@ -12,6 +12,7 @@ import (
 	"fmt"
 	"net"
 	"net/http"
+	"slices"
 	"strings"
 	"time"
 
@@ -126,11 +127,7 @@ func (c *Client) Complete(ctx context.Context, key ports.LLMKey, req ports.LLMRe
 	return tracing.InScope(ctx, c.scope, opComplete, func(ctx context.Context, span trace.Span) (ports.LLMResponse, error) {
 		span.SetAttributes(attribute.String("llm.provider", string(key.Provider)), attribute.String("llm.model", req.Model))
 
-		if len(req.Tools) > 0 {
-			return ports.LLMResponse{}, fmt.Errorf("llm: tools: %w", ports.ErrLLMNotYet)
-		}
-
-		schema, err := decodeSchema(req.Schema)
+		cl, err := prepare(req)
 		if err != nil {
 			return ports.LLMResponse{}, err
 		}
@@ -139,16 +136,16 @@ func (c *Client) Complete(ctx context.Context, key ports.LLMKey, req ports.LLMRe
 
 		switch key.Provider {
 		case ports.LLMAnthropic:
-			res, err = c.anthropicComplete(ctx, key, req, schema)
+			res, err = c.anthropicComplete(ctx, key, cl)
 			err = anthropicError(err)
 		case ports.LLMOpenAI:
 			var base string
 			if base, err = c.openAIBase(key); err == nil {
-				res, err = c.openAIComplete(ctx, key, base, req, schema)
+				res, err = c.openAIComplete(ctx, key, base, cl)
 				err = c.openAIError(err, base)
 			}
 		case ports.LLMGemini:
-			res, err = c.geminiComplete(ctx, key, req, schema)
+			res, err = c.geminiComplete(ctx, key, cl)
 			err = geminiError(err)
 		default:
 			err = fmt.Errorf("llm: no provider %q", key.Provider)
@@ -219,6 +216,75 @@ func (c *Client) openAIBase(key ports.LLMKey) (string, error) {
 	}
 
 	return strings.TrimRight(u.String(), "/") + "/", nil
+}
+
+// call is a request, its schemas read as the SDKs take them.
+type call struct {
+	req    ports.LLMRequest
+	schema map[string]any // nil for none
+	tools  []tool
+}
+
+type tool struct {
+	ports.LLMTool
+	schema map[string]any
+}
+
+func prepare(req ports.LLMRequest) (call, error) {
+	schema, err := decodeSchema(req.Schema)
+	if err != nil {
+		return call{}, err
+	}
+
+	cl := call{req: req, schema: schema}
+
+	for _, t := range req.Tools {
+		s, err := decodeSchema(t.Schema)
+		if err != nil || s == nil {
+			return call{}, fmt.Errorf("llm: tool %q: its schema must be a JSON object", t.Name)
+		}
+
+		cl.tools = append(cl.tools, tool{LLMTool: t, schema: s})
+	}
+
+	return cl, nil
+}
+
+// strict is whether a schema fits the providers' strict modes, which then hold the
+// model to it: every object closed, with additionalProperties false, and requiring all
+// its properties. One that does not is sent as a guide only, rather than refused.
+func strict(schema any) bool {
+	switch s := schema.(type) {
+	case map[string]any:
+		if s["type"] == "object" || s["properties"] != nil {
+			if s["additionalProperties"] != false {
+				return false
+			}
+
+			props, _ := s["properties"].(map[string]any)
+			required, _ := s["required"].([]any)
+
+			for name := range props {
+				if !slices.Contains(required, any(name)) {
+					return false
+				}
+			}
+		}
+
+		for _, v := range s {
+			if !strict(v) {
+				return false
+			}
+		}
+	case []any:
+		for _, v := range s {
+			if !strict(v) {
+				return false
+			}
+		}
+	}
+
+	return true
 }
 
 // decodeSchema is a request's JSON schema as the SDKs take it: an object, or nil for

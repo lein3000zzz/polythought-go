@@ -459,8 +459,14 @@ func (n *Agent) ask(ctx context.Context, key ports.LLMKey, s settings) (map[stri
 			problem = "cut off at Max tokens: " + problem
 		}
 
-		req.Messages = append(req.Messages,
-			ports.LLMMessage{Role: ports.LLMAssistant, Text: res.Text},
+		// The turn as the provider gave it, its thinking with it: the conversation only
+		// grows, which Claude's newest models hold it to.
+		turn := res.Turn
+		if turn.Role == "" {
+			turn = ports.LLMMessage{Role: ports.LLMAssistant, Text: res.Text}
+		}
+
+		req.Messages = append(req.Messages, turn,
 			ports.LLMMessage{Role: ports.LLMUser, Text: "That answer does not fit the schema: " + problem +
 				". Answer again, with only the JSON."},
 		)

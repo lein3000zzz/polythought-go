@@ -120,6 +120,11 @@ func TestAnthropic(t *testing.T) {
 
 	res, err := c.Complete(ctx, key, question)
 	require.NoError(t, err)
+	assert.Equal(t, ports.LLMAssistant, res.Turn.Role)
+	assert.Equal(t, "No.", res.Turn.Text)
+	assert.Empty(t, res.Turn.ToolCalls, "answered")
+
+	res.Turn = ports.LLMMessage{}
 	assert.Equal(t, ports.LLMResponse{
 		Text: "No.", Model: "claude-opus-5-5", StopReason: "end_turn",
 		Usage: ports.LLMUsage{InputTokens: 12, OutputTokens: 3},
@@ -259,6 +264,9 @@ func TestGemini(t *testing.T) {
 
 	res, err := c.Complete(ctx, key, question)
 	require.NoError(t, err)
+	assert.Equal(t, "No.", res.Turn.Text)
+
+	res.Turn = ports.LLMMessage{}
 	assert.Equal(t, ports.LLMResponse{
 		Text: "No.", Model: "gemini-x", StopReason: "STOP",
 		Usage: ports.LLMUsage{InputTokens: 9, OutputTokens: 7},
@@ -272,13 +280,13 @@ func TestGemini(t *testing.T) {
 	assert.Equal(t, []ports.LLMModel{{ID: "gemini-x", Name: "Gemini X"}}, models, "only those that answer")
 }
 
-func TestNotYetAndScrubbed(t *testing.T) {
+func TestBadToolAndScrubbed(t *testing.T) {
 	c := newClient(t, false)
 
 	req := question
-	req.Tools = []ports.LLMTool{{Name: "search", Schema: json.RawMessage(`{"type":"object"}`)}}
+	req.Tools = []ports.LLMTool{{Name: "search", Schema: json.RawMessage(`["type"]`)}}
 	_, err := c.Complete(context.Background(), ports.LLMKey{Provider: ports.LLMAnthropic, APIKey: "sk-ant-user"}, req)
-	require.ErrorIs(t, err, ports.ErrLLMNotYet)
+	require.ErrorContains(t, err, `tool "search": its schema must be a JSON object`)
 
 	assert.Equal(t, io.ErrUnexpectedEOF, scrub(io.ErrUnexpectedEOF, ports.LLMKey{APIKey: "sk-secret-1"}), "nothing to scrub: the same error")
 

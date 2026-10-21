@@ -124,9 +124,7 @@ func New(ctx context.Context, util *observability.Utility, cfg Config) (*Runner,
 		return nil, fmt.Errorf("jsruntime: register metrics: %w", err)
 	}
 
-	rt := wazero.NewRuntimeWithConfig(ctx, wazero.NewRuntimeConfig().
-		WithCloseOnContextDone(true).
-		WithMemoryLimitPages((MaxMemory+overhead)/65536))
+	rt := newRuntime(ctx)
 
 	r, err := newRunner(ctx, rt, cfg)
 	if err != nil {
@@ -138,6 +136,19 @@ func New(ctx context.Context, util *observability.Utility, cfg Config) (*Runner,
 	r.scope = tracing.Scope{Manager: util.TracerManager, TracerName: tracerName}
 
 	return r, nil
+}
+
+// creating makes runtimes one at a time: wazero caches its version in a variable,
+// unguarded, the first time one is made, so two made at once race on it.
+var creating sync.Mutex
+
+func newRuntime(ctx context.Context) wazero.Runtime {
+	creating.Lock()
+	defer creating.Unlock()
+
+	return wazero.NewRuntimeWithConfig(ctx, wazero.NewRuntimeConfig().
+		WithCloseOnContextDone(true).
+		WithMemoryLimitPages((MaxMemory+overhead)/65536))
 }
 
 func newRunner(ctx context.Context, rt wazero.Runtime, cfg Config) (*Runner, error) {

@@ -2,8 +2,9 @@ module github.com/lein3000zzz/polythought-go
 
 go 1.27.0
 
-// 1.27.2 fixes net/http, HTTP/2, crypto/tls and net/textproto vulnerabilities (R22).
-toolchain go1.27.2
+// 1.27.2 fixes net/http, HTTP/2, crypto/tls and net/textproto vulnerabilities (R22);
+// 1.27.3, crypto/x509's trust in compromised intermediates (GO-2026-6809).
+toolchain go1.27.3
 
 require (
 	github.com/anthropics/anthropic-sdk-go v1.83.0
