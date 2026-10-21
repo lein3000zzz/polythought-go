@@ -25,8 +25,12 @@ import (
 
 const owner = domain.UserID("alice")
 
-// clock is the node's now when set; the tests run one at a time.
-var clock func() time.Time
+// clock is the node's now and meter what counts its spending, when set; the tests run
+// one at a time.
+var (
+	clock func() time.Time
+	meter ports.AgentMeter
+)
 
 var key = ports.LLMKey{Provider: ports.LLMAnthropic, APIKey: "sk-ant-1"}
 
@@ -83,6 +87,10 @@ func runWith(t *testing.T, llm *fakeLLM, sources ai.Sources, params map[string]a
 	node := ai.NewAgent(creds, llm, sources)
 	if clock != nil {
 		node.WithClock(clock)
+	}
+
+	if meter != nil {
+		node.WithMeter(meter)
 	}
 	base := map[string]any{"credential": "c-1", "model": "claude-opus-5-5", "prompt": "Worth watching?"}
 

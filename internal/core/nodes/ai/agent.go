@@ -63,11 +63,18 @@ type Agent struct {
 	credentials ports.CredentialReader
 	llm         ports.LLM
 	sources     Sources
+	meter       ports.AgentMeter // nil: unmetered
 	now         func() time.Time
 }
 
 func NewAgent(credentials ports.CredentialReader, llm ports.LLM, sources Sources) *Agent {
 	return &Agent{credentials: credentials, llm: llm, sources: sources, now: time.Now}
+}
+
+// WithMeter counts what its calls spend (D275).
+func (n *Agent) WithMeter(m ports.AgentMeter) *Agent {
+	n.meter = m
+	return n
 }
 
 // WithClock sets what the price history tool takes for now.
@@ -231,8 +238,11 @@ func (n *Agent) Run(ctx context.Context, rc engine.RunContext, in engine.Ports) 
 		return nil, err
 	}
 
+	// One budget for the run: its calls, a few at once, go through it.
+	spend := n.budget(rc)
+
 	if call, _ := p.String("call"); call == CallTogether {
-		return n.together(ctx, key, p, items)
+		return n.together(ctx, key, spend, p, items)
 	}
 
 	// Each item's settings first, then the calls, a few at a time.
@@ -267,7 +277,7 @@ func (n *Agent) Run(ctx context.Context, rc engine.RunContext, in engine.Ports) 
 		}
 
 		g.Go(func() error {
-			answers[i], failures[i] = n.ask(gctx, key, jobs[i].s)
+			answers[i], failures[i] = n.ask(gctx, key, spend, jobs[i].s)
 			return ctx.Err()
 		})
 	}
@@ -297,7 +307,7 @@ func (n *Agent) Run(ctx context.Context, rc engine.RunContext, in engine.Ports) 
 }
 
 // together is one call for all the items, and one item out, the answer alone.
-func (n *Agent) together(ctx context.Context, key ports.LLMKey, p engine.Params, items []engine.Item) (engine.Ports, error) {
+func (n *Agent) together(ctx context.Context, key ports.LLMKey, spend ports.SpendBudget, p engine.Params, items []engine.Item) (engine.Ports, error) {
 	out := engine.Ports{}
 
 	srcs := make([]engine.ItemRef, len(items))
@@ -312,7 +322,7 @@ func (n *Agent) together(ctx context.Context, key ports.LLMKey, p engine.Params,
 
 	var answer map[string]any
 	if err == nil {
-		answer, err = n.ask(ctx, key, s)
+		answer, err = n.ask(ctx, key, spend, s)
 	}
 
 	if err != nil {
@@ -496,7 +506,7 @@ func (s *settings) attach(items []engine.Item) error {
 // asking again after that fails. Then, while an answer does not fit, it is asked again,
 // as many more times as the settings say. A refusal or a provider's failure is not asked
 // again: the SDKs have retried what a retry can fix.
-func (n *Agent) ask(ctx context.Context, key ports.LLMKey, s settings) (map[string]any, error) {
+func (n *Agent) ask(ctx context.Context, key ports.LLMKey, spend ports.SpendBudget, s settings) (map[string]any, error) {
 	req := s.req
 	req.Messages = append([]ports.LLMMessage(nil), s.req.Messages...)
 
@@ -511,7 +521,7 @@ func (n *Agent) ask(ctx context.Context, key ports.LLMKey, s settings) (map[stri
 	)
 
 	for try := 1; ; {
-		res, err := n.llm.Complete(ctx, key, req)
+		res, err := n.complete(ctx, key, spend, req)
 		if err != nil {
 			return nil, err
 		}
@@ -594,6 +604,47 @@ func (n *Agent) ask(ctx context.Context, key ports.LLMKey, s settings) (map[stri
 		)
 	}
 }
+
+// complete makes one call through the run's budget, counting what it took as soon as it
+// is back: before its answer is checked, so a call whose item fails counts too.
+func (n *Agent) complete(ctx context.Context, key ports.LLMKey, spend ports.SpendBudget, req ports.LLMRequest) (ports.LLMResponse, error) {
+	hold, refused, err := spend.Admit(ctx, req)
+	if err != nil {
+		return ports.LLMResponse{}, fmt.Errorf("spend: %w", err)
+	}
+
+	if refused != "" {
+		return ports.LLMResponse{}, errors.New(refused)
+	}
+
+	res, err := n.llm.Complete(ctx, key, req)
+	if err != nil {
+		hold.Release()
+		return ports.LLMResponse{}, err
+	}
+
+	hold.Record(ctx, res.Usage)
+
+	return res, nil
+}
+
+// budget is the run's spending, unmetered without a meter.
+func (n *Agent) budget(rc engine.RunContext) ports.SpendBudget {
+	if n.meter == nil {
+		return unmetered{}
+	}
+
+	return n.meter.Run(ports.SpendRun{OwnerID: rc.OwnerID, WorkflowID: rc.WorkflowID, ExecutionID: rc.ExecutionID, NodeID: rc.NodeID})
+}
+
+type unmetered struct{}
+
+func (unmetered) Admit(context.Context, ports.LLMRequest) (ports.SpendHold, string, error) {
+	return unmetered{}, "", nil
+}
+
+func (unmetered) Record(context.Context, ports.LLMUsage) {}
+func (unmetered) Release()                               {}
 
 // turnOf is a response's turn as the provider gave it, its thinking with it: the
 // conversation only grows, which Claude's newest models hold it to.

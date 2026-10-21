@@ -50,8 +50,10 @@ type Deps struct {
 	Code ports.CodeCaller
 
 	// LLM calls the language model providers with their users' keys; optional: without
-	// it, their credential types and the AI agent are not available.
-	LLM ports.LLM
+	// it, their credential types and the AI agent are not available. Spend counts what
+	// the agent spends; optional: without it, nothing is counted.
+	LLM   ports.LLM
+	Spend ports.AgentMeter
 
 	// Orders places orders, on paper or live; optional: without it, the ledger (Books)
 	// and how workflows trade (Accounts), the trading nodes are not available.
@@ -92,9 +94,15 @@ func Register(r *engine.Registry, d Deps) error {
 			}
 		}
 
-		agent = r.RegisterNode(ai.NewAgent(d.Credentials, d.LLM, ai.Sources{
+		node := ai.NewAgent(d.Credentials, d.LLM, ai.Sources{
 			Events: d.Events, Books: d.OrderBooks, History: d.PriceHistory, Trades: d.Trades, Positions: d.Positions,
-		}))
+		})
+
+		if d.Spend != nil {
+			node.WithMeter(d.Spend)
+		}
+
+		agent = r.RegisterNode(node)
 	}
 
 	var market, wallet, dedupe, throttle, consensus error

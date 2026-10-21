@@ -42,6 +42,7 @@ import (
 	"github.com/lein3000zzz/polythought-go/internal/core/services/models"
 	"github.com/lein3000zzz/polythought-go/internal/core/services/notify"
 	"github.com/lein3000zzz/polythought-go/internal/core/services/settings"
+	"github.com/lein3000zzz/polythought-go/internal/core/services/spend"
 	"github.com/lein3000zzz/polythought-go/internal/core/services/telegram"
 	"github.com/lein3000zzz/polythought-go/internal/core/services/traders"
 	"github.com/lein3000zzz/polythought-go/internal/core/services/trading"
@@ -121,6 +122,7 @@ type app struct {
 	customNodes     *customnodes.Service
 	credentials     *credentials.Service
 	models          *models.Service
+	spend           *spend.Service
 	telegramBot     *tgadapter.Bot
 	telegram        *telegram.Service
 	notify          *notify.Service
@@ -652,8 +654,10 @@ func (a *app) initEngine(ctx context.Context, pmc polymarket) error {
 		return err
 	}
 
-	// The models a key can use, for the agent node's picker (D251).
+	// The models a key can use, for the agent node's picker (D251); what the agent spends
+	// with them, counted per user and month (D268).
 	a.models = models.New(models.Deps{Credentials: a.credentials, LLM: llmClient})
+	a.spend = spend.New(spend.Deps{Usage: postgres.NewAgentUsage(a.db), Logger: a.util.Logger})
 
 	// Orders: on paper, simulated against the live book with a paper account per workflow
 	// (D89 to D92); live, from the workflow's wallet through Polymarket's CLOB, while an
@@ -699,6 +703,7 @@ func (a *app) initEngine(ctx context.Context, pmc polymarket) error {
 		Reminder:      a.notify,
 		Code:          a.code,
 		LLM:           llmClient,
+		Spend:         a.spend,
 		Feed:          a.feed,
 		Traders:       a.traders,
 		Orders:        a.trading,
