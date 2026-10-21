@@ -3,6 +3,7 @@ package pluginhost
 import (
 	"errors"
 	"fmt"
+	"math"
 	"regexp"
 	"strings"
 
@@ -10,8 +11,22 @@ import (
 	"github.com/lein3000zzz/polythought-go/pkg/plugin"
 )
 
+// The kinds of metric a plugin may declare.
+const (
+	metricCounter   = "counter"
+	metricHistogram = "histogram"
+)
+
+const (
+	maxMetrics      = 32
+	maxMetricLabels = 8
+	maxBuckets      = 32
+)
+
 var (
 	pluginID = regexp.MustCompile(`^[a-z][a-z0-9-]{0,39}$`)
+	// metricName is a metric's or a label's name: Prometheus's, lowercase, no colons.
+	metricName = regexp.MustCompile(`^[a-z][a-z0-9_]{0,63}$`)
 	// ownName is a node's, trigger's, credential type's or scenario's within its plugin.
 	ownName = regexp.MustCompile(`^[a-zA-Z][a-zA-Z0-9-]{0,63}$`)
 	semver  = regexp.MustCompile(`^(\d+)\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?$`)
@@ -83,11 +98,85 @@ func Check(m plugin.Manifest) error {
 	unique("credential type", creds)
 	unique("scenario", scenarios)
 
+	if _, err := permissionsOf(m.Permissions); err != nil {
+		errs = append(errs, err)
+	}
+
+	errs = append(errs, checkMetrics(m.Metrics)...)
+
 	if len(errs) > 0 {
 		return fmt.Errorf("its manifest: %w", errors.Join(errs...))
 	}
 
 	return nil
+}
+
+// checkMetrics refuses metrics the host would not register as asked: names not in form or
+// given twice, kinds it does not have, labels it keeps for itself, buckets out of order.
+func checkMetrics(list []plugin.Metric) []error {
+	var errs []error
+
+	fail := func(format string, args ...any) { errs = append(errs, fmt.Errorf(format, args...)) }
+
+	if len(list) > maxMetrics {
+		fail("more than %d metrics", maxMetrics)
+	}
+
+	seen := map[string]bool{}
+
+	for _, mt := range list {
+		switch {
+		case !metricName.MatchString(mt.Name):
+			fail("metric %q: a-z, 0-9 and underscores, starting with a letter, up to 64", mt.Name)
+		case seen[mt.Name]:
+			fail("metric %q twice", mt.Name)
+		}
+
+		seen[mt.Name] = true
+
+		if mt.Kind != metricCounter && mt.Kind != metricHistogram {
+			fail("metric %q: kind %q is neither counter nor histogram", mt.Name, mt.Kind)
+		}
+
+		if strings.TrimSpace(mt.Help) == "" {
+			fail("metric %q: help says what it counts", mt.Name)
+		}
+
+		if len(mt.Labels) > maxMetricLabels {
+			fail("metric %q: more than %d labels", mt.Name, maxMetricLabels)
+		}
+
+		labels := map[string]bool{}
+
+		for _, l := range mt.Labels {
+			switch {
+			case !metricName.MatchString(l):
+				fail("metric %q: label %q: a-z, 0-9 and underscores, starting with a letter", mt.Name, l)
+			case l == "plugin":
+				fail("metric %q: the label plugin is the host's, the plugin's ID", mt.Name)
+			case labels[l]:
+				fail("metric %q: label %q twice", mt.Name, l)
+			}
+
+			labels[l] = true
+		}
+
+		switch {
+		case len(mt.Buckets) > 0 && mt.Kind != metricHistogram:
+			fail("metric %q: only a histogram has buckets", mt.Name)
+		case len(mt.Buckets) > maxBuckets:
+			fail("metric %q: more than %d buckets", mt.Name, maxBuckets)
+		}
+
+		for i, b := range mt.Buckets {
+			if math.IsNaN(b) || math.IsInf(b, 0) || (i > 0 && b <= mt.Buckets[i-1]) {
+				fail("metric %q: buckets go up, finite", mt.Name)
+				break
+			}
+		}
+	}
+
+	return errs
 }
 
 func major(version string) string {

@@ -17,6 +17,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log/slog"
 	"time"
 )
 
@@ -40,6 +41,11 @@ type Run struct {
 	OwnerID     string // whose workflow it is: the node acts for them
 	NodeID      string
 	StartedAt   time.Time
+
+	// Host is what the run may ask of Polythought (5b). Log logs through it, with the
+	// plugin's name and the run's.
+	Host Host
+	Log  *slog.Logger
 }
 
 // Item is one item: its fields, as JSON decodes them (numbers json.Number, decimals text),
@@ -51,6 +57,9 @@ type Item struct {
 	// out of the error port with the reason.
 	Sources []ItemRef
 	Err     string
+
+	// ref is where an input item came in, for the host to find its settings.
+	ref *ItemRef
 }
 
 // ItemRef names an input item: its port and place there.

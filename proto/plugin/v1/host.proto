@@ -1,0 +1,103 @@
+syntax = "proto3";
+
+// What the host serves a plugin (5b): its only way out of its process, to the network,
+// to Polythought's data and to the workflow's owner. Each call is checked against the
+// permissions its manifest asks for, and most count against the run's limit.
+//
+// Every call names its session, which the host gives each node run and trigger in their
+// RunContext: it is good only while that run goes on, and only from that plugin.
+package plugin.v1;
+
+import "plugin/v1/plugin.proto";
+
+option go_package = "github.com/lein3000zzz/polythought-go/pkg/plugin/v1;pluginv1";
+
+service HostService {
+  // Fetch makes an HTTP request to a host a fetch permission names (fetch:api.example.com,
+  // or fetch:* for any), redirects included, never inside the server's network unless an
+  // admin allows it. It counts as a call.
+  rpc Fetch(FetchRequest) returns (FetchResponse);
+
+  // GetCredential gives the values of the credential one of the node's credential
+  // settings names: the one the workflow's owner picked, for that item. It counts as a
+  // call.
+  rpc GetCredential(GetCredentialRequest) returns (GetCredentialResponse);
+
+  // Log, RecordMetric, StartSpan and EndSpan are the plugin's logs, metrics and traces.
+  // They are not counted as calls, but have a cap of their own a run.
+  rpc Log(LogRequest) returns (LogResponse);
+  rpc RecordMetric(RecordMetricRequest) returns (RecordMetricResponse);
+  rpc StartSpan(StartSpanRequest) returns (StartSpanResponse);
+  rpc EndSpan(EndSpanRequest) returns (EndSpanResponse);
+}
+
+message Header {
+  string name = 1;
+  string value = 2;
+}
+
+message FetchRequest {
+  string session = 1;
+  string method = 2; // GET when empty
+  string url = 3; // http or https
+  repeated Header headers = 4;
+  bytes body = 5;
+}
+
+message FetchResponse {
+  int32 status = 1;
+  repeated Header headers = 2;
+  bytes body = 3;
+}
+
+message GetCredentialRequest {
+  string session = 1;
+  string param = 2; // the credential setting's name
+  ItemRef item = 3; // the input item whose settings name it; none for a trigger
+}
+
+message GetCredentialResponse {
+  // Its type is named as the setting names it: the plugin's own by their name, a
+  // built-in one by its full name.
+  Credential credential = 1;
+}
+
+message LogRequest {
+  string session = 1;
+  string level = 2; // debug, info, warn or error
+  string message = 3;
+  map<string, string> fields = 4;
+}
+
+message LogResponse {}
+
+// RecordMetricRequest adds to a counter, or observes a value in a histogram, that the
+// manifest declares, with the labels it declares.
+message RecordMetricRequest {
+  string session = 1;
+  string name = 2;
+  double value = 3;
+  map<string, string> labels = 4;
+}
+
+message RecordMetricResponse {}
+
+message StartSpanRequest {
+  string session = 1;
+  string name = 2;
+  uint64 parent = 3; // a span of the run it started and has not ended; 0 for the node's
+  map<string, string> attributes = 4;
+}
+
+message StartSpanResponse {
+  uint64 span = 1;
+}
+
+message EndSpanRequest {
+  string session = 1;
+  uint64 span = 2;
+  string error = 3; // set, the work failed
+  map<string, string> attributes = 4;
+}
+
+message EndSpanResponse {}

@@ -29,7 +29,11 @@ service PluginService {
   rpc TestCredential(TestCredentialRequest) returns (TestCredentialResponse);
 }
 
-message DescribeRequest {}
+message DescribeRequest {
+  // host is the go-plugin broker ID the host serves HostService on, for the plugin to
+  // dial; 0 when it serves none.
+  uint32 host = 1;
+}
 
 message DescribeResponse {
   bytes manifest = 1; // JSON
@@ -42,6 +46,7 @@ message RunContext {
   string owner_id = 3;
   string node_id = 4;
   string started_at = 5; // RFC 3339, the execution's
+  string session = 6; // what its calls to HostService name, good while it runs
 }
 
 message RunNodeRequest {

@@ -16,16 +16,27 @@ type Manifest struct {
 	// SDK is the version of this SDK the plugin was built with, set by Serve.
 	SDK string `json:"sdk,omitempty"`
 
-	// Permissions are what it may ask the host for (5b), such as "fetch" or "orders".
+	// Permissions are what it may ask the host for, which an admin approves (5c): see
+	// PermFetch.
 	Permissions []string `json:"permissions,omitempty"`
 	// Settings are its own, shown on the Config page (5c).
 	Settings []Setting `json:"settings,omitempty"`
+	// Metrics are those it records through Host.Metric, named plugin_<id>_<name>.
+	Metrics []Metric `json:"metrics,omitempty"`
 
 	Nodes           []NodeType       `json:"nodes,omitempty"`
 	Triggers        []NodeType       `json:"triggers,omitempty"`
 	CredentialTypes []CredentialType `json:"credentialTypes,omitempty"`
 	Scenarios       []Scenario       `json:"scenarios,omitempty"`
 }
+
+// Permissions a manifest may ask for.
+const (
+	// PermFetch, with a host, lets Fetch reach that host: fetch:api.example.com, on any
+	// port, its subdomains not. PermFetchAny lets it reach any public address.
+	PermFetch    = "fetch:"
+	PermFetchAny = "fetch:*"
+)
 
 // NodeType describes a node or a trigger, as a built-in one is: its name within the
 // plugin, ports, settings and items.
@@ -128,6 +139,17 @@ type Setting struct {
 	Default     any      `json:"default,omitempty"`
 	Options     []string `json:"options,omitempty"`
 	Secret      bool     `json:"secret,omitempty"`
+}
+
+// Metric is one of the plugin's metrics: a counter, or a histogram of the values it
+// observes, in Buckets when they are given. Labels are the names of the labels it is
+// recorded with, every time all of them.
+type Metric struct {
+	Name    string    `json:"name"` // a-z, 0-9 and underscores, starting with a letter
+	Kind    string    `json:"kind"` // counter or histogram
+	Help    string    `json:"help"`
+	Labels  []string  `json:"labels,omitempty"`
+	Buckets []float64 `json:"buckets,omitempty"`
 }
 
 // Scenario is a workflow to start from, in the library, as the built-in scenarios are

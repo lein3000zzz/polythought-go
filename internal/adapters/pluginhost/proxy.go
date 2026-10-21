@@ -32,19 +32,28 @@ var (
 
 func (n *proxyNode) Type() engine.NodeType { return n.typ }
 
+// Run sends the run's items to the plugin, a session open for its calls to the host
+// while it runs. A run that asked the host past its limit fails, whatever the plugin
+// made of the refusal.
 func (n *proxyNode) Run(ctx context.Context, rc engine.RunContext, in engine.Ports) (engine.Ports, error) {
 	req := &pluginv1.RunNodeRequest{
 		Node: n.name, Run: runContext(string(rc.ExecutionID), string(rc.WorkflowID), string(rc.OwnerID), string(rc.NodeID), rc.StartedAt),
 	}
 
+	s := &session{ctx: ctx, rc: rc, typ: n.typ, params: map[engine.ItemRef]engine.Params{}}
+
 	for _, port := range slices.Sorted(maps.Keys(in)) {
 		input := &pluginv1.Input{Port: port}
 
 		for i, it := range in[port] {
-			params, err := rc.Params.Resolve(engine.ItemRef{Port: port, Index: i})
+			ref := engine.ItemRef{Port: port, Index: i}
+
+			params, err := rc.Params.Resolve(ref)
 			if err != nil {
 				return nil, err
 			}
+
+			s.params[ref] = params
 
 			j, err := json.Marshal(orEmpty(it.JSON))
 			if err != nil {
@@ -62,12 +71,22 @@ func (n *proxyNode) Run(ctx context.Context, rc engine.RunContext, in engine.Por
 		req.Inputs = append(req.Inputs, input)
 	}
 
-	res, err := n.p.rpc.RunNode(ctx, req)
+	token, closed, err := n.p.api.open(s)
 	if err != nil {
-		if ctx.Err() != nil {
-			return nil, ctx.Err()
-		}
+		return nil, err
+	}
+	defer closed()
 
+	req.Run.Session = token
+
+	res, err := n.p.rpc.RunNode(ctx, req)
+
+	switch {
+	case s.overLimit():
+		return nil, fmt.Errorf("plugin %s asked the host more than the %d times a run may", n.p.manifest.ID, s.limits.HostCalls)
+	case err != nil && ctx.Err() != nil:
+		return nil, ctx.Err()
+	case err != nil:
 		return nil, fmt.Errorf("plugin %s: %w", n.p.manifest.ID, callError(err))
 	}
 
@@ -91,6 +110,16 @@ func (t *proxyTrigger) Start(ctx context.Context, tc engine.TriggerContext, emit
 		return fmt.Errorf("its settings: %w", err)
 	}
 
+	// Its calls to the host are counted by the minute, for as long as it runs.
+	token, closed, err := t.p.api.open(&session{
+		ctx: ctx, trigger: true, typ: t.typ, params: map[engine.ItemRef]engine.Params{{}: tc.Params},
+		rc: engine.RunContext{WorkflowID: tc.WorkflowID, OwnerID: tc.OwnerID, NodeID: tc.NodeID},
+	})
+	if err != nil {
+		return err
+	}
+	defer closed()
+
 	stream, err := t.p.rpc.RunTrigger(ctx)
 	if err != nil {
 		return fmt.Errorf("plugin %s: %w", t.p.manifest.ID, callError(err))
@@ -100,6 +129,7 @@ func (t *proxyTrigger) Start(ctx context.Context, tc engine.TriggerContext, emit
 		Trigger: t.name, Run: runContext("", string(tc.WorkflowID), string(tc.OwnerID), string(tc.NodeID), time.Time{}),
 		Params: params, Resumed: tc.Resumed,
 	}
+	start.Run.Session = token
 
 	if err := stream.Send(&pluginv1.RunTriggerRequest{Msg: &pluginv1.RunTriggerRequest_Start{Start: start}}); err != nil {
 		return t.ended(ctx, err)

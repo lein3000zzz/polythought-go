@@ -7,7 +7,9 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log/slog"
 	"os"
+	"sync"
 	"time"
 
 	goplugin "github.com/hashicorp/go-plugin"
@@ -46,9 +48,17 @@ func Serve(p Plugin) {
 	})
 }
 
-// HostPlugins are what the host dispenses: the plugin's client.
-func HostPlugins() goplugin.PluginSet {
-	return goplugin.PluginSet{Name: &grpcPlugin{}}
+// HostPlugins are what the host dispenses, a *Client, serving host to the plugin.
+func HostPlugins(host pluginv1.HostServiceServer) goplugin.PluginSet {
+	return goplugin.PluginSet{Name: &grpcPlugin{host: host}}
+}
+
+// Client is a plugin as the host holds it: the contract's client, and the broker ID the
+// host serves HostService on, which Describe tells the plugin.
+type Client struct {
+	pluginv1.PluginServiceClient
+
+	HostID uint32
 }
 
 // grpcPlugin is go-plugin's glue: the server side for a plugin, the client for the host.
@@ -56,25 +66,59 @@ type grpcPlugin struct {
 	goplugin.NetRPCUnsupportedPlugin
 
 	impl *Plugin
+	host pluginv1.HostServiceServer
 }
 
-func (g *grpcPlugin) GRPCServer(_ *goplugin.GRPCBroker, s *grpc.Server) error {
-	pluginv1.RegisterPluginServiceServer(s, &server{p: g.impl})
+func (g *grpcPlugin) GRPCServer(broker *goplugin.GRPCBroker, s *grpc.Server) error {
+	pluginv1.RegisterPluginServiceServer(s, &server{p: g.impl, broker: broker})
 	return nil
 }
 
-func (g *grpcPlugin) GRPCClient(_ context.Context, _ *goplugin.GRPCBroker, cc *grpc.ClientConn) (any, error) {
-	return pluginv1.NewPluginServiceClient(cc), nil
+func (g *grpcPlugin) GRPCClient(_ context.Context, broker *goplugin.GRPCBroker, cc *grpc.ClientConn) (any, error) {
+	c := &Client{PluginServiceClient: pluginv1.NewPluginServiceClient(cc)}
+
+	if g.host != nil {
+		c.HostID = broker.NextId()
+
+		go broker.AcceptAndServe(c.HostID, func(opts []grpc.ServerOption) *grpc.Server {
+			s := grpc.NewServer(opts...)
+			pluginv1.RegisterHostServiceServer(s, g.host)
+
+			return s
+		})
+	}
+
+	return c, nil
 }
 
 // server serves the contract from a Plugin.
 type server struct {
 	pluginv1.UnimplementedPluginServiceServer
 
-	p *Plugin
+	p      *Plugin
+	broker *goplugin.GRPCBroker
+
+	mu   sync.Mutex
+	host pluginv1.HostServiceClient // dialled at Describe; nil until then, or with none
 }
 
-func (s *server) Describe(context.Context, *pluginv1.DescribeRequest) (*pluginv1.DescribeResponse, error) {
+// Describe answers the manifest, and dials the host's HostService first: the broker
+// keeps its address only a moment.
+func (s *server) Describe(_ context.Context, req *pluginv1.DescribeRequest) (*pluginv1.DescribeResponse, error) {
+	if id := req.GetHost(); id != 0 {
+		s.mu.Lock()
+		defer s.mu.Unlock()
+
+		if s.host == nil {
+			conn, err := s.broker.Dial(id)
+			if err != nil {
+				return nil, status.Errorf(codes.Unavailable, "dial the host: %v", err)
+			}
+
+			s.host = pluginv1.NewHostServiceClient(conn)
+		}
+	}
+
 	raw, err := json.Marshal(s.p.Manifest)
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, "manifest: %v", err)
@@ -92,7 +136,7 @@ func (s *server) RunNode(ctx context.Context, req *pluginv1.RunNodeRequest) (*pl
 	in := Ports{}
 
 	for _, input := range req.GetInputs() {
-		for _, it := range input.GetItems() {
+		for i, it := range input.GetItems() {
 			j, err := decodeObject(it.GetJson())
 			if err != nil {
 				return nil, status.Errorf(codes.InvalidArgument, "an item: %v", err)
@@ -103,11 +147,11 @@ func (s *server) RunNode(ctx context.Context, req *pluginv1.RunNodeRequest) (*pl
 				return nil, status.Errorf(codes.InvalidArgument, "an item's settings: %v", err)
 			}
 
-			in.Add(input.GetPort(), Item{JSON: j, Params: params})
+			in.Add(input.GetPort(), Item{JSON: j, Params: params, ref: &ItemRef{Port: input.GetPort(), Index: i}})
 		}
 	}
 
-	out, err := node.Run(ctx, runOf(req.GetRun()), in)
+	out, err := node.Run(ctx, s.runOf(req.GetRun()), in)
 	if err != nil {
 		return nil, status.Error(codes.Aborted, err.Error())
 	}
@@ -164,7 +208,7 @@ func (s *server) RunTrigger(stream grpc.BidiStreamingServer[pluginv1.RunTriggerR
 		return ctx.Err()
 	}
 
-	err = trigger.Start(stream.Context(), runOf(start.GetRun()), params, start.GetResumed(), emit)
+	err = trigger.Start(stream.Context(), s.runOf(start.GetRun()), params, start.GetResumed(), emit)
 	if err != nil && stream.Context().Err() == nil && !errors.Is(err, io.EOF) {
 		return status.Error(codes.Aborted, err.Error())
 	}
@@ -202,12 +246,17 @@ func (s *server) TestCredential(ctx context.Context, req *pluginv1.TestCredentia
 	return &pluginv1.TestCredentialResponse{}, nil
 }
 
-func runOf(r *pluginv1.RunContext) Run {
+// runOf is the run a request names, its Host the host's for its session.
+func (s *server) runOf(r *pluginv1.RunContext) Run {
 	at, _ := time.Parse(time.RFC3339Nano, r.GetStartedAt())
+
+	s.mu.Lock()
+	host := &hostClient{rpc: s.host, session: r.GetSession()}
+	s.mu.Unlock()
 
 	return Run{
 		ExecutionID: r.GetExecutionId(), WorkflowID: r.GetWorkflowId(), OwnerID: r.GetOwnerId(), NodeID: r.GetNodeId(),
-		StartedAt: at,
+		StartedAt: at, Host: host, Log: slog.New(&logHandler{host: host}),
 	}
 }
 

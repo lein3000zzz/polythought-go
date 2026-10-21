@@ -30,7 +30,10 @@ const (
 )
 
 type DescribeRequest struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// host is the go-plugin broker ID the host serves HostService on, for the plugin to
+	// dial; 0 when it serves none.
+	Host          uint32 `protobuf:"varint,1,opt,name=host,proto3" json:"host,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -63,6 +66,13 @@ func (x *DescribeRequest) ProtoReflect() protoreflect.Message {
 // Deprecated: Use DescribeRequest.ProtoReflect.Descriptor instead.
 func (*DescribeRequest) Descriptor() ([]byte, []int) {
 	return file_plugin_v1_plugin_proto_rawDescGZIP(), []int{0}
+}
+
+func (x *DescribeRequest) GetHost() uint32 {
+	if x != nil {
+		return x.Host
+	}
+	return 0
 }
 
 type DescribeResponse struct {
@@ -117,6 +127,7 @@ type RunContext struct {
 	OwnerId       string                 `protobuf:"bytes,3,opt,name=owner_id,json=ownerId,proto3" json:"owner_id,omitempty"`
 	NodeId        string                 `protobuf:"bytes,4,opt,name=node_id,json=nodeId,proto3" json:"node_id,omitempty"`
 	StartedAt     string                 `protobuf:"bytes,5,opt,name=started_at,json=startedAt,proto3" json:"started_at,omitempty"` // RFC 3339, the execution's
+	Session       string                 `protobuf:"bytes,6,opt,name=session,proto3" json:"session,omitempty"`                      // what its calls to HostService name, good while it runs
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -182,6 +193,13 @@ func (x *RunContext) GetNodeId() string {
 func (x *RunContext) GetStartedAt() string {
 	if x != nil {
 		return x.StartedAt
+	}
+	return ""
+}
+
+func (x *RunContext) GetSession() string {
+	if x != nil {
+		return x.Session
 	}
 	return ""
 }
@@ -1034,10 +1052,11 @@ var File_plugin_v1_plugin_proto protoreflect.FileDescriptor
 
 const file_plugin_v1_plugin_proto_rawDesc = "" +
 	"\n" +
-	"\x16plugin/v1/plugin.proto\x12\tplugin.v1\"\x11\n" +
-	"\x0fDescribeRequest\".\n" +
+	"\x16plugin/v1/plugin.proto\x12\tplugin.v1\"%\n" +
+	"\x0fDescribeRequest\x12\x12\n" +
+	"\x04host\x18\x01 \x01(\rR\x04host\".\n" +
 	"\x10DescribeResponse\x12\x1a\n" +
-	"\bmanifest\x18\x01 \x01(\fR\bmanifest\"\xa3\x01\n" +
+	"\bmanifest\x18\x01 \x01(\fR\bmanifest\"\xbd\x01\n" +
 	"\n" +
 	"RunContext\x12!\n" +
 	"\fexecution_id\x18\x01 \x01(\tR\vexecutionId\x12\x1f\n" +
@@ -1046,7 +1065,8 @@ const file_plugin_v1_plugin_proto_rawDesc = "" +
 	"\bowner_id\x18\x03 \x01(\tR\aownerId\x12\x17\n" +
 	"\anode_id\x18\x04 \x01(\tR\x06nodeId\x12\x1d\n" +
 	"\n" +
-	"started_at\x18\x05 \x01(\tR\tstartedAt\"w\n" +
+	"started_at\x18\x05 \x01(\tR\tstartedAt\x12\x18\n" +
+	"\asession\x18\x06 \x01(\tR\asession\"w\n" +
 	"\x0eRunNodeRequest\x12\x12\n" +
 	"\x04node\x18\x01 \x01(\tR\x04node\x12'\n" +
 	"\x03run\x18\x02 \x01(\v2\x15.plugin.v1.RunContextR\x03run\x12(\n" +

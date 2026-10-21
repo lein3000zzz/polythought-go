@@ -17,7 +17,37 @@ func good() plugin.Manifest {
 		Triggers:        []plugin.NodeType{{Name: "storm"}},
 		CredentialTypes: []plugin.CredentialType{{Name: "key", Label: "Key"}},
 		Scenarios:       []plugin.Scenario{{ID: "rain"}},
+		Permissions:     []string{"fetch:api.weather.example", "fetch:203.0.113.7", "fetch:2001:db8::1", "fetch:*"},
+		Metrics: []plugin.Metric{
+			{Name: "forecasts_total", Kind: "counter", Help: "Forecasts made.", Labels: []string{"city"}},
+			{Name: "rain_mm", Kind: "histogram", Help: "Rain forecast.", Buckets: []float64{1, 5, 20}},
+		},
 	}
+}
+
+func TestPermissions(t *testing.T) {
+	p, err := permissionsOf([]string{"fetch:api.weather.example", "fetch:203.0.113.7"})
+	require.NoError(t, err)
+
+	for host, want := range map[string]bool{
+		"api.weather.example":    true,
+		"API.Weather.Example.":   true, // as a URL may write it
+		"203.0.113.7":            true,
+		"weather.example":        false,
+		"x.api.weather.example":  false, // not its subdomains
+		"api.weather.example.co": false,
+		"":                       false,
+	} {
+		assert.Equal(t, want, p.fetches(host), host)
+	}
+
+	anyHost, err := permissionsOf([]string{"fetch:*"})
+	require.NoError(t, err)
+	assert.True(t, anyHost.fetches("anything.example"))
+
+	none, err := permissionsOf(nil)
+	require.NoError(t, err)
+	assert.False(t, none.fetches("api.weather.example"), "no permission, no fetch")
 }
 
 func TestCheck(t *testing.T) {
@@ -35,6 +65,19 @@ func TestCheck(t *testing.T) {
 		"a trigger named a node":  func(m *plugin.Manifest) { m.Triggers[0].Name = "forecast" },
 		"a credential type twice": func(m *plugin.Manifest) { m.CredentialTypes = append(m.CredentialTypes, m.CredentialTypes[0]) },
 		"a scenario unnamed":      func(m *plugin.Manifest) { m.Scenarios[0].ID = "" },
+		"a permission unknown":    func(m *plugin.Manifest) { m.Permissions = []string{"network"} },
+		"a fetch with no host":    func(m *plugin.Manifest) { m.Permissions = []string{"fetch:"} },
+		"a fetch of a URL":        func(m *plugin.Manifest) { m.Permissions = []string{"fetch:https://api.example.com"} },
+		"a fetch of subdomains":   func(m *plugin.Manifest) { m.Permissions = []string{"fetch:*.example.com"} },
+		"a fetch in capitals":     func(m *plugin.Manifest) { m.Permissions = []string{"fetch:API.example.com"} },
+		"a metric's name":         func(m *plugin.Manifest) { m.Metrics[0].Name = "rain-total" },
+		"a metric twice":          func(m *plugin.Manifest) { m.Metrics = append(m.Metrics, m.Metrics[0]) },
+		"a metric's kind":         func(m *plugin.Manifest) { m.Metrics[0].Kind = "gauge" },
+		"a metric without help":   func(m *plugin.Manifest) { m.Metrics[0].Help = "" },
+		"the host's label":        func(m *plugin.Manifest) { m.Metrics[0].Labels = []string{"plugin"} },
+		"a label twice":           func(m *plugin.Manifest) { m.Metrics[0].Labels = []string{"city", "city"} },
+		"a counter's buckets":     func(m *plugin.Manifest) { m.Metrics[0].Buckets = []float64{1} },
+		"buckets going down":      func(m *plugin.Manifest) { m.Metrics[1].Buckets = []float64{5, 1} },
 	} {
 		m := good()
 		change(&m)

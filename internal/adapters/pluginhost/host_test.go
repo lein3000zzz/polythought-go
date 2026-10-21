@@ -12,7 +12,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/lein3000zzz/the-watchers/pkg/observability/logging"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -50,10 +49,17 @@ func TestMain(m *testing.M) {
 func start(t *testing.T) (*pluginhost.Plugin, *engine.Registry) {
 	t.Helper()
 
+	return startWith(t, pluginhost.Deps{})
+}
+
+// startWith starts the test plugin, serving it the host API from deps.
+func startWith(t *testing.T, deps pluginhost.Deps) (*pluginhost.Plugin, *engine.Registry) {
+	t.Helper()
+
 	// The server's secrets, which the plugin's process must not see.
 	t.Setenv("POLYTHOUGHT_SECRET_KEYS", "k1:server-secret")
 
-	p, err := pluginhost.Start(context.Background(), logging.Noop(), echo)
+	p, err := pluginhost.Start(context.Background(), echo, deps)
 	require.NoError(t, err)
 	t.Cleanup(p.Close)
 
@@ -80,9 +86,13 @@ func run(t *testing.T, r *engine.Registry, name string, params map[string]any, i
 	n, ok := r.Node(name)
 	require.True(t, ok, name)
 
-	return n.Run(context.Background(), engine.RunContext{
-		ExecutionID: "ex-1", WorkflowID: "wf-1", OwnerID: "alice", NodeID: "n-1", StartedAt: time.Now(),
-		Params: engine.LiteralParams(n.Type(), params),
+	return runWith(context.Background(), n, engine.LiteralParams(n.Type(), params), in)
+}
+
+// runWith runs a node in ctx, as alice's, its settings from params.
+func runWith(ctx context.Context, n engine.Node, params engine.ParamResolver, in engine.Ports) (engine.Ports, error) {
+	return n.Run(ctx, engine.RunContext{
+		ExecutionID: "ex-1", WorkflowID: "wf-1", OwnerID: "alice", NodeID: "n-1", StartedAt: time.Now(), Params: params,
 	}, in)
 }
 
@@ -262,10 +272,10 @@ func TestCredentialsAndScenarios(t *testing.T) {
 }
 
 func TestStartRefuses(t *testing.T) {
-	_, err := pluginhost.Start(context.Background(), logging.Noop(), filepath.Join(t.TempDir(), "none"))
+	_, err := pluginhost.Start(context.Background(), filepath.Join(t.TempDir(), "none"), pluginhost.Deps{})
 	require.Error(t, err, "no such program")
 
 	// A program that is no plugin: it never says the handshake.
-	_, err = pluginhost.Start(context.Background(), logging.Noop(), "/bin/echo")
+	_, err = pluginhost.Start(context.Background(), "/bin/echo", pluginhost.Deps{})
 	require.Error(t, err)
 }

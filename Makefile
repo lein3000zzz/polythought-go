@@ -121,8 +121,11 @@ proto: ## Lint the plugin contract's protobuf and regenerate pkg/plugin/v1
 	$(BUF) generate
 
 .PHONY: proto-check
-proto-check: proto ## Fail if pkg/plugin/v1 is stale
-	git diff --exit-code -- pkg/plugin/v1
+proto-check: ## Fail if pkg/plugin/v1 is stale
+	@snapshot="$$(mktemp -d)"; cp -R pkg/plugin/v1 "$$snapshot/"; \
+	$(MAKE) --no-print-directory proto >/dev/null && diff -r "$$snapshot/v1" pkg/plugin/v1 >/dev/null; \
+	status=$$?; rm -rf "$$snapshot"; \
+	if [ $$status -ne 0 ]; then echo "pkg/plugin/v1 was stale and has been regenerated"; exit 1; fi
 
 .PHONY: mocks
 mocks: ## Regenerate mocks from tools/mockery/.mockery.yml

@@ -2,6 +2,10 @@
 // hashicorp/go-plugin, reads its manifest, and makes its nodes, triggers, credential types
 // and scenarios the engine's and the library's (D284), the nodes and triggers as proxies
 // passing items over gRPC (D286). A plugin's names are plugin.<id>.<name> (D285).
+//
+// It serves each plugin the host API (5b), the plugin's only way out of its process:
+// each call names a session of one of its runs, is checked against the permissions its
+// manifest asks for, and is held to the run's limits.
 package pluginhost
 
 import (
@@ -38,18 +42,27 @@ type Plugin struct {
 	rpc      pluginv1.PluginServiceClient
 	manifest plugin.Manifest
 	log      logging.Logger
+	api      *api
 }
 
 // Start starts the plugin program at path and reads what it brings, refusing a manifest
-// the host cannot take. Its process gets none of the server's environment, so none of its
-// settings or secrets: only a PATH and a temporary directory.
-func Start(ctx context.Context, log logging.Logger, path string) (*Plugin, error) {
+// the host cannot take, and serves it the host API from deps. Its process gets none of
+// the server's environment, so none of its settings or secrets: only a PATH and a
+// temporary directory.
+func Start(ctx context.Context, path string, deps Deps) (*Plugin, error) {
+	api, err := newAPI(deps)
+	if err != nil {
+		return nil, err
+	}
+
+	log := api.log
+
 	cmd := exec.Command(path) //nolint:gosec // an admin's plugin, installed by them (5c)
 	cmd.Env = []string{"PATH=/usr/local/bin:/usr/bin:/bin", "TMPDIR=" + os.TempDir(), "HOME=" + os.TempDir()}
 
 	client := goplugin.NewClient(&goplugin.ClientConfig{
 		HandshakeConfig:  plugin.Handshake,
-		Plugins:          plugin.HostPlugins(),
+		Plugins:          plugin.HostPlugins(api),
 		Cmd:              cmd,
 		SkipHostEnv:      true,
 		AllowedProtocols: []goplugin.Protocol{goplugin.ProtocolGRPC},
@@ -75,7 +88,7 @@ func Start(ctx context.Context, log logging.Logger, path string) (*Plugin, error
 		return fail(err)
 	}
 
-	rpc, ok := raw.(pluginv1.PluginServiceClient)
+	rpc, ok := raw.(*plugin.Client)
 	if !ok {
 		return fail(fmt.Errorf("it serves %T, not the plugin contract", raw))
 	}
@@ -83,7 +96,7 @@ func Start(ctx context.Context, log logging.Logger, path string) (*Plugin, error
 	ctx, cancel := context.WithTimeout(ctx, startFor)
 	defer cancel()
 
-	described, err := rpc.Describe(ctx, &pluginv1.DescribeRequest{})
+	described, err := rpc.Describe(ctx, &pluginv1.DescribeRequest{Host: rpc.HostID})
 	if err != nil {
 		return fail(fmt.Errorf("describe: %w", err))
 	}
@@ -102,7 +115,11 @@ func Start(ctx context.Context, log logging.Logger, path string) (*Plugin, error
 		return fail(err)
 	}
 
-	return &Plugin{client: client, rpc: rpc, manifest: m, log: log.With("plugin", m.ID)}, nil
+	if err := api.bind(m); err != nil {
+		return fail(err)
+	}
+
+	return &Plugin{client: client, rpc: rpc, manifest: m, log: log.With("plugin", m.ID), api: api}, nil
 }
 
 func (p *Plugin) Manifest() plugin.Manifest { return p.manifest }
@@ -111,7 +128,10 @@ func (p *Plugin) Manifest() plugin.Manifest { return p.manifest }
 func (p *Plugin) Exited() bool { return p.client.Exited() }
 
 // Close stops its process.
-func (p *Plugin) Close() { p.client.Kill() }
+func (p *Plugin) Close() {
+	p.client.Kill()
+	p.api.http.CloseIdleConnections()
+}
 
 // Register makes the plugin's credential types, nodes and triggers the registry's: the
 // credential types first, as its nodes may ask for them.
