@@ -23,6 +23,27 @@ service HostService {
   // call.
   rpc GetCredential(GetCredentialRequest) returns (GetCredentialResponse);
 
+  // GetValue, SetValue, DeleteValue and ListKeys are the node's own store in its
+  // workflow (D288), for nodes the manifest marks remembers. Values are JSON; keys up to
+  // 256 bytes, all of them and their values within the node's size. They count as calls.
+  rpc GetValue(GetValueRequest) returns (GetValueResponse);
+  rpc SetValue(SetValueRequest) returns (SetValueResponse);
+  rpc DeleteValue(DeleteValueRequest) returns (DeleteValueResponse);
+  rpc ListKeys(ListKeysRequest) returns (ListKeysResponse);
+
+  // SearchMarkets, GetOrderBook, GetPriceHistory, ListTrades and ListPositions read
+  // Polymarket's public data, any plugin (D290, D292), within Polythought's rate limits.
+  // They count as calls.
+  rpc SearchMarkets(SearchMarketsRequest) returns (SearchMarketsResponse);
+  rpc GetOrderBook(GetOrderBookRequest) returns (GetOrderBookResponse);
+  rpc GetPriceHistory(GetPriceHistoryRequest) returns (GetPriceHistoryResponse);
+  rpc ListTrades(ListTradesRequest) returns (ListTradesResponse);
+  rpc ListPositions(ListPositionsRequest) returns (ListPositionsResponse);
+
+  // ListWallets are the workflow's owner's own wallets, with the wallets permission
+  // (D301). It counts as a call.
+  rpc ListWallets(ListWalletsRequest) returns (ListWalletsResponse);
+
   // Log, RecordMetric, StartSpan and EndSpan are the plugin's logs, metrics and traces.
   // They are not counted as calls, but have a cap of their own a run.
   rpc Log(LogRequest) returns (LogResponse);
@@ -101,3 +122,197 @@ message EndSpanRequest {
 }
 
 message EndSpanResponse {}
+
+message GetValueRequest {
+  string session = 1;
+  string key = 2;
+}
+
+message GetValueResponse {
+  bool found = 1;
+  bytes value = 2; // JSON, as it was set
+}
+
+message SetValueRequest {
+  string session = 1;
+  string key = 2;
+  bytes value = 3; // JSON
+}
+
+message SetValueResponse {}
+
+message DeleteValueRequest {
+  string session = 1;
+  string key = 2;
+}
+
+message DeleteValueResponse {}
+
+// ListKeysRequest asks for keys in byte order: those starting with prefix, after after,
+// up to limit (100 when 0, 1000 at most).
+message ListKeysRequest {
+  string session = 1;
+  string prefix = 2;
+  string after = 3;
+  int32 limit = 4;
+}
+
+message ListKeysResponse {
+  repeated string keys = 1;
+}
+
+// Decimals are exact text, like 0.42; times RFC 3339, empty when unknown.
+
+message Market {
+  string id = 1; // the condition ID, 0x…
+  string slug = 2;
+  string question = 3;
+  string description = 4;
+  repeated Outcome outcomes = 5;
+  string status = 6; // open, closed, resolved or archived
+  bool accepting_orders = 7;
+  bool neg_risk = 8;
+  string tick_size = 9;
+  string min_order_size = 10;
+  string volume_24h = 11;
+  string liquidity = 12;
+  string ends_at = 13;
+  repeated string tags = 14;
+  string event = 15; // its event's title
+  string event_slug = 16;
+}
+
+message Outcome {
+  string token_id = 1;
+  string label = 2;
+  string price = 3;
+}
+
+// SearchMarketsRequest finds markets by words of their event's title, open ones unless
+// closed: up to limit, 20 when 0, 100 at most.
+message SearchMarketsRequest {
+  string session = 1;
+  string query = 2;
+  bool closed = 3;
+  int32 limit = 4;
+}
+
+message SearchMarketsResponse {
+  repeated Market markets = 1;
+}
+
+message GetOrderBookRequest {
+  string session = 1;
+  string token_id = 2;
+}
+
+// OrderBook is an outcome's live book, each side best first.
+message OrderBook {
+  string market_id = 1;
+  string token_id = 2;
+  repeated Level bids = 3;
+  repeated Level asks = 4;
+  string tick_size = 5;
+  string at = 6;
+}
+
+message Level {
+  string price = 1;
+  string size = 2;
+}
+
+message GetOrderBookResponse {
+  OrderBook book = 1;
+}
+
+// GetPriceHistoryRequest asks for an outcome's prices from since, until until (now when
+// empty), one every bucket (a Go duration like 1h; a minute at least), up to limit points,
+// 1000 when 0 and at most.
+message GetPriceHistoryRequest {
+  string session = 1;
+  string token_id = 2;
+  string since = 3;
+  string until = 4;
+  string bucket = 5;
+  int32 limit = 6;
+}
+
+message PricePoint {
+  string at = 1;
+  string price = 2;
+}
+
+message GetPriceHistoryResponse {
+  repeated PricePoint points = 1; // oldest first
+}
+
+// ListTradesRequest asks for recent trades, newest first, in a market, of an address, or
+// both: up to limit, 20 when 0, 100 at most.
+message ListTradesRequest {
+  string session = 1;
+  string market_id = 2;
+  string address = 3;
+  int32 limit = 4;
+}
+
+message Trade {
+  string market_id = 1;
+  string token_id = 2;
+  string outcome = 3;
+  string side = 4; // buy or sell
+  string price = 5;
+  string size = 6;
+  string address = 7; // the trader's
+  string name = 8; // the trader's name on Polymarket, if they have one
+  string at = 9;
+  string tx_hash = 10;
+  string title = 11; // the market's question
+  string slug = 12;
+  string event_slug = 13;
+}
+
+message ListTradesResponse {
+  repeated Trade trades = 1;
+}
+
+// ListPositionsRequest asks for an address's open positions, public on the chain: up to
+// limit, 20 when 0, 100 at most.
+message ListPositionsRequest {
+  string session = 1;
+  string address = 2;
+  int32 limit = 3;
+}
+
+message Position {
+  string address = 1;
+  string market_id = 2;
+  string token_id = 3;
+  string title = 4; // the market's question
+  string outcome = 5;
+  string size = 6;
+  string avg_price = 7;
+  string current_price = 8;
+  string value = 9;
+  string realized_pnl = 10;
+  string unrealized_pnl = 11;
+  bool redeemable = 12;
+}
+
+message ListPositionsResponse {
+  repeated Position positions = 1;
+}
+
+message ListWalletsRequest {
+  string session = 1;
+}
+
+// Wallet is one of the owner's: its ID, as a wallet setting names it, and its name.
+message Wallet {
+  string id = 1;
+  string name = 2;
+  string address = 3;
+}
+
+message ListWalletsResponse {
+  repeated Wallet wallets = 1;
+}

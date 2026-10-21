@@ -23,8 +23,8 @@ import (
 	"github.com/lein3000zzz/polythought-go/pkg/plugin"
 )
 
-// echo is the test plugin's program, built once for the package.
-var echo string
+// echo and bare are the test plugins' programs, built once for the package.
+var echo, bare string
 
 func TestMain(m *testing.M) {
 	dir, err := os.MkdirTemp("", "pluginhost-")
@@ -33,11 +33,13 @@ func TestMain(m *testing.M) {
 		os.Exit(1)
 	}
 
-	echo = filepath.Join(dir, "echo")
+	echo, bare = filepath.Join(dir, "echo"), filepath.Join(dir, "bare")
 
-	if out, err := exec.Command("go", "build", "-o", echo, "./testdata/echo").CombinedOutput(); err != nil {
-		fmt.Fprintf(os.Stderr, "build the test plugin: %v\n%s", err, out)
-		os.Exit(1)
+	for path, src := range map[string]string{echo: "./testdata/echo", bare: "./testdata/bare"} {
+		if out, err := exec.Command("go", "build", "-o", path, src).CombinedOutput(); err != nil {
+			fmt.Fprintf(os.Stderr, "build the test plugin %s: %v\n%s", src, err, out)
+			os.Exit(1)
+		}
 	}
 
 	code := m.Run()

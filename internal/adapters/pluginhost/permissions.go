@@ -18,6 +18,7 @@ var hostname = regexp.MustCompile(`^([a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?\.)*[a-z0
 type permissions struct {
 	fetchAny   bool
 	fetchHosts map[string]bool
+	wallets    bool
 }
 
 // permissionsOf reads a manifest's permissions, refusing any it does not know, so a typo
@@ -29,6 +30,8 @@ func permissionsOf(asked []string) (permissions, error) {
 		switch host, fetch := strings.CutPrefix(perm, plugin.PermFetch); {
 		case perm == plugin.PermFetchAny:
 			p.fetchAny = true
+		case perm == plugin.PermWallets:
+			p.wallets = true
 		case fetch && validHost(host):
 			p.fetchHosts[host] = true
 		case fetch:

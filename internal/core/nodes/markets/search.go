@@ -87,12 +87,36 @@ func (n *Search) Run(ctx context.Context, rc engine.RunContext, in engine.Ports)
 // SearchMarkets finds up to limit markets by words in their event's title, open ones or
 // closed ones, shaped like MarketItem with their event's title and slug.
 func SearchMarkets(ctx context.Context, events ports.EventReader, query string, limit int, closed bool) ([]map[string]any, error) {
+	found, err := FindMarkets(ctx, events, query, limit, closed)
+	if err != nil {
+		return nil, err
+	}
+
+	out := make([]map[string]any, len(found))
+	for i, f := range found {
+		out[i] = MarketItem(f.Market)
+		out[i]["event"] = f.Event.Title
+		out[i]["eventSlug"] = f.Event.Slug
+	}
+
+	return out, nil
+}
+
+// Found is a market a search found, with its event.
+type Found struct {
+	Event  domain.Event
+	Market domain.Market
+}
+
+// FindMarkets finds up to limit markets by words in their event's title, open ones or
+// closed ones: for SearchMarkets, and for plugins (D290).
+func FindMarkets(ctx context.Context, events ports.EventReader, query string, limit int, closed bool) ([]Found, error) {
 	page, err := events.ListEvents(ctx, ports.EventFilter{Title: query, Limit: limit, Closed: &closed})
 	if err != nil {
 		return nil, err
 	}
 
-	found := make([]map[string]any, 0, limit)
+	found := make([]Found, 0, limit)
 
 	for _, e := range page.Items {
 		for _, m := range e.Markets {
@@ -105,11 +129,7 @@ func SearchMarkets(ctx context.Context, events ports.EventReader, query string, 
 				continue
 			}
 
-			j := MarketItem(m)
-			j["event"] = e.Title
-			j["eventSlug"] = e.Slug
-
-			found = append(found, j)
+			found = append(found, Found{Event: e, Market: m})
 		}
 	}
 

@@ -6,6 +6,9 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/lein3000zzz/polythought-go/internal/core/domain"
+	pluginv1 "github.com/lein3000zzz/polythought-go/pkg/plugin/v1"
 )
 
 func TestCount(t *testing.T) {
@@ -54,4 +57,40 @@ func TestClip(t *testing.T) {
 	long := clip(string(make([]byte, maxText-1)) + "éé")
 	assert.LessOrEqual(t, len(long), maxText+len("…"))
 	assert.True(t, len(long) > 0 && long[len(long)-len("…"):] == "…", "cut at a rune's start, marked")
+}
+
+func TestHistoryFilter(t *testing.T) {
+	now := time.Date(2026, 10, 21, 12, 0, 0, 0, time.UTC)
+
+	f, err := historyFilter(&pluginv1.GetPriceHistoryRequest{TokenId: " tok ", Since: "2026-10-20T12:00:00Z"}, now)
+	require.NoError(t, err)
+	assert.Equal(t, domain.TokenID("tok"), f.TokenID)
+	assert.Equal(t, now, f.Until, "until now")
+	assert.Equal(t, 1000, f.Limit)
+	assert.Equal(t, 24*time.Hour/1000, f.Bucket, "the day in as many points as it may have")
+
+	f, err = historyFilter(&pluginv1.GetPriceHistoryRequest{
+		TokenId: "tok", Since: "2026-10-20T12:00:00Z", Until: "2026-10-21T00:00:00Z", Bucket: "1h", Limit: 5000,
+	}, now)
+	require.NoError(t, err)
+	assert.Equal(t, time.Hour, f.Bucket)
+	assert.Equal(t, 1000, f.Limit, "at most")
+
+	for name, req := range map[string]*pluginv1.GetPriceHistoryRequest{
+		"no token":          {Since: "2026-10-20T12:00:00Z"},
+		"no since":          {TokenId: "tok"},
+		"since after until": {TokenId: "tok", Since: "2026-10-21T13:00:00Z"},
+		"a bucket too fine": {TokenId: "tok", Since: "2026-10-20T12:00:00Z", Bucket: "10s"},
+		"a bucket unread":   {TokenId: "tok", Since: "2026-10-20T12:00:00Z", Bucket: "hourly"},
+	} {
+		_, err := historyFilter(req, now)
+		assert.Error(t, err, name)
+	}
+}
+
+func TestPage(t *testing.T) {
+	assert.Equal(t, 20, page(0, 20, 100))
+	assert.Equal(t, 7, page(7, 20, 100))
+	assert.Equal(t, 100, page(500, 20, 100))
+	assert.Equal(t, 20, page(-1, 20, 100))
 }

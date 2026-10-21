@@ -13,6 +13,7 @@ import (
 	"os"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/lein3000zzz/polythought-go/pkg/plugin"
 )
@@ -20,7 +21,7 @@ import (
 var manifest = plugin.Manifest{
 	ID: "echo", Version: "1.2.0", Name: "Echo", Description: "Says it back.",
 	// The tests' server; localhost, the same address, is not named.
-	Permissions: []string{"fetch:127.0.0.1"},
+	Permissions: []string{"fetch:127.0.0.1", "wallets"},
 	Metrics: []plugin.Metric{
 		{Name: "shouts_total", Kind: "counter", Help: "Shouts, by case.", Labels: []string{"case"}},
 		{Name: "loudness", Kind: "histogram", Help: "How loud.", Buckets: []float64{1, 10}},
@@ -48,6 +49,12 @@ var manifest = plugin.Manifest{
 		{Name: "chatty", Label: "Chatty"},
 		{Name: "remember", Label: "Remember"},
 		{Name: "late", Label: "Late"},
+		{
+			Name: "keep", Label: "Keep", Remembers: true,
+			Params: []plugin.Param{{Name: "op", Kind: "string"}, {Name: "key", Kind: "string"}, {Name: "value", Kind: "string"}},
+		},
+		{Name: "forgetful", Label: "Forgetful"},
+		{Name: "read", Label: "Read", Params: []plugin.Param{{Name: "what", Kind: "string"}, {Name: "arg", Kind: "string"}}},
 	},
 	Triggers: []plugin.NodeType{
 		{Name: "tick", Label: "Tick", Params: []plugin.Param{
@@ -79,6 +86,9 @@ func main() {
 			"chatty":    plugin.PerItem(chatty),
 			"remember":  plugin.PerItem(remember),
 			"late":      plugin.PerItem(late),
+			"keep":      plugin.PerItem(keep),
+			"forgetful": plugin.PerItem(forgetful),
+			"read":      plugin.PerItem(read),
 		},
 		Triggers: map[string]plugin.Trigger{"tick": tick{}},
 		Credentials: map[string]plugin.CredentialChecks{"token": {
@@ -231,6 +241,91 @@ func late(ctx context.Context, _ plugin.Run, item plugin.Item) (string, map[stri
 	_, err := host.Credential(ctx, "key", item)
 
 	return "", map[string]any{"error": fmt.Sprint(err), "notAllowed": errors.Is(err, plugin.ErrNotAllowed)}, nil
+}
+
+// keep does op with the node's store: set, get, delete or keys.
+func keep(ctx context.Context, run plugin.Run, item plugin.Item) (string, map[string]any, error) {
+	op, _ := item.Params["op"].(string)
+	key, _ := item.Params["key"].(string)
+	value, _ := item.Params["value"].(string)
+
+	var (
+		out = map[string]any{}
+		err error
+	)
+
+	switch op {
+	case "set":
+		err = run.Host.Set(ctx, key, map[string]any{"text": value})
+	case "get":
+		var v map[string]any
+		out["found"], err = run.Host.Get(ctx, key, &v)
+		out["value"] = v
+	case "delete":
+		err = run.Host.Delete(ctx, key)
+	case "keys":
+		var keys []string
+		keys, err = run.Host.Keys(ctx, key, "", 0)
+		out["keys"] = strings.Join(keys, ",")
+	}
+
+	return "", withError(out, err), nil
+}
+
+// forgetful may keep nothing: its manifest does not mark it.
+func forgetful(ctx context.Context, run plugin.Run, _ plugin.Item) (string, map[string]any, error) {
+	return "", withError(map[string]any{}, run.Host.Set(ctx, "k", 1)), nil
+}
+
+// read reads what says, with arg, and gives it back as JSON would have it.
+func read(ctx context.Context, run plugin.Run, item plugin.Item) (string, map[string]any, error) {
+	what, _ := item.Params["what"].(string)
+	arg, _ := item.Params["arg"].(string)
+
+	var (
+		got any
+		err error
+	)
+
+	switch what {
+	case "search":
+		got, err = run.Host.SearchMarkets(ctx, arg, false, 0)
+	case "book":
+		got, err = run.Host.OrderBook(ctx, arg)
+	case "history":
+		got, err = run.Host.PriceHistory(ctx, plugin.PriceQuery{
+			TokenID: arg, Since: time.Date(2026, 10, 21, 0, 0, 0, 0, time.UTC), Until: time.Date(2026, 10, 21, 1, 0, 0, 0, time.UTC),
+		})
+	case "trades":
+		got, err = run.Host.Trades(ctx, plugin.TradeQuery{MarketID: arg, Limit: 1})
+	case "positions":
+		got, err = run.Host.Positions(ctx, arg, 0)
+	case "wallets":
+		got, err = run.Host.Wallets(ctx)
+	}
+
+	out := map[string]any{}
+
+	if err == nil {
+		raw, _ := json.Marshal(got)
+
+		var back any
+		_ = json.Unmarshal(raw, &back)
+		out["got"] = back
+	}
+
+	return "", withError(out, err), nil
+}
+
+// withError adds how err went to out, as the SDK tells it.
+func withError(out map[string]any, err error) map[string]any {
+	if err != nil {
+		out["error"] = err.Error()
+		out["notAllowed"] = errors.Is(err, plugin.ErrNotAllowed)
+		out["limit"] = errors.Is(err, plugin.ErrLimit)
+	}
+
+	return out
 }
 
 func misbehave(_ context.Context, _ plugin.Run, in plugin.Ports) (plugin.Ports, error) {

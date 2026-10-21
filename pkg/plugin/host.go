@@ -35,6 +35,34 @@ type Host interface {
 	// Span starts a span, under the one ctx carries or else the node's, with attributes;
 	// end ends it, failed unless err is nil. The context it returns carries it.
 	Span(ctx context.Context, name string, attributes map[string]string) (_ context.Context, end func(err error))
+
+	// Get, Set, Delete and Keys are the node's own store in its workflow, for a node its
+	// manifest marks Remembers: values as JSON, keys up to 256 bytes, all within the
+	// node's size, 1 MiB unless an admin says. It shows on the node's settings as its
+	// memory, and goes with Forget, the node and the workflow.
+	//
+	// Get decodes the value under key into v, and says whether there was one.
+	Get(ctx context.Context, key string, v any) (bool, error)
+	Set(ctx context.Context, key string, v any) error
+	Delete(ctx context.Context, key string) error
+	// Keys are those starting with prefix, in byte order, after after: up to limit,
+	// 100 when 0, 1000 at most.
+	Keys(ctx context.Context, prefix, after string, limit int) ([]string, error)
+
+	// SearchMarkets, OrderBook, PriceHistory, Trades and Positions read Polymarket's
+	// public data, any address's positions among them: no permission.
+	//
+	// SearchMarkets finds markets by words of their event's title, open ones unless
+	// closed: up to limit, 20 when 0, 100 at most.
+	SearchMarkets(ctx context.Context, query string, closed bool, limit int) ([]Market, error)
+	OrderBook(ctx context.Context, tokenID string) (OrderBook, error)
+	PriceHistory(ctx context.Context, q PriceQuery) ([]PricePoint, error)
+	Trades(ctx context.Context, q TradeQuery) ([]Trade, error)
+	// Positions are an address's open positions: up to limit, 20 when 0, 100 at most.
+	Positions(ctx context.Context, address string, limit int) ([]Position, error)
+
+	// Wallets are the workflow's owner's own wallets, with PermWallets.
+	Wallets(ctx context.Context) ([]Wallet, error)
 }
 
 // Request is an HTTP request for Fetch.
@@ -64,8 +92,9 @@ var (
 	// outside the run.
 	ErrNotAllowed = errors.New("not allowed")
 
-	// ErrLimit is the host refusing a call past the run's limit.
-	ErrLimit = errors.New("past the run's limit")
+	// ErrLimit is the host refusing a call past a limit: the run's calls, or the room in
+	// the node's store.
+	ErrLimit = errors.New("past a limit")
 )
 
 // hostError is the host's reason a call failed, matching ErrNotAllowed or ErrLimit by

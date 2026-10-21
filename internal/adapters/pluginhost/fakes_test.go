@@ -2,14 +2,19 @@ package pluginhost_test
 
 import (
 	"context"
+	"encoding/json"
 	"net/http"
 	"slices"
+	"strings"
 	"sync"
+	"time"
 
 	"github.com/lein3000zzz/the-watchers/pkg/observability/logging"
 	"github.com/lein3000zzz/the-watchers/pkg/observability/metrics"
+	"github.com/shopspring/decimal"
 
 	"github.com/lein3000zzz/polythought-go/internal/core/domain"
+	"github.com/lein3000zzz/polythought-go/internal/core/ports"
 )
 
 // logLine is a line the server logged, its attributes by key, a group's as []logging.Attr.
@@ -163,4 +168,151 @@ func (c *credentials) Values(_ context.Context, owner domain.UserID, id domain.C
 	}
 
 	return s.typ, s.values, nil
+}
+
+// store is a plugin store in memory, held to its size as Postgres's is.
+type store struct {
+	mu     sync.Mutex
+	values map[ports.PluginNode]map[string]json.RawMessage
+}
+
+func newStore() *store {
+	return &store{values: map[ports.PluginNode]map[string]json.RawMessage{}}
+}
+
+func (s *store) Get(_ context.Context, n ports.PluginNode, key string) (json.RawMessage, bool, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	v, ok := s.values[n][key]
+
+	return v, ok, nil
+}
+
+func (s *store) Set(_ context.Context, n ports.PluginNode, key string, value json.RawMessage, max int, _ time.Time) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	used := len(key) + len(value)
+	for k, v := range s.values[n] {
+		if k != key {
+			used += len(k) + len(v)
+		}
+	}
+
+	if used > max {
+		return domain.ErrStoreFull
+	}
+
+	if s.values[n] == nil {
+		s.values[n] = map[string]json.RawMessage{}
+	}
+
+	s.values[n][key] = value
+
+	return nil
+}
+
+func (s *store) Delete(_ context.Context, n ports.PluginNode, key string) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	delete(s.values[n], key)
+
+	return nil
+}
+
+func (s *store) Keys(_ context.Context, n ports.PluginNode, prefix, after string, limit int) ([]string, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	var keys []string
+
+	for k := range s.values[n] {
+		if strings.HasPrefix(k, prefix) && k > after {
+			keys = append(keys, k)
+		}
+	}
+
+	slices.Sort(keys)
+
+	return keys[:min(len(keys), limit)], nil
+}
+
+// data is Polymarket's data for the tests: an event of rain, an open market and a closed
+// one, and alice's wallets. It keeps the filters it is asked with.
+type data struct {
+	mu      sync.Mutex
+	history ports.PriceHistoryFilter
+	trades  ports.TradeFilter
+}
+
+var (
+	at     = time.Date(2026, 10, 21, 0, 0, 0, 0, time.UTC)
+	trader = domain.WalletAddress("0x00000000000000000000000000000000000000aa")
+	aliceW = domain.WalletAddress("0x00000000000000000000000000000000000000bb")
+	dec    = decimal.RequireFromString
+	monday = domain.Market{
+		ID: "0xm1", Question: "Will it rain Monday?", Status: domain.MarketOpen, AcceptingOrders: true,
+		TickSize: dec("0.01"), Volume24h: dec("1234.5678"), EndsAt: at.Add(72 * time.Hour),
+		Outcomes: []domain.Outcome{{TokenID: "tok-yes", Label: "Yes", Price: dec("0.42")}, {TokenID: "tok-no", Label: "No", Price: dec("0.58")}},
+	}
+	sunday = domain.Market{ID: "0xm0", Question: "Did it rain Sunday?", Status: domain.MarketClosed}
+)
+
+func (d *data) ListEvents(context.Context, ports.EventFilter) (ports.Page[domain.Event], error) {
+	return ports.Page[domain.Event]{Items: []domain.Event{{Title: "Rain in Paris?", Slug: "rain-paris", Markets: []domain.Market{sunday, monday}}}}, nil
+}
+
+func (d *data) GetEvent(context.Context, domain.EventID) (domain.Event, error) {
+	return domain.Event{}, domain.ErrNotFound
+}
+
+func (d *data) GetEventBySlug(context.Context, string) (domain.Event, error) {
+	return domain.Event{}, domain.ErrNotFound
+}
+
+func (d *data) OrderBooks(_ context.Context, ids ...domain.TokenID) ([]domain.OrderBook, error) {
+	if ids[0] != "tok-yes" {
+		return nil, nil
+	}
+
+	return []domain.OrderBook{{
+		MarketID: "0xm1", TokenID: "tok-yes", TickSize: dec("0.01"), At: at,
+		Bids: []domain.Level{{Price: dec("0.41"), Size: dec("100")}}, Asks: []domain.Level{{Price: dec("0.43"), Size: dec("50")}},
+	}}, nil
+}
+
+func (d *data) PriceHistory(_ context.Context, f ports.PriceHistoryFilter) (ports.Page[domain.PricePoint], error) {
+	d.mu.Lock()
+	d.history = f
+	d.mu.Unlock()
+
+	return ports.Page[domain.PricePoint]{Items: []domain.PricePoint{
+		{At: at.Add(2 * time.Minute), Price: dec("0.44")}, {At: at, Price: dec("0.40")}, {At: at.Add(time.Minute), Price: dec("0.42")},
+	}}, nil
+}
+
+func (d *data) Trades(_ context.Context, f ports.TradeFilter) (ports.Page[domain.Trade], error) {
+	d.mu.Lock()
+	d.trades = f
+	d.mu.Unlock()
+
+	return ports.Page[domain.Trade]{Items: []domain.Trade{
+		{MarketID: "0xm1", TokenID: "tok-yes", Side: domain.SideBuy, Price: dec("0.42"), Size: dec("10"), Wallet: trader, At: at},
+	}}, nil
+}
+
+func (d *data) Positions(_ context.Context, f ports.PositionFilter) (ports.Page[domain.Position], error) {
+	return ports.Page[domain.Position]{Items: []domain.Position{
+		{Wallet: f.Wallet, MarketID: "0xm1", TokenID: "tok-yes", Outcome: "Yes", Size: dec("25"), Value: dec("10.50")},
+	}}, nil
+}
+
+func (d *data) ListForUser(_ context.Context, user domain.UserID) ([]domain.Wallet, error) {
+	if user != "alice" {
+		return nil, nil
+	}
+
+	return []domain.Wallet{{ID: "w-1", UserID: "alice", Label: "Main", Address: aliceW}}, nil
 }

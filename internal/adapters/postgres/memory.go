@@ -15,7 +15,9 @@ import (
 
 var _ ports.NodeMemory = (*NodeMemory)(nil)
 
-// NodeMemory keeps what nodes remember (D121) in node_memory.
+// NodeMemory keeps what nodes remember (D121) in node_memory. What plugin nodes store,
+// in plugin_store (D288), counts as their memory: Count, Forget and ForgetOthers take it
+// in.
 type NodeMemory struct {
 	db *DB
 }
@@ -230,7 +232,11 @@ func (r *NodeMemory) Count(ctx context.Context, wf domain.WorkflowID, node domai
 
 	var out struct{ Count int64 }
 
-	err = jet.SELECT(jet.COUNT(jet.STAR).AS("count")).
+	s := table.PluginStore
+	stored := jet.SELECT(jet.COUNT(jet.STAR)).FROM(s).
+		WHERE(s.WorkflowID.EQ(jet.UUID(wid)).AND(s.NodeID.EQ(jet.String(string(node)))))
+
+	err = jet.SELECT(jet.COUNT(jet.STAR).ADD(jet.IntExp(stored)).AS("count")).
 		FROM(m).
 		WHERE(r.ofNode(wid, node).AND(m.ExpiresAt.GT(jet.TimestampzT(now)))).
 		QueryContext(ctx, r.db.conn(ctx), &out)
@@ -244,9 +250,18 @@ func (r *NodeMemory) Forget(ctx context.Context, wf domain.WorkflowID, node doma
 		return err
 	}
 
-	_, err = table.NodeMemory.DELETE().WHERE(r.ofNode(wid, node)).ExecContext(ctx, r.db.conn(ctx))
+	m, s := table.NodeMemory, table.PluginStore
 
-	return err
+	return r.db.WithinTx(ctx, func(ctx context.Context) error {
+		if _, err := m.DELETE().WHERE(r.ofNode(wid, node)).ExecContext(ctx, r.db.conn(ctx)); err != nil {
+			return err
+		}
+
+		_, err := s.DELETE().WHERE(s.WorkflowID.EQ(jet.UUID(wid)).AND(s.NodeID.EQ(jet.String(string(node))))).
+			ExecContext(ctx, r.db.conn(ctx))
+
+		return err
+	})
 }
 
 func (r *NodeMemory) ForgetOthers(ctx context.Context, wf domain.WorkflowID, keep []domain.NodeID) error {
@@ -255,8 +270,8 @@ func (r *NodeMemory) ForgetOthers(ctx context.Context, wf domain.WorkflowID, kee
 		return err
 	}
 
-	m := table.NodeMemory
-	where := m.WorkflowID.EQ(jet.UUID(wid))
+	m, s := table.NodeMemory, table.PluginStore
+	memory, stored := m.WorkflowID.EQ(jet.UUID(wid)), s.WorkflowID.EQ(jet.UUID(wid))
 
 	if len(keep) > 0 {
 		ids := make([]jet.Expression, len(keep))
@@ -264,12 +279,18 @@ func (r *NodeMemory) ForgetOthers(ctx context.Context, wf domain.WorkflowID, kee
 			ids[i] = jet.String(string(n))
 		}
 
-		where = where.AND(m.NodeID.NOT_IN(ids...))
+		memory, stored = memory.AND(m.NodeID.NOT_IN(ids...)), stored.AND(s.NodeID.NOT_IN(ids...))
 	}
 
-	_, err = m.DELETE().WHERE(where).ExecContext(ctx, r.db.conn(ctx))
+	return r.db.WithinTx(ctx, func(ctx context.Context) error {
+		if _, err := m.DELETE().WHERE(memory).ExecContext(ctx, r.db.conn(ctx)); err != nil {
+			return err
+		}
 
-	return err
+		_, err := s.DELETE().WHERE(stored).ExecContext(ctx, r.db.conn(ctx))
+
+		return err
+	})
 }
 
 func (r *NodeMemory) Sweep(ctx context.Context, now time.Time) (int, error) {

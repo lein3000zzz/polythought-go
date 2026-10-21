@@ -207,12 +207,14 @@ var fieldKinds = map[string]engine.FieldKind{
 }
 
 // nodeType is a plugin's node or trigger as the engine's: named plugin.<id>.<name>, main
-// its ports unless it says, and nothing a plugin cannot be, code or a node with memory.
-// The registry checks the rest as it does a built-in's.
+// its ports unless it says, and nothing a plugin cannot be, such as code. One that
+// remembers keeps its data in the plugin store, shown as its memory (D302). The registry
+// checks the rest as it does a built-in's.
 func nodeType(id string, t plugin.NodeType, trigger bool) (engine.NodeType, error) {
 	out := engine.NodeType{
 		Name: qualified(id, t.Name), Label: t.Label, Description: t.Description,
 		Inputs: t.Inputs, Outputs: t.Outputs, OutputsParam: t.OutputsParam, OutputsColumn: t.OutputsColumn,
+		Remembers: t.Remembers,
 	}
 
 	switch {

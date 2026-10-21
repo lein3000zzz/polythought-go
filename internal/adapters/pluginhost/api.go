@@ -31,8 +31,18 @@ import (
 const (
 	tracerName = "github.com/lein3000zzz/polythought-go/internal/adapters/pluginhost"
 
-	opFetch      = "pluginhost.Fetch"
-	opCredential = "pluginhost.GetCredential"
+	opFetch         = "pluginhost.Fetch"
+	opCredential    = "pluginhost.GetCredential"
+	opGetValue      = "pluginhost.GetValue"
+	opSetValue      = "pluginhost.SetValue"
+	opDeleteValue   = "pluginhost.DeleteValue"
+	opListKeys      = "pluginhost.ListKeys"
+	opSearchMarkets = "pluginhost.SearchMarkets"
+	opOrderBook     = "pluginhost.GetOrderBook"
+	opPriceHistory  = "pluginhost.GetPriceHistory"
+	opTrades        = "pluginhost.ListTrades"
+	opPositions     = "pluginhost.ListPositions"
+	opWallets       = "pluginhost.ListWallets"
 )
 
 // Deps are what the host serves plugins from (5b).
@@ -42,6 +52,12 @@ type Deps struct {
 
 	// Credentials reads the owner's credentials for their nodes; nil: there are none.
 	Credentials ports.CredentialReader
+
+	// Store keeps what plugin nodes store; nil: nothing can be.
+	Store ports.PluginStore
+
+	// Data is what plugins may read.
+	Data Data
 
 	// AllowPrivate lets fetches reach addresses inside the server's network, as the
 	// webhooks' setting does; asked on every connection, nil means never.
@@ -60,9 +76,12 @@ type Limits struct {
 
 	FetchTime time.Duration // a fetch's, from dialling to its body's last byte
 	FetchBody int           // bytes of a fetch's request body, and of its response's
+
+	// StoreBytes are what one node may keep in its store, its keys and values (D303).
+	StoreBytes int
 }
 
-var DefaultLimits = Limits{HostCalls: 100, FetchTime: 10 * time.Second, FetchBody: 1 << 20}
+var DefaultLimits = Limits{HostCalls: 100, FetchTime: 10 * time.Second, FetchBody: 1 << 20, StoreBytes: 1 << 20}
 
 // orDefaults is l with DefaultLimits' for what it leaves at zero.
 func (l Limits) orDefaults() Limits {
@@ -76,6 +95,10 @@ func (l Limits) orDefaults() Limits {
 
 	if l.FetchBody <= 0 {
 		l.FetchBody = DefaultLimits.FetchBody
+	}
+
+	if l.StoreBytes <= 0 {
+		l.StoreBytes = DefaultLimits.StoreBytes
 	}
 
 	return l
@@ -293,6 +316,32 @@ func (s *session) endSpans() {
 	}
 }
 
+// call runs one of a session's calls, counted against its limit, in the run's context,
+// timed and traced as op.
+func call[T any](ctx context.Context, a *api, token, op string, fn func(context.Context, *session, trace.Span) (T, error)) (_ T, err error) {
+	var none T
+
+	s, err := a.session(token)
+	if err != nil {
+		return none, err
+	}
+
+	if err := s.count(); err != nil {
+		return none, err
+	}
+
+	ctx, done := s.work(ctx)
+	defer done()
+
+	finish := a.kit.Start(ctx, op)
+	defer func() { finish(err == nil) }()
+
+	return tracing.InScope(ctx, a.scope, op, func(ctx context.Context, span trace.Span) (T, error) {
+		span.SetAttributes(attribute.String("plugin.id", a.id))
+		return fn(ctx, s, span)
+	})
+}
+
 // logArgs are a run's, for a log line about it.
 func (s *session) logArgs() []any {
 	args := []any{"workflow_id", s.rc.WorkflowID, "node_id", s.rc.NodeID}
@@ -306,24 +355,9 @@ func (s *session) logArgs() []any {
 // GetCredential gives the values of the credential that one of the node's credential
 // settings names, for the item the plugin names (D289): nothing the owner did not pick
 // for that node.
-func (a *api) GetCredential(ctx context.Context, req *pluginv1.GetCredentialRequest) (_ *pluginv1.GetCredentialResponse, err error) {
-	s, err := a.session(req.GetSession())
-	if err != nil {
-		return nil, err
-	}
-
-	if err := s.count(); err != nil {
-		return nil, err
-	}
-
-	ctx, done := s.work(ctx)
-	defer done()
-
-	finish := a.kit.Start(ctx, opCredential)
-	defer func() { finish(err == nil) }()
-
-	return tracing.InScope(ctx, a.scope, opCredential, func(ctx context.Context, span trace.Span) (*pluginv1.GetCredentialResponse, error) {
-		span.SetAttributes(attribute.String("plugin.id", a.id), attribute.String("plugin.param", req.GetParam()))
+func (a *api) GetCredential(ctx context.Context, req *pluginv1.GetCredentialRequest) (*pluginv1.GetCredentialResponse, error) {
+	return call(ctx, a, req.GetSession(), opCredential, func(ctx context.Context, s *session, span trace.Span) (*pluginv1.GetCredentialResponse, error) {
+		span.SetAttributes(attribute.String("plugin.param", req.GetParam()))
 
 		spec, ok := credentialParam(s.typ, req.GetParam())
 		if !ok {

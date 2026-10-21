@@ -17,7 +17,7 @@ func good() plugin.Manifest {
 		Triggers:        []plugin.NodeType{{Name: "storm"}},
 		CredentialTypes: []plugin.CredentialType{{Name: "key", Label: "Key"}},
 		Scenarios:       []plugin.Scenario{{ID: "rain"}},
-		Permissions:     []string{"fetch:api.weather.example", "fetch:203.0.113.7", "fetch:2001:db8::1", "fetch:*"},
+		Permissions:     []string{"fetch:api.weather.example", "fetch:203.0.113.7", "fetch:2001:db8::1", "fetch:*", "wallets"},
 		Metrics: []plugin.Metric{
 			{Name: "forecasts_total", Kind: "counter", Help: "Forecasts made.", Labels: []string{"city"}},
 			{Name: "rain_mm", Kind: "histogram", Help: "Rain forecast.", Buckets: []float64{1, 5, 20}},
@@ -66,6 +66,7 @@ func TestCheck(t *testing.T) {
 		"a credential type twice": func(m *plugin.Manifest) { m.CredentialTypes = append(m.CredentialTypes, m.CredentialTypes[0]) },
 		"a scenario unnamed":      func(m *plugin.Manifest) { m.Scenarios[0].ID = "" },
 		"a permission unknown":    func(m *plugin.Manifest) { m.Permissions = []string{"network"} },
+		"wallets misspelt":        func(m *plugin.Manifest) { m.Permissions = []string{"wallet"} },
 		"a fetch with no host":    func(m *plugin.Manifest) { m.Permissions = []string{"fetch:"} },
 		"a fetch of a URL":        func(m *plugin.Manifest) { m.Permissions = []string{"fetch:https://api.example.com"} },
 		"a fetch of subdomains":   func(m *plugin.Manifest) { m.Permissions = []string{"fetch:*.example.com"} },
@@ -111,7 +112,12 @@ func TestNodeType(t *testing.T) {
 	assert.Equal(t, []engine.FieldKind{engine.FieldNumber, engine.FieldDecimal}, typ.Params[2].FieldKinds)
 	assert.Equal(t, engine.ParamTable, typ.Params[3].Kind)
 	assert.Equal(t, engine.FieldDecimal, typ.Items.Fields[0].Of.Fields[0].Kind)
-	assert.False(t, typ.Code || typ.Remembers || typ.SeesItems, "nothing a plugin cannot be")
+	assert.False(t, typ.Code || typ.SeesItems, "nothing a plugin cannot be")
+	assert.False(t, typ.Remembers, "unless it says")
+
+	kept, err := nodeType("weather", plugin.NodeType{Name: "seen", Remembers: true}, false)
+	require.NoError(t, err)
+	assert.True(t, kept.Remembers, "its store shown as its memory")
 
 	for name, n := range map[string]plugin.NodeType{
 		"code":            {Name: "x", Params: []plugin.Param{{Name: "src", Kind: "code"}}},

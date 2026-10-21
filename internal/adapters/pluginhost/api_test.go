@@ -22,6 +22,7 @@ import (
 
 	"github.com/lein3000zzz/polythought-go/internal/adapters/pluginhost"
 	"github.com/lein3000zzz/polythought-go/internal/core/engine"
+	"github.com/lein3000zzz/polythought-go/internal/core/ports"
 )
 
 // server is the tests' web server, on 127.0.0.1, which the echo plugin may fetch from.
@@ -283,4 +284,143 @@ func TestTelemetry(t *testing.T) {
 
 		assert.Equal(t, map[string]any{"about": "rain", "odds.yes": "0.42", "workflow_id": "spoofed"}, fields)
 	})
+}
+
+// kept runs the keep node once, its settings these.
+func kept(t *testing.T, r *engine.Registry, name string, params map[string]any) map[string]any {
+	t.Helper()
+
+	out, err := run(t, r, name, params, items(map[string]any{}))
+	require.NoError(t, err)
+	require.Len(t, out[engine.DefaultPort], 1)
+
+	return out[engine.DefaultPort][0].JSON
+}
+
+func TestStore(t *testing.T) {
+	st := newStore()
+	_, r := startWith(t, pluginhost.Deps{Store: st, Limits: func() pluginhost.Limits { return pluginhost.Limits{StoreBytes: 64} }})
+
+	typ, _, _ := r.Type("plugin.echo.keep")
+	assert.True(t, typ.Remembers, "its settings show what it keeps, as node memory")
+
+	t.Run("its own, by key", func(t *testing.T) {
+		assert.Empty(t, kept(t, r, "plugin.echo.keep", map[string]any{"op": "set", "key": "seen:a", "value": "hello"})["error"])
+		kept(t, r, "plugin.echo.keep", map[string]any{"op": "set", "key": "seen:b", "value": "x"})
+		kept(t, r, "plugin.echo.keep", map[string]any{"op": "set", "key": "cursor", "value": "7"})
+
+		got := kept(t, r, "plugin.echo.keep", map[string]any{"op": "get", "key": "seen:a"})
+		assert.Equal(t, true, got["found"])
+		assert.Equal(t, map[string]any{"text": "hello"}, got["value"])
+
+		assert.Equal(t, "seen:a,seen:b", kept(t, r, "plugin.echo.keep", map[string]any{"op": "keys", "key": "seen:"})["keys"])
+
+		kept(t, r, "plugin.echo.keep", map[string]any{"op": "delete", "key": "seen:a"})
+		assert.Equal(t, false, kept(t, r, "plugin.echo.keep", map[string]any{"op": "get", "key": "seen:a"})["found"])
+
+		_, ok := st.values[ports.PluginNode{Workflow: "wf-1", Node: "n-1", Plugin: "echo"}]
+		assert.True(t, ok, "the node's in its workflow, as the plugin's")
+	})
+
+	t.Run("within its size", func(t *testing.T) {
+		got := kept(t, r, "plugin.echo.keep", map[string]any{"op": "set", "key": "big", "value": strings.Repeat("x", 64)})
+		assert.Equal(t, true, got["limit"])
+		assert.Equal(t, "the node's store is full: its keys and values may take 64 bytes", got["error"])
+
+		got = kept(t, r, "plugin.echo.keep", map[string]any{"op": "set", "key": strings.Repeat("k", 257), "value": "x"})
+		assert.Equal(t, "a key: 1 to 256 bytes", got["error"])
+	})
+
+	t.Run("none for a node not marked remembers", func(t *testing.T) {
+		got := kept(t, r, "plugin.echo.forgetful", nil)
+		assert.Equal(t, true, got["notAllowed"])
+		assert.Equal(t, "plugin.echo.forgetful keeps nothing: the manifest marks remembers the nodes that keep data", got["error"])
+	})
+
+	t.Run("none where there is no store", func(t *testing.T) {
+		_, bare := start(t)
+		assert.Equal(t, "the store is not available here", kept(t, bare, "plugin.echo.keep", map[string]any{"op": "get", "key": "a"})["error"])
+	})
+}
+
+func TestData(t *testing.T) {
+	d := &data{}
+	_, r := startWith(t, pluginhost.Deps{Data: pluginhost.Data{Events: d, Books: d, History: d, Trades: d, Positions: d, Wallets: d}})
+
+	read := func(what, arg string) map[string]any {
+		t.Helper()
+		return kept(t, r, "plugin.echo.read", map[string]any{"what": what, "arg": arg})
+	}
+
+	t.Run("markets, typed, decimals exact", func(t *testing.T) {
+		got := read("search", "rain")["got"].([]any)
+		require.Len(t, got, 1, "open ones only")
+
+		m := got[0].(map[string]any)
+		assert.Equal(t, "Will it rain Monday?", m["Question"])
+		assert.Equal(t, "1234.5678", m["Volume24h"])
+		assert.Equal(t, "Rain in Paris?", m["Event"])
+		assert.Equal(t, "2026-10-24T00:00:00Z", m["EndsAt"])
+		assert.Equal(t, "0.42", m["Outcomes"].([]any)[0].(map[string]any)["Price"])
+
+		assert.Equal(t, "a query: say what to look for", read("search", " ")["error"])
+	})
+
+	t.Run("an order book", func(t *testing.T) {
+		book := read("book", "tok-yes")["got"].(map[string]any)
+		assert.Equal(t, "0.41", book["Bids"].([]any)[0].(map[string]any)["Price"])
+		assert.Equal(t, "0.43", book["Asks"].([]any)[0].(map[string]any)["Price"])
+
+		assert.Equal(t, "no order book for token tok-none", read("book", "tok-none")["error"])
+	})
+
+	t.Run("price history, oldest first", func(t *testing.T) {
+		points := read("history", "tok-yes")["got"].([]any)
+		require.Len(t, points, 3)
+		assert.Equal(t, "0.4", points[0].(map[string]any)["Price"])
+		assert.Equal(t, "0.44", points[2].(map[string]any)["Price"])
+
+		assert.Equal(t, time.Minute, d.history.Bucket, "an hour in 1000 points: a minute at least")
+		assert.Equal(t, 1000, d.history.Limit)
+	})
+
+	t.Run("trades and positions, anyone's", func(t *testing.T) {
+		trades := read("trades", "0xm1")["got"].([]any)
+		require.Len(t, trades, 1)
+		assert.Equal(t, "buy", trades[0].(map[string]any)["Side"])
+		assert.Equal(t, 1, d.trades.Limit)
+
+		positions := read("positions", string(trader))["got"].([]any)
+		require.Len(t, positions, 1)
+		assert.Equal(t, "10.5", positions[0].(map[string]any)["Value"])
+
+		assert.Contains(t, read("positions", "nope")["error"], "the address: ")
+	})
+
+	t.Run("the owner's wallets, with the permission", func(t *testing.T) {
+		wallets := read("wallets", "")["got"].([]any)
+		assert.Equal(t, []any{map[string]any{"ID": "w-1", "Name": "Main", "Address": string(aliceW)}}, wallets)
+	})
+
+	t.Run("none where there is nothing to read", func(t *testing.T) {
+		_, none := start(t)
+
+		got := kept(t, none, "plugin.echo.read", map[string]any{"what": "search", "arg": "rain"})
+		assert.Equal(t, "this is not available here", got["error"])
+	})
+}
+
+func TestNoPermissions(t *testing.T) {
+	p, err := pluginhost.Start(context.Background(), bare, pluginhost.Deps{Data: pluginhost.Data{Wallets: &data{}}})
+	require.NoError(t, err)
+	t.Cleanup(p.Close)
+
+	r := engine.NewRegistry()
+	require.NoError(t, p.Register(r))
+
+	got := kept(t, r, "plugin.bare.try", nil)
+	assert.Equal(t, true, got["walletsRefused"])
+	assert.Equal(t, "the owner's wallets: its permissions do not name them (wallets)", got["wallets"])
+	assert.Equal(t, true, got["fetchRefused"])
+	assert.Equal(t, "fetch from example.com: its permissions do not name it (fetch:example.com, or fetch:*)", got["fetch"])
 }

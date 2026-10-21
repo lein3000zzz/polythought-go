@@ -13,7 +13,6 @@ import (
 	"slices"
 	"time"
 
-	"github.com/lein3000zzz/the-watchers/pkg/observability/tracing"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/trace"
 	"google.golang.org/grpc/codes"
@@ -85,25 +84,8 @@ func (a *api) fetchClient() *http.Client {
 }
 
 // Fetch makes an HTTP request for a run, to a host its permissions name (D287).
-func (a *api) Fetch(ctx context.Context, req *pluginv1.FetchRequest) (_ *pluginv1.FetchResponse, err error) {
-	s, err := a.session(req.GetSession())
-	if err != nil {
-		return nil, err
-	}
-
-	if err := s.count(); err != nil {
-		return nil, err
-	}
-
-	ctx, done := s.work(ctx)
-	defer done()
-
-	finish := a.kit.Start(ctx, opFetch)
-	defer func() { finish(err == nil) }()
-
-	return tracing.InScope(ctx, a.scope, opFetch, func(ctx context.Context, span trace.Span) (*pluginv1.FetchResponse, error) {
-		span.SetAttributes(attribute.String("plugin.id", a.id))
-
+func (a *api) Fetch(ctx context.Context, req *pluginv1.FetchRequest) (*pluginv1.FetchResponse, error) {
+	return call(ctx, a, req.GetSession(), opFetch, func(ctx context.Context, s *session, span trace.Span) (*pluginv1.FetchResponse, error) {
 		ctx, cancel := context.WithTimeout(ctx, s.limits.FetchTime)
 		defer cancel()
 

@@ -36,6 +36,10 @@ const (
 	// port, its subdomains not. PermFetchAny lets it reach any public address.
 	PermFetch    = "fetch:"
 	PermFetchAny = "fetch:*"
+
+	// PermWallets lets Wallets give the workflow's owner's wallets: their names and
+	// addresses, which tie them to their money on chain.
+	PermWallets = "wallets"
 )
 
 // NodeType describes a node or a trigger, as a built-in one is: its name within the
@@ -55,6 +59,10 @@ type NodeType struct {
 
 	// Items describes what it emits; nil when nobody knows.
 	Items *Items `json:"items,omitempty"`
+
+	// Remembers says it keeps data in its store across runs (Host.Get and Set): only
+	// then may it, and its settings show what it keeps.
+	Remembers bool `json:"remembers,omitempty"`
 }
 
 // Param is one setting of a node: how the editor shows it, and how the host reads it

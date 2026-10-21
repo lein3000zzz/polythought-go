@@ -24,6 +24,7 @@ func UseSchema(schema string) {
 	OrderFills = OrderFills.FromSchema(schema)
 	Orders = Orders.FromSchema(schema)
 	PaperAccounts = PaperAccounts.FromSchema(schema)
+	PluginStore = PluginStore.FromSchema(schema)
 	PolymarketCredentials = PolymarketCredentials.FromSchema(schema)
 	SessionKeys = SessionKeys.FromSchema(schema)
 	Sessions = Sessions.FromSchema(schema)

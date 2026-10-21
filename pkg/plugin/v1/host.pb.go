@@ -748,6 +748,1803 @@ func (*EndSpanResponse) Descriptor() ([]byte, []int) {
 	return file_plugin_v1_host_proto_rawDescGZIP(), []int{12}
 }
 
+type GetValueRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Session       string                 `protobuf:"bytes,1,opt,name=session,proto3" json:"session,omitempty"`
+	Key           string                 `protobuf:"bytes,2,opt,name=key,proto3" json:"key,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetValueRequest) Reset() {
+	*x = GetValueRequest{}
+	mi := &file_plugin_v1_host_proto_msgTypes[13]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetValueRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetValueRequest) ProtoMessage() {}
+
+func (x *GetValueRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_plugin_v1_host_proto_msgTypes[13]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetValueRequest.ProtoReflect.Descriptor instead.
+func (*GetValueRequest) Descriptor() ([]byte, []int) {
+	return file_plugin_v1_host_proto_rawDescGZIP(), []int{13}
+}
+
+func (x *GetValueRequest) GetSession() string {
+	if x != nil {
+		return x.Session
+	}
+	return ""
+}
+
+func (x *GetValueRequest) GetKey() string {
+	if x != nil {
+		return x.Key
+	}
+	return ""
+}
+
+type GetValueResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Found         bool                   `protobuf:"varint,1,opt,name=found,proto3" json:"found,omitempty"`
+	Value         []byte                 `protobuf:"bytes,2,opt,name=value,proto3" json:"value,omitempty"` // JSON, as it was set
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetValueResponse) Reset() {
+	*x = GetValueResponse{}
+	mi := &file_plugin_v1_host_proto_msgTypes[14]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetValueResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetValueResponse) ProtoMessage() {}
+
+func (x *GetValueResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_plugin_v1_host_proto_msgTypes[14]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetValueResponse.ProtoReflect.Descriptor instead.
+func (*GetValueResponse) Descriptor() ([]byte, []int) {
+	return file_plugin_v1_host_proto_rawDescGZIP(), []int{14}
+}
+
+func (x *GetValueResponse) GetFound() bool {
+	if x != nil {
+		return x.Found
+	}
+	return false
+}
+
+func (x *GetValueResponse) GetValue() []byte {
+	if x != nil {
+		return x.Value
+	}
+	return nil
+}
+
+type SetValueRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Session       string                 `protobuf:"bytes,1,opt,name=session,proto3" json:"session,omitempty"`
+	Key           string                 `protobuf:"bytes,2,opt,name=key,proto3" json:"key,omitempty"`
+	Value         []byte                 `protobuf:"bytes,3,opt,name=value,proto3" json:"value,omitempty"` // JSON
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *SetValueRequest) Reset() {
+	*x = SetValueRequest{}
+	mi := &file_plugin_v1_host_proto_msgTypes[15]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *SetValueRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*SetValueRequest) ProtoMessage() {}
+
+func (x *SetValueRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_plugin_v1_host_proto_msgTypes[15]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use SetValueRequest.ProtoReflect.Descriptor instead.
+func (*SetValueRequest) Descriptor() ([]byte, []int) {
+	return file_plugin_v1_host_proto_rawDescGZIP(), []int{15}
+}
+
+func (x *SetValueRequest) GetSession() string {
+	if x != nil {
+		return x.Session
+	}
+	return ""
+}
+
+func (x *SetValueRequest) GetKey() string {
+	if x != nil {
+		return x.Key
+	}
+	return ""
+}
+
+func (x *SetValueRequest) GetValue() []byte {
+	if x != nil {
+		return x.Value
+	}
+	return nil
+}
+
+type SetValueResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *SetValueResponse) Reset() {
+	*x = SetValueResponse{}
+	mi := &file_plugin_v1_host_proto_msgTypes[16]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *SetValueResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*SetValueResponse) ProtoMessage() {}
+
+func (x *SetValueResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_plugin_v1_host_proto_msgTypes[16]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use SetValueResponse.ProtoReflect.Descriptor instead.
+func (*SetValueResponse) Descriptor() ([]byte, []int) {
+	return file_plugin_v1_host_proto_rawDescGZIP(), []int{16}
+}
+
+type DeleteValueRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Session       string                 `protobuf:"bytes,1,opt,name=session,proto3" json:"session,omitempty"`
+	Key           string                 `protobuf:"bytes,2,opt,name=key,proto3" json:"key,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *DeleteValueRequest) Reset() {
+	*x = DeleteValueRequest{}
+	mi := &file_plugin_v1_host_proto_msgTypes[17]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *DeleteValueRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*DeleteValueRequest) ProtoMessage() {}
+
+func (x *DeleteValueRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_plugin_v1_host_proto_msgTypes[17]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use DeleteValueRequest.ProtoReflect.Descriptor instead.
+func (*DeleteValueRequest) Descriptor() ([]byte, []int) {
+	return file_plugin_v1_host_proto_rawDescGZIP(), []int{17}
+}
+
+func (x *DeleteValueRequest) GetSession() string {
+	if x != nil {
+		return x.Session
+	}
+	return ""
+}
+
+func (x *DeleteValueRequest) GetKey() string {
+	if x != nil {
+		return x.Key
+	}
+	return ""
+}
+
+type DeleteValueResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *DeleteValueResponse) Reset() {
+	*x = DeleteValueResponse{}
+	mi := &file_plugin_v1_host_proto_msgTypes[18]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *DeleteValueResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*DeleteValueResponse) ProtoMessage() {}
+
+func (x *DeleteValueResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_plugin_v1_host_proto_msgTypes[18]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use DeleteValueResponse.ProtoReflect.Descriptor instead.
+func (*DeleteValueResponse) Descriptor() ([]byte, []int) {
+	return file_plugin_v1_host_proto_rawDescGZIP(), []int{18}
+}
+
+// ListKeysRequest asks for keys in byte order: those starting with prefix, after after,
+// up to limit (100 when 0, 1000 at most).
+type ListKeysRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Session       string                 `protobuf:"bytes,1,opt,name=session,proto3" json:"session,omitempty"`
+	Prefix        string                 `protobuf:"bytes,2,opt,name=prefix,proto3" json:"prefix,omitempty"`
+	After         string                 `protobuf:"bytes,3,opt,name=after,proto3" json:"after,omitempty"`
+	Limit         int32                  `protobuf:"varint,4,opt,name=limit,proto3" json:"limit,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ListKeysRequest) Reset() {
+	*x = ListKeysRequest{}
+	mi := &file_plugin_v1_host_proto_msgTypes[19]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListKeysRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListKeysRequest) ProtoMessage() {}
+
+func (x *ListKeysRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_plugin_v1_host_proto_msgTypes[19]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListKeysRequest.ProtoReflect.Descriptor instead.
+func (*ListKeysRequest) Descriptor() ([]byte, []int) {
+	return file_plugin_v1_host_proto_rawDescGZIP(), []int{19}
+}
+
+func (x *ListKeysRequest) GetSession() string {
+	if x != nil {
+		return x.Session
+	}
+	return ""
+}
+
+func (x *ListKeysRequest) GetPrefix() string {
+	if x != nil {
+		return x.Prefix
+	}
+	return ""
+}
+
+func (x *ListKeysRequest) GetAfter() string {
+	if x != nil {
+		return x.After
+	}
+	return ""
+}
+
+func (x *ListKeysRequest) GetLimit() int32 {
+	if x != nil {
+		return x.Limit
+	}
+	return 0
+}
+
+type ListKeysResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Keys          []string               `protobuf:"bytes,1,rep,name=keys,proto3" json:"keys,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ListKeysResponse) Reset() {
+	*x = ListKeysResponse{}
+	mi := &file_plugin_v1_host_proto_msgTypes[20]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListKeysResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListKeysResponse) ProtoMessage() {}
+
+func (x *ListKeysResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_plugin_v1_host_proto_msgTypes[20]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListKeysResponse.ProtoReflect.Descriptor instead.
+func (*ListKeysResponse) Descriptor() ([]byte, []int) {
+	return file_plugin_v1_host_proto_rawDescGZIP(), []int{20}
+}
+
+func (x *ListKeysResponse) GetKeys() []string {
+	if x != nil {
+		return x.Keys
+	}
+	return nil
+}
+
+type Market struct {
+	state           protoimpl.MessageState `protogen:"open.v1"`
+	Id              string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"` // the condition ID, 0x…
+	Slug            string                 `protobuf:"bytes,2,opt,name=slug,proto3" json:"slug,omitempty"`
+	Question        string                 `protobuf:"bytes,3,opt,name=question,proto3" json:"question,omitempty"`
+	Description     string                 `protobuf:"bytes,4,opt,name=description,proto3" json:"description,omitempty"`
+	Outcomes        []*Outcome             `protobuf:"bytes,5,rep,name=outcomes,proto3" json:"outcomes,omitempty"`
+	Status          string                 `protobuf:"bytes,6,opt,name=status,proto3" json:"status,omitempty"` // open, closed, resolved or archived
+	AcceptingOrders bool                   `protobuf:"varint,7,opt,name=accepting_orders,json=acceptingOrders,proto3" json:"accepting_orders,omitempty"`
+	NegRisk         bool                   `protobuf:"varint,8,opt,name=neg_risk,json=negRisk,proto3" json:"neg_risk,omitempty"`
+	TickSize        string                 `protobuf:"bytes,9,opt,name=tick_size,json=tickSize,proto3" json:"tick_size,omitempty"`
+	MinOrderSize    string                 `protobuf:"bytes,10,opt,name=min_order_size,json=minOrderSize,proto3" json:"min_order_size,omitempty"`
+	Volume_24H      string                 `protobuf:"bytes,11,opt,name=volume_24h,json=volume24h,proto3" json:"volume_24h,omitempty"`
+	Liquidity       string                 `protobuf:"bytes,12,opt,name=liquidity,proto3" json:"liquidity,omitempty"`
+	EndsAt          string                 `protobuf:"bytes,13,opt,name=ends_at,json=endsAt,proto3" json:"ends_at,omitempty"`
+	Tags            []string               `protobuf:"bytes,14,rep,name=tags,proto3" json:"tags,omitempty"`
+	Event           string                 `protobuf:"bytes,15,opt,name=event,proto3" json:"event,omitempty"` // its event's title
+	EventSlug       string                 `protobuf:"bytes,16,opt,name=event_slug,json=eventSlug,proto3" json:"event_slug,omitempty"`
+	unknownFields   protoimpl.UnknownFields
+	sizeCache       protoimpl.SizeCache
+}
+
+func (x *Market) Reset() {
+	*x = Market{}
+	mi := &file_plugin_v1_host_proto_msgTypes[21]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *Market) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*Market) ProtoMessage() {}
+
+func (x *Market) ProtoReflect() protoreflect.Message {
+	mi := &file_plugin_v1_host_proto_msgTypes[21]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use Market.ProtoReflect.Descriptor instead.
+func (*Market) Descriptor() ([]byte, []int) {
+	return file_plugin_v1_host_proto_rawDescGZIP(), []int{21}
+}
+
+func (x *Market) GetId() string {
+	if x != nil {
+		return x.Id
+	}
+	return ""
+}
+
+func (x *Market) GetSlug() string {
+	if x != nil {
+		return x.Slug
+	}
+	return ""
+}
+
+func (x *Market) GetQuestion() string {
+	if x != nil {
+		return x.Question
+	}
+	return ""
+}
+
+func (x *Market) GetDescription() string {
+	if x != nil {
+		return x.Description
+	}
+	return ""
+}
+
+func (x *Market) GetOutcomes() []*Outcome {
+	if x != nil {
+		return x.Outcomes
+	}
+	return nil
+}
+
+func (x *Market) GetStatus() string {
+	if x != nil {
+		return x.Status
+	}
+	return ""
+}
+
+func (x *Market) GetAcceptingOrders() bool {
+	if x != nil {
+		return x.AcceptingOrders
+	}
+	return false
+}
+
+func (x *Market) GetNegRisk() bool {
+	if x != nil {
+		return x.NegRisk
+	}
+	return false
+}
+
+func (x *Market) GetTickSize() string {
+	if x != nil {
+		return x.TickSize
+	}
+	return ""
+}
+
+func (x *Market) GetMinOrderSize() string {
+	if x != nil {
+		return x.MinOrderSize
+	}
+	return ""
+}
+
+func (x *Market) GetVolume_24H() string {
+	if x != nil {
+		return x.Volume_24H
+	}
+	return ""
+}
+
+func (x *Market) GetLiquidity() string {
+	if x != nil {
+		return x.Liquidity
+	}
+	return ""
+}
+
+func (x *Market) GetEndsAt() string {
+	if x != nil {
+		return x.EndsAt
+	}
+	return ""
+}
+
+func (x *Market) GetTags() []string {
+	if x != nil {
+		return x.Tags
+	}
+	return nil
+}
+
+func (x *Market) GetEvent() string {
+	if x != nil {
+		return x.Event
+	}
+	return ""
+}
+
+func (x *Market) GetEventSlug() string {
+	if x != nil {
+		return x.EventSlug
+	}
+	return ""
+}
+
+type Outcome struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	TokenId       string                 `protobuf:"bytes,1,opt,name=token_id,json=tokenId,proto3" json:"token_id,omitempty"`
+	Label         string                 `protobuf:"bytes,2,opt,name=label,proto3" json:"label,omitempty"`
+	Price         string                 `protobuf:"bytes,3,opt,name=price,proto3" json:"price,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *Outcome) Reset() {
+	*x = Outcome{}
+	mi := &file_plugin_v1_host_proto_msgTypes[22]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *Outcome) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*Outcome) ProtoMessage() {}
+
+func (x *Outcome) ProtoReflect() protoreflect.Message {
+	mi := &file_plugin_v1_host_proto_msgTypes[22]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use Outcome.ProtoReflect.Descriptor instead.
+func (*Outcome) Descriptor() ([]byte, []int) {
+	return file_plugin_v1_host_proto_rawDescGZIP(), []int{22}
+}
+
+func (x *Outcome) GetTokenId() string {
+	if x != nil {
+		return x.TokenId
+	}
+	return ""
+}
+
+func (x *Outcome) GetLabel() string {
+	if x != nil {
+		return x.Label
+	}
+	return ""
+}
+
+func (x *Outcome) GetPrice() string {
+	if x != nil {
+		return x.Price
+	}
+	return ""
+}
+
+// SearchMarketsRequest finds markets by words of their event's title, open ones unless
+// closed: up to limit, 20 when 0, 100 at most.
+type SearchMarketsRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Session       string                 `protobuf:"bytes,1,opt,name=session,proto3" json:"session,omitempty"`
+	Query         string                 `protobuf:"bytes,2,opt,name=query,proto3" json:"query,omitempty"`
+	Closed        bool                   `protobuf:"varint,3,opt,name=closed,proto3" json:"closed,omitempty"`
+	Limit         int32                  `protobuf:"varint,4,opt,name=limit,proto3" json:"limit,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *SearchMarketsRequest) Reset() {
+	*x = SearchMarketsRequest{}
+	mi := &file_plugin_v1_host_proto_msgTypes[23]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *SearchMarketsRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*SearchMarketsRequest) ProtoMessage() {}
+
+func (x *SearchMarketsRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_plugin_v1_host_proto_msgTypes[23]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use SearchMarketsRequest.ProtoReflect.Descriptor instead.
+func (*SearchMarketsRequest) Descriptor() ([]byte, []int) {
+	return file_plugin_v1_host_proto_rawDescGZIP(), []int{23}
+}
+
+func (x *SearchMarketsRequest) GetSession() string {
+	if x != nil {
+		return x.Session
+	}
+	return ""
+}
+
+func (x *SearchMarketsRequest) GetQuery() string {
+	if x != nil {
+		return x.Query
+	}
+	return ""
+}
+
+func (x *SearchMarketsRequest) GetClosed() bool {
+	if x != nil {
+		return x.Closed
+	}
+	return false
+}
+
+func (x *SearchMarketsRequest) GetLimit() int32 {
+	if x != nil {
+		return x.Limit
+	}
+	return 0
+}
+
+type SearchMarketsResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Markets       []*Market              `protobuf:"bytes,1,rep,name=markets,proto3" json:"markets,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *SearchMarketsResponse) Reset() {
+	*x = SearchMarketsResponse{}
+	mi := &file_plugin_v1_host_proto_msgTypes[24]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *SearchMarketsResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*SearchMarketsResponse) ProtoMessage() {}
+
+func (x *SearchMarketsResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_plugin_v1_host_proto_msgTypes[24]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use SearchMarketsResponse.ProtoReflect.Descriptor instead.
+func (*SearchMarketsResponse) Descriptor() ([]byte, []int) {
+	return file_plugin_v1_host_proto_rawDescGZIP(), []int{24}
+}
+
+func (x *SearchMarketsResponse) GetMarkets() []*Market {
+	if x != nil {
+		return x.Markets
+	}
+	return nil
+}
+
+type GetOrderBookRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Session       string                 `protobuf:"bytes,1,opt,name=session,proto3" json:"session,omitempty"`
+	TokenId       string                 `protobuf:"bytes,2,opt,name=token_id,json=tokenId,proto3" json:"token_id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetOrderBookRequest) Reset() {
+	*x = GetOrderBookRequest{}
+	mi := &file_plugin_v1_host_proto_msgTypes[25]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetOrderBookRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetOrderBookRequest) ProtoMessage() {}
+
+func (x *GetOrderBookRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_plugin_v1_host_proto_msgTypes[25]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetOrderBookRequest.ProtoReflect.Descriptor instead.
+func (*GetOrderBookRequest) Descriptor() ([]byte, []int) {
+	return file_plugin_v1_host_proto_rawDescGZIP(), []int{25}
+}
+
+func (x *GetOrderBookRequest) GetSession() string {
+	if x != nil {
+		return x.Session
+	}
+	return ""
+}
+
+func (x *GetOrderBookRequest) GetTokenId() string {
+	if x != nil {
+		return x.TokenId
+	}
+	return ""
+}
+
+// OrderBook is an outcome's live book, each side best first.
+type OrderBook struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	MarketId      string                 `protobuf:"bytes,1,opt,name=market_id,json=marketId,proto3" json:"market_id,omitempty"`
+	TokenId       string                 `protobuf:"bytes,2,opt,name=token_id,json=tokenId,proto3" json:"token_id,omitempty"`
+	Bids          []*Level               `protobuf:"bytes,3,rep,name=bids,proto3" json:"bids,omitempty"`
+	Asks          []*Level               `protobuf:"bytes,4,rep,name=asks,proto3" json:"asks,omitempty"`
+	TickSize      string                 `protobuf:"bytes,5,opt,name=tick_size,json=tickSize,proto3" json:"tick_size,omitempty"`
+	At            string                 `protobuf:"bytes,6,opt,name=at,proto3" json:"at,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *OrderBook) Reset() {
+	*x = OrderBook{}
+	mi := &file_plugin_v1_host_proto_msgTypes[26]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *OrderBook) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*OrderBook) ProtoMessage() {}
+
+func (x *OrderBook) ProtoReflect() protoreflect.Message {
+	mi := &file_plugin_v1_host_proto_msgTypes[26]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use OrderBook.ProtoReflect.Descriptor instead.
+func (*OrderBook) Descriptor() ([]byte, []int) {
+	return file_plugin_v1_host_proto_rawDescGZIP(), []int{26}
+}
+
+func (x *OrderBook) GetMarketId() string {
+	if x != nil {
+		return x.MarketId
+	}
+	return ""
+}
+
+func (x *OrderBook) GetTokenId() string {
+	if x != nil {
+		return x.TokenId
+	}
+	return ""
+}
+
+func (x *OrderBook) GetBids() []*Level {
+	if x != nil {
+		return x.Bids
+	}
+	return nil
+}
+
+func (x *OrderBook) GetAsks() []*Level {
+	if x != nil {
+		return x.Asks
+	}
+	return nil
+}
+
+func (x *OrderBook) GetTickSize() string {
+	if x != nil {
+		return x.TickSize
+	}
+	return ""
+}
+
+func (x *OrderBook) GetAt() string {
+	if x != nil {
+		return x.At
+	}
+	return ""
+}
+
+type Level struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Price         string                 `protobuf:"bytes,1,opt,name=price,proto3" json:"price,omitempty"`
+	Size          string                 `protobuf:"bytes,2,opt,name=size,proto3" json:"size,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *Level) Reset() {
+	*x = Level{}
+	mi := &file_plugin_v1_host_proto_msgTypes[27]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *Level) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*Level) ProtoMessage() {}
+
+func (x *Level) ProtoReflect() protoreflect.Message {
+	mi := &file_plugin_v1_host_proto_msgTypes[27]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use Level.ProtoReflect.Descriptor instead.
+func (*Level) Descriptor() ([]byte, []int) {
+	return file_plugin_v1_host_proto_rawDescGZIP(), []int{27}
+}
+
+func (x *Level) GetPrice() string {
+	if x != nil {
+		return x.Price
+	}
+	return ""
+}
+
+func (x *Level) GetSize() string {
+	if x != nil {
+		return x.Size
+	}
+	return ""
+}
+
+type GetOrderBookResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Book          *OrderBook             `protobuf:"bytes,1,opt,name=book,proto3" json:"book,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetOrderBookResponse) Reset() {
+	*x = GetOrderBookResponse{}
+	mi := &file_plugin_v1_host_proto_msgTypes[28]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetOrderBookResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetOrderBookResponse) ProtoMessage() {}
+
+func (x *GetOrderBookResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_plugin_v1_host_proto_msgTypes[28]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetOrderBookResponse.ProtoReflect.Descriptor instead.
+func (*GetOrderBookResponse) Descriptor() ([]byte, []int) {
+	return file_plugin_v1_host_proto_rawDescGZIP(), []int{28}
+}
+
+func (x *GetOrderBookResponse) GetBook() *OrderBook {
+	if x != nil {
+		return x.Book
+	}
+	return nil
+}
+
+// GetPriceHistoryRequest asks for an outcome's prices from since, until until (now when
+// empty), one every bucket (a Go duration like 1h; a minute at least), up to limit points,
+// 1000 when 0 and at most.
+type GetPriceHistoryRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Session       string                 `protobuf:"bytes,1,opt,name=session,proto3" json:"session,omitempty"`
+	TokenId       string                 `protobuf:"bytes,2,opt,name=token_id,json=tokenId,proto3" json:"token_id,omitempty"`
+	Since         string                 `protobuf:"bytes,3,opt,name=since,proto3" json:"since,omitempty"`
+	Until         string                 `protobuf:"bytes,4,opt,name=until,proto3" json:"until,omitempty"`
+	Bucket        string                 `protobuf:"bytes,5,opt,name=bucket,proto3" json:"bucket,omitempty"`
+	Limit         int32                  `protobuf:"varint,6,opt,name=limit,proto3" json:"limit,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetPriceHistoryRequest) Reset() {
+	*x = GetPriceHistoryRequest{}
+	mi := &file_plugin_v1_host_proto_msgTypes[29]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetPriceHistoryRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetPriceHistoryRequest) ProtoMessage() {}
+
+func (x *GetPriceHistoryRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_plugin_v1_host_proto_msgTypes[29]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetPriceHistoryRequest.ProtoReflect.Descriptor instead.
+func (*GetPriceHistoryRequest) Descriptor() ([]byte, []int) {
+	return file_plugin_v1_host_proto_rawDescGZIP(), []int{29}
+}
+
+func (x *GetPriceHistoryRequest) GetSession() string {
+	if x != nil {
+		return x.Session
+	}
+	return ""
+}
+
+func (x *GetPriceHistoryRequest) GetTokenId() string {
+	if x != nil {
+		return x.TokenId
+	}
+	return ""
+}
+
+func (x *GetPriceHistoryRequest) GetSince() string {
+	if x != nil {
+		return x.Since
+	}
+	return ""
+}
+
+func (x *GetPriceHistoryRequest) GetUntil() string {
+	if x != nil {
+		return x.Until
+	}
+	return ""
+}
+
+func (x *GetPriceHistoryRequest) GetBucket() string {
+	if x != nil {
+		return x.Bucket
+	}
+	return ""
+}
+
+func (x *GetPriceHistoryRequest) GetLimit() int32 {
+	if x != nil {
+		return x.Limit
+	}
+	return 0
+}
+
+type PricePoint struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	At            string                 `protobuf:"bytes,1,opt,name=at,proto3" json:"at,omitempty"`
+	Price         string                 `protobuf:"bytes,2,opt,name=price,proto3" json:"price,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *PricePoint) Reset() {
+	*x = PricePoint{}
+	mi := &file_plugin_v1_host_proto_msgTypes[30]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *PricePoint) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*PricePoint) ProtoMessage() {}
+
+func (x *PricePoint) ProtoReflect() protoreflect.Message {
+	mi := &file_plugin_v1_host_proto_msgTypes[30]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use PricePoint.ProtoReflect.Descriptor instead.
+func (*PricePoint) Descriptor() ([]byte, []int) {
+	return file_plugin_v1_host_proto_rawDescGZIP(), []int{30}
+}
+
+func (x *PricePoint) GetAt() string {
+	if x != nil {
+		return x.At
+	}
+	return ""
+}
+
+func (x *PricePoint) GetPrice() string {
+	if x != nil {
+		return x.Price
+	}
+	return ""
+}
+
+type GetPriceHistoryResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Points        []*PricePoint          `protobuf:"bytes,1,rep,name=points,proto3" json:"points,omitempty"` // oldest first
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetPriceHistoryResponse) Reset() {
+	*x = GetPriceHistoryResponse{}
+	mi := &file_plugin_v1_host_proto_msgTypes[31]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetPriceHistoryResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetPriceHistoryResponse) ProtoMessage() {}
+
+func (x *GetPriceHistoryResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_plugin_v1_host_proto_msgTypes[31]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetPriceHistoryResponse.ProtoReflect.Descriptor instead.
+func (*GetPriceHistoryResponse) Descriptor() ([]byte, []int) {
+	return file_plugin_v1_host_proto_rawDescGZIP(), []int{31}
+}
+
+func (x *GetPriceHistoryResponse) GetPoints() []*PricePoint {
+	if x != nil {
+		return x.Points
+	}
+	return nil
+}
+
+// ListTradesRequest asks for recent trades, newest first, in a market, of an address, or
+// both: up to limit, 20 when 0, 100 at most.
+type ListTradesRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Session       string                 `protobuf:"bytes,1,opt,name=session,proto3" json:"session,omitempty"`
+	MarketId      string                 `protobuf:"bytes,2,opt,name=market_id,json=marketId,proto3" json:"market_id,omitempty"`
+	Address       string                 `protobuf:"bytes,3,opt,name=address,proto3" json:"address,omitempty"`
+	Limit         int32                  `protobuf:"varint,4,opt,name=limit,proto3" json:"limit,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ListTradesRequest) Reset() {
+	*x = ListTradesRequest{}
+	mi := &file_plugin_v1_host_proto_msgTypes[32]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListTradesRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListTradesRequest) ProtoMessage() {}
+
+func (x *ListTradesRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_plugin_v1_host_proto_msgTypes[32]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListTradesRequest.ProtoReflect.Descriptor instead.
+func (*ListTradesRequest) Descriptor() ([]byte, []int) {
+	return file_plugin_v1_host_proto_rawDescGZIP(), []int{32}
+}
+
+func (x *ListTradesRequest) GetSession() string {
+	if x != nil {
+		return x.Session
+	}
+	return ""
+}
+
+func (x *ListTradesRequest) GetMarketId() string {
+	if x != nil {
+		return x.MarketId
+	}
+	return ""
+}
+
+func (x *ListTradesRequest) GetAddress() string {
+	if x != nil {
+		return x.Address
+	}
+	return ""
+}
+
+func (x *ListTradesRequest) GetLimit() int32 {
+	if x != nil {
+		return x.Limit
+	}
+	return 0
+}
+
+type Trade struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	MarketId      string                 `protobuf:"bytes,1,opt,name=market_id,json=marketId,proto3" json:"market_id,omitempty"`
+	TokenId       string                 `protobuf:"bytes,2,opt,name=token_id,json=tokenId,proto3" json:"token_id,omitempty"`
+	Outcome       string                 `protobuf:"bytes,3,opt,name=outcome,proto3" json:"outcome,omitempty"`
+	Side          string                 `protobuf:"bytes,4,opt,name=side,proto3" json:"side,omitempty"` // buy or sell
+	Price         string                 `protobuf:"bytes,5,opt,name=price,proto3" json:"price,omitempty"`
+	Size          string                 `protobuf:"bytes,6,opt,name=size,proto3" json:"size,omitempty"`
+	Address       string                 `protobuf:"bytes,7,opt,name=address,proto3" json:"address,omitempty"` // the trader's
+	Name          string                 `protobuf:"bytes,8,opt,name=name,proto3" json:"name,omitempty"`       // the trader's name on Polymarket, if they have one
+	At            string                 `protobuf:"bytes,9,opt,name=at,proto3" json:"at,omitempty"`
+	TxHash        string                 `protobuf:"bytes,10,opt,name=tx_hash,json=txHash,proto3" json:"tx_hash,omitempty"`
+	Title         string                 `protobuf:"bytes,11,opt,name=title,proto3" json:"title,omitempty"` // the market's question
+	Slug          string                 `protobuf:"bytes,12,opt,name=slug,proto3" json:"slug,omitempty"`
+	EventSlug     string                 `protobuf:"bytes,13,opt,name=event_slug,json=eventSlug,proto3" json:"event_slug,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *Trade) Reset() {
+	*x = Trade{}
+	mi := &file_plugin_v1_host_proto_msgTypes[33]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *Trade) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*Trade) ProtoMessage() {}
+
+func (x *Trade) ProtoReflect() protoreflect.Message {
+	mi := &file_plugin_v1_host_proto_msgTypes[33]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use Trade.ProtoReflect.Descriptor instead.
+func (*Trade) Descriptor() ([]byte, []int) {
+	return file_plugin_v1_host_proto_rawDescGZIP(), []int{33}
+}
+
+func (x *Trade) GetMarketId() string {
+	if x != nil {
+		return x.MarketId
+	}
+	return ""
+}
+
+func (x *Trade) GetTokenId() string {
+	if x != nil {
+		return x.TokenId
+	}
+	return ""
+}
+
+func (x *Trade) GetOutcome() string {
+	if x != nil {
+		return x.Outcome
+	}
+	return ""
+}
+
+func (x *Trade) GetSide() string {
+	if x != nil {
+		return x.Side
+	}
+	return ""
+}
+
+func (x *Trade) GetPrice() string {
+	if x != nil {
+		return x.Price
+	}
+	return ""
+}
+
+func (x *Trade) GetSize() string {
+	if x != nil {
+		return x.Size
+	}
+	return ""
+}
+
+func (x *Trade) GetAddress() string {
+	if x != nil {
+		return x.Address
+	}
+	return ""
+}
+
+func (x *Trade) GetName() string {
+	if x != nil {
+		return x.Name
+	}
+	return ""
+}
+
+func (x *Trade) GetAt() string {
+	if x != nil {
+		return x.At
+	}
+	return ""
+}
+
+func (x *Trade) GetTxHash() string {
+	if x != nil {
+		return x.TxHash
+	}
+	return ""
+}
+
+func (x *Trade) GetTitle() string {
+	if x != nil {
+		return x.Title
+	}
+	return ""
+}
+
+func (x *Trade) GetSlug() string {
+	if x != nil {
+		return x.Slug
+	}
+	return ""
+}
+
+func (x *Trade) GetEventSlug() string {
+	if x != nil {
+		return x.EventSlug
+	}
+	return ""
+}
+
+type ListTradesResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Trades        []*Trade               `protobuf:"bytes,1,rep,name=trades,proto3" json:"trades,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ListTradesResponse) Reset() {
+	*x = ListTradesResponse{}
+	mi := &file_plugin_v1_host_proto_msgTypes[34]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListTradesResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListTradesResponse) ProtoMessage() {}
+
+func (x *ListTradesResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_plugin_v1_host_proto_msgTypes[34]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListTradesResponse.ProtoReflect.Descriptor instead.
+func (*ListTradesResponse) Descriptor() ([]byte, []int) {
+	return file_plugin_v1_host_proto_rawDescGZIP(), []int{34}
+}
+
+func (x *ListTradesResponse) GetTrades() []*Trade {
+	if x != nil {
+		return x.Trades
+	}
+	return nil
+}
+
+// ListPositionsRequest asks for an address's open positions, public on the chain: up to
+// limit, 20 when 0, 100 at most.
+type ListPositionsRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Session       string                 `protobuf:"bytes,1,opt,name=session,proto3" json:"session,omitempty"`
+	Address       string                 `protobuf:"bytes,2,opt,name=address,proto3" json:"address,omitempty"`
+	Limit         int32                  `protobuf:"varint,3,opt,name=limit,proto3" json:"limit,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ListPositionsRequest) Reset() {
+	*x = ListPositionsRequest{}
+	mi := &file_plugin_v1_host_proto_msgTypes[35]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListPositionsRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListPositionsRequest) ProtoMessage() {}
+
+func (x *ListPositionsRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_plugin_v1_host_proto_msgTypes[35]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListPositionsRequest.ProtoReflect.Descriptor instead.
+func (*ListPositionsRequest) Descriptor() ([]byte, []int) {
+	return file_plugin_v1_host_proto_rawDescGZIP(), []int{35}
+}
+
+func (x *ListPositionsRequest) GetSession() string {
+	if x != nil {
+		return x.Session
+	}
+	return ""
+}
+
+func (x *ListPositionsRequest) GetAddress() string {
+	if x != nil {
+		return x.Address
+	}
+	return ""
+}
+
+func (x *ListPositionsRequest) GetLimit() int32 {
+	if x != nil {
+		return x.Limit
+	}
+	return 0
+}
+
+type Position struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Address       string                 `protobuf:"bytes,1,opt,name=address,proto3" json:"address,omitempty"`
+	MarketId      string                 `protobuf:"bytes,2,opt,name=market_id,json=marketId,proto3" json:"market_id,omitempty"`
+	TokenId       string                 `protobuf:"bytes,3,opt,name=token_id,json=tokenId,proto3" json:"token_id,omitempty"`
+	Title         string                 `protobuf:"bytes,4,opt,name=title,proto3" json:"title,omitempty"` // the market's question
+	Outcome       string                 `protobuf:"bytes,5,opt,name=outcome,proto3" json:"outcome,omitempty"`
+	Size          string                 `protobuf:"bytes,6,opt,name=size,proto3" json:"size,omitempty"`
+	AvgPrice      string                 `protobuf:"bytes,7,opt,name=avg_price,json=avgPrice,proto3" json:"avg_price,omitempty"`
+	CurrentPrice  string                 `protobuf:"bytes,8,opt,name=current_price,json=currentPrice,proto3" json:"current_price,omitempty"`
+	Value         string                 `protobuf:"bytes,9,opt,name=value,proto3" json:"value,omitempty"`
+	RealizedPnl   string                 `protobuf:"bytes,10,opt,name=realized_pnl,json=realizedPnl,proto3" json:"realized_pnl,omitempty"`
+	UnrealizedPnl string                 `protobuf:"bytes,11,opt,name=unrealized_pnl,json=unrealizedPnl,proto3" json:"unrealized_pnl,omitempty"`
+	Redeemable    bool                   `protobuf:"varint,12,opt,name=redeemable,proto3" json:"redeemable,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *Position) Reset() {
+	*x = Position{}
+	mi := &file_plugin_v1_host_proto_msgTypes[36]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *Position) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*Position) ProtoMessage() {}
+
+func (x *Position) ProtoReflect() protoreflect.Message {
+	mi := &file_plugin_v1_host_proto_msgTypes[36]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use Position.ProtoReflect.Descriptor instead.
+func (*Position) Descriptor() ([]byte, []int) {
+	return file_plugin_v1_host_proto_rawDescGZIP(), []int{36}
+}
+
+func (x *Position) GetAddress() string {
+	if x != nil {
+		return x.Address
+	}
+	return ""
+}
+
+func (x *Position) GetMarketId() string {
+	if x != nil {
+		return x.MarketId
+	}
+	return ""
+}
+
+func (x *Position) GetTokenId() string {
+	if x != nil {
+		return x.TokenId
+	}
+	return ""
+}
+
+func (x *Position) GetTitle() string {
+	if x != nil {
+		return x.Title
+	}
+	return ""
+}
+
+func (x *Position) GetOutcome() string {
+	if x != nil {
+		return x.Outcome
+	}
+	return ""
+}
+
+func (x *Position) GetSize() string {
+	if x != nil {
+		return x.Size
+	}
+	return ""
+}
+
+func (x *Position) GetAvgPrice() string {
+	if x != nil {
+		return x.AvgPrice
+	}
+	return ""
+}
+
+func (x *Position) GetCurrentPrice() string {
+	if x != nil {
+		return x.CurrentPrice
+	}
+	return ""
+}
+
+func (x *Position) GetValue() string {
+	if x != nil {
+		return x.Value
+	}
+	return ""
+}
+
+func (x *Position) GetRealizedPnl() string {
+	if x != nil {
+		return x.RealizedPnl
+	}
+	return ""
+}
+
+func (x *Position) GetUnrealizedPnl() string {
+	if x != nil {
+		return x.UnrealizedPnl
+	}
+	return ""
+}
+
+func (x *Position) GetRedeemable() bool {
+	if x != nil {
+		return x.Redeemable
+	}
+	return false
+}
+
+type ListPositionsResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Positions     []*Position            `protobuf:"bytes,1,rep,name=positions,proto3" json:"positions,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ListPositionsResponse) Reset() {
+	*x = ListPositionsResponse{}
+	mi := &file_plugin_v1_host_proto_msgTypes[37]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListPositionsResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListPositionsResponse) ProtoMessage() {}
+
+func (x *ListPositionsResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_plugin_v1_host_proto_msgTypes[37]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListPositionsResponse.ProtoReflect.Descriptor instead.
+func (*ListPositionsResponse) Descriptor() ([]byte, []int) {
+	return file_plugin_v1_host_proto_rawDescGZIP(), []int{37}
+}
+
+func (x *ListPositionsResponse) GetPositions() []*Position {
+	if x != nil {
+		return x.Positions
+	}
+	return nil
+}
+
+type ListWalletsRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Session       string                 `protobuf:"bytes,1,opt,name=session,proto3" json:"session,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ListWalletsRequest) Reset() {
+	*x = ListWalletsRequest{}
+	mi := &file_plugin_v1_host_proto_msgTypes[38]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListWalletsRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListWalletsRequest) ProtoMessage() {}
+
+func (x *ListWalletsRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_plugin_v1_host_proto_msgTypes[38]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListWalletsRequest.ProtoReflect.Descriptor instead.
+func (*ListWalletsRequest) Descriptor() ([]byte, []int) {
+	return file_plugin_v1_host_proto_rawDescGZIP(), []int{38}
+}
+
+func (x *ListWalletsRequest) GetSession() string {
+	if x != nil {
+		return x.Session
+	}
+	return ""
+}
+
+// Wallet is one of the owner's: its ID, as a wallet setting names it, and its name.
+type Wallet struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Id            string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	Name          string                 `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
+	Address       string                 `protobuf:"bytes,3,opt,name=address,proto3" json:"address,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *Wallet) Reset() {
+	*x = Wallet{}
+	mi := &file_plugin_v1_host_proto_msgTypes[39]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *Wallet) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*Wallet) ProtoMessage() {}
+
+func (x *Wallet) ProtoReflect() protoreflect.Message {
+	mi := &file_plugin_v1_host_proto_msgTypes[39]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use Wallet.ProtoReflect.Descriptor instead.
+func (*Wallet) Descriptor() ([]byte, []int) {
+	return file_plugin_v1_host_proto_rawDescGZIP(), []int{39}
+}
+
+func (x *Wallet) GetId() string {
+	if x != nil {
+		return x.Id
+	}
+	return ""
+}
+
+func (x *Wallet) GetName() string {
+	if x != nil {
+		return x.Name
+	}
+	return ""
+}
+
+func (x *Wallet) GetAddress() string {
+	if x != nil {
+		return x.Address
+	}
+	return ""
+}
+
+type ListWalletsResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Wallets       []*Wallet              `protobuf:"bytes,1,rep,name=wallets,proto3" json:"wallets,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ListWalletsResponse) Reset() {
+	*x = ListWalletsResponse{}
+	mi := &file_plugin_v1_host_proto_msgTypes[40]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListWalletsResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListWalletsResponse) ProtoMessage() {}
+
+func (x *ListWalletsResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_plugin_v1_host_proto_msgTypes[40]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListWalletsResponse.ProtoReflect.Descriptor instead.
+func (*ListWalletsResponse) Descriptor() ([]byte, []int) {
+	return file_plugin_v1_host_proto_rawDescGZIP(), []int{40}
+}
+
+func (x *ListWalletsResponse) GetWallets() []*Wallet {
+	if x != nil {
+		return x.Wallets
+	}
+	return nil
+}
+
 var File_plugin_v1_host_proto protoreflect.FileDescriptor
 
 const file_plugin_v1_host_proto_rawDesc = "" +
@@ -815,10 +2612,155 @@ const file_plugin_v1_host_proto_rawDesc = "" +
 	"\x0fAttributesEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
 	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\"\x11\n" +
-	"\x0fEndSpanResponse2\xae\x03\n" +
+	"\x0fEndSpanResponse\"=\n" +
+	"\x0fGetValueRequest\x12\x18\n" +
+	"\asession\x18\x01 \x01(\tR\asession\x12\x10\n" +
+	"\x03key\x18\x02 \x01(\tR\x03key\">\n" +
+	"\x10GetValueResponse\x12\x14\n" +
+	"\x05found\x18\x01 \x01(\bR\x05found\x12\x14\n" +
+	"\x05value\x18\x02 \x01(\fR\x05value\"S\n" +
+	"\x0fSetValueRequest\x12\x18\n" +
+	"\asession\x18\x01 \x01(\tR\asession\x12\x10\n" +
+	"\x03key\x18\x02 \x01(\tR\x03key\x12\x14\n" +
+	"\x05value\x18\x03 \x01(\fR\x05value\"\x12\n" +
+	"\x10SetValueResponse\"@\n" +
+	"\x12DeleteValueRequest\x12\x18\n" +
+	"\asession\x18\x01 \x01(\tR\asession\x12\x10\n" +
+	"\x03key\x18\x02 \x01(\tR\x03key\"\x15\n" +
+	"\x13DeleteValueResponse\"o\n" +
+	"\x0fListKeysRequest\x12\x18\n" +
+	"\asession\x18\x01 \x01(\tR\asession\x12\x16\n" +
+	"\x06prefix\x18\x02 \x01(\tR\x06prefix\x12\x14\n" +
+	"\x05after\x18\x03 \x01(\tR\x05after\x12\x14\n" +
+	"\x05limit\x18\x04 \x01(\x05R\x05limit\"&\n" +
+	"\x10ListKeysResponse\x12\x12\n" +
+	"\x04keys\x18\x01 \x03(\tR\x04keys\"\xda\x03\n" +
+	"\x06Market\x12\x0e\n" +
+	"\x02id\x18\x01 \x01(\tR\x02id\x12\x12\n" +
+	"\x04slug\x18\x02 \x01(\tR\x04slug\x12\x1a\n" +
+	"\bquestion\x18\x03 \x01(\tR\bquestion\x12 \n" +
+	"\vdescription\x18\x04 \x01(\tR\vdescription\x12.\n" +
+	"\boutcomes\x18\x05 \x03(\v2\x12.plugin.v1.OutcomeR\boutcomes\x12\x16\n" +
+	"\x06status\x18\x06 \x01(\tR\x06status\x12)\n" +
+	"\x10accepting_orders\x18\a \x01(\bR\x0facceptingOrders\x12\x19\n" +
+	"\bneg_risk\x18\b \x01(\bR\anegRisk\x12\x1b\n" +
+	"\ttick_size\x18\t \x01(\tR\btickSize\x12$\n" +
+	"\x0emin_order_size\x18\n" +
+	" \x01(\tR\fminOrderSize\x12\x1d\n" +
+	"\n" +
+	"volume_24h\x18\v \x01(\tR\tvolume24h\x12\x1c\n" +
+	"\tliquidity\x18\f \x01(\tR\tliquidity\x12\x17\n" +
+	"\aends_at\x18\r \x01(\tR\x06endsAt\x12\x12\n" +
+	"\x04tags\x18\x0e \x03(\tR\x04tags\x12\x14\n" +
+	"\x05event\x18\x0f \x01(\tR\x05event\x12\x1d\n" +
+	"\n" +
+	"event_slug\x18\x10 \x01(\tR\teventSlug\"P\n" +
+	"\aOutcome\x12\x19\n" +
+	"\btoken_id\x18\x01 \x01(\tR\atokenId\x12\x14\n" +
+	"\x05label\x18\x02 \x01(\tR\x05label\x12\x14\n" +
+	"\x05price\x18\x03 \x01(\tR\x05price\"t\n" +
+	"\x14SearchMarketsRequest\x12\x18\n" +
+	"\asession\x18\x01 \x01(\tR\asession\x12\x14\n" +
+	"\x05query\x18\x02 \x01(\tR\x05query\x12\x16\n" +
+	"\x06closed\x18\x03 \x01(\bR\x06closed\x12\x14\n" +
+	"\x05limit\x18\x04 \x01(\x05R\x05limit\"D\n" +
+	"\x15SearchMarketsResponse\x12+\n" +
+	"\amarkets\x18\x01 \x03(\v2\x11.plugin.v1.MarketR\amarkets\"J\n" +
+	"\x13GetOrderBookRequest\x12\x18\n" +
+	"\asession\x18\x01 \x01(\tR\asession\x12\x19\n" +
+	"\btoken_id\x18\x02 \x01(\tR\atokenId\"\xbc\x01\n" +
+	"\tOrderBook\x12\x1b\n" +
+	"\tmarket_id\x18\x01 \x01(\tR\bmarketId\x12\x19\n" +
+	"\btoken_id\x18\x02 \x01(\tR\atokenId\x12$\n" +
+	"\x04bids\x18\x03 \x03(\v2\x10.plugin.v1.LevelR\x04bids\x12$\n" +
+	"\x04asks\x18\x04 \x03(\v2\x10.plugin.v1.LevelR\x04asks\x12\x1b\n" +
+	"\ttick_size\x18\x05 \x01(\tR\btickSize\x12\x0e\n" +
+	"\x02at\x18\x06 \x01(\tR\x02at\"1\n" +
+	"\x05Level\x12\x14\n" +
+	"\x05price\x18\x01 \x01(\tR\x05price\x12\x12\n" +
+	"\x04size\x18\x02 \x01(\tR\x04size\"@\n" +
+	"\x14GetOrderBookResponse\x12(\n" +
+	"\x04book\x18\x01 \x01(\v2\x14.plugin.v1.OrderBookR\x04book\"\xa7\x01\n" +
+	"\x16GetPriceHistoryRequest\x12\x18\n" +
+	"\asession\x18\x01 \x01(\tR\asession\x12\x19\n" +
+	"\btoken_id\x18\x02 \x01(\tR\atokenId\x12\x14\n" +
+	"\x05since\x18\x03 \x01(\tR\x05since\x12\x14\n" +
+	"\x05until\x18\x04 \x01(\tR\x05until\x12\x16\n" +
+	"\x06bucket\x18\x05 \x01(\tR\x06bucket\x12\x14\n" +
+	"\x05limit\x18\x06 \x01(\x05R\x05limit\"2\n" +
+	"\n" +
+	"PricePoint\x12\x0e\n" +
+	"\x02at\x18\x01 \x01(\tR\x02at\x12\x14\n" +
+	"\x05price\x18\x02 \x01(\tR\x05price\"H\n" +
+	"\x17GetPriceHistoryResponse\x12-\n" +
+	"\x06points\x18\x01 \x03(\v2\x15.plugin.v1.PricePointR\x06points\"z\n" +
+	"\x11ListTradesRequest\x12\x18\n" +
+	"\asession\x18\x01 \x01(\tR\asession\x12\x1b\n" +
+	"\tmarket_id\x18\x02 \x01(\tR\bmarketId\x12\x18\n" +
+	"\aaddress\x18\x03 \x01(\tR\aaddress\x12\x14\n" +
+	"\x05limit\x18\x04 \x01(\x05R\x05limit\"\xb7\x02\n" +
+	"\x05Trade\x12\x1b\n" +
+	"\tmarket_id\x18\x01 \x01(\tR\bmarketId\x12\x19\n" +
+	"\btoken_id\x18\x02 \x01(\tR\atokenId\x12\x18\n" +
+	"\aoutcome\x18\x03 \x01(\tR\aoutcome\x12\x12\n" +
+	"\x04side\x18\x04 \x01(\tR\x04side\x12\x14\n" +
+	"\x05price\x18\x05 \x01(\tR\x05price\x12\x12\n" +
+	"\x04size\x18\x06 \x01(\tR\x04size\x12\x18\n" +
+	"\aaddress\x18\a \x01(\tR\aaddress\x12\x12\n" +
+	"\x04name\x18\b \x01(\tR\x04name\x12\x0e\n" +
+	"\x02at\x18\t \x01(\tR\x02at\x12\x17\n" +
+	"\atx_hash\x18\n" +
+	" \x01(\tR\x06txHash\x12\x14\n" +
+	"\x05title\x18\v \x01(\tR\x05title\x12\x12\n" +
+	"\x04slug\x18\f \x01(\tR\x04slug\x12\x1d\n" +
+	"\n" +
+	"event_slug\x18\r \x01(\tR\teventSlug\">\n" +
+	"\x12ListTradesResponse\x12(\n" +
+	"\x06trades\x18\x01 \x03(\v2\x10.plugin.v1.TradeR\x06trades\"`\n" +
+	"\x14ListPositionsRequest\x12\x18\n" +
+	"\asession\x18\x01 \x01(\tR\asession\x12\x18\n" +
+	"\aaddress\x18\x02 \x01(\tR\aaddress\x12\x14\n" +
+	"\x05limit\x18\x03 \x01(\x05R\x05limit\"\xe2\x02\n" +
+	"\bPosition\x12\x18\n" +
+	"\aaddress\x18\x01 \x01(\tR\aaddress\x12\x1b\n" +
+	"\tmarket_id\x18\x02 \x01(\tR\bmarketId\x12\x19\n" +
+	"\btoken_id\x18\x03 \x01(\tR\atokenId\x12\x14\n" +
+	"\x05title\x18\x04 \x01(\tR\x05title\x12\x18\n" +
+	"\aoutcome\x18\x05 \x01(\tR\aoutcome\x12\x12\n" +
+	"\x04size\x18\x06 \x01(\tR\x04size\x12\x1b\n" +
+	"\tavg_price\x18\a \x01(\tR\bavgPrice\x12#\n" +
+	"\rcurrent_price\x18\b \x01(\tR\fcurrentPrice\x12\x14\n" +
+	"\x05value\x18\t \x01(\tR\x05value\x12!\n" +
+	"\frealized_pnl\x18\n" +
+	" \x01(\tR\vrealizedPnl\x12%\n" +
+	"\x0eunrealized_pnl\x18\v \x01(\tR\runrealizedPnl\x12\x1e\n" +
+	"\n" +
+	"redeemable\x18\f \x01(\bR\n" +
+	"redeemable\"J\n" +
+	"\x15ListPositionsResponse\x121\n" +
+	"\tpositions\x18\x01 \x03(\v2\x13.plugin.v1.PositionR\tpositions\".\n" +
+	"\x12ListWalletsRequest\x12\x18\n" +
+	"\asession\x18\x01 \x01(\tR\asession\"F\n" +
+	"\x06Wallet\x12\x0e\n" +
+	"\x02id\x18\x01 \x01(\tR\x02id\x12\x12\n" +
+	"\x04name\x18\x02 \x01(\tR\x04name\x12\x18\n" +
+	"\aaddress\x18\x03 \x01(\tR\aaddress\"B\n" +
+	"\x13ListWalletsResponse\x12+\n" +
+	"\awallets\x18\x01 \x03(\v2\x11.plugin.v1.WalletR\awallets2\xb7\t\n" +
 	"\vHostService\x12:\n" +
 	"\x05Fetch\x12\x17.plugin.v1.FetchRequest\x1a\x18.plugin.v1.FetchResponse\x12R\n" +
-	"\rGetCredential\x12\x1f.plugin.v1.GetCredentialRequest\x1a .plugin.v1.GetCredentialResponse\x124\n" +
+	"\rGetCredential\x12\x1f.plugin.v1.GetCredentialRequest\x1a .plugin.v1.GetCredentialResponse\x12C\n" +
+	"\bGetValue\x12\x1a.plugin.v1.GetValueRequest\x1a\x1b.plugin.v1.GetValueResponse\x12C\n" +
+	"\bSetValue\x12\x1a.plugin.v1.SetValueRequest\x1a\x1b.plugin.v1.SetValueResponse\x12L\n" +
+	"\vDeleteValue\x12\x1d.plugin.v1.DeleteValueRequest\x1a\x1e.plugin.v1.DeleteValueResponse\x12C\n" +
+	"\bListKeys\x12\x1a.plugin.v1.ListKeysRequest\x1a\x1b.plugin.v1.ListKeysResponse\x12R\n" +
+	"\rSearchMarkets\x12\x1f.plugin.v1.SearchMarketsRequest\x1a .plugin.v1.SearchMarketsResponse\x12O\n" +
+	"\fGetOrderBook\x12\x1e.plugin.v1.GetOrderBookRequest\x1a\x1f.plugin.v1.GetOrderBookResponse\x12X\n" +
+	"\x0fGetPriceHistory\x12!.plugin.v1.GetPriceHistoryRequest\x1a\".plugin.v1.GetPriceHistoryResponse\x12I\n" +
+	"\n" +
+	"ListTrades\x12\x1c.plugin.v1.ListTradesRequest\x1a\x1d.plugin.v1.ListTradesResponse\x12R\n" +
+	"\rListPositions\x12\x1f.plugin.v1.ListPositionsRequest\x1a .plugin.v1.ListPositionsResponse\x12L\n" +
+	"\vListWallets\x12\x1d.plugin.v1.ListWalletsRequest\x1a\x1e.plugin.v1.ListWalletsResponse\x124\n" +
 	"\x03Log\x12\x15.plugin.v1.LogRequest\x1a\x16.plugin.v1.LogResponse\x12O\n" +
 	"\fRecordMetric\x12\x1e.plugin.v1.RecordMetricRequest\x1a\x1f.plugin.v1.RecordMetricResponse\x12F\n" +
 	"\tStartSpan\x12\x1b.plugin.v1.StartSpanRequest\x1a\x1c.plugin.v1.StartSpanResponse\x12@\n" +
@@ -836,54 +2778,111 @@ func file_plugin_v1_host_proto_rawDescGZIP() []byte {
 	return file_plugin_v1_host_proto_rawDescData
 }
 
-var file_plugin_v1_host_proto_msgTypes = make([]protoimpl.MessageInfo, 17)
+var file_plugin_v1_host_proto_msgTypes = make([]protoimpl.MessageInfo, 45)
 var file_plugin_v1_host_proto_goTypes = []any{
-	(*Header)(nil),                // 0: plugin.v1.Header
-	(*FetchRequest)(nil),          // 1: plugin.v1.FetchRequest
-	(*FetchResponse)(nil),         // 2: plugin.v1.FetchResponse
-	(*GetCredentialRequest)(nil),  // 3: plugin.v1.GetCredentialRequest
-	(*GetCredentialResponse)(nil), // 4: plugin.v1.GetCredentialResponse
-	(*LogRequest)(nil),            // 5: plugin.v1.LogRequest
-	(*LogResponse)(nil),           // 6: plugin.v1.LogResponse
-	(*RecordMetricRequest)(nil),   // 7: plugin.v1.RecordMetricRequest
-	(*RecordMetricResponse)(nil),  // 8: plugin.v1.RecordMetricResponse
-	(*StartSpanRequest)(nil),      // 9: plugin.v1.StartSpanRequest
-	(*StartSpanResponse)(nil),     // 10: plugin.v1.StartSpanResponse
-	(*EndSpanRequest)(nil),        // 11: plugin.v1.EndSpanRequest
-	(*EndSpanResponse)(nil),       // 12: plugin.v1.EndSpanResponse
-	nil,                           // 13: plugin.v1.LogRequest.FieldsEntry
-	nil,                           // 14: plugin.v1.RecordMetricRequest.LabelsEntry
-	nil,                           // 15: plugin.v1.StartSpanRequest.AttributesEntry
-	nil,                           // 16: plugin.v1.EndSpanRequest.AttributesEntry
-	(*ItemRef)(nil),               // 17: plugin.v1.ItemRef
-	(*Credential)(nil),            // 18: plugin.v1.Credential
+	(*Header)(nil),                  // 0: plugin.v1.Header
+	(*FetchRequest)(nil),            // 1: plugin.v1.FetchRequest
+	(*FetchResponse)(nil),           // 2: plugin.v1.FetchResponse
+	(*GetCredentialRequest)(nil),    // 3: plugin.v1.GetCredentialRequest
+	(*GetCredentialResponse)(nil),   // 4: plugin.v1.GetCredentialResponse
+	(*LogRequest)(nil),              // 5: plugin.v1.LogRequest
+	(*LogResponse)(nil),             // 6: plugin.v1.LogResponse
+	(*RecordMetricRequest)(nil),     // 7: plugin.v1.RecordMetricRequest
+	(*RecordMetricResponse)(nil),    // 8: plugin.v1.RecordMetricResponse
+	(*StartSpanRequest)(nil),        // 9: plugin.v1.StartSpanRequest
+	(*StartSpanResponse)(nil),       // 10: plugin.v1.StartSpanResponse
+	(*EndSpanRequest)(nil),          // 11: plugin.v1.EndSpanRequest
+	(*EndSpanResponse)(nil),         // 12: plugin.v1.EndSpanResponse
+	(*GetValueRequest)(nil),         // 13: plugin.v1.GetValueRequest
+	(*GetValueResponse)(nil),        // 14: plugin.v1.GetValueResponse
+	(*SetValueRequest)(nil),         // 15: plugin.v1.SetValueRequest
+	(*SetValueResponse)(nil),        // 16: plugin.v1.SetValueResponse
+	(*DeleteValueRequest)(nil),      // 17: plugin.v1.DeleteValueRequest
+	(*DeleteValueResponse)(nil),     // 18: plugin.v1.DeleteValueResponse
+	(*ListKeysRequest)(nil),         // 19: plugin.v1.ListKeysRequest
+	(*ListKeysResponse)(nil),        // 20: plugin.v1.ListKeysResponse
+	(*Market)(nil),                  // 21: plugin.v1.Market
+	(*Outcome)(nil),                 // 22: plugin.v1.Outcome
+	(*SearchMarketsRequest)(nil),    // 23: plugin.v1.SearchMarketsRequest
+	(*SearchMarketsResponse)(nil),   // 24: plugin.v1.SearchMarketsResponse
+	(*GetOrderBookRequest)(nil),     // 25: plugin.v1.GetOrderBookRequest
+	(*OrderBook)(nil),               // 26: plugin.v1.OrderBook
+	(*Level)(nil),                   // 27: plugin.v1.Level
+	(*GetOrderBookResponse)(nil),    // 28: plugin.v1.GetOrderBookResponse
+	(*GetPriceHistoryRequest)(nil),  // 29: plugin.v1.GetPriceHistoryRequest
+	(*PricePoint)(nil),              // 30: plugin.v1.PricePoint
+	(*GetPriceHistoryResponse)(nil), // 31: plugin.v1.GetPriceHistoryResponse
+	(*ListTradesRequest)(nil),       // 32: plugin.v1.ListTradesRequest
+	(*Trade)(nil),                   // 33: plugin.v1.Trade
+	(*ListTradesResponse)(nil),      // 34: plugin.v1.ListTradesResponse
+	(*ListPositionsRequest)(nil),    // 35: plugin.v1.ListPositionsRequest
+	(*Position)(nil),                // 36: plugin.v1.Position
+	(*ListPositionsResponse)(nil),   // 37: plugin.v1.ListPositionsResponse
+	(*ListWalletsRequest)(nil),      // 38: plugin.v1.ListWalletsRequest
+	(*Wallet)(nil),                  // 39: plugin.v1.Wallet
+	(*ListWalletsResponse)(nil),     // 40: plugin.v1.ListWalletsResponse
+	nil,                             // 41: plugin.v1.LogRequest.FieldsEntry
+	nil,                             // 42: plugin.v1.RecordMetricRequest.LabelsEntry
+	nil,                             // 43: plugin.v1.StartSpanRequest.AttributesEntry
+	nil,                             // 44: plugin.v1.EndSpanRequest.AttributesEntry
+	(*ItemRef)(nil),                 // 45: plugin.v1.ItemRef
+	(*Credential)(nil),              // 46: plugin.v1.Credential
 }
 var file_plugin_v1_host_proto_depIdxs = []int32{
 	0,  // 0: plugin.v1.FetchRequest.headers:type_name -> plugin.v1.Header
 	0,  // 1: plugin.v1.FetchResponse.headers:type_name -> plugin.v1.Header
-	17, // 2: plugin.v1.GetCredentialRequest.item:type_name -> plugin.v1.ItemRef
-	18, // 3: plugin.v1.GetCredentialResponse.credential:type_name -> plugin.v1.Credential
-	13, // 4: plugin.v1.LogRequest.fields:type_name -> plugin.v1.LogRequest.FieldsEntry
-	14, // 5: plugin.v1.RecordMetricRequest.labels:type_name -> plugin.v1.RecordMetricRequest.LabelsEntry
-	15, // 6: plugin.v1.StartSpanRequest.attributes:type_name -> plugin.v1.StartSpanRequest.AttributesEntry
-	16, // 7: plugin.v1.EndSpanRequest.attributes:type_name -> plugin.v1.EndSpanRequest.AttributesEntry
-	1,  // 8: plugin.v1.HostService.Fetch:input_type -> plugin.v1.FetchRequest
-	3,  // 9: plugin.v1.HostService.GetCredential:input_type -> plugin.v1.GetCredentialRequest
-	5,  // 10: plugin.v1.HostService.Log:input_type -> plugin.v1.LogRequest
-	7,  // 11: plugin.v1.HostService.RecordMetric:input_type -> plugin.v1.RecordMetricRequest
-	9,  // 12: plugin.v1.HostService.StartSpan:input_type -> plugin.v1.StartSpanRequest
-	11, // 13: plugin.v1.HostService.EndSpan:input_type -> plugin.v1.EndSpanRequest
-	2,  // 14: plugin.v1.HostService.Fetch:output_type -> plugin.v1.FetchResponse
-	4,  // 15: plugin.v1.HostService.GetCredential:output_type -> plugin.v1.GetCredentialResponse
-	6,  // 16: plugin.v1.HostService.Log:output_type -> plugin.v1.LogResponse
-	8,  // 17: plugin.v1.HostService.RecordMetric:output_type -> plugin.v1.RecordMetricResponse
-	10, // 18: plugin.v1.HostService.StartSpan:output_type -> plugin.v1.StartSpanResponse
-	12, // 19: plugin.v1.HostService.EndSpan:output_type -> plugin.v1.EndSpanResponse
-	14, // [14:20] is the sub-list for method output_type
-	8,  // [8:14] is the sub-list for method input_type
-	8,  // [8:8] is the sub-list for extension type_name
-	8,  // [8:8] is the sub-list for extension extendee
-	0,  // [0:8] is the sub-list for field type_name
+	45, // 2: plugin.v1.GetCredentialRequest.item:type_name -> plugin.v1.ItemRef
+	46, // 3: plugin.v1.GetCredentialResponse.credential:type_name -> plugin.v1.Credential
+	41, // 4: plugin.v1.LogRequest.fields:type_name -> plugin.v1.LogRequest.FieldsEntry
+	42, // 5: plugin.v1.RecordMetricRequest.labels:type_name -> plugin.v1.RecordMetricRequest.LabelsEntry
+	43, // 6: plugin.v1.StartSpanRequest.attributes:type_name -> plugin.v1.StartSpanRequest.AttributesEntry
+	44, // 7: plugin.v1.EndSpanRequest.attributes:type_name -> plugin.v1.EndSpanRequest.AttributesEntry
+	22, // 8: plugin.v1.Market.outcomes:type_name -> plugin.v1.Outcome
+	21, // 9: plugin.v1.SearchMarketsResponse.markets:type_name -> plugin.v1.Market
+	27, // 10: plugin.v1.OrderBook.bids:type_name -> plugin.v1.Level
+	27, // 11: plugin.v1.OrderBook.asks:type_name -> plugin.v1.Level
+	26, // 12: plugin.v1.GetOrderBookResponse.book:type_name -> plugin.v1.OrderBook
+	30, // 13: plugin.v1.GetPriceHistoryResponse.points:type_name -> plugin.v1.PricePoint
+	33, // 14: plugin.v1.ListTradesResponse.trades:type_name -> plugin.v1.Trade
+	36, // 15: plugin.v1.ListPositionsResponse.positions:type_name -> plugin.v1.Position
+	39, // 16: plugin.v1.ListWalletsResponse.wallets:type_name -> plugin.v1.Wallet
+	1,  // 17: plugin.v1.HostService.Fetch:input_type -> plugin.v1.FetchRequest
+	3,  // 18: plugin.v1.HostService.GetCredential:input_type -> plugin.v1.GetCredentialRequest
+	13, // 19: plugin.v1.HostService.GetValue:input_type -> plugin.v1.GetValueRequest
+	15, // 20: plugin.v1.HostService.SetValue:input_type -> plugin.v1.SetValueRequest
+	17, // 21: plugin.v1.HostService.DeleteValue:input_type -> plugin.v1.DeleteValueRequest
+	19, // 22: plugin.v1.HostService.ListKeys:input_type -> plugin.v1.ListKeysRequest
+	23, // 23: plugin.v1.HostService.SearchMarkets:input_type -> plugin.v1.SearchMarketsRequest
+	25, // 24: plugin.v1.HostService.GetOrderBook:input_type -> plugin.v1.GetOrderBookRequest
+	29, // 25: plugin.v1.HostService.GetPriceHistory:input_type -> plugin.v1.GetPriceHistoryRequest
+	32, // 26: plugin.v1.HostService.ListTrades:input_type -> plugin.v1.ListTradesRequest
+	35, // 27: plugin.v1.HostService.ListPositions:input_type -> plugin.v1.ListPositionsRequest
+	38, // 28: plugin.v1.HostService.ListWallets:input_type -> plugin.v1.ListWalletsRequest
+	5,  // 29: plugin.v1.HostService.Log:input_type -> plugin.v1.LogRequest
+	7,  // 30: plugin.v1.HostService.RecordMetric:input_type -> plugin.v1.RecordMetricRequest
+	9,  // 31: plugin.v1.HostService.StartSpan:input_type -> plugin.v1.StartSpanRequest
+	11, // 32: plugin.v1.HostService.EndSpan:input_type -> plugin.v1.EndSpanRequest
+	2,  // 33: plugin.v1.HostService.Fetch:output_type -> plugin.v1.FetchResponse
+	4,  // 34: plugin.v1.HostService.GetCredential:output_type -> plugin.v1.GetCredentialResponse
+	14, // 35: plugin.v1.HostService.GetValue:output_type -> plugin.v1.GetValueResponse
+	16, // 36: plugin.v1.HostService.SetValue:output_type -> plugin.v1.SetValueResponse
+	18, // 37: plugin.v1.HostService.DeleteValue:output_type -> plugin.v1.DeleteValueResponse
+	20, // 38: plugin.v1.HostService.ListKeys:output_type -> plugin.v1.ListKeysResponse
+	24, // 39: plugin.v1.HostService.SearchMarkets:output_type -> plugin.v1.SearchMarketsResponse
+	28, // 40: plugin.v1.HostService.GetOrderBook:output_type -> plugin.v1.GetOrderBookResponse
+	31, // 41: plugin.v1.HostService.GetPriceHistory:output_type -> plugin.v1.GetPriceHistoryResponse
+	34, // 42: plugin.v1.HostService.ListTrades:output_type -> plugin.v1.ListTradesResponse
+	37, // 43: plugin.v1.HostService.ListPositions:output_type -> plugin.v1.ListPositionsResponse
+	40, // 44: plugin.v1.HostService.ListWallets:output_type -> plugin.v1.ListWalletsResponse
+	6,  // 45: plugin.v1.HostService.Log:output_type -> plugin.v1.LogResponse
+	8,  // 46: plugin.v1.HostService.RecordMetric:output_type -> plugin.v1.RecordMetricResponse
+	10, // 47: plugin.v1.HostService.StartSpan:output_type -> plugin.v1.StartSpanResponse
+	12, // 48: plugin.v1.HostService.EndSpan:output_type -> plugin.v1.EndSpanResponse
+	33, // [33:49] is the sub-list for method output_type
+	17, // [17:33] is the sub-list for method input_type
+	17, // [17:17] is the sub-list for extension type_name
+	17, // [17:17] is the sub-list for extension extendee
+	0,  // [0:17] is the sub-list for field type_name
 }
 
 func init() { file_plugin_v1_host_proto_init() }
@@ -898,7 +2897,7 @@ func file_plugin_v1_host_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_plugin_v1_host_proto_rawDesc), len(file_plugin_v1_host_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   17,
+			NumMessages:   45,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

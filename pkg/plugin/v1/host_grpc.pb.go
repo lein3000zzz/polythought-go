@@ -26,12 +26,22 @@ import (
 const _ = grpc.SupportPackageIsVersion9
 
 const (
-	HostService_Fetch_FullMethodName         = "/plugin.v1.HostService/Fetch"
-	HostService_GetCredential_FullMethodName = "/plugin.v1.HostService/GetCredential"
-	HostService_Log_FullMethodName           = "/plugin.v1.HostService/Log"
-	HostService_RecordMetric_FullMethodName  = "/plugin.v1.HostService/RecordMetric"
-	HostService_StartSpan_FullMethodName     = "/plugin.v1.HostService/StartSpan"
-	HostService_EndSpan_FullMethodName       = "/plugin.v1.HostService/EndSpan"
+	HostService_Fetch_FullMethodName           = "/plugin.v1.HostService/Fetch"
+	HostService_GetCredential_FullMethodName   = "/plugin.v1.HostService/GetCredential"
+	HostService_GetValue_FullMethodName        = "/plugin.v1.HostService/GetValue"
+	HostService_SetValue_FullMethodName        = "/plugin.v1.HostService/SetValue"
+	HostService_DeleteValue_FullMethodName     = "/plugin.v1.HostService/DeleteValue"
+	HostService_ListKeys_FullMethodName        = "/plugin.v1.HostService/ListKeys"
+	HostService_SearchMarkets_FullMethodName   = "/plugin.v1.HostService/SearchMarkets"
+	HostService_GetOrderBook_FullMethodName    = "/plugin.v1.HostService/GetOrderBook"
+	HostService_GetPriceHistory_FullMethodName = "/plugin.v1.HostService/GetPriceHistory"
+	HostService_ListTrades_FullMethodName      = "/plugin.v1.HostService/ListTrades"
+	HostService_ListPositions_FullMethodName   = "/plugin.v1.HostService/ListPositions"
+	HostService_ListWallets_FullMethodName     = "/plugin.v1.HostService/ListWallets"
+	HostService_Log_FullMethodName             = "/plugin.v1.HostService/Log"
+	HostService_RecordMetric_FullMethodName    = "/plugin.v1.HostService/RecordMetric"
+	HostService_StartSpan_FullMethodName       = "/plugin.v1.HostService/StartSpan"
+	HostService_EndSpan_FullMethodName         = "/plugin.v1.HostService/EndSpan"
 )
 
 // HostServiceClient is the client API for HostService service.
@@ -46,6 +56,24 @@ type HostServiceClient interface {
 	// settings names: the one the workflow's owner picked, for that item. It counts as a
 	// call.
 	GetCredential(ctx context.Context, in *GetCredentialRequest, opts ...grpc.CallOption) (*GetCredentialResponse, error)
+	// GetValue, SetValue, DeleteValue and ListKeys are the node's own store in its
+	// workflow (D288), for nodes the manifest marks remembers. Values are JSON; keys up to
+	// 256 bytes, all of them and their values within the node's size. They count as calls.
+	GetValue(ctx context.Context, in *GetValueRequest, opts ...grpc.CallOption) (*GetValueResponse, error)
+	SetValue(ctx context.Context, in *SetValueRequest, opts ...grpc.CallOption) (*SetValueResponse, error)
+	DeleteValue(ctx context.Context, in *DeleteValueRequest, opts ...grpc.CallOption) (*DeleteValueResponse, error)
+	ListKeys(ctx context.Context, in *ListKeysRequest, opts ...grpc.CallOption) (*ListKeysResponse, error)
+	// SearchMarkets, GetOrderBook, GetPriceHistory, ListTrades and ListPositions read
+	// Polymarket's public data, any plugin (D290, D292), within Polythought's rate limits.
+	// They count as calls.
+	SearchMarkets(ctx context.Context, in *SearchMarketsRequest, opts ...grpc.CallOption) (*SearchMarketsResponse, error)
+	GetOrderBook(ctx context.Context, in *GetOrderBookRequest, opts ...grpc.CallOption) (*GetOrderBookResponse, error)
+	GetPriceHistory(ctx context.Context, in *GetPriceHistoryRequest, opts ...grpc.CallOption) (*GetPriceHistoryResponse, error)
+	ListTrades(ctx context.Context, in *ListTradesRequest, opts ...grpc.CallOption) (*ListTradesResponse, error)
+	ListPositions(ctx context.Context, in *ListPositionsRequest, opts ...grpc.CallOption) (*ListPositionsResponse, error)
+	// ListWallets are the workflow's owner's own wallets, with the wallets permission
+	// (D301). It counts as a call.
+	ListWallets(ctx context.Context, in *ListWalletsRequest, opts ...grpc.CallOption) (*ListWalletsResponse, error)
 	// Log, RecordMetric, StartSpan and EndSpan are the plugin's logs, metrics and traces.
 	// They are not counted as calls, but have a cap of their own a run.
 	Log(ctx context.Context, in *LogRequest, opts ...grpc.CallOption) (*LogResponse, error)
@@ -76,6 +104,106 @@ func (c *hostServiceClient) GetCredential(ctx context.Context, in *GetCredential
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(GetCredentialResponse)
 	err := c.cc.Invoke(ctx, HostService_GetCredential_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *hostServiceClient) GetValue(ctx context.Context, in *GetValueRequest, opts ...grpc.CallOption) (*GetValueResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(GetValueResponse)
+	err := c.cc.Invoke(ctx, HostService_GetValue_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *hostServiceClient) SetValue(ctx context.Context, in *SetValueRequest, opts ...grpc.CallOption) (*SetValueResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(SetValueResponse)
+	err := c.cc.Invoke(ctx, HostService_SetValue_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *hostServiceClient) DeleteValue(ctx context.Context, in *DeleteValueRequest, opts ...grpc.CallOption) (*DeleteValueResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(DeleteValueResponse)
+	err := c.cc.Invoke(ctx, HostService_DeleteValue_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *hostServiceClient) ListKeys(ctx context.Context, in *ListKeysRequest, opts ...grpc.CallOption) (*ListKeysResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ListKeysResponse)
+	err := c.cc.Invoke(ctx, HostService_ListKeys_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *hostServiceClient) SearchMarkets(ctx context.Context, in *SearchMarketsRequest, opts ...grpc.CallOption) (*SearchMarketsResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(SearchMarketsResponse)
+	err := c.cc.Invoke(ctx, HostService_SearchMarkets_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *hostServiceClient) GetOrderBook(ctx context.Context, in *GetOrderBookRequest, opts ...grpc.CallOption) (*GetOrderBookResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(GetOrderBookResponse)
+	err := c.cc.Invoke(ctx, HostService_GetOrderBook_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *hostServiceClient) GetPriceHistory(ctx context.Context, in *GetPriceHistoryRequest, opts ...grpc.CallOption) (*GetPriceHistoryResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(GetPriceHistoryResponse)
+	err := c.cc.Invoke(ctx, HostService_GetPriceHistory_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *hostServiceClient) ListTrades(ctx context.Context, in *ListTradesRequest, opts ...grpc.CallOption) (*ListTradesResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ListTradesResponse)
+	err := c.cc.Invoke(ctx, HostService_ListTrades_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *hostServiceClient) ListPositions(ctx context.Context, in *ListPositionsRequest, opts ...grpc.CallOption) (*ListPositionsResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ListPositionsResponse)
+	err := c.cc.Invoke(ctx, HostService_ListPositions_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *hostServiceClient) ListWallets(ctx context.Context, in *ListWalletsRequest, opts ...grpc.CallOption) (*ListWalletsResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ListWalletsResponse)
+	err := c.cc.Invoke(ctx, HostService_ListWallets_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -134,6 +262,24 @@ type HostServiceServer interface {
 	// settings names: the one the workflow's owner picked, for that item. It counts as a
 	// call.
 	GetCredential(context.Context, *GetCredentialRequest) (*GetCredentialResponse, error)
+	// GetValue, SetValue, DeleteValue and ListKeys are the node's own store in its
+	// workflow (D288), for nodes the manifest marks remembers. Values are JSON; keys up to
+	// 256 bytes, all of them and their values within the node's size. They count as calls.
+	GetValue(context.Context, *GetValueRequest) (*GetValueResponse, error)
+	SetValue(context.Context, *SetValueRequest) (*SetValueResponse, error)
+	DeleteValue(context.Context, *DeleteValueRequest) (*DeleteValueResponse, error)
+	ListKeys(context.Context, *ListKeysRequest) (*ListKeysResponse, error)
+	// SearchMarkets, GetOrderBook, GetPriceHistory, ListTrades and ListPositions read
+	// Polymarket's public data, any plugin (D290, D292), within Polythought's rate limits.
+	// They count as calls.
+	SearchMarkets(context.Context, *SearchMarketsRequest) (*SearchMarketsResponse, error)
+	GetOrderBook(context.Context, *GetOrderBookRequest) (*GetOrderBookResponse, error)
+	GetPriceHistory(context.Context, *GetPriceHistoryRequest) (*GetPriceHistoryResponse, error)
+	ListTrades(context.Context, *ListTradesRequest) (*ListTradesResponse, error)
+	ListPositions(context.Context, *ListPositionsRequest) (*ListPositionsResponse, error)
+	// ListWallets are the workflow's owner's own wallets, with the wallets permission
+	// (D301). It counts as a call.
+	ListWallets(context.Context, *ListWalletsRequest) (*ListWalletsResponse, error)
 	// Log, RecordMetric, StartSpan and EndSpan are the plugin's logs, metrics and traces.
 	// They are not counted as calls, but have a cap of their own a run.
 	Log(context.Context, *LogRequest) (*LogResponse, error)
@@ -155,6 +301,36 @@ func (UnimplementedHostServiceServer) Fetch(context.Context, *FetchRequest) (*Fe
 }
 func (UnimplementedHostServiceServer) GetCredential(context.Context, *GetCredentialRequest) (*GetCredentialResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method GetCredential not implemented")
+}
+func (UnimplementedHostServiceServer) GetValue(context.Context, *GetValueRequest) (*GetValueResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method GetValue not implemented")
+}
+func (UnimplementedHostServiceServer) SetValue(context.Context, *SetValueRequest) (*SetValueResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method SetValue not implemented")
+}
+func (UnimplementedHostServiceServer) DeleteValue(context.Context, *DeleteValueRequest) (*DeleteValueResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method DeleteValue not implemented")
+}
+func (UnimplementedHostServiceServer) ListKeys(context.Context, *ListKeysRequest) (*ListKeysResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ListKeys not implemented")
+}
+func (UnimplementedHostServiceServer) SearchMarkets(context.Context, *SearchMarketsRequest) (*SearchMarketsResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method SearchMarkets not implemented")
+}
+func (UnimplementedHostServiceServer) GetOrderBook(context.Context, *GetOrderBookRequest) (*GetOrderBookResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method GetOrderBook not implemented")
+}
+func (UnimplementedHostServiceServer) GetPriceHistory(context.Context, *GetPriceHistoryRequest) (*GetPriceHistoryResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method GetPriceHistory not implemented")
+}
+func (UnimplementedHostServiceServer) ListTrades(context.Context, *ListTradesRequest) (*ListTradesResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ListTrades not implemented")
+}
+func (UnimplementedHostServiceServer) ListPositions(context.Context, *ListPositionsRequest) (*ListPositionsResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ListPositions not implemented")
+}
+func (UnimplementedHostServiceServer) ListWallets(context.Context, *ListWalletsRequest) (*ListWalletsResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ListWallets not implemented")
 }
 func (UnimplementedHostServiceServer) Log(context.Context, *LogRequest) (*LogResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method Log not implemented")
@@ -221,6 +397,186 @@ func _HostService_GetCredential_Handler(srv interface{}, ctx context.Context, de
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(HostServiceServer).GetCredential(ctx, req.(*GetCredentialRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _HostService_GetValue_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetValueRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(HostServiceServer).GetValue(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: HostService_GetValue_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(HostServiceServer).GetValue(ctx, req.(*GetValueRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _HostService_SetValue_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(SetValueRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(HostServiceServer).SetValue(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: HostService_SetValue_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(HostServiceServer).SetValue(ctx, req.(*SetValueRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _HostService_DeleteValue_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(DeleteValueRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(HostServiceServer).DeleteValue(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: HostService_DeleteValue_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(HostServiceServer).DeleteValue(ctx, req.(*DeleteValueRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _HostService_ListKeys_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ListKeysRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(HostServiceServer).ListKeys(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: HostService_ListKeys_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(HostServiceServer).ListKeys(ctx, req.(*ListKeysRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _HostService_SearchMarkets_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(SearchMarketsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(HostServiceServer).SearchMarkets(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: HostService_SearchMarkets_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(HostServiceServer).SearchMarkets(ctx, req.(*SearchMarketsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _HostService_GetOrderBook_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetOrderBookRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(HostServiceServer).GetOrderBook(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: HostService_GetOrderBook_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(HostServiceServer).GetOrderBook(ctx, req.(*GetOrderBookRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _HostService_GetPriceHistory_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetPriceHistoryRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(HostServiceServer).GetPriceHistory(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: HostService_GetPriceHistory_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(HostServiceServer).GetPriceHistory(ctx, req.(*GetPriceHistoryRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _HostService_ListTrades_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ListTradesRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(HostServiceServer).ListTrades(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: HostService_ListTrades_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(HostServiceServer).ListTrades(ctx, req.(*ListTradesRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _HostService_ListPositions_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ListPositionsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(HostServiceServer).ListPositions(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: HostService_ListPositions_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(HostServiceServer).ListPositions(ctx, req.(*ListPositionsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _HostService_ListWallets_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ListWalletsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(HostServiceServer).ListWallets(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: HostService_ListWallets_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(HostServiceServer).ListWallets(ctx, req.(*ListWalletsRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -311,6 +667,46 @@ var HostService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "GetCredential",
 			Handler:    _HostService_GetCredential_Handler,
+		},
+		{
+			MethodName: "GetValue",
+			Handler:    _HostService_GetValue_Handler,
+		},
+		{
+			MethodName: "SetValue",
+			Handler:    _HostService_SetValue_Handler,
+		},
+		{
+			MethodName: "DeleteValue",
+			Handler:    _HostService_DeleteValue_Handler,
+		},
+		{
+			MethodName: "ListKeys",
+			Handler:    _HostService_ListKeys_Handler,
+		},
+		{
+			MethodName: "SearchMarkets",
+			Handler:    _HostService_SearchMarkets_Handler,
+		},
+		{
+			MethodName: "GetOrderBook",
+			Handler:    _HostService_GetOrderBook_Handler,
+		},
+		{
+			MethodName: "GetPriceHistory",
+			Handler:    _HostService_GetPriceHistory_Handler,
+		},
+		{
+			MethodName: "ListTrades",
+			Handler:    _HostService_ListTrades_Handler,
+		},
+		{
+			MethodName: "ListPositions",
+			Handler:    _HostService_ListPositions_Handler,
+		},
+		{
+			MethodName: "ListWallets",
+			Handler:    _HostService_ListWallets_Handler,
 		},
 		{
 			MethodName: "Log",
