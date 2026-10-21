@@ -110,5 +110,15 @@ func (r *Registry) checkCredentialParams(typ NodeType) error {
 		}
 	}
 
+	for _, p := range typ.Params {
+		if p.ModelsOf == "" {
+			continue
+		}
+
+		if p.Kind != ParamString || !slices.ContainsFunc(typ.Params, func(c ParamSpec) bool { return c.Name == p.ModelsOf && c.Kind == ParamCredential }) {
+			return fmt.Errorf("register node type %q: param %q: models of %q, which is not a credential param, on a text one", typ.Name, p.Name, p.ModelsOf)
+		}
+	}
+
 	return nil
 }

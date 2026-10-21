@@ -7,6 +7,7 @@ import type { Shape } from '@/features/workflow/shapes'
 export type ExpressionScope = {
   item: Shape
   settings: readonly ParamSpec[]
+  items?: boolean // the node sees items: every item it receives (D257)
 }
 
 export type ExpressionInputProps = {

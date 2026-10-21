@@ -27,6 +27,7 @@ export const keys = {
   vault: ['vault'],
   vaultList: ['vault', 'list'],
   vaultTypes: ['vault', 'types'],
+  vaultModels: (credentialId: string) => ['vault', 'models', credentialId],
   library: ['library'],
   templateList: ['library', 'list'],
   template: (id: string) => ['library', 'template', id],

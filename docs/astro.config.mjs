@@ -22,6 +22,7 @@ export default defineConfig({
             'guides/workflow-code',
             'guides/library',
             'guides/credentials',
+            'guides/agents',
             'guides/telegram',
             'guides/copy-traders',
           ],
@@ -41,7 +42,7 @@ export default defineConfig({
               items: [
                 { label: 'All nodes', slug: 'reference/nodes' },
                 // The groups of tools/docgen, which writes these pages.
-                ...['Triggers', 'Polymarket', 'Logic', 'Transform', 'Output', 'Telegram', 'Code', 'Trading'].map((label) => ({
+                ...['Triggers', 'Polymarket', 'Logic', 'Transform', 'Output', 'Telegram', 'Code', 'Trading', 'AI'].map((label) => ({
                   label,
                   collapsed: true,
                   items: [{ autogenerate: { directory: `reference/nodes/${label.toLowerCase()}` } }],

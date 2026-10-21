@@ -1,0 +1,72 @@
+{
+  "id": "markets-a-model-watches",
+  "name": "Markets a model would watch",
+  "summary": "Every hour, a language model reads the markets this workflow has not seen yet, and the ones it would watch come to Telegram with its reason.",
+  "description": "The AI agent node asks a language model, with your own key: Anthropic's, an OpenAI-compatible one such as OpenRouter's, or Google's Gemini. Its calls are billed to that key's account, not to Polythought.\n\nEvery hour this workflow takes the 10 most liquid open markets and keeps those it has not seen in the last week. For each, the model answers in two fields: watch, true or false, and reason. The markets it would watch come to you on Telegram, with its reason.\n\nBefore you start:\n- Add your key on the Credentials page, and press Test to check it.\n- Pick it here, and name a model the key can use: the Model setting lists them.\n- Link Telegram on the Settings page, for the messages.\n\nThe first run sees every market, so it asks about all 10; later runs only about markets new to it. Change the Prompt to say what is worth watching to you.",
+  "nodes": [
+    {
+      "id": "every",
+      "type": "trigger.schedule",
+      "params": { "interval": "1h", "runOnStart": true },
+      "notes": "Runs every hour while the workflow is active. Run also starts it once, for a test.",
+      "position": { "x": 0, "y": 0 }
+    },
+    {
+      "id": "markets",
+      "type": "polymarket.markets",
+      "params": { "limit": 10 },
+      "notes": "The 10 most liquid open markets.",
+      "position": { "x": 300, "y": 0 }
+    },
+    {
+      "id": "unseen",
+      "type": "logic.dedupe",
+      "name": "Not seen this week",
+      "params": { "field": "id", "forget": "168h" },
+      "notes": "Lets each market through once a week, so the model is asked about it once.",
+      "position": { "x": 600, "y": 0 }
+    },
+    {
+      "id": "ask",
+      "type": "ai.agent",
+      "name": "Worth watching?",
+      "params": {
+        "system": "You are a careful prediction market analyst. You answer briefly and plainly.",
+        "prompt": "Polymarket asks: {{ question }}\nIt settles around {{ endsAt }}, with {{ volume24h }} dollars traded in the last day.\n\nIs this market worth watching for someone who follows news closely? Say why in one sentence.",
+        "answerAs": "fields",
+        "fields": [
+          { "name": "watch", "type": "true or false", "description": "Whether the market is worth watching." },
+          { "name": "reason", "type": "text", "description": "Why, in one sentence." }
+        ],
+        "maxTokens": 4000,
+        "effort": "low",
+        "retries": 1
+      },
+      "notes": "Asks the model about each market, its answer in two fields: watch and reason. Pick your key and a model.",
+      "position": { "x": 900, "y": 0 }
+    },
+    {
+      "id": "watch",
+      "type": "logic.if",
+      "name": "Would watch",
+      "params": { "field": "answer.json.watch", "operator": "is", "value": "true" },
+      "notes": "Keeps the markets the model would watch.",
+      "position": { "x": 1200, "y": 0 }
+    },
+    {
+      "id": "tell",
+      "type": "telegram.send",
+      "name": "Tell me",
+      "params": { "message": "{{question}}: {{answer.json.reason}}", "send": "each" },
+      "notes": "A message for each market the model would watch, with its reason.",
+      "position": { "x": 1500, "y": 0 }
+    }
+  ],
+  "connections": [
+    { "from": "every", "fromPort": "main", "to": "markets", "toPort": "main" },
+    { "from": "markets", "fromPort": "main", "to": "unseen", "toPort": "main" },
+    { "from": "unseen", "fromPort": "main", "to": "ask", "toPort": "main" },
+    { "from": "ask", "fromPort": "main", "to": "watch", "toPort": "main" },
+    { "from": "watch", "fromPort": "true", "to": "tell", "toPort": "main" }
+  ]
+}

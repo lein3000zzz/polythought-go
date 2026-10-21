@@ -245,6 +245,11 @@ type paramDTO struct {
 	FieldKinds []string `json:"fieldKinds,omitempty" validate:"optional" enums:"text,number,decimal,bool,time,list,object,any"`
 	// Input, for a field, is the input port whose items it names; absent for main.
 	Input string `json:"input,omitempty" validate:"optional"`
+	// ModelsOf, on text, names the credential param whose key's models it suggests:
+	// /credentials/{id}/models lists them. Any other name can still be typed.
+	ModelsOf string `json:"modelsOf,omitempty" validate:"optional"`
+	// Multiline text is several lines, a prompt, say.
+	Multiline bool `json:"multiline,omitempty" validate:"optional"`
 	// Columns are the cells of each row of a table, in order, keyed by name: text, a
 	// whole number, a decimal, true or false, or an address, text with options being one
 	// of a few choices. Only the whole table takes an expression.
@@ -271,14 +276,19 @@ type nodeTypeDTO struct {
 	// Remembers says it keeps what it saw across runs; /workflows/{id}/nodes/{node}/memory
 	// says how much, and forgets it.
 	Remembers bool `json:"remembers,omitempty" validate:"optional"`
+	// SeesItems says its settings' expressions see items, every item it receives on
+	// main, beside each one's fields; a field named items is then item.items.
+	SeesItems bool `json:"seesItems,omitempty" validate:"optional"`
 } // @name NodeType
 
 // itemsDTO describes the items a node emits on every output port: fields of its own, or
 // the items it received, whole or with only the fields a list param names, or an item for
 // each entry of the list a field param names, with the item's other fields. Merged names
 // the param saying how a node combines its two inputs (both, either, onlyA, onlyOne or
-// join), joinedAs the one naming the field that holds the second's item in a join. The
-// error port carries the items received.
+// join), joinedAs the one naming the field that holds the second's item in a join. Named
+// names the text param holding the name of its one field; alone is the value of a param
+// under which a node passing items sends one item of its fields alone. The error port
+// carries the items received.
 type itemsDTO struct {
 	Fields   []fieldDTO `json:"fields"`
 	Passed   bool       `json:"passed"`
@@ -286,7 +296,15 @@ type itemsDTO struct {
 	Split    string     `json:"split,omitempty" validate:"optional"`
 	Merged   string     `json:"merged,omitempty" validate:"optional"`
 	JoinedAs string     `json:"joinedAs,omitempty" validate:"optional"`
+	Named    string     `json:"named,omitempty" validate:"optional"`
+	Alone    *choiceDTO `json:"alone,omitempty" validate:"optional"`
 } // @name NodeItems
+
+// choiceDTO is one value of a param.
+type choiceDTO struct {
+	Param string `json:"param"`
+	Value string `json:"value"`
+} // @name ParamChoice
 
 type fieldDTO struct {
 	// Name is empty for a list's elements.
@@ -339,7 +357,7 @@ func toNodeTypeDTO(t engine.TypeInfo) nodeTypeDTO {
 		Name: t.Name, Label: t.Label, Description: t.Description, Trigger: t.Trigger,
 		Inputs: nonNil(t.Inputs), Outputs: nonNil(t.Outputs),
 		Params: make([]paramDTO, len(t.Params)), OutputsParam: t.OutputsParam, OutputsColumn: t.OutputsColumn,
-		Items: toItemsDTO(t.Items), Code: t.Code, Remembers: t.Remembers,
+		Items: toItemsDTO(t.Items), Code: t.Code, Remembers: t.Remembers, SeesItems: t.SeesItems,
 	}
 
 	for j, p := range t.Params {
@@ -354,10 +372,16 @@ func toItemsDTO(it *engine.Items) *itemsDTO {
 		return nil
 	}
 
-	return &itemsDTO{
+	dto := &itemsDTO{
 		Fields: toFieldDTOs(it.Fields), Passed: it.Passed, Picked: it.Picked, Split: it.Split,
-		Merged: it.Merged, JoinedAs: it.JoinedAs,
+		Merged: it.Merged, JoinedAs: it.JoinedAs, Named: it.Named,
 	}
+
+	if it.Alone.Param != "" {
+		dto.Alone = &choiceDTO{Param: it.Alone.Param, Value: it.Alone.Value}
+	}
+
+	return dto
 }
 
 func toFieldDTOs(fields []engine.Field) []fieldDTO {

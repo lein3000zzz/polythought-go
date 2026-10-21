@@ -425,6 +425,25 @@ func TestRegistryCredentialTypes(t *testing.T) {
 			wantErr: `not "test.other"`,
 		},
 		{
+			name: "models of a key",
+			register: func(r *engine.Registry) error {
+				_ = r.RegisterCredentialType(keyType)
+				n := user("test.key")
+				n.typ.Params = append(n.typ.Params, engine.ParamSpec{Name: "model", Kind: engine.ParamString, ModelsOf: "key"})
+				return r.RegisterNode(n)
+			},
+		},
+		{
+			name: "models of what is no key",
+			register: func(r *engine.Registry) error {
+				_ = r.RegisterCredentialType(keyType)
+				n := user("test.key")
+				n.typ.Params = append(n.typ.Params, engine.ParamSpec{Name: "model", Kind: engine.ParamString, ModelsOf: "model"})
+				return r.RegisterNode(n)
+			},
+			wantErr: `models of "model", which is not a credential param`,
+		},
+		{
 			name:     "a node naming no type",
 			register: func(r *engine.Registry) error { return r.RegisterNode(user()) },
 			wantErr:  "none named",

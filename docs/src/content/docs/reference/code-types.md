@@ -36,6 +36,72 @@ export type DurationText = string;
 /** A setting's value worked out per item: {{ }} around an expression, like "{{ params.max }}". */
 export type Expression = `{{${string}}}`;
 
+/** The settings of AI agent (ai.agent). */
+export interface AiAgentSettings {
+    /** Your Anthropic, OpenAI-compatible or Gemini key, from the Credentials page. The ID of one of your credentials of type anthropic.apiKey or openai.apiKey or gemini.apiKey. */
+    credential: string;
+    /** As the provider names it, like claude-opus-5-5: one the key can use, or any other. */
+    model: string;
+    /**
+     * each: a call per item, the answer added to it. together: one call for all of them, and one item out, the answer alone.
+     * @default "each"
+     */
+    call?: "each" | "together" | Expression;
+    /** How the model should go about it, like You are a careful prediction market analyst. */
+    system?: string;
+    /** What to ask, like Is {{ question }} worth watching? Taking them together, {{ items }} are all of them. */
+    prompt: string;
+    /**
+     * Taking them together: the items go after the prompt, as JSON.
+     * @default true
+     */
+    include?: boolean | Expression;
+    /**
+     * text as it is written; fields, the Fields below; schema, the JSON schema below.
+     * @default "text"
+     */
+    answerAs?: "text" | "fields" | "schema" | Expression;
+    /** Answering in fields: a row each, like watch, true or false. A table: a row each. */
+    fields?: {
+        /** Like watch or reason: letters, digits and _. */
+        name: string;
+        /**
+         * @default "text"
+         */
+        type?: "text" | "number" | "whole number" | "true or false" | "list of text";
+        /** What it is, for the model: it reads this. */
+        description?: string;
+        /** For text: the answers allowed, separated by commas, like buy, sell, wait. */
+        oneOf?: string;
+        /**
+         * The model may leave it out, as null.
+         * @default false
+         */
+        optional?: boolean;
+    }[] | Expression;
+    /** Answering to a schema: the answer's, for nested shapes. Claude wants additionalProperties false on every object. */
+    schema?: string;
+    /**
+     * Where the answer goes on the item.
+     * @default "answer"
+     */
+    field?: string;
+    /**
+     * The most an answer may take, thinking included: one cut off fails.
+     * @default 16000
+     */
+    maxTokens?: number | Expression;
+    /** Empty for the model's own; the newest Claude models take none. */
+    temperature?: DecimalText | number | Expression;
+    /** How hard the model thinks first; empty for its own. */
+    effort?: "low" | "medium" | "high" | Expression;
+    /**
+     * How many more times to ask when an answer does not fit, up to 3; each is billed.
+     * @default 1
+     */
+    retries?: number | Expression;
+}
+
 /** The settings of Code: aggregate (code.aggregate). */
 export interface CodeAggregateSettings {
     /**
@@ -1041,6 +1107,13 @@ export interface TriggerWalletActivityItem {
  * output ports; a type whose ports a setting makes takes any name beside its own.
  */
 export interface NodeTypes {
+    "ai.agent": {
+        settings: AiAgentSettings;
+        items: "received";
+        trigger: false;
+        inputs: "main";
+        outputs: "main";
+    };
     "code.aggregate": {
         settings: CodeAggregateSettings;
         items: Json;

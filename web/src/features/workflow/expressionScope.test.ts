@@ -50,6 +50,21 @@ describe('what an expression sees', () => {
     )
   })
 
+  it('declares items for a node that sees them all, a field so named then item.items', () => {
+    const shape = [
+      { name: 'question', kind: 'text' as const, optional: false, nullable: false },
+      { name: 'items', kind: 'number' as const, optional: false, nullable: false },
+    ]
+
+    const seeing = scopeDeclarations(shape, [], true)
+    expect(seeing).toContain('declare const items: ({ question: string; items: number })[]')
+    expect(seeing).not.toContain('declare const items: number')
+
+    const other = scopeDeclarations(shape, [])
+    expect(other).toContain('declare const items: number')
+    expect(other).not.toContain('declare const items: (')
+  })
+
   it('makes item an Item when nobody knows its fields', () => {
     expect(scopeDeclarations(undefined, [])).toContain('declare const item: Item\n')
   })

@@ -75,6 +75,24 @@ const types: Record<string, NodeType> = {
       { name: 'as', kind: 'string', required: false, default: 'b' },
     ],
   }),
+  ask: type('t.ask', {
+    items: {
+      fields: [field('answer', 'object', { fields: [field('text', 'text')] })],
+      passed: true,
+      named: 'field',
+      alone: { param: 'call', value: 'together' },
+    },
+    params: [
+      { name: 'field', kind: 'string', required: false, default: 'answer' },
+      {
+        name: 'call',
+        kind: 'string',
+        required: false,
+        default: 'each',
+        options: ['each', 'together'],
+      },
+    ],
+  }),
   tokens: type('t.tokens', {
     trigger: true,
     inputs: [],
@@ -216,6 +234,20 @@ describe('receivedShapes', () => {
     expect(merged({ mode: 'join', as: 'theirs' }).after?.at(-1)).toEqual(
       field('theirs', 'object', { fields: [field('price', 'number'), field('n', 'number')] }),
     )
+  })
+
+  it('puts an answer under the field its setting names, alone when taken together', () => {
+    const after = (params?: Record<string, unknown>) =>
+      receivedShapes(
+        [node('m', types.markets), node('x', types.ask, params), node('after', types.pass)],
+        [link('m', 'x'), link('x', 'after')],
+      ).get('after')
+
+    expect(names(after())).toEqual(['question', 'price', 'outcomes', 'answer'])
+    expect(names(after({ field: 'verdict' }))).toEqual(['question', 'price', 'outcomes', 'verdict'])
+    expect(names(after({ call: 'together' }))).toEqual(['answer'])
+    expect(after({ field: '{{ params.where }}' })).toBeUndefined()
+    expect(after({ call: '{{ params.how }}' })).toBeUndefined()
   })
 
   it('makes optional what only some connections carry', () => {

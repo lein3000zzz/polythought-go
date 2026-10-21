@@ -30,6 +30,7 @@ var groups = []struct{ dir, label, prefix string }{
 	{"telegram", "Telegram", "telegram"},
 	{"code", "Code", "code"},
 	{"trading", "Trading", "trading"},
+	{"ai", "AI", "ai"},
 }
 
 // Pages are generated files by path, relative to the reference directory.
@@ -275,8 +276,18 @@ func writeItems(b *strings.Builder, t engine.NodeType) {
 		b.WriteString("The items it receives, passed on as they are.\n")
 		return
 	case it.Passed:
-		b.WriteString("The items it receives, passed on with these fields added. Decimals are text, so they " +
-			"stay exact; times are RFC 3339 text.\n\n| Field | Kind | Description |\n|---|---|---|\n")
+		b.WriteString("The items it receives, passed on with these fields added")
+
+		if it.Named != "" {
+			fmt.Fprintf(b, ", `%s` under the name %s gives", it.Fields[0].Name, paramLabel(t, it.Named))
+		}
+
+		if it.Alone.Param != "" {
+			fmt.Fprintf(b, "; with %s `%s`, one item instead, with only these", paramLabel(t, it.Alone.Param), it.Alone.Value)
+		}
+
+		b.WriteString(". Decimals are text, so they stay exact; times are RFC 3339 text.\n\n" +
+			"| Field | Kind | Description |\n|---|---|---|\n")
 		writeFields(b, it.Fields, "")
 
 		return

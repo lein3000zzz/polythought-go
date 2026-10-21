@@ -1631,6 +1631,9 @@
             },
             "NodeItems": {
                 "properties": {
+                    "alone": {
+                        "$ref": "#/components/schemas/ParamChoice"
+                    },
                     "fields": {
                         "items": {
                             "$ref": "#/components/schemas/ItemField"
@@ -1642,6 +1645,9 @@
                         "type": "string"
                     },
                     "merged": {
+                        "type": "string"
+                    },
+                    "named": {
                         "type": "string"
                     },
                     "passed": {
@@ -1780,6 +1786,10 @@
                     },
                     "remembers": {
                         "description": "Remembers says it keeps what it saw across runs; /workflows/{id}/nodes/{node}/memory\nsays how much, and forgets it.",
+                        "type": "boolean"
+                    },
+                    "seesItems": {
+                        "description": "SeesItems says its settings' expressions see items, every item it receives on\nmain, beside each one's fields; a field named items is then item.items.",
                         "type": "boolean"
                     },
                     "trigger": {
@@ -2062,6 +2072,21 @@
                 ],
                 "type": "object"
             },
+            "ParamChoice": {
+                "properties": {
+                    "param": {
+                        "type": "string"
+                    },
+                    "value": {
+                        "type": "string"
+                    }
+                },
+                "required": [
+                    "param",
+                    "value"
+                ],
+                "type": "object"
+            },
             "ParamSpec": {
                 "properties": {
                     "columns": {
@@ -2128,6 +2153,14 @@
                     },
                     "label": {
                         "type": "string"
+                    },
+                    "modelsOf": {
+                        "description": "ModelsOf, on text, names the credential param whose key's models it suggests:\n/credentials/{id}/models lists them. Any other name can still be typed.",
+                        "type": "string"
+                    },
+                    "multiline": {
+                        "description": "Multiline text is several lines, a prompt, say.",
+                        "type": "boolean"
                     },
                     "name": {
                         "type": "string"

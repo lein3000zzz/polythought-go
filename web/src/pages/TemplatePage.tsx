@@ -354,6 +354,12 @@ function UseDialog({ template: t, types, open, onClose }: UseDialogProps) {
                 spec={input.param}
                 value={values[input.nodeId]?.[input.param.name]}
                 problem={problemFor(input.nodeId, input.param.name)}
+                // A model's input suggests those of the key chosen beside it.
+                modelsKey={
+                  input.param.modelsOf
+                    ? keyOf(values[input.nodeId]?.[input.param.modelsOf])
+                    : undefined
+                }
                 onChange={(v) =>
                   setValues((current) => ({
                     ...current,
@@ -376,4 +382,8 @@ function UseDialog({ template: t, types, open, onClose }: UseDialogProps) {
       </DialogContent>
     </Dialog>
   )
+}
+
+function keyOf(v: unknown): string | undefined {
+  return typeof v === 'string' && v !== '' ? v : undefined
 }

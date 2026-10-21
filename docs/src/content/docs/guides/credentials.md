@@ -35,9 +35,9 @@ another host, the header is not sent there.
 
 Keys for language models: **Anthropic API key** for Claude, **OpenAI-compatible API key**
 for OpenAI or any API that works like it (OpenRouter, or a model served on your own
-network), and **Google Gemini API key**. Each is your own key: calls made with it are
-billed to your account with the provider, and nothing calls a provider unless one of your
-workflows does.
+network), and **Google Gemini API key**. The [AI agent](/docs/guides/agents/) node uses
+them. Each is your own key: calls made with it are billed to your account with the
+provider, and nothing calls a provider unless one of your workflows does.
 
 1. Get a key from the provider: the Claude Console, OpenAI's or OpenRouter's dashboard, or
    Google AI Studio.

@@ -15,6 +15,25 @@ export function useCredentialTypes() {
   })
 }
 
+/**
+ * The models a language model key can use, as its provider lists them; the server keeps
+ * a list an hour (D251). Disabled without a key.
+ */
+export function useModels(credentialId: string | undefined) {
+  return useQuery({
+    queryKey: keys.vaultModels(credentialId ?? ''),
+    queryFn: async () =>
+      (
+        await call(
+          api.GET('/credentials/{id}/models', { params: { path: { id: credentialId ?? '' } } }),
+        )
+      ).models,
+    enabled: Boolean(credentialId),
+    staleTime: 10 * 60_000,
+    retry: false,
+  })
+}
+
 /** The user's credentials, by name. Secret values never come with them. */
 export function useCredentialList() {
   return useQuery({

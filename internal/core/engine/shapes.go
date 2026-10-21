@@ -96,7 +96,21 @@ func emits(typ NodeType, spec domain.NodeSpec, ports map[string]Shape) Shape {
 	case it.Merged != "":
 		return merged(typ, spec, ports)
 	case it.Passed:
-		return added(in, it.Fields)
+		fields, ok := named(typ, spec)
+		if !ok {
+			return nil
+		}
+
+		if a := it.Alone; a.Param != "" {
+			switch v := settingOf(typ, spec, a.Param); {
+			case HasExpressions(v):
+				return nil // either
+			case v == a.Value:
+				return append(Shape{}, fields...)
+			}
+		}
+
+		return added(in, fields)
 	case it.Picked != "":
 		names, err := Params(spec.Params).Strings(it.Picked)
 		if err != nil || in == nil {
@@ -114,6 +128,25 @@ func emits(typ NodeType, spec domain.NodeSpec, ports map[string]Shape) Shape {
 	default:
 		return append(Shape{}, it.Fields...) // known, even with no fields
 	}
+}
+
+// named is a node's Fields, its one field named by its Items.Named setting when it has
+// one; false when that name is not known yet, as with an expression.
+func named(typ NodeType, spec domain.NodeSpec) ([]Field, bool) {
+	it := typ.Items
+	if it.Named == "" {
+		return it.Fields, true
+	}
+
+	name, _ := Params{it.Named: settingOf(typ, spec, it.Named)}.String(it.Named)
+	if name == "" || HasExpressions(name) {
+		return nil, false
+	}
+
+	f := it.Fields[0]
+	f.Name = name
+
+	return []Field{f}, true
 }
 
 // added is in with fields set on it, replacing any of the same name. Not knowing in, it

@@ -1932,9 +1932,11 @@ export interface components {
             type: string;
         };
         NodeItems: {
+            alone?: components["schemas"]["ParamChoice"];
             fields: components["schemas"]["ItemField"][];
             joinedAs?: string;
             merged?: string;
+            named?: string;
             passed: boolean;
             picked?: string;
             split?: string;
@@ -1996,6 +1998,11 @@ export interface components {
              *     says how much, and forgets it.
              */
             remembers?: boolean;
+            /**
+             * @description SeesItems says its settings' expressions see items, every item it receives on
+             *     main, beside each one's fields; a field named items is then item.items.
+             */
+            seesItems?: boolean;
             trigger: boolean;
         };
         NodeTypeList: {
@@ -2102,6 +2109,10 @@ export interface components {
             /** @example 1000 */
             startedWith: string;
         };
+        ParamChoice: {
+            param: string;
+            value: string;
+        };
         ParamSpec: {
             /**
              * @description Columns are the cells of each row of a table, in order, keyed by name: text, a
@@ -2128,6 +2139,13 @@ export interface components {
             /** @enum {string} */
             kind: "string" | "number" | "decimal" | "bool" | "list" | "duration" | "wallet" | "tokens" | "address" | "table" | "credential" | "code";
             label?: string;
+            /**
+             * @description ModelsOf, on text, names the credential param whose key's models it suggests:
+             *     /credentials/{id}/models lists them. Any other name can still be typed.
+             */
+            modelsOf?: string;
+            /** @description Multiline text is several lines, a prompt, say. */
+            multiline?: boolean;
             name: string;
             /** @description Options are the allowed values of a string, or of each element of a list. */
             options?: string[];

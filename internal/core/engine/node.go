@@ -137,6 +137,13 @@ type ParamSpec struct {
 	// them, such as any provider's key (D254).
 	CredentialTypes []string
 
+	// ModelsOf, on a text param, names the credential param whose key's models it
+	// suggests, as the provider lists them; any other name can still be typed (D251).
+	ModelsOf string
+
+	// Multiline marks a text param of several lines, a prompt, say, for an editor.
+	Multiline bool
+
 	// Field marks a text param, or each value of a list param, as a path to a field of
 	// the items the node receives, like spread or outcomes.0.price. FieldKinds, when
 	// set, are the kinds that field may be.
@@ -198,6 +205,11 @@ type NodeType struct {
 	// Remembers says it keeps what it saw across runs, in node memory (D121), which its
 	// settings show and Forget clears (D137).
 	Remembers bool
+
+	// SeesItems lets its settings' expressions see items, every item it receives on main,
+	// beside each one's fields by name: for a node that takes them together (D257). A
+	// field named items is then item.items.
+	SeesItems bool
 }
 
 // Node is a step that transforms items. Per-item failures go to ErrorPort via Ports.Fail;

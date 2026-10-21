@@ -57,6 +57,19 @@ type Items struct {
 	// the second input's item in a join.
 	Merged   string
 	JoinedAs string
+
+	// Named names a text param holding the name of Fields' one field: the node puts what
+	// it adds where its settings say, an answer, say (D256).
+	Named string
+
+	// Alone is a setting's value under which a node passing items sends one item of its
+	// Fields alone instead, for all it received: taking them together, say (D253).
+	Alone Choice
+}
+
+// Choice is one value of a setting.
+type Choice struct {
+	Param, Value string
 }
 
 // The ways a node with Items.Merged combines its two inputs, A and B, matched on a key:
@@ -127,6 +140,26 @@ func checkItems(typ NodeType) error {
 			return fail("merged from %d inputs, not two", len(typ.Inputs))
 		case !hasParam(typ, it.Merged, ParamString) || !hasParam(typ, it.JoinedAs, ParamString):
 			return fail("merged by %q and joined as %q, which are not both text params", it.Merged, it.JoinedAs)
+		}
+	}
+
+	if it.Named != "" {
+		switch {
+		case len(it.Fields) != 1:
+			return fail("named by %q, with %d fields, not one", it.Named, len(it.Fields))
+		case !hasParam(typ, it.Named, ParamString):
+			return fail("named by %q, which is not a text param", it.Named)
+		}
+	}
+
+	if it.Alone.Param != "" {
+		i := slices.IndexFunc(typ.Params, func(p ParamSpec) bool { return p.Name == it.Alone.Param })
+
+		switch {
+		case !it.Passed:
+			return fail("alone under %q, but not passing the items it receives", it.Alone.Param)
+		case i < 0 || !slices.Contains(typ.Params[i].Options, it.Alone.Value):
+			return fail("alone when %q is %q, which is not one of its options", it.Alone.Param, it.Alone.Value)
 		}
 	}
 

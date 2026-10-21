@@ -30,7 +30,7 @@ export default function ExpressionEditor({
   const { theme } = useTheme()
   const types = useCodeTypes().data
   const path = useId()
-  const prelude = useMemo(() => scopeDeclarations(scope.item, scope.settings), [scope])
+  const prelude = useMemo(() => scopeDeclarations(scope.item, scope.settings, scope.items), [scope])
   const [initial] = useState(() => ({ value, label, placeholder, theme, prelude, scope }))
 
   const changed = useEffectEvent((text: string) => {

@@ -368,3 +368,41 @@ func TestMergedShapes(t *testing.T) {
 		require.ErrorContains(t, err, `param "fieldB": the items it receives have no field "question"`)
 	})
 }
+
+// An answer goes under the field its setting names; taken together, the item is the
+// answer alone (D253, D256).
+func TestNamedAndAloneShapes(t *testing.T) {
+	r := shapesRegistry(t)
+
+	require.NoError(t, r.RegisterNode(fakeNode{typ: engine.NodeType{
+		Name: "t.ask", Inputs: mainPorts(), Outputs: mainPorts(),
+		Items: &engine.Items{
+			Passed: true, Named: "field", Alone: engine.Choice{Param: "call", Value: "together"},
+			Fields: []engine.Field{{Name: "answer", Kind: engine.FieldObject, Fields: []engine.Field{{Name: "text", Kind: engine.FieldText}}}},
+		},
+		Params: []engine.ParamSpec{
+			{Name: "field", Kind: engine.ParamString, Default: "answer"},
+			{Name: "call", Kind: engine.ParamString, Default: "each", Options: []string{"each", "together"}},
+		},
+	}}))
+
+	after := func(params map[string]any) engine.Shape {
+		return r.Received(domain.Workflow{
+			Nodes: []domain.NodeSpec{{ID: "m", Type: "t.markets"}, {ID: "x", Type: "t.ask", Params: params}, {ID: "after", Type: "t.pass"}},
+			Connections: []domain.Connection{
+				{From: "m", FromPort: engine.DefaultPort, To: "x", ToPort: engine.DefaultPort},
+				{From: "x", FromPort: engine.DefaultPort, To: "after", ToPort: engine.DefaultPort},
+			},
+		})["after"]
+	}
+
+	assert.Equal(t, []string{"question", "price", "outcomes", "answer"}, names(after(nil)), "each item, with its answer")
+	assert.Equal(t, []string{"question", "price", "outcomes", "verdict"}, names(after(map[string]any{"field": "verdict"})))
+	assert.Equal(t, []string{"answer"}, names(after(map[string]any{"call": "together"})), "one item, the answer alone")
+	assert.Nil(t, after(map[string]any{"field": "{{ params.where }}"}), "a name not known yet")
+	assert.Nil(t, after(map[string]any{"call": "{{ params.how }}"}), "either way")
+
+	f, ok := after(map[string]any{"field": "verdict"}).Lookup("verdict.text")
+	require.True(t, ok)
+	assert.Equal(t, engine.FieldText, f.Kind)
+}

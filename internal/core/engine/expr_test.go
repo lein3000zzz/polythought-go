@@ -127,6 +127,39 @@ func TestResolvePlainFields(t *testing.T) {
 	assert.Zero(t, ev.calls, "plain fields never reach the sandbox")
 }
 
+// A node that sees them has items in its expressions, plain paths and the sandbox's;
+// others are not sent them.
+func TestResolveItems(t *testing.T) {
+	t.Parallel()
+
+	seeing := exprType
+	seeing.SeesItems = true
+
+	in := Ports{}
+	in.Add(DefaultPort, Item{JSON: map[string]any{"question": "BTC?"}})
+	in.Add(DefaultPort, Item{JSON: map[string]any{"question": "ETH?", "items": "a field"}})
+
+	ev := &fakeEvaluator{}
+	r := (&Executor{evaluator: ev}).resolverFor(context.Background(), seeing, map[string]any{
+		"text": "{{ items.1.question }}, {{ item.items }} and {{ spread * 100 }}",
+	}, in, map[string]any{"id": "ex-1"})
+
+	p, err := r.Resolve(at(0))
+	require.NoError(t, err)
+	assert.Contains(t, p["text"], "ETH?, ", "a plain path into items, here")
+	assert.Equal(t, []map[string]any{{"question": "BTC?"}, {"question": "ETH?", "items": "a field"}}, ev.got.All)
+
+	p, err = r.Resolve(at(1))
+	require.NoError(t, err)
+	assert.Contains(t, p["text"], "ETH?, a field and", "the field, as item.items")
+
+	ev = &fakeEvaluator{}
+	r = (&Executor{evaluator: ev}).resolverFor(context.Background(), exprType, map[string]any{"text": "{{ spread * 100 }}"}, in, nil)
+	_, err = r.Resolve(at(0))
+	require.NoError(t, err)
+	assert.Nil(t, ev.got.All, "a node that does not see them")
+}
+
 func TestResolveSandbox(t *testing.T) {
 	t.Parallel()
 

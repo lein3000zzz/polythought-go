@@ -85,3 +85,9 @@ Each node has a page with its settings. In the editor, the node list on the left
 | [Place order](/docs/reference/nodes/trading/place-order/) | `trading.placeOrder` | Places an order for each item, on paper or live as the workflow trades: the copy Copy sizing worked out, or one of its own settings, at once or resting on the book. |
 | [Place orders](/docs/reference/nodes/trading/place-orders/) | `trading.placeOrders` | Places a list of orders for each item, together, on paper or live as the workflow trades: live, they reach Polymarket in one request, 15 at a time. |
 | [Risk guard](/docs/reference/nodes/trading/risk-guard/) | `trading.riskGuard` | Holds copies of buys to the workflow's limits: caps a copy, a market and a day, a price band and categories. |
+
+## AI
+
+| Node | Type | What it does |
+|---|---|---|
+| [AI agent](/docs/reference/nodes/ai/agent/) | `ai.agent` | Asks a language model, with your own key, for each item or once for all of them: a prompt with expressions, the answer as text or as JSON in the shape you give, added to the item with the tokens it took. |

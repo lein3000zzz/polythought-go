@@ -123,7 +123,7 @@ func toParamDTO(p engine.ParamSpec) paramDTO {
 	dto := paramDTO{
 		Name: p.Name, Label: p.Label, Description: p.Description, Kind: string(p.Kind),
 		Required: p.Required, Default: p.Default, Options: p.Options, Sensitive: p.Sensitive,
-		CredentialTypes: p.CredentialTypes, Field: p.Field, Input: p.Input,
+		CredentialTypes: p.CredentialTypes, Field: p.Field, Input: p.Input, ModelsOf: p.ModelsOf, Multiline: p.Multiline,
 	}
 
 	for _, k := range p.FieldKinds {

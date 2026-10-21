@@ -40,6 +40,9 @@ type Evaluation struct {
 	Items       []map[string]any
 	Params      map[string]any
 	Execution   map[string]any // id, workflowId, startedAt
+	// All is every item on main, which expressions see as items, for a node that sees
+	// them (NodeType.SeesItems); nil otherwise.
+	All []map[string]any
 }
 
 // EvalResult is one expression's value for one item, or what it threw.
@@ -67,15 +70,21 @@ func plain(expr string) bool {
 	return plainPath.MatchString(expr) && !notFields[first]
 }
 
-// scope is what an expression sees.
+// scope is what an expression sees; items only when the node sees them.
 type scope struct {
 	item, params, execution map[string]any
+	items                   []any
 }
 
 func (s scope) lookup(path string) any {
 	first, rest, nested := strings.Cut(path, ".")
 
 	var base map[string]any
+
+	if first == "items" && s.items != nil {
+		v, _ := Lookup(map[string]any{first: s.items}, path)
+		return v
+	}
 
 	switch first {
 	case "item":
@@ -122,6 +131,8 @@ type exprResolver struct {
 	execution map[string]any
 	eval      Evaluator
 
+	items []any // every item on main, for a node that sees them
+
 	sandbox []string // the expressions it needs, by column
 	columns map[string]int
 
@@ -156,6 +167,16 @@ func (e *Executor) resolverFor(ctx context.Context, typ NodeType, configured map
 		return lit
 	}
 
+	if typ.SeesItems {
+		for _, j := range jsonOf(in[DefaultPort]) {
+			r.items = append(r.items, j)
+		}
+
+		if r.items == nil {
+			r.items = []any{}
+		}
+	}
+
 	return r
 }
 
@@ -186,7 +207,7 @@ func (r *exprResolver) Resolve(src ItemRef) (Params, error) {
 		item = items[src.Index].JSON
 	}
 
-	sc := scope{item: item, params: r.params, execution: r.execution}
+	sc := scope{item: item, params: r.params, execution: r.execution, items: r.items}
 
 	for _, spec := range r.typ.Params {
 		v := out[spec.Name]
@@ -210,6 +231,20 @@ func (r *exprResolver) Resolve(src ItemRef) (Params, error) {
 	}
 
 	return out, nil
+}
+
+// jsonOf is the items' fields, an empty object for one without.
+func jsonOf(items []Item) []map[string]any {
+	out := make([]map[string]any, len(items))
+
+	for i, it := range items {
+		out[i] = it.JSON
+		if out[i] == nil {
+			out[i] = map[string]any{}
+		}
+	}
+
+	return out
 }
 
 func (r *exprResolver) resolve(spec ParamSpec, v any, src ItemRef, sc scope) (any, error) {
@@ -353,8 +388,13 @@ func (r *exprResolver) evaluate() {
 
 	items = append(items, map[string]any{})
 
+	var all []map[string]any
+	if r.typ.SeesItems {
+		all = jsonOf(r.in[DefaultPort])
+	}
+
 	results, err := r.eval.Evaluate(r.ctx, Evaluation{
-		Expressions: r.sandbox, Items: items, Params: r.params, Execution: r.execution,
+		Expressions: r.sandbox, Items: items, Params: r.params, Execution: r.execution, All: all,
 	})
 	if err != nil {
 		r.evalErr = fmt.Errorf("expressions: %w", err)

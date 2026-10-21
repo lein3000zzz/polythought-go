@@ -12,13 +12,18 @@ import (
 )
 
 // gemini is a client of the Gemini API with the key. Backend, key and base URL are all
-// given, so no GOOGLE_* or GEMINI_* variable of the server's picks them instead.
+// given, so no GOOGLE_* or GEMINI_* variable of the server's picks them instead. It
+// retries as the other SDKs do: unless told, it would not at all.
 func (c *Client) gemini(ctx context.Context, key ports.LLMKey) (*genai.Client, error) {
+	attempts := int32(1 + maxRetries)
+
 	return genai.NewClient(ctx, &genai.ClientConfig{
-		APIKey:      key.APIKey,
-		Backend:     genai.BackendGeminiAPI,
-		HTTPClient:  c.public,
-		HTTPOptions: genai.HTTPOptions{BaseURL: c.geminiURL},
+		APIKey:     key.APIKey,
+		Backend:    genai.BackendGeminiAPI,
+		HTTPClient: c.public,
+		HTTPOptions: genai.HTTPOptions{
+			BaseURL: c.geminiURL, RetryOptions: &genai.HTTPRetryOptions{Attempts: &attempts},
+		},
 	})
 }
 

@@ -1,5 +1,5 @@
 import { QueryClientProvider } from '@tanstack/react-query'
-import { render, screen, within } from '@testing-library/react'
+import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { http, HttpResponse } from 'msw'
 import { useState } from 'react'
@@ -104,6 +104,94 @@ describe('credential field', () => {
     expect(
       await screen.findByText(/You have no HTTP header or Test API key credentials yet/),
     ).toBeInTheDocument()
+  })
+})
+
+describe('model field', () => {
+  const model: ParamSpec = {
+    name: 'model',
+    label: 'Model',
+    kind: 'string',
+    required: true,
+    modelsOf: 'credential',
+  }
+
+  const renderModel = (key: string | undefined, onChange = vi.fn()) => {
+    const queryClient = createQueryClient()
+    queryClient.setDefaultOptions({ queries: { retry: false } })
+
+    render(
+      <QueryClientProvider client={queryClient}>
+        <ParamField spec={model} value={undefined} onChange={onChange} modelsKey={key} />
+      </QueryClientProvider>,
+    )
+
+    return { onChange, user: userEvent.setup() }
+  }
+
+  it('suggests the models the chosen key can use, and takes any other', async () => {
+    server.use(
+      http.get('/api/v1/credentials/c-1/models', () =>
+        HttpResponse.json({
+          models: [
+            { id: 'claude-opus-5-5', name: 'Claude Opus 5.5' },
+            { id: 'claude-haiku-5-5', name: 'claude-haiku-5-5' },
+          ],
+        }),
+      ),
+    )
+    const { user, onChange } = renderModel('c-1')
+
+    const input = screen.getByRole('combobox', { name: /Model/ })
+    await waitFor(() =>
+      expect(document.querySelector('option[value="claude-opus-5-5"]')).toHaveTextContent(
+        'Claude Opus 5.5',
+      ),
+    )
+    expect(document.querySelector('option[value="claude-haiku-5-5"]')).toBeInTheDocument()
+
+    await user.type(input, 'my-local-model')
+    expect(onChange).toHaveBeenLastCalledWith('my-local-model')
+  })
+
+  it('asks for the key first', () => {
+    renderModel(undefined)
+    expect(screen.getByText(/Pick the key first/)).toBeInTheDocument()
+  })
+
+  it('says why the models could not be listed', async () => {
+    server.use(
+      http.get('/api/v1/credentials/c-1/models', () =>
+        HttpResponse.json(
+          {
+            error: {
+              code: 'provider_failed',
+              message: 'the model provider failed: Anthropic answered 401: invalid x-api-key',
+            },
+          },
+          { status: 502 },
+        ),
+      ),
+    )
+    renderModel('c-1')
+
+    expect(
+      await screen.findByText(/Its models could not be listed: .*invalid x-api-key/),
+    ).toBeInTheDocument()
+  })
+})
+
+describe('multi-line text', () => {
+  it('is a text area', () => {
+    render(
+      <ParamField
+        spec={{ name: 'prompt', label: 'Prompt', kind: 'string', required: true, multiline: true }}
+        value="line one"
+        onChange={vi.fn()}
+      />,
+    )
+
+    expect(screen.getByRole('textbox', { name: /Prompt/ }).tagName).toBe('TEXTAREA')
   })
 })
 

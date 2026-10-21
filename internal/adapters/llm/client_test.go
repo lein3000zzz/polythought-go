@@ -436,3 +436,30 @@ func TestStrict(t *testing.T) {
 		assert.Equal(t, want, strict(schema), raw)
 	}
 }
+
+// Gemini tries again when busy, as the other SDKs do.
+func TestGeminiRetries(t *testing.T) {
+	busy := true
+
+	srv, got := fake(t, map[string]http.HandlerFunc{
+		"/v1beta/models/m-1:generateContent": func(w http.ResponseWriter, _ *http.Request) {
+			if busy {
+				busy = false
+				w.WriteHeader(http.StatusServiceUnavailable)
+				_, _ = io.WriteString(w, `{"error":{"code":503,"message":"overloaded","status":"UNAVAILABLE"}}`)
+
+				return
+			}
+
+			_, _ = io.WriteString(w, `{"candidates":[{"content":{"role":"model","parts":[{"text":"No."}]},"finishReason":"STOP"}]}`)
+		},
+	})
+
+	c := newClient(t, false)
+	c.geminiURL = srv.URL + "/"
+
+	res, err := c.Complete(context.Background(), ports.LLMKey{Provider: ports.LLMGemini, APIKey: "gem-user"}, question)
+	require.NoError(t, err)
+	assert.Equal(t, "No.", res.Text)
+	assert.Len(t, got.paths, 2)
+}

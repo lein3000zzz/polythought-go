@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/lein3000zzz/polythought-go/internal/core/nodes/account"
+	"github.com/lein3000zzz/polythought-go/internal/core/nodes/ai"
 	"github.com/lein3000zzz/polythought-go/internal/core/nodes/codenodes"
 	"github.com/lein3000zzz/polythought-go/internal/core/nodes/credtypes"
 	"github.com/lein3000zzz/polythought-go/internal/core/nodes/logic"
@@ -49,7 +50,7 @@ type Deps struct {
 	Code ports.CodeCaller
 
 	// LLM calls the language model providers with their users' keys; optional: without
-	// it, their credential types are not available.
+	// it, their credential types and the AI agent are not available.
 	LLM ports.LLM
 
 	// Orders places orders, on paper or live; optional: without it, the ledger (Books)
@@ -83,12 +84,15 @@ func Register(r *engine.Registry, d Deps) error {
 		return err
 	}
 
+	var agent error
 	if d.LLM != nil {
 		for _, t := range credtypes.LLMTypes(d.LLM) {
 			if err := r.RegisterCredentialType(t); err != nil {
 				return err
 			}
 		}
+
+		agent = r.RegisterNode(ai.NewAgent(d.Credentials, d.LLM))
 	}
 
 	var market, wallet, dedupe, throttle, consensus error
@@ -164,6 +168,7 @@ func Register(r *engine.Registry, d Deps) error {
 		telegramSend,
 		telegramTrigger,
 		telegramAsk,
+		agent,
 		r.RegisterTrigger(triggers.Manual{}),
 		r.RegisterTrigger(triggers.NewSchedule(minInterval)),
 		r.RegisterNode(markets2.NewMarkets(d.Markets)),

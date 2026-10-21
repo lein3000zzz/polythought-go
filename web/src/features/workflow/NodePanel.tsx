@@ -48,8 +48,8 @@ export function NodePanel({
   const nodeProblems = problems.filter((p) => !p.param || unknown.includes(p.param))
   // What its settings' expressions see: the items it gets, and its settings.
   const expressionScope = useMemo(
-    () => ({ item: received, settings: type?.params ?? [] }),
-    [received, type?.params],
+    () => ({ item: received, settings: type?.params ?? [], items: type?.seesItems }),
+    [received, type?.params, type?.seesItems],
   )
 
   return (
@@ -130,6 +130,7 @@ export function NodePanel({
           fields={p.field && shapeOf(p) ? fieldChoices(shapeOf(p)!, p.fieldKinds) : undefined}
           expressions={takesExpressions(type, p)}
           expressionScope={expressionScope}
+          modelsKey={p.modelsOf ? stringOf(params[p.modelsOf]) : undefined}
         />
       ))}
 
@@ -239,4 +240,8 @@ function NodeMemory({ workflowId, nodeId }: { workflowId: string; nodeId: string
       />
     </div>
   )
+}
+
+function stringOf(v: unknown): string | undefined {
+  return typeof v === 'string' && v !== '' ? v : undefined
 }

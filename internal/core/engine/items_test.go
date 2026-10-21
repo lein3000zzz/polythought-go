@@ -52,6 +52,23 @@ func TestRegisterItems(t *testing.T) {
 			typ:  engine.NodeType{Name: "test.items", Outputs: mainPorts(), Items: &engine.Items{Passed: true}}, wantErr: "receives no items",
 		},
 		{name: "picked by no list", typ: node(engine.Items{Picked: "one"}), wantErr: `picked by "one", which is not a list param`},
+		{name: "named by a setting", typ: node(engine.Items{Passed: true, Named: "one", Fields: []engine.Field{text("x")}})},
+		{
+			name: "named, two fields", typ: node(engine.Items{Passed: true, Named: "one", Fields: []engine.Field{text("x"), text("y")}}),
+			wantErr: `named by "one", with 2 fields, not one`,
+		},
+		{
+			name: "named by no text", typ: node(engine.Items{Passed: true, Named: "fields", Fields: []engine.Field{text("x")}}),
+			wantErr: `named by "fields", which is not a text param`,
+		},
+		{
+			name: "alone, not passing", typ: node(engine.Items{Alone: engine.Choice{Param: "one", Value: "x"}, Fields: []engine.Field{text("x")}}),
+			wantErr: "but not passing the items it receives",
+		},
+		{
+			name: "alone on no option", typ: node(engine.Items{Passed: true, Alone: engine.Choice{Param: "one", Value: "x"}}),
+			wantErr: `alone when "one" is "x", which is not one of its options`,
+		},
 		{name: "unnamed", typ: node(engine.Items{Fields: []engine.Field{text("")}}), wantErr: "has no name"},
 		{name: "twice", typ: node(engine.Items{Fields: []engine.Field{text("a"), text("a")}}), wantErr: `field "a" twice`},
 		{

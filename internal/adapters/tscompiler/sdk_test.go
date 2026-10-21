@@ -335,6 +335,34 @@ func TestExpressionsEndToEnd(t *testing.T) {
 	assert.Contains(t, results[1][11].Err, "TypeError", "each item on its own")
 }
 
+// A node that sees them has items, every item on main; others keep the name for a field.
+func TestExpressionsSeeItems(t *testing.T) {
+	t.Parallel()
+
+	_, err := withSDK(t, `export const run = () => null`, nil, code.Data{}, ports.CodeLimits{}) // starts the runner
+	require.NoError(t, err)
+
+	svc := code.New(compiler(t), sdkRunner, code.Data{})
+
+	items := []map[string]any{{"question": "BTC?", "items": "a field"}, {"question": "ETH?"}}
+	exprs := []string{"items.map((i) => i.question).join(', ')", "item.items", "items.length"}
+
+	results, err := svc.Evaluate(context.Background(), engine.Evaluation{Expressions: exprs, Items: items, All: items})
+	require.NoError(t, err)
+
+	for i := range items {
+		assert.Equal(t, "BTC?, ETH?", results[i][0].Value, "every item, from each")
+		assert.Equal(t, json.Number("2"), results[i][2].Value)
+	}
+
+	assert.Equal(t, "a field", results[0][1].Value, "the field, as item.items")
+
+	results, err = svc.Evaluate(context.Background(), engine.Evaluation{Expressions: exprs, Items: items})
+	require.NoError(t, err)
+	assert.Contains(t, results[0][0].Err, "TypeError", "the field, a string, has no map")
+	assert.Contains(t, results[1][0].Err, "ReferenceError", "not a name for a node that does not see them")
+}
+
 func TestCodeNodesEndToEnd(t *testing.T) {
 	t.Parallel()
 

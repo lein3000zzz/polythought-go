@@ -95,11 +95,21 @@ function emits(data: WorkflowNodeData, ports: Map<string, Shape>): Shape {
   const received = ports.get(defaultPort)
   if (!items) return undefined
   if (items.merged) return merged(data, ports)
-  // Passed on, with the fields it adds.
+  // Passed on, with the fields it adds: under the name a setting gives, and alone when
+  // a setting takes all the items together (D253, D256).
   if (items.passed) {
-    if (!received || items.fields.length === 0) return received
-    const names = new Set(items.fields.map((f) => f.name))
-    return [...received.filter((f) => !names.has(f.name)), ...items.fields]
+    const fields = named(data)
+    if (!fields) return undefined
+
+    if (items.alone) {
+      const how = settingOf(data, items.alone.param)
+      if (typeof how === 'string' && how.includes('{{')) return undefined
+      if (how === items.alone.value) return [...fields]
+    }
+
+    if (!received || fields.length === 0) return received
+    const names = new Set(fields.map((f) => f.name))
+    return [...received.filter((f) => !names.has(f.name)), ...fields]
   }
 
   if (items.picked) {
@@ -122,6 +132,17 @@ function emits(data: WorkflowNodeData, ports: Map<string, Shape>): Shape {
   }
 
   return [...items.fields] // known, even with no fields
+}
+
+/** A node's fields, its one field named by a setting when it has one; unknown till named. */
+function named(data: WorkflowNodeData): ItemField[] | undefined {
+  const items = data.type?.items
+  if (!items?.named) return items?.fields ?? []
+
+  const name = settingOf(data, items.named)
+  if (typeof name !== 'string' || name.trim() === '' || name.includes('{{')) return undefined
+
+  return items.fields.slice(0, 1).map((f) => ({ ...f, name: name.trim() }))
 }
 
 /** A setting as set, or its default. */

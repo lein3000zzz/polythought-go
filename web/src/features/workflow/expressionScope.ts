@@ -18,19 +18,30 @@ const reserved = new Set(
 /**
  * What an expression in one of a node's settings sees, as TypeScript declarations: the
  * fields of the items there by name, item, params (the node's settings), execution and
- * dec, as the server works expressions out. Fields nobody knows make item an Item.
+ * dec, as the server works expressions out, and items for a node that sees them all
+ * (D257). Fields nobody knows make item an Item.
  */
-export function scopeDeclarations(item: Shape, settings: readonly ParamSpec[]): string {
+export function scopeDeclarations(
+  item: Shape,
+  settings: readonly ParamSpec[],
+  seesItems = false,
+): string {
   const fields = (item ?? []).filter(
-    (f) => identifier(f.name) && !always.has(f.name) && !reserved.has(f.name),
+    (f) =>
+      identifier(f.name) &&
+      !always.has(f.name) &&
+      !(seesItems && f.name === 'items') &&
+      !reserved.has(f.name),
   )
+  const itemType = item ? objectType(item) : 'Item'
   const shadowsDec = fields.some((f) => f.name === 'dec')
 
   const lines = [
     shadowsDec ? '' : 'import { dec } from "@polythought/sdk"',
     'import type { DecimalText, Execution, Item, Json, TimeText } from "@polythought/sdk"',
     '',
-    `declare const item: ${item ? objectType(item) : 'Item'}`,
+    `declare const item: ${itemType}`,
+    ...(seesItems ? [`declare const items: (${itemType})[]`] : []),
     `declare const params: ${paramsType(settings)}`,
     'declare const execution: Execution',
     ...fields.map(

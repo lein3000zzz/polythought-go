@@ -17,7 +17,7 @@ var _ engine.Evaluator = (*Service)(nil)
 
 // Evaluate works expressions out for items, in one run of the sandbox (D38 to D40): each
 // sees the item's fields by name, and item, params and execution, and dec from the SDK;
-// it makes no data requests. An expression that does not compile, or throws, is that
+// for a node that sees them, items too (D257). It makes no data requests. An expression that does not compile, or throws, is that
 // one's error; the run failing, out of time or memory, fails them all.
 func (s *Service) Evaluate(ctx context.Context, e engine.Evaluation) ([][]engine.EvalResult, error) {
 	js := make([]string, len(e.Expressions))
@@ -38,12 +38,17 @@ func (s *Service) Evaluate(ctx context.Context, e engine.Evaluation) ([][]engine
 		}
 	}
 
-	input, err := json.Marshal(map[string]any{"items": e.Items, "params": e.Params, "execution": e.Execution})
+	fields := map[string]any{"items": e.Items, "params": e.Params, "execution": e.Execution}
+	if e.All != nil {
+		fields["all"] = e.All
+	}
+
+	input, err := json.Marshal(fields)
 	if err != nil {
 		return nil, fmt.Errorf("code: the items: %w", err)
 	}
 
-	res, err := s.runner.Run(ctx, ports.CodeJob{Source: evaluator(js), Entry: "__evaluate", Input: input})
+	res, err := s.runner.Run(ctx, ports.CodeJob{Source: evaluator(js, e.All != nil), Entry: "__evaluate", Input: input})
 	if err != nil {
 		return nil, err
 	}
@@ -83,11 +88,17 @@ func (s *Service) Evaluate(ctx context.Context, e engine.Evaluation) ([][]engine
 
 // evaluator is the script that works the expressions out, a function each, null for one
 // that did not compile. It runs as a plain script, where with works: the item's fields are
-// in scope by name, though item, params and execution always mean those.
-func evaluator(js []string) string {
+// in scope by name, though item, params and execution always mean those, and items too
+// when the node sees them.
+func evaluator(js []string, seesItems bool) string {
 	var b strings.Builder
 
-	b.WriteString(evaluatorHead)
+	names, hidden := "item, params, execution", `k !== "item" && k !== "params" && k !== "execution"`
+	if seesItems {
+		names, hidden = names+", items", hidden+` && k !== "items"`
+	}
+
+	fmt.Fprintf(&b, evaluatorHead, hidden)
 
 	for _, e := range js {
 		if e == "" {
@@ -95,7 +106,7 @@ func evaluator(js []string) string {
 			continue
 		}
 
-		fmt.Fprintf(&b, "  function (item, params, execution) { with (__scope(item)) { return (\n%s\n); } },\n", e)
+		fmt.Fprintf(&b, "  function (%s) { with (__scope(item)) { return (\n%s\n); } },\n", names, e)
 	}
 
 	b.WriteString(evaluatorTail)
@@ -103,11 +114,12 @@ func evaluator(js []string) string {
 	return b.String()
 }
 
+// evaluatorHead takes the names a field cannot hide, as a condition on k.
 const evaluatorHead = `const dec = globalThis.__polythought_sdk.dec;
 // Over an empty object, not the item: the item is frozen, and a proxy may not hide a
 // frozen object's fields, as it does those named item, params or execution.
 const __scope = (item) => new Proxy(Object.create(null), {
-  has: (_, k) => typeof k === "string" && k !== "item" && k !== "params" && k !== "execution" && Object.hasOwn(item, k),
+  has: (_, k) => typeof k === "string" && %s && Object.hasOwn(item, k),
   get: (_, k) => (k === Symbol.unscopables ? undefined : item[k]),
 });
 const __expressions = [
@@ -115,12 +127,13 @@ const __expressions = [
 
 const evaluatorTail = `];
 function __evaluate(input) {
+  const all = input.all && Object.freeze(input.all.map((item) => Object.freeze(item)));
   return input.items.map((item) => {
     Object.freeze(item);
     return __expressions.map((f) => {
       if (f === null) return null;
       try {
-        const value = f(item, input.params, input.execution);
+        const value = f(item, input.params, input.execution, all);
         return { value: value === undefined ? null : value };
       } catch (e) {
         return { error: String(e) };

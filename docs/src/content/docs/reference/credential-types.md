@@ -17,6 +17,8 @@ Type `anthropic.apiKey`. It can be tested from the Credentials page.
 |---|---|---|---|
 | API key (`apiKey`) | yes | yes | From the Claude Console, under API keys. |
 
+Used by: [AI agent](/docs/reference/nodes/ai/agent/).
+
 ## Google Gemini API key
 
 A key for Google's Gemini models, through the Gemini API. Billed to the key's Google project.
@@ -26,6 +28,8 @@ Type `gemini.apiKey`. It can be tested from the Credentials page.
 | Field | Required | Secret | Description |
 |---|---|---|---|
 | API key (`apiKey`) | yes | yes | From Google AI Studio, under API keys. |
+
+Used by: [AI agent](/docs/reference/nodes/ai/agent/).
 
 ## HTTP header
 
@@ -50,3 +54,5 @@ Type `openai.apiKey`. It can be tested from the Credentials page.
 |---|---|---|---|
 | API key (`apiKey`) | yes | yes | From the provider's dashboard, e.g. OpenAI's API keys page. |
 | Base URL (`baseUrl`) | no | no | Where the API is, e.g. https://openrouter.ai/api/v1; empty for OpenAI's own. Plain http only when the administrator allows private addresses, for a server on your network. |
+
+Used by: [AI agent](/docs/reference/nodes/ai/agent/).

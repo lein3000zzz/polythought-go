@@ -31,6 +31,9 @@ The scenarios that come with Polythought:
   their trades on paper; the second asks you on Telegram before each copy.
 - **Copy when traders agree**: copy an outcome once 2 of your traders bought it within 6
   hours.
+- **Markets a model would watch**: a language model reads the markets new to the workflow,
+  with your own key, and the ones it would watch come to Telegram with its reason. See
+  [AI agents](/docs/guides/agents/).
 
 ## Sharing your own
 

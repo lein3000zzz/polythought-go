@@ -1,7 +1,7 @@
 import { useState, type ReactNode } from 'react'
 
-import type { ParamSpec } from '@/api/client'
-import { useCredentialList, useCredentialTypes } from '@/api/vault'
+import { errorMessage, type ParamSpec } from '@/api/client'
+import { useCredentialList, useCredentialTypes, useModels } from '@/api/vault'
 import { useWallets } from '@/api/wallets'
 import { CodeEditor } from '@/components/code/CodeEditor'
 import { ExpressionInput, type ExpressionScope } from '@/components/code/ExpressionInput'
@@ -30,6 +30,7 @@ type Props = {
   // What its expressions see, for completing and checking them; without it, plain text.
   expressionScope?: ExpressionScope
   action?: ReactNode // next to the label
+  modelsKey?: string // for a models param: the credential its setting names, when set
 }
 
 /** The input for one node param, chosen by its kind. */
@@ -79,6 +80,8 @@ function Control(props: Props) {
   if (spec.kind === 'list' || spec.kind === 'tokens') return <TextField {...props} multiline />
   if (spec.kind === 'code') return <CodeField {...props} />
   if (spec.kind === 'table') return <TableField {...props} />
+  if (spec.modelsOf) return <ModelField {...props} />
+  if (spec.multiline) return <TextField {...props} multiline rows={5} />
 
   return <TextField {...props} />
 }
@@ -349,6 +352,49 @@ function WalletField({ spec, value, onChange, problem, scope }: Props) {
           <NativeSelectOption value={current}>Unknown wallet ({current})</NativeSelectOption>
         )}
       </NativeSelect>
+    </Field>
+  )
+}
+
+/**
+ * A model's name, suggesting those the chosen key can use, as its provider lists them;
+ * any other can be typed (D251). Plain text, so a name not listed yet still works.
+ */
+function ModelField({ spec, value, onChange, problem, scope, modelsKey }: Props) {
+  const models = useModels(modelsKey)
+  const [text, setText] = useState(() => textOf(value))
+  const id = fieldId(spec, scope)
+
+  const hint = !modelsKey
+    ? 'Pick the key first to see the models it can use.'
+    : models.isError
+      ? `Its models could not be listed: ${errorMessage(models.error)}`
+      : models.data?.length === 0
+        ? "The provider listed none: type the model's name."
+        : undefined
+
+  return (
+    <Field spec={spec} scope={scope} problem={problem} hint={hint}>
+      <Input
+        id={id}
+        value={text}
+        list={`${id}-models`}
+        autoComplete="off"
+        placeholder={models.isFetching ? 'Listing the models…' : 'e.g. claude-opus-5-5'}
+        aria-invalid={Boolean(problem) || undefined}
+        aria-describedby={`${id}-hint`}
+        onChange={(e) => {
+          setText(e.target.value)
+          onChange(e.target.value === '' ? undefined : e.target.value)
+        }}
+      />
+      <datalist id={`${id}-models`}>
+        {models.data?.map((m) => (
+          <option key={m.id} value={m.id}>
+            {m.name === m.id ? undefined : m.name}
+          </option>
+        ))}
+      </datalist>
     </Field>
   )
 }
