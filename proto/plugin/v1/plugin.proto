@@ -1,0 +1,130 @@
+syntax = "proto3";
+
+// The contract between Polythought and its plugins (phase 5): a plugin is a program the
+// server starts, which serves PluginService over gRPC through hashicorp/go-plugin. Version 1.
+//
+// What a plugin declares, its manifest, and the items its nodes take and give, travel as
+// JSON: the manifest in the same shape as manifest.json, its node types as the API's
+// GET /node-types describes them; items as the engine keeps them, decimals as text. The
+// envelopes around them are typed, so another language's SDK can speak it too.
+package plugin.v1;
+
+option go_package = "github.com/lein3000zzz/polythought-go/pkg/plugin/v1;pluginv1";
+
+service PluginService {
+  // Describe is the plugin's manifest, as its binary has it.
+  rpc Describe(DescribeRequest) returns (DescribeResponse);
+
+  // RunNode runs one of its nodes once, over the items a run gives it.
+  rpc RunNode(RunNodeRequest) returns (RunNodeResponse);
+
+  // RunTrigger runs one of its triggers until the host cancels the call. The host sends
+  // the start first, then an ack for each event, once that event's execution is done;
+  // the plugin sends an event for each execution to start.
+  rpc RunTrigger(stream RunTriggerRequest) returns (stream RunTriggerResponse);
+
+  // CheckCredential and TestCredential check one of its credential types' values: their
+  // form, and against the service they are for.
+  rpc CheckCredential(CheckCredentialRequest) returns (CheckCredentialResponse);
+  rpc TestCredential(TestCredentialRequest) returns (TestCredentialResponse);
+}
+
+message DescribeRequest {}
+
+message DescribeResponse {
+  bytes manifest = 1; // JSON
+}
+
+// RunContext is the run a node or trigger works in.
+message RunContext {
+  string execution_id = 1; // empty for a trigger
+  string workflow_id = 2;
+  string owner_id = 3;
+  string node_id = 4;
+  string started_at = 5; // RFC 3339, the execution's
+}
+
+message RunNodeRequest {
+  string node = 1; // its name in the plugin's manifest
+  RunContext run = 2;
+  repeated Input inputs = 3;
+}
+
+// Input is one input port's items.
+message Input {
+  string port = 1;
+  repeated InputItem items = 2;
+}
+
+message InputItem {
+  bytes json = 1;   // the item's fields
+  bytes params = 2; // the node's settings for it, worked out: JSON
+}
+
+message RunNodeResponse {
+  repeated Output outputs = 1;
+}
+
+// Output is what the node sends out of one port.
+message Output {
+  string port = 1;
+  repeated OutputItem items = 2;
+}
+
+message OutputItem {
+  bytes json = 1;
+  repeated ItemRef sources = 2; // the input items it came from
+  string error = 3;             // set, the item failed: it leaves on the error port
+}
+
+message ItemRef {
+  string port = 1;
+  int32 index = 2;
+}
+
+// RunTriggerRequest is the start, first, then an ack for each event.
+message RunTriggerRequest {
+  oneof msg {
+    TriggerStart start = 1;
+    TriggerAck ack = 2;
+  }
+}
+
+message TriggerStart {
+  string trigger = 1; // its name in the plugin's manifest
+  RunContext run = 2;
+  bytes params = 3; // its settings, worked out: JSON
+  bool resumed = 4; // the workflow was running before this start
+}
+
+// TriggerAck answers an event once its execution is done; error says why it failed.
+message TriggerAck {
+  string error = 1;
+}
+
+// RunTriggerResponse is an event: an execution to start, with what the trigger emits.
+message RunTriggerResponse {
+  repeated Output outputs = 1;
+}
+
+// Credential is a credential's values, of one of the plugin's types.
+message Credential {
+  string type = 1; // its name in the plugin's manifest
+  map<string, string> values = 2;
+}
+
+message CheckCredentialRequest {
+  Credential credential = 1;
+}
+
+message CheckCredentialResponse {
+  string error = 1; // empty: the values are fine
+}
+
+message TestCredentialRequest {
+  Credential credential = 1;
+}
+
+message TestCredentialResponse {
+  string error = 1; // empty: the service took them
+}

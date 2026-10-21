@@ -56,34 +56,45 @@ func Builtins() ([]domain.Template, error) {
 			return nil, err
 		}
 
-		var doc scenarioDoc
-
-		dec := json.NewDecoder(bytes.NewReader(raw))
-		dec.DisallowUnknownFields()
-		dec.UseNumber() // 0.02 stays exactly 0.02
-
-		if err := dec.Decode(&doc); err != nil {
+		t, err := ParseScenario(raw)
+		if err != nil {
 			return nil, fmt.Errorf("library: scenario %s: %w", name, err)
-		}
-
-		t := domain.Template{ID: domain.TemplateID(doc.ID), Name: doc.Name, Summary: doc.Summary, Description: doc.Description}
-
-		for _, n := range doc.Nodes {
-			t.Nodes = append(t.Nodes, domain.NodeSpec{
-				ID: domain.NodeID(n.ID), Type: n.Type, Name: n.Name, Params: n.Params,
-				ContinueOnFail: n.ContinueOnFail, Notes: n.Notes,
-				Position: domain.CanvasPosition{X: n.Position.X, Y: n.Position.Y},
-			})
-		}
-
-		for _, c := range doc.Connections {
-			t.Connections = append(t.Connections, domain.Connection{
-				From: domain.NodeID(c.From), FromPort: c.FromPort, To: domain.NodeID(c.To), ToPort: c.ToPort,
-			})
 		}
 
 		out = append(out, t)
 	}
 
 	return out, nil
+}
+
+// ParseScenario reads a scenario as the built-in ones are written, strictly: a field it
+// does not know is an error, and numbers stay exact. Plugins' scenarios are written so too.
+func ParseScenario(raw []byte) (domain.Template, error) {
+	var doc scenarioDoc
+
+	dec := json.NewDecoder(bytes.NewReader(raw))
+	dec.DisallowUnknownFields()
+	dec.UseNumber() // 0.02 stays exactly 0.02
+
+	if err := dec.Decode(&doc); err != nil {
+		return domain.Template{}, err
+	}
+
+	t := domain.Template{ID: domain.TemplateID(doc.ID), Name: doc.Name, Summary: doc.Summary, Description: doc.Description}
+
+	for _, n := range doc.Nodes {
+		t.Nodes = append(t.Nodes, domain.NodeSpec{
+			ID: domain.NodeID(n.ID), Type: n.Type, Name: n.Name, Params: n.Params,
+			ContinueOnFail: n.ContinueOnFail, Notes: n.Notes,
+			Position: domain.CanvasPosition{X: n.Position.X, Y: n.Position.Y},
+		})
+	}
+
+	for _, c := range doc.Connections {
+		t.Connections = append(t.Connections, domain.Connection{
+			From: domain.NodeID(c.From), FromPort: c.FromPort, To: domain.NodeID(c.To), ToPort: c.ToPort,
+		})
+	}
+
+	return t, nil
 }

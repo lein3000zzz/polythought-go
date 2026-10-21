@@ -16,6 +16,8 @@ require (
 	github.com/go-telegram/bot v1.27.0
 	github.com/google/jsonschema-go v0.4.3
 	github.com/google/uuid v1.6.0
+	github.com/hashicorp/go-hclog v1.6.3
+	github.com/hashicorp/go-plugin v1.8.0
 	github.com/jackc/pgx/v5 v5.11.0
 	github.com/knadh/koanf/parsers/yaml v1.1.1
 	github.com/knadh/koanf/providers/confmap v1.0.1
@@ -37,6 +39,8 @@ require (
 	golang.org/x/sync v0.23.0
 	golang.org/x/time v0.16.0
 	google.golang.org/genai v1.75.0
+	google.golang.org/grpc v1.83.2
+	google.golang.org/protobuf v1.36.12
 )
 
 require (
@@ -72,17 +76,20 @@ require (
 	github.com/docker/go-units v0.5.0 // indirect
 	github.com/ebitengine/purego v0.10.1 // indirect
 	github.com/ethereum/c-kzg-4844/v2 v2.1.8 // indirect
+	github.com/fatih/color v1.16.0 // indirect
 	github.com/felixge/httpsnoop v1.1.0 // indirect
 	github.com/fsnotify/fsnotify v1.6.0 // indirect
 	github.com/go-logr/logr v1.4.4 // indirect
 	github.com/go-logr/stdr v1.2.2 // indirect
 	github.com/go-ole/go-ole v1.3.0 // indirect
 	github.com/go-viper/mapstructure/v2 v2.4.0 // indirect
+	github.com/golang/protobuf v1.5.4 // indirect
 	github.com/google/go-cmp v0.7.0 // indirect
 	github.com/google/s2a-go v0.1.9 // indirect
 	github.com/googleapis/enterprise-certificate-proxy v0.3.11 // indirect
 	github.com/googleapis/gax-go/v2 v2.17.0 // indirect
 	github.com/gorilla/websocket v1.5.3 // indirect
+	github.com/hashicorp/yamux v0.1.2 // indirect
 	github.com/holiman/uint256 v1.3.2 // indirect
 	github.com/invopop/jsonschema v0.14.0 // indirect
 	github.com/jackc/pgpassfile v1.0.0 // indirect
@@ -94,6 +101,8 @@ require (
 	github.com/lib/pq v1.12.3 // indirect
 	github.com/lufia/plan9stats v0.0.0-20260330125221-c963978e514e // indirect
 	github.com/magiconair/properties v1.8.10 // indirect
+	github.com/mattn/go-colorable v0.1.13 // indirect
+	github.com/mattn/go-isatty v0.0.24 // indirect
 	github.com/mfridman/interpolate v0.0.2 // indirect
 	github.com/mitchellh/copystructure v1.2.0 // indirect
 	github.com/mitchellh/reflectwalk v1.0.2 // indirect
@@ -107,6 +116,7 @@ require (
 	github.com/moby/sys/userns v0.1.0 // indirect
 	github.com/moby/term v0.5.2 // indirect
 	github.com/munnerz/goautoneg v0.0.0-20191010083416-a7dc8b61c822 // indirect
+	github.com/oklog/run v1.1.0 // indirect
 	github.com/opencontainers/go-digest v1.0.0 // indirect
 	github.com/opencontainers/image-spec v1.1.1 // indirect
 	github.com/pb33f/ordered-map/v2 v2.3.1 // indirect
@@ -140,6 +150,4 @@ require (
 	golang.org/x/sys v0.48.0 // indirect
 	golang.org/x/text v0.42.0 // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20260831171406-18b4a7587f8a // indirect
-	google.golang.org/grpc v1.83.2 // indirect
-	google.golang.org/protobuf v1.36.12 // indirect
 )

@@ -113,6 +113,17 @@ db-gen: ## Regenerate go-jet code from the migrations (Docker)
 
 ## Generated code and fixtures
 
+BUF ?= $(GO) run github.com/bufbuild/buf/cmd/buf@v1.74.0
+
+.PHONY: proto
+proto: ## Lint the plugin contract's protobuf and regenerate pkg/plugin/v1
+	$(BUF) lint
+	$(BUF) generate
+
+.PHONY: proto-check
+proto-check: proto ## Fail if pkg/plugin/v1 is stale
+	git diff --exit-code -- pkg/plugin/v1
+
 .PHONY: mocks
 mocks: ## Regenerate mocks from tools/mockery/.mockery.yml
 	$(MOCKERY)
