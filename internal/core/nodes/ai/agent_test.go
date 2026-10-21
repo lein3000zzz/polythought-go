@@ -7,6 +7,7 @@ import (
 	"strings"
 	"sync"
 	"testing"
+	"time"
 
 	"github.com/shopspring/decimal"
 	"github.com/stretchr/testify/assert"
@@ -23,6 +24,9 @@ import (
 )
 
 const owner = domain.UserID("alice")
+
+// clock is the node's now when set; the tests run one at a time.
+var clock func() time.Time
 
 var key = ports.LLMKey{Provider: ports.LLMAnthropic, APIKey: "sk-ant-1"}
 
@@ -66,11 +70,20 @@ func said(text string) ports.LLMResponse {
 func run(t *testing.T, llm *fakeLLM, params map[string]any, items ...map[string]any) engine.Ports {
 	t.Helper()
 
+	return runWith(t, llm, ai.Sources{}, params, items...)
+}
+
+func runWith(t *testing.T, llm *fakeLLM, sources ai.Sources, params map[string]any, items ...map[string]any) engine.Ports {
+	t.Helper()
+
 	creds := portsmocks.NewMockCredentialReader(t)
 	creds.EXPECT().Values(mock.Anything, owner, domain.CredentialID("c-1"), credtypes.LLMKeyTypes).
 		Return(credtypes.AnthropicKey, map[string]string{"apiKey": "sk-ant-1"}, nil).Once()
 
-	node := ai.NewAgent(creds, llm)
+	node := ai.NewAgent(creds, llm, sources)
+	if clock != nil {
+		node.WithClock(clock)
+	}
 	base := map[string]any{"credential": "c-1", "model": "claude-opus-5-5", "prompt": "Worth watching?"}
 
 	for k, v := range params {
@@ -114,7 +127,7 @@ func TestEachItem(t *testing.T) {
 	assert.Contains(t, []any{"Yes.", "No."}, answer["text"], "the calls run at once, answered in either order")
 	delete(answer, "text")
 	assert.Equal(t, map[string]any{
-		"model": "claude-opus-5-5", "stopReason": "end_turn", "tries": 1,
+		"model": "claude-opus-5-5", "stopReason": "end_turn", "tries": 1, "toolCalls": 0, "tools": []any{},
 		"usage": map[string]any{"input": int64(10), "output": int64(5)}, "cost": nil,
 	}, answer)
 
@@ -288,7 +301,7 @@ func TestKey(t *testing.T) {
 	creds.EXPECT().Values(mock.Anything, owner, domain.CredentialID("c-2"), credtypes.LLMKeyTypes).
 		Return("", nil, domain.ErrInvalidInput).Once()
 
-	node := ai.NewAgent(creds, &fakeLLM{})
+	node := ai.NewAgent(creds, &fakeLLM{}, ai.Sources{})
 	in := engine.Ports{}
 	in.Add(engine.DefaultPort, engine.Item{JSON: map[string]any{}})
 

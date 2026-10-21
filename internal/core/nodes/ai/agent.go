@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"maps"
 	"strings"
+	"time"
 
 	"github.com/shopspring/decimal"
 	"golang.org/x/sync/errgroup"
@@ -40,6 +41,15 @@ const (
 	parallel = 4
 	// maxRetries bounds Retries: each one is a call, and billed.
 	maxRetries = 3
+	// maxToolCalls bounds Tool calls (D263); maxResults, Results per call (D267).
+	maxToolCalls = 25
+	maxResults   = 50
+)
+
+// How the answer shows the tools' results (D264).
+const (
+	ResultsFull   = "full"
+	ResultsInputs = "inputs"
 )
 
 var _ engine.Node = (*Agent)(nil)
@@ -52,10 +62,18 @@ var _ engine.Node = (*Agent)(nil)
 type Agent struct {
 	credentials ports.CredentialReader
 	llm         ports.LLM
+	sources     Sources
+	now         func() time.Time
 }
 
-func NewAgent(credentials ports.CredentialReader, llm ports.LLM) *Agent {
-	return &Agent{credentials: credentials, llm: llm}
+func NewAgent(credentials ports.CredentialReader, llm ports.LLM, sources Sources) *Agent {
+	return &Agent{credentials: credentials, llm: llm, sources: sources, now: time.Now}
+}
+
+// WithClock sets what the price history tool takes for now.
+func (n *Agent) WithClock(now func() time.Time) *Agent {
+	n.now = now
+	return n
 }
 
 func (*Agent) Type() engine.NodeType {
@@ -133,6 +151,26 @@ func (*Agent) Type() engine.NodeType {
 				Name: "retries", Label: "Retries", Kind: engine.ParamNumber, Default: 1,
 				Description: "How many more times to ask when an answer does not fit, up to 3; each is billed.",
 			},
+			{
+				Name: "tools", Label: "Tools", Kind: engine.ParamList, Options: ToolNames,
+				Description: "What the model may look up before it answers, read-only: searchMarkets, orderBook, " +
+					"priceHistory, trades in a market, and positions of any address. None by default.",
+			},
+			{
+				Name: "toolCalls", Label: "Tool calls", Kind: engine.ParamNumber, Default: 10,
+				Description: "The most it may make for one answer, up to 25; then it answers with what it has. " +
+					"Each call's result is read as input, and billed.",
+			},
+			{
+				Name: "results", Label: "Results per call", Kind: engine.ParamNumber, Default: 20,
+				Description: "The most one call gives it, up to 50: markets, trades, positions, points of history, " +
+					"or levels a side of a book.",
+			},
+			{
+				Name: "toolResults", Label: "Tool results", Kind: engine.ParamString, Default: ResultsFull,
+				Options:     []string{ResultsFull, ResultsInputs},
+				Description: "What the answer keeps of each call: full, what it gave too; inputs, only what was asked.",
+			},
 		},
 	}
 }
@@ -148,7 +186,15 @@ var answerField = engine.Field{Name: "answer", Kind: engine.FieldObject, Descrip
 		shape.Number("output", "Tokens out, thinking included."),
 	}},
 	shape.Nullable(shape.Decimal("cost", "What the provider says the calls cost, in dollars, when it says (OpenRouter).")),
-	shape.Number("tries", "How many calls it took: 1 unless an answer did not fit."),
+	shape.Number("tries", "How many answers it took: 1 unless one did not fit."),
+	shape.Number("toolCalls", "How many tool calls it made."),
+	shape.ListOf("tools", "The tool calls it made, in order.",
+		shape.Text("name", "The tool, as the model calls it: search_markets, order_book and so on."),
+		engine.Field{Name: "input", Kind: engine.FieldAny, Description: "What it asked the tool."},
+		shape.Number("results", "How many results the tool gave."),
+		engine.Field{Name: "output", Kind: engine.FieldAny, Optional: true, Description: "What the tool gave, with Tool results full."},
+		shape.Optional(shape.Text("error", "Why the call failed, when it did; the model is told too.")),
+	),
 }}
 
 // settings are a call's, read from an item's params.
@@ -158,6 +204,11 @@ type settings struct {
 	field   string
 	retries int
 	include bool
+
+	tools       map[string]toolDef // by the name the model calls it
+	maxCalls    int
+	perCall     int
+	fullResults bool
 }
 
 func (n *Agent) Run(ctx context.Context, rc engine.RunContext, in engine.Ports) (engine.Ports, error) {
@@ -351,6 +402,10 @@ func read(p engine.Params) (settings, error) {
 
 	s.include, _ = p.Bool("include")
 
+	if err := s.readTools(p); err != nil {
+		return s, err
+	}
+
 	switch as := text("answerAs"); as {
 	case AnswerText, "":
 	case AnswerFields:
@@ -382,6 +437,42 @@ func read(p engine.Params) (settings, error) {
 	return s, nil
 }
 
+// readTools reads which tools the model may ask for, and how far it may go (D262 to
+// D267).
+func (s *settings) readTools(p engine.Params) error {
+	names, err := p.Strings("tools")
+	if err != nil || len(names) == 0 {
+		return nil
+	}
+
+	if s.maxCalls, err = p.Int("toolCalls"); err != nil || s.maxCalls < 1 || s.maxCalls > maxToolCalls {
+		return fmt.Errorf("tool calls: from 1 to %d", maxToolCalls)
+	}
+
+	if s.perCall, err = p.Int("results"); err != nil || s.perCall < 1 || s.perCall > maxResults {
+		return fmt.Errorf("results per call: from 1 to %d", maxResults)
+	}
+
+	shown, _ := p.String("toolResults")
+	s.fullResults = shown != ResultsInputs
+
+	s.tools = map[string]toolDef{}
+
+	for _, name := range names {
+		def, ok := tools[name]
+		if !ok {
+			return fmt.Errorf("tools: %q is not one of %s", name, strings.Join(ToolNames, ", "))
+		}
+
+		if _, twice := s.tools[def.llm.Name]; !twice {
+			s.tools[def.llm.Name] = def
+			s.req.Tools = append(s.req.Tools, def.llm)
+		}
+	}
+
+	return nil
+}
+
 // attach puts the items after the prompt, as JSON (D257).
 func (s *settings) attach(items []engine.Item) error {
 	all := make([]map[string]any, len(items))
@@ -400,9 +491,11 @@ func (s *settings) attach(items []engine.Item) error {
 	return nil
 }
 
-// ask calls the model, again while an answer does not fit, as many more times as the
-// settings say. A refusal or a provider's failure is not asked again: the SDKs have
-// retried what a retry can fix.
+// ask calls the model. While it asks for tools, they run and it is told what they gave,
+// up to the settings' limit, past which it is told to answer with what it has (D263);
+// asking again after that fails. Then, while an answer does not fit, it is asked again,
+// as many more times as the settings say. A refusal or a provider's failure is not asked
+// again: the SDKs have retried what a retry can fix.
 func (n *Agent) ask(ctx context.Context, key ports.LLMKey, s settings) (map[string]any, error) {
 	req := s.req
 	req.Messages = append([]ports.LLMMessage(nil), s.req.Messages...)
@@ -412,9 +505,12 @@ func (n *Agent) ask(ctx context.Context, key ports.LLMKey, s settings) (map[stri
 		costs   = decimal.Zero
 		costed  = true
 		problem string
+		calls   int
+		told    bool // that the limit is reached
+		trace   = []any{}
 	)
 
-	for try := 1; try <= 1+s.retries; try++ {
+	for try := 1; ; {
 		res, err := n.llm.Complete(ctx, key, req)
 		if err != nil {
 			return nil, err
@@ -433,10 +529,38 @@ func (n *Agent) ask(ctx context.Context, key ports.LLMKey, s settings) (map[stri
 			return nil, errors.New("the model refused to answer")
 		}
 
+		if asked := res.Turn.ToolCalls; len(asked) > 0 {
+			if told {
+				return nil, fmt.Errorf("the model kept asking for tools past the limit of %d calls", s.maxCalls)
+			}
+
+			results := make([]ports.LLMToolResult, len(asked))
+
+			for i, call := range asked {
+				if calls == s.maxCalls {
+					told = true
+					results[i] = ports.LLMToolResult{CallID: call.ID, Name: call.Name, IsError: true, Content: fmt.Sprintf(
+						"No more tool calls: the limit of %d is reached. Answer now with what you have.", s.maxCalls)}
+
+					continue
+				}
+
+				calls++
+
+				var entry map[string]any
+				results[i], entry = n.use(ctx, s, call)
+				trace = append(trace, entry)
+			}
+
+			req.Messages = append(req.Messages, turnOf(res), ports.LLMMessage{Role: ports.LLMUser, ToolResults: results})
+
+			continue
+		}
+
 		answer := map[string]any{
 			"model": res.Model, "stopReason": res.StopReason, "tries": try,
 			"usage": map[string]any{"input": used.InputTokens, "output": used.OutputTokens},
-			"cost":  nil,
+			"cost":  nil, "toolCalls": calls, "tools": trace,
 		}
 
 		if costed {
@@ -459,20 +583,67 @@ func (n *Agent) ask(ctx context.Context, key ports.LLMKey, s settings) (map[stri
 			problem = "cut off at Max tokens: " + problem
 		}
 
-		// The turn as the provider gave it, its thinking with it: the conversation only
-		// grows, which Claude's newest models hold it to.
-		turn := res.Turn
-		if turn.Role == "" {
-			turn = ports.LLMMessage{Role: ports.LLMAssistant, Text: res.Text}
+		if try == 1+s.retries {
+			return nil, fmt.Errorf("the answer does not fit the schema, after %d tries: %s", try, problem)
 		}
 
-		req.Messages = append(req.Messages, turn,
+		try++
+		req.Messages = append(req.Messages, turnOf(res),
 			ports.LLMMessage{Role: ports.LLMUser, Text: "That answer does not fit the schema: " + problem +
 				". Answer again, with only the JSON."},
 		)
 	}
+}
 
-	return nil, fmt.Errorf("the answer does not fit the schema, after %d tries: %s", 1+s.retries, problem)
+// turnOf is a response's turn as the provider gave it, its thinking with it: the
+// conversation only grows, which Claude's newest models hold it to.
+func turnOf(res ports.LLMResponse) ports.LLMMessage {
+	if res.Turn.Role == "" {
+		return ports.LLMMessage{Role: ports.LLMAssistant, Text: res.Text}
+	}
+
+	return res.Turn
+}
+
+// use runs the tool a call asks for: its result for the model, and its entry in the
+// answer's tools, the result in full or not as the settings say (D264).
+func (n *Agent) use(ctx context.Context, s settings, call ports.LLMToolCall) (ports.LLMToolResult, map[string]any) {
+	var input any
+	if err := json.Unmarshal(call.Input, &input); err != nil {
+		input = string(call.Input)
+	}
+
+	entry := map[string]any{"name": call.Name, "input": input, "results": 0}
+	fail := func(err error) (ports.LLMToolResult, map[string]any) {
+		entry["error"] = err.Error()
+		return ports.LLMToolResult{CallID: call.ID, Name: call.Name, Content: err.Error(), IsError: true}, entry
+	}
+
+	def, ok := s.tools[call.Name]
+	if !ok {
+		return fail(fmt.Errorf("no tool is named %s", call.Name))
+	}
+
+	out, count, err := def.run(ctx, n.sources, call.Input, s.perCall, n.now())
+	if err != nil {
+		if ctx.Err() != nil {
+			return fail(ctx.Err())
+		}
+
+		return fail(err)
+	}
+
+	raw, err := json.Marshal(out)
+	if err != nil {
+		return fail(err)
+	}
+
+	entry["results"] = count
+	if s.fullResults {
+		entry["output"] = out
+	}
+
+	return ports.LLMToolResult{CallID: call.ID, Name: call.Name, Content: string(raw)}, entry
 }
 
 // cutOff reports whether a stop reason is the answer running out of tokens, as each

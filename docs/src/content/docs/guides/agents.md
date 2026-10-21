@@ -42,7 +42,8 @@ The answer goes under the **Answer field**, `answer` unless you name another:
 | `answer.model` | The model that answered. |
 | `answer.usage.input`, `answer.usage.output` | The tokens it took, thinking included, every try counted. |
 | `answer.cost` | What the provider says the calls cost, in dollars: OpenRouter says; the others leave it empty. |
-| `answer.tries` | How many calls it took. |
+| `answer.tries` | How many answers it took: more than 1 when one did not fit. |
+| `answer.toolCalls`, `answer.tools` | The tool calls it made; see [Tools](#tools). |
 
 **Answer as** says its shape:
 
@@ -57,6 +58,31 @@ The answer goes under the **Answer field**, `answer` unless you name another:
 
 The next nodes read it like any field: an If on `answer.json.watch` is `true`, a message with
 `{{ answer.json.reason }}`.
+
+## Tools
+
+**Tools** lets the model look things up before it answers, read-only: it decides what to
+call, and the node runs it and tells it what came back. Pick any of:
+
+| Tool | What the model gets |
+|---|---|
+| `searchMarkets` | Markets whose event title has the words it gives: questions, outcomes and their token IDs, prices, volume and liquidity. |
+| `orderBook` | An outcome's live book: best bid and ask, midpoint, spread, and the top levels of each side. |
+| `priceHistory` | An outcome's prices over the last hour, 6 hours, day, week or month, with how much it moved. |
+| `trades` | A market's most recent trades: side, price, size and the trader's address. |
+| `positions` | The open positions of any Polymarket address, which are public: size, average price, value and profit. |
+
+**Tool calls**, 10 by default and 25 at the most, is how many it may make for one answer;
+past that it is told to answer with what it has, and an item whose model keeps asking
+fails. **Results per call**, 20 by default and 50 at the most, is how much one call gives
+it. Each call's result is read as input, so more calls and more results mean more tokens,
+billed.
+
+The answer lists the calls in `answer.tools`, each with its `name`, its `input`, how many
+`results` it gave, and its `output` when **Tool results** is `full`, the default; `inputs`
+keeps only what was asked. `answer.toolCalls` counts them. A call that fails, such as an
+outcome that does not exist, says why under `error`, and the model is told too, so it can
+try another way.
 
 ## When it goes wrong
 

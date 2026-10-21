@@ -100,6 +100,23 @@ export interface AiAgentSettings {
      * @default 1
      */
     retries?: number | Expression;
+    /** What the model may look up before it answers, read-only: searchMarkets, orderBook, priceHistory, trades in a market, and positions of any address. None by default. */
+    tools?: ("searchMarkets" | "orderBook" | "priceHistory" | "trades" | "positions")[] | Expression;
+    /**
+     * The most it may make for one answer, up to 25; then it answers with what it has. Each call's result is read as input, and billed.
+     * @default 10
+     */
+    toolCalls?: number | Expression;
+    /**
+     * The most one call gives it, up to 50: markets, trades, positions, points of history, or levels a side of a book.
+     * @default 20
+     */
+    results?: number | Expression;
+    /**
+     * What the answer keeps of each call: full, what it gave too; inputs, only what was asked.
+     * @default "full"
+     */
+    toolResults?: "full" | "inputs" | Expression;
 }
 
 /** The settings of Code: aggregate (code.aggregate). */

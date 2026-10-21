@@ -92,7 +92,9 @@ func Register(r *engine.Registry, d Deps) error {
 			}
 		}
 
-		agent = r.RegisterNode(ai.NewAgent(d.Credentials, d.LLM))
+		agent = r.RegisterNode(ai.NewAgent(d.Credentials, d.LLM, ai.Sources{
+			Events: d.Events, Books: d.OrderBooks, History: d.PriceHistory, Trades: d.Trades, Positions: d.Positions,
+		}))
 	}
 
 	var market, wallet, dedupe, throttle, consensus error

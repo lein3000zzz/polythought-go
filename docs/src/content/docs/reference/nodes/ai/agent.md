@@ -36,6 +36,10 @@ Items that fail stop the execution, unless **Continue on failure** is on: then t
 | Temperature (`temperature`) | number | no |  | Empty for the model's own; the newest Claude models take none. |
 | Effort (`effort`) | text | no |  | How hard the model thinks first; empty for its own. One of `low`, `medium`, `high`. |
 | Retries (`retries`) | whole number | no | `1` | How many more times to ask when an answer does not fit, up to 3; each is billed. |
+| Tools (`tools`) | list of text | no |  | What the model may look up before it answers, read-only: searchMarkets, orderBook, priceHistory, trades in a market, and positions of any address. None by default. One of `searchMarkets`, `orderBook`, `priceHistory`, `trades`, `positions`. |
+| Tool calls (`toolCalls`) | whole number | no | `10` | The most it may make for one answer, up to 25; then it answers with what it has. Each call's result is read as input, and billed. |
+| Results per call (`results`) | whole number | no | `20` | The most one call gives it, up to 50: markets, trades, positions, points of history, or levels a side of a book. |
+| Tool results (`toolResults`) | text | no | `full` | What the answer keeps of each call: full, what it gave too; inputs, only what was asked. One of `full`, `inputs`. |
 
 ### Fields columns
 
@@ -64,4 +68,11 @@ The items it receives, passed on with these fields added, `answer` under the nam
 | `answer.usage.input` | number | Tokens in. |
 | `answer.usage.output` | number | Tokens out, thinking included. |
 | `answer.cost` | decimal; or null | What the provider says the calls cost, in dollars, when it says (OpenRouter). |
-| `answer.tries` | number | How many calls it took: 1 unless an answer did not fit. |
+| `answer.tries` | number | How many answers it took: 1 unless one did not fit. |
+| `answer.toolCalls` | number | How many tool calls it made. |
+| `answer.tools` | list of objects | The tool calls it made, in order. |
+| `answer.tools[].name` | text | The tool, as the model calls it: search_markets, order_book and so on. |
+| `answer.tools[].input` | anything | What it asked the tool. |
+| `answer.tools[].results` | number | How many results the tool gave. |
+| `answer.tools[].output` | anything; not always there | What the tool gave, with Tool results full. |
+| `answer.tools[].error` | text; not always there | Why the call failed, when it did; the model is told too. |

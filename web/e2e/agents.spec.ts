@@ -22,7 +22,12 @@ test('an AI agent asks with your own key, and says why it could not', async ({ p
       {
         id: 'ask',
         type: 'ai.agent',
-        params: { credential: key, model: 'llama-e2e', prompt: 'Hello from {{ execution.id }}' },
+        params: {
+          credential: key,
+          model: 'llama-e2e',
+          prompt: 'Hello from {{ execution.id }}',
+          tools: ['searchMarkets', 'orderBook'],
+        },
       },
     ])
 
@@ -46,6 +51,12 @@ test('an AI agent asks with your own key, and says why it could not', async ({ p
     await expect(settings.getByRole('textbox', { name: /^Prompt/ })).toHaveValue(
       'Hello from {{ execution.id }}',
     )
+
+    // The tools it may use, picked from the five, read-only.
+    await expect(settings.getByRole('checkbox', { name: 'searchMarkets' })).toBeChecked()
+    await expect(settings.getByRole('checkbox', { name: 'orderBook' })).toBeChecked()
+    await expect(settings.getByRole('checkbox', { name: 'positions' })).not.toBeChecked()
+    await expect(settings.getByLabel('Tool calls')).toBeVisible()
 
     // The library's scenario asks for a key and a model of your own.
     await page.goto('/library')
