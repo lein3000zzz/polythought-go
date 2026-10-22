@@ -269,7 +269,7 @@ The largest result one run of user code may return, measured as JSON.
 
 ### Data requests per run
 
-How many times one run of user code may ask Polythought for data, such as a market search.
+How many times one run of user code, or of a plugin's node, may ask Polythought for data or anything else, such as a market search or a fetch. A plugin's trigger may ask as often each minute.
 
 | | |
 |---|---|
@@ -290,6 +290,80 @@ How many runs of user code may go at the same time; the others wait their turn. 
 | Kind | whole number |
 | Default | `0` |
 | Applies | after a restart |
+
+## Plugins
+
+### Plugins directory
+
+Where installed plugins are kept: a directory the server may write, a volume in Docker. What admins decide about them is kept in the database.
+
+| | |
+|---|---|
+| Key | `plugins.dir` |
+| Environment variable | `POLYTHOUGHT_PLUGINS_DIR` |
+| Kind | text |
+| Default | `plugins` |
+| Applies | after a restart |
+
+### Trusted signing keys
+
+minisign public keys whose signatures you trust, one a line: the key's line from its .pub file, after a name and a space if you like, such as "Polythought RWQf6LRC…". A plugin they signed shows who did; any other installs only after a warning.
+
+| | |
+|---|---|
+| Key | `plugins.trusted_keys` |
+| Environment variable | `POLYTHOUGHT_PLUGINS_TRUSTED_KEYS` |
+| Kind | list; in the environment, separated by commas |
+| Default | empty |
+| Applies | at once |
+
+### Largest archive (MB)
+
+The largest plugin archive an admin may install, uploaded or fetched.
+
+| | |
+|---|---|
+| Key | `plugins.max_archive` |
+| Environment variable | `POLYTHOUGHT_PLUGINS_MAX_ARCHIVE` |
+| Kind | whole number |
+| Default | `100` |
+| Applies | at once |
+
+### Plugin fetch time
+
+How long a plugin's request to another site may take, from connecting to its answer's last byte.
+
+| | |
+|---|---|
+| Key | `plugins.fetch_time` |
+| Environment variable | `POLYTHOUGHT_PLUGINS_FETCH_TIME` |
+| Kind | duration, e.g. `30s`, `5m`, `168h` |
+| Default | `10s` |
+| Applies | at once |
+
+### Plugin fetch size (KiB)
+
+The largest body a plugin's request to another site may send, and its answer bring back.
+
+| | |
+|---|---|
+| Key | `plugins.fetch_body` |
+| Environment variable | `POLYTHOUGHT_PLUGINS_FETCH_BODY` |
+| Kind | whole number |
+| Default | `1024` |
+| Applies | at once |
+
+### Plugin store per node (KiB)
+
+How much one plugin node may keep in its store, its keys and values, in each workflow. Writes past it are refused; what is kept already stays.
+
+| | |
+|---|---|
+| Key | `plugins.store_size` |
+| Environment variable | `POLYTHOUGHT_PLUGINS_STORE_SIZE` |
+| Kind | whole number |
+| Default | `1024` |
+| Applies | at once |
 
 ## Trading
 

@@ -345,6 +345,22 @@
                 ],
                 "type": "object"
             },
+            "ApprovePluginRequest": {
+                "properties": {
+                    "permissions": {
+                        "description": "Permissions are those the version asks for, which the admin approves: exactly\nthose, or the approval is refused.",
+                        "items": {
+                            "type": "string"
+                        },
+                        "type": "array",
+                        "uniqueItems": false
+                    }
+                },
+                "required": [
+                    "permissions"
+                ],
+                "type": "object"
+            },
             "AuthConfig": {
                 "properties": {
                     "minPasswordLength": {
@@ -1085,6 +1101,33 @@
                 ],
                 "type": "object"
             },
+            "FetchPluginRequest": {
+                "properties": {
+                    "url": {
+                        "description": "https",
+                        "type": "string"
+                    }
+                },
+                "required": [
+                    "url"
+                ],
+                "type": "object"
+            },
+            "FoundPlugin": {
+                "properties": {
+                    "id": {
+                        "type": "string"
+                    },
+                    "version": {
+                        "type": "string"
+                    }
+                },
+                "required": [
+                    "id",
+                    "version"
+                ],
+                "type": "object"
+            },
             "Geoblock": {
                 "properties": {
                     "blocked": {
@@ -1264,6 +1307,63 @@
                 },
                 "required": [
                     "privateKey"
+                ],
+                "type": "object"
+            },
+            "InstalledPlugin": {
+                "properties": {
+                    "id": {
+                        "type": "string"
+                    },
+                    "keyId": {
+                        "type": "string"
+                    },
+                    "name": {
+                        "type": "string"
+                    },
+                    "newPermissions": {
+                        "description": "NewPermissions are those it asks for that what runs was not approved for: all of\nthem for a plugin new here (D318).",
+                        "items": {
+                            "type": "string"
+                        },
+                        "type": "array",
+                        "uniqueItems": false
+                    },
+                    "permissions": {
+                        "items": {
+                            "type": "string"
+                        },
+                        "type": "array",
+                        "uniqueItems": false
+                    },
+                    "signed": {
+                        "type": "boolean"
+                    },
+                    "signer": {
+                        "type": "string"
+                    },
+                    "upgrade": {
+                        "type": "boolean"
+                    },
+                    "version": {
+                        "type": "string"
+                    },
+                    "warning": {
+                        "description": "Warning is for the admin who approves it, when no key they trust signed it (D280).",
+                        "type": "string"
+                    }
+                },
+                "required": [
+                    "id",
+                    "keyId",
+                    "name",
+                    "newPermissions",
+                    "permissions",
+                    "signed",
+                    "signer",
+                    "upgrade",
+                    "version",
+                    "warning"
                 ],
                 "type": "object"
             },
@@ -2285,6 +2385,231 @@
                 },
                 "required": [
                     "email"
+                ],
+                "type": "object"
+            },
+            "Plugin": {
+                "properties": {
+                    "enabled": {
+                        "type": "boolean"
+                    },
+                    "everyone": {
+                        "description": "false: only users may use it (D282)",
+                        "type": "boolean"
+                    },
+                    "id": {
+                        "type": "string"
+                    },
+                    "name": {
+                        "description": "its newest version's",
+                        "type": "string"
+                    },
+                    "restart": {
+                        "description": "Restart says what runs is not what admins decided: a restart applies it (D317).",
+                        "type": "boolean"
+                    },
+                    "status": {
+                        "$ref": "#/components/schemas/PluginStatus",
+                        "description": "Status is how it runs, as it was loaded at start; absent when it was not."
+                    },
+                    "users": {
+                        "items": {
+                            "type": "string"
+                        },
+                        "type": "array",
+                        "uniqueItems": false
+                    },
+                    "version": {
+                        "description": "Version is the approved one, which runs when enabled; empty until the first approval.",
+                        "type": "string"
+                    },
+                    "versions": {
+                        "description": "newest first",
+                        "items": {
+                            "$ref": "#/components/schemas/PluginVersion"
+                        },
+                        "type": "array",
+                        "uniqueItems": false
+                    }
+                },
+                "required": [
+                    "enabled",
+                    "everyone",
+                    "id",
+                    "name",
+                    "restart",
+                    "users",
+                    "version",
+                    "versions"
+                ],
+                "type": "object"
+            },
+            "PluginAudit": {
+                "properties": {
+                    "action": {
+                        "type": "string"
+                    },
+                    "at": {
+                        "format": "date-time",
+                        "type": "string"
+                    },
+                    "by": {
+                        "description": "the admin's ID; empty for the server's own doing",
+                        "type": "string"
+                    },
+                    "detail": {
+                        "type": "string"
+                    },
+                    "version": {
+                        "type": "string"
+                    }
+                },
+                "required": [
+                    "action",
+                    "at",
+                    "by",
+                    "detail",
+                    "version"
+                ],
+                "type": "object"
+            },
+            "PluginStatus": {
+                "properties": {
+                    "crashes": {
+                        "description": "in the last 10 minutes",
+                        "type": "integer"
+                    },
+                    "lastError": {
+                        "type": "string"
+                    },
+                    "log": {
+                        "description": "its last lines",
+                        "items": {
+                            "type": "string"
+                        },
+                        "type": "array",
+                        "uniqueItems": false
+                    },
+                    "since": {
+                        "format": "date-time",
+                        "type": "string"
+                    },
+                    "state": {
+                        "enum": [
+                            "running",
+                            "restarting",
+                            "crashed",
+                            "stopped",
+                            "failed"
+                        ],
+                        "type": "string"
+                    },
+                    "version": {
+                        "type": "string"
+                    }
+                },
+                "required": [
+                    "crashes",
+                    "lastError",
+                    "log",
+                    "since",
+                    "state",
+                    "version"
+                ],
+                "type": "object"
+            },
+            "PluginUsersRequest": {
+                "properties": {
+                    "everyone": {
+                        "type": "boolean"
+                    },
+                    "users": {
+                        "description": "who may use it when not everyone",
+                        "items": {
+                            "type": "string"
+                        },
+                        "type": "array",
+                        "uniqueItems": false
+                    }
+                },
+                "required": [
+                    "everyone",
+                    "users"
+                ],
+                "type": "object"
+            },
+            "PluginVersion": {
+                "properties": {
+                    "approved": {
+                        "type": "boolean"
+                    },
+                    "approvedAt": {
+                        "format": "date-time",
+                        "type": "string"
+                    },
+                    "installedAt": {
+                        "format": "date-time",
+                        "type": "string"
+                    },
+                    "installedBy": {
+                        "description": "empty once the account is gone",
+                        "type": "string"
+                    },
+                    "keyId": {
+                        "type": "string"
+                    },
+                    "manifest": {
+                        "description": "Manifest is the version's manifest.json: its nodes, triggers, credential types,\nscenarios and settings.",
+                        "type": "object"
+                    },
+                    "permissions": {
+                        "items": {
+                            "type": "string"
+                        },
+                        "type": "array",
+                        "uniqueItems": false
+                    },
+                    "signer": {
+                        "description": "Signer is the trusted key's name that signed it; empty when none an admin trusts\ndid, keyId saying which key did, if any.",
+                        "type": "string"
+                    },
+                    "version": {
+                        "type": "string"
+                    }
+                },
+                "required": [
+                    "approved",
+                    "installedAt",
+                    "installedBy",
+                    "keyId",
+                    "manifest",
+                    "permissions",
+                    "signer",
+                    "version"
+                ],
+                "type": "object"
+            },
+            "Plugins": {
+                "properties": {
+                    "found": {
+                        "description": "Found are versions on disk no admin installed, to adopt (D321).",
+                        "items": {
+                            "$ref": "#/components/schemas/FoundPlugin"
+                        },
+                        "type": "array",
+                        "uniqueItems": false
+                    },
+                    "plugins": {
+                        "items": {
+                            "$ref": "#/components/schemas/Plugin"
+                        },
+                        "type": "array",
+                        "uniqueItems": false
+                    }
+                },
+                "required": [
+                    "found",
+                    "plugins"
                 ],
                 "type": "object"
             },
@@ -3929,6 +4254,899 @@
                     }
                 ],
                 "summary": "Send a test email",
+                "tags": [
+                    "admin"
+                ]
+            }
+        },
+        "/admin/plugins": {
+            "get": {
+                "operationId": "listPlugins",
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Plugins"
+                                }
+                            }
+                        },
+                        "description": "OK"
+                    },
+                    "401": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "unauthenticated"
+                    },
+                    "403": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "forbidden"
+                    }
+                },
+                "security": [
+                    {
+                        "SessionCookie": []
+                    },
+                    {
+                        "APIToken": []
+                    }
+                ],
+                "summary": "List the plugins installed, and versions found on disk",
+                "tags": [
+                    "admin"
+                ]
+            },
+            "post": {
+                "operationId": "installPlugin",
+                "requestBody": {
+                    "content": {
+                        "application/gzip": {
+                            "schema": {
+                                "type": "string"
+                            }
+                        },
+                        "text/plain": {
+                            "schema": {
+                                "format": "binary",
+                                "title": "body",
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "description": "The archive",
+                    "required": true
+                },
+                "responses": {
+                    "201": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/InstalledPlugin"
+                                }
+                            }
+                        },
+                        "description": "Created"
+                    },
+                    "400": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "invalid_input"
+                    },
+                    "401": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "unauthenticated"
+                    },
+                    "403": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "forbidden"
+                    },
+                    "409": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "plugin_installed"
+                    }
+                },
+                "security": [
+                    {
+                        "SessionCookie": []
+                    },
+                    {
+                        "APIToken": []
+                    }
+                ],
+                "summary": "Install a plugin from an archive",
+                "tags": [
+                    "admin"
+                ]
+            }
+        },
+        "/admin/plugins/fetch": {
+            "post": {
+                "operationId": "fetchPlugin",
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/FetchPluginRequest",
+                                "summary": "body",
+                                "description": "Where"
+                            }
+                        }
+                    },
+                    "description": "Where",
+                    "required": true
+                },
+                "responses": {
+                    "201": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/InstalledPlugin"
+                                }
+                            }
+                        },
+                        "description": "Created"
+                    },
+                    "400": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "invalid_input"
+                    },
+                    "401": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "unauthenticated"
+                    },
+                    "403": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "forbidden"
+                    },
+                    "409": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "plugin_installed"
+                    }
+                },
+                "security": [
+                    {
+                        "SessionCookie": []
+                    },
+                    {
+                        "APIToken": []
+                    }
+                ],
+                "summary": "Install a plugin from a URL",
+                "tags": [
+                    "admin"
+                ]
+            }
+        },
+        "/admin/plugins/found/{id}/{version}": {
+            "post": {
+                "operationId": "adoptPlugin",
+                "parameters": [
+                    {
+                        "description": "Plugin ID",
+                        "in": "path",
+                        "name": "id",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "description": "Version",
+                        "in": "path",
+                        "name": "version",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/InstalledPlugin"
+                                }
+                            }
+                        },
+                        "description": "Created"
+                    },
+                    "400": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "invalid_input"
+                    },
+                    "401": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "unauthenticated"
+                    },
+                    "403": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "forbidden"
+                    },
+                    "404": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "not_found"
+                    },
+                    "409": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "plugin_installed"
+                    }
+                },
+                "security": [
+                    {
+                        "SessionCookie": []
+                    },
+                    {
+                        "APIToken": []
+                    }
+                ],
+                "summary": "Install a version found on disk",
+                "tags": [
+                    "admin"
+                ]
+            }
+        },
+        "/admin/plugins/{id}": {
+            "delete": {
+                "operationId": "uninstallPlugin",
+                "parameters": [
+                    {
+                        "description": "Plugin ID",
+                        "in": "path",
+                        "name": "id",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "No Content"
+                    },
+                    "401": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "unauthenticated"
+                    },
+                    "403": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "forbidden"
+                    },
+                    "404": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "not_found"
+                    }
+                },
+                "security": [
+                    {
+                        "SessionCookie": []
+                    },
+                    {
+                        "APIToken": []
+                    }
+                ],
+                "summary": "Uninstall a plugin",
+                "tags": [
+                    "admin"
+                ]
+            }
+        },
+        "/admin/plugins/{id}/disable": {
+            "post": {
+                "operationId": "disablePlugin",
+                "parameters": [
+                    {
+                        "description": "Plugin ID",
+                        "in": "path",
+                        "name": "id",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "No Content"
+                    },
+                    "401": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "unauthenticated"
+                    },
+                    "403": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "forbidden"
+                    },
+                    "404": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "not_found"
+                    }
+                },
+                "security": [
+                    {
+                        "SessionCookie": []
+                    },
+                    {
+                        "APIToken": []
+                    }
+                ],
+                "summary": "Disable a plugin",
+                "tags": [
+                    "admin"
+                ]
+            }
+        },
+        "/admin/plugins/{id}/enable": {
+            "post": {
+                "operationId": "enablePlugin",
+                "parameters": [
+                    {
+                        "description": "Plugin ID",
+                        "in": "path",
+                        "name": "id",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "No Content"
+                    },
+                    "401": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "unauthenticated"
+                    },
+                    "403": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "forbidden"
+                    },
+                    "404": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "not_found"
+                    }
+                },
+                "security": [
+                    {
+                        "SessionCookie": []
+                    },
+                    {
+                        "APIToken": []
+                    }
+                ],
+                "summary": "Enable a plugin",
+                "tags": [
+                    "admin"
+                ]
+            }
+        },
+        "/admin/plugins/{id}/history": {
+            "get": {
+                "operationId": "pluginHistory",
+                "parameters": [
+                    {
+                        "description": "Plugin ID",
+                        "in": "path",
+                        "name": "id",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "items": {
+                                        "$ref": "#/components/schemas/PluginAudit"
+                                    },
+                                    "type": "array"
+                                }
+                            }
+                        },
+                        "description": "OK"
+                    },
+                    "401": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "unauthenticated"
+                    },
+                    "403": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "forbidden"
+                    }
+                },
+                "security": [
+                    {
+                        "SessionCookie": []
+                    },
+                    {
+                        "APIToken": []
+                    }
+                ],
+                "summary": "What admins did with a plugin",
+                "tags": [
+                    "admin"
+                ]
+            }
+        },
+        "/admin/plugins/{id}/start": {
+            "post": {
+                "operationId": "startPlugin",
+                "parameters": [
+                    {
+                        "description": "Plugin ID",
+                        "in": "path",
+                        "name": "id",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "No Content"
+                    },
+                    "400": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "invalid_input"
+                    },
+                    "401": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "unauthenticated"
+                    },
+                    "403": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "forbidden"
+                    }
+                },
+                "security": [
+                    {
+                        "SessionCookie": []
+                    },
+                    {
+                        "APIToken": []
+                    }
+                ],
+                "summary": "Start a crashed plugin again",
+                "tags": [
+                    "admin"
+                ]
+            }
+        },
+        "/admin/plugins/{id}/users": {
+            "put": {
+                "operationId": "setPluginUsers",
+                "parameters": [
+                    {
+                        "description": "Plugin ID",
+                        "in": "path",
+                        "name": "id",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/PluginUsersRequest",
+                                "summary": "body",
+                                "description": "Who"
+                            }
+                        }
+                    },
+                    "description": "Who",
+                    "required": true
+                },
+                "responses": {
+                    "204": {
+                        "description": "No Content"
+                    },
+                    "400": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "invalid_input"
+                    },
+                    "401": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "unauthenticated"
+                    },
+                    "403": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "forbidden"
+                    },
+                    "404": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "not_found"
+                    }
+                },
+                "security": [
+                    {
+                        "SessionCookie": []
+                    },
+                    {
+                        "APIToken": []
+                    }
+                ],
+                "summary": "Say who may use a plugin",
+                "tags": [
+                    "admin"
+                ]
+            }
+        },
+        "/admin/plugins/{id}/versions/{version}": {
+            "delete": {
+                "operationId": "removePluginVersion",
+                "parameters": [
+                    {
+                        "description": "Plugin ID",
+                        "in": "path",
+                        "name": "id",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "description": "Version",
+                        "in": "path",
+                        "name": "version",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "No Content"
+                    },
+                    "400": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "invalid_input"
+                    },
+                    "401": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "unauthenticated"
+                    },
+                    "403": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "forbidden"
+                    },
+                    "404": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "not_found"
+                    }
+                },
+                "security": [
+                    {
+                        "SessionCookie": []
+                    },
+                    {
+                        "APIToken": []
+                    }
+                ],
+                "summary": "Remove a version of a plugin",
+                "tags": [
+                    "admin"
+                ]
+            }
+        },
+        "/admin/plugins/{id}/versions/{version}/approve": {
+            "post": {
+                "operationId": "approvePlugin",
+                "parameters": [
+                    {
+                        "description": "Plugin ID",
+                        "in": "path",
+                        "name": "id",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "description": "Version",
+                        "in": "path",
+                        "name": "version",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/ApprovePluginRequest",
+                                "summary": "body",
+                                "description": "What is approved"
+                            }
+                        }
+                    },
+                    "description": "What is approved",
+                    "required": true
+                },
+                "responses": {
+                    "204": {
+                        "description": "No Content"
+                    },
+                    "400": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "invalid_input"
+                    },
+                    "401": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "unauthenticated"
+                    },
+                    "403": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "forbidden"
+                    },
+                    "404": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "not_found"
+                    }
+                },
+                "security": [
+                    {
+                        "SessionCookie": []
+                    },
+                    {
+                        "APIToken": []
+                    }
+                ],
+                "summary": "Approve a version of a plugin",
                 "tags": [
                     "admin"
                 ]

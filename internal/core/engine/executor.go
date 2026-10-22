@@ -58,8 +58,9 @@ type Executor struct {
 	waits      ports.WaitRepository
 	waitLimits func() WaitLimits
 
-	evaluator Evaluator // works expressions out; nil: only plain fields
-	codeGate  CodeGate  // says who may run code; nil: everyone
+	evaluator Evaluator  // works expressions out; nil: only plain fields
+	codeGate  CodeGate   // says who may run code; nil: everyone
+	plugins   PluginGate // says who may use which plugin; nil: everyone
 }
 
 type ExecutorOption func(*Executor)
@@ -178,6 +179,10 @@ func (e *Executor) Execute(
 			return err
 		}
 
+		if err := e.checkPlugins(ctx, reg, w); err != nil {
+			return err
+		}
+
 		order, err := w.TopologicalOrder()
 		if err != nil {
 			return err
@@ -225,6 +230,10 @@ func (e *Executor) Continue(ctx context.Context, rec ports.WaitRecord, r Resumpt
 		}
 
 		if err := e.checkCode(ctx, reg, snap.Workflow); err != nil {
+			return err
+		}
+
+		if err := e.checkPlugins(ctx, reg, snap.Workflow); err != nil {
 			return err
 		}
 

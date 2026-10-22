@@ -28,6 +28,12 @@ type Kind struct {
 	Label       string
 	Description string
 	Default     bool
+
+	// EmailDefault is whether it goes by mail too until the user says, off for most.
+	EmailDefault bool
+
+	// Admins says only admins get it, and see it in Settings.
+	Admins bool
 }
 
 // The groups Settings shows the kinds under.
@@ -37,6 +43,7 @@ const (
 	groupLive      = "Live orders"
 	groupPaper     = "Paper orders"
 	groupAgents    = "AI agents"
+	groupAdmin     = "Admin"
 )
 
 var WorkflowFailed = Kind{
@@ -92,7 +99,7 @@ var Kinds = []Kind{
 	WorkflowFailed, ApprovalWaiting, SessionKeyExpiring, LiveTradeFailed,
 	LiveOrderFilled, LiveOrderRefused, LiveOrderUnfilled, LiveOrderRests, LiveOrderEnded,
 	PaperOrderFilled, PaperOrderRefused, PaperOrderUnfilled, PaperOrderRests, PaperOrderEnded,
-	AgentSpendWarned, AgentSpendCapped,
+	AgentSpendWarned, AgentSpendCapped, WorkflowPaused, PluginCrashed,
 }
 
 const (
@@ -123,6 +130,9 @@ type Service struct {
 	markets ports.MarketReader // optional: an order's market, for what it says
 	orders  chan domain.OrderEvent
 	spends  chan spendAlert
+	paused  chan pausedWorkflow
+	crashed chan crashedPlugin
+	admins  AdminLister   // optional: without it, admins hear of no crashed plugin
 	tick    time.Duration // how often held order notifications are looked at
 
 	mu        sync.Mutex
@@ -184,6 +194,8 @@ func New(messenger ports.UserMessenger, prefs ports.NotificationPrefRepository, 
 		cooldowns: make(map[domain.WorkflowID]cooldown),
 		orders:    make(chan domain.OrderEvent, orderQueueSize),
 		spends:    make(chan spendAlert, queueSize),
+		paused:    make(chan pausedWorkflow, queueSize),
+		crashed:   make(chan crashedPlugin, queueSize),
 		tick:      time.Minute,
 		windows:   make(map[windowKey]*window),
 	}
@@ -210,9 +222,11 @@ func (s *Service) Prefs(ctx context.Context, p auth.Principal) ([]Pref, error) {
 		return nil, err
 	}
 
-	out := make([]Pref, len(Kinds))
-	for i, k := range Kinds {
-		out[i] = prefOf(k, changed)
+	out := make([]Pref, 0, len(Kinds))
+	for _, k := range Kinds {
+		if !k.Admins || p.User.IsAdmin() {
+			out = append(out, prefOf(k, changed))
+		}
 	}
 
 	return out, nil
@@ -224,7 +238,12 @@ func prefOf(k Kind, changed map[string]bool) Pref {
 		enabled = k.Default
 	}
 
-	return Pref{Kind: k, Enabled: enabled, Email: changed[emailPref(k)]}
+	email, ok := changed[emailPref(k)]
+	if !ok {
+		email = k.EmailDefault
+	}
+
+	return Pref{Kind: k, Enabled: enabled, Email: email}
 }
 
 // SetPref switches a kind on Telegram on or off.
@@ -239,7 +258,7 @@ func (s *Service) SetEmailPref(ctx context.Context, p auth.Principal, key string
 
 func (s *Service) set(ctx context.Context, p auth.Principal, key string, prefKey func(Kind) string, enabled bool) (Pref, error) {
 	for _, k := range Kinds {
-		if k.Key != key {
+		if k.Key != key || (k.Admins && !p.User.IsAdmin()) {
 			continue
 		}
 
@@ -320,6 +339,10 @@ func (s *Service) Run(ctx context.Context) {
 			s.orderHappened(ctx, e)
 		case a := <-s.spends:
 			s.agentSpend(ctx, a)
+		case pw := <-s.paused:
+			s.workflowPaused(ctx, pw)
+		case pc := <-s.crashed:
+			s.pluginCrashed(ctx, pc)
 		case <-t.C:
 			s.summarise(ctx)
 		}

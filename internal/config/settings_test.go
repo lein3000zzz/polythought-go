@@ -10,11 +10,13 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/lein3000zzz/polythought-go/internal/adapters/jsruntime"
+	"github.com/lein3000zzz/polythought-go/internal/adapters/pluginhost"
 	"github.com/lein3000zzz/polythought-go/internal/config"
 	"github.com/lein3000zzz/polythought-go/internal/core/domain"
 	"github.com/lein3000zzz/polythought-go/internal/core/nodes/triggers"
 	"github.com/lein3000zzz/polythought-go/internal/core/services/auth"
 	"github.com/lein3000zzz/polythought-go/internal/core/services/customnodes"
+	"github.com/lein3000zzz/polythought-go/internal/core/services/plugins"
 	"github.com/lein3000zzz/polythought-go/internal/core/services/settings"
 	"github.com/lein3000zzz/polythought-go/internal/core/services/workflows"
 	pm "github.com/lein3000zzz/polythought-go/pkg/clients/polymarket"
@@ -69,6 +71,12 @@ func TestSettingsDefaults(t *testing.T) {
 		config.KeyCodeOutput:          jsruntime.DefaultLimits.Output >> 10,
 		config.KeyCodeHostCalls:       jsruntime.DefaultLimits.HostCalls,
 		config.KeyCodeConcurrency:     0,
+		config.KeyPluginsDir:          "plugins",
+		config.KeyPluginTrustedKeys:   []string{},
+		config.KeyPluginMaxArchive:    int(plugins.DefaultMaxArchive >> 20),
+		config.KeyPluginFetchTime:     pluginhost.DefaultLimits.FetchTime,
+		config.KeyPluginFetchBody:     pluginhost.DefaultLimits.FetchBody >> 10,
+		config.KeyPluginStoreSize:     pluginhost.DefaultLimits.StoreBytes >> 10,
 		config.KeyPaperBalance:        1000,
 		config.KeyKeyImport:           config.KeyImportAuto,
 		config.KeyLiveTrading:         false,
@@ -102,7 +110,7 @@ func TestSettingsDefaults(t *testing.T) {
 		assert.Equal(t, want, spec(t, key).Default, key)
 	}
 
-	assert.Len(t, registry(t).Specs(), 52, "every setting has a default checked above")
+	assert.Len(t, registry(t).Specs(), 58, "every setting has a default checked above")
 
 	for _, key := range []string{
 		config.KeyTelegramToken, config.KeyBuilderAPIKey, config.KeyBuilderSecret, config.KeyBuilderPassphrase, config.KeyPolygonRPC,
@@ -168,6 +176,10 @@ func TestSettingsValidation(t *testing.T) {
 		{config.KeyMailPort, "70000", "must be between 1 and 65535"},
 		{config.KeyMailSecurity, "ssl", `"ssl" is not one of starttls, tls, none`},
 		{config.KeyMailFrom, "Polythought <p@example.com>", "is not an address like"},
+		{config.KeyPluginTrustedKeys, "Alice RWQnot-a-key", "is not a minisign public key"},
+		{config.KeyPluginTrustedKeys, "untrusted comment: minisign public key E7620F1842B4E81F", "is not a minisign public key"},
+		{config.KeyPluginsDir, " ", "it cannot be empty"},
+		{config.KeyPluginMaxArchive, "4096", "must be between 1 and 2048"},
 	}
 
 	for _, tc := range tests {
@@ -197,6 +209,9 @@ func TestSettingsValidation(t *testing.T) {
 
 	_, err = spec(t, config.KeyTelegramToken).Parse("123456:ABC-DEF_ghi")
 	require.NoError(t, err, "a bot token")
+
+	_, err = spec(t, config.KeyPluginTrustedKeys).Parse("Frank RWQf6LRCGA9i53mlYecO4IzT51TGPpvWucNSCh1CBM0QTaLn73Y7GFO3, RWQf6LRCGA9i53mlYecO4IzT51TGPpvWucNSCh1CBM0QTaLn73Y7GFO3")
+	require.NoError(t, err, "a key, named or not")
 }
 
 func TestSettingsGroupsAreTogether(t *testing.T) {

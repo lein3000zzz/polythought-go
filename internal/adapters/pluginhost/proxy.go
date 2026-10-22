@@ -131,7 +131,12 @@ func (n *proxyNode) run(ctx context.Context, rc engine.RunContext, in engine.Por
 
 	req.Run.Session = token
 
-	res, err := n.p.rpc.RunNode(ctx, req)
+	rpc, err := n.p.rpc()
+	if err != nil {
+		return nil, err
+	}
+
+	res, err := rpc.RunNode(ctx, req)
 	q := s.asked()
 
 	out, wait, err := n.answered(ctx, s, in, res, err, q)
@@ -202,7 +207,12 @@ func (t *proxyTrigger) Start(ctx context.Context, tc engine.TriggerContext, emit
 	}
 	defer closed()
 
-	stream, err := t.p.rpc.RunTrigger(ctx)
+	rpc, err := t.p.rpc()
+	if err != nil {
+		return err
+	}
+
+	stream, err := rpc.RunTrigger(ctx)
 	if err != nil {
 		return fmt.Errorf("plugin %s: %w", t.p.manifest.ID, callError(err))
 	}

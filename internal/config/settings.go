@@ -43,6 +43,12 @@ const (
 	KeyCodeOutput          = "code.output"
 	KeyCodeHostCalls       = "code.host_calls"
 	KeyCodeConcurrency     = "code.concurrency"
+	KeyPluginsDir          = "plugins.dir"
+	KeyPluginTrustedKeys   = "plugins.trusted_keys"
+	KeyPluginMaxArchive    = "plugins.max_archive"
+	KeyPluginFetchTime     = "plugins.fetch_time"
+	KeyPluginFetchBody     = "plugins.fetch_body"
+	KeyPluginStoreSize     = "plugins.store_size"
 	KeyPaperBalance        = "trading.paper_balance"
 	KeyKeyImport           = "trading.key_import"
 	KeyBuilderAPIKey       = "trading.builder_api_key"
@@ -110,6 +116,7 @@ const (
 	groupWorkflows  = "Workflows"
 	groupExecutions = "Executions"
 	groupCode       = "Code"
+	groupPlugins    = "Plugins"
 	groupTrading    = "Trading"
 	groupAgents     = "AI agents"
 	groupNetwork    = "Network"
@@ -238,7 +245,7 @@ func Settings() (*settings.Registry, error) {
 		},
 		settings.Spec{
 			Key: KeyCodeHostCalls, Group: groupCode, Label: "Data requests per run",
-			Description: "How many times one run of user code may ask Polythought for data, such as a market search.",
+			Description: "How many times one run of user code, or of a plugin's node, may ask Polythought for data or anything else, such as a market search or a fetch. A plugin's trigger may ask as often each minute.",
 			Kind:        settings.KindInt, Default: 100, Check: between(1, 10_000),
 		},
 		settings.Spec{
@@ -246,6 +253,37 @@ func Settings() (*settings.Registry, error) {
 			Description: "How many runs of user code may go at the same time; the others wait their turn. 0 means one per CPU of the server.",
 			Kind:        settings.KindInt, Default: 0, Check: between(0, 256),
 			Apply: settings.ApplyRestart,
+		},
+		settings.Spec{
+			Key: KeyPluginsDir, Group: groupPlugins, Label: "Plugins directory",
+			Description: "Where installed plugins are kept: a directory the server may write, a volume in Docker. What admins decide about them is kept in the database.",
+			Kind:        settings.KindString, Default: "plugins", Check: nonEmpty,
+			Apply: settings.ApplyRestart, Env: prefix + "PLUGINS_DIR",
+		},
+		settings.Spec{
+			Key: KeyPluginTrustedKeys, Group: groupPlugins, Label: "Trusted signing keys",
+			Description: "minisign public keys whose signatures you trust, one a line: the key's line from its .pub file, after a name and a space if you like, such as \"Polythought RWQf6LRC…\". A plugin they signed shows who did; any other installs only after a warning.",
+			Kind:        settings.KindList, Default: []string{}, Check: minisignKeys,
+		},
+		settings.Spec{
+			Key: KeyPluginMaxArchive, Group: groupPlugins, Label: "Largest archive (MB)",
+			Description: "The largest plugin archive an admin may install, uploaded or fetched.",
+			Kind:        settings.KindInt, Default: 100, Check: between(1, 2048),
+		},
+		settings.Spec{
+			Key: KeyPluginFetchTime, Group: groupPlugins, Label: "Plugin fetch time",
+			Description: "How long a plugin's request to another site may take, from connecting to its answer's last byte.",
+			Kind:        settings.KindDuration, Default: 10 * time.Second, Check: within(time.Second, 2*time.Minute),
+		},
+		settings.Spec{
+			Key: KeyPluginFetchBody, Group: groupPlugins, Label: "Plugin fetch size (KiB)",
+			Description: "The largest body a plugin's request to another site may send, and its answer bring back.",
+			Kind:        settings.KindInt, Default: 1024, Check: between(1, 65536),
+		},
+		settings.Spec{
+			Key: KeyPluginStoreSize, Group: groupPlugins, Label: "Plugin store per node (KiB)",
+			Description: "How much one plugin node may keep in its store, its keys and values, in each workflow. Writes past it are refused; what is kept already stays.",
+			Kind:        settings.KindInt, Default: 1024, Check: between(1, 65536),
 		},
 		settings.Spec{
 			Key: KeyPaperBalance, Group: groupTrading, Label: "Paper balance ($)",
@@ -568,6 +606,37 @@ func base64Secret(v any) error {
 	}
 
 	return errors.New("is not base64")
+}
+
+func nonEmpty(v any) error {
+	if strings.TrimSpace(v.(string)) == "" {
+		return errors.New("it cannot be empty")
+	}
+
+	return nil
+}
+
+// minisignKeys checks each entry is a minisign public key's line, a name before it if
+// given: base64 of "Ed", an 8-byte ID and a 32-byte key.
+func minisignKeys(v any) error {
+	for _, e := range v.([]string) {
+		e = strings.TrimSpace(e)
+		if e == "" {
+			continue
+		}
+
+		line := e
+		if i := strings.LastIndexByte(e, ' '); i > 0 {
+			line = e[i+1:]
+		}
+
+		raw, err := base64.StdEncoding.DecodeString(line)
+		if err != nil || len(raw) != 42 || string(raw[:2]) != "Ed" {
+			return fmt.Errorf("%q is not a minisign public key: give its line from the .pub file, like RWQf6LRC…", e)
+		}
+	}
+
+	return nil
 }
 
 func cidrs(v any) error {

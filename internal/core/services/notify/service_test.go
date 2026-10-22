@@ -262,7 +262,16 @@ func TestPrefs(t *testing.T) {
 		"live_order_unfilled": false, "live_order_rests": false, "live_order_ended": false,
 		"paper_order_filled": false, "paper_order_refused": false, "paper_order_unfilled": false, // D232
 		"paper_order_rests": false, "paper_order_ended": false,
+		"workflow_paused": true, // D319; plugin_crashed only an admin sees (D320)
 	}, on, "what is on by default")
+
+	admin := auth.Principal{User: domain.User{ID: "root", Role: domain.RoleAdmin}}
+	all, err := s.Prefs(ctx, admin)
+	require.NoError(t, err)
+	assert.Len(t, all, len(got)+1, "an admin sees plugin_crashed too")
+
+	_, err = s.SetPref(ctx, alice, "plugin_crashed", false)
+	require.ErrorIs(t, err, domain.ErrNotFound, "none of a user's")
 	assert.Equal(t, "workflow_failed", got[0].Key, "in Settings' order")
 	assert.Equal(t, "Live orders", groups["live_trade_failed"])
 	assert.Equal(t, "Paper orders", groups["paper_order_ended"])
@@ -387,7 +396,7 @@ func TestEmailPrefs(t *testing.T) {
 
 	for _, p := range got {
 		assert.Equal(t, p.Default, p.Enabled, "%s on Telegram as its kind has it", p.Key)
-		assert.False(t, p.Email, "%s off by email until chosen (D170)", p.Key)
+		assert.Equal(t, p.EmailDefault, p.Email, "%s by email as its kind has it: off until chosen (D170), but a paused workflow (D319)", p.Key)
 	}
 
 	pref, err := s.SetEmailPref(ctx, alice, "workflow_failed", true)

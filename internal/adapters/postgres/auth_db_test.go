@@ -96,6 +96,11 @@ func TestUsers(t *testing.T) {
 			n, err := users.CountActiveAdmins(ctx)
 			require.NoError(t, err)
 			assert.Equal(t, 1, n)
+
+			admins, err := users.Admins(ctx)
+			require.NoError(t, err)
+			require.Len(t, admins, 1, "told what only admins are")
+			assert.Equal(t, "a@example.com", admins[0].Email)
 		}},
 		{"list pages in creation order", func(t *testing.T, db *postgres.DB, users *postgres.Users) {
 			var ids []domain.UserID

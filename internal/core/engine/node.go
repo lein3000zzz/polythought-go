@@ -206,6 +206,10 @@ type NodeType struct {
 	// settings show and Forget clears (D137).
 	Remembers bool
 
+	// Plugin is the ID of the plugin it comes from (phase 5), whose owner may restrict who
+	// uses it (D282); empty for a built-in.
+	Plugin string
+
 	// SeesItems lets its settings' expressions see items, every item it receives on main,
 	// beside each one's fields by name: for a node that takes them together (D257). A
 	// field named items is then item.items.

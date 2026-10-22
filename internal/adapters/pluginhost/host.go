@@ -16,6 +16,7 @@ import (
 	"os"
 	"os/exec"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/hashicorp/go-hclog"
@@ -36,13 +37,29 @@ const (
 	checkFor = 10 * time.Second
 )
 
-// Plugin is a running plugin.
+// Plugin is a plugin the host started: its manifest, and its process while it runs.
+// Supervised, it is started again when its process crashes (D320).
 type Plugin struct {
-	client   *goplugin.Client
-	rpc      pluginv1.PluginServiceClient
+	path     string
 	manifest plugin.Manifest
 	log      logging.Logger
 	api      *api
+	out      *ring // what its process and go-plugin last said about it
+
+	mu      sync.Mutex
+	conn    *conn // nil while it does not run
+	state   State
+	since   time.Time
+	crashes []time.Time // within the supervision's window
+	lastErr string
+	closed  bool
+	wake    chan struct{} // an admin's start, for a plugin stopped as crashed
+}
+
+// conn is a plugin's running process.
+type conn struct {
+	client *goplugin.Client
+	rpc    *plugin.Client
 }
 
 // Start starts the plugin program at path and reads what it brings, refusing a manifest
@@ -55,35 +72,53 @@ func Start(ctx context.Context, path string, deps Deps) (*Plugin, error) {
 		return nil, err
 	}
 
-	log := api.log
+	p := &Plugin{path: path, log: api.log, api: api, out: newRing(logLines), wake: make(chan struct{}, 1)}
 
-	cmd := exec.Command(path) //nolint:gosec // an admin's plugin, installed by them (5c)
+	c, m, err := p.connect(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("plugin %s: %w", path, err)
+	}
+
+	if err := api.bind(m); err != nil {
+		c.client.Kill()
+		return nil, fmt.Errorf("plugin %s: %w", path, err)
+	}
+
+	p.manifest, p.log = m, api.log
+	p.conn, p.state, p.since = c, Running, time.Now()
+
+	return p, nil
+}
+
+// connect starts the plugin's process and reads its manifest.
+func (p *Plugin) connect(ctx context.Context) (*conn, plugin.Manifest, error) {
+	cmd := exec.Command(p.path) //nolint:gosec // an admin's plugin, installed and approved by them (5c)
 	cmd.Env = []string{"PATH=/usr/local/bin:/usr/bin:/bin", "TMPDIR=" + os.TempDir(), "HOME=" + os.TempDir()}
 
 	client := goplugin.NewClient(&goplugin.ClientConfig{
 		HandshakeConfig:  plugin.Handshake,
-		Plugins:          plugin.HostPlugins(api),
+		Plugins:          plugin.HostPlugins(p.api),
 		Cmd:              cmd,
 		SkipHostEnv:      true,
 		AllowedProtocols: []goplugin.Protocol{goplugin.ProtocolGRPC},
 		AutoMTLS:         true,
 		StartTimeout:     startFor,
 		Logger: hclog.New(&hclog.LoggerOptions{
-			Name: "plugin", Level: hclog.Info, Output: &lines{log: log}, DisableTime: true,
+			Name: "plugin", Level: hclog.Info, Output: &lines{log: p.log, out: p.out}, DisableTime: true,
 		}),
 	})
 
-	fail := func(err error) (*Plugin, error) {
+	fail := func(err error) (*conn, plugin.Manifest, error) {
 		client.Kill()
-		return nil, fmt.Errorf("plugin %s: %w", path, err)
+		return nil, plugin.Manifest{}, err
 	}
 
-	conn, err := client.Client()
+	cc, err := client.Client()
 	if err != nil {
 		return fail(fmt.Errorf("start: %w", err))
 	}
 
-	raw, err := conn.Dispense(plugin.Name)
+	raw, err := cc.Dispense(plugin.Name)
 	if err != nil {
 		return fail(err)
 	}
@@ -115,22 +150,47 @@ func Start(ctx context.Context, path string, deps Deps) (*Plugin, error) {
 		return fail(err)
 	}
 
-	if err := api.bind(m); err != nil {
-		return fail(err)
-	}
-
-	return &Plugin{client: client, rpc: rpc, manifest: m, log: log.With("plugin", m.ID), api: api}, nil
+	return &conn{client: client, rpc: rpc}, m, nil
 }
 
 func (p *Plugin) Manifest() plugin.Manifest { return p.manifest }
 
-// Exited reports whether its process has ended, crashed or stopped.
-func (p *Plugin) Exited() bool { return p.client.Exited() }
+// Exited reports whether its process has ended, crashed or stopped, and not been started
+// again.
+func (p *Plugin) Exited() bool {
+	p.mu.Lock()
+	defer p.mu.Unlock()
 
-// Close stops its process.
+	return p.conn == nil || p.conn.client.Exited()
+}
+
+// Close stops its process, for good.
 func (p *Plugin) Close() {
-	p.client.Kill()
+	p.mu.Lock()
+	c := p.conn
+	p.conn, p.closed, p.state, p.since = nil, true, Stopped, time.Now()
+	p.mu.Unlock()
+
+	if c != nil {
+		c.client.Kill()
+	}
+
 	p.api.http.CloseIdleConnections()
+}
+
+// rpc is its process's client, while it runs.
+func (p *Plugin) rpc() (pluginv1.PluginServiceClient, error) {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+
+	switch {
+	case p.conn == nil:
+		return nil, fmt.Errorf("plugin %s is not running: %s", p.manifest.ID, p.state)
+	case p.conn.client.Exited():
+		return nil, fmt.Errorf("plugin %s is not running: its process exited", p.manifest.ID)
+	}
+
+	return p.conn.rpc, nil
 }
 
 // Register makes the plugin's credential types, nodes and triggers the registry's: the
@@ -209,7 +269,12 @@ func (p *Plugin) credentialType(c plugin.CredentialType) engine.CredentialType {
 		ctx, cancel := context.WithTimeout(context.Background(), checkFor)
 		defer cancel()
 
-		res, err := p.rpc.CheckCredential(ctx, &pluginv1.CheckCredentialRequest{Credential: cred(values)})
+		rpc, err := p.rpc()
+		if err != nil {
+			return err
+		}
+
+		res, err := rpc.CheckCredential(ctx, &pluginv1.CheckCredentialRequest{Credential: cred(values)})
 		if err != nil {
 			return fmt.Errorf("plugin %s did not check it: %w", p.manifest.ID, callError(err))
 		}
@@ -219,7 +284,12 @@ func (p *Plugin) credentialType(c plugin.CredentialType) engine.CredentialType {
 
 	if c.Testable {
 		t.Test = func(ctx context.Context, values map[string]string) error {
-			res, err := p.rpc.TestCredential(ctx, &pluginv1.TestCredentialRequest{Credential: cred(values)})
+			rpc, err := p.rpc()
+			if err != nil {
+				return err
+			}
+
+			res, err := rpc.TestCredential(ctx, &pluginv1.TestCredentialRequest{Credential: cred(values)})
 			if err != nil {
 				return fmt.Errorf("plugin %s did not test it: %w", p.manifest.ID, callError(err))
 			}
@@ -231,15 +301,18 @@ func (p *Plugin) credentialType(c plugin.CredentialType) engine.CredentialType {
 	return t
 }
 
-// lines writes what go-plugin logs, the plugin's stderr among it, to the server's log.
+// lines writes what go-plugin logs, the plugin's stderr among it, to the server's log,
+// keeping the last lines as the plugin's own log.
 type lines struct {
 	log logging.Logger
+	out *ring
 }
 
 func (l *lines) Write(b []byte) (int, error) {
 	for line := range strings.SplitSeq(strings.TrimRight(string(b), "\n"), "\n") {
 		if line = strings.TrimSpace(line); line != "" {
 			l.log.Info(context.Background(), "Plugin says", "line", line)
+			l.out.add(line)
 		}
 	}
 

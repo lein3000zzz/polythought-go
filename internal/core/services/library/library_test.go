@@ -183,6 +183,26 @@ func TestBuiltinScenarios(t *testing.T) {
 	}
 }
 
+func TestPluginScenarios(t *testing.T) {
+	builtins, err := library.Builtins()
+	require.NoError(t, err)
+
+	d := deps{repo: portsmocks.NewMockTemplateRepository(t), workflows: librarymocks.NewMockWorkflows(t)}
+	theirs := domain.Template{ID: "plugin.weather.rain", Name: "Rain alerts", Nodes: builtins[0].Nodes, Connections: builtins[0].Connections}
+
+	s, err := library.New(d.repo, d.workflows, registry(t), logging.Noop(),
+		library.WithScenarios([]domain.Template{theirs, {ID: builtins[0].ID, Name: "a built-in's ID, taken"}}))
+	require.NoError(t, err)
+
+	got, err := s.Get(context.Background(), alice, "plugin.weather.rain")
+	require.NoError(t, err)
+	assert.Equal(t, "Rain alerts", got.Name, "beside the built-in ones (D284)")
+
+	first, err := s.Get(context.Background(), alice, builtins[0].ID)
+	require.NoError(t, err)
+	assert.Equal(t, builtins[0].Name, first.Name, "a built-in's ID stays the built-in's")
+}
+
 func TestInputs(t *testing.T) {
 	s, _ := newService(t)
 

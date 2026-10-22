@@ -119,6 +119,7 @@ packages:
     interfaces:
       ModelService: {}
       SpendService: {}
+      PluginService: {}
       AuthService: {}
       WalletService: {}
       WorkflowService: {}

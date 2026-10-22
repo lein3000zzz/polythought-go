@@ -3,6 +3,7 @@ package ports
 import (
 	"context"
 	"encoding/json"
+	"io"
 	"time"
 
 	"github.com/lein3000zzz/polythought-go/internal/core/domain"
@@ -32,4 +33,111 @@ type PluginNode struct {
 	Workflow domain.WorkflowID
 	Node     domain.NodeID
 	Plugin   string
+}
+
+// PluginRepository keeps what admins decided about plugins (D321). Each change comes
+// with its audit record, which it writes with it.
+type PluginRepository interface {
+	List(ctx context.Context) ([]domain.InstalledPlugin, error)
+
+	// Get is domain.ErrNotFound for a plugin not installed.
+	Get(ctx context.Context, id string) (domain.InstalledPlugin, error)
+
+	// AddVersion records a version installed, and its plugin when it is new, enabled
+	// and for everyone; domain.ErrPluginInstalled when the version is there already.
+	AddVersion(ctx context.Context, v domain.PluginVersion, a domain.PluginAudit) error
+
+	// Approve approves a.Version, which becomes the one the plugin runs.
+	Approve(ctx context.Context, a domain.PluginAudit) error
+
+	// RemoveVersion forgets a.Version: one not approved, or one an upgrade replaced.
+	RemoveVersion(ctx context.Context, a domain.PluginAudit) error
+
+	SetEnabled(ctx context.Context, enabled bool, a domain.PluginAudit) error
+
+	// SetUsers says who may use the plugin: everyone, or the users given.
+	SetUsers(ctx context.Context, everyone bool, users []domain.UserID, a domain.PluginAudit) error
+
+	// Delete forgets the plugin, its audit kept.
+	Delete(ctx context.Context, a domain.PluginAudit) error
+
+	// Record records something done with a plugin that changes nothing kept here.
+	Record(ctx context.Context, a domain.PluginAudit) error
+
+	// History is what admins did with a plugin, newest first.
+	History(ctx context.Context, id string, limit int) ([]domain.PluginAudit, error)
+}
+
+// PluginNotifier tells people what plugins did to them: owners of workflows paused
+// (D319), admins of plugins that crashed for good (D320). Neither blocks.
+type PluginNotifier interface {
+	WorkflowPaused(owner domain.UserID, w domain.Workflow, why string)
+	PluginCrashed(plugin, why string)
+}
+
+// PluginFiles keeps installed plugins' files on disk (D315): each version checked as it
+// is installed, and again as it is opened to run.
+type PluginFiles interface {
+	// Install unpacks and checks an archive of at most max bytes, keeping it as the
+	// version its manifest says; the error says what is wrong with it.
+	Install(archive io.Reader, max int64) (PluginFile, error)
+
+	// Open checks a version on disk again, as it is about to run, or be adopted.
+	Open(id, version string) (PluginFile, error)
+
+	Remove(id, version string) error
+
+	// List is every version on disk.
+	List() ([]PluginFound, error)
+}
+
+// PluginFile is a version of a plugin on disk, checked: its manifest, its program for
+// this server, and who signed it (D280).
+type PluginFile struct {
+	ID          string
+	Version     string
+	Name        string
+	Permissions []string
+	Manifest    json.RawMessage // as manifest.json has it
+
+	Program string
+
+	Signed  bool
+	Signer  string // the trusted key's name; empty for none an admin trusts
+	KeyID   string
+	Warning string // for the admin who approves it, when no trusted key signed it
+}
+
+// PluginFound is a version on disk.
+type PluginFound struct {
+	ID, Version string
+}
+
+// ArchiveFetcher fetches a plugin's archive from a URL an admin gives (5c), at most max
+// bytes of it.
+type ArchiveFetcher interface {
+	Fetch(ctx context.Context, url string, max int64) (io.ReadCloser, error)
+}
+
+// PluginRuntime is the plugins this server runs, loaded as it starts (D317).
+type PluginRuntime interface {
+	// Load starts a version of a plugin, registering its nodes, triggers, credential
+	// types and scenarios. A failure is its status's too.
+	Load(ctx context.Context, f PluginFile) error
+
+	// Status is how the plugin loaded is, if one was.
+	Status(id string) (PluginStatus, bool)
+
+	// Start starts again a plugin stopped as crashed (D320).
+	Start(id string) error
+}
+
+// PluginStatus is how a plugin loaded is.
+type PluginStatus struct {
+	Version   string
+	State     string // running, restarting, crashed, stopped, or failed: it would not start
+	Since     time.Time
+	Crashes   int // in the last 10 minutes
+	LastError string
+	Log       []string // its last lines
 }

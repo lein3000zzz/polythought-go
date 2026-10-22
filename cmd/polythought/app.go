@@ -18,6 +18,7 @@ import (
 	"github.com/lein3000zzz/polythought-go/internal/adapters/jsruntime"
 	"github.com/lein3000zzz/polythought-go/internal/adapters/llm"
 	"github.com/lein3000zzz/polythought-go/internal/adapters/mailer"
+	"github.com/lein3000zzz/polythought-go/internal/adapters/pluginhost"
 	pmadapter "github.com/lein3000zzz/polythought-go/internal/adapters/polymarket"
 	"github.com/lein3000zzz/polythought-go/internal/adapters/postgres"
 	"github.com/lein3000zzz/polythought-go/internal/adapters/ratelimit"
@@ -41,6 +42,7 @@ import (
 	"github.com/lein3000zzz/polythought-go/internal/core/services/memory"
 	"github.com/lein3000zzz/polythought-go/internal/core/services/models"
 	"github.com/lein3000zzz/polythought-go/internal/core/services/notify"
+	"github.com/lein3000zzz/polythought-go/internal/core/services/plugins"
 	"github.com/lein3000zzz/polythought-go/internal/core/services/settings"
 	"github.com/lein3000zzz/polythought-go/internal/core/services/spend"
 	"github.com/lein3000zzz/polythought-go/internal/core/services/telegram"
@@ -131,6 +133,8 @@ type app struct {
 	waits           *waits.Service
 	code            *code.Service
 	codeGate        auth.CodeGate
+	plugins         *plugins.Service
+	pluginRuntime   *pluginhost.Runtime
 
 	restartOnce sync.Once
 	restartc    chan struct{} // closed when an admin asked for a restart
@@ -229,7 +233,7 @@ func (a *app) init(ctx context.Context) error {
 		mail.WithNotifications(postgres.NewUsers(a.db), func() bool { return a.settings.Current().Bool(config.KeyMailNotifications) }))
 
 	a.notify = notify.New(a.telegram, postgres.NewNotificationPrefs(a.db), postgres.NewWorkflows(a.db), a.cfg.PublicURL, a.util.Logger,
-		notify.WithMail(a.mail), notify.WithMarkets(pmc.reader))
+		notify.WithMail(a.mail), notify.WithMarkets(pmc.reader), notify.WithAdmins(postgres.NewUsers(a.db)))
 
 	// Whether Polymarket takes orders from here (D186); serve checks it every 6 hours.
 	a.geoblock = geoblock.New(pmc.geoblock, a.util.Logger)
@@ -366,6 +370,7 @@ type workflowChecks struct {
 	types    engine.Catalog
 	compiler ports.CodeCompiler
 	gate     engine.CodeGate
+	plugins  engine.PluginGate
 }
 
 func (c workflowChecks) Validate(ctx context.Context, w domain.Workflow) error {
@@ -731,6 +736,10 @@ func (a *app) initEngine(ctx context.Context, pmc polymarket) error {
 		return err
 	}
 
+	if err := a.initPlugins(ctx, pmc, allowPrivate); err != nil {
+		return err
+	}
+
 	executions := postgres.NewExecutions(a.db)
 
 	if a.events, err = events.NewHub(a.util); err != nil {
@@ -751,7 +760,7 @@ func (a *app) initEngine(ctx context.Context, pmc polymarket) error {
 
 	executor, err := engine.NewExecutor(a.util, a.registry,
 		engine.WithRecorder(executions), engine.WithNotifier(a.events), engine.WithNotifier(a.notify),
-		engine.WithEvaluator(a.code), engine.WithCodeGate(codeGate), engine.WithCatalog(a.customNodes),
+		engine.WithEvaluator(a.code), engine.WithCodeGate(codeGate), engine.WithPluginGate(a.plugins), engine.WithCatalog(a.customNodes),
 		engine.WithWaits(waitRecords, func() engine.WaitLimits { return waitLimits(a.settings.Current()) }))
 	if err != nil {
 		return err
@@ -763,17 +772,19 @@ func (a *app) initEngine(ctx context.Context, pmc polymarket) error {
 	a.supervisor = engine.NewSupervisor(ctx, engine.NewRunner(a.util, a.customNodes, executor), a.util.Logger)
 	a.util.OnShutdown(a.supervisor.Shutdown)
 
-	checks := workflowChecks{types: a.customNodes, compiler: compiler, gate: codeGate}
+	checks := workflowChecks{types: a.customNodes, compiler: compiler, gate: codeGate, plugins: a.plugins}
 
 	a.workflows = workflows.New(postgres.NewWorkflows(a.db), executions, checks, executor, a.supervisor, a.util.Logger,
 		workflows.WithLiveLimits(func() workflows.Limits { return workflowLimits(a.settings.Current()) }),
 		workflows.WithWaits(a.waits), workflows.WithFieldChecks(checks),
 		workflows.WithExpressionChecks(checks), workflows.WithCodeAccess(checks), workflows.WithNodeMemory(a.nodeMemory),
+		workflows.WithPluginAccess(checks), workflows.WithPauser(a.notify),
 		workflows.WithRestingOrders(a.trading))
 	a.memory = memory.New(a.nodeMemory, a.workflows, a.util.Logger)
 
 	if a.library, err = library.New(postgres.NewTemplates(a.db), a.workflows, a.registry, a.util.Logger,
-		library.WithOwnTypes(a.customNodes), library.WithCustomNodes(a.customNodes)); err != nil {
+		library.WithOwnTypes(a.customNodes), library.WithCustomNodes(a.customNodes),
+		library.WithScenarios(a.pluginRuntime.Scenarios())); err != nil {
 		return err
 	}
 

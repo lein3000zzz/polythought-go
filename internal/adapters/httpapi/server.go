@@ -135,6 +135,8 @@ type Services struct {
 	Geoblock        GeoblockService
 	// Spend is what users' agents spend, and the caps on it; nil when there is no agent.
 	Spend SpendService
+	// Plugins are what admins install (5c); nil where there are none.
+	Plugins PluginService
 }
 
 type Config struct {
@@ -174,6 +176,7 @@ type Server struct {
 	mail          MailService
 	geoblock      GeoblockService
 	spend         SpendService
+	plugins       PluginService
 	log           logging.Logger
 	kit           *redkit.Kit
 	scope         tracing.Scope
@@ -184,6 +187,8 @@ type Server struct {
 	// closing ends event streams on shutdown, which would otherwise hold it up.
 	closing   chan struct{}
 	closeOnce sync.Once
+
+	maxBody int // bytes of a request's body, but an archive's (limitBody)
 }
 
 func New(cfg Config, util *observability.Utility, services Services) (*Server, error) {
@@ -215,6 +220,8 @@ func New(cfg Config, util *observability.Utility, services Services) (*Server, e
 	h := server.New(
 		server.WithHostPorts(cfg.Addr),
 		server.WithMaxRequestBodySize(maxBody),
+		// Bodies past it stream, for archives' uploads; limitBody holds the others to it.
+		server.WithStreamBody(true),
 		server.WithExitWaitTime(5*time.Second),
 		server.WithDisablePrintRoute(true),
 		// Cancel a request's context when its client goes away, so an event stream for a
@@ -244,12 +251,14 @@ func New(cfg Config, util *observability.Utility, services Services) (*Server, e
 		mail:          services.Mail,
 		geoblock:      services.Geoblock,
 		spend:         services.Spend,
+		plugins:       services.Plugins,
 		log:           log,
 		kit:           kit,
 		scope:         tracing.Scope{Manager: util.TracerManager, TracerName: tracerName},
 		origin:        public.Scheme + "://" + public.Host,
 		secure:        public.Scheme == "https",
 		closing:       make(chan struct{}),
+		maxBody:       maxBody,
 	}
 
 	s.SetTrustedProxies(cfg.TrustedProxies)
@@ -288,7 +297,7 @@ func (s *Server) Shutdown(ctx context.Context) error {
 func (s *Server) routes() {
 	h := s.hertz
 
-	h.Use(s.observe, s.authenticate, s.checkOrigin)
+	h.Use(s.limitBody(s.maxBody), s.observe, s.authenticate, s.checkOrigin)
 	h.NoRoute(func(ctx context.Context, c *app.RequestContext) { s.fail(ctx, c, domain.ErrNotFound) })
 
 	h.GET("/healthz", s.health)
@@ -416,6 +425,18 @@ func (s *Server) routes() {
 	admin.GET("/settings/history", s.listSettingChanges)
 	admin.POST("/restart", s.restartServer)
 	admin.POST("/mail/test", s.sendTestMail)
+	admin.GET("/plugins", s.hasPlugins, s.listPlugins)
+	admin.POST("/plugins", s.hasPlugins, s.installPlugin)
+	admin.POST("/plugins/fetch", s.hasPlugins, s.fetchPlugin)
+	admin.POST("/plugins/found/:id/:version", s.hasPlugins, s.adoptPlugin)
+	admin.POST("/plugins/:id/versions/:version/approve", s.hasPlugins, s.approvePlugin)
+	admin.DELETE("/plugins/:id/versions/:version", s.hasPlugins, s.removePluginVersion)
+	admin.POST("/plugins/:id/enable", s.hasPlugins, s.enablePlugin)
+	admin.POST("/plugins/:id/disable", s.hasPlugins, s.disablePlugin)
+	admin.PUT("/plugins/:id/users", s.hasPlugins, s.setPluginUsers)
+	admin.POST("/plugins/:id/start", s.hasPlugins, s.startPlugin)
+	admin.DELETE("/plugins/:id", s.hasPlugins, s.uninstallPlugin)
+	admin.GET("/plugins/:id/history", s.hasPlugins, s.pluginHistory)
 	admin.GET("/geoblock", s.geoblockStatus)
 	admin.POST("/geoblock/check", s.checkGeoblock)
 }

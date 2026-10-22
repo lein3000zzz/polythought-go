@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"net/http"
 	"strings"
 	"time"
@@ -200,4 +201,28 @@ func (s *Server) cookieName() string {
 	}
 
 	return sessionCookie
+}
+
+// limitBody holds each request's body to max bytes, as the server would without streaming
+// bodies, which it does for archives' uploads alone (archiveRoute): their body goes on to
+// the plugins directory, which caps it itself. A body past max is refused, 413.
+func (s *Server) limitBody(max int) app.HandlerFunc {
+	return func(ctx context.Context, c *app.RequestContext) {
+		if !c.Request.IsBodyStream() || (string(c.Method()) == http.MethodPost && c.FullPath() == archiveRoute) {
+			c.Next(ctx)
+			return
+		}
+
+		body, err := io.ReadAll(io.LimitReader(c.RequestBodyStream(), int64(max)+1))
+		if err != nil || len(body) > max {
+			c.AbortWithStatusJSON(http.StatusRequestEntityTooLarge, errorBody{Error: errorDetail{
+				Code: "too_large", Message: fmt.Sprintf("the request's body is larger than the %d bytes the server takes", max),
+			}})
+
+			return
+		}
+
+		c.Request.SetBody(body)
+		c.Next(ctx)
+	}
 }

@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -181,7 +182,68 @@ func TestCrash(t *testing.T) {
 	require.Eventually(t, p.Exited, 2*time.Second, 10*time.Millisecond, "the process is gone, the server not")
 
 	_, err = run(t, r, "plugin.echo.shout", nil, items(map[string]any{"text": "a"}))
-	assert.Error(t, err, "its nodes fail until it is started again (5c)")
+	assert.EqualError(t, err, "plugin echo is not running: its process exited", "its nodes fail while nothing starts it again")
+}
+
+func TestSupervise(t *testing.T) {
+	p, r := start(t)
+
+	crashed := make(chan error, 1)
+
+	var checks atomic.Int32
+
+	ctx, cancel := context.WithCancel(context.Background())
+	t.Cleanup(cancel)
+
+	p.Supervise(ctx, pluginhost.Restarts{First: 10 * time.Millisecond, Max: 40 * time.Millisecond, Crashes: 3, Within: time.Minute, Every: 5 * time.Millisecond},
+		pluginhost.Watch{
+			Check:   func() error { checks.Add(1); return nil },
+			Crashed: func(err error) { crashed <- err },
+		})
+
+	crash := func() {
+		t.Helper()
+		_, _ = run(t, r, "plugin.echo.misbehave", map[string]any{"how": "crash"}, items(map[string]any{}))
+	}
+
+	running := func() bool {
+		_, err := run(t, r, "plugin.echo.shout", nil, items(map[string]any{"text": "a"}))
+		return err == nil
+	}
+
+	t.Run("started again after a crash, its files checked first", func(t *testing.T) {
+		crash()
+		require.Eventually(t, running, 5*time.Second, 20*time.Millisecond)
+
+		st := p.Status()
+		assert.Equal(t, pluginhost.Running, st.State)
+		assert.Equal(t, 1, st.Crashes)
+		assert.NotEmpty(t, st.LastError)
+		assert.NotEmpty(t, st.Log, "its last lines, kept")
+		assert.Equal(t, int32(1), checks.Load())
+	})
+
+	t.Run("stopped as crashed, once too often, until an admin starts it", func(t *testing.T) {
+		crash()
+		require.Eventually(t, running, 5*time.Second, 20*time.Millisecond)
+		crash()
+
+		select {
+		case err := <-crashed:
+			assert.Error(t, err)
+		case <-time.After(5 * time.Second):
+			t.Fatal("not stopped as crashed")
+		}
+
+		assert.Equal(t, pluginhost.Crashed, p.Status().State)
+		assert.False(t, running())
+
+		require.NoError(t, p.Start())
+		require.Eventually(t, running, 5*time.Second, 20*time.Millisecond)
+		assert.Zero(t, p.Status().Crashes, "its crashes forgotten")
+
+		assert.Error(t, p.Start(), "only a crashed one")
+	})
 }
 
 func TestTrigger(t *testing.T) {

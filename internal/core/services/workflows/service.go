@@ -68,12 +68,14 @@ type Service struct {
 	validator  Validator
 	executor   Executor
 	supervisor Supervisor
-	waits      Waits             // optional: without it, nothing waits
-	fields     FieldChecker      // optional: without it, field settings go unchecked
-	exprs      ExpressionChecker // optional: without it, expressions go unchecked
-	code       CodeAccessChecker // optional: without it, anyone may save code nodes
-	memory     NodeMemory        // optional: without it, removed nodes' memory waits to expire
-	orders     RestingOrders     // optional: without it, live resting orders outlive their workflow
+	waits      Waits               // optional: without it, nothing waits
+	fields     FieldChecker        // optional: without it, field settings go unchecked
+	exprs      ExpressionChecker   // optional: without it, expressions go unchecked
+	code       CodeAccessChecker   // optional: without it, anyone may save code nodes
+	plugins    PluginAccessChecker // optional: without it, anyone may save plugins' nodes
+	pauser     Pauser              // optional: without it, owners are not told of pauses
+	memory     NodeMemory          // optional: without it, removed nodes' memory waits to expire
+	orders     RestingOrders       // optional: without it, live resting orders outlive their workflow
 	limits     func() Limits
 	log        logging.Logger
 	now        func() time.Time
@@ -121,6 +123,17 @@ type CodeAccessChecker interface {
 // WithCodeAccess refuses to save code nodes for a user who may not write code (D44).
 func WithCodeAccess(c CodeAccessChecker) Option {
 	return func(s *Service) { s.code = c }
+}
+
+// PluginAccessChecker reports the nodes of a workflow of plugins its owner may not use
+// (D282), as a *domain.ValidationError. Other errors are its own failing.
+type PluginAccessChecker interface {
+	CheckPluginAccess(ctx context.Context, w domain.Workflow) error
+}
+
+// WithPluginAccess refuses to save nodes of plugins their owner may not use.
+func WithPluginAccess(c PluginAccessChecker) Option {
+	return func(s *Service) { s.plugins = c }
 }
 
 // NodeMemory is what the service needs from node memory: a node removed from its workflow
@@ -396,6 +409,56 @@ func (s *Service) StopAll(ctx context.Context, owner domain.UserID) error {
 	return nil
 }
 
+// Pauser tells a workflow's owner why it was paused (D319).
+type Pauser interface {
+	WorkflowPaused(owner domain.UserID, w domain.Workflow, why string)
+}
+
+// WithPauser tells owners why their workflows were paused.
+func WithPauser(p Pauser) Option {
+	return func(s *Service) { s.pauser = p }
+}
+
+// Pause switches off each active workflow why gives a reason for, as its owner would,
+// and tells them the reason (D319): a plugin it uses is gone, say. How many it paused.
+func (s *Service) Pause(ctx context.Context, why func(w domain.Workflow) string) (int, error) {
+	active, err := s.repo.ListActive(ctx)
+	if err != nil {
+		return 0, err
+	}
+
+	paused := 0
+
+	for _, w := range active {
+		reason := why(w)
+		if reason == "" {
+			continue
+		}
+
+		if err := s.repo.SetActive(ctx, w.OwnerID, w.ID, false, s.now()); err != nil {
+			return paused, err
+		}
+
+		s.supervisor.Stop(w.ID)
+
+		if s.waits != nil {
+			if err := s.waits.CancelWorkflow(ctx, w.OwnerID, w.ID, "cancelled: the workflow was paused: "+reason); err != nil {
+				s.log.Warn(ctx, "Waiting executions not cancelled", "workflow_id", w.ID, "error", err.Error())
+			}
+		}
+
+		if s.pauser != nil {
+			s.pauser.WorkflowPaused(w.OwnerID, w, reason)
+		}
+
+		s.log.Info(ctx, "Workflow paused", "workflow_id", w.ID, "owner_id", w.OwnerID, "why", reason)
+
+		paused++
+	}
+
+	return paused, nil
+}
+
 // Run executes the workflow once, by hand, from the trigger named or else its only
 // manual trigger, or its only schedule, fired as if its time had come. Market activity
 // cannot be imitated, so those workflows run only when active. Run waits for the
@@ -576,6 +639,10 @@ func (s *Service) check(ctx context.Context, w domain.Workflow) error {
 
 			return s.exprs.CheckExpressions(ctx, w)
 		})
+	}
+
+	if s.plugins != nil {
+		checks = append(checks, func() error { return s.plugins.CheckPluginAccess(ctx, w) })
 	}
 
 	for _, check := range checks {

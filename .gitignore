@@ -4,3 +4,5 @@ plan
 .env
 configs/polythought.yml
 /docgen
+/plugins
+/polythought

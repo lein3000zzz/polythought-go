@@ -60,6 +60,7 @@ func serve(ctx context.Context) error {
 		Memory:   a.memory,
 		Telegram: a.telegram, TelegramWebhook: a.telegramBot, Notifications: a.notify, Mail: a.mail,
 		Geoblock: a.geoblock,
+		Plugins:  a.plugins,
 	})
 	if err != nil {
 		return err
@@ -138,6 +139,11 @@ func serve(ctx context.Context) error {
 			}()
 		}
 	})
+
+	// The workflows plugins gone leave unable to run are paused before the rest start (D319).
+	if err := a.plugins.PauseGone(ctx); err != nil {
+		return err
+	}
 
 	if err := a.workflows.StartActive(ctx); err != nil {
 		return err

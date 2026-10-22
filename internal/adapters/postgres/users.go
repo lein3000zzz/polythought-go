@@ -252,6 +252,27 @@ func (r *Users) CountActiveAdmins(ctx context.Context) (int, error) {
 	return int(out.Count), err
 }
 
+// Admins are the instance's admins who are not disabled, for what only they are told.
+func (r *Users) Admins(ctx context.Context) ([]domain.User, error) {
+	var rows []model.Users
+
+	err := table.Users.SELECT(table.Users.AllColumns).
+		FROM(table.Users).
+		WHERE(table.Users.Role.EQ(jet.String(string(domain.RoleAdmin))).AND(table.Users.DisabledAt.IS_NULL())).
+		ORDER_BY(table.Users.CreatedAt).
+		QueryContext(ctx, r.db.conn(ctx), &rows)
+	if err != nil {
+		return nil, err
+	}
+
+	out := make([]domain.User, len(rows))
+	for i, row := range rows {
+		out[i] = toUser(row)
+	}
+
+	return out, nil
+}
+
 // LockActiveAdmins uses SELECT ... FOR UPDATE: a concurrent transaction changing an admin
 // waits, then sees this one's result, so two demotions cannot both pass a "not the last
 // admin" check.

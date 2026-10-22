@@ -45,6 +45,9 @@ services:
       POLYTHOUGHT_LOG_LEVEL: ${POLYTHOUGHT_LOG_LEVEL:-}
       POLYTHOUGHT_LOG_FORMAT: ${POLYTHOUGHT_LOG_FORMAT:-}
       POLYTHOUGHT_WEBHOOK_ALLOW_PRIVATE: ${POLYTHOUGHT_WEBHOOK_ALLOW_PRIVATE:-}
+    # The plugins admins install (D315); what they decided about them is in Postgres.
+    volumes:
+      - plugins:/var/lib/polythought/plugins
 
   web:
     profiles: [app]
@@ -58,3 +61,4 @@ services:
 
 volumes:
   pgdata:
+  plugins:

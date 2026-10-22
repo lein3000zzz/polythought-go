@@ -827,3 +827,42 @@ func TestRestingOrders(t *testing.T) {
 		assert.Equal(t, []string{"wf-1: cancelled: the workflow was switched off"}, r.asked)
 	})
 }
+
+// pauses keeps what owners were told of their workflows paused.
+type pauses struct {
+	told map[domain.WorkflowID]string
+}
+
+func (p *pauses) WorkflowPaused(_ domain.UserID, w domain.Workflow, why string) { p.told[w.ID] = why }
+
+func TestPause(t *testing.T) {
+	d := deps{
+		repo:       portsmocks.NewMockWorkflowRepository(t),
+		executions: portsmocks.NewMockExecutionRepository(t),
+		validator:  workflowsmocks.NewMockValidator(t),
+		executor:   workflowsmocks.NewMockExecutor(t),
+		supervisor: workflowsmocks.NewMockSupervisor(t),
+	}
+	told := &pauses{told: map[domain.WorkflowID]string{}}
+
+	svc := workflows.New(d.repo, d.executions, d.validator, d.executor, d.supervisor, logging.Noop(),
+		workflows.WithClock(func() time.Time { return now }), workflows.WithPauser(told))
+
+	gone := active(domain.Workflow{ID: "wf-1", OwnerID: alice.User.ID, Nodes: []domain.NodeSpec{{ID: "a", Type: "plugin.weather.x"}}})
+	fine := active(domain.Workflow{ID: "wf-2", OwnerID: alice.User.ID})
+
+	d.repo.EXPECT().ListActive(mock.Anything).Return([]domain.Workflow{gone, fine}, nil)
+	d.repo.EXPECT().SetActive(mock.Anything, alice.User.ID, domain.WorkflowID("wf-1"), false, now).Return(nil).Once()
+	d.supervisor.EXPECT().Stop(domain.WorkflowID("wf-1")).Once()
+
+	n, err := svc.Pause(context.Background(), func(w domain.Workflow) string {
+		if len(w.Nodes) > 0 {
+			return "the plugin weather is disabled"
+		}
+
+		return ""
+	})
+	require.NoError(t, err)
+	assert.Equal(t, 1, n, "only the one that cannot run")
+	assert.Equal(t, map[domain.WorkflowID]string{"wf-1": "the plugin weather is disabled"}, told.told, "its owner told why (D319)")
+}

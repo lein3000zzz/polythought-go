@@ -95,6 +95,18 @@ func WithOwnTypes(c engine.Catalog) Option {
 	return func(s *Service) { s.own = c }
 }
 
+// WithScenarios adds scenarios to the built-in ones: the plugins' loaded (D284).
+func WithScenarios(ts []domain.Template) Option {
+	return func(s *Service) {
+		for _, t := range ts {
+			if _, taken := s.byID[t.ID]; !taken {
+				s.builtins = append(s.builtins, t)
+				s.byID[t.ID] = t
+			}
+		}
+	}
+}
+
 func New(repo ports.TemplateRepository, wf Workflows, types NodeTypes, log logging.Logger, opts ...Option) (*Service, error) {
 	builtins, err := Builtins()
 	if err != nil {

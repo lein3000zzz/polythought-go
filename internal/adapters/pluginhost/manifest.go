@@ -1,6 +1,8 @@
 package pluginhost
 
 import (
+	"bytes"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"math"
@@ -187,6 +189,18 @@ func checkMetrics(list []plugin.Metric) []error {
 	return errs
 }
 
+// Same says whether two manifests describe the same plugin, word for word, whichever SDK
+// they say they were built with: what its manifest.json says and its program describes,
+// or what it described before and after a restart.
+func Same(a, b plugin.Manifest) bool {
+	a.SDK, b.SDK = "", ""
+
+	ra, errA := json.Marshal(a)
+	rb, errB := json.Marshal(b)
+
+	return errA == nil && errB == nil && bytes.Equal(ra, rb)
+}
+
 func major(version string) string {
 	m := semver.FindStringSubmatch(version)
 	if m == nil {
@@ -222,7 +236,7 @@ func nodeType(id string, t plugin.NodeType, trigger bool) (engine.NodeType, erro
 	out := engine.NodeType{
 		Name: qualified(id, t.Name), Label: t.Label, Description: t.Description,
 		Inputs: t.Inputs, Outputs: t.Outputs, OutputsParam: t.OutputsParam, OutputsColumn: t.OutputsColumn,
-		Remembers: t.Remembers,
+		Remembers: t.Remembers, Plugin: id,
 	}
 
 	switch {

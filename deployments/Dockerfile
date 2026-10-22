@@ -20,10 +20,18 @@ COPY pkg ./pkg
 RUN --mount=type=cache,target=/go/pkg/mod --mount=type=cache,target=/root/.cache/go-build \
     CGO_ENABLED=0 go build -trimpath -tags stdjson -ldflags="-s -w" -o /out/polythought ./cmd/polythought
 
+# The plugins directory (D315), the server's to write: a volume, so installed plugins
+# outlive the container.
+RUN mkdir -p /out/plugins
+
 # static: no libc needed with CGO off; it carries CA certificates for the Polymarket APIs.
 FROM gcr.io/distroless/static-debian12:nonroot
 
 COPY --from=build /out/polythought /polythought
+COPY --from=build --chown=nonroot:nonroot /out/plugins /var/lib/polythought/plugins
+
+ENV POLYTHOUGHT_PLUGINS_DIR=/var/lib/polythought/plugins
+VOLUME /var/lib/polythought/plugins
 
 EXPOSE 8080
 ENTRYPOINT ["/polythought"]
