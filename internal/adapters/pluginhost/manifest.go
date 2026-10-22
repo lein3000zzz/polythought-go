@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"math"
 	"regexp"
+	"slices"
 	"strings"
 
 	"github.com/lein3000zzz/polythought-go/internal/core/engine"
@@ -65,6 +66,13 @@ func Check(m plugin.Manifest) error {
 				fail("%s %q: a letter, then letters, digits and dashes", kind, t.Name)
 			case types[t.Name]:
 				fail("%s %q: a node or trigger has that name already", kind, t.Name)
+			}
+
+			switch {
+			case t.Trades && kind == "trigger":
+				fail("trigger %q: a trigger trades nothing, a node does", t.Name)
+			case t.Trades && !slices.Contains(m.Permissions, plugin.PermOrders):
+				fail("node %q trades, but the manifest asks for no %s permission", t.Name, plugin.PermOrders)
 			}
 
 			types[t.Name] = true

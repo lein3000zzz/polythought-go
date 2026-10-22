@@ -205,10 +205,13 @@ func (x *RunContext) GetSession() string {
 }
 
 type RunNodeRequest struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Node          string                 `protobuf:"bytes,1,opt,name=node,proto3" json:"node,omitempty"` // its name in the plugin's manifest
-	Run           *RunContext            `protobuf:"bytes,2,opt,name=run,proto3" json:"run,omitempty"`
-	Inputs        []*Input               `protobuf:"bytes,3,rep,name=inputs,proto3" json:"inputs,omitempty"`
+	state  protoimpl.MessageState `protogen:"open.v1"`
+	Node   string                 `protobuf:"bytes,1,opt,name=node,proto3" json:"node,omitempty"` // its name in the plugin's manifest
+	Run    *RunContext            `protobuf:"bytes,2,opt,name=run,proto3" json:"run,omitempty"`
+	Inputs []*Input               `protobuf:"bytes,3,rep,name=inputs,proto3" json:"inputs,omitempty"`
+	// resume, when set, finishes a run that waited for an answer, with the inputs it had:
+	// the node's Resume, not its Run.
+	Resume        *Resume `protobuf:"bytes,4,opt,name=resume,proto3" json:"resume,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -264,6 +267,82 @@ func (x *RunNodeRequest) GetInputs() []*Input {
 	return nil
 }
 
+func (x *RunNodeRequest) GetResume() *Resume {
+	if x != nil {
+		return x.Resume
+	}
+	return nil
+}
+
+// Resume is how the question a run waited on ended.
+type Resume struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	TimedOut      bool                   `protobuf:"varint,1,opt,name=timed_out,json=timedOut,proto3" json:"timed_out,omitempty"` // no answer in time; otherwise the owner pressed option
+	Option        int32                  `protobuf:"varint,2,opt,name=option,proto3" json:"option,omitempty"`                     // from 0
+	Label         string                 `protobuf:"bytes,3,opt,name=label,proto3" json:"label,omitempty"`                        // the option's
+	State         []byte                 `protobuf:"bytes,4,opt,name=state,proto3" json:"state,omitempty"`                        // what the node kept when it waited, as it gave it
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *Resume) Reset() {
+	*x = Resume{}
+	mi := &file_plugin_v1_plugin_proto_msgTypes[4]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *Resume) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*Resume) ProtoMessage() {}
+
+func (x *Resume) ProtoReflect() protoreflect.Message {
+	mi := &file_plugin_v1_plugin_proto_msgTypes[4]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use Resume.ProtoReflect.Descriptor instead.
+func (*Resume) Descriptor() ([]byte, []int) {
+	return file_plugin_v1_plugin_proto_rawDescGZIP(), []int{4}
+}
+
+func (x *Resume) GetTimedOut() bool {
+	if x != nil {
+		return x.TimedOut
+	}
+	return false
+}
+
+func (x *Resume) GetOption() int32 {
+	if x != nil {
+		return x.Option
+	}
+	return 0
+}
+
+func (x *Resume) GetLabel() string {
+	if x != nil {
+		return x.Label
+	}
+	return ""
+}
+
+func (x *Resume) GetState() []byte {
+	if x != nil {
+		return x.State
+	}
+	return nil
+}
+
 // Input is one input port's items.
 type Input struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
@@ -275,7 +354,7 @@ type Input struct {
 
 func (x *Input) Reset() {
 	*x = Input{}
-	mi := &file_plugin_v1_plugin_proto_msgTypes[4]
+	mi := &file_plugin_v1_plugin_proto_msgTypes[5]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -287,7 +366,7 @@ func (x *Input) String() string {
 func (*Input) ProtoMessage() {}
 
 func (x *Input) ProtoReflect() protoreflect.Message {
-	mi := &file_plugin_v1_plugin_proto_msgTypes[4]
+	mi := &file_plugin_v1_plugin_proto_msgTypes[5]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -300,7 +379,7 @@ func (x *Input) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Input.ProtoReflect.Descriptor instead.
 func (*Input) Descriptor() ([]byte, []int) {
-	return file_plugin_v1_plugin_proto_rawDescGZIP(), []int{4}
+	return file_plugin_v1_plugin_proto_rawDescGZIP(), []int{5}
 }
 
 func (x *Input) GetPort() string {
@@ -327,7 +406,7 @@ type InputItem struct {
 
 func (x *InputItem) Reset() {
 	*x = InputItem{}
-	mi := &file_plugin_v1_plugin_proto_msgTypes[5]
+	mi := &file_plugin_v1_plugin_proto_msgTypes[6]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -339,7 +418,7 @@ func (x *InputItem) String() string {
 func (*InputItem) ProtoMessage() {}
 
 func (x *InputItem) ProtoReflect() protoreflect.Message {
-	mi := &file_plugin_v1_plugin_proto_msgTypes[5]
+	mi := &file_plugin_v1_plugin_proto_msgTypes[6]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -352,7 +431,7 @@ func (x *InputItem) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use InputItem.ProtoReflect.Descriptor instead.
 func (*InputItem) Descriptor() ([]byte, []int) {
-	return file_plugin_v1_plugin_proto_rawDescGZIP(), []int{5}
+	return file_plugin_v1_plugin_proto_rawDescGZIP(), []int{6}
 }
 
 func (x *InputItem) GetJson() []byte {
@@ -370,15 +449,18 @@ func (x *InputItem) GetParams() []byte {
 }
 
 type RunNodeResponse struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Outputs       []*Output              `protobuf:"bytes,1,rep,name=outputs,proto3" json:"outputs,omitempty"`
+	state   protoimpl.MessageState `protogen:"open.v1"`
+	Outputs []*Output              `protobuf:"bytes,1,rep,name=outputs,proto3" json:"outputs,omitempty"`
+	// wait, when set, pauses the run for the answer to the question it asked
+	// (HostService.AskQuestion), outputs none: the host resumes it with RunNode's resume.
+	Wait          *Wait `protobuf:"bytes,2,opt,name=wait,proto3" json:"wait,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
 func (x *RunNodeResponse) Reset() {
 	*x = RunNodeResponse{}
-	mi := &file_plugin_v1_plugin_proto_msgTypes[6]
+	mi := &file_plugin_v1_plugin_proto_msgTypes[7]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -390,7 +472,7 @@ func (x *RunNodeResponse) String() string {
 func (*RunNodeResponse) ProtoMessage() {}
 
 func (x *RunNodeResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_plugin_v1_plugin_proto_msgTypes[6]
+	mi := &file_plugin_v1_plugin_proto_msgTypes[7]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -403,12 +485,63 @@ func (x *RunNodeResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RunNodeResponse.ProtoReflect.Descriptor instead.
 func (*RunNodeResponse) Descriptor() ([]byte, []int) {
-	return file_plugin_v1_plugin_proto_rawDescGZIP(), []int{6}
+	return file_plugin_v1_plugin_proto_rawDescGZIP(), []int{7}
 }
 
 func (x *RunNodeResponse) GetOutputs() []*Output {
 	if x != nil {
 		return x.Outputs
+	}
+	return nil
+}
+
+func (x *RunNodeResponse) GetWait() *Wait {
+	if x != nil {
+		return x.Wait
+	}
+	return nil
+}
+
+type Wait struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	State         []byte                 `protobuf:"bytes,1,opt,name=state,proto3" json:"state,omitempty"` // what Resume gets back: JSON, 64 KiB at most
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *Wait) Reset() {
+	*x = Wait{}
+	mi := &file_plugin_v1_plugin_proto_msgTypes[8]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *Wait) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*Wait) ProtoMessage() {}
+
+func (x *Wait) ProtoReflect() protoreflect.Message {
+	mi := &file_plugin_v1_plugin_proto_msgTypes[8]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use Wait.ProtoReflect.Descriptor instead.
+func (*Wait) Descriptor() ([]byte, []int) {
+	return file_plugin_v1_plugin_proto_rawDescGZIP(), []int{8}
+}
+
+func (x *Wait) GetState() []byte {
+	if x != nil {
+		return x.State
 	}
 	return nil
 }
@@ -424,7 +557,7 @@ type Output struct {
 
 func (x *Output) Reset() {
 	*x = Output{}
-	mi := &file_plugin_v1_plugin_proto_msgTypes[7]
+	mi := &file_plugin_v1_plugin_proto_msgTypes[9]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -436,7 +569,7 @@ func (x *Output) String() string {
 func (*Output) ProtoMessage() {}
 
 func (x *Output) ProtoReflect() protoreflect.Message {
-	mi := &file_plugin_v1_plugin_proto_msgTypes[7]
+	mi := &file_plugin_v1_plugin_proto_msgTypes[9]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -449,7 +582,7 @@ func (x *Output) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Output.ProtoReflect.Descriptor instead.
 func (*Output) Descriptor() ([]byte, []int) {
-	return file_plugin_v1_plugin_proto_rawDescGZIP(), []int{7}
+	return file_plugin_v1_plugin_proto_rawDescGZIP(), []int{9}
 }
 
 func (x *Output) GetPort() string {
@@ -477,7 +610,7 @@ type OutputItem struct {
 
 func (x *OutputItem) Reset() {
 	*x = OutputItem{}
-	mi := &file_plugin_v1_plugin_proto_msgTypes[8]
+	mi := &file_plugin_v1_plugin_proto_msgTypes[10]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -489,7 +622,7 @@ func (x *OutputItem) String() string {
 func (*OutputItem) ProtoMessage() {}
 
 func (x *OutputItem) ProtoReflect() protoreflect.Message {
-	mi := &file_plugin_v1_plugin_proto_msgTypes[8]
+	mi := &file_plugin_v1_plugin_proto_msgTypes[10]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -502,7 +635,7 @@ func (x *OutputItem) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use OutputItem.ProtoReflect.Descriptor instead.
 func (*OutputItem) Descriptor() ([]byte, []int) {
-	return file_plugin_v1_plugin_proto_rawDescGZIP(), []int{8}
+	return file_plugin_v1_plugin_proto_rawDescGZIP(), []int{10}
 }
 
 func (x *OutputItem) GetJson() []byte {
@@ -536,7 +669,7 @@ type ItemRef struct {
 
 func (x *ItemRef) Reset() {
 	*x = ItemRef{}
-	mi := &file_plugin_v1_plugin_proto_msgTypes[9]
+	mi := &file_plugin_v1_plugin_proto_msgTypes[11]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -548,7 +681,7 @@ func (x *ItemRef) String() string {
 func (*ItemRef) ProtoMessage() {}
 
 func (x *ItemRef) ProtoReflect() protoreflect.Message {
-	mi := &file_plugin_v1_plugin_proto_msgTypes[9]
+	mi := &file_plugin_v1_plugin_proto_msgTypes[11]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -561,7 +694,7 @@ func (x *ItemRef) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ItemRef.ProtoReflect.Descriptor instead.
 func (*ItemRef) Descriptor() ([]byte, []int) {
-	return file_plugin_v1_plugin_proto_rawDescGZIP(), []int{9}
+	return file_plugin_v1_plugin_proto_rawDescGZIP(), []int{11}
 }
 
 func (x *ItemRef) GetPort() string {
@@ -592,7 +725,7 @@ type RunTriggerRequest struct {
 
 func (x *RunTriggerRequest) Reset() {
 	*x = RunTriggerRequest{}
-	mi := &file_plugin_v1_plugin_proto_msgTypes[10]
+	mi := &file_plugin_v1_plugin_proto_msgTypes[12]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -604,7 +737,7 @@ func (x *RunTriggerRequest) String() string {
 func (*RunTriggerRequest) ProtoMessage() {}
 
 func (x *RunTriggerRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_plugin_v1_plugin_proto_msgTypes[10]
+	mi := &file_plugin_v1_plugin_proto_msgTypes[12]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -617,7 +750,7 @@ func (x *RunTriggerRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RunTriggerRequest.ProtoReflect.Descriptor instead.
 func (*RunTriggerRequest) Descriptor() ([]byte, []int) {
-	return file_plugin_v1_plugin_proto_rawDescGZIP(), []int{10}
+	return file_plugin_v1_plugin_proto_rawDescGZIP(), []int{12}
 }
 
 func (x *RunTriggerRequest) GetMsg() isRunTriggerRequest_Msg {
@@ -673,7 +806,7 @@ type TriggerStart struct {
 
 func (x *TriggerStart) Reset() {
 	*x = TriggerStart{}
-	mi := &file_plugin_v1_plugin_proto_msgTypes[11]
+	mi := &file_plugin_v1_plugin_proto_msgTypes[13]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -685,7 +818,7 @@ func (x *TriggerStart) String() string {
 func (*TriggerStart) ProtoMessage() {}
 
 func (x *TriggerStart) ProtoReflect() protoreflect.Message {
-	mi := &file_plugin_v1_plugin_proto_msgTypes[11]
+	mi := &file_plugin_v1_plugin_proto_msgTypes[13]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -698,7 +831,7 @@ func (x *TriggerStart) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use TriggerStart.ProtoReflect.Descriptor instead.
 func (*TriggerStart) Descriptor() ([]byte, []int) {
-	return file_plugin_v1_plugin_proto_rawDescGZIP(), []int{11}
+	return file_plugin_v1_plugin_proto_rawDescGZIP(), []int{13}
 }
 
 func (x *TriggerStart) GetTrigger() string {
@@ -739,7 +872,7 @@ type TriggerAck struct {
 
 func (x *TriggerAck) Reset() {
 	*x = TriggerAck{}
-	mi := &file_plugin_v1_plugin_proto_msgTypes[12]
+	mi := &file_plugin_v1_plugin_proto_msgTypes[14]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -751,7 +884,7 @@ func (x *TriggerAck) String() string {
 func (*TriggerAck) ProtoMessage() {}
 
 func (x *TriggerAck) ProtoReflect() protoreflect.Message {
-	mi := &file_plugin_v1_plugin_proto_msgTypes[12]
+	mi := &file_plugin_v1_plugin_proto_msgTypes[14]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -764,7 +897,7 @@ func (x *TriggerAck) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use TriggerAck.ProtoReflect.Descriptor instead.
 func (*TriggerAck) Descriptor() ([]byte, []int) {
-	return file_plugin_v1_plugin_proto_rawDescGZIP(), []int{12}
+	return file_plugin_v1_plugin_proto_rawDescGZIP(), []int{14}
 }
 
 func (x *TriggerAck) GetError() string {
@@ -784,7 +917,7 @@ type RunTriggerResponse struct {
 
 func (x *RunTriggerResponse) Reset() {
 	*x = RunTriggerResponse{}
-	mi := &file_plugin_v1_plugin_proto_msgTypes[13]
+	mi := &file_plugin_v1_plugin_proto_msgTypes[15]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -796,7 +929,7 @@ func (x *RunTriggerResponse) String() string {
 func (*RunTriggerResponse) ProtoMessage() {}
 
 func (x *RunTriggerResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_plugin_v1_plugin_proto_msgTypes[13]
+	mi := &file_plugin_v1_plugin_proto_msgTypes[15]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -809,7 +942,7 @@ func (x *RunTriggerResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RunTriggerResponse.ProtoReflect.Descriptor instead.
 func (*RunTriggerResponse) Descriptor() ([]byte, []int) {
-	return file_plugin_v1_plugin_proto_rawDescGZIP(), []int{13}
+	return file_plugin_v1_plugin_proto_rawDescGZIP(), []int{15}
 }
 
 func (x *RunTriggerResponse) GetOutputs() []*Output {
@@ -830,7 +963,7 @@ type Credential struct {
 
 func (x *Credential) Reset() {
 	*x = Credential{}
-	mi := &file_plugin_v1_plugin_proto_msgTypes[14]
+	mi := &file_plugin_v1_plugin_proto_msgTypes[16]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -842,7 +975,7 @@ func (x *Credential) String() string {
 func (*Credential) ProtoMessage() {}
 
 func (x *Credential) ProtoReflect() protoreflect.Message {
-	mi := &file_plugin_v1_plugin_proto_msgTypes[14]
+	mi := &file_plugin_v1_plugin_proto_msgTypes[16]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -855,7 +988,7 @@ func (x *Credential) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Credential.ProtoReflect.Descriptor instead.
 func (*Credential) Descriptor() ([]byte, []int) {
-	return file_plugin_v1_plugin_proto_rawDescGZIP(), []int{14}
+	return file_plugin_v1_plugin_proto_rawDescGZIP(), []int{16}
 }
 
 func (x *Credential) GetType() string {
@@ -881,7 +1014,7 @@ type CheckCredentialRequest struct {
 
 func (x *CheckCredentialRequest) Reset() {
 	*x = CheckCredentialRequest{}
-	mi := &file_plugin_v1_plugin_proto_msgTypes[15]
+	mi := &file_plugin_v1_plugin_proto_msgTypes[17]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -893,7 +1026,7 @@ func (x *CheckCredentialRequest) String() string {
 func (*CheckCredentialRequest) ProtoMessage() {}
 
 func (x *CheckCredentialRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_plugin_v1_plugin_proto_msgTypes[15]
+	mi := &file_plugin_v1_plugin_proto_msgTypes[17]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -906,7 +1039,7 @@ func (x *CheckCredentialRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CheckCredentialRequest.ProtoReflect.Descriptor instead.
 func (*CheckCredentialRequest) Descriptor() ([]byte, []int) {
-	return file_plugin_v1_plugin_proto_rawDescGZIP(), []int{15}
+	return file_plugin_v1_plugin_proto_rawDescGZIP(), []int{17}
 }
 
 func (x *CheckCredentialRequest) GetCredential() *Credential {
@@ -925,7 +1058,7 @@ type CheckCredentialResponse struct {
 
 func (x *CheckCredentialResponse) Reset() {
 	*x = CheckCredentialResponse{}
-	mi := &file_plugin_v1_plugin_proto_msgTypes[16]
+	mi := &file_plugin_v1_plugin_proto_msgTypes[18]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -937,7 +1070,7 @@ func (x *CheckCredentialResponse) String() string {
 func (*CheckCredentialResponse) ProtoMessage() {}
 
 func (x *CheckCredentialResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_plugin_v1_plugin_proto_msgTypes[16]
+	mi := &file_plugin_v1_plugin_proto_msgTypes[18]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -950,7 +1083,7 @@ func (x *CheckCredentialResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CheckCredentialResponse.ProtoReflect.Descriptor instead.
 func (*CheckCredentialResponse) Descriptor() ([]byte, []int) {
-	return file_plugin_v1_plugin_proto_rawDescGZIP(), []int{16}
+	return file_plugin_v1_plugin_proto_rawDescGZIP(), []int{18}
 }
 
 func (x *CheckCredentialResponse) GetError() string {
@@ -969,7 +1102,7 @@ type TestCredentialRequest struct {
 
 func (x *TestCredentialRequest) Reset() {
 	*x = TestCredentialRequest{}
-	mi := &file_plugin_v1_plugin_proto_msgTypes[17]
+	mi := &file_plugin_v1_plugin_proto_msgTypes[19]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -981,7 +1114,7 @@ func (x *TestCredentialRequest) String() string {
 func (*TestCredentialRequest) ProtoMessage() {}
 
 func (x *TestCredentialRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_plugin_v1_plugin_proto_msgTypes[17]
+	mi := &file_plugin_v1_plugin_proto_msgTypes[19]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -994,7 +1127,7 @@ func (x *TestCredentialRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use TestCredentialRequest.ProtoReflect.Descriptor instead.
 func (*TestCredentialRequest) Descriptor() ([]byte, []int) {
-	return file_plugin_v1_plugin_proto_rawDescGZIP(), []int{17}
+	return file_plugin_v1_plugin_proto_rawDescGZIP(), []int{19}
 }
 
 func (x *TestCredentialRequest) GetCredential() *Credential {
@@ -1013,7 +1146,7 @@ type TestCredentialResponse struct {
 
 func (x *TestCredentialResponse) Reset() {
 	*x = TestCredentialResponse{}
-	mi := &file_plugin_v1_plugin_proto_msgTypes[18]
+	mi := &file_plugin_v1_plugin_proto_msgTypes[20]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1025,7 +1158,7 @@ func (x *TestCredentialResponse) String() string {
 func (*TestCredentialResponse) ProtoMessage() {}
 
 func (x *TestCredentialResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_plugin_v1_plugin_proto_msgTypes[18]
+	mi := &file_plugin_v1_plugin_proto_msgTypes[20]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1038,7 +1171,7 @@ func (x *TestCredentialResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use TestCredentialResponse.ProtoReflect.Descriptor instead.
 func (*TestCredentialResponse) Descriptor() ([]byte, []int) {
-	return file_plugin_v1_plugin_proto_rawDescGZIP(), []int{18}
+	return file_plugin_v1_plugin_proto_rawDescGZIP(), []int{20}
 }
 
 func (x *TestCredentialResponse) GetError() string {
@@ -1066,19 +1199,28 @@ const file_plugin_v1_plugin_proto_rawDesc = "" +
 	"\anode_id\x18\x04 \x01(\tR\x06nodeId\x12\x1d\n" +
 	"\n" +
 	"started_at\x18\x05 \x01(\tR\tstartedAt\x12\x18\n" +
-	"\asession\x18\x06 \x01(\tR\asession\"w\n" +
+	"\asession\x18\x06 \x01(\tR\asession\"\xa2\x01\n" +
 	"\x0eRunNodeRequest\x12\x12\n" +
 	"\x04node\x18\x01 \x01(\tR\x04node\x12'\n" +
 	"\x03run\x18\x02 \x01(\v2\x15.plugin.v1.RunContextR\x03run\x12(\n" +
-	"\x06inputs\x18\x03 \x03(\v2\x10.plugin.v1.InputR\x06inputs\"G\n" +
+	"\x06inputs\x18\x03 \x03(\v2\x10.plugin.v1.InputR\x06inputs\x12)\n" +
+	"\x06resume\x18\x04 \x01(\v2\x11.plugin.v1.ResumeR\x06resume\"i\n" +
+	"\x06Resume\x12\x1b\n" +
+	"\ttimed_out\x18\x01 \x01(\bR\btimedOut\x12\x16\n" +
+	"\x06option\x18\x02 \x01(\x05R\x06option\x12\x14\n" +
+	"\x05label\x18\x03 \x01(\tR\x05label\x12\x14\n" +
+	"\x05state\x18\x04 \x01(\fR\x05state\"G\n" +
 	"\x05Input\x12\x12\n" +
 	"\x04port\x18\x01 \x01(\tR\x04port\x12*\n" +
 	"\x05items\x18\x02 \x03(\v2\x14.plugin.v1.InputItemR\x05items\"7\n" +
 	"\tInputItem\x12\x12\n" +
 	"\x04json\x18\x01 \x01(\fR\x04json\x12\x16\n" +
-	"\x06params\x18\x02 \x01(\fR\x06params\">\n" +
+	"\x06params\x18\x02 \x01(\fR\x06params\"c\n" +
 	"\x0fRunNodeResponse\x12+\n" +
-	"\aoutputs\x18\x01 \x03(\v2\x11.plugin.v1.OutputR\aoutputs\"I\n" +
+	"\aoutputs\x18\x01 \x03(\v2\x11.plugin.v1.OutputR\aoutputs\x12#\n" +
+	"\x04wait\x18\x02 \x01(\v2\x0f.plugin.v1.WaitR\x04wait\"\x1c\n" +
+	"\x04Wait\x12\x14\n" +
+	"\x05state\x18\x01 \x01(\fR\x05state\"I\n" +
 	"\x06Output\x12\x12\n" +
 	"\x04port\x18\x01 \x01(\tR\x04port\x12+\n" +
 	"\x05items\x18\x02 \x03(\v2\x15.plugin.v1.OutputItemR\x05items\"d\n" +
@@ -1143,58 +1285,62 @@ func file_plugin_v1_plugin_proto_rawDescGZIP() []byte {
 	return file_plugin_v1_plugin_proto_rawDescData
 }
 
-var file_plugin_v1_plugin_proto_msgTypes = make([]protoimpl.MessageInfo, 20)
+var file_plugin_v1_plugin_proto_msgTypes = make([]protoimpl.MessageInfo, 22)
 var file_plugin_v1_plugin_proto_goTypes = []any{
 	(*DescribeRequest)(nil),         // 0: plugin.v1.DescribeRequest
 	(*DescribeResponse)(nil),        // 1: plugin.v1.DescribeResponse
 	(*RunContext)(nil),              // 2: plugin.v1.RunContext
 	(*RunNodeRequest)(nil),          // 3: plugin.v1.RunNodeRequest
-	(*Input)(nil),                   // 4: plugin.v1.Input
-	(*InputItem)(nil),               // 5: plugin.v1.InputItem
-	(*RunNodeResponse)(nil),         // 6: plugin.v1.RunNodeResponse
-	(*Output)(nil),                  // 7: plugin.v1.Output
-	(*OutputItem)(nil),              // 8: plugin.v1.OutputItem
-	(*ItemRef)(nil),                 // 9: plugin.v1.ItemRef
-	(*RunTriggerRequest)(nil),       // 10: plugin.v1.RunTriggerRequest
-	(*TriggerStart)(nil),            // 11: plugin.v1.TriggerStart
-	(*TriggerAck)(nil),              // 12: plugin.v1.TriggerAck
-	(*RunTriggerResponse)(nil),      // 13: plugin.v1.RunTriggerResponse
-	(*Credential)(nil),              // 14: plugin.v1.Credential
-	(*CheckCredentialRequest)(nil),  // 15: plugin.v1.CheckCredentialRequest
-	(*CheckCredentialResponse)(nil), // 16: plugin.v1.CheckCredentialResponse
-	(*TestCredentialRequest)(nil),   // 17: plugin.v1.TestCredentialRequest
-	(*TestCredentialResponse)(nil),  // 18: plugin.v1.TestCredentialResponse
-	nil,                             // 19: plugin.v1.Credential.ValuesEntry
+	(*Resume)(nil),                  // 4: plugin.v1.Resume
+	(*Input)(nil),                   // 5: plugin.v1.Input
+	(*InputItem)(nil),               // 6: plugin.v1.InputItem
+	(*RunNodeResponse)(nil),         // 7: plugin.v1.RunNodeResponse
+	(*Wait)(nil),                    // 8: plugin.v1.Wait
+	(*Output)(nil),                  // 9: plugin.v1.Output
+	(*OutputItem)(nil),              // 10: plugin.v1.OutputItem
+	(*ItemRef)(nil),                 // 11: plugin.v1.ItemRef
+	(*RunTriggerRequest)(nil),       // 12: plugin.v1.RunTriggerRequest
+	(*TriggerStart)(nil),            // 13: plugin.v1.TriggerStart
+	(*TriggerAck)(nil),              // 14: plugin.v1.TriggerAck
+	(*RunTriggerResponse)(nil),      // 15: plugin.v1.RunTriggerResponse
+	(*Credential)(nil),              // 16: plugin.v1.Credential
+	(*CheckCredentialRequest)(nil),  // 17: plugin.v1.CheckCredentialRequest
+	(*CheckCredentialResponse)(nil), // 18: plugin.v1.CheckCredentialResponse
+	(*TestCredentialRequest)(nil),   // 19: plugin.v1.TestCredentialRequest
+	(*TestCredentialResponse)(nil),  // 20: plugin.v1.TestCredentialResponse
+	nil,                             // 21: plugin.v1.Credential.ValuesEntry
 }
 var file_plugin_v1_plugin_proto_depIdxs = []int32{
 	2,  // 0: plugin.v1.RunNodeRequest.run:type_name -> plugin.v1.RunContext
-	4,  // 1: plugin.v1.RunNodeRequest.inputs:type_name -> plugin.v1.Input
-	5,  // 2: plugin.v1.Input.items:type_name -> plugin.v1.InputItem
-	7,  // 3: plugin.v1.RunNodeResponse.outputs:type_name -> plugin.v1.Output
-	8,  // 4: plugin.v1.Output.items:type_name -> plugin.v1.OutputItem
-	9,  // 5: plugin.v1.OutputItem.sources:type_name -> plugin.v1.ItemRef
-	11, // 6: plugin.v1.RunTriggerRequest.start:type_name -> plugin.v1.TriggerStart
-	12, // 7: plugin.v1.RunTriggerRequest.ack:type_name -> plugin.v1.TriggerAck
-	2,  // 8: plugin.v1.TriggerStart.run:type_name -> plugin.v1.RunContext
-	7,  // 9: plugin.v1.RunTriggerResponse.outputs:type_name -> plugin.v1.Output
-	19, // 10: plugin.v1.Credential.values:type_name -> plugin.v1.Credential.ValuesEntry
-	14, // 11: plugin.v1.CheckCredentialRequest.credential:type_name -> plugin.v1.Credential
-	14, // 12: plugin.v1.TestCredentialRequest.credential:type_name -> plugin.v1.Credential
-	0,  // 13: plugin.v1.PluginService.Describe:input_type -> plugin.v1.DescribeRequest
-	3,  // 14: plugin.v1.PluginService.RunNode:input_type -> plugin.v1.RunNodeRequest
-	10, // 15: plugin.v1.PluginService.RunTrigger:input_type -> plugin.v1.RunTriggerRequest
-	15, // 16: plugin.v1.PluginService.CheckCredential:input_type -> plugin.v1.CheckCredentialRequest
-	17, // 17: plugin.v1.PluginService.TestCredential:input_type -> plugin.v1.TestCredentialRequest
-	1,  // 18: plugin.v1.PluginService.Describe:output_type -> plugin.v1.DescribeResponse
-	6,  // 19: plugin.v1.PluginService.RunNode:output_type -> plugin.v1.RunNodeResponse
-	13, // 20: plugin.v1.PluginService.RunTrigger:output_type -> plugin.v1.RunTriggerResponse
-	16, // 21: plugin.v1.PluginService.CheckCredential:output_type -> plugin.v1.CheckCredentialResponse
-	18, // 22: plugin.v1.PluginService.TestCredential:output_type -> plugin.v1.TestCredentialResponse
-	18, // [18:23] is the sub-list for method output_type
-	13, // [13:18] is the sub-list for method input_type
-	13, // [13:13] is the sub-list for extension type_name
-	13, // [13:13] is the sub-list for extension extendee
-	0,  // [0:13] is the sub-list for field type_name
+	5,  // 1: plugin.v1.RunNodeRequest.inputs:type_name -> plugin.v1.Input
+	4,  // 2: plugin.v1.RunNodeRequest.resume:type_name -> plugin.v1.Resume
+	6,  // 3: plugin.v1.Input.items:type_name -> plugin.v1.InputItem
+	9,  // 4: plugin.v1.RunNodeResponse.outputs:type_name -> plugin.v1.Output
+	8,  // 5: plugin.v1.RunNodeResponse.wait:type_name -> plugin.v1.Wait
+	10, // 6: plugin.v1.Output.items:type_name -> plugin.v1.OutputItem
+	11, // 7: plugin.v1.OutputItem.sources:type_name -> plugin.v1.ItemRef
+	13, // 8: plugin.v1.RunTriggerRequest.start:type_name -> plugin.v1.TriggerStart
+	14, // 9: plugin.v1.RunTriggerRequest.ack:type_name -> plugin.v1.TriggerAck
+	2,  // 10: plugin.v1.TriggerStart.run:type_name -> plugin.v1.RunContext
+	9,  // 11: plugin.v1.RunTriggerResponse.outputs:type_name -> plugin.v1.Output
+	21, // 12: plugin.v1.Credential.values:type_name -> plugin.v1.Credential.ValuesEntry
+	16, // 13: plugin.v1.CheckCredentialRequest.credential:type_name -> plugin.v1.Credential
+	16, // 14: plugin.v1.TestCredentialRequest.credential:type_name -> plugin.v1.Credential
+	0,  // 15: plugin.v1.PluginService.Describe:input_type -> plugin.v1.DescribeRequest
+	3,  // 16: plugin.v1.PluginService.RunNode:input_type -> plugin.v1.RunNodeRequest
+	12, // 17: plugin.v1.PluginService.RunTrigger:input_type -> plugin.v1.RunTriggerRequest
+	17, // 18: plugin.v1.PluginService.CheckCredential:input_type -> plugin.v1.CheckCredentialRequest
+	19, // 19: plugin.v1.PluginService.TestCredential:input_type -> plugin.v1.TestCredentialRequest
+	1,  // 20: plugin.v1.PluginService.Describe:output_type -> plugin.v1.DescribeResponse
+	7,  // 21: plugin.v1.PluginService.RunNode:output_type -> plugin.v1.RunNodeResponse
+	15, // 22: plugin.v1.PluginService.RunTrigger:output_type -> plugin.v1.RunTriggerResponse
+	18, // 23: plugin.v1.PluginService.CheckCredential:output_type -> plugin.v1.CheckCredentialResponse
+	20, // 24: plugin.v1.PluginService.TestCredential:output_type -> plugin.v1.TestCredentialResponse
+	20, // [20:25] is the sub-list for method output_type
+	15, // [15:20] is the sub-list for method input_type
+	15, // [15:15] is the sub-list for extension type_name
+	15, // [15:15] is the sub-list for extension extendee
+	0,  // [0:15] is the sub-list for field type_name
 }
 
 func init() { file_plugin_v1_plugin_proto_init() }
@@ -1202,7 +1348,7 @@ func file_plugin_v1_plugin_proto_init() {
 	if File_plugin_v1_plugin_proto != nil {
 		return
 	}
-	file_plugin_v1_plugin_proto_msgTypes[10].OneofWrappers = []any{
+	file_plugin_v1_plugin_proto_msgTypes[12].OneofWrappers = []any{
 		(*RunTriggerRequest_Start)(nil),
 		(*RunTriggerRequest_Ack)(nil),
 	}
@@ -1212,7 +1358,7 @@ func file_plugin_v1_plugin_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_plugin_v1_plugin_proto_rawDesc), len(file_plugin_v1_plugin_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   20,
+			NumMessages:   22,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

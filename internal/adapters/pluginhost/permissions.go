@@ -19,6 +19,8 @@ type permissions struct {
 	fetchAny   bool
 	fetchHosts map[string]bool
 	wallets    bool
+	telegram   bool
+	orders     bool
 }
 
 // permissionsOf reads a manifest's permissions, refusing any it does not know, so a typo
@@ -32,6 +34,10 @@ func permissionsOf(asked []string) (permissions, error) {
 			p.fetchAny = true
 		case perm == plugin.PermWallets:
 			p.wallets = true
+		case perm == plugin.PermTelegram:
+			p.telegram = true
+		case perm == plugin.PermOrders:
+			p.orders = true
 		case fetch && validHost(host):
 			p.fetchHosts[host] = true
 		case fetch:

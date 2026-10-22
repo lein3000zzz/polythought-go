@@ -148,7 +148,7 @@ func (p *Plugin) Register(r *engine.Registry) error {
 			return fmt.Errorf("plugin %s: node %s: %w", p.manifest.ID, n.Name, err)
 		}
 
-		if err := r.RegisterNode(&proxyNode{p: p, name: n.Name, typ: typ}); err != nil {
+		if err := r.RegisterNode(&proxyNode{p: p, name: n.Name, typ: typ, trades: n.Trades}); err != nil {
 			return fmt.Errorf("plugin %s: %w", p.manifest.ID, err)
 		}
 	}

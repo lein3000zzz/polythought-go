@@ -63,6 +63,21 @@ type Host interface {
 
 	// Wallets are the workflow's owner's own wallets, with PermWallets.
 	Wallets(ctx context.Context) ([]Wallet, error)
+
+	// Message messages the workflow's owner on Telegram, with PermTelegram.
+	Message(ctx context.Context, m Message) error
+
+	// Ask asks the owner a question on Telegram, with PermTelegram, once a run, never in
+	// a trigger. The node returns the Wait as its error, and its run waits for the
+	// answer; its Resume, which it must have, then finishes the run.
+	Ask(ctx context.Context, q Question) (*Wait, error)
+
+	// PlaceOrders places 1 to 15 orders for the workflow, as Place order does: paper or
+	// live as the workflow trades, within its caps and the kill switch. CancelOrders
+	// cancels the workflow's own resting orders. Both take PermOrders, from a node the
+	// manifest marks Trades.
+	PlaceOrders(ctx context.Context, orders []Order) ([]OrderResult, error)
+	CancelOrders(ctx context.Context, c Cancel) ([]Cancelled, error)
 }
 
 // Request is an HTTP request for Fetch.

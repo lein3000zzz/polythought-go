@@ -19,13 +19,20 @@ func main() {
 	})
 }
 
-// try asks for the owner's wallets, and to fetch.
+// try asks for all that takes a permission: the owner's wallets, a fetch, a message, a
+// question and an order.
 func try(ctx context.Context, run plugin.Run, _ plugin.Item) (string, map[string]any, error) {
 	_, wallets := run.Host.Wallets(ctx)
 	_, fetch := run.Host.Fetch(ctx, plugin.Request{URL: "https://example.com/"})
+	message := run.Host.Message(ctx, plugin.Message{Text: "hi"})
+	_, ask := run.Host.Ask(ctx, plugin.Question{Text: "?", Options: []string{"Yes"}})
+	_, orders := run.Host.PlaceOrders(ctx, []plugin.Order{{TokenID: "t", Side: "buy", Type: "FOK", Price: "0.5", Shares: "1"}})
 
-	return "", map[string]any{
-		"wallets": wallets.Error(), "walletsRefused": errors.Is(wallets, plugin.ErrNotAllowed),
-		"fetch": fetch.Error(), "fetchRefused": errors.Is(fetch, plugin.ErrNotAllowed),
-	}, nil
+	out := map[string]any{}
+	for name, err := range map[string]error{"wallets": wallets, "fetch": fetch, "message": message, "ask": ask, "orders": orders} {
+		out[name] = err.Error()
+		out[name+"Refused"] = errors.Is(err, plugin.ErrNotAllowed)
+	}
+
+	return "", out, nil
 }

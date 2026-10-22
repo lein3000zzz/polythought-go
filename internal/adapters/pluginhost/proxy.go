@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"html"
 	"io"
 	"maps"
 	"slices"
@@ -20,27 +21,78 @@ import (
 // proxyNode is a plugin's node, run by the plugin: the host sends it the run's items with
 // their settings worked out, expressions and all (D286), and takes back what it sends on.
 type proxyNode struct {
-	p    *Plugin
-	name string
-	typ  engine.NodeType
+	p      *Plugin
+	name   string
+	typ    engine.NodeType
+	trades bool // its manifest marks it trades (D309)
 }
 
 var (
-	_ engine.Node    = (*proxyNode)(nil)
+	_ engine.Resumer = (*proxyNode)(nil)
 	_ engine.Trigger = (*proxyTrigger)(nil)
 )
 
+// notWaited closes a question its run did not wait on: it failed, or went on without
+// the answer.
+const notWaited = "⏹ <i>No longer waiting for an answer.</i>"
+
 func (n *proxyNode) Type() engine.NodeType { return n.typ }
 
-// Run sends the run's items to the plugin, a session open for its calls to the host
-// while it runs. A run that asked the host past its limit fails, whatever the plugin
-// made of the refusal.
 func (n *proxyNode) Run(ctx context.Context, rc engine.RunContext, in engine.Ports) (engine.Ports, error) {
-	req := &pluginv1.RunNodeRequest{
-		Node: n.name, Run: runContext(string(rc.ExecutionID), string(rc.WorkflowID), string(rc.OwnerID), string(rc.NodeID), rc.StartedAt),
+	return n.run(ctx, rc, in, nil)
+}
+
+// Resume finishes a run that waited on the question it asked (D291): with a quarter of
+// the time left, the owner is reminded once and the run waits on; then the question
+// closes, saying how it ended, and the plugin's Resume gets the answer.
+func (n *proxyNode) Resume(ctx context.Context, rc engine.RunContext, in engine.Ports, r engine.Resumption) (engine.Ports, error) {
+	w, err := decodeWaiting(r.State)
+	if err != nil {
+		return nil, err
 	}
 
-	s := &session{ctx: ctx, rc: rc, typ: n.typ, params: map[engine.ItemRef]engine.Params{}}
+	q, api := w.Question, n.p.api
+
+	if r.TimedOut && q.Remind {
+		// A reminder that does not arrive is no reason to give up on the answer.
+		if remind := api.deps.Telegram.Reminder; remind != nil {
+			_ = remind.RemindQuestion(ctx, rc.OwnerID, rc.WorkflowID, q.Message, time.Until(q.Deadline))
+		}
+
+		q.Remind = false
+
+		return nil, &engine.Wait{Until: q.Deadline, Key: q.Key, State: waiting{Question: q, State: w.State}.encode()}
+	}
+
+	resume := &pluginv1.Resume{TimedOut: r.TimedOut, State: []byte(w.State)}
+	closing := "⌛ <i>No answer in time.</i>"
+
+	if !r.TimedOut {
+		i, err := engine.Params(r.Payload).Int("option")
+		if err != nil || i < 0 || i >= len(q.Options) {
+			return nil, fmt.Errorf("an answer for button %v, of %d", r.Payload["option"], len(q.Options))
+		}
+
+		resume.Option, resume.Label = int32(i), q.Options[i] //nolint:gosec // one of 10
+		closing = "✅ <b>" + html.EscapeString(q.Options[i]) + "</b>"
+	}
+
+	api.closeQuestion(ctx, rc.OwnerID, q, closing)
+
+	return n.run(ctx, rc, in, resume)
+}
+
+// run sends the run's items to the plugin, its Run's or, with resume, its Resume's, a
+// session open for its calls to the host while it runs. A run that asked the host past
+// its limit fails, whatever the plugin made of the refusal; one that asked a question
+// and did not wait on it closes it.
+func (n *proxyNode) run(ctx context.Context, rc engine.RunContext, in engine.Ports, resume *pluginv1.Resume) (engine.Ports, error) {
+	req := &pluginv1.RunNodeRequest{
+		Node: n.name, Run: runContext(string(rc.ExecutionID), string(rc.WorkflowID), string(rc.OwnerID), string(rc.NodeID), rc.StartedAt),
+		Resume: resume,
+	}
+
+	s := &session{ctx: ctx, rc: rc, typ: n.typ, trades: n.trades, params: map[engine.ItemRef]engine.Params{}}
 
 	for _, port := range slices.Sorted(maps.Keys(in)) {
 		input := &pluginv1.Input{Port: port}
@@ -80,17 +132,47 @@ func (n *proxyNode) Run(ctx context.Context, rc engine.RunContext, in engine.Por
 	req.Run.Session = token
 
 	res, err := n.p.rpc.RunNode(ctx, req)
+	q := s.asked()
+
+	out, wait, err := n.answered(ctx, s, in, res, err, q)
+	if q != nil && wait == nil {
+		n.p.api.closeQuestion(ctx, rc.OwnerID, *q, notWaited)
+	}
+
+	if wait != nil {
+		return nil, wait
+	}
+
+	return out, err
+}
+
+// answered is what the plugin's answer to a run comes to: its items, or the wait on the
+// question it asked.
+func (n *proxyNode) answered(ctx context.Context, s *session, in engine.Ports, res *pluginv1.RunNodeResponse, err error, q *question) (engine.Ports, *engine.Wait, error) {
+	id := n.p.manifest.ID
 
 	switch {
 	case s.overLimit():
-		return nil, fmt.Errorf("plugin %s asked the host more than the %d times a run may", n.p.manifest.ID, s.limits.HostCalls)
+		return nil, nil, fmt.Errorf("plugin %s asked the host more than the %d times a run may", id, s.limits.HostCalls)
 	case err != nil && ctx.Err() != nil:
-		return nil, ctx.Err()
+		return nil, nil, ctx.Err()
 	case err != nil:
-		return nil, fmt.Errorf("plugin %s: %w", n.p.manifest.ID, callError(err))
+		return nil, nil, fmt.Errorf("plugin %s: %w", id, callError(err))
+	case res.GetWait() == nil:
+		out, err := n.p.ports(n.typ, in, res.GetOutputs())
+		return out, nil, err
+	case q == nil:
+		return nil, nil, fmt.Errorf("plugin %s waited, but asked no question", id)
+	case len(res.GetOutputs()) > 0:
+		return nil, nil, fmt.Errorf("plugin %s sent items and waited too", id)
 	}
 
-	return n.p.ports(n.typ, in, res.GetOutputs())
+	wait, err := waitOn(*q, res.GetWait().GetState())
+	if err != nil {
+		return nil, nil, fmt.Errorf("plugin %s waited: %w", id, err)
+	}
+
+	return nil, wait, nil
 }
 
 // proxyTrigger is a plugin's trigger, run by the plugin: each event it sends starts an

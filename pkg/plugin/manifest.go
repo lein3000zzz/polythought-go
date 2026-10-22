@@ -40,6 +40,12 @@ const (
 	// PermWallets lets Wallets give the workflow's owner's wallets: their names and
 	// addresses, which tie them to their money on chain.
 	PermWallets = "wallets"
+
+	// PermTelegram lets Message and Ask reach the workflow's owner on Telegram.
+	PermTelegram = "telegram"
+
+	// PermOrders lets the nodes marked Trades place and cancel the workflow's orders.
+	PermOrders = "orders"
 )
 
 // NodeType describes a node or a trigger, as a built-in one is: its name within the
@@ -63,6 +69,10 @@ type NodeType struct {
 	// Remembers says it keeps data in its store across runs (Host.Get and Set): only
 	// then may it, and its settings show what it keeps.
 	Remembers bool `json:"remembers,omitempty"`
+
+	// Trades says it places orders (Host.PlaceOrders): only then may it, with
+	// PermOrders.
+	Trades bool `json:"trades,omitempty"`
 }
 
 // Param is one setting of a node: how the editor shows it, and how the host reads it

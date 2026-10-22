@@ -53,6 +53,17 @@ message RunNodeRequest {
   string node = 1; // its name in the plugin's manifest
   RunContext run = 2;
   repeated Input inputs = 3;
+  // resume, when set, finishes a run that waited for an answer, with the inputs it had:
+  // the node's Resume, not its Run.
+  Resume resume = 4;
+}
+
+// Resume is how the question a run waited on ended.
+message Resume {
+  bool timed_out = 1; // no answer in time; otherwise the owner pressed option
+  int32 option = 2; // from 0
+  string label = 3; // the option's
+  bytes state = 4; // what the node kept when it waited, as it gave it
 }
 
 // Input is one input port's items.
@@ -68,6 +79,13 @@ message InputItem {
 
 message RunNodeResponse {
   repeated Output outputs = 1;
+  // wait, when set, pauses the run for the answer to the question it asked
+  // (HostService.AskQuestion), outputs none: the host resumes it with RunNode's resume.
+  Wait wait = 2;
+}
+
+message Wait {
+  bytes state = 1; // what Resume gets back: JSON, 64 KiB at most
 }
 
 // Output is what the node sends out of one port.

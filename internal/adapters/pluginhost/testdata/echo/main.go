@@ -21,7 +21,7 @@ import (
 var manifest = plugin.Manifest{
 	ID: "echo", Version: "1.2.0", Name: "Echo", Description: "Says it back.",
 	// The tests' server; localhost, the same address, is not named.
-	Permissions: []string{"fetch:127.0.0.1", "wallets"},
+	Permissions: []string{"fetch:127.0.0.1", "wallets", "telegram", "orders"},
 	Metrics: []plugin.Metric{
 		{Name: "shouts_total", Kind: "counter", Help: "Shouts, by case.", Labels: []string{"case"}},
 		{Name: "loudness", Kind: "histogram", Help: "How loud.", Buckets: []float64{1, 10}},
@@ -55,11 +55,19 @@ var manifest = plugin.Manifest{
 		},
 		{Name: "forgetful", Label: "Forgetful"},
 		{Name: "read", Label: "Read", Params: []plugin.Param{{Name: "what", Kind: "string"}, {Name: "arg", Kind: "string"}}},
+		{Name: "tell", Label: "Tell", Params: []plugin.Param{{Name: "text", Kind: "string"}, {Name: "html", Kind: "bool"}}},
+		{
+			Name: "ask", Label: "Ask", Outputs: []string{"main", "timeout"},
+			Params: []plugin.Param{{Name: "how", Kind: "string"}, {Name: "timeout", Kind: "duration", Default: "1h"}},
+		},
+		{Name: "trade", Label: "Trade", Trades: true, Params: []plugin.Param{{Name: "cancel", Kind: "bool"}}},
+		{Name: "untraded", Label: "Untraded"},
 	},
 	Triggers: []plugin.NodeType{
 		{Name: "tick", Label: "Tick", Params: []plugin.Param{
 			{Name: "times", Kind: "number", Default: 3},
 			{Name: "key", Kind: "credential", CredentialTypes: []string{"token"}},
+			{Name: "ask", Kind: "bool"},
 		}},
 	},
 	CredentialTypes: []plugin.CredentialType{{
@@ -89,6 +97,10 @@ func main() {
 			"keep":      plugin.PerItem(keep),
 			"forgetful": plugin.PerItem(forgetful),
 			"read":      plugin.PerItem(read),
+			"tell":      plugin.PerItem(tell),
+			"ask":       asker{},
+			"trade":     plugin.PerItem(trade),
+			"untraded":  plugin.PerItem(untraded),
 		},
 		Triggers: map[string]plugin.Trigger{"tick": tick{}},
 		Credentials: map[string]plugin.CredentialChecks{"token": {
@@ -328,6 +340,103 @@ func withError(out map[string]any, err error) map[string]any {
 	return out
 }
 
+// tell messages the owner.
+func tell(ctx context.Context, run plugin.Run, item plugin.Item) (string, map[string]any, error) {
+	text, _ := item.Params["text"].(string)
+	isHTML, _ := item.Params["html"].(bool)
+
+	return "", withError(map[string]any{}, run.Host.Message(ctx, plugin.Message{Text: text, HTML: isHTML})), nil
+}
+
+// asker asks whether it will rain, once for all its items, and waits: how says what to
+// get wrong, twice asking twice, nowait not waiting, unasked waiting without asking.
+type asker struct{}
+
+func (asker) Run(ctx context.Context, run plugin.Run, in plugin.Ports) (plugin.Ports, error) {
+	how, _ := in[plugin.MainPort][0].Params["how"].(string)
+	timeout, _ := time.ParseDuration(fmt.Sprint(in[plugin.MainPort][0].Params["timeout"]))
+
+	if how == "unasked" {
+		return nil, &plugin.Wait{}
+	}
+
+	wait, err := run.Host.Ask(ctx, plugin.Question{
+		Text: "Rain <tomorrow>?", Options: []string{"Yes", "No"}, Timeout: timeout,
+		State: map[string]any{"items": len(in[plugin.MainPort])},
+	})
+
+	if how == "twice" && err == nil {
+		_, err = run.Host.Ask(ctx, plugin.Question{Text: "Again?", Options: []string{"Yes"}})
+	}
+
+	if err != nil || how != "" {
+		out := plugin.Ports{}
+		out.Add(plugin.MainPort, plugin.Item{JSON: withError(map[string]any{}, err), Sources: []plugin.ItemRef{{Port: plugin.MainPort}}})
+
+		return out, nil
+	}
+
+	return nil, wait
+}
+
+// Resume sends the items on through main with the answer, or through timeout.
+func (asker) Resume(_ context.Context, _ plugin.Run, in plugin.Ports, a plugin.Answer) (plugin.Ports, error) {
+	var state map[string]any
+	if err := a.State(&state); err != nil {
+		return nil, err
+	}
+
+	port := plugin.MainPort
+	if a.TimedOut {
+		port = "timeout"
+	}
+
+	out := plugin.Ports{}
+	for i := range in[plugin.MainPort] {
+		out.Add(port, plugin.Item{
+			JSON:    map[string]any{"option": a.Option, "label": a.Label, "items": state["items"]},
+			Sources: []plugin.ItemRef{{Port: plugin.MainPort, Index: i}},
+		})
+	}
+
+	return out, nil
+}
+
+// trade places three orders, the second of no side, or with cancel cancels them all.
+func trade(ctx context.Context, run plugin.Run, item plugin.Item) (string, map[string]any, error) {
+	if cancel, _ := item.Params["cancel"].(bool); cancel {
+		cancelled, err := run.Host.CancelOrders(ctx, plugin.Cancel{All: true})
+		return "", withError(map[string]any{"cancelled": len(cancelled)}, err), nil
+	}
+
+	order := plugin.Order{TokenID: "tok-yes", Side: "buy", Type: "FOK", Price: "0.5", Shares: "10"}
+	odd := order
+	odd.Side = "hold"
+
+	results, err := run.Host.PlaceOrders(ctx, []plugin.Order{order, odd, order})
+	if err != nil {
+		return "", withError(map[string]any{}, err), nil
+	}
+
+	var lines []string
+	for _, r := range results {
+		if r.Err != nil {
+			lines = append(lines, r.Err.Error())
+			continue
+		}
+
+		lines = append(lines, r.Order.ID+" "+r.Order.Status+" "+string(r.Order.Price))
+	}
+
+	return "", map[string]any{"results": strings.Join(lines, "; ")}, nil
+}
+
+// untraded may trade nothing: its manifest does not mark it.
+func untraded(ctx context.Context, run plugin.Run, _ plugin.Item) (string, map[string]any, error) {
+	_, err := run.Host.PlaceOrders(ctx, []plugin.Order{{TokenID: "t", Side: "buy", Type: "FOK", Price: "0.5", Shares: "1"}})
+	return "", withError(map[string]any{}, err), nil
+}
+
 func misbehave(_ context.Context, _ plugin.Run, in plugin.Ports) (plugin.Ports, error) {
 	how := ""
 	if items := in[plugin.MainPort]; len(items) > 0 {
@@ -345,6 +454,8 @@ func misbehave(_ context.Context, _ plugin.Run, in plugin.Ports) (plugin.Ports, 
 		out.Add(plugin.MainPort, plugin.Item{JSON: map[string]any{}, Sources: []plugin.ItemRef{{Port: plugin.MainPort, Index: 9}}})
 	case "crash":
 		os.Exit(3)
+	case "wait":
+		return nil, &plugin.Wait{}
 	}
 
 	return out, nil
@@ -373,10 +484,16 @@ func (tick) Start(ctx context.Context, run plugin.Run, params map[string]any, re
 		token = c.Values["token"]
 	}
 
+	asked := ""
+	if params["ask"] == true {
+		_, err := run.Host.Ask(ctx, plugin.Question{Text: "?", Options: []string{"Yes"}})
+		asked = fmt.Sprint(err)
+	}
+
 	last := ""
 
 	for i := 0; times == 0 || i < times; i++ {
-		err := emit(ctx, plugin.Ports{plugin.MainPort: {{JSON: map[string]any{"n": i, "resumed": resumed, "lastFailed": last, "token": token}}}})
+		err := emit(ctx, plugin.Ports{plugin.MainPort: {{JSON: map[string]any{"n": i, "resumed": resumed, "lastFailed": last, "token": token, "asked": asked}}}})
 		if ctx.Err() != nil {
 			return nil
 		}

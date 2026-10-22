@@ -1,8 +1,10 @@
 package pluginhost
 
 import (
+	"strings"
 	"testing"
 	"time"
+	"unicode/utf8"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -93,4 +95,45 @@ func TestPage(t *testing.T) {
 	assert.Equal(t, 7, page(7, 20, 100))
 	assert.Equal(t, 100, page(500, 20, 100))
 	assert.Equal(t, 20, page(-1, 20, 100))
+}
+
+func TestMarked(t *testing.T) {
+	a := &api{name: "Rain <bot>"}
+
+	got, err := a.marked("a & b", false, 100)
+	require.NoError(t, err)
+	assert.Equal(t, "🧩 <b>Rain &lt;bot&gt;</b>\na &amp; b", got, "its name escaped too")
+
+	long, err := a.marked(strings.Repeat("x", 200), false, 100)
+	require.NoError(t, err)
+	assert.Equal(t, 100, utf8.RuneCountInString(long), "cut to fit, the name with it")
+	assert.True(t, strings.HasSuffix(long, "…"))
+
+	_, err = a.marked(strings.Repeat("x", 200), true, 100)
+	assert.Error(t, err, "HTML is not cut: a tag could be")
+}
+
+func TestQuestionChecks(t *testing.T) {
+	a := &api{name: "Echo"}
+	now := time.Date(2026, 10, 22, 12, 0, 0, 0, time.UTC)
+
+	q, err := a.question(&pluginv1.AskQuestionRequest{Text: "Rain?", Options: []string{"Yes", "No"}}, now)
+	require.NoError(t, err)
+	assert.Equal(t, now.Add(time.Hour), q.Deadline, "an hour unless it says")
+	assert.False(t, q.Remind, "no reminder without a reminder")
+	assert.Equal(t, q.Deadline, q.until())
+	assert.NotEmpty(t, q.Key)
+
+	for name, req := range map[string]*pluginv1.AskQuestionRequest{
+		"no options":      {Text: "?"},
+		"eleven options":  {Text: "?", Options: strings.Split("a b c d e f g h i j k", " ")},
+		"an option blank": {Text: "?", Options: []string{" "}},
+		"an option long":  {Text: "?", Options: []string{strings.Repeat("x", 41)}},
+		"an option twice": {Text: "?", Options: []string{"Yes", "Yes"}},
+		"a timeout short": {Text: "?", Options: []string{"Yes"}, Timeout: "30s"},
+		"no text":         {Options: []string{"Yes"}},
+	} {
+		_, err := a.question(req, now)
+		assert.Error(t, err, name)
+	}
 }

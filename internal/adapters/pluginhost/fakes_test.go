@@ -3,6 +3,7 @@ package pluginhost_test
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"slices"
 	"strings"
@@ -315,4 +316,102 @@ func (d *data) ListForUser(_ context.Context, user domain.UserID) ([]domain.Wall
 	}
 
 	return []domain.Wallet{{ID: "w-1", UserID: "alice", Label: "Main", Address: aliceW}}, nil
+}
+
+// telegram is the owner's Telegram: what was sent, asked, closed and reminded.
+type telegram struct {
+	mu       sync.Mutex
+	messages []ports.UserMessage
+	asked    []ports.Question
+	closed   map[int]string
+	reminded []int
+}
+
+func newTelegram() *telegram { return &telegram{closed: map[int]string{}} }
+
+func (t *telegram) MessageUser(_ context.Context, user domain.UserID, m ports.UserMessage) error {
+	if user != "alice" {
+		return domain.ErrTelegramNotLinked
+	}
+
+	t.mu.Lock()
+	defer t.mu.Unlock()
+
+	t.messages = append(t.messages, m)
+
+	return nil
+}
+
+func (t *telegram) AskUser(_ context.Context, _ domain.UserID, q ports.Question) (int, error) {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+
+	t.asked = append(t.asked, q)
+
+	return 100 + len(t.asked), nil
+}
+
+func (t *telegram) CloseQuestion(_ context.Context, _ domain.UserID, messageID int, html string) error {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+
+	t.closed[messageID] = html
+
+	return nil
+}
+
+func (t *telegram) RemindQuestion(_ context.Context, _ domain.UserID, _ domain.WorkflowID, messageID int, _ time.Duration) error {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+
+	t.reminded = append(t.reminded, messageID)
+
+	return nil
+}
+
+// trading places and cancels orders, keeping what it was asked: every order fills.
+type trading struct {
+	mu        sync.Mutex
+	placed    []domain.OrderRequest
+	batches   []int // the size of each batch
+	cancelled []ports.CancelRequest
+}
+
+func (tr *trading) fill(r domain.OrderRequest) domain.PlacedOrder {
+	tr.placed = append(tr.placed, r)
+
+	return domain.PlacedOrder{
+		OrderRequest: r, ID: domain.OrderID(fmt.Sprintf("o-%d", len(tr.placed))), Status: domain.OrderFilled,
+		Fills: []domain.OrderFill{{Price: r.Price, Shares: r.Shares, Dollars: r.Price.Mul(r.Shares)}},
+	}
+}
+
+func (tr *trading) Place(_ context.Context, r domain.OrderRequest) (domain.PlacedOrder, error) {
+	tr.mu.Lock()
+	defer tr.mu.Unlock()
+
+	return tr.fill(r), nil
+}
+
+func (tr *trading) PlaceBatch(_ context.Context, reqs []domain.OrderRequest) ([]ports.PlaceResult, error) {
+	tr.mu.Lock()
+	defer tr.mu.Unlock()
+
+	tr.batches = append(tr.batches, len(reqs))
+
+	out := make([]ports.PlaceResult, len(reqs))
+	for i, r := range reqs {
+		out[i].Order = tr.fill(r)
+	}
+
+	return out, nil
+}
+
+func (tr *trading) CancelOrders(_ context.Context, c ports.CancelRequest) ([]ports.CancelResult, error) {
+	tr.mu.Lock()
+	defer tr.mu.Unlock()
+
+	tr.cancelled = append(tr.cancelled, c)
+
+	return []ports.CancelResult{{Order: domain.PlacedOrder{ID: "o-1", Status: domain.OrderCanceled}}}, nil
 }

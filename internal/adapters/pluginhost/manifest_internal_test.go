@@ -13,11 +13,13 @@ import (
 func good() plugin.Manifest {
 	return plugin.Manifest{
 		ID: "weather", Version: "1.0.0", Name: "Weather", SDK: plugin.SDKVersion,
-		Nodes:           []plugin.NodeType{{Name: "forecast"}},
+		Nodes:           []plugin.NodeType{{Name: "forecast", Trades: true}},
 		Triggers:        []plugin.NodeType{{Name: "storm"}},
 		CredentialTypes: []plugin.CredentialType{{Name: "key", Label: "Key"}},
 		Scenarios:       []plugin.Scenario{{ID: "rain"}},
-		Permissions:     []string{"fetch:api.weather.example", "fetch:203.0.113.7", "fetch:2001:db8::1", "fetch:*", "wallets"},
+		Permissions: []string{
+			"fetch:api.weather.example", "fetch:203.0.113.7", "fetch:2001:db8::1", "fetch:*", "wallets", "telegram", "orders",
+		},
 		Metrics: []plugin.Metric{
 			{Name: "forecasts_total", Kind: "counter", Help: "Forecasts made.", Labels: []string{"city"}},
 			{Name: "rain_mm", Kind: "histogram", Help: "Rain forecast.", Buckets: []float64{1, 5, 20}},
@@ -67,6 +69,8 @@ func TestCheck(t *testing.T) {
 		"a scenario unnamed":      func(m *plugin.Manifest) { m.Scenarios[0].ID = "" },
 		"a permission unknown":    func(m *plugin.Manifest) { m.Permissions = []string{"network"} },
 		"wallets misspelt":        func(m *plugin.Manifest) { m.Permissions = []string{"wallet"} },
+		"a trigger that trades":   func(m *plugin.Manifest) { m.Triggers[0].Trades = true },
+		"trades, no orders":       func(m *plugin.Manifest) { m.Nodes[0].Trades = true; m.Permissions = nil },
 		"a fetch with no host":    func(m *plugin.Manifest) { m.Permissions = []string{"fetch:"} },
 		"a fetch of a URL":        func(m *plugin.Manifest) { m.Permissions = []string{"fetch:https://api.example.com"} },
 		"a fetch of subdomains":   func(m *plugin.Manifest) { m.Permissions = []string{"fetch:*.example.com"} },

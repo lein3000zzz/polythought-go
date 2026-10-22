@@ -151,7 +151,32 @@ func (s *server) RunNode(ctx context.Context, req *pluginv1.RunNodeRequest) (*pl
 		}
 	}
 
-	out, err := node.Run(ctx, s.runOf(req.GetRun()), in)
+	run := s.runOf(req.GetRun())
+
+	var (
+		out Ports
+		err error
+	)
+
+	if r := req.GetResume(); r != nil {
+		resumer, ok := node.(Resumer)
+		if !ok {
+			return nil, status.Errorf(codes.FailedPrecondition, "node %q has no Resume to finish its run", req.GetNode())
+		}
+
+		out, err = resumer.Resume(ctx, run, in, Answer{TimedOut: r.GetTimedOut(), Option: int(r.GetOption()), Label: r.GetLabel(), state: r.GetState()})
+	} else {
+		out, err = node.Run(ctx, run, in)
+	}
+
+	if wait, ok := errors.AsType[*Wait](err); ok {
+		if _, ok := node.(Resumer); !ok {
+			return nil, status.Errorf(codes.FailedPrecondition, "node %q asked, but has no Resume to finish its run", req.GetNode())
+		}
+
+		return &pluginv1.RunNodeResponse{Wait: &pluginv1.Wait{State: wait.state}}, nil
+	}
+
 	if err != nil {
 		return nil, status.Error(codes.Aborted, err.Error())
 	}

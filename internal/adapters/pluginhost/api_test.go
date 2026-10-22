@@ -419,8 +419,15 @@ func TestNoPermissions(t *testing.T) {
 	require.NoError(t, p.Register(r))
 
 	got := kept(t, r, "plugin.bare.try", nil)
-	assert.Equal(t, true, got["walletsRefused"])
-	assert.Equal(t, "the owner's wallets: its permissions do not name them (wallets)", got["wallets"])
-	assert.Equal(t, true, got["fetchRefused"])
-	assert.Equal(t, "fetch from example.com: its permissions do not name it (fetch:example.com, or fetch:*)", got["fetch"])
+
+	for name, want := range map[string]string{
+		"wallets": "the owner's wallets: its permissions do not name them (wallets)",
+		"fetch":   "fetch from example.com: its permissions do not name it (fetch:example.com, or fetch:*)",
+		"message": "telegram: its permissions do not name it (telegram)",
+		"ask":     "telegram: its permissions do not name it (telegram)",
+		"orders":  "orders: its permissions do not name them (orders)",
+	} {
+		assert.Equal(t, true, got[name+"Refused"], name)
+		assert.Equal(t, want, got[name], name)
+	}
 }

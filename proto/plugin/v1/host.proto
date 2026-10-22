@@ -44,6 +44,24 @@ service HostService {
   // (D301). It counts as a call.
   rpc ListWallets(ListWalletsRequest) returns (ListWalletsResponse);
 
+  // SendMessage messages the workflow's owner on Telegram, in their linked chat, after
+  // the plugin's name (D308), with the telegram permission (D307). It counts as a call.
+  rpc SendMessage(SendMessageRequest) returns (SendMessageResponse);
+
+  // AskQuestion asks the owner on Telegram, a button per option, with the telegram
+  // permission: once a node's run, never a trigger's. The node then answers RunNode with
+  // a wait, and the run waits for the answer or the timeout, coming back through
+  // RunNode's resume. It counts as a call.
+  rpc AskQuestion(AskQuestionRequest) returns (AskQuestionResponse);
+
+  // PlaceOrders places orders for the workflow as Place order does, paper or live as it
+  // trades, within its caps and the kill switch; several at once go together when live.
+  // CancelOrders cancels the workflow's own resting orders. Both take the orders
+  // permission, from a node's run of a node the manifest marks trades (D309, D310). Each
+  // counts as a call.
+  rpc PlaceOrders(PlaceOrdersRequest) returns (PlaceOrdersResponse);
+  rpc CancelOrders(CancelOrdersRequest) returns (CancelOrdersResponse);
+
   // Log, RecordMetric, StartSpan and EndSpan are the plugin's logs, metrics and traces.
   // They are not counted as calls, but have a cap of their own a run.
   rpc Log(LogRequest) returns (LogResponse);
@@ -315,4 +333,95 @@ message Wallet {
 
 message ListWalletsResponse {
   repeated Wallet wallets = 1;
+}
+
+// SendMessageRequest is a message: text as written, or Telegram's HTML when html.
+message SendMessageRequest {
+  string session = 1;
+  string text = 2;
+  bool html = 3;
+  bool silent = 4; // delivered without a sound
+}
+
+message SendMessageResponse {}
+
+// AskQuestionRequest is a question: its text, as a message's, and up to 10 options, 40
+// characters each, a button each; timeout a Go duration, 1h when empty.
+message AskQuestionRequest {
+  string session = 1;
+  string text = 2;
+  bool html = 3;
+  repeated string options = 4;
+  string timeout = 5;
+}
+
+message AskQuestionResponse {
+  string deadline = 1; // when the run stops waiting, RFC 3339
+}
+
+// OrderRequest is an order, as Place order's settings make one.
+message OrderRequest {
+  string token_id = 1;
+  string market_id = 2; // empty: the token's
+  string side = 3; // buy or sell
+  string type = 4; // FOK, FAK, GTC or GTD
+  string price = 5; // the limit: the most a buy pays a share, the least a sell takes
+  string shares = 6;
+  string dollars = 7; // a buy's dollars to spend, instead of shares
+  bool post_only = 8; // a resting order that may not take
+  string expires = 9; // GTD: when what is left is cancelled, RFC 3339
+  string trader = 10; // the address whose trade it copies, if it copies one
+  string trader_label = 11;
+}
+
+// PlacedOrder is an order as the ledger keeps it, and how far it filled.
+message PlacedOrder {
+  string id = 1;
+  string mode = 2; // paper or live
+  string status = 3; // filled, partial, unfilled, refused, pending, failed, open, canceled or expired
+  string reason = 4; // why it was refused, or did not fill
+  string token_id = 5;
+  string side = 6;
+  string type = 7;
+  string shares = 8; // filled so far
+  string dollars = 9;
+  string fees = 10;
+  string price = 11; // the average filled; empty when nothing filled
+}
+
+// PlaceOrdersRequest places 1 to 15 orders.
+message PlaceOrdersRequest {
+  string session = 1;
+  repeated OrderRequest orders = 2;
+}
+
+// OrderResult is how one order went, in the order asked: placed, or why it could not be
+// tried.
+message OrderResult {
+  PlacedOrder order = 1;
+  string error = 2;
+}
+
+message PlaceOrdersResponse {
+  repeated OrderResult results = 1;
+}
+
+// CancelOrdersRequest names the workflow's resting orders to cancel: one by its ID, a
+// market's, an outcome's, or all of them.
+message CancelOrdersRequest {
+  string session = 1;
+  string order_id = 2;
+  string market_id = 3;
+  string token_id = 4;
+  bool all = 5;
+}
+
+// CancelResult is how cancelling one order went: reason empty, it was.
+message CancelResult {
+  PlacedOrder order = 1;
+  string reason = 2;
+}
+
+message CancelOrdersResponse {
+  repeated CancelResult results = 1;
 }

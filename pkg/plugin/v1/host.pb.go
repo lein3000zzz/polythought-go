@@ -2545,6 +2545,809 @@ func (x *ListWalletsResponse) GetWallets() []*Wallet {
 	return nil
 }
 
+// SendMessageRequest is a message: text as written, or Telegram's HTML when html.
+type SendMessageRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Session       string                 `protobuf:"bytes,1,opt,name=session,proto3" json:"session,omitempty"`
+	Text          string                 `protobuf:"bytes,2,opt,name=text,proto3" json:"text,omitempty"`
+	Html          bool                   `protobuf:"varint,3,opt,name=html,proto3" json:"html,omitempty"`
+	Silent        bool                   `protobuf:"varint,4,opt,name=silent,proto3" json:"silent,omitempty"` // delivered without a sound
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *SendMessageRequest) Reset() {
+	*x = SendMessageRequest{}
+	mi := &file_plugin_v1_host_proto_msgTypes[41]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *SendMessageRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*SendMessageRequest) ProtoMessage() {}
+
+func (x *SendMessageRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_plugin_v1_host_proto_msgTypes[41]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use SendMessageRequest.ProtoReflect.Descriptor instead.
+func (*SendMessageRequest) Descriptor() ([]byte, []int) {
+	return file_plugin_v1_host_proto_rawDescGZIP(), []int{41}
+}
+
+func (x *SendMessageRequest) GetSession() string {
+	if x != nil {
+		return x.Session
+	}
+	return ""
+}
+
+func (x *SendMessageRequest) GetText() string {
+	if x != nil {
+		return x.Text
+	}
+	return ""
+}
+
+func (x *SendMessageRequest) GetHtml() bool {
+	if x != nil {
+		return x.Html
+	}
+	return false
+}
+
+func (x *SendMessageRequest) GetSilent() bool {
+	if x != nil {
+		return x.Silent
+	}
+	return false
+}
+
+type SendMessageResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *SendMessageResponse) Reset() {
+	*x = SendMessageResponse{}
+	mi := &file_plugin_v1_host_proto_msgTypes[42]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *SendMessageResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*SendMessageResponse) ProtoMessage() {}
+
+func (x *SendMessageResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_plugin_v1_host_proto_msgTypes[42]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use SendMessageResponse.ProtoReflect.Descriptor instead.
+func (*SendMessageResponse) Descriptor() ([]byte, []int) {
+	return file_plugin_v1_host_proto_rawDescGZIP(), []int{42}
+}
+
+// AskQuestionRequest is a question: its text, as a message's, and up to 10 options, 40
+// characters each, a button each; timeout a Go duration, 1h when empty.
+type AskQuestionRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Session       string                 `protobuf:"bytes,1,opt,name=session,proto3" json:"session,omitempty"`
+	Text          string                 `protobuf:"bytes,2,opt,name=text,proto3" json:"text,omitempty"`
+	Html          bool                   `protobuf:"varint,3,opt,name=html,proto3" json:"html,omitempty"`
+	Options       []string               `protobuf:"bytes,4,rep,name=options,proto3" json:"options,omitempty"`
+	Timeout       string                 `protobuf:"bytes,5,opt,name=timeout,proto3" json:"timeout,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *AskQuestionRequest) Reset() {
+	*x = AskQuestionRequest{}
+	mi := &file_plugin_v1_host_proto_msgTypes[43]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *AskQuestionRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*AskQuestionRequest) ProtoMessage() {}
+
+func (x *AskQuestionRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_plugin_v1_host_proto_msgTypes[43]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use AskQuestionRequest.ProtoReflect.Descriptor instead.
+func (*AskQuestionRequest) Descriptor() ([]byte, []int) {
+	return file_plugin_v1_host_proto_rawDescGZIP(), []int{43}
+}
+
+func (x *AskQuestionRequest) GetSession() string {
+	if x != nil {
+		return x.Session
+	}
+	return ""
+}
+
+func (x *AskQuestionRequest) GetText() string {
+	if x != nil {
+		return x.Text
+	}
+	return ""
+}
+
+func (x *AskQuestionRequest) GetHtml() bool {
+	if x != nil {
+		return x.Html
+	}
+	return false
+}
+
+func (x *AskQuestionRequest) GetOptions() []string {
+	if x != nil {
+		return x.Options
+	}
+	return nil
+}
+
+func (x *AskQuestionRequest) GetTimeout() string {
+	if x != nil {
+		return x.Timeout
+	}
+	return ""
+}
+
+type AskQuestionResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Deadline      string                 `protobuf:"bytes,1,opt,name=deadline,proto3" json:"deadline,omitempty"` // when the run stops waiting, RFC 3339
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *AskQuestionResponse) Reset() {
+	*x = AskQuestionResponse{}
+	mi := &file_plugin_v1_host_proto_msgTypes[44]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *AskQuestionResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*AskQuestionResponse) ProtoMessage() {}
+
+func (x *AskQuestionResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_plugin_v1_host_proto_msgTypes[44]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use AskQuestionResponse.ProtoReflect.Descriptor instead.
+func (*AskQuestionResponse) Descriptor() ([]byte, []int) {
+	return file_plugin_v1_host_proto_rawDescGZIP(), []int{44}
+}
+
+func (x *AskQuestionResponse) GetDeadline() string {
+	if x != nil {
+		return x.Deadline
+	}
+	return ""
+}
+
+// OrderRequest is an order, as Place order's settings make one.
+type OrderRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	TokenId       string                 `protobuf:"bytes,1,opt,name=token_id,json=tokenId,proto3" json:"token_id,omitempty"`
+	MarketId      string                 `protobuf:"bytes,2,opt,name=market_id,json=marketId,proto3" json:"market_id,omitempty"` // empty: the token's
+	Side          string                 `protobuf:"bytes,3,opt,name=side,proto3" json:"side,omitempty"`                         // buy or sell
+	Type          string                 `protobuf:"bytes,4,opt,name=type,proto3" json:"type,omitempty"`                         // FOK, FAK, GTC or GTD
+	Price         string                 `protobuf:"bytes,5,opt,name=price,proto3" json:"price,omitempty"`                       // the limit: the most a buy pays a share, the least a sell takes
+	Shares        string                 `protobuf:"bytes,6,opt,name=shares,proto3" json:"shares,omitempty"`
+	Dollars       string                 `protobuf:"bytes,7,opt,name=dollars,proto3" json:"dollars,omitempty"`                    // a buy's dollars to spend, instead of shares
+	PostOnly      bool                   `protobuf:"varint,8,opt,name=post_only,json=postOnly,proto3" json:"post_only,omitempty"` // a resting order that may not take
+	Expires       string                 `protobuf:"bytes,9,opt,name=expires,proto3" json:"expires,omitempty"`                    // GTD: when what is left is cancelled, RFC 3339
+	Trader        string                 `protobuf:"bytes,10,opt,name=trader,proto3" json:"trader,omitempty"`                     // the address whose trade it copies, if it copies one
+	TraderLabel   string                 `protobuf:"bytes,11,opt,name=trader_label,json=traderLabel,proto3" json:"trader_label,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *OrderRequest) Reset() {
+	*x = OrderRequest{}
+	mi := &file_plugin_v1_host_proto_msgTypes[45]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *OrderRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*OrderRequest) ProtoMessage() {}
+
+func (x *OrderRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_plugin_v1_host_proto_msgTypes[45]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use OrderRequest.ProtoReflect.Descriptor instead.
+func (*OrderRequest) Descriptor() ([]byte, []int) {
+	return file_plugin_v1_host_proto_rawDescGZIP(), []int{45}
+}
+
+func (x *OrderRequest) GetTokenId() string {
+	if x != nil {
+		return x.TokenId
+	}
+	return ""
+}
+
+func (x *OrderRequest) GetMarketId() string {
+	if x != nil {
+		return x.MarketId
+	}
+	return ""
+}
+
+func (x *OrderRequest) GetSide() string {
+	if x != nil {
+		return x.Side
+	}
+	return ""
+}
+
+func (x *OrderRequest) GetType() string {
+	if x != nil {
+		return x.Type
+	}
+	return ""
+}
+
+func (x *OrderRequest) GetPrice() string {
+	if x != nil {
+		return x.Price
+	}
+	return ""
+}
+
+func (x *OrderRequest) GetShares() string {
+	if x != nil {
+		return x.Shares
+	}
+	return ""
+}
+
+func (x *OrderRequest) GetDollars() string {
+	if x != nil {
+		return x.Dollars
+	}
+	return ""
+}
+
+func (x *OrderRequest) GetPostOnly() bool {
+	if x != nil {
+		return x.PostOnly
+	}
+	return false
+}
+
+func (x *OrderRequest) GetExpires() string {
+	if x != nil {
+		return x.Expires
+	}
+	return ""
+}
+
+func (x *OrderRequest) GetTrader() string {
+	if x != nil {
+		return x.Trader
+	}
+	return ""
+}
+
+func (x *OrderRequest) GetTraderLabel() string {
+	if x != nil {
+		return x.TraderLabel
+	}
+	return ""
+}
+
+// PlacedOrder is an order as the ledger keeps it, and how far it filled.
+type PlacedOrder struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Id            string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	Mode          string                 `protobuf:"bytes,2,opt,name=mode,proto3" json:"mode,omitempty"`     // paper or live
+	Status        string                 `protobuf:"bytes,3,opt,name=status,proto3" json:"status,omitempty"` // filled, partial, unfilled, refused, pending, failed, open, canceled or expired
+	Reason        string                 `protobuf:"bytes,4,opt,name=reason,proto3" json:"reason,omitempty"` // why it was refused, or did not fill
+	TokenId       string                 `protobuf:"bytes,5,opt,name=token_id,json=tokenId,proto3" json:"token_id,omitempty"`
+	Side          string                 `protobuf:"bytes,6,opt,name=side,proto3" json:"side,omitempty"`
+	Type          string                 `protobuf:"bytes,7,opt,name=type,proto3" json:"type,omitempty"`
+	Shares        string                 `protobuf:"bytes,8,opt,name=shares,proto3" json:"shares,omitempty"` // filled so far
+	Dollars       string                 `protobuf:"bytes,9,opt,name=dollars,proto3" json:"dollars,omitempty"`
+	Fees          string                 `protobuf:"bytes,10,opt,name=fees,proto3" json:"fees,omitempty"`
+	Price         string                 `protobuf:"bytes,11,opt,name=price,proto3" json:"price,omitempty"` // the average filled; empty when nothing filled
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *PlacedOrder) Reset() {
+	*x = PlacedOrder{}
+	mi := &file_plugin_v1_host_proto_msgTypes[46]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *PlacedOrder) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*PlacedOrder) ProtoMessage() {}
+
+func (x *PlacedOrder) ProtoReflect() protoreflect.Message {
+	mi := &file_plugin_v1_host_proto_msgTypes[46]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use PlacedOrder.ProtoReflect.Descriptor instead.
+func (*PlacedOrder) Descriptor() ([]byte, []int) {
+	return file_plugin_v1_host_proto_rawDescGZIP(), []int{46}
+}
+
+func (x *PlacedOrder) GetId() string {
+	if x != nil {
+		return x.Id
+	}
+	return ""
+}
+
+func (x *PlacedOrder) GetMode() string {
+	if x != nil {
+		return x.Mode
+	}
+	return ""
+}
+
+func (x *PlacedOrder) GetStatus() string {
+	if x != nil {
+		return x.Status
+	}
+	return ""
+}
+
+func (x *PlacedOrder) GetReason() string {
+	if x != nil {
+		return x.Reason
+	}
+	return ""
+}
+
+func (x *PlacedOrder) GetTokenId() string {
+	if x != nil {
+		return x.TokenId
+	}
+	return ""
+}
+
+func (x *PlacedOrder) GetSide() string {
+	if x != nil {
+		return x.Side
+	}
+	return ""
+}
+
+func (x *PlacedOrder) GetType() string {
+	if x != nil {
+		return x.Type
+	}
+	return ""
+}
+
+func (x *PlacedOrder) GetShares() string {
+	if x != nil {
+		return x.Shares
+	}
+	return ""
+}
+
+func (x *PlacedOrder) GetDollars() string {
+	if x != nil {
+		return x.Dollars
+	}
+	return ""
+}
+
+func (x *PlacedOrder) GetFees() string {
+	if x != nil {
+		return x.Fees
+	}
+	return ""
+}
+
+func (x *PlacedOrder) GetPrice() string {
+	if x != nil {
+		return x.Price
+	}
+	return ""
+}
+
+// PlaceOrdersRequest places 1 to 15 orders.
+type PlaceOrdersRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Session       string                 `protobuf:"bytes,1,opt,name=session,proto3" json:"session,omitempty"`
+	Orders        []*OrderRequest        `protobuf:"bytes,2,rep,name=orders,proto3" json:"orders,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *PlaceOrdersRequest) Reset() {
+	*x = PlaceOrdersRequest{}
+	mi := &file_plugin_v1_host_proto_msgTypes[47]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *PlaceOrdersRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*PlaceOrdersRequest) ProtoMessage() {}
+
+func (x *PlaceOrdersRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_plugin_v1_host_proto_msgTypes[47]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use PlaceOrdersRequest.ProtoReflect.Descriptor instead.
+func (*PlaceOrdersRequest) Descriptor() ([]byte, []int) {
+	return file_plugin_v1_host_proto_rawDescGZIP(), []int{47}
+}
+
+func (x *PlaceOrdersRequest) GetSession() string {
+	if x != nil {
+		return x.Session
+	}
+	return ""
+}
+
+func (x *PlaceOrdersRequest) GetOrders() []*OrderRequest {
+	if x != nil {
+		return x.Orders
+	}
+	return nil
+}
+
+// OrderResult is how one order went, in the order asked: placed, or why it could not be
+// tried.
+type OrderResult struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Order         *PlacedOrder           `protobuf:"bytes,1,opt,name=order,proto3" json:"order,omitempty"`
+	Error         string                 `protobuf:"bytes,2,opt,name=error,proto3" json:"error,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *OrderResult) Reset() {
+	*x = OrderResult{}
+	mi := &file_plugin_v1_host_proto_msgTypes[48]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *OrderResult) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*OrderResult) ProtoMessage() {}
+
+func (x *OrderResult) ProtoReflect() protoreflect.Message {
+	mi := &file_plugin_v1_host_proto_msgTypes[48]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use OrderResult.ProtoReflect.Descriptor instead.
+func (*OrderResult) Descriptor() ([]byte, []int) {
+	return file_plugin_v1_host_proto_rawDescGZIP(), []int{48}
+}
+
+func (x *OrderResult) GetOrder() *PlacedOrder {
+	if x != nil {
+		return x.Order
+	}
+	return nil
+}
+
+func (x *OrderResult) GetError() string {
+	if x != nil {
+		return x.Error
+	}
+	return ""
+}
+
+type PlaceOrdersResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Results       []*OrderResult         `protobuf:"bytes,1,rep,name=results,proto3" json:"results,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *PlaceOrdersResponse) Reset() {
+	*x = PlaceOrdersResponse{}
+	mi := &file_plugin_v1_host_proto_msgTypes[49]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *PlaceOrdersResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*PlaceOrdersResponse) ProtoMessage() {}
+
+func (x *PlaceOrdersResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_plugin_v1_host_proto_msgTypes[49]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use PlaceOrdersResponse.ProtoReflect.Descriptor instead.
+func (*PlaceOrdersResponse) Descriptor() ([]byte, []int) {
+	return file_plugin_v1_host_proto_rawDescGZIP(), []int{49}
+}
+
+func (x *PlaceOrdersResponse) GetResults() []*OrderResult {
+	if x != nil {
+		return x.Results
+	}
+	return nil
+}
+
+// CancelOrdersRequest names the workflow's resting orders to cancel: one by its ID, a
+// market's, an outcome's, or all of them.
+type CancelOrdersRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Session       string                 `protobuf:"bytes,1,opt,name=session,proto3" json:"session,omitempty"`
+	OrderId       string                 `protobuf:"bytes,2,opt,name=order_id,json=orderId,proto3" json:"order_id,omitempty"`
+	MarketId      string                 `protobuf:"bytes,3,opt,name=market_id,json=marketId,proto3" json:"market_id,omitempty"`
+	TokenId       string                 `protobuf:"bytes,4,opt,name=token_id,json=tokenId,proto3" json:"token_id,omitempty"`
+	All           bool                   `protobuf:"varint,5,opt,name=all,proto3" json:"all,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *CancelOrdersRequest) Reset() {
+	*x = CancelOrdersRequest{}
+	mi := &file_plugin_v1_host_proto_msgTypes[50]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *CancelOrdersRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*CancelOrdersRequest) ProtoMessage() {}
+
+func (x *CancelOrdersRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_plugin_v1_host_proto_msgTypes[50]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use CancelOrdersRequest.ProtoReflect.Descriptor instead.
+func (*CancelOrdersRequest) Descriptor() ([]byte, []int) {
+	return file_plugin_v1_host_proto_rawDescGZIP(), []int{50}
+}
+
+func (x *CancelOrdersRequest) GetSession() string {
+	if x != nil {
+		return x.Session
+	}
+	return ""
+}
+
+func (x *CancelOrdersRequest) GetOrderId() string {
+	if x != nil {
+		return x.OrderId
+	}
+	return ""
+}
+
+func (x *CancelOrdersRequest) GetMarketId() string {
+	if x != nil {
+		return x.MarketId
+	}
+	return ""
+}
+
+func (x *CancelOrdersRequest) GetTokenId() string {
+	if x != nil {
+		return x.TokenId
+	}
+	return ""
+}
+
+func (x *CancelOrdersRequest) GetAll() bool {
+	if x != nil {
+		return x.All
+	}
+	return false
+}
+
+// CancelResult is how cancelling one order went: reason empty, it was.
+type CancelResult struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Order         *PlacedOrder           `protobuf:"bytes,1,opt,name=order,proto3" json:"order,omitempty"`
+	Reason        string                 `protobuf:"bytes,2,opt,name=reason,proto3" json:"reason,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *CancelResult) Reset() {
+	*x = CancelResult{}
+	mi := &file_plugin_v1_host_proto_msgTypes[51]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *CancelResult) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*CancelResult) ProtoMessage() {}
+
+func (x *CancelResult) ProtoReflect() protoreflect.Message {
+	mi := &file_plugin_v1_host_proto_msgTypes[51]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use CancelResult.ProtoReflect.Descriptor instead.
+func (*CancelResult) Descriptor() ([]byte, []int) {
+	return file_plugin_v1_host_proto_rawDescGZIP(), []int{51}
+}
+
+func (x *CancelResult) GetOrder() *PlacedOrder {
+	if x != nil {
+		return x.Order
+	}
+	return nil
+}
+
+func (x *CancelResult) GetReason() string {
+	if x != nil {
+		return x.Reason
+	}
+	return ""
+}
+
+type CancelOrdersResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Results       []*CancelResult        `protobuf:"bytes,1,rep,name=results,proto3" json:"results,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *CancelOrdersResponse) Reset() {
+	*x = CancelOrdersResponse{}
+	mi := &file_plugin_v1_host_proto_msgTypes[52]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *CancelOrdersResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*CancelOrdersResponse) ProtoMessage() {}
+
+func (x *CancelOrdersResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_plugin_v1_host_proto_msgTypes[52]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use CancelOrdersResponse.ProtoReflect.Descriptor instead.
+func (*CancelOrdersResponse) Descriptor() ([]byte, []int) {
+	return file_plugin_v1_host_proto_rawDescGZIP(), []int{52}
+}
+
+func (x *CancelOrdersResponse) GetResults() []*CancelResult {
+	if x != nil {
+		return x.Results
+	}
+	return nil
+}
+
 var File_plugin_v1_host_proto protoreflect.FileDescriptor
 
 const file_plugin_v1_host_proto_rawDesc = "" +
@@ -2746,7 +3549,66 @@ const file_plugin_v1_host_proto_rawDesc = "" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x12\x18\n" +
 	"\aaddress\x18\x03 \x01(\tR\aaddress\"B\n" +
 	"\x13ListWalletsResponse\x12+\n" +
-	"\awallets\x18\x01 \x03(\v2\x11.plugin.v1.WalletR\awallets2\xb7\t\n" +
+	"\awallets\x18\x01 \x03(\v2\x11.plugin.v1.WalletR\awallets\"n\n" +
+	"\x12SendMessageRequest\x12\x18\n" +
+	"\asession\x18\x01 \x01(\tR\asession\x12\x12\n" +
+	"\x04text\x18\x02 \x01(\tR\x04text\x12\x12\n" +
+	"\x04html\x18\x03 \x01(\bR\x04html\x12\x16\n" +
+	"\x06silent\x18\x04 \x01(\bR\x06silent\"\x15\n" +
+	"\x13SendMessageResponse\"\x8a\x01\n" +
+	"\x12AskQuestionRequest\x12\x18\n" +
+	"\asession\x18\x01 \x01(\tR\asession\x12\x12\n" +
+	"\x04text\x18\x02 \x01(\tR\x04text\x12\x12\n" +
+	"\x04html\x18\x03 \x01(\bR\x04html\x12\x18\n" +
+	"\aoptions\x18\x04 \x03(\tR\aoptions\x12\x18\n" +
+	"\atimeout\x18\x05 \x01(\tR\atimeout\"1\n" +
+	"\x13AskQuestionResponse\x12\x1a\n" +
+	"\bdeadline\x18\x01 \x01(\tR\bdeadline\"\xa8\x02\n" +
+	"\fOrderRequest\x12\x19\n" +
+	"\btoken_id\x18\x01 \x01(\tR\atokenId\x12\x1b\n" +
+	"\tmarket_id\x18\x02 \x01(\tR\bmarketId\x12\x12\n" +
+	"\x04side\x18\x03 \x01(\tR\x04side\x12\x12\n" +
+	"\x04type\x18\x04 \x01(\tR\x04type\x12\x14\n" +
+	"\x05price\x18\x05 \x01(\tR\x05price\x12\x16\n" +
+	"\x06shares\x18\x06 \x01(\tR\x06shares\x12\x18\n" +
+	"\adollars\x18\a \x01(\tR\adollars\x12\x1b\n" +
+	"\tpost_only\x18\b \x01(\bR\bpostOnly\x12\x18\n" +
+	"\aexpires\x18\t \x01(\tR\aexpires\x12\x16\n" +
+	"\x06trader\x18\n" +
+	" \x01(\tR\x06trader\x12!\n" +
+	"\ftrader_label\x18\v \x01(\tR\vtraderLabel\"\x80\x02\n" +
+	"\vPlacedOrder\x12\x0e\n" +
+	"\x02id\x18\x01 \x01(\tR\x02id\x12\x12\n" +
+	"\x04mode\x18\x02 \x01(\tR\x04mode\x12\x16\n" +
+	"\x06status\x18\x03 \x01(\tR\x06status\x12\x16\n" +
+	"\x06reason\x18\x04 \x01(\tR\x06reason\x12\x19\n" +
+	"\btoken_id\x18\x05 \x01(\tR\atokenId\x12\x12\n" +
+	"\x04side\x18\x06 \x01(\tR\x04side\x12\x12\n" +
+	"\x04type\x18\a \x01(\tR\x04type\x12\x16\n" +
+	"\x06shares\x18\b \x01(\tR\x06shares\x12\x18\n" +
+	"\adollars\x18\t \x01(\tR\adollars\x12\x12\n" +
+	"\x04fees\x18\n" +
+	" \x01(\tR\x04fees\x12\x14\n" +
+	"\x05price\x18\v \x01(\tR\x05price\"_\n" +
+	"\x12PlaceOrdersRequest\x12\x18\n" +
+	"\asession\x18\x01 \x01(\tR\asession\x12/\n" +
+	"\x06orders\x18\x02 \x03(\v2\x17.plugin.v1.OrderRequestR\x06orders\"Q\n" +
+	"\vOrderResult\x12,\n" +
+	"\x05order\x18\x01 \x01(\v2\x16.plugin.v1.PlacedOrderR\x05order\x12\x14\n" +
+	"\x05error\x18\x02 \x01(\tR\x05error\"G\n" +
+	"\x13PlaceOrdersResponse\x120\n" +
+	"\aresults\x18\x01 \x03(\v2\x16.plugin.v1.OrderResultR\aresults\"\x94\x01\n" +
+	"\x13CancelOrdersRequest\x12\x18\n" +
+	"\asession\x18\x01 \x01(\tR\asession\x12\x19\n" +
+	"\border_id\x18\x02 \x01(\tR\aorderId\x12\x1b\n" +
+	"\tmarket_id\x18\x03 \x01(\tR\bmarketId\x12\x19\n" +
+	"\btoken_id\x18\x04 \x01(\tR\atokenId\x12\x10\n" +
+	"\x03all\x18\x05 \x01(\bR\x03all\"T\n" +
+	"\fCancelResult\x12,\n" +
+	"\x05order\x18\x01 \x01(\v2\x16.plugin.v1.PlacedOrderR\x05order\x12\x16\n" +
+	"\x06reason\x18\x02 \x01(\tR\x06reason\"I\n" +
+	"\x14CancelOrdersResponse\x121\n" +
+	"\aresults\x18\x01 \x03(\v2\x17.plugin.v1.CancelResultR\aresults2\xf2\v\n" +
 	"\vHostService\x12:\n" +
 	"\x05Fetch\x12\x17.plugin.v1.FetchRequest\x1a\x18.plugin.v1.FetchResponse\x12R\n" +
 	"\rGetCredential\x12\x1f.plugin.v1.GetCredentialRequest\x1a .plugin.v1.GetCredentialResponse\x12C\n" +
@@ -2760,7 +3622,11 @@ const file_plugin_v1_host_proto_rawDesc = "" +
 	"\n" +
 	"ListTrades\x12\x1c.plugin.v1.ListTradesRequest\x1a\x1d.plugin.v1.ListTradesResponse\x12R\n" +
 	"\rListPositions\x12\x1f.plugin.v1.ListPositionsRequest\x1a .plugin.v1.ListPositionsResponse\x12L\n" +
-	"\vListWallets\x12\x1d.plugin.v1.ListWalletsRequest\x1a\x1e.plugin.v1.ListWalletsResponse\x124\n" +
+	"\vListWallets\x12\x1d.plugin.v1.ListWalletsRequest\x1a\x1e.plugin.v1.ListWalletsResponse\x12L\n" +
+	"\vSendMessage\x12\x1d.plugin.v1.SendMessageRequest\x1a\x1e.plugin.v1.SendMessageResponse\x12L\n" +
+	"\vAskQuestion\x12\x1d.plugin.v1.AskQuestionRequest\x1a\x1e.plugin.v1.AskQuestionResponse\x12L\n" +
+	"\vPlaceOrders\x12\x1d.plugin.v1.PlaceOrdersRequest\x1a\x1e.plugin.v1.PlaceOrdersResponse\x12O\n" +
+	"\fCancelOrders\x12\x1e.plugin.v1.CancelOrdersRequest\x1a\x1f.plugin.v1.CancelOrdersResponse\x124\n" +
 	"\x03Log\x12\x15.plugin.v1.LogRequest\x1a\x16.plugin.v1.LogResponse\x12O\n" +
 	"\fRecordMetric\x12\x1e.plugin.v1.RecordMetricRequest\x1a\x1f.plugin.v1.RecordMetricResponse\x12F\n" +
 	"\tStartSpan\x12\x1b.plugin.v1.StartSpanRequest\x1a\x1c.plugin.v1.StartSpanResponse\x12@\n" +
@@ -2778,7 +3644,7 @@ func file_plugin_v1_host_proto_rawDescGZIP() []byte {
 	return file_plugin_v1_host_proto_rawDescData
 }
 
-var file_plugin_v1_host_proto_msgTypes = make([]protoimpl.MessageInfo, 45)
+var file_plugin_v1_host_proto_msgTypes = make([]protoimpl.MessageInfo, 57)
 var file_plugin_v1_host_proto_goTypes = []any{
 	(*Header)(nil),                  // 0: plugin.v1.Header
 	(*FetchRequest)(nil),            // 1: plugin.v1.FetchRequest
@@ -2821,22 +3687,34 @@ var file_plugin_v1_host_proto_goTypes = []any{
 	(*ListWalletsRequest)(nil),      // 38: plugin.v1.ListWalletsRequest
 	(*Wallet)(nil),                  // 39: plugin.v1.Wallet
 	(*ListWalletsResponse)(nil),     // 40: plugin.v1.ListWalletsResponse
-	nil,                             // 41: plugin.v1.LogRequest.FieldsEntry
-	nil,                             // 42: plugin.v1.RecordMetricRequest.LabelsEntry
-	nil,                             // 43: plugin.v1.StartSpanRequest.AttributesEntry
-	nil,                             // 44: plugin.v1.EndSpanRequest.AttributesEntry
-	(*ItemRef)(nil),                 // 45: plugin.v1.ItemRef
-	(*Credential)(nil),              // 46: plugin.v1.Credential
+	(*SendMessageRequest)(nil),      // 41: plugin.v1.SendMessageRequest
+	(*SendMessageResponse)(nil),     // 42: plugin.v1.SendMessageResponse
+	(*AskQuestionRequest)(nil),      // 43: plugin.v1.AskQuestionRequest
+	(*AskQuestionResponse)(nil),     // 44: plugin.v1.AskQuestionResponse
+	(*OrderRequest)(nil),            // 45: plugin.v1.OrderRequest
+	(*PlacedOrder)(nil),             // 46: plugin.v1.PlacedOrder
+	(*PlaceOrdersRequest)(nil),      // 47: plugin.v1.PlaceOrdersRequest
+	(*OrderResult)(nil),             // 48: plugin.v1.OrderResult
+	(*PlaceOrdersResponse)(nil),     // 49: plugin.v1.PlaceOrdersResponse
+	(*CancelOrdersRequest)(nil),     // 50: plugin.v1.CancelOrdersRequest
+	(*CancelResult)(nil),            // 51: plugin.v1.CancelResult
+	(*CancelOrdersResponse)(nil),    // 52: plugin.v1.CancelOrdersResponse
+	nil,                             // 53: plugin.v1.LogRequest.FieldsEntry
+	nil,                             // 54: plugin.v1.RecordMetricRequest.LabelsEntry
+	nil,                             // 55: plugin.v1.StartSpanRequest.AttributesEntry
+	nil,                             // 56: plugin.v1.EndSpanRequest.AttributesEntry
+	(*ItemRef)(nil),                 // 57: plugin.v1.ItemRef
+	(*Credential)(nil),              // 58: plugin.v1.Credential
 }
 var file_plugin_v1_host_proto_depIdxs = []int32{
 	0,  // 0: plugin.v1.FetchRequest.headers:type_name -> plugin.v1.Header
 	0,  // 1: plugin.v1.FetchResponse.headers:type_name -> plugin.v1.Header
-	45, // 2: plugin.v1.GetCredentialRequest.item:type_name -> plugin.v1.ItemRef
-	46, // 3: plugin.v1.GetCredentialResponse.credential:type_name -> plugin.v1.Credential
-	41, // 4: plugin.v1.LogRequest.fields:type_name -> plugin.v1.LogRequest.FieldsEntry
-	42, // 5: plugin.v1.RecordMetricRequest.labels:type_name -> plugin.v1.RecordMetricRequest.LabelsEntry
-	43, // 6: plugin.v1.StartSpanRequest.attributes:type_name -> plugin.v1.StartSpanRequest.AttributesEntry
-	44, // 7: plugin.v1.EndSpanRequest.attributes:type_name -> plugin.v1.EndSpanRequest.AttributesEntry
+	57, // 2: plugin.v1.GetCredentialRequest.item:type_name -> plugin.v1.ItemRef
+	58, // 3: plugin.v1.GetCredentialResponse.credential:type_name -> plugin.v1.Credential
+	53, // 4: plugin.v1.LogRequest.fields:type_name -> plugin.v1.LogRequest.FieldsEntry
+	54, // 5: plugin.v1.RecordMetricRequest.labels:type_name -> plugin.v1.RecordMetricRequest.LabelsEntry
+	55, // 6: plugin.v1.StartSpanRequest.attributes:type_name -> plugin.v1.StartSpanRequest.AttributesEntry
+	56, // 7: plugin.v1.EndSpanRequest.attributes:type_name -> plugin.v1.EndSpanRequest.AttributesEntry
 	22, // 8: plugin.v1.Market.outcomes:type_name -> plugin.v1.Outcome
 	21, // 9: plugin.v1.SearchMarketsResponse.markets:type_name -> plugin.v1.Market
 	27, // 10: plugin.v1.OrderBook.bids:type_name -> plugin.v1.Level
@@ -2846,43 +3724,56 @@ var file_plugin_v1_host_proto_depIdxs = []int32{
 	33, // 14: plugin.v1.ListTradesResponse.trades:type_name -> plugin.v1.Trade
 	36, // 15: plugin.v1.ListPositionsResponse.positions:type_name -> plugin.v1.Position
 	39, // 16: plugin.v1.ListWalletsResponse.wallets:type_name -> plugin.v1.Wallet
-	1,  // 17: plugin.v1.HostService.Fetch:input_type -> plugin.v1.FetchRequest
-	3,  // 18: plugin.v1.HostService.GetCredential:input_type -> plugin.v1.GetCredentialRequest
-	13, // 19: plugin.v1.HostService.GetValue:input_type -> plugin.v1.GetValueRequest
-	15, // 20: plugin.v1.HostService.SetValue:input_type -> plugin.v1.SetValueRequest
-	17, // 21: plugin.v1.HostService.DeleteValue:input_type -> plugin.v1.DeleteValueRequest
-	19, // 22: plugin.v1.HostService.ListKeys:input_type -> plugin.v1.ListKeysRequest
-	23, // 23: plugin.v1.HostService.SearchMarkets:input_type -> plugin.v1.SearchMarketsRequest
-	25, // 24: plugin.v1.HostService.GetOrderBook:input_type -> plugin.v1.GetOrderBookRequest
-	29, // 25: plugin.v1.HostService.GetPriceHistory:input_type -> plugin.v1.GetPriceHistoryRequest
-	32, // 26: plugin.v1.HostService.ListTrades:input_type -> plugin.v1.ListTradesRequest
-	35, // 27: plugin.v1.HostService.ListPositions:input_type -> plugin.v1.ListPositionsRequest
-	38, // 28: plugin.v1.HostService.ListWallets:input_type -> plugin.v1.ListWalletsRequest
-	5,  // 29: plugin.v1.HostService.Log:input_type -> plugin.v1.LogRequest
-	7,  // 30: plugin.v1.HostService.RecordMetric:input_type -> plugin.v1.RecordMetricRequest
-	9,  // 31: plugin.v1.HostService.StartSpan:input_type -> plugin.v1.StartSpanRequest
-	11, // 32: plugin.v1.HostService.EndSpan:input_type -> plugin.v1.EndSpanRequest
-	2,  // 33: plugin.v1.HostService.Fetch:output_type -> plugin.v1.FetchResponse
-	4,  // 34: plugin.v1.HostService.GetCredential:output_type -> plugin.v1.GetCredentialResponse
-	14, // 35: plugin.v1.HostService.GetValue:output_type -> plugin.v1.GetValueResponse
-	16, // 36: plugin.v1.HostService.SetValue:output_type -> plugin.v1.SetValueResponse
-	18, // 37: plugin.v1.HostService.DeleteValue:output_type -> plugin.v1.DeleteValueResponse
-	20, // 38: plugin.v1.HostService.ListKeys:output_type -> plugin.v1.ListKeysResponse
-	24, // 39: plugin.v1.HostService.SearchMarkets:output_type -> plugin.v1.SearchMarketsResponse
-	28, // 40: plugin.v1.HostService.GetOrderBook:output_type -> plugin.v1.GetOrderBookResponse
-	31, // 41: plugin.v1.HostService.GetPriceHistory:output_type -> plugin.v1.GetPriceHistoryResponse
-	34, // 42: plugin.v1.HostService.ListTrades:output_type -> plugin.v1.ListTradesResponse
-	37, // 43: plugin.v1.HostService.ListPositions:output_type -> plugin.v1.ListPositionsResponse
-	40, // 44: plugin.v1.HostService.ListWallets:output_type -> plugin.v1.ListWalletsResponse
-	6,  // 45: plugin.v1.HostService.Log:output_type -> plugin.v1.LogResponse
-	8,  // 46: plugin.v1.HostService.RecordMetric:output_type -> plugin.v1.RecordMetricResponse
-	10, // 47: plugin.v1.HostService.StartSpan:output_type -> plugin.v1.StartSpanResponse
-	12, // 48: plugin.v1.HostService.EndSpan:output_type -> plugin.v1.EndSpanResponse
-	33, // [33:49] is the sub-list for method output_type
-	17, // [17:33] is the sub-list for method input_type
-	17, // [17:17] is the sub-list for extension type_name
-	17, // [17:17] is the sub-list for extension extendee
-	0,  // [0:17] is the sub-list for field type_name
+	45, // 17: plugin.v1.PlaceOrdersRequest.orders:type_name -> plugin.v1.OrderRequest
+	46, // 18: plugin.v1.OrderResult.order:type_name -> plugin.v1.PlacedOrder
+	48, // 19: plugin.v1.PlaceOrdersResponse.results:type_name -> plugin.v1.OrderResult
+	46, // 20: plugin.v1.CancelResult.order:type_name -> plugin.v1.PlacedOrder
+	51, // 21: plugin.v1.CancelOrdersResponse.results:type_name -> plugin.v1.CancelResult
+	1,  // 22: plugin.v1.HostService.Fetch:input_type -> plugin.v1.FetchRequest
+	3,  // 23: plugin.v1.HostService.GetCredential:input_type -> plugin.v1.GetCredentialRequest
+	13, // 24: plugin.v1.HostService.GetValue:input_type -> plugin.v1.GetValueRequest
+	15, // 25: plugin.v1.HostService.SetValue:input_type -> plugin.v1.SetValueRequest
+	17, // 26: plugin.v1.HostService.DeleteValue:input_type -> plugin.v1.DeleteValueRequest
+	19, // 27: plugin.v1.HostService.ListKeys:input_type -> plugin.v1.ListKeysRequest
+	23, // 28: plugin.v1.HostService.SearchMarkets:input_type -> plugin.v1.SearchMarketsRequest
+	25, // 29: plugin.v1.HostService.GetOrderBook:input_type -> plugin.v1.GetOrderBookRequest
+	29, // 30: plugin.v1.HostService.GetPriceHistory:input_type -> plugin.v1.GetPriceHistoryRequest
+	32, // 31: plugin.v1.HostService.ListTrades:input_type -> plugin.v1.ListTradesRequest
+	35, // 32: plugin.v1.HostService.ListPositions:input_type -> plugin.v1.ListPositionsRequest
+	38, // 33: plugin.v1.HostService.ListWallets:input_type -> plugin.v1.ListWalletsRequest
+	41, // 34: plugin.v1.HostService.SendMessage:input_type -> plugin.v1.SendMessageRequest
+	43, // 35: plugin.v1.HostService.AskQuestion:input_type -> plugin.v1.AskQuestionRequest
+	47, // 36: plugin.v1.HostService.PlaceOrders:input_type -> plugin.v1.PlaceOrdersRequest
+	50, // 37: plugin.v1.HostService.CancelOrders:input_type -> plugin.v1.CancelOrdersRequest
+	5,  // 38: plugin.v1.HostService.Log:input_type -> plugin.v1.LogRequest
+	7,  // 39: plugin.v1.HostService.RecordMetric:input_type -> plugin.v1.RecordMetricRequest
+	9,  // 40: plugin.v1.HostService.StartSpan:input_type -> plugin.v1.StartSpanRequest
+	11, // 41: plugin.v1.HostService.EndSpan:input_type -> plugin.v1.EndSpanRequest
+	2,  // 42: plugin.v1.HostService.Fetch:output_type -> plugin.v1.FetchResponse
+	4,  // 43: plugin.v1.HostService.GetCredential:output_type -> plugin.v1.GetCredentialResponse
+	14, // 44: plugin.v1.HostService.GetValue:output_type -> plugin.v1.GetValueResponse
+	16, // 45: plugin.v1.HostService.SetValue:output_type -> plugin.v1.SetValueResponse
+	18, // 46: plugin.v1.HostService.DeleteValue:output_type -> plugin.v1.DeleteValueResponse
+	20, // 47: plugin.v1.HostService.ListKeys:output_type -> plugin.v1.ListKeysResponse
+	24, // 48: plugin.v1.HostService.SearchMarkets:output_type -> plugin.v1.SearchMarketsResponse
+	28, // 49: plugin.v1.HostService.GetOrderBook:output_type -> plugin.v1.GetOrderBookResponse
+	31, // 50: plugin.v1.HostService.GetPriceHistory:output_type -> plugin.v1.GetPriceHistoryResponse
+	34, // 51: plugin.v1.HostService.ListTrades:output_type -> plugin.v1.ListTradesResponse
+	37, // 52: plugin.v1.HostService.ListPositions:output_type -> plugin.v1.ListPositionsResponse
+	40, // 53: plugin.v1.HostService.ListWallets:output_type -> plugin.v1.ListWalletsResponse
+	42, // 54: plugin.v1.HostService.SendMessage:output_type -> plugin.v1.SendMessageResponse
+	44, // 55: plugin.v1.HostService.AskQuestion:output_type -> plugin.v1.AskQuestionResponse
+	49, // 56: plugin.v1.HostService.PlaceOrders:output_type -> plugin.v1.PlaceOrdersResponse
+	52, // 57: plugin.v1.HostService.CancelOrders:output_type -> plugin.v1.CancelOrdersResponse
+	6,  // 58: plugin.v1.HostService.Log:output_type -> plugin.v1.LogResponse
+	8,  // 59: plugin.v1.HostService.RecordMetric:output_type -> plugin.v1.RecordMetricResponse
+	10, // 60: plugin.v1.HostService.StartSpan:output_type -> plugin.v1.StartSpanResponse
+	12, // 61: plugin.v1.HostService.EndSpan:output_type -> plugin.v1.EndSpanResponse
+	42, // [42:62] is the sub-list for method output_type
+	22, // [22:42] is the sub-list for method input_type
+	22, // [22:22] is the sub-list for extension type_name
+	22, // [22:22] is the sub-list for extension extendee
+	0,  // [0:22] is the sub-list for field type_name
 }
 
 func init() { file_plugin_v1_host_proto_init() }
@@ -2897,7 +3788,7 @@ func file_plugin_v1_host_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_plugin_v1_host_proto_rawDesc), len(file_plugin_v1_host_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   45,
+			NumMessages:   57,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

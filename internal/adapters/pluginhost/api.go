@@ -43,6 +43,10 @@ const (
 	opTrades        = "pluginhost.ListTrades"
 	opPositions     = "pluginhost.ListPositions"
 	opWallets       = "pluginhost.ListWallets"
+	opMessage       = "pluginhost.SendMessage"
+	opAsk           = "pluginhost.AskQuestion"
+	opPlaceOrders   = "pluginhost.PlaceOrders"
+	opCancelOrders  = "pluginhost.CancelOrders"
 )
 
 // Deps are what the host serves plugins from (5b).
@@ -58,6 +62,10 @@ type Deps struct {
 
 	// Data is what plugins may read.
 	Data Data
+
+	// Telegram reaches the workflow's owner; Trading trades for the workflow.
+	Telegram Telegram
+	Trading  Trading
 
 	// AllowPrivate lets fetches reach addresses inside the server's network, as the
 	// webhooks' setting does; asked on every connection, nil means never.
@@ -127,6 +135,7 @@ type api struct {
 
 	// Set once the plugin has described itself, before it has any run.
 	id      string
+	name    string // as messages are marked with it (D308)
 	perms   permissions
 	metrics map[string]*metric
 
@@ -170,7 +179,7 @@ func (a *api) bind(m plugin.Manifest) error {
 		return err
 	}
 
-	a.id, a.perms, a.log = m.ID, perms, a.log.With("plugin", m.ID)
+	a.id, a.name, a.perms, a.log = m.ID, m.Name, perms, a.log.With("plugin", m.ID)
 	a.metrics = a.registerMetrics(m)
 
 	return nil
@@ -183,6 +192,7 @@ type session struct {
 	rc      engine.RunContext
 	trigger bool
 	typ     engine.NodeType
+	trades  bool // its manifest marks it trades (D309)
 	// params are each input item's settings, worked out; a trigger's are under the zero
 	// ref.
 	params map[engine.ItemRef]engine.Params
@@ -196,6 +206,17 @@ type session struct {
 	over      bool      // a node's run asked past its calls
 	spans     map[uint64]trace.Span
 	lastSpan  uint64
+
+	question *question // the one the run asked, which it waits on
+	asking   bool      // its question is being sent
+}
+
+// asked is the question the run asked, if it did.
+func (s *session) asked() *question {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	return s.question
 }
 
 // open registers a run's session, until closed: its token is what the plugin's calls

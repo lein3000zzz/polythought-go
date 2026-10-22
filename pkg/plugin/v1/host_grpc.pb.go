@@ -38,6 +38,10 @@ const (
 	HostService_ListTrades_FullMethodName      = "/plugin.v1.HostService/ListTrades"
 	HostService_ListPositions_FullMethodName   = "/plugin.v1.HostService/ListPositions"
 	HostService_ListWallets_FullMethodName     = "/plugin.v1.HostService/ListWallets"
+	HostService_SendMessage_FullMethodName     = "/plugin.v1.HostService/SendMessage"
+	HostService_AskQuestion_FullMethodName     = "/plugin.v1.HostService/AskQuestion"
+	HostService_PlaceOrders_FullMethodName     = "/plugin.v1.HostService/PlaceOrders"
+	HostService_CancelOrders_FullMethodName    = "/plugin.v1.HostService/CancelOrders"
 	HostService_Log_FullMethodName             = "/plugin.v1.HostService/Log"
 	HostService_RecordMetric_FullMethodName    = "/plugin.v1.HostService/RecordMetric"
 	HostService_StartSpan_FullMethodName       = "/plugin.v1.HostService/StartSpan"
@@ -74,6 +78,21 @@ type HostServiceClient interface {
 	// ListWallets are the workflow's owner's own wallets, with the wallets permission
 	// (D301). It counts as a call.
 	ListWallets(ctx context.Context, in *ListWalletsRequest, opts ...grpc.CallOption) (*ListWalletsResponse, error)
+	// SendMessage messages the workflow's owner on Telegram, in their linked chat, after
+	// the plugin's name (D308), with the telegram permission (D307). It counts as a call.
+	SendMessage(ctx context.Context, in *SendMessageRequest, opts ...grpc.CallOption) (*SendMessageResponse, error)
+	// AskQuestion asks the owner on Telegram, a button per option, with the telegram
+	// permission: once a node's run, never a trigger's. The node then answers RunNode with
+	// a wait, and the run waits for the answer or the timeout, coming back through
+	// RunNode's resume. It counts as a call.
+	AskQuestion(ctx context.Context, in *AskQuestionRequest, opts ...grpc.CallOption) (*AskQuestionResponse, error)
+	// PlaceOrders places orders for the workflow as Place order does, paper or live as it
+	// trades, within its caps and the kill switch; several at once go together when live.
+	// CancelOrders cancels the workflow's own resting orders. Both take the orders
+	// permission, from a node's run of a node the manifest marks trades (D309, D310). Each
+	// counts as a call.
+	PlaceOrders(ctx context.Context, in *PlaceOrdersRequest, opts ...grpc.CallOption) (*PlaceOrdersResponse, error)
+	CancelOrders(ctx context.Context, in *CancelOrdersRequest, opts ...grpc.CallOption) (*CancelOrdersResponse, error)
 	// Log, RecordMetric, StartSpan and EndSpan are the plugin's logs, metrics and traces.
 	// They are not counted as calls, but have a cap of their own a run.
 	Log(ctx context.Context, in *LogRequest, opts ...grpc.CallOption) (*LogResponse, error)
@@ -210,6 +229,46 @@ func (c *hostServiceClient) ListWallets(ctx context.Context, in *ListWalletsRequ
 	return out, nil
 }
 
+func (c *hostServiceClient) SendMessage(ctx context.Context, in *SendMessageRequest, opts ...grpc.CallOption) (*SendMessageResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(SendMessageResponse)
+	err := c.cc.Invoke(ctx, HostService_SendMessage_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *hostServiceClient) AskQuestion(ctx context.Context, in *AskQuestionRequest, opts ...grpc.CallOption) (*AskQuestionResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(AskQuestionResponse)
+	err := c.cc.Invoke(ctx, HostService_AskQuestion_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *hostServiceClient) PlaceOrders(ctx context.Context, in *PlaceOrdersRequest, opts ...grpc.CallOption) (*PlaceOrdersResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(PlaceOrdersResponse)
+	err := c.cc.Invoke(ctx, HostService_PlaceOrders_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *hostServiceClient) CancelOrders(ctx context.Context, in *CancelOrdersRequest, opts ...grpc.CallOption) (*CancelOrdersResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(CancelOrdersResponse)
+	err := c.cc.Invoke(ctx, HostService_CancelOrders_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (c *hostServiceClient) Log(ctx context.Context, in *LogRequest, opts ...grpc.CallOption) (*LogResponse, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(LogResponse)
@@ -280,6 +339,21 @@ type HostServiceServer interface {
 	// ListWallets are the workflow's owner's own wallets, with the wallets permission
 	// (D301). It counts as a call.
 	ListWallets(context.Context, *ListWalletsRequest) (*ListWalletsResponse, error)
+	// SendMessage messages the workflow's owner on Telegram, in their linked chat, after
+	// the plugin's name (D308), with the telegram permission (D307). It counts as a call.
+	SendMessage(context.Context, *SendMessageRequest) (*SendMessageResponse, error)
+	// AskQuestion asks the owner on Telegram, a button per option, with the telegram
+	// permission: once a node's run, never a trigger's. The node then answers RunNode with
+	// a wait, and the run waits for the answer or the timeout, coming back through
+	// RunNode's resume. It counts as a call.
+	AskQuestion(context.Context, *AskQuestionRequest) (*AskQuestionResponse, error)
+	// PlaceOrders places orders for the workflow as Place order does, paper or live as it
+	// trades, within its caps and the kill switch; several at once go together when live.
+	// CancelOrders cancels the workflow's own resting orders. Both take the orders
+	// permission, from a node's run of a node the manifest marks trades (D309, D310). Each
+	// counts as a call.
+	PlaceOrders(context.Context, *PlaceOrdersRequest) (*PlaceOrdersResponse, error)
+	CancelOrders(context.Context, *CancelOrdersRequest) (*CancelOrdersResponse, error)
 	// Log, RecordMetric, StartSpan and EndSpan are the plugin's logs, metrics and traces.
 	// They are not counted as calls, but have a cap of their own a run.
 	Log(context.Context, *LogRequest) (*LogResponse, error)
@@ -331,6 +405,18 @@ func (UnimplementedHostServiceServer) ListPositions(context.Context, *ListPositi
 }
 func (UnimplementedHostServiceServer) ListWallets(context.Context, *ListWalletsRequest) (*ListWalletsResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method ListWallets not implemented")
+}
+func (UnimplementedHostServiceServer) SendMessage(context.Context, *SendMessageRequest) (*SendMessageResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method SendMessage not implemented")
+}
+func (UnimplementedHostServiceServer) AskQuestion(context.Context, *AskQuestionRequest) (*AskQuestionResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method AskQuestion not implemented")
+}
+func (UnimplementedHostServiceServer) PlaceOrders(context.Context, *PlaceOrdersRequest) (*PlaceOrdersResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method PlaceOrders not implemented")
+}
+func (UnimplementedHostServiceServer) CancelOrders(context.Context, *CancelOrdersRequest) (*CancelOrdersResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method CancelOrders not implemented")
 }
 func (UnimplementedHostServiceServer) Log(context.Context, *LogRequest) (*LogResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method Log not implemented")
@@ -581,6 +667,78 @@ func _HostService_ListWallets_Handler(srv interface{}, ctx context.Context, dec 
 	return interceptor(ctx, in, info, handler)
 }
 
+func _HostService_SendMessage_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(SendMessageRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(HostServiceServer).SendMessage(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: HostService_SendMessage_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(HostServiceServer).SendMessage(ctx, req.(*SendMessageRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _HostService_AskQuestion_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(AskQuestionRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(HostServiceServer).AskQuestion(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: HostService_AskQuestion_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(HostServiceServer).AskQuestion(ctx, req.(*AskQuestionRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _HostService_PlaceOrders_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(PlaceOrdersRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(HostServiceServer).PlaceOrders(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: HostService_PlaceOrders_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(HostServiceServer).PlaceOrders(ctx, req.(*PlaceOrdersRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _HostService_CancelOrders_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(CancelOrdersRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(HostServiceServer).CancelOrders(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: HostService_CancelOrders_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(HostServiceServer).CancelOrders(ctx, req.(*CancelOrdersRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 func _HostService_Log_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(LogRequest)
 	if err := dec(in); err != nil {
@@ -707,6 +865,22 @@ var HostService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "ListWallets",
 			Handler:    _HostService_ListWallets_Handler,
+		},
+		{
+			MethodName: "SendMessage",
+			Handler:    _HostService_SendMessage_Handler,
+		},
+		{
+			MethodName: "AskQuestion",
+			Handler:    _HostService_AskQuestion_Handler,
+		},
+		{
+			MethodName: "PlaceOrders",
+			Handler:    _HostService_PlaceOrders_Handler,
+		},
+		{
+			MethodName: "CancelOrders",
+			Handler:    _HostService_CancelOrders_Handler,
 		},
 		{
 			MethodName: "Log",
