@@ -2,7 +2,7 @@ import { canvasNode, createWorkflow, expect, test, unique } from './fixtures'
 
 test('a dark theme is there before the app loads, with no white flash', async ({ page }) => {
   await page.goto('/workflows')
-  await page.getByRole('button', { name: 'Theme' }).click()
+  await page.getByRole('button', { name: 'Account' }).click()
   await page.getByRole('menuitemradio', { name: 'Dark' }).click()
   await expect(page.locator('html')).toHaveClass(/dark/)
 

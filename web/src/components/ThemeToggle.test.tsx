@@ -16,7 +16,8 @@ describe('theme switcher', () => {
     )
     const { user } = renderApp('/workflows')
 
-    await user.click(await screen.findByRole('button', { name: 'Theme' }))
+    // In the app, the account menu has it (D368).
+    await user.click(await screen.findByRole('button', { name: 'Account' }))
     const menu = within(await screen.findByRole('menu'))
     expect(menu.getByRole('menuitemradio', { name: 'System' })).toBeChecked()
 
@@ -24,7 +25,7 @@ describe('theme switcher', () => {
     expect(isDark()).toBe(true)
     expect(localStorage.getItem('polythought.theme')).toBe('dark')
 
-    await user.click(screen.getByRole('button', { name: 'Theme' }))
+    await user.click(screen.getByRole('button', { name: 'Account' }))
     await user.click(await screen.findByRole('menuitemradio', { name: 'Light' }))
     expect(isDark()).toBe(false)
   })

@@ -14,9 +14,11 @@ test('signing in and out', async ({ page }) => {
   await page.getByLabel('Password').fill(admin.password)
   await page.getByRole('button', { name: 'Sign in' }).click()
   await expect(page).toHaveURL(/\/workflows$/)
-  await expect(page.getByText(admin.email)).toBeVisible()
+  await page.getByRole('button', { name: 'Account' }).click()
+  const account = page.getByRole('menu')
+  await expect(account.getByText(admin.email)).toBeVisible()
 
-  await page.getByRole('button', { name: 'Sign out' }).click()
+  await account.getByRole('menuitem', { name: 'Sign out' }).click()
   await expect(page).toHaveURL(/\/login/)
 
   // The session is gone on the server too.

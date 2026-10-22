@@ -59,7 +59,7 @@ describe('signing in', () => {
 
     expect(await screen.findByText('No workflows yet.')).toBeInTheDocument()
     expect(router.state.location.pathname).toBe('/workflows')
-    expect(screen.getByText(alice.email)).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Account' })).toHaveAttribute('title', alice.email)
     expect(body).toEqual({ email: 'alice@example.com', password: 'correct horse battery' })
   })
 
@@ -104,7 +104,8 @@ describe('session', () => {
     expect(docs).toHaveAttribute('href', '/docs/')
     expect(docs).toHaveAttribute('target', '_blank')
 
-    await user.click(screen.getByRole('button', { name: 'Sign out' }))
+    await user.click(screen.getByRole('button', { name: 'Account' }))
+    await user.click(await screen.findByRole('menuitem', { name: 'Sign out' }))
 
     expect(await screen.findByRole('button', { name: 'Sign in' })).toBeInTheDocument()
     expect(router.state.location.pathname).toBe('/login')

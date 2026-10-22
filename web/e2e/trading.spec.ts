@@ -266,7 +266,8 @@ test('the live orders page lists none on paper, and downloads them as CSV (D228)
   page,
 }) => {
   await page.goto('/workflows')
-  await page.getByRole('link', { name: 'Live orders' }).click()
+  await page.getByRole('button', { name: 'Trading' }).click()
+  await page.getByRole('menuitem', { name: 'Live orders' }).click()
 
   await expect(page.getByRole('heading', { name: 'Live orders' })).toBeVisible()
   await expect(page.getByText('No live orders yet.')).toBeVisible()

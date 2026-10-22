@@ -268,7 +268,7 @@ e2e: ## Browser tests against a throwaway stack in Docker (UI on :3100, removed 
 	trap '$(E2E_COMPOSE) down -v --remove-orphans >/dev/null 2>&1' EXIT; \
 	$(E2E_COMPOSE) up -d --build --wait; \
 	E2E_ADMIN_EMAIL=$$POLYTHOUGHT_ADMIN_EMAIL E2E_ADMIN_PASSWORD=$$POLYTHOUGHT_ADMIN_PASSWORD \
-		$(PNPM) --dir web exec playwright test
+		$(PNPM) --dir web exec playwright test $(E2E_ONLY)
 
 ## Aggregates
 

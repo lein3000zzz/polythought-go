@@ -57,10 +57,13 @@ describe('admin page', () => {
       signedIn,
       http.get('/api/v1/workflows', () => HttpResponse.json({ workflows: [] })),
     )
-    renderApp('/admin')
+    const { user } = renderApp('/admin')
 
     expect(await screen.findByText('This page is for admins.')).toBeInTheDocument()
-    expect(screen.queryByRole('link', { name: 'Admin' })).not.toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: 'Account' }))
+    expect(await screen.findByRole('menuitem', { name: 'Settings' })).toBeInTheDocument()
+    expect(screen.queryByRole('menuitem', { name: 'Admin' })).not.toBeInTheDocument()
   })
 
   it('creates users and disables them after asking', async () => {
@@ -78,7 +81,6 @@ describe('admin page', () => {
     )
     const { user } = renderApp('/admin')
 
-    expect(await screen.findByRole('link', { name: 'Admin' })).toBeInTheDocument()
     await screen.findByText('alice@example.com')
     expect(within(userRow('root@example.com')).getByText('You')).toBeInTheDocument()
     // Their own caps only: no role or disabling for themselves.

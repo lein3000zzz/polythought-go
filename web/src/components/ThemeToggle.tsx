@@ -16,9 +16,28 @@ const choices = [
   { value: 'system', label: 'System', Icon: Monitor },
 ] as const
 
+/** The theme's choices, as items of an open menu: this one's, or the account menu's. */
+export function ThemeChoices() {
+  const { preference } = useTheme()
+
+  return (
+    <DropdownMenuRadioGroup
+      value={preference}
+      onValueChange={(v) => setThemePreference(v as ThemePreference)}
+    >
+      {choices.map(({ value, label, Icon }) => (
+        <DropdownMenuRadioItem key={value} value={value}>
+          <Icon />
+          {label}
+        </DropdownMenuRadioItem>
+      ))}
+    </DropdownMenuRadioGroup>
+  )
+}
+
 /** Picks light, dark, or whatever the system uses. The icon shows the theme in use. */
 export function ThemeToggle() {
-  const { preference, theme } = useTheme()
+  const { theme } = useTheme()
 
   return (
     <DropdownMenu>
@@ -28,17 +47,7 @@ export function ThemeToggle() {
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end">
-        <DropdownMenuRadioGroup
-          value={preference}
-          onValueChange={(v) => setThemePreference(v as ThemePreference)}
-        >
-          {choices.map(({ value, label, Icon }) => (
-            <DropdownMenuRadioItem key={value} value={value}>
-              <Icon />
-              {label}
-            </DropdownMenuRadioItem>
-          ))}
-        </DropdownMenuRadioGroup>
+        <ThemeChoices />
       </DropdownMenuContent>
     </DropdownMenu>
   )
