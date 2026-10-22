@@ -92,6 +92,10 @@ test-sandbox: ## The sandbox's tests on Linux, in Docker, as the server runs the
 		golang:1.27.3-bookworm go test -count=1 ./internal/adapters/sandbox/ ./internal/adapters/pluginhost/ \
 		./internal/adapters/coderunner/
 
+.PHONY: examples
+examples: ## Vet, lint and test the example plugin, a module of its own (D360) that ./... does not reach
+	cd examples/plugins/movers && $(GO) vet ./... && $(GOLANGCI_LINT) run ./... && $(GO) test -count=1 ./...
+
 .PHONY: test-all
 test-all: test test-db test-integration ## Unit, database and live tests
 
@@ -252,6 +256,9 @@ e2e: ## Browser tests against a throwaway stack in Docker (UI on :3100, removed 
 	@# The host's test plugin, for the containers' platform, to install (5c2).
 	$(GO) run ./tools/pluginpack -o web/e2e/.plugins/echo.tar.gz -platforms linux_amd64,linux_arm64 \
 		./internal/adapters/pluginhost/testdata/echo
+	@# And the example plugin, as an admin installs it (5f).
+	$(GO) run ./tools/pluginpack -o web/e2e/.plugins/movers.tar.gz -platforms linux_amd64,linux_arm64 \
+		./examples/plugins/movers
 	@set -e; \
 	export POLYTHOUGHT_SECRET_KEYS="e2e:$$(openssl rand -base64 32)" \
 		POLYTHOUGHT_ADMIN_EMAIL=admin@e2e.test POLYTHOUGHT_ADMIN_PASSWORD=e2e-admin-password \
@@ -264,7 +271,7 @@ e2e: ## Browser tests against a throwaway stack in Docker (UI on :3100, removed 
 ## Aggregates
 
 .PHONY: check
-check: fmt-check vet lint test ## Everything that runs offline: format, vet, lint, unit tests
+check: fmt-check vet lint test examples ## Everything that runs offline: format, vet, lint, unit tests, the example plugin
 
 .PHONY: clean
 clean: ## Remove build and coverage artefacts

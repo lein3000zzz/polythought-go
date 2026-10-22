@@ -9,7 +9,8 @@ the server lets it: the network only at the addresses it names, and Telegram, th
 wallets and orders only by permissions you approve. On Linux that process runs in a sandbox.
 
 Only admins install plugins. Nothing of a plugin runs until you approve what it asks for and
-the server restarts.
+the server restarts. To build one, see [Write a plugin](/docs/self-hosting/write-a-plugin/),
+which walks through the example in `examples/plugins/movers`.
 
 ## Installing
 

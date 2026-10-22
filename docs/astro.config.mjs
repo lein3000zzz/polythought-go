@@ -29,7 +29,12 @@ export default defineConfig({
         },
         {
           label: 'Self-hosting',
-          items: ['self-hosting/install', 'self-hosting/configuration', 'self-hosting/plugins'],
+          items: [
+            'self-hosting/install',
+            'self-hosting/configuration',
+            'self-hosting/plugins',
+            'self-hosting/write-a-plugin',
+          ],
         },
         {
           label: 'Reference',

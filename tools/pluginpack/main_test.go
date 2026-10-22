@@ -37,3 +37,23 @@ func TestPack(t *testing.T) {
 
 	require.Error(t, pack("../../internal/adapters/pluginhost/testdata/echo", out, []string{"plan9"}, ""), "a platform not os_arch")
 }
+
+// The example plugin, a module of its own as an author's is, packs as well (D360).
+func TestPackExample(t *testing.T) {
+	out := filepath.Join(t.TempDir(), "movers.tar.gz")
+
+	require.NoError(t, pack("../../examples/plugins/movers", out, []string{runtime.GOOS + "_" + runtime.GOARCH}, ""))
+
+	archive, err := os.Open(out) //nolint:gosec // the test's
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = archive.Close() })
+
+	dir, err := plugindir.Open(filepath.Join(t.TempDir(), "plugins"))
+	require.NoError(t, err)
+
+	v, err := dir.Install(archive, 256<<20, nil)
+	require.NoError(t, err)
+
+	assert.Equal(t, "movers", v.Manifest.ID)
+	assert.Equal(t, []string{"telegram", "fetch:api.coingecko.com"}, v.Manifest.Permissions)
+}

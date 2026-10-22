@@ -1,7 +1,9 @@
 import { createWorkflow, expect, test, unique } from './fixtures'
 
-// The host's test plugin, packed for the containers by make e2e (tools/pluginpack).
+// The host's test plugin and the example plugin, packed for the containers by make e2e
+// (tools/pluginpack).
 const archive = 'e2e/.plugins/echo.tar.gz'
+const example = 'e2e/.plugins/movers.tar.gz'
 
 test.describe('a plugin', () => {
   // The server is down for a moment while it restarts.
@@ -159,5 +161,65 @@ test.describe('a plugin', () => {
     await page.getByRole('alertdialog').getByRole('button', { name: 'Remove' }).click()
     await expect(page.getByText('What echo left behind is removed')).toBeVisible()
     await expect(left).toBeHidden()
+  })
+
+  test('the example plugin installs, is approved, and its node runs in a workflow (5f)', async ({
+    page,
+  }) => {
+    await page.goto('/admin/plugins')
+    await page.getByLabel('Archive').setInputFiles(example)
+    await page.getByRole('button', { name: 'Install', exact: true }).click()
+
+    const dialog = page.getByRole('dialog')
+    await expect(dialog.getByText('Approve Market movers 1.0.0')).toBeVisible()
+    await expect(dialog.getByText('Reach api.coingecko.com')).toBeVisible()
+
+    const approve = dialog.getByRole('button', { name: 'Approve' })
+    for (const box of await dialog.getByRole('checkbox').all()) await box.check()
+    await approve.click()
+    await expect(
+      page.getByText('Market movers 1.0.0 is approved: it runs once the server restarts'),
+    ).toBeVisible()
+
+    await page.getByRole('button', { name: 'Restart now' }).click()
+    await page.getByRole('alertdialog').getByRole('button', { name: 'Restart' }).click()
+    await expect(page.getByText('Server restarted')).toBeVisible({ timeout: 60_000 })
+
+    const card = page.getByRole('article', { name: 'Market movers' })
+    await expect(card.getByText('Running')).toBeVisible()
+    await expect(card.getByText('Sandboxed', { exact: true })).toBeVisible()
+
+    // Its node, after a market's move as its trigger would bring it: previewed, so neither
+    // Telegram nor CoinGecko is needed here.
+    const id = await createWorkflow(page, unique('movers'), [
+      { id: 'manual', type: 'trigger.manual' },
+      {
+        id: 'move',
+        type: 'code.transform',
+        params: {
+          source: `export function run() {
+  return [{ question: "Will it rain?", outcome: "Yes", from: "0.40", to: "0.47" }]
+}`,
+        },
+      },
+      { id: 'alert', type: 'plugin.movers.alert', params: { send: false } },
+    ])
+
+    const res = await page.request.post(`/api/v1/workflows/${id}/run`)
+    expect(res.status(), await res.text()).toBe(200)
+
+    const run = (await res.json()) as {
+      status: string
+      runs: { nodeId: string; samples?: Record<string, { json?: Record<string, unknown> }[]> }[]
+    }
+    expect(run.status).toBe('succeeded')
+    expect(run.runs.find((r) => r.nodeId === 'alert')?.samples?.main?.[0]?.json).toMatchObject({
+      message: 'Will it rain? moved +7 points, from 40% to 47% (Yes).',
+      sent: false,
+    })
+
+    // Its scenario is the library's.
+    await page.goto('/library')
+    await expect(page.getByText('Alert me when a market moves')).toBeVisible()
   })
 })

@@ -4,7 +4,10 @@
 //
 //	go run ./tools/pluginpack -o weather-1.0.0.tar.gz -platforms linux_amd64,linux_arm64 ./plugins/weather
 //
-// The program is built with CGO off, so one archive runs on any machine of a platform.
+// The plugin is a directory, of a module of its own or this one's, built where it is so its
+// own go.mod applies; or a package path, built here. The program is built with CGO off, so
+// one archive runs on any machine of a platform, the sandbox's included, which gives it no
+// C library (D337).
 package main
 
 import (
@@ -111,7 +114,13 @@ func pack(pkg, out string, platforms []string, keyFile string) error {
 }
 
 func build(pkg, out, goos, goarch string) error {
-	cmd := exec.Command("go", "build", "-trimpath", "-ldflags=-s -w", "-o", out, pkg) //nolint:gosec // a package the packer was given
+	target, dir := pkg, ""
+	if info, err := os.Stat(pkg); err == nil && info.IsDir() {
+		target, dir = ".", pkg
+	}
+
+	cmd := exec.Command("go", "build", "-trimpath", "-ldflags=-s -w", "-o", out, target) //nolint:gosec // a package the packer was given
+	cmd.Dir = dir
 	cmd.Env = append(os.Environ(), "CGO_ENABLED=0", "GOOS="+goos, "GOARCH="+goarch)
 	cmd.Stderr = os.Stderr
 
