@@ -315,6 +315,127 @@ describe('admin plugins page', () => {
     await waitFor(() => expect(started).toBe(true))
   })
 
+  it("sets a plugin's own settings, a secret write-only (D329)", async () => {
+    let sent: unknown
+    const declared: Schemas['PluginSetting'][] = [
+      {
+        key: 'units',
+        label: 'Units',
+        description: 'How warm.',
+        kind: 'enum',
+        options: ['celsius', 'kelvin'],
+        secret: false,
+        isSet: false,
+        value: 'celsius',
+        default: 'celsius',
+      },
+      {
+        key: 'api_key',
+        label: 'API key',
+        description: '',
+        kind: 'string',
+        secret: true,
+        isSet: true,
+        value: null,
+        default: null,
+      },
+      {
+        key: 'days',
+        label: 'Days ahead',
+        description: '',
+        kind: 'int',
+        secret: false,
+        isSet: false,
+        value: 3,
+        default: 3,
+      },
+    ]
+
+    const withSettings = {
+      ...running,
+      versions: running.versions.map((v) =>
+        v.approved ? { ...v, manifest: { ...v.manifest, settings: declared } } : v,
+      ),
+    }
+
+    plugins([withSettings])
+    server.use(
+      http.get('/api/v1/admin/plugins/weather/settings', () =>
+        HttpResponse.json({ settings: declared }),
+      ),
+      http.patch('/api/v1/admin/plugins/weather/settings', async ({ request }) => {
+        sent = await request.json()
+        return HttpResponse.json({ settings: declared })
+      }),
+    )
+    const { user } = renderApp('/admin/plugins')
+
+    const card = within(await screen.findByRole('article', { name: 'Weather' }))
+    await user.click(card.getByRole('button', { name: 'Settings' }))
+
+    const dialog = within(await screen.findByRole('dialog'))
+    expect(await dialog.findByLabelText('Units')).toHaveValue('celsius')
+    expect(dialog.getByLabelText('API key')).toHaveValue('')
+    expect(dialog.getByLabelText('API key')).toHaveAttribute(
+      'placeholder',
+      'Saved. Type a new value to replace it.',
+    )
+
+    await user.selectOptions(dialog.getByLabelText('Units'), 'kelvin')
+    await user.type(dialog.getByLabelText('API key'), 'k-123')
+    await user.click(dialog.getByRole('button', { name: 'Save' }))
+
+    await waitFor(() => expect(sent).toEqual({ values: { units: 'kelvin', api_key: 'k-123' } })) // only what changed
+  })
+
+  it("says which of a plugin's settings is wrong", async () => {
+    const days: Schemas['PluginSetting'] = {
+      key: 'days',
+      label: 'Days ahead',
+      description: '',
+      kind: 'int',
+      secret: false,
+      isSet: false,
+      value: 3,
+      default: 3,
+    }
+
+    plugins([
+      {
+        ...running,
+        versions: running.versions.map((v) =>
+          v.approved ? { ...v, manifest: { ...v.manifest, settings: [days] } } : v,
+        ),
+      },
+    ])
+    server.use(
+      http.get('/api/v1/admin/plugins/weather/settings', () =>
+        HttpResponse.json({ settings: [days] }),
+      ),
+      http.patch('/api/v1/admin/plugins/weather/settings', () =>
+        HttpResponse.json(
+          {
+            error: {
+              code: 'invalid_input',
+              message: 'invalid input',
+              problems: [{ param: 'days', message: 'Days ahead: must be between 1 and 14' }],
+            },
+          },
+          { status: 400 },
+        ),
+      ),
+    )
+    const { user } = renderApp('/admin/plugins')
+
+    await user.click(await screen.findByRole('button', { name: 'Settings' }))
+    const dialog = within(await screen.findByRole('dialog'))
+    await user.clear(await dialog.findByLabelText('Days ahead'))
+    await user.type(dialog.getByLabelText('Days ahead'), '40')
+    await user.click(dialog.getByRole('button', { name: 'Save' }))
+
+    expect(await dialog.findByText('Days ahead: must be between 1 and 14')).toBeInTheDocument()
+  })
+
   it('restarts the server and waits until plugins run as decided (D317)', async () => {
     let restarted = false
 

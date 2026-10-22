@@ -22,6 +22,10 @@ var manifest = plugin.Manifest{
 	ID: "echo", Version: "1.2.0", Name: "Echo", Description: "Says it back.",
 	// The tests' server; localhost, the same address, is not named.
 	Permissions: []string{"fetch:127.0.0.1", "wallets", "telegram", "orders"},
+	Settings: []plugin.Setting{
+		{Key: "greeting", Label: "Greeting", Kind: "string", Default: "hello"},
+		{Key: "token", Label: "Token", Kind: "string", Secret: true},
+	},
 	Metrics: []plugin.Metric{
 		{Name: "shouts_total", Kind: "counter", Help: "Shouts, by case.", Labels: []string{"case"}},
 		{Name: "loudness", Kind: "histogram", Help: "How loud.", Buckets: []float64{1, 10}},
@@ -62,6 +66,7 @@ var manifest = plugin.Manifest{
 		},
 		{Name: "trade", Label: "Trade", Trades: true, Params: []plugin.Param{{Name: "cancel", Kind: "bool"}}},
 		{Name: "untraded", Label: "Untraded"},
+		{Name: "greet", Label: "Greet", Items: &plugin.Items{Fields: []plugin.Field{{Name: "greeting", Kind: "text"}}}},
 	},
 	Triggers: []plugin.NodeType{
 		{Name: "tick", Label: "Tick", Params: []plugin.Param{
@@ -101,6 +106,7 @@ func main() {
 			"ask":       asker{},
 			"trade":     plugin.PerItem(trade),
 			"untraded":  plugin.PerItem(untraded),
+			"greet":     plugin.PerItem(greet),
 		},
 		Triggers: map[string]plugin.Trigger{"tick": tick{}},
 		Credentials: map[string]plugin.CredentialChecks{"token": {
@@ -435,6 +441,11 @@ func trade(ctx context.Context, run plugin.Run, item plugin.Item) (string, map[s
 func untraded(ctx context.Context, run plugin.Run, _ plugin.Item) (string, map[string]any, error) {
 	_, err := run.Host.PlaceOrders(ctx, []plugin.Order{{TokenID: "t", Side: "buy", Type: "FOK", Price: "0.5", Shares: "1"}})
 	return "", withError(map[string]any{}, err), nil
+}
+
+// greet says the plugin's settings as its run got them.
+func greet(_ context.Context, run plugin.Run, _ plugin.Item) (string, map[string]any, error) {
+	return "", map[string]any{"greeting": run.Settings["greeting"], "token": run.Settings["token"]}, nil
 }
 
 func misbehave(_ context.Context, _ plugin.Run, in plugin.Ports) (plugin.Ports, error) {

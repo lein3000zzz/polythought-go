@@ -59,10 +59,49 @@ test.describe('a plugin', () => {
     expect(ran.status(), await ran.text()).toBe(200)
     expect(((await ran.json()) as { status: string }).status).toBe('succeeded')
 
+    // Its own settings, set on its card, reach its next run (D329).
+    await card.getByRole('button', { name: 'Settings' }).click()
+    const settings = page.getByRole('dialog')
+    await expect(settings.getByLabel('Greeting')).toHaveValue('hello')
+    await settings.getByLabel('Greeting').fill('hi there')
+    await settings.getByLabel('Token').fill('t-secret')
+    await settings.getByRole('button', { name: 'Save' }).click()
+    await expect(
+      page.getByText("Echo's settings saved: its runs get them from the next"),
+    ).toBeVisible()
+
+    const greets = await createWorkflow(page, unique('greet'), [
+      { id: 'manual', type: 'trigger.manual' },
+      { id: 'greet', type: 'plugin.echo.greet' },
+    ])
+
+    const greeted = await page.request.post(`/api/v1/workflows/${greets}/run`)
+    expect(greeted.status(), await greeted.text()).toBe(200)
+
+    const run = (await greeted.json()) as {
+      runs: { nodeId: string; samples?: Record<string, { json?: Record<string, unknown> }[]> }[]
+    }
+    expect(run.runs.find((r) => r.nodeId === 'greet')?.samples?.main?.[0]?.json).toEqual({
+      greeting: 'hi there',
+      token: 't-secret',
+    })
+
     // What admins did with it, kept.
     await card.getByRole('button', { name: 'History' }).click()
     const history = page.getByRole('dialog')
+    await expect(
+      history.getByText(/^settings 1\.2\.0: greeting: "hello" → "hi there"; token changed/),
+    ).toBeVisible()
     await expect(history.getByText(/^approved 1\.2\.0/)).toBeVisible()
     await expect(history.getByText(/^installed 1\.2\.0: not signed/)).toBeVisible()
+    await page.keyboard.press('Escape')
+
+    // In the editor, its nodes are in one Plugins group, each saying whose (D330).
+    await page.goto('/workflows/new')
+    const nodes = page.getByRole('navigation', { name: 'Node types' })
+    await expect(nodes.getByRole('heading', { name: 'Plugins' })).toBeVisible()
+    const trade = nodes.getByRole('button', { name: /^Trade/ })
+    await expect(trade.getByText('From Echo')).toBeVisible()
+    await expect(trade.getByText('Trades')).toBeVisible()
   })
 })

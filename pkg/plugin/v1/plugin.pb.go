@@ -128,6 +128,7 @@ type RunContext struct {
 	NodeId        string                 `protobuf:"bytes,4,opt,name=node_id,json=nodeId,proto3" json:"node_id,omitempty"`
 	StartedAt     string                 `protobuf:"bytes,5,opt,name=started_at,json=startedAt,proto3" json:"started_at,omitempty"` // RFC 3339, the execution's
 	Session       string                 `protobuf:"bytes,6,opt,name=session,proto3" json:"session,omitempty"`                      // what its calls to HostService name, good while it runs
+	Settings      []byte                 `protobuf:"bytes,7,opt,name=settings,proto3" json:"settings,omitempty"`                    // the plugin's own settings as admins set them (D329): JSON
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -202,6 +203,13 @@ func (x *RunContext) GetSession() string {
 		return x.Session
 	}
 	return ""
+}
+
+func (x *RunContext) GetSettings() []byte {
+	if x != nil {
+		return x.Settings
+	}
+	return nil
 }
 
 type RunNodeRequest struct {
@@ -1189,7 +1197,7 @@ const file_plugin_v1_plugin_proto_rawDesc = "" +
 	"\x0fDescribeRequest\x12\x12\n" +
 	"\x04host\x18\x01 \x01(\rR\x04host\".\n" +
 	"\x10DescribeResponse\x12\x1a\n" +
-	"\bmanifest\x18\x01 \x01(\fR\bmanifest\"\xbd\x01\n" +
+	"\bmanifest\x18\x01 \x01(\fR\bmanifest\"\xd9\x01\n" +
 	"\n" +
 	"RunContext\x12!\n" +
 	"\fexecution_id\x18\x01 \x01(\tR\vexecutionId\x12\x1f\n" +
@@ -1199,7 +1207,8 @@ const file_plugin_v1_plugin_proto_rawDesc = "" +
 	"\anode_id\x18\x04 \x01(\tR\x06nodeId\x12\x1d\n" +
 	"\n" +
 	"started_at\x18\x05 \x01(\tR\tstartedAt\x12\x18\n" +
-	"\asession\x18\x06 \x01(\tR\asession\"\xa2\x01\n" +
+	"\asession\x18\x06 \x01(\tR\asession\x12\x1a\n" +
+	"\bsettings\x18\a \x01(\fR\bsettings\"\xa2\x01\n" +
 	"\x0eRunNodeRequest\x12\x12\n" +
 	"\x04node\x18\x01 \x01(\tR\x04node\x12'\n" +
 	"\x03run\x18\x02 \x01(\v2\x15.plugin.v1.RunContextR\x03run\x12(\n" +

@@ -47,6 +47,7 @@ message RunContext {
   string node_id = 4;
   string started_at = 5; // RFC 3339, the execution's
   string session = 6; // what its calls to HostService name, good while it runs
+  bytes settings = 7; // the plugin's own settings as admins set them (D329): JSON
 }
 
 message RunNodeRequest {

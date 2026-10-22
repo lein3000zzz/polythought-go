@@ -25,6 +25,7 @@ func UseSchema(schema string) {
 	Orders = Orders.FromSchema(schema)
 	PaperAccounts = PaperAccounts.FromSchema(schema)
 	PluginAudit = PluginAudit.FromSchema(schema)
+	PluginSettings = PluginSettings.FromSchema(schema)
 	PluginStore = PluginStore.FromSchema(schema)
 	PluginUsers = PluginUsers.FromSchema(schema)
 	PluginVersions = PluginVersions.FromSchema(schema)

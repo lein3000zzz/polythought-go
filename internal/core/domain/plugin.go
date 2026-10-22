@@ -86,6 +86,7 @@ const (
 	PluginDisabled    = "disabled"
 	PluginUsers       = "users"
 	PluginStarted     = "started"
+	PluginSettings    = "settings"
 	PluginUninstalled = "uninstalled"
 )
 

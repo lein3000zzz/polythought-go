@@ -175,3 +175,33 @@ export function useRestartForPlugins() {
     onSettled: () => queryClient.invalidateQueries(),
   })
 }
+
+export type PluginSetting = Schemas['PluginSetting']
+
+/** A plugin's own settings, as the version it runs declares them (D329). */
+export function usePluginSettings(id: string) {
+  return useQuery({
+    queryKey: keys.pluginSettings(id),
+    queryFn: () => call(api.GET('/admin/plugins/{id}/settings', { params: { path: { id } } })),
+  })
+}
+
+/**
+ * Saves changed settings, keyed by setting; null resets one to its default, as does an
+ * empty string for a secret. Nothing is saved if any is invalid: the error's problems
+ * name each bad setting in `param`.
+ */
+export function useUpdatePluginSettings(id: string) {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: (values: Record<string, unknown>) =>
+      call(
+        api.PATCH('/admin/plugins/{id}/settings', { params: { path: { id } }, body: { values } }),
+      ),
+    onSuccess: (data) => {
+      queryClient.setQueryData(keys.pluginSettings(id), data)
+      void queryClient.invalidateQueries({ queryKey: keys.pluginHistory(id) })
+    },
+  })
+}

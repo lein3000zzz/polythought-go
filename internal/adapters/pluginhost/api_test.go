@@ -431,3 +431,19 @@ func TestNoPermissions(t *testing.T) {
 		assert.Equal(t, want, got[name], name)
 	}
 }
+
+func TestRunSettings(t *testing.T) {
+	_, r := startWith(t, pluginhost.Deps{Settings: func(id string) map[string]any {
+		if id != "echo" {
+			return nil
+		}
+
+		return map[string]any{"greeting": "hi there", "token": "t-1"}
+	}})
+
+	got := kept(t, r, "plugin.echo.greet", nil)
+	assert.Equal(t, map[string]any{"greeting": "hi there", "token": "t-1"}, got, "its own settings, with each run (D329)")
+
+	_, none := start(t)
+	assert.Equal(t, map[string]any{"greeting": nil, "token": nil}, kept(t, none, "plugin.echo.greet", nil), "none given, none had")
+}

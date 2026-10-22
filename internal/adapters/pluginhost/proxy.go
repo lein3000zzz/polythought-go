@@ -130,6 +130,7 @@ func (n *proxyNode) run(ctx context.Context, rc engine.RunContext, in engine.Por
 	defer closed()
 
 	req.Run.Session = token
+	req.Run.Settings = n.p.settings()
 
 	rpc, err := n.p.rpc()
 	if err != nil {
@@ -222,6 +223,7 @@ func (t *proxyTrigger) Start(ctx context.Context, tc engine.TriggerContext, emit
 		Params: params, Resumed: tc.Resumed,
 	}
 	start.Run.Session = token
+	start.Run.Settings = t.p.settings()
 
 	if err := stream.Send(&pluginv1.RunTriggerRequest{Msg: &pluginv1.RunTriggerRequest_Start{Start: start}}); err != nil {
 		return t.ended(ctx, err)
@@ -298,6 +300,25 @@ func (p *Plugin) ports(typ engine.NodeType, in engine.Ports, outputs []*pluginv1
 	}
 
 	return out, nil
+}
+
+// settings are the plugin's own settings, as JSON, for a run: none when there are none.
+func (p *Plugin) settings() []byte {
+	if p.api.deps.Settings == nil {
+		return nil
+	}
+
+	values := p.api.deps.Settings(p.manifest.ID)
+	if len(values) == 0 {
+		return nil
+	}
+
+	raw, err := json.Marshal(values)
+	if err != nil {
+		return nil
+	}
+
+	return raw
 }
 
 func runContext(execution, workflow, owner, node string, startedAt time.Time) *pluginv1.RunContext {

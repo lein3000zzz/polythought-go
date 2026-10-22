@@ -141,3 +141,27 @@ type PluginStatus struct {
 	LastError string
 	Log       []string // its last lines
 }
+
+// StoredPluginSetting is a plugin's setting as kept: its value as JSON, or sealed for a
+// secret.
+type StoredPluginSetting struct {
+	Key    string
+	Value  json.RawMessage
+	Sealed []byte
+}
+
+// PluginSettingChange sets a plugin's setting, or resets it to its default when Value and
+// Sealed are both nil.
+type PluginSettingChange struct {
+	Key    string
+	Value  json.RawMessage
+	Sealed []byte
+}
+
+// PluginSettings keeps plugins' own settings (D329), audited as each change is made.
+type PluginSettings interface {
+	Settings(ctx context.Context, plugin string) ([]StoredPluginSetting, error)
+
+	// SetSettings applies changes together, with their audit record.
+	SetSettings(ctx context.Context, plugin string, changes []PluginSettingChange, a domain.PluginAudit) error
+}

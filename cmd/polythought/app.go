@@ -423,9 +423,11 @@ func (c workflowChecks) CheckCodeAccess(ctx context.Context, w domain.Workflow) 
 	return reg.CheckCodeAccess(ctx, w, c.gate)
 }
 
-// nodeTypes lists the node types a user may place: the built-in ones and their own.
+// nodeTypes lists the node types a user may place: the built-in ones, their own, and
+// those of the plugins they may use (D330).
 type nodeTypes struct {
-	types engine.Catalog
+	types   engine.Catalog
+	plugins engine.PluginGate
 }
 
 func (n nodeTypes) Types(ctx context.Context, p auth.Principal) ([]engine.TypeInfo, error) {
@@ -434,7 +436,30 @@ func (n nodeTypes) Types(ctx context.Context, p auth.Principal) ([]engine.TypeIn
 		return nil, err
 	}
 
-	return reg.Types(), nil
+	all := reg.Types()
+	out := make([]engine.TypeInfo, 0, len(all))
+	allowed := map[string]bool{}
+
+	for _, t := range all {
+		if t.Plugin != "" {
+			ok, seen := allowed[t.Plugin]
+			if !seen {
+				if ok, err = n.plugins.PluginAllowed(ctx, p.User.ID, t.Plugin); err != nil {
+					return nil, err
+				}
+
+				allowed[t.Plugin] = ok
+			}
+
+			if !ok {
+				continue
+			}
+		}
+
+		out = append(out, t)
+	}
+
+	return out, nil
 }
 
 // codeTypes declares what a user's code is written against: the SDK and the node types

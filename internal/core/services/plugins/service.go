@@ -51,12 +51,15 @@ type Service struct {
 	fetcher   ports.ArchiveFetcher // optional: without it, nothing installs from a URL
 	notifier  ports.PluginNotifier // optional: without it, admins hear of no plugin that would not start
 	limits    func() Limits
+	settings  ports.PluginSettings // optional: without it, plugins have no settings of their own
+	box       ports.SecretBox
 
-	mu      sync.RWMutex
-	known   map[string]domain.InstalledPlugin // as admins last decided, for the gate
-	loaded  map[string]string                 // the version of each plugin loaded at start
-	failed  map[string]string                 // why a plugin did not load at start
-	refresh error                             // why known could not be read, if it could not
+	mu          sync.RWMutex
+	runSettings map[string]map[string]any         // what each plugin's runs get of its settings
+	known       map[string]domain.InstalledPlugin // as admins last decided, for the gate
+	loaded      map[string]string                 // the version of each plugin loaded at start
+	failed      map[string]string                 // why a plugin did not load at start
+	refresh     error                             // why known could not be read, if it could not
 }
 
 type Option func(*Service)
@@ -588,9 +591,24 @@ func (s *Service) refreshErr() error {
 	return s.refresh
 }
 
-// reload reads what admins decided again, for the gate.
+// reload reads what admins decided again, for the gate, and the plugins' settings, for
+// their runs.
 func (s *Service) reload(ctx context.Context) {
 	installed, err := s.repo.List(ctx)
+
+	runSettings := make(map[string]map[string]any, len(installed))
+
+	for _, ip := range installed {
+		specs, serr := specsOf(ip)
+		values, _, verr := s.values(ctx, ip)
+
+		if serr != nil || verr != nil {
+			s.log.Warn(ctx, "Plugin settings not read", "plugin", ip.ID, logging.Err(errors.Join(serr, verr)))
+			continue
+		}
+
+		runSettings[ip.ID] = encodedValues(specs, values)
+	}
 
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -604,6 +622,7 @@ func (s *Service) reload(ctx context.Context) {
 
 	s.refresh = nil
 	s.known = make(map[string]domain.InstalledPlugin, len(installed))
+	s.runSettings = runSettings
 
 	for _, ip := range installed {
 		s.known[ip.ID] = ip

@@ -38,6 +38,7 @@ import { Label } from '@/components/ui/label'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Switch } from '@/components/ui/switch'
 import { ApproveDialog } from '@/features/plugins/ApproveDialog'
+import { SettingsDialog } from '@/features/plugins/SettingsDialog'
 import { signedBy } from '@/features/plugins/signer'
 import { UsersDialog } from '@/features/plugins/UsersDialog'
 import { formatDateTime } from '@/lib/format'
@@ -269,9 +270,11 @@ function PluginCard({ plugin: p, onReview, onChooseUsers }: CardProps) {
   const removeVersion = useRemovePluginVersion()
   const [uninstalling, setUninstalling] = useState(false)
   const [history, setHistory] = useState(false)
+  const [settings, setSettings] = useState(false)
 
   const state = stateOf(p)
   const runs = p.versions.find((v) => v.version === p.version)
+  const declared = runs && Array.isArray(runs.manifest.settings) ? runs.manifest.settings.length : 0
   const waiting = p.versions.filter((v) => !v.approved)
   const fail = (error: unknown) => toast.error(errorMessage(error))
 
@@ -389,6 +392,11 @@ function PluginCard({ plugin: p, onReview, onChooseUsers }: CardProps) {
           </Button>
         )}
 
+        {declared > 0 && (
+          <Button size="sm" variant="outline" onClick={() => setSettings(true)}>
+            Settings
+          </Button>
+        )}
         <Button size="sm" variant="ghost" onClick={() => setHistory(true)}>
           History
         </Button>
@@ -419,6 +427,7 @@ function PluginCard({ plugin: p, onReview, onChooseUsers }: CardProps) {
       />
 
       {history && <HistoryDialog plugin={p} onClose={() => setHistory(false)} />}
+      {settings && <SettingsDialog plugin={p} onClose={() => setSettings(false)} />}
     </article>
   )
 }

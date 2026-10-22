@@ -208,6 +208,8 @@ func (p *Plugin) Register(r *engine.Registry) error {
 			return fmt.Errorf("plugin %s: node %s: %w", p.manifest.ID, n.Name, err)
 		}
 
+		typ.PluginName = p.manifest.Name
+
 		if err := r.RegisterNode(&proxyNode{p: p, name: n.Name, typ: typ, trades: n.Trades}); err != nil {
 			return fmt.Errorf("plugin %s: %w", p.manifest.ID, err)
 		}
@@ -218,6 +220,8 @@ func (p *Plugin) Register(r *engine.Registry) error {
 		if err != nil {
 			return fmt.Errorf("plugin %s: trigger %s: %w", p.manifest.ID, t.Name, err)
 		}
+
+		typ.PluginName = p.manifest.Name
 
 		if err := r.RegisterTrigger(&proxyTrigger{p: p, name: t.Name, typ: typ}); err != nil {
 			return fmt.Errorf("plugin %s: %w", p.manifest.ID, err)

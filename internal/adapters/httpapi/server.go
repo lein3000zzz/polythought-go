@@ -437,6 +437,8 @@ func (s *Server) routes() {
 	admin.POST("/plugins/:id/start", s.hasPlugins, s.startPlugin)
 	admin.DELETE("/plugins/:id", s.hasPlugins, s.uninstallPlugin)
 	admin.GET("/plugins/:id/history", s.hasPlugins, s.pluginHistory)
+	admin.GET("/plugins/:id/settings", s.hasPlugins, s.pluginSettings)
+	admin.PATCH("/plugins/:id/settings", s.hasPlugins, s.updatePluginSettings)
 	admin.GET("/geoblock", s.geoblockStatus)
 	admin.POST("/geoblock/check", s.checkGeoblock)
 }

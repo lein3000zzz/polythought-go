@@ -22,6 +22,7 @@ import (
 	"github.com/lein3000zzz/polythought-go/internal/core/ports"
 	"github.com/lein3000zzz/polythought-go/internal/core/services/auth"
 	"github.com/lein3000zzz/polythought-go/internal/core/services/plugins"
+	"github.com/lein3000zzz/polythought-go/internal/core/services/settings"
 	httpapimocks "github.com/lein3000zzz/polythought-go/internal/mocks/httpapi"
 )
 
@@ -137,6 +138,33 @@ func TestPluginRoutes(t *testing.T) {
 				s.EXPECT().Start(mock.Anything, adminP, "weather").Return(nil)
 			},
 			wantStatus: http.StatusNoContent,
+		},
+		{
+			name: "its own settings, a secret's value never shown (D329)",
+			req:  request{method: "GET", path: "/api/v1/admin/plugins/weather/settings", headers: cookie},
+			setup: func(s *httpapimocks.MockPluginService) {
+				s.EXPECT().Settings(mock.Anything, adminP, "weather").Return([]plugins.Setting{
+					{Spec: settings.Spec{Key: "units", Label: "Units", Kind: settings.KindEnum, Options: []string{"celsius", "kelvin"}, Default: "celsius"}, Value: "kelvin", IsSet: true},
+					{Spec: settings.Spec{Key: "api_key", Label: "API key", Kind: settings.KindString, Secret: true, Default: ""}, IsSet: true},
+				}, nil)
+			},
+			wantStatus: http.StatusOK,
+			wantBody: []string{
+				`{"key":"units","label":"Units","description":"","kind":"enum","options":["celsius","kelvin"],"secret":false,"isSet":true,"value":"kelvin","default":"celsius"}`,
+				`{"key":"api_key","label":"API key","description":"","kind":"string","secret":true,"isSet":true,"value":null,"default":null}`,
+			},
+		},
+		{
+			name: "its settings changed, numbers as sent",
+			req:  request{method: "PATCH", path: "/api/v1/admin/plugins/weather/settings", body: `{"values":{"days":7,"units":null}}`, headers: cookie},
+			setup: func(s *httpapimocks.MockPluginService) {
+				s.EXPECT().SetSettings(mock.Anything, adminP, "weather", map[string]json.RawMessage{
+					"days": json.RawMessage(`7`), "units": json.RawMessage(`null`),
+				}).Return(nil)
+				s.EXPECT().Settings(mock.Anything, adminP, "weather").Return(nil, nil)
+			},
+			wantStatus: http.StatusOK,
+			wantBody:   []string{`{"settings":[]}`},
 		},
 		{
 			name: "its history",

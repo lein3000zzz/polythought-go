@@ -29,6 +29,8 @@ type PluginService interface {
 	Start(ctx context.Context, p auth.Principal, id string) error
 	Uninstall(ctx context.Context, p auth.Principal, id string) error
 	History(ctx context.Context, p auth.Principal, id string) ([]domain.PluginAudit, error)
+	Settings(ctx context.Context, p auth.Principal, id string) ([]plugins.Setting, error)
+	SetSettings(ctx context.Context, p auth.Principal, id string, changes map[string]json.RawMessage) error
 }
 
 // archiveRoute is where admins upload archives: its body streams, past the size other
@@ -549,4 +551,127 @@ func (s *Server) pluginHistory(ctx context.Context, c *app.RequestContext) {
 	}
 
 	c.JSON(http.StatusOK, out)
+}
+
+type pluginSettingDTO struct {
+	Key         string   `json:"key"`
+	Label       string   `json:"label"`
+	Description string   `json:"description"`
+	Kind        string   `json:"kind" enums:"string,int,bool,duration,enum,list"`
+	Options     []string `json:"options,omitempty" validate:"optional"` // the choices of an enum
+	// Secret values are write-only: value is null and isSet says whether one is saved.
+	Secret bool `json:"secret"`
+	IsSet  bool `json:"isSet"`
+	// Value and Default are typed by kind, as a Setting's are; both null for a secret.
+	Value   any `json:"value"`
+	Default any `json:"default"`
+} // @name PluginSetting
+
+type pluginSettingsDTO struct {
+	Settings []pluginSettingDTO `json:"settings"`
+} // @name PluginSettings
+
+type updatePluginSettingsRequest struct {
+	// New values by setting key, typed as PluginSetting.value. null resets a setting to
+	// its default, as does an empty string for a secret.
+	Values map[string]any `json:"values"`
+} // @name UpdatePluginSettingsRequest
+
+func toPluginSettingsDTO(list []plugins.Setting) pluginSettingsDTO {
+	out := pluginSettingsDTO{Settings: make([]pluginSettingDTO, len(list))}
+
+	for i, st := range list {
+		d := pluginSettingDTO{
+			Key: st.Key, Label: st.Label, Description: st.Description, Kind: string(st.Kind), Options: st.Options,
+			Secret: st.Secret, IsSet: st.IsSet, Value: json.RawMessage(nil), Default: json.RawMessage(nil),
+		}
+
+		if !st.Secret {
+			d.Value = st.Encode(st.Value)
+			d.Default = st.Encode(st.Default)
+		}
+
+		out.Settings[i] = d
+	}
+
+	return out
+}
+
+// pluginSettings is admin only: a plugin's own settings, as the version it runs declares
+// them (D329).
+//
+//	@Summary	A plugin's own settings
+//	@ID			pluginSettings
+//	@Tags		admin
+//	@Param		id	path		string	true	"Plugin ID"
+//	@Success	200	{object}	pluginSettingsDTO
+//	@Failure	401	{object}	errorBody	"unauthenticated"
+//	@Failure	403	{object}	errorBody	"forbidden"
+//	@Failure	404	{object}	errorBody	"not_found"
+//	@Security	SessionCookie
+//	@Security	APIToken
+//	@Router		/admin/plugins/{id}/settings [get]
+func (s *Server) pluginSettings(ctx context.Context, c *app.RequestContext) {
+	p, _ := principal(c)
+
+	list, err := s.plugins.Settings(ctx, p, c.Param("id"))
+	if err != nil {
+		s.fail(ctx, c, err)
+		return
+	}
+
+	c.JSON(http.StatusOK, toPluginSettingsDTO(list))
+}
+
+// updatePluginSettings is admin only. Either every change is saved or, when any is
+// invalid, none is, and the error's problems name each bad setting in param. The plugin's
+// runs get them from the next one.
+//
+//	@Summary	Change a plugin's own settings
+//	@ID			updatePluginSettings
+//	@Tags		admin
+//	@Param		id		path		string						true	"Plugin ID"
+//	@Param		body	body		updatePluginSettingsRequest	true	"Changes"
+//	@Success	200		{object}	pluginSettingsDTO
+//	@Failure	400		{object}	errorBody	"invalid_input"
+//	@Failure	401		{object}	errorBody	"unauthenticated"
+//	@Failure	403		{object}	errorBody	"forbidden"
+//	@Failure	404		{object}	errorBody	"not_found"
+//	@Security	SessionCookie
+//	@Security	APIToken
+//	@Router		/admin/plugins/{id}/settings [patch]
+func (s *Server) updatePluginSettings(ctx context.Context, c *app.RequestContext) {
+	var req updatePluginSettingsRequest
+
+	if err := decodeJSON(c, &req); err != nil {
+		s.fail(ctx, c, err)
+		return
+	}
+
+	changes := make(map[string]json.RawMessage, len(req.Values))
+
+	for key, v := range req.Values {
+		raw, err := json.Marshal(v) // numbers stay json.Number, so they come back as sent
+		if err != nil {
+			s.fail(ctx, c, err)
+			return
+		}
+
+		changes[key] = raw
+	}
+
+	p, _ := principal(c)
+
+	if err := s.plugins.SetSettings(ctx, p, c.Param("id"), changes); err != nil {
+		s.fail(ctx, c, err)
+		return
+	}
+
+	list, err := s.plugins.Settings(ctx, p, c.Param("id"))
+	if err != nil {
+		s.fail(ctx, c, err)
+		return
+	}
+
+	c.JSON(http.StatusOK, toPluginSettingsDTO(list))
 }

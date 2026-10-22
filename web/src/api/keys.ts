@@ -24,6 +24,7 @@ export const keys = {
   plugins: ['admin', 'plugins'],
   pluginList: ['admin', 'plugins', 'list'],
   pluginHistory: (id: string) => ['admin', 'plugins', 'history', id],
+  pluginSettings: (id: string) => ['admin', 'plugins', 'settings', id],
   wallets: ['wallets'],
   walletList: ['wallets', 'list'],
   credentials: (walletId: string) => ['wallets', 'credentials', walletId],

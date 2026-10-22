@@ -9,6 +9,7 @@ import (
 	"regexp"
 	"slices"
 	"strings"
+	"time"
 
 	"github.com/lein3000zzz/polythought-go/internal/core/engine"
 	"github.com/lein3000zzz/polythought-go/pkg/plugin"
@@ -113,6 +114,7 @@ func Check(m plugin.Manifest) error {
 	}
 
 	errs = append(errs, checkMetrics(m.Metrics)...)
+	errs = append(errs, checkSettings(m.Settings)...)
 
 	if len(errs) > 0 {
 		return fmt.Errorf("its manifest: %w", errors.Join(errs...))
@@ -201,6 +203,102 @@ func Same(a, b plugin.Manifest) bool {
 	return errA == nil && errB == nil && bytes.Equal(ra, rb)
 }
 
+// settingKinds are the kinds a plugin's own setting may be, as the server's are.
+var settingKinds = []string{"string", "int", "bool", "duration", "enum", "list"}
+
+const maxSettings = 32
+
+// checkSettings refuses settings the host could not keep: keys not in form or given
+// twice, kinds it has not, an enum with no options, a default not of its kind, a secret
+// not text.
+func checkSettings(list []plugin.Setting) []error {
+	var errs []error
+
+	fail := func(format string, args ...any) { errs = append(errs, fmt.Errorf(format, args...)) }
+
+	if len(list) > maxSettings {
+		fail("more than %d settings", maxSettings)
+	}
+
+	seen := map[string]bool{}
+
+	for _, st := range list {
+		switch {
+		case !metricName.MatchString(st.Key):
+			fail("setting %q: a-z, 0-9 and underscores, starting with a letter, up to 64", st.Key)
+		case seen[st.Key]:
+			fail("setting %q twice", st.Key)
+		}
+
+		seen[st.Key] = true
+
+		switch {
+		case !slices.Contains(settingKinds, st.Kind):
+			fail("setting %q: kind %q is none of %s", st.Key, st.Kind, strings.Join(settingKinds, ", "))
+		case st.Kind == "enum" && len(st.Options) == 0:
+			fail("setting %q: an enum lists its options", st.Key)
+		case st.Secret && st.Kind != "string":
+			fail("setting %q: only text is secret", st.Key)
+		case strings.TrimSpace(st.Label) == "":
+			fail("setting %q: a label says what it is", st.Key)
+		}
+
+		if st.Default != nil && !defaultOfKind(st) {
+			fail("setting %q: its default is no %s", st.Key, st.Kind)
+		}
+	}
+
+	return errs
+}
+
+// defaultOfKind says whether a setting's default, as JSON decoded it, is of its kind.
+func defaultOfKind(st plugin.Setting) bool {
+	switch st.Kind {
+	case "string":
+		_, ok := st.Default.(string)
+		return ok
+	case "int":
+		n, ok := st.Default.(json.Number)
+		if !ok {
+			return false
+		}
+
+		_, err := n.Int64()
+
+		return err == nil
+	case "bool":
+		_, ok := st.Default.(bool)
+		return ok
+	case "duration":
+		text, ok := st.Default.(string)
+		if !ok {
+			return false
+		}
+
+		d, err := time.ParseDuration(text)
+
+		return err == nil && d > 0
+	case "enum":
+		text, ok := st.Default.(string)
+		return ok && slices.Contains(st.Options, text)
+	case "list":
+		items, ok := st.Default.([]any)
+		if !ok {
+			return false
+		}
+
+		for _, item := range items {
+			if _, ok := item.(string); !ok {
+				return false
+			}
+		}
+
+		return true
+	}
+
+	return false
+}
+
 func major(version string) string {
 	m := semver.FindStringSubmatch(version)
 	if m == nil {
@@ -236,7 +334,7 @@ func nodeType(id string, t plugin.NodeType, trigger bool) (engine.NodeType, erro
 	out := engine.NodeType{
 		Name: qualified(id, t.Name), Label: t.Label, Description: t.Description,
 		Inputs: t.Inputs, Outputs: t.Outputs, OutputsParam: t.OutputsParam, OutputsColumn: t.OutputsColumn,
-		Remembers: t.Remembers, Plugin: id,
+		Remembers: t.Remembers, Plugin: id, Trades: t.Trades,
 	}
 
 	switch {

@@ -53,7 +53,7 @@ func serve(ctx context.Context) error {
 		PublicURL:      a.cfg.PublicURL,
 		TrustedProxies: proxies,
 	}, a.util, httpapi.Services{
-		Auth: a.auth, Wallets: a.wallets, Workflows: a.workflows, NodeTypes: nodeTypes{types: a.customNodes}, Events: a.events,
+		Auth: a.auth, Wallets: a.wallets, Workflows: a.workflows, NodeTypes: nodeTypes{types: a.customNodes, plugins: a.plugins}, Events: a.events,
 		CodeTypes: codeTypes{types: a.customNodes}, WorkflowCode: workflowCode{code: a.code, gate: a.codeGate},
 		CustomNodes: a.customNodes, Library: a.library, Settings: a.settings, Credentials: a.credentials, Models: a.models, Spend: a.spend,
 		Trading:  a.trading,

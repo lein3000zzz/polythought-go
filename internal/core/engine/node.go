@@ -206,9 +206,13 @@ type NodeType struct {
 	// settings show and Forget clears (D137).
 	Remembers bool
 
-	// Plugin is the ID of the plugin it comes from (phase 5), whose owner may restrict who
-	// uses it (D282); empty for a built-in.
-	Plugin string
+	// Plugin is the ID of the plugin it comes from (phase 5), whose admins may restrict who
+	// uses it (D282), and PluginName its name, as the editor shows it; empty for a built-in.
+	Plugin     string
+	PluginName string
+
+	// Trades says a plugin's node places orders (D309), which the editor marks.
+	Trades bool
 
 	// SeesItems lets its settings' expressions see items, every item it receives on main,
 	// beside each one's fields by name: for a node that takes them together (D257). A

@@ -46,6 +46,11 @@ type Run struct {
 	// plugin's name and the run's.
 	Host Host
 	Log  *slog.Logger
+
+	// Settings are the plugin's own, as its manifest declares them and admins set them,
+	// or their defaults: text, whole numbers as json.Number, true or false, durations as
+	// text like "30s", lists of text. A trigger gets them as it starts.
+	Settings map[string]any
 }
 
 // Item is one item: its fields, as JSON decodes them (numbers json.Number, decimals text),

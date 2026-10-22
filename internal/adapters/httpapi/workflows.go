@@ -279,6 +279,11 @@ type nodeTypeDTO struct {
 	// SeesItems says its settings' expressions see items, every item it receives on
 	// main, beside each one's fields; a field named items is then item.items.
 	SeesItems bool `json:"seesItems,omitempty" validate:"optional"`
+	// Plugin is the ID of the plugin it comes from, pluginName its name; absent for a
+	// built-in. Trades says it places orders (D309).
+	Plugin     string `json:"plugin,omitempty" validate:"optional"`
+	PluginName string `json:"pluginName,omitempty" validate:"optional"`
+	Trades     bool   `json:"trades,omitempty" validate:"optional"`
 } // @name NodeType
 
 // itemsDTO describes the items a node emits on every output port: fields of its own, or
@@ -358,6 +363,7 @@ func toNodeTypeDTO(t engine.TypeInfo) nodeTypeDTO {
 		Inputs: nonNil(t.Inputs), Outputs: nonNil(t.Outputs),
 		Params: make([]paramDTO, len(t.Params)), OutputsParam: t.OutputsParam, OutputsColumn: t.OutputsColumn,
 		Items: toItemsDTO(t.Items), Code: t.Code, Remembers: t.Remembers, SeesItems: t.SeesItems,
+		Plugin: t.Plugin, PluginName: t.PluginName, Trades: t.Trades,
 	}
 
 	for j, p := range t.Params {

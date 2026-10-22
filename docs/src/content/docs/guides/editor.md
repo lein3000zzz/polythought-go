@@ -12,6 +12,9 @@ list on the left, the canvas in the middle and the selected node's settings on t
 
 - **Add a node**: drag it from the node list onto the canvas. The list is grouped like the
   [node reference](/docs/reference/nodes/); hide it with the button at its top for more room.
+  Nodes of the [plugins](/docs/self-hosting/plugins/) an admin installed, and you may use, are
+  under **Plugins**, each saying which plugin it is from; those that place orders say
+  **Trades**.
 - **Connect two nodes**: drag from a node's output port, on its right edge, to another
   node's input port, on its left edge.
 - **Remove a connection**: select it and press Delete or Backspace.

@@ -13,6 +13,7 @@ import (
 
 	"github.com/lein3000zzz/polythought-go/internal/adapters/postgres"
 	"github.com/lein3000zzz/polythought-go/internal/core/domain"
+	"github.com/lein3000zzz/polythought-go/internal/core/ports"
 )
 
 func TestPlugins(t *testing.T) {
@@ -96,6 +97,26 @@ func TestPlugins(t *testing.T) {
 		require.NoError(t, err)
 		require.Len(t, list, 1)
 		assert.Equal(t, "weather", list[0].ID)
+	})
+
+	t.Run("its own settings, a secret sealed, reset to the default", func(t *testing.T) {
+		change := []ports.PluginSettingChange{
+			{Key: "units", Value: json.RawMessage(`"kelvin"`)},
+			{Key: "api_key", Sealed: []byte("sealed bytes")},
+		}
+		require.NoError(t, repo.SetSettings(ctx, "weather", change, domain.PluginAudit{PluginID: "weather", Action: domain.PluginSettings, Detail: "units, api_key", By: admin.ID, At: at}))
+
+		got, err := repo.Settings(ctx, "weather")
+		require.NoError(t, err)
+		require.Len(t, got, 2)
+		assert.Equal(t, "api_key", got[0].Key)
+		assert.Equal(t, []byte("sealed bytes"), got[0].Sealed)
+		assert.Nil(t, got[0].Value)
+		assert.JSONEq(t, `"kelvin"`, string(got[1].Value))
+
+		require.NoError(t, repo.SetSettings(ctx, "weather", []ports.PluginSettingChange{{Key: "units"}}, domain.PluginAudit{PluginID: "weather", Action: domain.PluginSettings, At: at}))
+		got, _ = repo.Settings(ctx, "weather")
+		assert.Len(t, got, 1, "reset to its default")
 	})
 
 	t.Run("uninstalled, what was done kept", func(t *testing.T) {

@@ -74,6 +74,10 @@ type Deps struct {
 	// Limits bound what one run may ask, read as each run starts; nil, or a limit at
 	// zero: DefaultLimits'.
 	Limits func() Limits
+
+	// Settings are a plugin's own settings, by its ID, as each run gets them (D329); nil:
+	// none.
+	Settings func(plugin string) map[string]any
 }
 
 // Limits bound what one run may ask of the host (D293).

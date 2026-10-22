@@ -292,9 +292,14 @@ func (s *server) runOf(r *pluginv1.RunContext) Run {
 	host := &hostClient{rpc: s.host, session: r.GetSession()}
 	s.mu.Unlock()
 
+	settings, err := decodeObject(r.GetSettings())
+	if err != nil {
+		settings = map[string]any{}
+	}
+
 	return Run{
 		ExecutionID: r.GetExecutionId(), WorkflowID: r.GetWorkflowId(), OwnerID: r.GetOwnerId(), NodeID: r.GetNodeId(),
-		StartedAt: at, Host: host, Log: slog.New(&logHandler{host: host}),
+		StartedAt: at, Host: host, Log: slog.New(&logHandler{host: host}), Settings: settings,
 	}
 }
 

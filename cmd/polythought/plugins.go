@@ -23,6 +23,7 @@ func (a *app) initPlugins(ctx context.Context, pmc polymarket, allowPrivate func
 	}
 
 	files := plugindir.NewFiles(dir, func() []string { return a.settings.Current().Strings(config.KeyPluginTrustedKeys) })
+	repo := postgres.NewPlugins(a.db)
 
 	a.pluginRuntime = pluginhost.NewRuntime(ctx, pluginhost.Deps{
 		Util:         a.util,
@@ -30,6 +31,7 @@ func (a *app) initPlugins(ctx context.Context, pmc polymarket, allowPrivate func
 		Store:        postgres.NewPluginStore(a.db),
 		AllowPrivate: allowPrivate,
 		Limits:       func() pluginhost.Limits { return pluginLimits(a.settings.Current()) },
+		Settings:     func(id string) map[string]any { return a.plugins.RunSettings(id) },
 		Data: pluginhost.Data{
 			Events: pmc.reader, Books: pmc.reader, History: pmc.reader, Trades: pmc.reader, Positions: pmc.reader,
 			Wallets: postgres.NewWallets(a.db),
@@ -46,7 +48,8 @@ func (a *app) initPlugins(ctx context.Context, pmc polymarket, allowPrivate func
 		return nil
 	})
 
-	a.plugins = plugins.New(postgres.NewPlugins(a.db), files, a.pluginRuntime, laterPauser{a}, a.util.Logger,
+	a.plugins = plugins.New(repo, files, a.pluginRuntime, laterPauser{a}, a.util.Logger,
+		plugins.WithSettings(repo, a.box),
 		plugins.WithFetcher(plugindir.NewFetcher(allowPrivate, nil)),
 		plugins.WithNotifier(a.notify),
 		plugins.WithLimits(func() plugins.Limits {

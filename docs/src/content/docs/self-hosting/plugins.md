@@ -75,7 +75,15 @@ paused, and their owners told on Telegram and by email.
 
 Everyone may use a plugin, unless you choose otherwise: **Who may use it** picks the users who
 may, admins included. This applies at once: the active workflows of anyone who may no longer use
-it are paused, and they are told. Nobody else can save or run a workflow with its nodes.
+it are paused, and they are told. Nobody else sees its nodes in the editor, nor can save or run a
+workflow with them.
+
+## Its settings
+
+A plugin may have settings of its own, a key for the service it talks to, say. Once a version
+of it is approved, **Settings** on its card sets them: kept as the Config page's are, secret
+ones sealed and never shown again, every change in its **History**, the old and new value but
+a secret's. Its node runs get them from the next one; a trigger, as it starts.
 
 ## When a plugin crashes
 

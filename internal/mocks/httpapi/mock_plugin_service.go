@@ -6,6 +6,7 @@ package httpapimocks
 
 import (
 	"context"
+	"encoding/json"
 	"io"
 
 	"github.com/lein3000zzz/polythought-go/internal/core/domain"
@@ -636,6 +637,75 @@ func (_c *MockPluginService_SetEnabled_Call) RunAndReturn(run func(ctx context.C
 	return _c
 }
 
+// SetSettings provides a mock function for the type MockPluginService
+func (_mock *MockPluginService) SetSettings(ctx context.Context, p auth.Principal, id string, changes map[string]json.RawMessage) error {
+	ret := _mock.Called(ctx, p, id, changes)
+
+	if len(ret) == 0 {
+		panic("no return value specified for SetSettings")
+	}
+
+	var r0 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context, auth.Principal, string, map[string]json.RawMessage) error); ok {
+		r0 = returnFunc(ctx, p, id, changes)
+	} else {
+		r0 = ret.Error(0)
+	}
+	return r0
+}
+
+// MockPluginService_SetSettings_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'SetSettings'
+type MockPluginService_SetSettings_Call struct {
+	*mock.Call
+}
+
+// SetSettings is a helper method to define mock.On call
+//   - ctx context.Context
+//   - p auth.Principal
+//   - id string
+//   - changes map[string]json.RawMessage
+func (_e *MockPluginService_Expecter) SetSettings(ctx any, p any, id any, changes any) *MockPluginService_SetSettings_Call {
+	return &MockPluginService_SetSettings_Call{Call: _e.mock.On("SetSettings", ctx, p, id, changes)}
+}
+
+func (_c *MockPluginService_SetSettings_Call) Run(run func(ctx context.Context, p auth.Principal, id string, changes map[string]json.RawMessage)) *MockPluginService_SetSettings_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		var arg1 auth.Principal
+		if args[1] != nil {
+			arg1 = args[1].(auth.Principal)
+		}
+		var arg2 string
+		if args[2] != nil {
+			arg2 = args[2].(string)
+		}
+		var arg3 map[string]json.RawMessage
+		if args[3] != nil {
+			arg3 = args[3].(map[string]json.RawMessage)
+		}
+		run(
+			arg0,
+			arg1,
+			arg2,
+			arg3,
+		)
+	})
+	return _c
+}
+
+func (_c *MockPluginService_SetSettings_Call) Return(err error) *MockPluginService_SetSettings_Call {
+	_c.Call.Return(err)
+	return _c
+}
+
+func (_c *MockPluginService_SetSettings_Call) RunAndReturn(run func(ctx context.Context, p auth.Principal, id string, changes map[string]json.RawMessage) error) *MockPluginService_SetSettings_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // SetUsers provides a mock function for the type MockPluginService
 func (_mock *MockPluginService) SetUsers(ctx context.Context, p auth.Principal, id string, everyone bool, users []domain.UserID) error {
 	ret := _mock.Called(ctx, p, id, everyone, users)
@@ -707,6 +777,80 @@ func (_c *MockPluginService_SetUsers_Call) Return(err error) *MockPluginService_
 }
 
 func (_c *MockPluginService_SetUsers_Call) RunAndReturn(run func(ctx context.Context, p auth.Principal, id string, everyone bool, users []domain.UserID) error) *MockPluginService_SetUsers_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// Settings provides a mock function for the type MockPluginService
+func (_mock *MockPluginService) Settings(ctx context.Context, p auth.Principal, id string) ([]plugins.Setting, error) {
+	ret := _mock.Called(ctx, p, id)
+
+	if len(ret) == 0 {
+		panic("no return value specified for Settings")
+	}
+
+	var r0 []plugins.Setting
+	var r1 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context, auth.Principal, string) ([]plugins.Setting, error)); ok {
+		return returnFunc(ctx, p, id)
+	}
+	if returnFunc, ok := ret.Get(0).(func(context.Context, auth.Principal, string) []plugins.Setting); ok {
+		r0 = returnFunc(ctx, p, id)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).([]plugins.Setting)
+		}
+	}
+	if returnFunc, ok := ret.Get(1).(func(context.Context, auth.Principal, string) error); ok {
+		r1 = returnFunc(ctx, p, id)
+	} else {
+		r1 = ret.Error(1)
+	}
+	return r0, r1
+}
+
+// MockPluginService_Settings_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'Settings'
+type MockPluginService_Settings_Call struct {
+	*mock.Call
+}
+
+// Settings is a helper method to define mock.On call
+//   - ctx context.Context
+//   - p auth.Principal
+//   - id string
+func (_e *MockPluginService_Expecter) Settings(ctx any, p any, id any) *MockPluginService_Settings_Call {
+	return &MockPluginService_Settings_Call{Call: _e.mock.On("Settings", ctx, p, id)}
+}
+
+func (_c *MockPluginService_Settings_Call) Run(run func(ctx context.Context, p auth.Principal, id string)) *MockPluginService_Settings_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		var arg1 auth.Principal
+		if args[1] != nil {
+			arg1 = args[1].(auth.Principal)
+		}
+		var arg2 string
+		if args[2] != nil {
+			arg2 = args[2].(string)
+		}
+		run(
+			arg0,
+			arg1,
+			arg2,
+		)
+	})
+	return _c
+}
+
+func (_c *MockPluginService_Settings_Call) Return(settings []plugins.Setting, err error) *MockPluginService_Settings_Call {
+	_c.Call.Return(settings, err)
+	return _c
+}
+
+func (_c *MockPluginService_Settings_Call) RunAndReturn(run func(ctx context.Context, p auth.Principal, id string) ([]plugins.Setting, error)) *MockPluginService_Settings_Call {
 	_c.Call.Return(run)
 	return _c
 }

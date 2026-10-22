@@ -1973,12 +1973,22 @@
                         "type": "array",
                         "uniqueItems": false
                     },
+                    "plugin": {
+                        "description": "Plugin is the ID of the plugin it comes from, pluginName its name; absent for a\nbuilt-in. Trades says it places orders (D309).",
+                        "type": "string"
+                    },
+                    "pluginName": {
+                        "type": "string"
+                    },
                     "remembers": {
                         "description": "Remembers says it keeps what it saw across runs; /workflows/{id}/nodes/{node}/memory\nsays how much, and forgets it.",
                         "type": "boolean"
                     },
                     "seesItems": {
                         "description": "SeesItems says its settings' expressions see items, every item it receives on\nmain, beside each one's fields; a field named items is then item.items.",
+                        "type": "boolean"
+                    },
+                    "trades": {
                         "type": "boolean"
                     },
                     "trigger": {
@@ -2470,6 +2480,75 @@
                     "by",
                     "detail",
                     "version"
+                ],
+                "type": "object"
+            },
+            "PluginSetting": {
+                "properties": {
+                    "default": {},
+                    "description": {
+                        "type": "string"
+                    },
+                    "isSet": {
+                        "type": "boolean"
+                    },
+                    "key": {
+                        "type": "string"
+                    },
+                    "kind": {
+                        "enum": [
+                            "string",
+                            "int",
+                            "bool",
+                            "duration",
+                            "enum",
+                            "list"
+                        ],
+                        "type": "string"
+                    },
+                    "label": {
+                        "type": "string"
+                    },
+                    "options": {
+                        "description": "the choices of an enum",
+                        "items": {
+                            "type": "string"
+                        },
+                        "type": "array",
+                        "uniqueItems": false
+                    },
+                    "secret": {
+                        "description": "Secret values are write-only: value is null and isSet says whether one is saved.",
+                        "type": "boolean"
+                    },
+                    "value": {
+                        "description": "Value and Default are typed by kind, as a Setting's are; both null for a secret."
+                    }
+                },
+                "required": [
+                    "default",
+                    "description",
+                    "isSet",
+                    "key",
+                    "kind",
+                    "label",
+                    "secret",
+                    "value"
+                ],
+                "type": "object"
+            },
+            "PluginSettings": {
+                "properties": {
+                    "settings": {
+                        "items": {
+                            "$ref": "#/components/schemas/PluginSetting"
+                        },
+                        "type": "array",
+                        "uniqueItems": false
+                    }
+                },
+                "required": [
+                    "settings"
                 ],
                 "type": "object"
             },
@@ -3500,6 +3579,19 @@
                     "settings",
                     "source",
                     "version"
+                ],
+                "type": "object"
+            },
+            "UpdatePluginSettingsRequest": {
+                "properties": {
+                    "values": {
+                        "additionalProperties": {},
+                        "description": "New values by setting key, typed as PluginSetting.value. null resets a setting to\nits default, as does an empty string for a secret.",
+                        "type": "object"
+                    }
+                },
+                "required": [
+                    "values"
                 ],
                 "type": "object"
             },
@@ -4822,6 +4914,167 @@
                     }
                 ],
                 "summary": "What admins did with a plugin",
+                "tags": [
+                    "admin"
+                ]
+            }
+        },
+        "/admin/plugins/{id}/settings": {
+            "get": {
+                "operationId": "pluginSettings",
+                "parameters": [
+                    {
+                        "description": "Plugin ID",
+                        "in": "path",
+                        "name": "id",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/PluginSettings"
+                                }
+                            }
+                        },
+                        "description": "OK"
+                    },
+                    "401": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "unauthenticated"
+                    },
+                    "403": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "forbidden"
+                    },
+                    "404": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "not_found"
+                    }
+                },
+                "security": [
+                    {
+                        "SessionCookie": []
+                    },
+                    {
+                        "APIToken": []
+                    }
+                ],
+                "summary": "A plugin's own settings",
+                "tags": [
+                    "admin"
+                ]
+            },
+            "patch": {
+                "operationId": "updatePluginSettings",
+                "parameters": [
+                    {
+                        "description": "Plugin ID",
+                        "in": "path",
+                        "name": "id",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/UpdatePluginSettingsRequest",
+                                "summary": "body",
+                                "description": "Changes"
+                            }
+                        }
+                    },
+                    "description": "Changes",
+                    "required": true
+                },
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/PluginSettings"
+                                }
+                            }
+                        },
+                        "description": "OK"
+                    },
+                    "400": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "invalid_input"
+                    },
+                    "401": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "unauthenticated"
+                    },
+                    "403": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "forbidden"
+                    },
+                    "404": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "not_found"
+                    }
+                },
+                "security": [
+                    {
+                        "SessionCookie": []
+                    },
+                    {
+                        "APIToken": []
+                    }
+                ],
+                "summary": "Change a plugin's own settings",
                 "tags": [
                     "admin"
                 ]

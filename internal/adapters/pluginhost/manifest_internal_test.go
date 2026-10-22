@@ -1,6 +1,7 @@
 package pluginhost
 
 import (
+	"encoding/json"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -19,6 +20,14 @@ func good() plugin.Manifest {
 		Scenarios:       []plugin.Scenario{{ID: "rain"}},
 		Permissions: []string{
 			"fetch:api.weather.example", "fetch:203.0.113.7", "fetch:2001:db8::1", "fetch:*", "wallets", "telegram", "orders",
+		},
+		Settings: []plugin.Setting{
+			{Key: "api_key", Label: "API key", Kind: "string", Secret: true},
+			{Key: "units", Label: "Units", Kind: "enum", Options: []string{"celsius", "kelvin"}, Default: "celsius"},
+			{Key: "days", Label: "Days ahead", Kind: "int", Default: json.Number("3")},
+			{Key: "every", Label: "Every", Kind: "duration", Default: "1h"},
+			{Key: "cities", Label: "Cities", Kind: "list", Default: []any{"Paris"}},
+			{Key: "metric", Label: "Metric", Kind: "bool", Default: true},
 		},
 		Metrics: []plugin.Metric{
 			{Name: "forecasts_total", Kind: "counter", Help: "Forecasts made.", Labels: []string{"city"}},
@@ -71,6 +80,14 @@ func TestCheck(t *testing.T) {
 		"wallets misspelt":        func(m *plugin.Manifest) { m.Permissions = []string{"wallet"} },
 		"a trigger that trades":   func(m *plugin.Manifest) { m.Triggers[0].Trades = true },
 		"trades, no orders":       func(m *plugin.Manifest) { m.Nodes[0].Trades = true; m.Permissions = nil },
+		"a setting's key":         func(m *plugin.Manifest) { m.Settings[0].Key = "API key" },
+		"a setting twice":         func(m *plugin.Manifest) { m.Settings = append(m.Settings, m.Settings[0]) },
+		"a setting's kind":        func(m *plugin.Manifest) { m.Settings[0].Kind = "password" },
+		"an enum of nothing":      func(m *plugin.Manifest) { m.Settings[1].Options = nil },
+		"a secret number":         func(m *plugin.Manifest) { m.Settings[2].Secret = true },
+		"a default not its kind":  func(m *plugin.Manifest) { m.Settings[2].Default = "ten" },
+		"an enum's default":       func(m *plugin.Manifest) { m.Settings[1].Default = "fahrenheit" },
+		"a setting unlabelled":    func(m *plugin.Manifest) { m.Settings[0].Label = "" },
 		"a fetch with no host":    func(m *plugin.Manifest) { m.Permissions = []string{"fetch:"} },
 		"a fetch of a URL":        func(m *plugin.Manifest) { m.Permissions = []string{"fetch:https://api.example.com"} },
 		"a fetch of subdomains":   func(m *plugin.Manifest) { m.Permissions = []string{"fetch:*.example.com"} },

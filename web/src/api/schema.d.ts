@@ -193,6 +193,24 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/admin/plugins/{id}/settings": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** A plugin's own settings */
+        get: operations["pluginSettings"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Change a plugin's own settings */
+        patch: operations["updatePluginSettings"];
+        trace?: never;
+    };
     "/admin/plugins/{id}/start": {
         parameters: {
             query?: never;
@@ -2300,6 +2318,12 @@ export interface components {
             outputsParam?: string;
             params: components["schemas"]["ParamSpec"][];
             /**
+             * @description Plugin is the ID of the plugin it comes from, pluginName its name; absent for a
+             *     built-in. Trades says it places orders (D309).
+             */
+            plugin?: string;
+            pluginName?: string;
+            /**
              * @description Remembers says it keeps what it saw across runs; /workflows/{id}/nodes/{node}/memory
              *     says how much, and forgets it.
              */
@@ -2309,6 +2333,7 @@ export interface components {
              *     main, beside each one's fields; a field named items is then item.items.
              */
             seesItems?: boolean;
+            trades?: boolean;
             trigger: boolean;
         };
         NodeTypeList: {
@@ -2487,6 +2512,24 @@ export interface components {
             by: string;
             detail: string;
             version: string;
+        };
+        PluginSetting: {
+            default: unknown;
+            description: string;
+            isSet: boolean;
+            key: string;
+            /** @enum {string} */
+            kind: "string" | "int" | "bool" | "duration" | "enum" | "list";
+            label: string;
+            /** @description the choices of an enum */
+            options?: string[];
+            /** @description Secret values are write-only: value is null and isSet says whether one is saved. */
+            secret: boolean;
+            /** @description Value and Default are typed by kind, as a Setting's are; both null for a secret. */
+            value: unknown;
+        };
+        PluginSettings: {
+            settings: components["schemas"]["PluginSetting"][];
         };
         PluginStatus: {
             /** @description in the last 10 minutes */
@@ -2865,6 +2908,15 @@ export interface components {
             source: string;
             /** @description Version is the version the edit started from; a newer one on the server is a conflict. */
             version: number;
+        };
+        UpdatePluginSettingsRequest: {
+            /**
+             * @description New values by setting key, typed as PluginSetting.value. null resets a setting to
+             *     its default, as does an empty string for a secret.
+             */
+            values: {
+                [key: string]: unknown;
+            };
         };
         UpdateSettingsRequest: {
             /**
@@ -3686,6 +3738,120 @@ export interface operations {
             };
             /** @description forbidden */
             403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    pluginSettings: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Plugin ID */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PluginSettings"];
+                };
+            };
+            /** @description unauthenticated */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description not_found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    updatePluginSettings: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Plugin ID */
+                id: string;
+            };
+            cookie?: never;
+        };
+        /** @description Changes */
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdatePluginSettingsRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PluginSettings"];
+                };
+            };
+            /** @description invalid_input */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description unauthenticated */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description not_found */
+            404: {
                 headers: {
                     [name: string]: unknown;
                 };

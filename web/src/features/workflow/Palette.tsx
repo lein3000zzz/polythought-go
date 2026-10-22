@@ -17,6 +17,7 @@ const groupNames: Record<string, string> = {
   code: 'Code',
   custom: 'Custom',
   trading: 'Trading',
+  plugin: 'Plugins',
 }
 
 // Groups follow the way items flow: where they start, come from, are sorted out, go.
@@ -30,6 +31,7 @@ const groupOrder = [
   'Trading',
   'Output',
   'Telegram',
+  'Plugins',
   'Other',
 ]
 
@@ -160,6 +162,16 @@ function NodeButton({
       />
       <span className="min-w-0">
         <span className="block font-medium">{t.label || t.name}</span>
+        {t.pluginName && (
+          <span className="flex flex-wrap items-center gap-1 text-xs text-muted-foreground">
+            From {t.pluginName}
+            {t.trades && (
+              <span className="rounded border border-destructive/40 px-1 text-[10px] font-medium text-destructive">
+                Trades
+              </span>
+            )}
+          </span>
+        )}
         {t.description && (
           <span className="line-clamp-2 text-xs text-muted-foreground">{t.description}</span>
         )}
@@ -168,9 +180,9 @@ function NodeButton({
   )
 }
 
-/** Whether every word of the query is in the node's name, type, description or group. */
+/** Whether every word of the query is in the node's name, type, description, plugin or group. */
 function matches(t: NodeType, group: string, query: string): boolean {
-  const haystack = [t.label, t.name, t.description, group].join(' ').toLowerCase()
+  const haystack = [t.label, t.name, t.description, t.pluginName, group].join(' ').toLowerCase()
 
   return query
     .toLowerCase()
@@ -178,13 +190,14 @@ function matches(t: NodeType, group: string, query: string): boolean {
     .every((word) => haystack.includes(word))
 }
 
-// groups sorts the types into groups by the first part of their name, triggers apart.
+// groups sorts the types into groups by the first part of their name, triggers apart
+// but for plugins', which keep together (D330).
 function groups(types: readonly NodeType[]): [string, NodeType[]][] {
   const out = new Map<string, NodeType[]>(groupOrder.map((g) => [g, []]))
 
   for (const t of types) {
     const prefix = t.name.split('.')[0]
-    const group = t.trigger ? 'Triggers' : (groupNames[prefix] ?? 'Other')
+    const group = t.plugin ? 'Plugins' : t.trigger ? 'Triggers' : (groupNames[prefix] ?? 'Other')
 
     out.get(group)?.push(t)
   }
