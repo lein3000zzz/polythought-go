@@ -64,7 +64,7 @@ export const routes: RouteObject[] = [
           { path: 'credentials', element: <CredentialsPage /> },
           { path: 'settings', element: <SettingsPage /> },
           { path: 'admin', element: <AdminPage /> },
-          { path: 'admin/config', element: <AdminConfigPage /> },
+          { path: 'admin/config/:page?', element: <AdminConfigPage /> },
           { path: 'admin/plugins', element: <AdminPluginsPage /> },
         ],
       },

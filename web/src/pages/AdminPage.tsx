@@ -43,6 +43,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
+import { configPath } from '@/features/config/pages'
 import { formatDateTime } from '@/lib/format'
 
 type User = Schemas['User']
@@ -156,7 +157,7 @@ function UsersSection({ me }: { me: User }) {
       {codeAccess && (
         <p className="text-sm text-muted-foreground">
           {codeAccessModes[codeAccess]} Who may is set under Code on the{' '}
-          <Link to="/admin/config" className="underline underline-offset-4">
+          <Link to={configPath('code', 'code.access')} className="underline underline-offset-4">
             Config page
           </Link>
           .
@@ -520,7 +521,10 @@ function InvitesSection() {
           {config.data && (
             <p className="text-sm text-muted-foreground">
               {registrationModes[config.data.registration]} Change who may sign up under{' '}
-              <Link to="/admin/config" className="text-foreground underline underline-offset-4">
+              <Link
+                to={configPath('accounts', 'auth.registration')}
+                className="text-foreground underline underline-offset-4"
+              >
                 Config
               </Link>
               .

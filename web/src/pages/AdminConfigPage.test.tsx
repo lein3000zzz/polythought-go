@@ -176,16 +176,15 @@ describe('admin config page', () => {
     await user.click(tabs.getByRole('link', { name: 'Config' }))
 
     expect(router.state.location.pathname).toBe('/admin/config')
-    expect(await screen.findByRole('heading', { name: 'Accounts' })).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { name: 'Polymarket access' })).toBeInTheDocument()
   })
 
-  it('shows each setting with where its value comes from', async () => {
+  it('shows each setting with where its value comes from, a page for each group', async () => {
     config()
-    renderApp('/admin/config')
+    const { user } = renderApp('/admin/config/accounts')
 
-    for (const group of ['Accounts', 'Workflows', 'Network', 'Logging', 'Telegram']) {
-      expect(await screen.findByRole('heading', { name: group })).toBeInTheDocument()
-    }
+    expect(await screen.findByRole('heading', { name: 'Accounts' })).toBeInTheDocument()
+    expect(screen.queryByLabelText('Workflows per user')).not.toBeInTheDocument()
 
     // Set by the environment: shown, but not editable here.
     expect(screen.getByLabelText('Registration')).toBeDisabled()
@@ -201,15 +200,22 @@ describe('admin config page', () => {
       screen.getByText("Change auth.min_password_length in the server's config file."),
     ).toBeInTheDocument()
     // At its default: the default is the placeholder, so typing sets a value.
+    const menu = within(screen.getByRole('navigation', { name: 'Config pages' }))
+    await user.click(menu.getByRole('link', { name: 'Workflows' }))
+    expect(await screen.findByRole('heading', { name: 'Workflows' })).toBeInTheDocument()
     expect(screen.getByLabelText('Workflows per user')).toHaveValue('')
     expect(screen.getByLabelText('Workflows per user')).toHaveAttribute(
       'placeholder',
       'Default: 100',
     )
-    expect(screen.getByLabelText('Trusted proxies')).toHaveValue('10.0.0.0/8')
-    expect(screen.getByText('Applies after a restart.')).toBeInTheDocument()
+    await user.click(menu.getByRole('link', { name: 'Network' }))
+    expect(await screen.findByLabelText('Trusted proxies')).toHaveValue('10.0.0.0/8')
+    await user.click(menu.getByRole('link', { name: 'Logging' }))
+    expect(await screen.findByText('Applies after a restart.')).toBeInTheDocument()
 
     // Secrets are never sent to the page.
+    await user.click(menu.getByRole('link', { name: 'Telegram' }))
+    await screen.findByLabelText('Bot token')
     expect(screen.getByLabelText('Bot token')).toHaveValue('')
     expect(screen.getByLabelText('Bot token')).toHaveAttribute(
       'placeholder',
@@ -217,7 +223,7 @@ describe('admin config page', () => {
     )
   })
 
-  it('saves only what changed, with resets as null', async () => {
+  it('saves only what changed on its page, with resets as null', async () => {
     const sent: unknown[] = []
     config()
     server.use(
@@ -226,33 +232,87 @@ describe('admin config page', () => {
         return HttpResponse.json({ settings: all, restartPending: false })
       }),
     )
-    const { user } = renderApp('/admin/config')
+    const { user } = renderApp('/admin/config/accounts')
 
-    await user.type(await screen.findByLabelText('Workflows per user'), '250')
-    await user.click(screen.getByLabelText('Webhooks to private addresses'))
-    const idleRow = screen.getByLabelText('Idle sign-out').closest('fieldset')!.parentElement!
+    const idleRow = (await screen.findByLabelText('Idle sign-out')).closest(
+      'fieldset',
+    )!.parentElement!
     await user.click(within(idleRow).getByRole('button', { name: 'Reset to default' }))
     expect(screen.getByLabelText('Idle sign-out')).toHaveValue('')
-    await user.type(screen.getByLabelText('Bot token'), 'new-token')
+    expect(screen.getByText('1 unsaved change')).toBeInTheDocument()
 
-    // Typing a value back to what is saved is no change.
-    await user.selectOptions(screen.getByLabelText('Log format'), 'text')
+    await user.click(screen.getByRole('button', { name: 'Save' }))
+    expect(await screen.findByText('Settings saved')).toBeInTheDocument()
+    expect(sent).toEqual([{ values: { 'auth.session_idle_ttl': null } }])
+    expect(screen.queryByText(/unsaved change/)).not.toBeInTheDocument()
 
-    expect(screen.getByText('4 unsaved changes')).toBeInTheDocument()
+    // Typing a value back to what is saved is no change; a secret typed is one.
+    await user.click(screen.getByRole('link', { name: 'Logging' }))
+    await user.selectOptions(await screen.findByLabelText('Log format'), 'text')
+    expect(screen.queryByText(/unsaved change/)).not.toBeInTheDocument()
+
+    await user.click(screen.getByRole('link', { name: 'Telegram' }))
+    await user.type(await screen.findByLabelText('Bot token'), 'new-token')
+    await user.click(screen.getByRole('button', { name: 'Save' }))
+    await waitFor(() => expect(sent).toHaveLength(2))
+    expect(sent[1]).toEqual({ values: { 'telegram.token': 'new-token' } })
+  })
+
+  it('keeps unsaved changes across its pages, marked in the menu, each page saving its own (D391)', async () => {
+    const sent: unknown[] = []
+    config()
+    server.use(
+      http.patch('/api/v1/admin/settings', async ({ request }) => {
+        sent.push(await request.json())
+        return HttpResponse.json({ settings: all, restartPending: false })
+      }),
+    )
+    const { user } = renderApp('/admin/config/workflows')
+    const menu = within(await screen.findByRole('navigation', { name: 'Config pages' }))
+
+    await user.type(await screen.findByLabelText('Workflows per user'), '250')
+    expect(menu.getByRole('link', { name: 'Workflows, 1 unsaved' })).toBeInTheDocument()
+
+    await user.click(menu.getByRole('link', { name: 'Network' }))
+    await user.click(await screen.findByLabelText('Webhooks to private addresses'))
+    expect(screen.getByText('1 unsaved change')).toBeInTheDocument() // this page's
     await user.click(screen.getByRole('button', { name: 'Save' }))
 
-    expect(await screen.findByText('Settings saved')).toBeInTheDocument()
-    expect(sent).toEqual([
-      {
-        values: {
-          'workflows.max_per_user': 250,
-          'webhook.allow_private': true,
-          'auth.session_idle_ttl': null,
-          'telegram.token': 'new-token',
-        },
-      },
-    ])
-    expect(screen.queryByText(/unsaved change/)).not.toBeInTheDocument()
+    await waitFor(() => expect(sent).toEqual([{ values: { 'webhook.allow_private': true } }]))
+    expect(menu.getByRole('link', { name: 'Workflows, 1 unsaved' })).toBeInTheDocument()
+    expect(menu.getByRole('link', { name: 'Network' })).toBeInTheDocument()
+
+    // Back on its page, the draft is still there to save.
+    await user.click(menu.getByRole('link', { name: 'Workflows, 1 unsaved' }))
+    expect(await screen.findByLabelText('Workflows per user')).toHaveValue('250')
+    await user.click(screen.getByRole('button', { name: 'Save' }))
+    await waitFor(() => expect(sent).toHaveLength(2))
+    expect(sent[1]).toEqual({ values: { 'workflows.max_per_user': 250 } })
+  })
+
+  it('asks before leaving Config with unsaved changes', async () => {
+    config()
+    server.use(
+      http.get('/api/v1/admin/users', () => HttpResponse.json({ users: [root] })),
+      http.get('/api/v1/admin/invites', () => HttpResponse.json({ invites: [] })),
+    )
+    const { user, router } = renderApp('/admin/config/workflows')
+
+    await user.type(await screen.findByLabelText('Workflows per user'), '250')
+    const tabs = within(screen.getByRole('navigation', { name: 'Admin pages' }))
+    await user.click(tabs.getByRole('link', { name: 'Users' }))
+
+    const asked = await screen.findByRole('alertdialog', { name: 'Leave without saving?' })
+    expect(
+      within(asked).getByText('1 unsaved change on the Config pages will be lost.'),
+    ).toBeInTheDocument()
+    await user.click(within(asked).getByRole('button', { name: 'Stay' }))
+    expect(router.state.location.pathname).toBe('/admin/config/workflows')
+    expect(screen.getByLabelText('Workflows per user')).toHaveValue('250')
+
+    await user.click(tabs.getByRole('link', { name: 'Users' }))
+    await user.click(await screen.findByRole('button', { name: 'Leave' }))
+    expect(router.state.location.pathname).toBe('/admin')
   })
 
   it('asks before turning live trading off, which cancels every resting live order (D226)', async () => {
@@ -273,7 +333,7 @@ describe('admin config page', () => {
         return HttpResponse.json({ settings: [{ ...live, value: false }], restartPending: false })
       }),
     )
-    const { user } = renderApp('/admin/config')
+    const { user } = renderApp('/admin/config/trading')
 
     await user.click(await screen.findByLabelText('Live trading'))
     await user.click(screen.getByRole('button', { name: 'Save' }))
@@ -309,7 +369,7 @@ describe('admin config page', () => {
         ),
       ),
     )
-    const { user } = renderApp('/admin/config')
+    const { user } = renderApp('/admin/config/workflows')
 
     await user.type(await screen.findByLabelText('Workflows per user'), '0')
     await user.click(screen.getByRole('button', { name: 'Save' }))
@@ -325,7 +385,7 @@ describe('admin config page', () => {
   it('says when saving failed for another reason', async () => {
     config()
     server.use(http.patch('/api/v1/admin/settings', () => apiError(403, 'forbidden', 'forbidden')))
-    const { user } = renderApp('/admin/config')
+    const { user } = renderApp('/admin/config/workflows')
 
     await user.type(await screen.findByLabelText('Workflows per user'), '5')
     await user.click(screen.getByRole('button', { name: 'Save' }))
@@ -349,11 +409,20 @@ describe('admin config page', () => {
         return new HttpResponse(null, { status: 202 })
       }),
     )
-    const { user } = renderApp('/admin/config')
+    const { user } = renderApp('/admin/config/accounts')
 
     expect(await screen.findByText('A restart is needed')).toBeInTheDocument()
-    expect(screen.getByText(/Changes to Log format take effect/)).toBeInTheDocument()
-    expect(screen.getByText('Waiting for a restart')).toBeInTheDocument()
+    // The banner is on every page, each setting it names a link to its own.
+    expect(screen.getByText(/take effect when the server restarts/)).toHaveTextContent(
+      'Changes to Log format take effect when the server restarts.',
+    )
+    expect(screen.getByRole('link', { name: 'Log format' })).toHaveAttribute(
+      'href',
+      '/admin/config/logging#log.format',
+    )
+    await user.click(screen.getByRole('link', { name: 'Log format' }))
+    expect(await screen.findByText('Waiting for a restart')).toBeInTheDocument()
+    expect(screen.getByText('A restart is needed')).toBeInTheDocument()
 
     await user.click(screen.getByRole('button', { name: 'Restart now' }))
     const dialog = within(await screen.findByRole('alertdialog'))
@@ -383,7 +452,7 @@ describe('admin config page', () => {
         return answer
       }),
     )
-    const { user } = renderApp('/admin/config')
+    const { user } = renderApp('/admin/config/mail')
 
     const field = await screen.findByLabelText('Send a test email to')
     expect(field).toHaveValue(root.email)
@@ -405,7 +474,7 @@ describe('admin config page', () => {
 
   it('sends no test email before a mail server is saved', async () => {
     config([setting({ key: 'mail.host', group: 'Mail', value: '' })])
-    renderApp('/admin/config')
+    renderApp('/admin/config/mail')
 
     expect(
       await screen.findByText('Save a mail server and a From address first.'),
@@ -415,7 +484,7 @@ describe('admin config page', () => {
 
   it("says code runs in the server's process", async () => {
     runners({})
-    renderApp('/admin/config')
+    renderApp('/admin/config/code')
 
     expect(await screen.findByText("Code runs in the server's process.")).toBeInTheDocument()
   })
@@ -429,7 +498,7 @@ describe('admin config page', () => {
       restarts: 1,
       lastError: "it ran past its job's time",
     })
-    renderApp('/admin/config')
+    renderApp('/admin/config/code')
 
     expect(
       await screen.findByText('Code runs in 8 runner processes, sandboxed.'),
@@ -449,7 +518,7 @@ describe('admin config page', () => {
       running: 8,
       why: 'nothing can be sandboxed here: only Linux has the sandbox, and this is darwin',
     })
-    renderApp('/admin/config')
+    renderApp('/admin/config/code')
 
     expect(
       await screen.findByText(
@@ -460,7 +529,7 @@ describe('admin config page', () => {
 
   it('says when the runners would not start, so code does not run (D358)', async () => {
     runners({ inRunners: true, failed: 'coderunner: its engine: the prelude does not compile' })
-    renderApp('/admin/config')
+    renderApp('/admin/config/code')
 
     expect(
       await screen.findByText(
@@ -564,7 +633,7 @@ describe('admin config page', () => {
         }),
       ),
     )
-    renderApp('/admin/config')
+    renderApp('/admin/config/history')
 
     const rows = within(await screen.findByRole('table')).getAllByRole('row')
     expect(rows[1]).toHaveTextContent('Bot token')
@@ -573,5 +642,80 @@ describe('admin config page', () => {
     expect(rows[2]).toHaveTextContent('Trusted proxies')
     expect(rows[2]).toHaveTextContent('none → 10.0.0.0/8, fd00::/8')
     expect(rows[2]).toHaveTextContent('A deleted account')
+  })
+
+  it('shows each page on the overview, with what is set there (D391)', async () => {
+    config()
+    renderApp('/admin/config')
+
+    const pages = await screen.findByRole('heading', { name: 'Pages' })
+    const cards = within(pages.closest('section')!)
+    const card = cards.getByRole('link', { name: /^Accounts/ })
+    expect(card).toHaveAttribute('href', '/admin/config/accounts')
+    expect(card).toHaveTextContent('3 settings · 1 saved · 2 set by the environment or config file')
+    expect(cards.getByRole('link', { name: /^Logging/ })).toHaveTextContent('1 setting')
+    expect(cards.getByRole('link', { name: /^History/ })).toHaveAttribute(
+      'href',
+      '/admin/config/history',
+    )
+  })
+
+  it('finds a setting across the pages, and opens its page at it (D391)', async () => {
+    config()
+    const { user, router } = renderApp('/admin/config')
+
+    await screen.findByRole('heading', { name: 'Polymarket access' })
+    await user.keyboard('/')
+    const search = screen.getByRole('searchbox', { name: 'Search settings' })
+    expect(search).toHaveFocus()
+
+    // By label, key or description, every word.
+    await user.type(search, 'proxies')
+    const found = within(screen.getByRole('navigation', { name: 'Matching settings' }))
+    expect(found.getByText('Network')).toBeInTheDocument()
+    expect(found.getByRole('link', { name: 'Trusted proxies' })).toHaveAttribute(
+      'href',
+      '/admin/config/network#http.trusted_proxies',
+    )
+
+    await user.keyboard('{Enter}')
+    expect(router.state.location.pathname).toBe('/admin/config/network')
+    expect(router.state.location.hash).toBe('#http.trusted_proxies')
+    await waitFor(() => expect(screen.getByLabelText('Trusted proxies')).toHaveFocus())
+
+    await user.clear(search)
+    await user.type(search, 'session idle')
+    await user.click(
+      within(screen.getByRole('navigation', { name: 'Matching settings' })).getByRole('link', {
+        name: 'Idle sign-out',
+      }),
+    )
+    await waitFor(() => expect(screen.getByLabelText('Idle sign-out')).toHaveFocus())
+
+    await user.clear(search)
+    await user.type(search, 'nothing like this')
+    expect(screen.getByText('No settings match “nothing like this”.')).toBeInTheDocument()
+    await user.keyboard('{Escape}')
+    expect(screen.getByRole('navigation', { name: 'Config pages' })).toBeInTheDocument()
+  })
+
+  it('picks a page from a dropdown on narrow screens', async () => {
+    config()
+    const { user, router } = renderApp('/admin/config')
+
+    const picker = await screen.findByRole('combobox', { name: 'Page' })
+    expect(picker).toHaveValue('')
+    await user.selectOptions(picker, 'Telegram')
+
+    expect(router.state.location.pathname).toBe('/admin/config/telegram')
+    expect(await screen.findByLabelText('Bot token')).toBeInTheDocument()
+  })
+
+  it('opens the overview for a page it does not have', async () => {
+    config()
+    const { router } = renderApp('/admin/config/nope')
+
+    expect(await screen.findByRole('heading', { name: 'Polymarket access' })).toBeInTheDocument()
+    expect(router.state.location.pathname).toBe('/admin/config')
   })
 })

@@ -7,7 +7,7 @@ test.use({ expectedConsoleError: /status of 50\d|net::ERR_/ })
 test('user code runs in runner processes once an admin turns them on, sandboxed (D352, D357)', async ({
   page,
 }) => {
-  await page.goto('/admin/config')
+  await page.goto('/admin/config/code')
   const code = page.locator('section', { has: page.getByRole('heading', { name: 'Code' }) })
   await expect(code.getByText("Code runs in the server's process.")).toBeVisible()
 

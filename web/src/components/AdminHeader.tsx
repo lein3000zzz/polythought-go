@@ -17,7 +17,7 @@ export function AdminHeader() {
           <NavLink
             key={to}
             to={to}
-            end
+            end={to === '/admin'} // Config's pages are under it
             className={({ isActive }) =>
               cn(
                 '-mb-px border-b-2 px-3 py-2 text-sm',

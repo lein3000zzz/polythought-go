@@ -31,7 +31,7 @@ test('a private key is refused when it does not control the wallet, and only whi
   await expect(card.getByText('Can trade')).toHaveCount(0)
 
   try {
-    await page.goto('/admin/config')
+    await page.goto('/admin/config/trading')
     await page.getByLabel('Private keys').selectOption('off')
     await page.getByRole('button', { name: 'Save' }).click()
     await expect(page.getByText('Settings saved')).toBeVisible()

@@ -12,8 +12,11 @@ file, what an admin saved on the Config page, the default.
 
 ## The Config page
 
-Open **Admin → Config**. Settings are grouped by what they are about, and each says where its
-value comes from:
+Open **Admin → Config**. It opens on an overview: whether Polymarket takes orders from the
+server, and a card for each page with how many of its settings are saved or set by the
+environment or the config file. A page holds a group of settings, like **Accounts**,
+**Trading** or **Mail**, and the menu beside it lists them all; on a narrow screen it is a
+dropdown above the page. Each setting says where its value comes from:
 
 - **Default**: nobody changed it.
 - **Saved**: an admin saved a value on this page. **Reset to default** removes it.
@@ -21,12 +24,18 @@ value comes from:
   below.
 - **Set in the config file**: the config file sets it. It cannot be changed here either.
 
-Change what you need and press **Save**. If a value is wrong, it is marked and nothing is
-saved. Most settings apply at once. The few that apply after a restart say so; once one of
-them changed, a banner offers **Restart now**.
+Change what you need and press **Save**, which saves that page's changes. If a value is
+wrong, it is marked and nothing is saved. Changes on other pages wait for their own Save: a
+dot marks their page in the menu, and leaving Config with any unsaved asks first. Most
+settings apply at once. The few that apply after a restart say so; once one of them changed,
+a banner on every page names it and offers **Restart now**.
 
-The **History** below lists every change: when, by whom, and the value before and after.
-Secret values are never recorded, only that they changed.
+**Search settings**, above the menu, finds a setting on any page by its label, its key or
+its description; press `/` to get there. Enter, or a click, opens the setting's page at it.
+A link to a setting is its page with its key, like `/admin/config/mail#mail.port`.
+
+**History**, at the bottom of the menu, lists every change: when, by whom, and the value
+before and after. Secret values are never recorded, only that they changed.
 
 All settings, with their defaults, are in the [settings reference](/docs/reference/settings/).
 

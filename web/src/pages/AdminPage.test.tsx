@@ -338,7 +338,7 @@ describe('admin page', () => {
     expect(within(userRow('alice@example.com')).getByText('No')).toBeInTheDocument()
     expect(screen.getByRole('link', { name: 'Config page' })).toHaveAttribute(
       'href',
-      '/admin/config',
+      '/admin/config/code#code.access',
     )
   })
 

@@ -430,7 +430,7 @@ describe('admin plugins page', () => {
     ).toBeInTheDocument()
     expect(screen.getByRole('link', { name: 'Config page' })).toHaveAttribute(
       'href',
-      '/admin/config',
+      '/admin/config/plugins#plugins.unsandboxed',
     )
   })
 

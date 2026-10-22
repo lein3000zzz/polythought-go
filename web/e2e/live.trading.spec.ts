@@ -75,7 +75,7 @@ test('a workflow goes live only once Live trading is on, from a wallet that can 
     expect(setup).toEqual(expect.objectContaining({ mode: 'paper', liveAvailable: true }))
 
     // Turning it off cancels every resting live order: the Config page asks first (D226).
-    await page.goto('/admin/config')
+    await page.goto('/admin/config/trading')
     await page.getByLabel('Live trading', { exact: true }).click()
     await page.getByRole('button', { name: 'Save' }).click()
     const asked = page.getByRole('alertdialog')

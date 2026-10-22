@@ -143,7 +143,7 @@ describe('settings page', () => {
 
       expect(await screen.findByRole('link', { name: 'Admin → Config' })).toHaveAttribute(
         'href',
-        '/admin/config',
+        '/admin/config/telegram#telegram.enabled',
       )
       expect(screen.getByText(/Telegram refused the bot token/)).toBeInTheDocument()
     })

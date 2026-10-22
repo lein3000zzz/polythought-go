@@ -42,6 +42,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Switch } from '@/components/ui/switch'
+import { configPath } from '@/features/config/pages'
 import { ApproveDialog } from '@/features/plugins/ApproveDialog'
 import { CapsDialog } from '@/features/plugins/CapsDialog'
 import { SettingsDialog } from '@/features/plugins/SettingsDialog'
@@ -144,7 +145,10 @@ function PluginsSection() {
 function SandboxBanner({ sandbox }: { sandbox: PluginSandbox }) {
   const why = sandbox.why.charAt(0).toUpperCase() + sandbox.why.slice(1)
   const config = (
-    <Link to="/admin/config" className="underline underline-offset-4">
+    <Link
+      to={configPath('plugins', 'plugins.unsandboxed')}
+      className="underline underline-offset-4"
+    >
       Config page
     </Link>
   )

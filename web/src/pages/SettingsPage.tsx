@@ -26,6 +26,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
+import { configPath } from '@/features/config/pages'
 import { formatDateTime } from '@/lib/format'
 
 export function SettingsPage() {
@@ -325,7 +326,10 @@ function TelegramSection() {
             <>
               {' '}
               Turn on the bot and add its token under{' '}
-              <Link to="/admin/config" className="text-foreground underline underline-offset-4">
+              <Link
+                to={configPath('telegram', 'telegram.enabled')}
+                className="text-foreground underline underline-offset-4"
+              >
                 Admin → Config
               </Link>
               .

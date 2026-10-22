@@ -20,7 +20,7 @@ test('a test email goes through the mail server set up on the Config page', asyn
       },
     })
 
-  await page.goto('/admin/config')
+  await page.goto('/admin/config/mail')
   await expect(page.getByText('Save a mail server and a From address first.')).toBeVisible()
 
   try {

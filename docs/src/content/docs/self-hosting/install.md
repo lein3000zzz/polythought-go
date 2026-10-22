@@ -143,7 +143,7 @@ Empty, which it is to start with, orders carry none.
 Polymarket refuses new orders from restricted regions: the United States, the United
 Kingdom, France, Germany and others take only the closing of positions, and sanctioned
 ones nothing at all. Live orders go from the server, so where it runs decides. **Polymarket
-access**, at the top of the Config page, says what Polymarket answers for the server's
+access**, on the Config page's overview, says what Polymarket answers for the server's
 address: checked at start, every 6 hours and on **Check now**, and logged as a warning while
 blocked. Its answer also says blocked where Polymarket restricts only its website and its
 API takes orders (Ireland, the Netherlands, Japan and a few more); see
