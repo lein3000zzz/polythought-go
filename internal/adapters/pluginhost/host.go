@@ -5,11 +5,13 @@
 //
 // It serves each plugin the host API (5b), the plugin's only way out of its process:
 // each call names a session of one of its runs, is checked against the permissions its
-// manifest asks for, and is held to the run's limits.
+// manifest asks for, and is held to the run's limits. The process runs under the sandbox
+// (5d), where it can reach nothing else.
 package pluginhost
 
 import (
 	"bytes"
+	"cmp"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -23,6 +25,7 @@ import (
 	goplugin "github.com/hashicorp/go-plugin"
 	"github.com/lein3000zzz/the-watchers/pkg/observability/logging"
 
+	"github.com/lein3000zzz/polythought-go/internal/adapters/sandbox"
 	"github.com/lein3000zzz/polythought-go/internal/core/domain"
 	"github.com/lein3000zzz/polythought-go/internal/core/engine"
 	"github.com/lein3000zzz/polythought-go/internal/core/services/library"
@@ -40,7 +43,7 @@ const (
 // Plugin is a plugin the host started: its manifest, and its process while it runs.
 // Supervised, it is started again when its process crashes (D320).
 type Plugin struct {
-	path     string
+	prog     Program
 	manifest plugin.Manifest
 	log      logging.Logger
 	api      *api
@@ -56,32 +59,54 @@ type Plugin struct {
 	wake    chan struct{} // an admin's start, for a plugin stopped as crashed
 }
 
-// conn is a plugin's running process.
+// conn is a plugin's running process, and its temporary directory.
 type conn struct {
 	client *goplugin.Client
 	rpc    *plugin.Client
+	temp   string
 }
 
-// Start starts the plugin program at path and reads what it brings, refusing a manifest
-// the host cannot take, and serves it the host API from deps. Its process gets none of
-// the server's environment, so none of its settings or secrets: only a PATH and a
-// temporary directory.
-func Start(ctx context.Context, path string, deps Deps) (*Plugin, error) {
+// end stops the process, emptying its temporary directory (D339).
+func (c *conn) end() {
+	c.client.Kill()
+	_ = os.RemoveAll(c.temp)
+}
+
+// Program is a plugin's program, and the directories its process may touch (D339).
+type Program struct {
+	Path string // the program
+	Dir  string // its version's directory, holding it: read, never written
+	Data string // its plugin's lasting directory, made when it is not there; empty: none
+}
+
+// Start starts the plugin's program and reads what it brings, refusing a manifest the
+// host cannot take, and serves it the host API from deps. Its process runs under deps'
+// sandbox, or without one only where there is none and deps allow it (D338). It gets none
+// of the server's environment, so none of its settings or secrets: only a PATH, a
+// temporary directory of its own, which it works in, emptied when it stops, and its
+// lasting one.
+func Start(ctx context.Context, prog Program, deps Deps) (*Plugin, error) {
 	api, err := newAPI(deps)
 	if err != nil {
 		return nil, err
 	}
 
-	p := &Plugin{path: path, log: api.log, api: api, out: newRing(logLines), wake: make(chan struct{}, 1)}
+	if prog.Data != "" {
+		if err := os.MkdirAll(prog.Data, 0o700); err != nil {
+			return nil, fmt.Errorf("plugin %s: its data: %w", prog.Path, err)
+		}
+	}
+
+	p := &Plugin{prog: prog, log: api.log, api: api, out: newRing(logLines), wake: make(chan struct{}, 1)}
 
 	c, m, err := p.connect(ctx)
 	if err != nil {
-		return nil, fmt.Errorf("plugin %s: %w", path, err)
+		return nil, fmt.Errorf("plugin %s: %w", prog.Path, err)
 	}
 
 	if err := api.bind(m); err != nil {
-		c.client.Kill()
-		return nil, fmt.Errorf("plugin %s: %w", path, err)
+		c.end()
+		return nil, fmt.Errorf("plugin %s: %w", prog.Path, err)
 	}
 
 	p.manifest, p.log = m, api.log
@@ -92,24 +117,38 @@ func Start(ctx context.Context, path string, deps Deps) (*Plugin, error) {
 
 // connect starts the plugin's process and reads its manifest.
 func (p *Plugin) connect(ctx context.Context) (*conn, plugin.Manifest, error) {
-	cmd := exec.Command(p.path) //nolint:gosec // an admin's plugin, installed and approved by them (5c)
-	cmd.Env = []string{"PATH=/usr/local/bin:/usr/bin:/bin", "TMPDIR=" + os.TempDir(), "HOME=" + os.TempDir()}
+	temp, err := os.MkdirTemp("", "polythought-plugin-")
+	if err != nil {
+		return nil, plugin.Manifest{}, fmt.Errorf("its temporary directory: %w", err)
+	}
+
+	cmd, err := p.command(temp)
+	if err != nil {
+		_ = os.RemoveAll(temp)
+		return nil, plugin.Manifest{}, err
+	}
 
 	client := goplugin.NewClient(&goplugin.ClientConfig{
-		HandshakeConfig:  plugin.Handshake,
-		Plugins:          plugin.HostPlugins(p.api),
-		Cmd:              cmd,
-		SkipHostEnv:      true,
-		AllowedProtocols: []goplugin.Protocol{goplugin.ProtocolGRPC},
-		AutoMTLS:         true,
-		StartTimeout:     startFor,
+		HandshakeConfig: plugin.Handshake,
+		Plugins:         plugin.HostPlugins(p.api),
+		Cmd:             cmd,
+		SkipHostEnv:     true,
+		// The host API over the connection to the plugin's socket, in its temporary
+		// directory: the host makes no socket of its own, which the sandbox would keep
+		// the plugin from.
+		GRPCBrokerMultiplex: true,
+		AllowedProtocols:    []goplugin.Protocol{goplugin.ProtocolGRPC},
+		AutoMTLS:            true,
+		StartTimeout:        startFor,
 		Logger: hclog.New(&hclog.LoggerOptions{
 			Name: "plugin", Level: hclog.Info, Output: &lines{log: p.log, out: p.out}, DisableTime: true,
 		}),
 	})
 
+	c := &conn{client: client, temp: temp}
+
 	fail := func(err error) (*conn, plugin.Manifest, error) {
-		client.Kill()
+		c.end()
 		return nil, plugin.Manifest{}, err
 	}
 
@@ -150,7 +189,40 @@ func (p *Plugin) connect(ctx context.Context) (*conn, plugin.Manifest, error) {
 		return fail(err)
 	}
 
-	return &conn{client: client, rpc: rpc}, m, nil
+	c.rpc = rpc
+
+	return c, m, nil
+}
+
+// command is the command starting the plugin's program: under the sandbox, or where there
+// is none, without one if deps allow it, asked each time (D338).
+func (p *Plugin) command(temp string) (*exec.Cmd, error) {
+	var (
+		cmd  *exec.Cmd
+		deps = p.api.deps
+	)
+
+	switch {
+	case deps.Sandbox != nil:
+		c, err := deps.Sandbox.Command(sandbox.Policy{Program: p.prog.Path, Dir: p.prog.Dir, Temp: temp, Data: p.prog.Data})
+		if err != nil {
+			return nil, err
+		}
+
+		cmd = c
+	case deps.Unsandboxed != nil && deps.Unsandboxed():
+		cmd = exec.Command(p.prog.Path) //nolint:gosec // an admin's plugin, approved by them (5c), and let run unsandboxed
+	default:
+		return nil, fmt.Errorf("%w, and unsandboxed plugins are not allowed", cmp.Or(deps.NoSandbox, sandbox.ErrUnavailable))
+	}
+
+	cmd.Dir = temp
+	cmd.Env = []string{"PATH=/usr/local/bin:/usr/bin:/bin", "TMPDIR=" + temp, "HOME=" + cmp.Or(p.prog.Data, temp)}
+	if p.prog.Data != "" {
+		cmd.Env = append(cmd.Env, plugin.EnvData+"="+p.prog.Data)
+	}
+
+	return cmd, nil
 }
 
 func (p *Plugin) Manifest() plugin.Manifest { return p.manifest }
@@ -172,7 +244,7 @@ func (p *Plugin) Close() {
 	p.mu.Unlock()
 
 	if c != nil {
-		c.client.Kill()
+		c.end()
 	}
 
 	p.api.http.CloseIdleConnections()

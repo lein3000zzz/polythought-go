@@ -17,9 +17,15 @@ import (
 	"slices"
 	"strings"
 	"syscall"
+
+	"github.com/lein3000zzz/polythought-go/internal/adapters/sandbox"
 )
 
 func main() {
+	// The server's binary is plugins' sandbox launcher too (D337): run as one, it becomes
+	// the plugin and never returns.
+	sandbox.Launch()
+
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 

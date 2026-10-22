@@ -81,7 +81,7 @@ func (r *Runtime) Load(ctx context.Context, f ports.PluginFile) error {
 		return fmt.Errorf("plugin %s is loaded already", f.ID)
 	}
 
-	p, err := Start(ctx, f.Program, r.deps)
+	p, err := Start(ctx, Program{Path: f.Program, Dir: f.Dir, Data: f.Data}, r.deps)
 	if err != nil {
 		return err
 	}

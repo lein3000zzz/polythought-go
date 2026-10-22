@@ -101,6 +101,8 @@ type PluginFile struct {
 	Manifest    json.RawMessage // as manifest.json has it
 
 	Program string
+	Dir     string // the version's directory, holding Program
+	Data    string // its plugin's lasting directory, every version's (D339); maybe not made yet
 
 	Signed  bool
 	Signer  string // the trusted key's name; empty for none an admin trusts

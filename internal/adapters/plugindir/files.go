@@ -87,7 +87,8 @@ func fileOf(v Version) (ports.PluginFile, error) {
 
 	return ports.PluginFile{
 		ID: v.Manifest.ID, Version: v.Manifest.Version, Name: v.Manifest.Name, Permissions: v.Manifest.Permissions,
-		Manifest: raw, Program: v.Program, Signed: v.Signed, Signer: v.Signer, KeyID: v.KeyID, Warning: v.Warning,
+		Manifest: raw, Program: v.Program, Dir: v.Path, Data: v.Data,
+		Signed: v.Signed, Signer: v.Signer, KeyID: v.KeyID, Warning: v.Warning,
 	}, nil
 }
 

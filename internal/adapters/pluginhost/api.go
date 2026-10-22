@@ -21,6 +21,7 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
+	"github.com/lein3000zzz/polythought-go/internal/adapters/sandbox"
 	"github.com/lein3000zzz/polythought-go/internal/core/domain"
 	"github.com/lein3000zzz/polythought-go/internal/core/engine"
 	"github.com/lein3000zzz/polythought-go/internal/core/ports"
@@ -78,6 +79,13 @@ type Deps struct {
 	// Settings are a plugin's own settings, by its ID, as each run gets them (D329); nil:
 	// none.
 	Settings func(plugin string) map[string]any
+
+	// Sandbox starts plugins' processes under the sandbox (D337): nil where there is none,
+	// NoSandbox saying why. Unsandboxed, asked as each process starts, lets them start
+	// without one there (D338); nil means never.
+	Sandbox     *sandbox.Launcher
+	NoSandbox   error
+	Unsandboxed func() bool
 }
 
 // Limits bound what one run may ask of the host (D293).

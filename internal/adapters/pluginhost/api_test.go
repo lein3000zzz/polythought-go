@@ -411,7 +411,7 @@ func TestData(t *testing.T) {
 }
 
 func TestNoPermissions(t *testing.T) {
-	p, err := pluginhost.Start(context.Background(), bare, pluginhost.Deps{Data: pluginhost.Data{Wallets: &data{}}})
+	p, err := pluginhost.Start(context.Background(), program(t, bare), sandboxed(pluginhost.Deps{Data: pluginhost.Data{Wallets: &data{}}}))
 	require.NoError(t, err)
 	t.Cleanup(p.Close)
 

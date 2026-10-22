@@ -17,6 +17,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/lein3000zzz/polythought-go/internal/adapters/pluginhost"
+	"github.com/lein3000zzz/polythought-go/internal/adapters/sandbox"
 	"github.com/lein3000zzz/polythought-go/internal/core/domain"
 	"github.com/lein3000zzz/polythought-go/internal/core/engine"
 	"github.com/lein3000zzz/polythought-go/internal/core/nodes/credtypes"
@@ -24,20 +25,33 @@ import (
 	"github.com/lein3000zzz/polythought-go/pkg/plugin"
 )
 
-// echo and bare are the test plugins' programs, built once for the package.
+// echo and bare are the test plugins' programs, built once for the package, each in a
+// directory of its own, as a version's is.
 var echo, bare string
 
+// launcher is the sandbox, where the kernel has one: the test plugins run under it there,
+// as the server's do, and without one elsewhere.
+var launcher *sandbox.Launcher
+
 func TestMain(m *testing.M) {
+	// This test binary is the sandbox's launcher too, as the server's is.
+	sandbox.Launch()
+
+	launcher, _ = sandbox.New()
+
 	dir, err := os.MkdirTemp("", "pluginhost-")
 	if err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}
 
-	echo, bare = filepath.Join(dir, "echo"), filepath.Join(dir, "bare")
+	echo, bare = filepath.Join(dir, "echo", "plugin"), filepath.Join(dir, "bare", "plugin")
 
 	for path, src := range map[string]string{echo: "./testdata/echo", bare: "./testdata/bare"} {
-		if out, err := exec.Command("go", "build", "-o", path, src).CombinedOutput(); err != nil {
+		build := exec.Command("go", "build", "-o", path, src)
+		build.Env = append(os.Environ(), "CGO_ENABLED=0") // as pluginpack builds them: the sandbox has no libc to give
+
+		if out, err := build.CombinedOutput(); err != nil {
 			fmt.Fprintf(os.Stderr, "build the test plugin %s: %v\n%s", src, err, out)
 			os.Exit(1)
 		}
@@ -55,6 +69,25 @@ func start(t *testing.T) (*pluginhost.Plugin, *engine.Registry) {
 	return startWith(t, pluginhost.Deps{})
 }
 
+// program is a test plugin's program, with a lasting directory of its own.
+func program(t *testing.T, path string) pluginhost.Program {
+	t.Helper()
+
+	return pluginhost.Program{Path: path, Dir: filepath.Dir(path), Data: t.TempDir()}
+}
+
+// sandboxed is deps starting plugins under the sandbox, where there is one, and else
+// without.
+func sandboxed(deps pluginhost.Deps) pluginhost.Deps {
+	if launcher != nil {
+		deps.Sandbox = launcher
+	} else {
+		deps.Unsandboxed = func() bool { return true }
+	}
+
+	return deps
+}
+
 // startWith starts the test plugin, serving it the host API from deps.
 func startWith(t *testing.T, deps pluginhost.Deps) (*pluginhost.Plugin, *engine.Registry) {
 	t.Helper()
@@ -62,7 +95,7 @@ func startWith(t *testing.T, deps pluginhost.Deps) (*pluginhost.Plugin, *engine.
 	// The server's secrets, which the plugin's process must not see.
 	t.Setenv("POLYTHOUGHT_SECRET_KEYS", "k1:server-secret")
 
-	p, err := pluginhost.Start(context.Background(), echo, deps)
+	p, err := pluginhost.Start(context.Background(), program(t, echo), sandboxed(deps))
 	require.NoError(t, err)
 	t.Cleanup(p.Close)
 
@@ -336,10 +369,69 @@ func TestCredentialsAndScenarios(t *testing.T) {
 }
 
 func TestStartRefuses(t *testing.T) {
-	_, err := pluginhost.Start(context.Background(), filepath.Join(t.TempDir(), "none"), pluginhost.Deps{})
+	_, err := pluginhost.Start(context.Background(), program(t, filepath.Join(t.TempDir(), "none")), sandboxed(pluginhost.Deps{}))
 	require.Error(t, err, "no such program")
 
 	// A program that is no plugin: it never says the handshake.
-	_, err = pluginhost.Start(context.Background(), "/bin/echo", pluginhost.Deps{})
+	_, err = pluginhost.Start(context.Background(), program(t, "/bin/echo"), sandboxed(pluginhost.Deps{}))
 	require.Error(t, err)
+}
+
+// Where there is no sandbox, a plugin does not start, saying why, unless an admin allows
+// it, which is asked each time (D338).
+func TestNoSandbox(t *testing.T) {
+	ctx := context.Background()
+	why := fmt.Errorf("%w: only Linux has the sandbox", sandbox.ErrUnavailable)
+
+	_, err := pluginhost.Start(ctx, program(t, echo), pluginhost.Deps{NoSandbox: why})
+	require.ErrorIs(t, err, sandbox.ErrUnavailable)
+	assert.ErrorContains(t, err, "only Linux has the sandbox, and unsandboxed plugins are not allowed")
+
+	allowed := false
+	deps := pluginhost.Deps{NoSandbox: why, Unsandboxed: func() bool { return allowed }}
+
+	_, err = pluginhost.Start(ctx, program(t, echo), deps)
+	require.ErrorIs(t, err, sandbox.ErrUnavailable)
+
+	allowed = true
+
+	p, err := pluginhost.Start(ctx, program(t, echo), deps)
+	require.NoError(t, err, "allowed")
+	p.Close()
+}
+
+// Its process writes its lasting directory and its temporary one, emptied as it stops;
+// under the sandbox, nothing else (D339).
+func TestDirectories(t *testing.T) {
+	p, r := start(t)
+
+	server := filepath.Join(t.TempDir(), "server.txt")
+	require.NoError(t, os.WriteFile(server, []byte("the server's"), 0o600))
+
+	out, err := run(t, r, "plugin.echo.disk", map[string]any{"outside": server, "dir": filepath.Dir(echo)}, items(map[string]any{}))
+	require.NoError(t, err)
+
+	got := out[engine.DefaultPort][0].JSON
+	data, temp := got["data_dir"].(string), got["temp_dir"].(string)
+
+	require.NotEmpty(t, data)
+	assert.Equal(t, "ok", got["write_data"])
+	assert.Equal(t, "ok", got["write_temp"])
+	assert.FileExists(t, filepath.Join(temp, "scratch.txt"))
+
+	if launcher != nil {
+		assert.NotEqual(t, "ok", got["read_outside"], "the server's files")
+		assert.NotEqual(t, "ok", got["write_own"], "its own program's directory")
+		t.Logf("refused as: %s; %s", got["read_outside"], got["write_own"])
+	} else {
+		t.Log("no sandbox here: what it refuses is not tried")
+	}
+
+	p.Close()
+
+	assert.NoDirExists(t, temp, "emptied as it stops")
+
+	kept, err := os.ReadFile(filepath.Join(data, "kept.txt")) //nolint:gosec // the test's
+	require.NoError(t, err, "its lasting directory outlives it")
+	assert.Equal(t, "kept", string(kept))
 }

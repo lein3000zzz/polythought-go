@@ -18,12 +18,21 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"os"
 	"time"
 )
 
 // SDKVersion is this SDK's version, semver: a plugin built with another major version is
 // refused.
 const SDKVersion = "1.0.0"
+
+// EnvData names the environment variable holding the plugin's own lasting directory
+// (D339), which its restarts and upgrades keep. Its process may write nowhere else on disk
+// but its temporary directory, TMPDIR, emptied when it stops.
+const EnvData = "POLYTHOUGHT_PLUGIN_DATA"
+
+// DataDir is the plugin's own lasting directory, or empty where the server gives it none.
+func DataDir() string { return os.Getenv(EnvData) }
 
 // Plugin is a plugin: its manifest, and what implements it, each by the name its manifest
 // gives it.

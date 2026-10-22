@@ -85,6 +85,12 @@ test-integration: ## Live tests against the public Polymarket APIs (network)
 test-db: ## Repository tests against a throwaway Postgres (Docker)
 	$(GO) test -race -count=1 -tags $(DB_TAG) ./internal/adapters/postgres/...
 
+.PHONY: test-sandbox
+test-sandbox: ## The plugin sandbox's tests on Linux, in Docker, as the server runs there (D337)
+	docker run --rm -v "$(CURDIR)":/src -w /src \
+		-v polythought-gomod:/go/pkg/mod -v polythought-gocache:/root/.cache/go-build \
+		golang:1.27.3-bookworm go test -count=1 ./internal/adapters/sandbox/ ./internal/adapters/pluginhost/
+
 .PHONY: test-all
 test-all: test test-db test-integration ## Unit, database and live tests
 

@@ -39,7 +39,7 @@ func NewFetcher(allowPrivate func() bool, tlsConfig *tls.Config) *Fetcher {
 		Transport: &http.Transport{
 			Proxy:               nil, // a proxy would dial instead of us and hide the address
 			DialContext:         dialer.DialContext,
-			TLSClientConfig:     tlsConfig,
+			TLSClientConfig:     tlsConfig.Clone(), // the transport adds to it: never the caller's
 			ForceAttemptHTTP2:   true,
 			TLSHandshakeTimeout: 10 * time.Second,
 		},

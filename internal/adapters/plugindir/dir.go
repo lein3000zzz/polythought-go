@@ -1,6 +1,9 @@
 // Package plugindir keeps installed plugins in a directory on disk (D315), each version
 // as its archive unpacked: <dir>/<id>/<version>/.
 //
+// Each plugin also has a lasting directory of its own, <dir>/.data/<id>/, which its process
+// may write (D339): kept as its versions come and go.
+//
 // An archive is a gzipped tar of exactly these files:
 //
 //	manifest.json              the plugin's manifest
@@ -47,6 +50,7 @@ const (
 	checksumsFile = "checksums.txt"
 	signatureFile = "checksums.txt.minisig"
 	programName   = "plugin"
+	dataDir       = ".data" // hidden, so never taken for a plugin
 
 	maxFiles = 64
 	// unpackedPer is how much larger than its archive an archive may unpack to: more is
@@ -95,6 +99,7 @@ type Version struct {
 	Manifest plugin.Manifest
 	Path     string // its directory
 	Program  string // its program for this server's platform
+	Data     string // its plugin's lasting directory, which may not be made yet
 
 	// Signed says it has a signature; Signer is the name of the trusted key that made
 	// it, empty when the key is none an admin trusts, which Warning then says.
@@ -156,6 +161,8 @@ func (d *Dir) Open(id, version string, keys []TrustedKey) (Version, error) {
 	if v.Manifest.ID != id || v.Manifest.Version != version {
 		return Version{}, fmt.Errorf("%w: %s holds %s %s", ErrTampered, at, v.Manifest.ID, v.Manifest.Version)
 	}
+
+	v.Data = filepath.Join(d.root, dataDir, id)
 
 	return v, nil
 }

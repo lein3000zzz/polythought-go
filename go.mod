@@ -10,6 +10,7 @@ require (
 	github.com/anthropics/anthropic-sdk-go v1.83.0
 	github.com/cloudwego/hertz v0.10.6
 	github.com/coder/websocket v1.8.15
+	github.com/elastic/go-seccomp-bpf v1.6.0
 	github.com/ethereum/go-ethereum v1.17.8
 	github.com/evanw/esbuild v0.28.2
 	github.com/go-jet/jet/v2 v2.16.1
@@ -19,10 +20,12 @@ require (
 	github.com/hashicorp/go-hclog v1.6.3
 	github.com/hashicorp/go-plugin v1.8.0
 	github.com/jackc/pgx/v5 v5.11.0
+	github.com/jedisct1/go-minisign v0.0.0-20260527172527-a09352b57a22
 	github.com/knadh/koanf/parsers/yaml v1.1.1
 	github.com/knadh/koanf/providers/confmap v1.0.1
 	github.com/knadh/koanf/providers/rawbytes v1.0.1
 	github.com/knadh/koanf/v2 v2.3.8
+	github.com/landlock-lsm/go-landlock v0.10.1
 	github.com/lein3000zzz/the-watchers v0.0.0-20260728160212-a9a1ca05a9eb
 	github.com/openai/openai-go/v3 v3.82.0
 	github.com/pressly/goose/v3 v3.28.0
@@ -38,6 +41,7 @@ require (
 	go.opentelemetry.io/otel/trace v1.47.0
 	golang.org/x/crypto v0.57.0
 	golang.org/x/sync v0.23.0
+	golang.org/x/sys v0.48.0
 	golang.org/x/time v0.16.0
 	google.golang.org/genai v1.75.0
 	google.golang.org/grpc v1.83.2
@@ -96,7 +100,6 @@ require (
 	github.com/jackc/pgpassfile v1.0.0 // indirect
 	github.com/jackc/pgservicefile v0.0.0-20240606120523-5a60cdf6a761 // indirect
 	github.com/jackc/puddle/v2 v2.2.2 // indirect
-	github.com/jedisct1/go-minisign v0.0.0-20260527172527-a09352b57a22 // indirect
 	github.com/klauspost/compress v1.19.2 // indirect
 	github.com/klauspost/cpuid/v2 v2.2.9 // indirect
 	github.com/knadh/koanf/maps v0.1.2 // indirect
@@ -149,7 +152,7 @@ require (
 	go.yaml.in/yaml/v4 v4.0.0-rc.2 // indirect
 	golang.org/x/arch v0.0.0-20210923205945-b76863e36670 // indirect
 	golang.org/x/net v0.60.0 // indirect
-	golang.org/x/sys v0.48.0 // indirect
 	golang.org/x/text v0.42.0 // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20260831171406-18b4a7587f8a // indirect
+	kernel.org/pub/linux/libs/security/libcap/psx v1.2.77 // indirect
 )

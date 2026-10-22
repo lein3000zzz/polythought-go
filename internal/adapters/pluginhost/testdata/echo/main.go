@@ -1,6 +1,6 @@
 // Echo is the host's test plugin: a node of each shape, a trigger, a credential type and
-// a scenario, a node that misbehaves, and nodes that ask the host for what they may and
-// may not.
+// a scenario, a node that misbehaves, nodes that ask the host for what they may and may
+// not, and one that tries the disk.
 package main
 
 import (
@@ -11,6 +11,7 @@ import (
 	"log/slog"
 	"net/http"
 	"os"
+	"path/filepath"
 	"strings"
 	"sync"
 	"time"
@@ -38,6 +39,7 @@ var manifest = plugin.Manifest{
 		},
 		{Name: "count", Label: "Count", Items: &plugin.Items{Fields: []plugin.Field{{Name: "count", Kind: "number"}}}},
 		{Name: "env", Label: "Environment"},
+		{Name: "disk", Label: "Disk", Params: []plugin.Param{{Name: "outside", Kind: "string"}, {Name: "dir", Kind: "string"}}},
 		{Name: "misbehave", Label: "Misbehave", Params: []plugin.Param{{Name: "how", Kind: "string"}}},
 		{
 			Name: "keyed", Label: "Keyed",
@@ -93,6 +95,7 @@ func main() {
 			"shout":     plugin.PerItem(shout),
 			"count":     plugin.NodeFunc(count),
 			"env":       plugin.PerItem(env),
+			"disk":      plugin.PerItem(disk),
 			"misbehave": plugin.NodeFunc(misbehave),
 			"keyed":     plugin.PerItem(keyed),
 			"fetch":     plugin.NodeFunc(fetch),
@@ -164,6 +167,31 @@ func env(context.Context, plugin.Run, plugin.Item) (string, map[string]any, erro
 	}
 
 	return "", map[string]any{"names": strings.Join(names, ","), "secret": os.Getenv("POLYTHOUGHT_SECRET_KEYS")}, nil
+}
+
+// disk writes its lasting directory and its temporary one, and tries what the sandbox
+// refuses: reading the file outside names, and writing dir, its own program's.
+func disk(_ context.Context, _ plugin.Run, item plugin.Item) (string, map[string]any, error) {
+	said := func(err error) string {
+		if err != nil {
+			return err.Error()
+		}
+
+		return "ok"
+	}
+
+	outside, _ := item.Params["outside"].(string)
+	dir, _ := item.Params["dir"].(string)
+	_, read := os.ReadFile(outside) //nolint:gosec // what the test names, to be refused
+
+	return "", map[string]any{
+		"data_dir":     plugin.DataDir(),
+		"temp_dir":     os.TempDir(),
+		"write_data":   said(os.WriteFile(filepath.Join(plugin.DataDir(), "kept.txt"), []byte("kept"), 0o600)),
+		"write_temp":   said(os.WriteFile(filepath.Join(os.TempDir(), "scratch.txt"), []byte("scratch"), 0o600)),
+		"read_outside": said(read),
+		"write_own":    said(os.WriteFile(filepath.Join(dir, "planted"), []byte("planted"), 0o600)),
+	}, nil
 }
 
 // keyed reads the credential in the setting which names.

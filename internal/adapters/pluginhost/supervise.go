@@ -133,7 +133,7 @@ func (p *Plugin) crash(err error, r Restarts, w Watch) bool {
 	p.mu.Lock()
 
 	if old := p.conn; old != nil {
-		defer old.client.Kill() // what is left of it
+		defer old.end() // what is left of it
 	}
 
 	p.conn = nil
@@ -191,7 +191,7 @@ func (p *Plugin) restart(ctx context.Context, w Watch) error {
 	}
 
 	if !Same(m, p.manifest) {
-		c.client.Kill()
+		c.end()
 		return errors.New("not started again: it describes itself otherwise than when it first started")
 	}
 
@@ -199,7 +199,7 @@ func (p *Plugin) restart(ctx context.Context, w Watch) error {
 	defer p.mu.Unlock()
 
 	if p.closed {
-		c.client.Kill()
+		c.end()
 		return nil
 	}
 

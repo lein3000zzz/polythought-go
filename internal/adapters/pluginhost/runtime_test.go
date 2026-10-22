@@ -20,7 +20,9 @@ import (
 func echoFile(t *testing.T, change func(m map[string]any)) ports.PluginFile {
 	t.Helper()
 
-	p, err := pluginhost.Start(context.Background(), echo, pluginhost.Deps{})
+	prog := program(t, echo)
+
+	p, err := pluginhost.Start(context.Background(), prog, sandboxed(pluginhost.Deps{}))
 	require.NoError(t, err)
 
 	m := p.Manifest()
@@ -40,7 +42,7 @@ func echoFile(t *testing.T, change func(m map[string]any)) ports.PluginFile {
 		require.NoError(t, err)
 	}
 
-	return ports.PluginFile{ID: m.ID, Version: m.Version, Manifest: raw, Program: echo}
+	return ports.PluginFile{ID: m.ID, Version: m.Version, Manifest: raw, Program: prog.Path, Dir: prog.Dir, Data: prog.Data}
 }
 
 func registry(t *testing.T) *engine.Registry {
@@ -58,7 +60,7 @@ func TestRuntime(t *testing.T) {
 	t.Cleanup(cancel)
 
 	r := registry(t)
-	rt := pluginhost.NewRuntime(ctx, pluginhost.Deps{}, r)
+	rt := pluginhost.NewRuntime(ctx, sandboxed(pluginhost.Deps{}), r)
 	t.Cleanup(rt.Close)
 
 	t.Run("loaded: registered, its scenarios kept, supervised", func(t *testing.T) {
@@ -78,7 +80,7 @@ func TestRuntime(t *testing.T) {
 	})
 
 	t.Run("refused when its program says otherwise than its manifest.json", func(t *testing.T) {
-		other := pluginhost.NewRuntime(ctx, pluginhost.Deps{}, registry(t))
+		other := pluginhost.NewRuntime(ctx, sandboxed(pluginhost.Deps{}), registry(t))
 		t.Cleanup(other.Close)
 
 		err := other.Load(ctx, echoFile(t, func(m map[string]any) { m["permissions"] = []string{"fetch:*"} }))

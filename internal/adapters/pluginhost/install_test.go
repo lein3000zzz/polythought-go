@@ -84,12 +84,14 @@ func TestInstallThenLoad(t *testing.T) {
 	// As the server starts: the files checked again, then the program run as approved.
 	f, err := pf.Open("echo", "1.2.0")
 	require.NoError(t, err)
+	assert.Equal(t, filepath.Join(dir.Root(), "echo", "1.2.0"), f.Dir)
+	assert.Equal(t, filepath.Join(dir.Root(), ".data", "echo"), f.Data, "its plugin's, beside its versions")
 
 	ctx, cancel := context.WithCancel(context.Background())
 	t.Cleanup(cancel)
 
 	r := registry(t)
-	rt := pluginhost.NewRuntime(ctx, pluginhost.Deps{}, r)
+	rt := pluginhost.NewRuntime(ctx, sandboxed(pluginhost.Deps{}), r)
 	t.Cleanup(rt.Close)
 
 	require.NoError(t, rt.Load(ctx, f))
@@ -97,4 +99,14 @@ func TestInstallThenLoad(t *testing.T) {
 	out, err := run(t, r, "plugin.echo.shout", map[string]any{"field": "q"}, items(map[string]any{"q": "installed"}))
 	require.NoError(t, err)
 	assert.Equal(t, "INSTALLED", out["main"][0].JSON["shouted"])
+
+	// What it keeps is in its lasting directory, which is no version of a plugin.
+	out, err = run(t, r, "plugin.echo.disk", map[string]any{"outside": key, "dir": f.Dir}, items(map[string]any{}))
+	require.NoError(t, err)
+	assert.Equal(t, "ok", out["main"][0].JSON["write_data"])
+	assert.FileExists(t, filepath.Join(f.Data, "kept.txt"))
+
+	found, err := pf.List()
+	require.NoError(t, err)
+	assert.Len(t, found, 1)
 }
