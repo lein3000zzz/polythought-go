@@ -3,6 +3,7 @@ web/node_modules
 plan
 .env
 configs/polythought.yml
+deployments/docker-compose.override.yml
 /docgen
 /plugins
 /polythought

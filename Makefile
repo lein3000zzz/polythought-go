@@ -8,7 +8,8 @@ PNPM          ?= COREPACK_ENABLE_DOWNLOAD_PROMPT=0 corepack pnpm
 INTEGRATION_TAG := integration
 DB_TAG          := db
 COVER_PROFILE   := coverage.out
-COMPOSE         := docker compose -f deployments/docker-compose.yml
+# deployments/docker-compose.override.yml, a machine's own and not committed, joins when it is there.
+COMPOSE         := docker compose -f deployments/docker-compose.yml $(addprefix -f ,$(wildcard deployments/docker-compose.override.yml))
 APP_COMPOSE     := $(COMPOSE) --env-file .env --profile app
 DEV_DATABASE    := postgres://polythought:polythought@localhost:5432/polythought?sslmode=disable
 E2E_COMPOSE     := docker compose -p polythought-e2e -f deployments/docker-compose.yml -f deployments/docker-compose.e2e.yml --profile app
