@@ -34,7 +34,7 @@ export function ExecutionsPanel({
   const executions = useExecutions(workflowId)
 
   return (
-    <section aria-label="Executions" className="flex h-56 shrink-0 flex-col border-t bg-background">
+    <section aria-label="Executions" className="flex h-full flex-col border-t bg-background">
       <div className="flex items-center justify-between border-b px-4 py-1.5">
         <h2 className="text-sm font-medium">Executions</h2>
         <div className="flex items-center gap-3">

@@ -8,8 +8,11 @@ class ResizeObserverStub {
     this.callback = callback
   }
 
+  // React Flow reads the sizes from offsetWidth and offsetHeight below. contentRect says
+  // what jsdom lays out, which is nothing: what reads it takes the element as not
+  // measured yet.
   observe(target: Element) {
-    const { offsetWidth: width, offsetHeight: height } = target as HTMLElement
+    const { width, height } = target.getBoundingClientRect()
     this.callback([{ target, contentRect: { width, height } } as ResizeObserverEntry], this)
   }
 

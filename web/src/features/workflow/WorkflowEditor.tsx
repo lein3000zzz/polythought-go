@@ -20,6 +20,8 @@ import {
   History,
   PanelLeftClose,
   PanelLeftOpen,
+  PanelRightClose,
+  PanelRightOpen,
   Play,
   Share2,
   Trash2,
@@ -49,6 +51,7 @@ import {
 } from '@/api/workflows'
 import { useTradingSetup } from '@/api/trading'
 import { ConfirmDialog } from '@/components/ConfirmDialog'
+import { ResizeHandle } from '@/components/ResizeHandle'
 import {
   AlertDialog,
   AlertDialogAction,
@@ -78,7 +81,8 @@ import { CodeView, type ApplyFailure } from '@/features/workflowcode/CodeView'
 import { place } from '@/features/workflowcode/place'
 import { printWorkflow } from '@/features/workflowcode/print'
 import { formatDateTime, formatDuration, formatTime } from '@/lib/format'
-import { useStoredFlag } from '@/lib/storage'
+import { useElementSize } from '@/lib/elementSize'
+import { useStoredFlag, useStoredNumber } from '@/lib/storage'
 import { useTheme } from '@/lib/theme'
 
 import {
@@ -101,6 +105,7 @@ import { ExecutionsPanel } from './ExecutionsPanel'
 import { ExecutionStatus } from './ExecutionStatus'
 import { NodePanel, WorkflowPanel } from './NodePanel'
 import { nodeTypeMime, Palette } from './Palette'
+import { canvasMin, clamp, fitWidths, panels, rail } from './panels'
 import { ProblemsContext } from './problems'
 import { RunOutput } from './RunOutput'
 import { RunsContext } from './runs'
@@ -180,6 +185,7 @@ function Editor({ workflow, types, onReload }: Props) {
   const [confirmDelete, setConfirmDelete] = useState(false)
   const [sharing, setSharing] = useState(false)
   const [nodeListOpen, setNodeListOpen] = useStoredFlag('polythought.nodeList', true)
+  const [settingsOpen, setSettingsOpen] = useStoredFlag('polythought.settingsPanel', true)
   const leaving = useRef(false) // set before navigating away on purpose
 
   // An execution shown on the canvas: each node's status, counts and kept items.
@@ -197,9 +203,70 @@ function Editor({ workflow, types, onReload }: Props) {
   )
   const kept = inspected.data?.runs.some((r) => r.samples !== undefined) ?? false
 
+  // The panels' sizes (D369, D390), each in its bounds; the side ones give way so the
+  // canvas keeps canvasMin, and get their own back as the window widens.
+  const [listWidth, setListWidth] = useStoredNumber(
+    'polythought.nodeListWidth',
+    panels.list.initial,
+  )
+  const [settingsWidth, setSettingsWidth] = useStoredNumber(
+    'polythought.settingsWidth',
+    panels.settings.initial,
+  )
+  const [executionsHeight, setExecutionsHeight] = useStoredNumber(
+    'polythought.executionsHeight',
+    panels.executions.initial,
+  )
+  const [resizing, setResizing] = useState(false) // panels do not slide while dragged
+  const [row, setRow] = useState<HTMLDivElement | null>(null)
+  const [column, setColumn] = useState<HTMLDivElement | null>(null)
+  const rowWidth = useElementSize(row).width
+  const columnHeight = useElementSize(column).height
+  const list = clamp(listWidth, panels.list.min, panels.list.max)
+  const settings = clamp(settingsWidth, panels.settings.min, panels.settings.max)
+  const [listShown, settingsShown] = fitWidths(
+    rowWidth,
+    nodeListOpen ? { width: list, min: panels.list.min } : { width: rail, min: rail },
+    settingsOpen ? { width: settings, min: panels.settings.min } : { width: rail, min: rail },
+  )
+  // What a handle may drag its panel to: its bound, or what leaves the canvas its least.
+  const room = (other: number) => (rowWidth > 0 ? rowWidth - canvasMin - other : Infinity)
+  const listMax = clamp(
+    Math.min(panels.list.max, room(settingsShown)),
+    panels.list.min,
+    panels.list.max,
+  )
+  const settingsMax = clamp(
+    Math.min(panels.settings.max, room(listShown)),
+    panels.settings.min,
+    panels.settings.max,
+  )
+  const executionsMax = Math.max(
+    panels.executions.min,
+    columnHeight > 0 ? Math.floor(columnHeight / 2) : 2 * panels.executions.initial,
+  )
+  const executionsShown = clamp(executionsHeight, panels.executions.min, executionsMax)
+
   // The workflow as code (D76), printed when the Code view opens. base is the code the
   // canvas has: text that differs is not applied yet (D77).
   const [view, setView] = useState<View>('canvas')
+
+  // Double-clicking a node opens the settings panel on it (D390). React Flow would zoom in
+  // as well: the event stops at the canvas's edge on its way in, so it never reaches the
+  // zoom, which a double-click on the empty canvas still does.
+  useEffect(() => {
+    const el = canvas.current
+    if (!el) return
+
+    const open = (e: MouseEvent) => {
+      if (!(e.target instanceof Element) || !e.target.closest('.react-flow__node')) return
+      e.stopPropagation()
+      setSettingsOpen(true)
+    }
+
+    el.addEventListener('dblclick', open, true)
+    return () => el.removeEventListener('dblclick', open, true)
+  }, [view, setSettingsOpen])
   const [code, setCode] = useState({ text: '', base: '' })
   const [applyFailure, setApplyFailure] = useState<ApplyFailure>()
   const [leaveTo, setLeaveTo] = useState<View>() // asked on leaving the Code view
@@ -581,23 +648,22 @@ function Editor({ workflow, types, onReload }: Props) {
               />
             </div>
           ) : (
-            <div className="flex min-h-0 flex-1">
+            <div ref={setRow} className="flex min-h-0 flex-1">
               {/* The list keeps its width inside a panel that narrows to a rail: it slides
                 under the edge rather than re-wrapping, and fades as it goes. */}
               <aside
                 aria-label="Node list"
-                className={cn(
-                  'relative shrink-0 overflow-hidden border-r transition-[width] duration-200 ease-out motion-reduce:transition-none',
-                  nodeListOpen ? 'w-60' : 'w-11',
-                )}
+                className={cn('relative shrink-0 overflow-hidden border-r', !resizing && sliding)}
+                style={{ width: listShown }}
               >
                 <div
                   inert={!nodeListOpen}
                   aria-hidden={!nodeListOpen}
                   className={cn(
-                    'flex h-full w-60 flex-col transition-opacity duration-150 motion-reduce:transition-none',
+                    'flex h-full flex-col transition-opacity duration-150 motion-reduce:transition-none',
                     nodeListOpen ? 'opacity-100 delay-75' : 'opacity-0',
                   )}
+                  style={{ width: nodeListOpen ? listShown : list }}
                 >
                   <Palette
                     types={types}
@@ -610,13 +676,27 @@ function Editor({ workflow, types, onReload }: Props) {
                 {/* Pinned to the panel's edge, so it travels with it. */}
                 <div className="absolute top-1.5 right-1.5">
                   <PanelToggle
+                    panel="node list"
                     open={nodeListOpen}
                     onToggle={() => setNodeListOpen(!nodeListOpen)}
                   />
                 </div>
               </aside>
 
-              <div className="flex min-w-0 flex-1 flex-col">
+              {nodeListOpen && (
+                <ResizeHandle
+                  panel="left"
+                  label="Resize the node list"
+                  size={listShown}
+                  min={panels.list.min}
+                  max={listMax}
+                  onResize={setListWidth}
+                  onReset={() => setListWidth(panels.list.initial)}
+                  onDragging={setResizing}
+                />
+              )}
+
+              <div ref={setColumn} className="flex min-w-0 flex-1 flex-col">
                 <div
                   ref={canvas}
                   className="min-h-0 flex-1"
@@ -654,55 +734,117 @@ function Editor({ workflow, types, onReload }: Props) {
                 </div>
 
                 {workflow && showExecutions && (
-                  <ExecutionsPanel
-                    workflowId={workflow.id}
-                    selected={shownId}
-                    onSelect={(id) => {
-                      setFollow(false)
-                      setInspectedId(id)
-                      setPanelTab('output')
-                    }}
-                    follow={follow}
-                    onFollow={setFollow}
-                    onClose={() => setShowExecutions(false)}
-                  />
+                  <>
+                    <ResizeHandle
+                      panel="below"
+                      label="Resize the executions"
+                      size={executionsShown}
+                      min={panels.executions.min}
+                      max={executionsMax}
+                      onResize={setExecutionsHeight}
+                      onReset={() => setExecutionsHeight(panels.executions.initial)}
+                    />
+                    <div className="shrink-0" style={{ height: executionsShown }}>
+                      <ExecutionsPanel
+                        workflowId={workflow.id}
+                        selected={shownId}
+                        onSelect={(id) => {
+                          setFollow(false)
+                          setInspectedId(id)
+                          setPanelTab('output')
+                        }}
+                        follow={follow}
+                        onFollow={setFollow}
+                        onClose={() => setShowExecutions(false)}
+                      />
+                    </div>
+                  </>
                 )}
               </div>
 
-              <aside className="w-80 shrink-0 overflow-y-auto border-l" aria-label="Settings">
-                {selectedNode && runs && (
-                  <div className="flex gap-1 border-b p-2" role="tablist">
-                    {(['settings', 'output'] as const).map((tab) => (
-                      <Button
-                        key={tab}
-                        role="tab"
-                        aria-selected={panelTab === tab}
-                        variant={panelTab === tab ? 'secondary' : 'ghost'}
-                        size="sm"
-                        onClick={() => setPanelTab(tab)}
-                      >
-                        {tab === 'settings' ? 'Settings' : 'Output'}
-                      </Button>
-                    ))}
-                  </div>
-                )}
+              {settingsOpen && (
+                <ResizeHandle
+                  panel="right"
+                  label="Resize the settings"
+                  size={settingsShown}
+                  min={panels.settings.min}
+                  max={settingsMax}
+                  onResize={setSettingsWidth}
+                  onReset={() => setSettingsWidth(panels.settings.initial)}
+                  onDragging={setResizing}
+                />
+              )}
 
-                {selectedNode && runs && panelTab === 'output' ? (
-                  <RunOutput key={selectedNode.id} run={runs.get(selectedNode.id)} kept={kept} />
-                ) : selectedNode ? (
-                  <NodePanel
-                    key={selectedNode.id}
-                    node={selectedNode}
-                    workflowId={workflow?.id}
-                    received={shapes.get(selectedNode.id)?.get(defaultPort)}
-                    inputs={shapes.get(selectedNode.id)}
-                    onChange={(patch) => changeNode(selectedNode.id, patch)}
-                    onParam={(param, value) => changeParam(selectedNode.id, param, value)}
-                    onDelete={() => void deleteElements({ nodes: [{ id: selectedNode.id }] })}
+              {/* Mirrored: the content keeps to the right edge, so it slides under it. */}
+              <aside
+                aria-label="Settings"
+                className={cn('relative shrink-0 overflow-hidden border-l', !resizing && sliding)}
+                style={{ width: settingsShown }}
+              >
+                <div
+                  inert={!settingsOpen}
+                  aria-hidden={!settingsOpen}
+                  className={cn(
+                    'absolute inset-y-0 right-0 flex flex-col transition-opacity duration-150 motion-reduce:transition-none',
+                    settingsOpen ? 'opacity-100 delay-75' : 'opacity-0',
+                  )}
+                  style={{ width: settingsOpen ? settingsShown : settings }}
+                >
+                  <div className="flex h-10 shrink-0 items-center gap-1 border-b pr-2 pl-10">
+                    {selectedNode && runs ? (
+                      <div className="flex gap-1" role="tablist">
+                        {(['settings', 'output'] as const).map((tab) => (
+                          <Button
+                            key={tab}
+                            role="tab"
+                            aria-selected={panelTab === tab}
+                            variant={panelTab === tab ? 'secondary' : 'ghost'}
+                            size="sm"
+                            className="h-7"
+                            onClick={() => setPanelTab(tab)}
+                          >
+                            {tab === 'settings' ? 'Settings' : 'Output'}
+                          </Button>
+                        ))}
+                      </div>
+                    ) : (
+                      <span className="text-sm text-muted-foreground">
+                        {selectedNode ? 'Settings' : 'Workflow'}
+                      </span>
+                    )}
+                  </div>
+
+                  <div className="min-h-0 flex-1 overflow-y-auto">
+                    {selectedNode && runs && panelTab === 'output' ? (
+                      <RunOutput
+                        key={selectedNode.id}
+                        run={runs.get(selectedNode.id)}
+                        kept={kept}
+                      />
+                    ) : selectedNode ? (
+                      <NodePanel
+                        key={selectedNode.id}
+                        node={selectedNode}
+                        workflowId={workflow?.id}
+                        received={shapes.get(selectedNode.id)?.get(defaultPort)}
+                        inputs={shapes.get(selectedNode.id)}
+                        onChange={(patch) => changeNode(selectedNode.id, patch)}
+                        onParam={(param, value) => changeParam(selectedNode.id, param, value)}
+                        onDelete={() => void deleteElements({ nodes: [{ id: selectedNode.id }] })}
+                      />
+                    ) : (
+                      <WorkflowPanel problems={problems} />
+                    )}
+                  </div>
+                </div>
+
+                <div className="absolute top-1.5 left-1.5">
+                  <PanelToggle
+                    panel="settings"
+                    open={settingsOpen}
+                    onToggle={() => setSettingsOpen(!settingsOpen)}
                   />
-                ) : (
-                  <WorkflowPanel problems={problems} />
-                )}
+                </div>
               </aside>
             </div>
           )}
@@ -782,8 +924,18 @@ function Editor({ workflow, types, onReload }: Props) {
 }
 
 /** Opens or closes the node list on the left; the canvas takes the room. */
-function PanelToggle({ open, onToggle }: { open: boolean; onToggle: () => void }) {
-  const label = open ? 'Hide node list' : 'Show node list'
+// How a side panel's width moves as it folds or opens (D369).
+const sliding = 'transition-[width] duration-200 ease-out motion-reduce:transition-none'
+
+type PanelToggleProps = {
+  panel: 'node list' | 'settings'
+  open: boolean
+  onToggle: () => void
+}
+
+function PanelToggle({ panel, open, onToggle }: PanelToggleProps) {
+  const label = `${open ? 'Hide' : 'Show'} ${panel}`
+  const left = panel === 'node list'
 
   return (
     <Tooltip>
@@ -795,10 +947,20 @@ function PanelToggle({ open, onToggle }: { open: boolean; onToggle: () => void }
           aria-expanded={open}
           onClick={onToggle}
         >
-          {open ? <PanelLeftClose /> : <PanelLeftOpen />}
+          {left ? (
+            open ? (
+              <PanelLeftClose />
+            ) : (
+              <PanelLeftOpen />
+            )
+          ) : open ? (
+            <PanelRightClose />
+          ) : (
+            <PanelRightOpen />
+          )}
         </Button>
       </TooltipTrigger>
-      <TooltipContent side="right">{label}</TooltipContent>
+      <TooltipContent side={left ? 'right' : 'left'}>{label}</TooltipContent>
     </Tooltip>
   )
 }
@@ -869,6 +1031,18 @@ function Header({
       </span>
 
       <div className="ml-auto flex items-center gap-3">
+        {/* First, so nothing moves as it comes and goes with the Canvas view. */}
+        {workflow && view === 'canvas' && (
+          <Button
+            variant={showExecutions ? 'secondary' : 'ghost'}
+            aria-pressed={showExecutions}
+            onClick={onToggleExecutions}
+          >
+            <History />
+            Executions
+          </Button>
+        )}
+
         <div role="tablist" aria-label="View" className="flex rounded-md border p-0.5">
           {views
             .filter((v) => v !== 'trading' || trading)
@@ -886,17 +1060,6 @@ function Header({
               </Button>
             ))}
         </div>
-
-        {workflow && view === 'canvas' && (
-          <Button
-            variant={showExecutions ? 'secondary' : 'ghost'}
-            aria-pressed={showExecutions}
-            onClick={onToggleExecutions}
-          >
-            <History />
-            Executions
-          </Button>
-        )}
 
         {workflow && <ActiveSwitch workflow={workflow} dirty={dirty} />}
 

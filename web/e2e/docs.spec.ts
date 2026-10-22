@@ -13,6 +13,11 @@ test('the docs are served beside the app, searchable, under their own CSP', asyn
   expect(docsPolicy).not.toContain("'unsafe-inline' 'self'")
   expect(docsPolicy).toContain("frame-ancestors 'none'")
 
+  // Its icon is the app's.
+  const icon = await page.request.get('/docs/favicon.svg')
+  expect(icon.status()).toBe(200)
+  expect(icon.headers()['content-type']).toContain('image/svg+xml')
+
   const app = await page.request.get('/workflows')
   expect(app.headers()['content-security-policy']).toContain("script-src 'self';")
 

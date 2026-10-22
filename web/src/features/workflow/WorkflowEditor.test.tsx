@@ -809,6 +809,48 @@ describe('notes and sharing', () => {
   })
 })
 
+describe('settings panel (D390)', () => {
+  it('folds to a rail and stays folded, and a node double-clicked opens it', async () => {
+    editing(branching())
+    const first = renderApp('/workflows/wf-1')
+
+    await screen.findByRole('separator', { name: 'Resize the settings' })
+    expect(settings().getByText('Workflow')).toBeInTheDocument()
+
+    await first.user.click(screen.getByRole('button', { name: 'Hide settings' }))
+    expect(screen.getByRole('button', { name: 'Show settings' })).toHaveAttribute(
+      'aria-expanded',
+      'false',
+    )
+    expect(screen.queryByRole('separator', { name: 'Resize the settings' })).not.toBeInTheDocument()
+
+    // Remembered for the next visit.
+    first.router.dispose()
+    cleanup()
+    renderApp('/workflows/wf-1')
+    await screen.findByRole('button', { name: 'Show settings' })
+
+    // A click selects the node and leaves the panel folded; a double-click opens it there.
+    await selectNode('tight')
+    expect(screen.getByRole('button', { name: 'Show settings' })).toBeInTheDocument()
+
+    fireEvent.doubleClick(canvasNode('tight'))
+    expect(await screen.findByRole('button', { name: 'Hide settings' })).toBeInTheDocument()
+    expect(settings().getByRole('heading', { name: 'If' })).toBeInTheDocument()
+  })
+
+  it('keeps the Executions button before the views, so nothing moves as it goes', async () => {
+    editing(branching())
+    renderApp('/workflows/wf-1')
+
+    const executions = await screen.findByRole('button', { name: 'Executions' })
+    const views = screen.getByRole('tablist', { name: 'View' })
+    expect(
+      executions.compareDocumentPosition(views) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy()
+  })
+})
+
 describe('node list', () => {
   it('closes to make room for the canvas, and stays closed', async () => {
     editing(branching())
@@ -833,6 +875,37 @@ describe('node list', () => {
 
     await second.user.click(screen.getByRole('button', { name: 'Show node list' }))
     expect(screen.getByRole('navigation', { name: 'Node types' })).toBeInTheDocument()
+  })
+
+  it('resizes from its edge, keeps its width, and goes back to it on a double-click (D369)', async () => {
+    editing(branching())
+    const first = renderApp('/workflows/wf-1')
+
+    const edge = await screen.findByRole('separator', { name: 'Resize the node list' })
+    const list = screen.getByRole('complementary', { name: 'Node list' })
+    expect(edge).toHaveAttribute('aria-valuenow', '240')
+    expect(list).toHaveStyle({ width: '240px' })
+
+    edge.focus()
+    await first.user.keyboard('{ArrowRight}{ArrowRight}')
+    expect(list).toHaveStyle({ width: '272px' })
+    await first.user.keyboard('{End}')
+    expect(edge).toHaveAttribute('aria-valuenow', '400')
+
+    first.router.dispose()
+    cleanup()
+    const second = renderApp('/workflows/wf-1')
+    const again = await screen.findByRole('separator', { name: 'Resize the node list' })
+    expect(again).toHaveAttribute('aria-valuenow', '400')
+
+    await second.user.dblClick(again)
+    expect(again).toHaveAttribute('aria-valuenow', '240')
+
+    // Folded, it has no edge to drag.
+    await second.user.click(screen.getByRole('button', { name: 'Hide node list' }))
+    expect(
+      screen.queryByRole('separator', { name: 'Resize the node list' }),
+    ).not.toBeInTheDocument()
   })
 
   it('searches the nodes, and adds the first match on Enter', async () => {

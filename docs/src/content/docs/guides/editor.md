@@ -8,10 +8,17 @@ list on the left, the canvas in the middle and the selected node's settings on t
 **Code**, at the top, shows the whole workflow as TypeScript to edit instead; see
 [Workflows as code](/docs/guides/workflow-code/).
 
+The node list and the settings fold to a narrow rail with the button at their top, and
+drag wider or narrower by their inner edge: from 200 to 400 pixels for the list, 280 to
+640 for the settings. Focused, an edge also moves with the arrow keys, Home and End, and a
+double-click puts its panel back to its usual width. The editor keeps each panel's width,
+and whether it is folded, for the next time; on a narrow window the settings give way
+first, then the list, so the canvas keeps some room.
+
 ## Building
 
 - **Add a node**: drag it from the node list onto the canvas. The list is grouped like the
-  [node reference](/docs/reference/nodes/); hide it with the button at its top for more room.
+  [node reference](/docs/reference/nodes/).
   Nodes of the [plugins](/docs/self-hosting/plugins/) an admin installed, and you may use, are
   under **Plugins**, each saying which plugin it is from; those that place orders say
   **Trades**.
@@ -19,7 +26,8 @@ list on the left, the canvas in the middle and the selected node's settings on t
   node's input port, on its left edge.
 - **Remove a connection**: select it and press Delete or Backspace.
 - **Change a node**: select it. Its settings open on the right, with a description of each.
-  Changes apply as you type. Settings left empty use their default, shown in grey.
+  Changes apply as you type. Settings left empty use their default, shown in grey. With the
+  settings folded, double-click the node to open them on it.
 - **Fields**: settings that name a field of the items, like If's **Field**, offer the
   fields of the items the node receives as you type, with what each holds: only numbers
   where it compares numbers. A field the items do not have is marked at once, with the one
@@ -65,7 +73,8 @@ it off to stop it.
 
 ## Executions
 
-**Executions** lists past runs, newest first, with how each ended. Turn on **Show new runs as
+**Executions** lists past runs, newest first, with how each ended, in a panel under the
+canvas that drags taller by its top edge, up to half the editor. Turn on **Show new runs as
 they finish** to watch an active workflow. Select a run to see it on the canvas: each node
 shows what it did in that run, and a note says when the run used an older version of the
 workflow.
