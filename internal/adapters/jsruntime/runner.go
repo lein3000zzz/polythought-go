@@ -90,10 +90,7 @@ type Runner struct {
 	limits   func() ports.CodeLimits
 	kit      *redkit.Kit
 	scope    tracing.Scope
-
-	mu      sync.Mutex
-	running map[domain.UserID]int // runs going, by owner (R12)
-	freed   chan struct{}         // closed as a run ends, then a new one
+	shares   Shares
 }
 
 type Config struct {
@@ -234,34 +231,43 @@ func (r *Runner) Run(ctx context.Context, job ports.CodeJob) (res ports.CodeResu
 	})
 }
 
-// share waits until owner runs fewer than their share of the slots, half of them and at
-// least one, and counts this run; the func ends it. Code nobody owns shares nothing.
-func (r *Runner) share(ctx context.Context, owner domain.UserID) (func(), error) {
+// Shares keeps each owner of code to their share of the slots there are, half of them and
+// one at least, so one cannot keep everyone else's code waiting (R12). The zero value is
+// ready.
+type Shares struct {
+	mu      sync.Mutex
+	running map[domain.UserID]int // runs going, by owner
+	freed   chan struct{}         // closed as a run ends, then a new one
+}
+
+// Take waits until owner runs fewer than their share of slots, and counts this run; the
+// func ends it. Code nobody owns shares nothing.
+func (s *Shares) Take(ctx context.Context, owner domain.UserID, slots int) (func(), error) {
 	if owner == "" {
 		return func() {}, nil
 	}
 
-	most := max(1, cap(r.slots)/2)
+	most := max(1, slots/2)
 
 	for {
-		r.mu.Lock()
-		if r.running == nil {
-			r.running = map[domain.UserID]int{}
+		s.mu.Lock()
+		if s.running == nil {
+			s.running = map[domain.UserID]int{}
 		}
 
-		if r.running[owner] < most {
-			r.running[owner]++
-			r.mu.Unlock()
+		if s.running[owner] < most {
+			s.running[owner]++
+			s.mu.Unlock()
 
 			return func() {
-				r.mu.Lock()
-				if r.running[owner]--; r.running[owner] <= 0 {
-					delete(r.running, owner)
+				s.mu.Lock()
+				if s.running[owner]--; s.running[owner] <= 0 {
+					delete(s.running, owner)
 				}
 
-				freed := r.freed
-				r.freed = nil
-				r.mu.Unlock()
+				freed := s.freed
+				s.freed = nil
+				s.mu.Unlock()
 
 				if freed != nil {
 					close(freed)
@@ -269,12 +275,12 @@ func (r *Runner) share(ctx context.Context, owner domain.UserID) (func(), error)
 			}, nil
 		}
 
-		if r.freed == nil {
-			r.freed = make(chan struct{})
+		if s.freed == nil {
+			s.freed = make(chan struct{})
 		}
 
-		wait := r.freed
-		r.mu.Unlock()
+		wait := s.freed
+		s.mu.Unlock()
 
 		select {
 		case <-wait:
@@ -293,11 +299,11 @@ func (r *Runner) run(ctx context.Context, job ports.CodeJob) (ports.CodeResult, 
 		return ports.CodeResult{}, fmt.Errorf("jsruntime: entry %q is not a name or a path of names", job.Entry)
 	}
 
-	limits := bound(job.Limits, r.limits())
+	limits := Bound(job.Limits, r.limits())
 
 	// No owner holds more than their share of the slots, so one cannot keep everyone
 	// else's code waiting (R12); then a slot of the runner's.
-	share, err := r.share(ctx, ports.CodeOwner(ctx))
+	share, err := r.shares.Take(ctx, ports.CodeOwner(ctx), cap(r.slots))
 	if err != nil {
 		return ports.CodeResult{}, err
 	}
@@ -659,8 +665,9 @@ func codeError(kind domain.CodeErrorKind, format string, args ...any) *domain.Co
 	return &domain.CodeError{Kind: kind, Message: fmt.Sprintf(format, args...)}
 }
 
-// bound is what a job gets: what it asks for, within most.
-func bound(asked, most ports.CodeLimits) ports.CodeLimits {
+// Bound are the limits a job gets: those it asks for, at most the runner's, and the
+// runner's for what it does not ask; DefaultLimits' for what the runner leaves unset.
+func Bound(asked, most ports.CodeLimits) ports.CodeLimits {
 	most.Memory = min(limit(most.Memory, DefaultLimits.Memory), MaxMemory)
 	most.Time = limit(most.Time, DefaultLimits.Time)
 	most.Output = limit(most.Output, DefaultLimits.Output)

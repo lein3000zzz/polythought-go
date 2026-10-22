@@ -38,8 +38,9 @@ const (
 		ll.AccessFSMakeDir | ll.AccessFSMakeReg | ll.AccessFSMakeSock
 )
 
-// become puts the process under the sandbox, then execs the program, which inherits it.
-func become(p Policy) error {
+// become puts the process under the sandbox, then execs the program, which inherits it,
+// or runs run in place: every thread of the process is restricted, as are those it starts.
+func become(p Policy, run func() error) error {
 	if err := available(); err != nil {
 		return err
 	}
@@ -51,12 +52,15 @@ func become(p Policy) error {
 	}
 
 	rules := []landlock.Rule{
-		landlock.RODirs(p.Dir), // its programs, the only ones it may run
 		landlock.PathAccess(read|write, p.Temp).WithResolveUnix(),
 		landlock.PathAccess(ll.AccessFSReadFile|ll.AccessFSWriteFile, "/dev/null"),
 		landlock.PathAccess(ll.AccessFSReadFile, "/dev/urandom", "/dev/random").IgnoreIfMissing(),
 		landlock.PathAccess(read, "/usr/share/zoneinfo").IgnoreIfMissing(),
 		landlock.PathAccess(ll.AccessFSReadFile, "/etc/localtime").IgnoreIfMissing(),
+	}
+
+	if p.Dir != "" {
+		rules = append(rules, landlock.RODirs(p.Dir)) // its programs, the only ones it may run
 	}
 
 	if p.Data != "" {
@@ -71,6 +75,10 @@ func become(p Policy) error {
 
 	if err := seccomp.LoadFilter(filter()); err != nil {
 		return fmt.Errorf("seccomp: %w", err)
+	}
+
+	if run != nil {
+		return run()
 	}
 
 	//nolint:gosec // the program the host was given, in the directory it may run programs from

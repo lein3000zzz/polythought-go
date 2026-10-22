@@ -7,6 +7,8 @@ import (
 	"slices"
 	"sync"
 	"time"
+
+	"github.com/lein3000zzz/polythought-go/internal/adapters/sandbox"
 )
 
 // State is how a plugin's process is.
@@ -177,7 +179,7 @@ func (p *Plugin) supervise(ctx context.Context, r Restarts, w Watch) {
 // stopping it at once; nil within them.
 func (p *Plugin) overCaps(c *conn, measure bool) error {
 	caps := p.caps()
-	memory, watched := memoryOf(c.pid)
+	memory, watched := sandbox.Memory(c.pid)
 
 	var data int64
 	if measure {

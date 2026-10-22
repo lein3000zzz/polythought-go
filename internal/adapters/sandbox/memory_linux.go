@@ -1,6 +1,6 @@
 //go:build linux
 
-package pluginhost
+package sandbox
 
 import (
 	"fmt"
@@ -9,9 +9,9 @@ import (
 	"strings"
 )
 
-// memoryOf is the memory a process takes, its resident set (D343); false when it cannot
-// be read.
-func memoryOf(pid int) (int64, bool) {
+// Memory is the memory a process takes, its resident set (D343); false when it cannot be
+// read.
+func Memory(pid int) (int64, bool) {
 	raw, err := os.ReadFile(fmt.Sprintf("/proc/%d/statm", pid))
 	if err != nil {
 		return 0, false
