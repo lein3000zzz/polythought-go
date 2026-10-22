@@ -100,7 +100,7 @@ func TestRuntime(t *testing.T) {
 		assert.Equal(t, launcher == nil, sb.Unsandboxed, "as the tests allow where there is none")
 
 		if !sb.Available {
-			assert.Contains(t, sb.Why, "plugins cannot be sandboxed here")
+			assert.Contains(t, sb.Why, "nothing can be sandboxed here")
 		}
 	})
 }

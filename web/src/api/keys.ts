@@ -21,6 +21,7 @@ export const keys = {
   settings: ['admin', 'settings'],
   settingList: ['admin', 'settings', 'list'],
   settingHistory: ['admin', 'settings', 'history'],
+  codeRunners: ['admin', 'code-runners'],
   plugins: ['admin', 'plugins'],
   pluginList: ['admin', 'plugins', 'list'],
   pluginHistory: (id: string) => ['admin', 'plugins', 'history', id],

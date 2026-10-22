@@ -61,6 +61,8 @@ func serve(ctx context.Context) error {
 		Telegram: a.telegram, TelegramWebhook: a.telegramBot, Notifications: a.notify, Mail: a.mail,
 		Geoblock: a.geoblock,
 		Plugins:  a.plugins,
+
+		CodeRunners: a.codeRunners,
 	})
 	if err != nil {
 		return err

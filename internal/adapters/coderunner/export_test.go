@@ -15,11 +15,3 @@ func (p *Pool) Pids() []int {
 
 	return out
 }
-
-// Restarts are the runners started again.
-func (p *Pool) Restarts() int {
-	p.mu.Lock()
-	defer p.mu.Unlock()
-
-	return p.restarts
-}

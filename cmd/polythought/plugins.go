@@ -9,7 +9,6 @@ import (
 	"github.com/lein3000zzz/polythought-go/internal/adapters/plugindir"
 	"github.com/lein3000zzz/polythought-go/internal/adapters/pluginhost"
 	"github.com/lein3000zzz/polythought-go/internal/adapters/postgres"
-	"github.com/lein3000zzz/polythought-go/internal/adapters/sandbox"
 	"github.com/lein3000zzz/polythought-go/internal/config"
 	"github.com/lein3000zzz/polythought-go/internal/core/domain"
 	"github.com/lein3000zzz/polythought-go/internal/core/services/plugins"
@@ -27,9 +26,8 @@ func (a *app) initPlugins(ctx context.Context, pmc polymarket, allowPrivate func
 		return err
 	}
 
-	launcher, noSandbox := sandbox.New()
-	if noSandbox != nil {
-		a.util.Logger.Warn(ctx, "Plugins cannot be sandboxed here: they start only where admins allow unsandboxed plugins", logging.Err(noSandbox))
+	if a.noSandbox != nil {
+		a.util.Logger.Warn(ctx, "Plugins cannot be sandboxed here: they start only where admins allow unsandboxed plugins", logging.Err(a.noSandbox))
 	}
 
 	files := plugindir.NewFiles(dir, func() []string { return a.settings.Current().Strings(config.KeyPluginTrustedKeys) })
@@ -42,8 +40,8 @@ func (a *app) initPlugins(ctx context.Context, pmc polymarket, allowPrivate func
 		AllowPrivate: allowPrivate,
 		Limits:       func() pluginhost.Limits { return pluginLimits(a.settings.Current()) },
 		Settings:     func(id string) map[string]any { return a.plugins.RunSettings(id) },
-		Sandbox:      launcher,
-		NoSandbox:    noSandbox,
+		Sandbox:      a.launcher,
+		NoSandbox:    a.noSandbox,
 		Unsandboxed:  func() bool { return a.settings.Current().Bool(config.KeyPluginUnsandboxed) },
 		Caps:         func(id string) pluginhost.Caps { return pluginCaps(a.settings.Current(), a.plugins.CapsOf(id)) },
 		Data: pluginhost.Data{

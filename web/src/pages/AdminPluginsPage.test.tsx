@@ -90,7 +90,7 @@ function plugins(
   )
 }
 
-const noSandbox = 'plugins cannot be sandboxed here: only Linux has the sandbox, and this is darwin'
+const noSandbox = 'nothing can be sandboxed here: only Linux has the sandbox, and this is darwin'
 
 describe('admin plugins page', () => {
   it('is for admins only', async () => {
@@ -365,7 +365,7 @@ describe('admin plugins page', () => {
 
     expect(await screen.findByText('Plugins do not start here')).toBeInTheDocument()
     expect(
-      screen.getByText(/^Plugins cannot be sandboxed here: only Linux has the sandbox/),
+      screen.getByText(/^Nothing can be sandboxed here: only Linux has the sandbox/),
     ).toBeInTheDocument()
     expect(screen.getByRole('link', { name: 'Config page' })).toHaveAttribute(
       'href',

@@ -456,6 +456,51 @@
                 ],
                 "type": "object"
             },
+            "CodeRunners": {
+                "properties": {
+                    "failed": {
+                        "type": "string"
+                    },
+                    "inRunners": {
+                        "description": "InRunners says code runs in runner processes; false, in the server's.",
+                        "type": "boolean"
+                    },
+                    "lastError": {
+                        "description": "LastError says why one last stopped; Failed why they would not start, every code\nrun failing (D358).",
+                        "type": "string"
+                    },
+                    "restarts": {
+                        "description": "runners started again since the server started",
+                        "type": "integer"
+                    },
+                    "running": {
+                        "description": "of them, now: one that stopped starts with the next run",
+                        "type": "integer"
+                    },
+                    "sandboxed": {
+                        "type": "boolean"
+                    },
+                    "size": {
+                        "description": "runner processes",
+                        "type": "integer"
+                    },
+                    "why": {
+                        "description": "Why says why they are not sandboxed, when they are not.",
+                        "type": "string"
+                    }
+                },
+                "required": [
+                    "failed",
+                    "inRunners",
+                    "lastError",
+                    "restarts",
+                    "running",
+                    "sandboxed",
+                    "size",
+                    "why"
+                ],
+                "type": "object"
+            },
             "CodeTypes": {
                 "properties": {
                     "files": {
@@ -4131,6 +4176,55 @@
         "url": "https://github.com/lein3000zzz/polythought-go"
     },
     "paths": {
+        "/admin/code-runners": {
+            "get": {
+                "operationId": "getCodeRunners",
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/CodeRunners"
+                                }
+                            }
+                        },
+                        "description": "OK"
+                    },
+                    "401": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "unauthenticated"
+                    },
+                    "403": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "forbidden: not an admin"
+                    }
+                },
+                "security": [
+                    {
+                        "SessionCookie": []
+                    },
+                    {
+                        "APIToken": []
+                    }
+                ],
+                "summary": "Where user code runs, and how its runners are",
+                "tags": [
+                    "admin"
+                ]
+            }
+        },
         "/admin/geoblock": {
             "get": {
                 "operationId": "getGeoblock",

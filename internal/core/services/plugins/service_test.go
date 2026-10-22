@@ -364,7 +364,7 @@ func (r *runtime) Start(id string) error {
 }
 
 func (r *runtime) Sandbox() ports.PluginSandbox {
-	return ports.PluginSandbox{Why: "plugins cannot be sandboxed here: only Linux has the sandbox"}
+	return ports.PluginSandbox{Why: "nothing can be sandboxed here: only Linux has the sandbox"}
 }
 
 // workflows are the active ones, paused as they are told.

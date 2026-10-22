@@ -145,6 +145,24 @@ func New(ctx context.Context, util *observability.Utility, cfg Config) (*Pool, e
 // Sandboxed says the runners run under the sandbox.
 func (p *Pool) Sandboxed() bool { return p.cfg.Sandbox != nil }
 
+// Status is how the runners are.
+func (p *Pool) Status() ports.CodeRunners {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+
+	st := ports.CodeRunners{
+		InRunners: true, Size: len(p.all), Sandboxed: p.Sandboxed(), Restarts: p.restarts, LastError: p.lastErr,
+	}
+
+	for _, r := range p.all {
+		if r.alive() {
+			st.Running++
+		}
+	}
+
+	return st
+}
+
 // Close stops every runner. Runs still going fail.
 func (p *Pool) Close(context.Context) error {
 	p.mu.Lock()

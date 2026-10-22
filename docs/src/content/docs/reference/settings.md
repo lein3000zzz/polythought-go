@@ -291,6 +291,18 @@ How many runs of user code may go at the same time; the others wait their turn. 
 | Default | `0` |
 | Applies | after a restart |
 
+### Runner processes
+
+Whether user code runs in processes of its own, one for each run at once, rather than in the server's: for public instances. A runner reaches nothing but the server, and runs in the sandbox where the server has one, on Linux 6.2 or later. Each takes about 80 MiB, more while it runs. Off, code runs in the server's process, inside its engine and its limits all the same.
+
+| | |
+|---|---|
+| Key | `code.runners` |
+| Environment variable | `POLYTHOUGHT_CODE_RUNNERS` |
+| Kind | `true` or `false` |
+| Default | `false` |
+| Applies | after a restart |
+
 ## Plugins
 
 ### Plugins directory

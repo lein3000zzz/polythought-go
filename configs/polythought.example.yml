@@ -172,6 +172,14 @@ code:
   # Environment: POLYTHOUGHT_CODE_CONCURRENCY.
   # concurrency: 0
 
+  # Whether user code runs in processes of its own, one for each run at once, rather
+  # than in the server's: for public instances. A runner reaches nothing but the server,
+  # and runs in the sandbox where the server has one, on Linux 6.2 or later. Each takes
+  # about 80 MiB, more while it runs. Off, code runs in the server's process, inside its
+  # engine and its limits all the same.
+  # Environment: POLYTHOUGHT_CODE_RUNNERS.
+  # runners: false
+
 plugins:
 
   # Where installed plugins are kept: a directory the server may write, a volume in

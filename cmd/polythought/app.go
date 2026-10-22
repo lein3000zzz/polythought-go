@@ -15,13 +15,13 @@ import (
 	"github.com/shopspring/decimal"
 
 	"github.com/lein3000zzz/polythought-go/internal/adapters/crypto"
-	"github.com/lein3000zzz/polythought-go/internal/adapters/jsruntime"
 	"github.com/lein3000zzz/polythought-go/internal/adapters/llm"
 	"github.com/lein3000zzz/polythought-go/internal/adapters/mailer"
 	"github.com/lein3000zzz/polythought-go/internal/adapters/pluginhost"
 	pmadapter "github.com/lein3000zzz/polythought-go/internal/adapters/polymarket"
 	"github.com/lein3000zzz/polythought-go/internal/adapters/postgres"
 	"github.com/lein3000zzz/polythought-go/internal/adapters/ratelimit"
+	"github.com/lein3000zzz/polythought-go/internal/adapters/sandbox"
 	tgadapter "github.com/lein3000zzz/polythought-go/internal/adapters/telegram"
 	"github.com/lein3000zzz/polythought-go/internal/adapters/tscompiler"
 	"github.com/lein3000zzz/polythought-go/internal/adapters/webhook"
@@ -132,6 +132,9 @@ type app struct {
 	geoblock        *geoblock.Service
 	waits           *waits.Service
 	code            *code.Service
+	codeRunners     func() ports.CodeRunners
+	launcher        *sandbox.Launcher // nil where there is no sandbox, noSandbox saying why
+	noSandbox       error
 	codeGate        auth.CodeGate
 	plugins         *plugins.Service
 	pluginRuntime   *pluginhost.Runtime
@@ -632,16 +635,13 @@ func (a *app) initEngine(ctx context.Context, pmc polymarket) error {
 		return err
 	}
 
-	runner, err := jsruntime.New(ctx, a.util, jsruntime.Config{
-		Concurrency: current.Int(config.KeyCodeConcurrency),
-		Prelude:     sdk,
-		Limits:      func() ports.CodeLimits { return codeLimits(a.settings.Current()) },
-	})
+	// The sandbox, for plugins and code runners, or why there is none (D338, D354).
+	a.launcher, a.noSandbox = sandbox.New()
+
+	runner, err := a.codeRunner(ctx, sdk, current)
 	if err != nil {
 		return err
 	}
-
-	a.util.OnShutdown(runner.Close)
 
 	a.code = code.New(compiler, runner, code.Data{
 		Markets: pmc.reader, Events: pmc.reader, OrderBooks: pmc.reader, Wallets: a.wallets, Positions: pmc.reader,

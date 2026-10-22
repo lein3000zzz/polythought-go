@@ -46,7 +46,7 @@ const MaxFiles = 1024
 
 // ErrUnavailable is a server that cannot sandbox programs: not Linux, or a kernel without
 // enough of Landlock. The error says which.
-var ErrUnavailable = errors.New("plugins cannot be sandboxed here")
+var ErrUnavailable = errors.New("nothing can be sandboxed here")
 
 // Policy is what a program may touch.
 type Policy struct {

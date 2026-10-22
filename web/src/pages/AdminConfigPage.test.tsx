@@ -120,6 +120,36 @@ function config(settings: Schemas['Setting'][] = all, restartPending = false) {
     http.get('/api/v1/admin/settings', () => HttpResponse.json({ settings, restartPending })),
     http.get('/api/v1/admin/settings/history', () => HttpResponse.json({ changes: [] })),
     http.get('/api/v1/admin/geoblock', () => HttpResponse.json({ checked: false, blocked: false })),
+    http.get('/api/v1/admin/code-runners', () => HttpResponse.json(inTheServer)),
+  )
+}
+
+const inTheServer: Schemas['CodeRunners'] = {
+  inRunners: false,
+  size: 0,
+  running: 0,
+  sandboxed: false,
+  why: '',
+  restarts: 0,
+  lastError: '',
+  failed: '',
+}
+
+const runnerProcesses = setting({
+  key: 'code.runners',
+  group: 'Code',
+  label: 'Runner processes',
+  kind: 'bool',
+  value: true,
+  default: false,
+  apply: 'restart',
+})
+
+/** The Code group, its runners as status says. */
+function runners(status: Partial<Schemas['CodeRunners']>) {
+  config([runnerProcesses])
+  server.use(
+    http.get('/api/v1/admin/code-runners', () => HttpResponse.json({ ...inTheServer, ...status })),
   )
 }
 
@@ -381,6 +411,62 @@ describe('admin config page', () => {
       await screen.findByText('Save a mail server and a From address first.'),
     ).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Send test email' })).toBeDisabled()
+  })
+
+  it("says code runs in the server's process", async () => {
+    runners({})
+    renderApp('/admin/config')
+
+    expect(await screen.findByText("Code runs in the server's process.")).toBeInTheDocument()
+  })
+
+  it('says code runs in runner processes, sandboxed, and which restarted (D357)', async () => {
+    runners({
+      inRunners: true,
+      size: 8,
+      running: 7,
+      sandboxed: true,
+      restarts: 1,
+      lastError: "it ran past its job's time",
+    })
+    renderApp('/admin/config')
+
+    expect(
+      await screen.findByText('Code runs in 8 runner processes, sandboxed.'),
+    ).toBeInTheDocument()
+    expect(
+      screen.getByText('7 of them running now: the others start again with their next run.'),
+    ).toBeInTheDocument()
+    expect(
+      screen.getByText("1 restarted since the server started: it ran past its job's time."),
+    ).toBeInTheDocument()
+  })
+
+  it('warns while the runners are not sandboxed (D354)', async () => {
+    runners({
+      inRunners: true,
+      size: 8,
+      running: 8,
+      why: 'nothing can be sandboxed here: only Linux has the sandbox, and this is darwin',
+    })
+    renderApp('/admin/config')
+
+    expect(
+      await screen.findByText(
+        'Code runs in 8 runner processes, not sandboxed. Nothing can be sandboxed here: only Linux has the sandbox, and this is darwin.',
+      ),
+    ).toBeInTheDocument()
+  })
+
+  it('says when the runners would not start, so code does not run (D358)', async () => {
+    runners({ inRunners: true, failed: 'coderunner: its engine: the prelude does not compile' })
+    renderApp('/admin/config')
+
+    expect(
+      await screen.findByText(
+        'The runner processes would not start, so code does not run: coderunner: its engine: the prelude does not compile',
+      ),
+    ).toBeInTheDocument()
   })
 
   it('says whether Polymarket takes orders from the server, and checks again (D186)', async () => {

@@ -67,7 +67,7 @@ func TestSameAsInTheServer(t *testing.T) {
 	t.Cleanup(func() { _ = inServer.Close(ctx) })
 
 	p := pool(t, coderunner.Config{Size: 2})
-	assert.Equal(t, launcher != nil, p.Sandboxed())
+	assert.Equal(t, ports.CodeRunners{InRunners: true, Size: 2, Running: 2, Sandboxed: launcher != nil}, p.Status())
 
 	for name, j := range map[string]ports.CodeJob{
 		"what it gives, and logs": {
@@ -139,7 +139,11 @@ func TestCrash(t *testing.T) {
 	res, err := p.Run(ctx, ports.CodeJob{Source: `function run() { return answer }`, Entry: "run"})
 	require.NoError(t, err, "started again")
 	assert.Equal(t, "42", string(res.Output))
-	assert.Equal(t, 1, p.Restarts())
+
+	st := p.Status()
+	assert.Equal(t, 1, st.Restarts)
+	assert.Equal(t, 1, st.Running)
+	assert.NotEmpty(t, st.LastError, "why it stopped")
 }
 
 // A run given up on stops its runner, which is started again for the next.

@@ -154,6 +154,26 @@ Paper trading works anywhere.
 Only the server's address is checked: whether each user may trade on Polymarket where they
 are is between them and Polymarket's terms.
 
+## User code
+
+Code that users write, in code nodes, custom nodes and workflows as code, runs in an engine
+of its own: QuickJS compiled to WebAssembly, with no files, no network and nothing but what
+the SDK gives it, within the limits under **Code** on the Config page. To start with, that
+engine runs in the server's process.
+
+On a public instance, where people you do not know write code, turn **Runner processes** on.
+Code then runs in processes of their own, one for each of **Runs at once**, each running one
+run at a time. A runner reaches nothing but the server. On Linux 6.2 or later, in Docker
+too, each runs in [the sandbox plugins run in](/docs/self-hosting/plugins/#the-sandbox). A
+runner that stops fails only its own run, and starts again for the next. Each takes about
+80 MiB idle, more while it runs.
+
+The setting applies when the server restarts. The **Code** group on the Config page then says
+where code runs and how the runners are. Where the server has no sandbox, on a Mac for one,
+the runners start without it and the Config page says so. Runners that do not start leave
+the server running, but code does not run until they do: it never runs in the server's
+process instead.
+
 ## More admins
 
 Admins can promote users on **Admin → Users**. To create one from the command line, with the

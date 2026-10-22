@@ -92,6 +92,19 @@ type CodeRunner interface {
 	Run(ctx context.Context, job CodeJob) (CodeResult, error)
 }
 
+// CodeRunners is where user code runs (D352), in the server's process or in runner
+// processes, and how those are.
+type CodeRunners struct {
+	InRunners bool
+	Size      int // runner processes
+	Running   int // of them, running now: one that stopped starts again with the next run
+	Sandboxed bool
+	Why       string // why they are not sandboxed, when they are not
+	Restarts  int    // runners started again since the server started
+	LastError string // why one last stopped
+	Failed    string // why they would not start, failing every run (D358)
+}
+
 type CodeJob struct {
 	// Source is a script that defines the function Entry names, as a name at its top
 	// level or a path of names from one, like exports.run. Run calls it with Input and

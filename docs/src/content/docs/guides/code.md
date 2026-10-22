@@ -56,7 +56,9 @@ alike, is refused when you save.
 Each run has limits an admin sets on the Config page: memory, time, the size of what it
 returns, and how many data requests it makes. Going over one stops the run of the node.
 Runs share the server's sandbox slots, and one user's take at most half of them, so a
-busy workflow cannot keep everyone else's waiting.
+busy workflow cannot keep everyone else's waiting. An admin may run code in
+[processes of its own](/docs/self-hosting/install/#user-code) rather than the server's; it
+works the same either way.
 
 Code compiles if it nests at most 256 levels of brackets, has at most 256 of `! ~ + -` in
 a row, and at most 1,000 arrow functions; an expression, at most 100. Real code stays far

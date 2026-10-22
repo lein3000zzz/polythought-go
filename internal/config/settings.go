@@ -43,6 +43,7 @@ const (
 	KeyCodeOutput          = "code.output"
 	KeyCodeHostCalls       = "code.host_calls"
 	KeyCodeConcurrency     = "code.concurrency"
+	KeyCodeRunners         = "code.runners"
 	KeyPluginsDir          = "plugins.dir"
 	KeyPluginTrustedKeys   = "plugins.trusted_keys"
 	KeyPluginMaxArchive    = "plugins.max_archive"
@@ -256,6 +257,11 @@ func Settings() (*settings.Registry, error) {
 			Description: "How many runs of user code may go at the same time; the others wait their turn. 0 means one per CPU of the server.",
 			Kind:        settings.KindInt, Default: 0, Check: between(0, 256),
 			Apply: settings.ApplyRestart,
+		},
+		settings.Spec{
+			Key: KeyCodeRunners, Group: groupCode, Label: "Runner processes",
+			Description: "Whether user code runs in processes of its own, one for each run at once, rather than in the server's: for public instances. A runner reaches nothing but the server, and runs in the sandbox where the server has one, on Linux 6.2 or later. Each takes about 80 MiB, more while it runs. Off, code runs in the server's process, inside its engine and its limits all the same.",
+			Kind:        settings.KindBool, Default: false, Apply: settings.ApplyRestart,
 		},
 		settings.Spec{
 			Key: KeyPluginsDir, Group: groupPlugins, Label: "Plugins directory",

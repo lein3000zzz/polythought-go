@@ -98,6 +98,14 @@ export function useSendTestMail() {
   })
 }
 
+/** Where user code runs, and how its runner processes are (D357), as the server started. */
+export function useCodeRunners() {
+  return useQuery({
+    queryKey: keys.codeRunners,
+    queryFn: () => call(api.GET('/admin/code-runners')),
+  })
+}
+
 /** Whether Polymarket takes orders from the server, as it last answered (D186). */
 export function useGeoblock() {
   return useQuery({

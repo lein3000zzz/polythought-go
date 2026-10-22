@@ -137,6 +137,9 @@ type Services struct {
 	Spend SpendService
 	// Plugins are what admins install (5c); nil where there are none.
 	Plugins PluginService
+	// CodeRunners says where user code runs, and how its runners are (D357); nil: in
+	// the server's process.
+	CodeRunners func() ports.CodeRunners
 }
 
 type Config struct {
@@ -177,12 +180,14 @@ type Server struct {
 	geoblock      GeoblockService
 	spend         SpendService
 	plugins       PluginService
-	log           logging.Logger
-	kit           *redkit.Kit
-	scope         tracing.Scope
-	origin        string
-	secure        bool
-	clientIP      atomic.Pointer[app.ClientIP]
+
+	codeRunnersStatus func() ports.CodeRunners
+	log               logging.Logger
+	kit               *redkit.Kit
+	scope             tracing.Scope
+	origin            string
+	secure            bool
+	clientIP          atomic.Pointer[app.ClientIP]
 
 	// closing ends event streams on shutdown, which would otherwise hold it up.
 	closing   chan struct{}
@@ -252,13 +257,15 @@ func New(cfg Config, util *observability.Utility, services Services) (*Server, e
 		geoblock:      services.Geoblock,
 		spend:         services.Spend,
 		plugins:       services.Plugins,
-		log:           log,
-		kit:           kit,
-		scope:         tracing.Scope{Manager: util.TracerManager, TracerName: tracerName},
-		origin:        public.Scheme + "://" + public.Host,
-		secure:        public.Scheme == "https",
-		closing:       make(chan struct{}),
-		maxBody:       maxBody,
+
+		codeRunnersStatus: services.CodeRunners,
+		log:               log,
+		kit:               kit,
+		scope:             tracing.Scope{Manager: util.TracerManager, TracerName: tracerName},
+		origin:            public.Scheme + "://" + public.Host,
+		secure:            public.Scheme == "https",
+		closing:           make(chan struct{}),
+		maxBody:           maxBody,
 	}
 
 	s.SetTrustedProxies(cfg.TrustedProxies)
@@ -443,6 +450,7 @@ func (s *Server) routes() {
 	admin.GET("/plugins/:id/settings", s.hasPlugins, s.pluginSettings)
 	admin.PATCH("/plugins/:id/settings", s.hasPlugins, s.updatePluginSettings)
 	admin.GET("/geoblock", s.geoblockStatus)
+	admin.GET("/code-runners", s.codeRunners)
 	admin.POST("/geoblock/check", s.checkGeoblock)
 }
 

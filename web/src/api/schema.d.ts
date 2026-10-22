@@ -4,6 +4,23 @@
  */
 
 export interface paths {
+    "/admin/code-runners": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Where user code runs, and how its runners are */
+        get: operations["getCodeRunners"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/admin/geoblock": {
         parameters: {
             query?: never;
@@ -1823,6 +1840,25 @@ export interface components {
             /** @description Path is the file's in the @polythought/sdk package, like index.d.ts. */
             path: string;
         };
+        CodeRunners: {
+            failed: string;
+            /** @description InRunners says code runs in runner processes; false, in the server's. */
+            inRunners: boolean;
+            /**
+             * @description LastError says why one last stopped; Failed why they would not start, every code
+             *     run failing (D358).
+             */
+            lastError: string;
+            /** @description runners started again since the server started */
+            restarts: number;
+            /** @description of them, now: one that stopped starts with the next run */
+            running: number;
+            sandboxed: boolean;
+            /** @description runner processes */
+            size: number;
+            /** @description Why says why they are not sandboxed, when they are not. */
+            why: string;
+        };
         CodeTypes: {
             /**
              * @description Files of @polythought/sdk, for an editor to load as that package: index.d.ts
@@ -3172,6 +3208,44 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
+    getCodeRunners: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CodeRunners"];
+                };
+            };
+            /** @description unauthenticated */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description forbidden: not an admin */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
     getGeoblock: {
         parameters: {
             query?: never;
