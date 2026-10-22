@@ -268,6 +268,46 @@ describe('admin plugins page', () => {
     ).toBeInTheDocument()
   })
 
+  it('warns again when the key that signed it is no longer trusted (P21)', async () => {
+    let refused = false
+    const signed = (signer: string): Schemas['Plugin'] => ({
+      ...running,
+      versions: [
+        version('1.1.0', ['fetch:api.weather.example'], { signer, keyId: 'E7620F1842B4E81F' }),
+        running.versions[1],
+      ],
+    })
+
+    plugins([signed('Alice')])
+    server.use(
+      http.get('/api/v1/admin/plugins', () =>
+        HttpResponse.json({ plugins: [signed(refused ? '' : 'Alice')], found: [], sandbox }),
+      ),
+      http.post('/api/v1/admin/plugins/weather/versions/1.1.0/approve', () => {
+        refused = true
+        return apiError(
+          400,
+          'invalid_input',
+          'invalid input: Alice, which signed it, is no longer a key you trust: look at it again before you approve it',
+        )
+      }),
+    )
+    const { user } = renderApp('/admin/plugins')
+
+    await user.click(await screen.findByRole('button', { name: 'Review' }))
+    const dialog = within(await screen.findByRole('dialog'))
+    expect(dialog.getByText('Signed by Alice.')).toBeInTheDocument()
+    await user.click(dialog.getByRole('checkbox', { name: 'Reach api.weather.example' }))
+    await user.click(dialog.getByRole('button', { name: 'Approve' }))
+
+    expect(await dialog.findByText(/is no longer a key you trust/)).toBeInTheDocument()
+    expect(
+      await dialog.findByText('Signed by a key you do not trust (E7620F1842B4E81F)'),
+    ).toBeInTheDocument()
+    expect(dialog.getByRole('checkbox', { name: 'I know where it came from' })).toBeInTheDocument()
+    expect(dialog.getByRole('button', { name: 'Approve' })).toBeDisabled()
+  })
+
   it('chooses who may use a plugin (D282)', async () => {
     let sent: unknown
 

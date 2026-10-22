@@ -83,13 +83,14 @@ func (a *api) PlaceOrders(ctx context.Context, req *pluginv1.PlaceOrdersRequest)
 
 		results, err := a.place(ctx, reqs)
 		if err != nil {
-			return nil, status.Errorf(codes.Unavailable, "the orders: %v", err)
+			return nil, a.sourceError(ctx, s, "the orders", err)
 		}
 
 		for k, r := range results {
 			res := &pluginv1.OrderResult{Order: placedOf(r.Order)}
 			if r.Err != nil {
-				res = &pluginv1.OrderResult{Error: fmt.Sprintf("order %d: %v", at[k], r.Err)}
+				_, why := a.failure(ctx, s, fmt.Sprintf("order %d", at[k]), r.Err)
+				res = &pluginv1.OrderResult{Error: why}
 			}
 
 			out.Results[at[k]] = res
@@ -197,7 +198,7 @@ func (a *api) CancelOrders(ctx context.Context, req *pluginv1.CancelOrdersReques
 
 		results, err := a.deps.Trading.Canceller.CancelOrders(ctx, c)
 		if err != nil {
-			return nil, sourceError("cancel orders", err)
+			return nil, a.sourceError(ctx, s, "cancel orders", err)
 		}
 
 		out := &pluginv1.CancelOrdersResponse{Results: make([]*pluginv1.CancelResult, len(results))}

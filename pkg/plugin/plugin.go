@@ -52,7 +52,7 @@ type Run struct {
 	StartedAt   time.Time
 
 	// Host is what the run may ask of Polythought (5b). Log logs through it, with the
-	// plugin's name and the run's.
+	// plugin's name and the run's, a line's message and fields kept to 16 KiB together.
 	Host Host
 	Log  *slog.Logger
 

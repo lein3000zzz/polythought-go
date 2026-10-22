@@ -14,5 +14,6 @@ func main() {
 		return // run again by itself
 	}
 
-	_ = json.NewEncoder(os.Stdout).Encode(probe.Try(os.Getenv("PROBE_DIR"), os.Getenv("PROBE_DATA"), []string{os.Args[0], "again"}))
+	tries := probe.Try(os.Getenv("PROBE_DIR"), os.Getenv("PROBE_DATA"), os.Getenv("PROBE_OUTSIDE"), []string{os.Args[0], "again"})
+	_ = json.NewEncoder(os.Stdout).Encode(tries)
 }

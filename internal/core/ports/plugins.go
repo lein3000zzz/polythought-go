@@ -50,6 +50,13 @@ type PluginRepository interface {
 	// Approve approves a.Version, which becomes the one the plugin runs.
 	Approve(ctx context.Context, a domain.PluginAudit) error
 
+	// SetDigest records the digest of a.Version's files, recorded without one (P16): never
+	// in place of one; domain.ErrNotFound then.
+	SetDigest(ctx context.Context, digest string, a domain.PluginAudit) error
+
+	// SetSigner records who signed a.Version, as the keys admins trust now say (P21).
+	SetSigner(ctx context.Context, signer, keyID string, a domain.PluginAudit) error
+
 	// RemoveVersion forgets a.Version: one not approved, or one an upgrade replaced.
 	RemoveVersion(ctx context.Context, a domain.PluginAudit) error
 
@@ -122,11 +129,16 @@ type PluginFile struct {
 	Version     string
 	Name        string
 	Permissions []string
-	Manifest    json.RawMessage // as manifest.json has it
+	Manifest    json.RawMessage // as manifest.json has it, decoded and encoded again: one value, whoever reads it (P19)
 
-	Program string
-	Dir     string // the version's directory, holding Program
-	Data    string // its plugin's lasting directory, every version's (D339); maybe not made yet
+	Program    string
+	ProgramSum string // the program's SHA-256, in hex, as checksums.txt has it
+	Dir        string // the version's directory, holding Program
+	Data       string // its plugin's lasting directory, every version's (D339); maybe not made yet
+
+	// Digest is the SHA-256, in hex, of the version's checksums.txt: its files as installed,
+	// which an approval holds to (P16).
+	Digest string
 
 	Signed  bool
 	Signer  string // the trusted key's name; empty for none an admin trusts

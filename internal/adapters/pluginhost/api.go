@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"slices"
 	"strings"
 	"sync"
 	"time"
@@ -131,12 +132,18 @@ func (l Limits) orDefaults() Limits {
 // What a run's logs, metrics and spans are held to: they are not calls, so not counted
 // with them, but no plugin may flood the server's.
 const (
-	maxTelemetry = 1000    // log lines, metric records and spans a run, or a trigger's minute
-	maxText      = 8 << 10 // bytes of a log line, a field or an attribute, cut past it
-	maxFields    = 32      // fields of a log line, attributes of a span: the rest dropped
-	maxSeries    = 1000    // label sets one metric is recorded with
-	maxLabel     = 128     // bytes of a label's value
+	maxTelemetry = 1000     // log lines, metric records and spans a run, or a trigger's minute
+	maxText      = 8 << 10  // bytes of a log line, a field or an attribute, cut past it
+	maxFields    = 32       // fields of a log line, attributes of a span: the rest dropped
+	maxLine      = 16 << 10 // bytes of a log line, its message and fields, or of a span's attributes (P4, P11)
+	maxSpans     = 100      // spans a run has going at once (P11)
+	maxSeries    = 1000     // label sets one metric is recorded with
+	maxLabel     = 128      // bytes of a label's value
 )
+
+// maxInFlight are the calls a run may have going at once: more wait their turn, so one
+// run cannot make the server hold many fetches' bodies at once (P12).
+const maxInFlight = 4
 
 // api serves one plugin's process its HostService: a call must name a session of one of
 // its runs going on, and ask what its permissions allow, within the run's limits.
@@ -204,7 +211,10 @@ func (a *api) bind(m plugin.Manifest) error {
 // session is one run's standing with the host: a node's run, or a trigger's while it
 // runs. Its token is what the plugin's calls name.
 type session struct {
-	ctx     context.Context // the run's: the plugin's spans go under its span
+	// ctx is the run's, its own once open, ended as it closes: the plugin's spans go under
+	// its span, and its calls end with it (P15).
+	ctx     context.Context
+	cancel  context.CancelFunc
 	rc      engine.RunContext
 	trigger bool
 	typ     engine.NodeType
@@ -214,23 +224,35 @@ type session struct {
 	params map[engine.ItemRef]engine.Params
 	limits Limits
 	now    func() time.Time
+	slots  chan struct{} // its calls in flight (P12)
 
 	mu        sync.Mutex
 	calls     int
 	telemetry int
 	window    time.Time // a trigger's minute, from its first call in it
 	over      bool      // a node's run asked past its calls
-	spans     map[uint64]trace.Span
+	spans     map[uint64]*openSpan
 	lastSpan  uint64
 
 	question *question // the one the run asked, which it waits on
 	asking   bool      // its question is being sent
+	settled  bool      // the plugin answered the run: a question sent now is not waited on
 }
 
-// asked is the question the run asked, if it did.
-func (s *session) asked() *question {
+// openSpan is a span of the plugin's going on, and the bytes of attributes it may still
+// take (P11).
+type openSpan struct {
+	span trace.Span
+	room int
+}
+
+// settle is the question the run asked, if it did, once the plugin has answered the run:
+// one sent after is not waited on, so its call closes it (D311, P15).
+func (s *session) settle() *question {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+
+	s.settled = true
 
 	return s.question
 }
@@ -244,9 +266,11 @@ func (a *api) open(s *session) (token string, closed func(), err error) {
 	}
 
 	token = hex.EncodeToString(raw)
+	s.ctx, s.cancel = context.WithCancel(s.ctx)
 	s.limits = a.deps.Limits().orDefaults()
 	s.now = time.Now
-	s.spans = map[uint64]trace.Span{}
+	s.slots = make(chan struct{}, maxInFlight)
+	s.spans = map[uint64]*openSpan{}
 
 	a.mu.Lock()
 	a.sessions[token] = s
@@ -257,6 +281,7 @@ func (a *api) open(s *session) (token string, closed func(), err error) {
 		delete(a.sessions, token)
 		a.mu.Unlock()
 
+		s.cancel()
 		s.endSpans()
 	}, nil
 }
@@ -329,8 +354,9 @@ func (s *session) overLimit() bool {
 	return s.over
 }
 
-// work is the context a call does its work in: the run's, so it ends with the run and
-// its spans join the node's, ended too if the plugin gives up on the call.
+// work is the context a call does its work in: the session's, so it ends as the run's
+// session closes, whatever the plugin left going (P15), and its spans join the node's;
+// ended too if the plugin gives up on the call.
 func (s *session) work(call context.Context) (context.Context, context.CancelFunc) {
 	ctx, cancel := context.WithCancel(s.ctx)
 	stop := context.AfterFunc(call, cancel)
@@ -346,15 +372,28 @@ func (s *session) endSpans() {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	for id, span := range s.spans {
-		span.SetStatus(otelcodes.Error, "the run ended before the plugin ended the span")
-		span.End()
+	for id, open := range s.spans {
+		open.span.SetStatus(otelcodes.Error, "the run ended before the plugin ended the span")
+		open.span.End()
 		delete(s.spans, id)
 	}
 }
 
-// call runs one of a session's calls, counted against its limit, in the run's context,
-// timed and traced as op.
+// acquire takes a place for a call among the session's maxInFlight, waiting for one while
+// the call lasts (P12).
+func (s *session) acquire(ctx context.Context) error {
+	select {
+	case s.slots <- struct{}{}:
+		return nil
+	case <-ctx.Done():
+		return ended(ctx.Err())
+	}
+}
+
+func (s *session) release() { <-s.slots }
+
+// call runs one of a session's calls, counted against its limit, in the session's
+// context, no more than maxInFlight at once, timed and traced as op.
 func call[T any](ctx context.Context, a *api, token, op string, fn func(context.Context, *session, trace.Span) (T, error)) (_ T, err error) {
 	var none T
 
@@ -370,6 +409,11 @@ func call[T any](ctx context.Context, a *api, token, op string, fn func(context.
 	ctx, done := s.work(ctx)
 	defer done()
 
+	if err := s.acquire(ctx); err != nil {
+		return none, err
+	}
+	defer s.release()
+
 	finish := a.kit.Start(ctx, op)
 	defer func() { finish(err == nil) }()
 
@@ -377,6 +421,54 @@ func call[T any](ctx context.Context, a *api, token, op string, fn func(context.
 		span.SetAttributes(attribute.String("plugin.id", a.id))
 		return fn(ctx, s, span)
 	})
+}
+
+// told are the errors a plugin hears in their own words: the domain's, about what it
+// asked, which say nothing of the server's insides (P13).
+var told = []error{
+	domain.ErrUnavailable, domain.ErrCredentialsRejected, domain.ErrLiveTradingOff, domain.ErrWalletCannotTrade,
+	domain.ErrNotEnoughCash, domain.ErrNotEnoughShares, domain.ErrNotOpen, domain.ErrTelegramUnavailable,
+	domain.ErrTelegramBlocked, domain.ErrTelegramNotLinked,
+}
+
+// failure is what a plugin hears of an error doing what (P13): the context's end, not
+// found, or one of told, in their own words; of anything else only that it failed, the
+// error logged with the run's, as storeError does.
+func (a *api) failure(ctx context.Context, s *session, what string, err error) (codes.Code, string) {
+	if e := ended(err); e != nil {
+		return status.Code(e), what + ": " + status.Convert(e).Message()
+	}
+
+	if errors.Is(err, domain.ErrNotFound) {
+		return codes.NotFound, what + ": not found"
+	}
+
+	if i := slices.IndexFunc(told, func(t error) bool { return errors.Is(err, t) }); i >= 0 {
+		return codes.Unavailable, what + ": " + told[i].Error()
+	}
+
+	a.log.Warn(ctx, "Plugin's call failed", append(s.logArgs(), "call", what, logging.Err(err))...)
+
+	return codes.Unavailable, what + " failed"
+}
+
+// sourceError is why a call failed, as the plugin hears it.
+func (a *api) sourceError(ctx context.Context, s *session, what string, err error) error {
+	code, msg := a.failure(ctx, s, what, err)
+	return status.Error(code, msg)
+}
+
+// ended is the call's end with its context, when err is that, in words of its own: the
+// error carrying it may say more of the server's insides (P13). Nil otherwise.
+func ended(err error) error {
+	switch {
+	case errors.Is(err, context.DeadlineExceeded):
+		return status.Error(codes.DeadlineExceeded, context.DeadlineExceeded.Error())
+	case errors.Is(err, context.Canceled):
+		return status.Error(codes.Canceled, context.Canceled.Error())
+	}
+
+	return nil
 }
 
 // logArgs are a run's, for a log line about it.
@@ -472,17 +564,24 @@ func credentialError(param string, err error) error {
 }
 
 // clip cuts text past maxText bytes, at a rune's start.
-func clip(text string) string {
-	if len(text) <= maxText {
+func clip(text string) string { return cut(text, maxText) }
+
+// ellipsis marks text cut.
+const ellipsis = "…"
+
+// cut cuts text past most bytes, at a rune's start, marked: most bytes and the ellipsis at
+// most.
+func cut(text string, most int) string {
+	if len(text) <= most {
 		return text
 	}
 
-	cut := maxText
-	for cut > 0 && !isRuneStart(text[cut]) {
-		cut--
+	at := max(most, 0)
+	for at > 0 && !isRuneStart(text[at]) {
+		at--
 	}
 
-	return text[:cut] + "…"
+	return text[:at] + ellipsis
 }
 
 func isRuneStart(b byte) bool { return b&0xC0 != 0x80 }

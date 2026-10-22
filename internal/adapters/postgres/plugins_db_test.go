@@ -27,7 +27,8 @@ func TestPlugins(t *testing.T) {
 	at := time.Date(2026, 10, 22, 12, 0, 0, 0, time.UTC)
 	v1 := domain.PluginVersion{
 		PluginID: "weather", Version: "1.0.0", Manifest: json.RawMessage(`{"id": "weather", "version": "1.0.0"}`),
-		Signer: "Alice", KeyID: "E7620F1842B4E81F", InstalledBy: admin.ID, InstalledAt: at,
+		Signer: "Alice", KeyID: "E7620F1842B4E81F", Digest: "9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08",
+		InstalledBy: admin.ID, InstalledAt: at,
 	}
 
 	t.Run("installed: enabled, for everyone, waiting for approval", func(t *testing.T) {
@@ -41,6 +42,7 @@ func TestPlugins(t *testing.T) {
 		require.Len(t, p.Versions, 1)
 		assert.False(t, p.Versions[0].Approved())
 		assert.Equal(t, "Alice", p.Versions[0].Signer)
+		assert.Equal(t, v1.Digest, p.Versions[0].Digest)
 		assert.JSONEq(t, string(v1.Manifest), string(p.Versions[0].Manifest))
 
 		require.ErrorIs(t, repo.AddVersion(ctx, v1, domain.PluginAudit{PluginID: "weather", Action: domain.PluginInstalled, At: at}), domain.ErrPluginInstalled)
@@ -75,6 +77,31 @@ func TestPlugins(t *testing.T) {
 		assert.Len(t, p.Versions, 1)
 
 		require.ErrorIs(t, repo.Approve(ctx, domain.PluginAudit{PluginID: "weather", Version: "9.9.9", Action: domain.PluginApproved, At: at}), domain.ErrNotFound)
+	})
+
+	t.Run("its signer as the trusted keys now say, its digest once (P16, P21)", func(t *testing.T) {
+		audit := domain.PluginAudit{PluginID: "weather", Version: "1.1.0", Action: domain.PluginSigner, At: at.Add(3*time.Hour + time.Minute)}
+		require.NoError(t, repo.SetSigner(ctx, "", "E7620F1842B4E81F", audit))
+
+		p, _ := repo.Get(ctx, "weather")
+		assert.Empty(t, p.Versions[0].Signer)
+		assert.Equal(t, "E7620F1842B4E81F", p.Versions[0].KeyID)
+
+		audit.Action = domain.PluginDigest
+		require.ErrorIs(t, repo.SetDigest(ctx, "other", audit), domain.ErrNotFound, "never in place of one")
+
+		_, err := db.Pool.Exec(ctx, `UPDATE plugin_versions SET digest = '' WHERE plugin_id = 'weather'`) // as recorded before 00035
+		require.NoError(t, err)
+		require.NoError(t, repo.SetDigest(ctx, "recorded", audit))
+
+		p, _ = repo.Get(ctx, "weather")
+		assert.Equal(t, "recorded", p.Versions[0].Digest)
+
+		history, _ := repo.History(ctx, "weather", 2)
+		assert.Equal(t, []string{domain.PluginDigest, domain.PluginSigner}, []string{history[0].Action, history[1].Action})
+
+		audit.Version = "9.9.9"
+		require.ErrorIs(t, repo.SetSigner(ctx, "Bob", "", audit), domain.ErrNotFound)
 	})
 
 	t.Run("enabled, disabled, and who may use it", func(t *testing.T) {

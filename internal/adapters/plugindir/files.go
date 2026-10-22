@@ -1,6 +1,7 @@
 package plugindir
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -96,14 +97,15 @@ func (f *Files) List() ([]ports.PluginFound, error) {
 }
 
 func fileOf(v Version) (ports.PluginFile, error) {
-	raw, err := manifestJSON(v.Path)
+	// The manifest as decoded, never its bytes: what is kept and shown is what runs (P19).
+	raw, err := json.Marshal(v.Manifest)
 	if err != nil {
 		return ports.PluginFile{}, err
 	}
 
 	return ports.PluginFile{
 		ID: v.Manifest.ID, Version: v.Manifest.Version, Name: v.Manifest.Name, Permissions: v.Manifest.Permissions,
-		Manifest: raw, Program: v.Program, Dir: v.Path, Data: v.Data,
+		Manifest: raw, Program: v.Program, ProgramSum: v.ProgramSum, Dir: v.Path, Data: v.Data, Digest: v.Digest,
 		Signed: v.Signed, Signer: v.Signer, KeyID: v.KeyID, Warning: v.Warning,
 	}, nil
 }

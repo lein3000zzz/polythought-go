@@ -133,7 +133,10 @@ test.describe('a plugin', () => {
       history.getByText(/^settings 1\.2\.0: greeting: "hello" → "hi there"; token changed/),
     ).toBeVisible()
     await expect(history.getByText(/^approved 1\.2\.0/)).toBeVisible()
-    await expect(history.getByText(/^installed 1\.2\.0: not signed/)).toBeVisible()
+    // Where it came from, and the digest of its files as installed (P29).
+    await expect(
+      history.getByText(/^installed 1\.2\.0: uploaded; not signed; digest [0-9a-f]{64}$/),
+    ).toBeVisible()
     await page.keyboard.press('Escape')
 
     // In the editor, its nodes are in one Plugins group, each saying whose (D330).

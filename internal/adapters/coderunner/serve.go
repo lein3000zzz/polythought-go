@@ -14,7 +14,6 @@ import (
 
 	"github.com/lein3000zzz/polythought-go/internal/adapters/jsruntime"
 	"github.com/lein3000zzz/polythought-go/internal/adapters/sandbox"
-	"github.com/lein3000zzz/polythought-go/internal/core/domain"
 	"github.com/lein3000zzz/polythought-go/internal/core/ports"
 )
 
@@ -36,15 +35,15 @@ func memoryCap(memory, headroom int64) int64 { return 2*memory + headroom }
 func Serve() error {
 	in, out := bufio.NewReader(os.Stdin), bufio.NewWriter(os.Stdout)
 
-	send := func(m message) error {
-		if err := writeFrame(out, m); err != nil {
+	send := func(m message, limit int) error {
+		if err := writeFrame(out, m, limit); err != nil {
 			return err
 		}
 
 		return out.Flush()
 	}
 
-	init, err := readFrame(in)
+	init, err := readFrame(in, maxFrame)
 	if err != nil {
 		return fmt.Errorf("its init: %w", err)
 	}
@@ -60,16 +59,16 @@ func Serve() error {
 		Concurrency: 1, Prelude: init.Prelude, Limits: func() ports.CodeLimits { return limits },
 	})
 	if err != nil {
-		_ = send(message{Kind: kindReady, Error: err.Error()})
+		_ = send(message{Kind: kindReady, Error: err.Error()}, readyRoom)
 		return err
 	}
 
-	if err := send(message{Kind: kindReady}); err != nil {
+	if err := send(message{Kind: kindReady}, readyRoom); err != nil {
 		return err
 	}
 
 	for {
-		m, err := readFrame(in)
+		m, err := readFrame(in, maxFrame)
 
 		switch {
 		case errors.Is(err, io.EOF):
@@ -85,41 +84,37 @@ func Serve() error {
 
 		j := ports.CodeJob{Source: m.Job.Source, Entry: m.Job.Entry, Input: m.Job.Input, Limits: limits}
 		if m.Job.Hosted {
-			j.Host = asker(in, send)
+			j.Host = asker(in, send, m.ID, room(limits))
 		}
 
-		res, err := engine.Run(context.Background(), j)
+		outcome := resultOf(engine.Run(context.Background(), j))
 
-		outcome := resultOf(res)
-
-		var codeErr *domain.CodeError
-
-		switch {
-		case errors.As(err, &codeErr):
-			outcome.Code = codeErr
-		case err != nil:
-			outcome.Error = err.Error()
-		}
-
-		if err := send(message{Kind: kindResult, Result: &outcome}); err != nil {
+		if err := send(message{Kind: kindResult, ID: m.ID, Result: &outcome}, maxFrame); err != nil {
 			return err
 		}
 	}
 }
 
 // asker answers a job's host calls by asking the server, each in a call frame its answer
-// follows.
-func asker(in io.Reader, send func(message) error) ports.CodeHost {
+// follows. A call too big for a frame of the job's is not sent: the code gets the error.
+func asker(in io.Reader, send func(message, int) error, id uint64, limit int) ports.CodeHost {
 	calls := 0
 
 	return func(_ context.Context, name string, args json.RawMessage) (json.RawMessage, error) {
 		calls++
 
-		if err := send(message{Kind: kindCall, Call: calls, Name: name, Args: args}); err != nil {
+		var big *tooBig
+
+		err := send(message{Kind: kindCall, ID: id, Call: calls, Name: name, Args: args}, limit)
+
+		switch {
+		case errors.As(err, &big):
+			return nil, fmt.Errorf("a host call of %s, more than the %s one may send", size(int64(big.n)), size(int64(limit)))
+		case err != nil:
 			return nil, err
 		}
 
-		a, err := readFrame(in)
+		a, err := readFrame(in, maxFrame)
 
 		switch {
 		case err != nil:

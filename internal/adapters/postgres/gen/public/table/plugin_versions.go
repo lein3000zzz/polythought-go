@@ -26,6 +26,7 @@ type pluginVersionsTable struct {
 	InstalledAt postgres.ColumnTimestampz
 	ApprovedBy  postgres.ColumnString
 	ApprovedAt  postgres.ColumnTimestampz
+	Digest      postgres.ColumnString
 
 	AllColumns     postgres.ColumnList
 	MutableColumns postgres.ColumnList
@@ -76,9 +77,10 @@ func newPluginVersionsTableImpl(schemaName, tableName, alias string) pluginVersi
 		InstalledAtColumn = postgres.TimestampzColumn("installed_at")
 		ApprovedByColumn  = postgres.StringColumn("approved_by")
 		ApprovedAtColumn  = postgres.TimestampzColumn("approved_at")
-		allColumns        = postgres.ColumnList{PluginIDColumn, VersionColumn, ManifestColumn, SignerColumn, KeyIDColumn, InstalledByColumn, InstalledAtColumn, ApprovedByColumn, ApprovedAtColumn}
-		mutableColumns    = postgres.ColumnList{ManifestColumn, SignerColumn, KeyIDColumn, InstalledByColumn, InstalledAtColumn, ApprovedByColumn, ApprovedAtColumn}
-		defaultColumns    = postgres.ColumnList{SignerColumn, KeyIDColumn}
+		DigestColumn      = postgres.StringColumn("digest")
+		allColumns        = postgres.ColumnList{PluginIDColumn, VersionColumn, ManifestColumn, SignerColumn, KeyIDColumn, InstalledByColumn, InstalledAtColumn, ApprovedByColumn, ApprovedAtColumn, DigestColumn}
+		mutableColumns    = postgres.ColumnList{ManifestColumn, SignerColumn, KeyIDColumn, InstalledByColumn, InstalledAtColumn, ApprovedByColumn, ApprovedAtColumn, DigestColumn}
+		defaultColumns    = postgres.ColumnList{SignerColumn, KeyIDColumn, DigestColumn}
 	)
 
 	return pluginVersionsTable{
@@ -94,6 +96,7 @@ func newPluginVersionsTableImpl(schemaName, tableName, alias string) pluginVersi
 		InstalledAt: InstalledAtColumn,
 		ApprovedBy:  ApprovedByColumn,
 		ApprovedAt:  ApprovedAtColumn,
+		Digest:      DigestColumn,
 
 		AllColumns:     allColumns,
 		MutableColumns: mutableColumns,

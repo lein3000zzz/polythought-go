@@ -43,7 +43,7 @@ func echoFile(t *testing.T, change func(m map[string]any)) ports.PluginFile {
 		require.NoError(t, err)
 	}
 
-	return ports.PluginFile{ID: m.ID, Version: m.Version, Manifest: raw, Program: prog.Path, Dir: prog.Dir, Data: prog.Data}
+	return ports.PluginFile{ID: m.ID, Version: m.Version, Manifest: raw, Program: prog.Path, ProgramSum: prog.Sum, Dir: prog.Dir, Data: prog.Data}
 }
 
 func registry(t *testing.T) *engine.Registry {
@@ -119,7 +119,7 @@ func TestRuntimeStopped(t *testing.T) {
 
 	require.NoError(t, rt.Load(ctx, echoFile(t, nil)))
 
-	_, err := run(t, r, "plugin.echo.fill", map[string]any{"bytes": 2 << 20}, items(map[string]any{}))
+	_, err := run(t, r, "plugin.echo.fill", map[string]any{"bytes": 1 << 20, "files": 2}, items(map[string]any{}))
 	require.NoError(t, err)
 
 	select {

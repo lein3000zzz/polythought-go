@@ -2,6 +2,8 @@ package pluginhost
 
 import (
 	"encoding/json"
+	"fmt"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -111,6 +113,91 @@ func TestCheck(t *testing.T) {
 	assert.NoError(t, Check(m), "a newer minor of the same major")
 }
 
+func TestCheckText(t *testing.T) {
+	nodes := func(n int) []plugin.NodeType {
+		out := make([]plugin.NodeType, n)
+		for i := range out {
+			out[i] = plugin.NodeType{Name: fmt.Sprintf("n%d", i)}
+		}
+
+		return out
+	}
+
+	long := func(n int) string { return strings.Repeat("x", n) }
+
+	m := good()
+	m.Name = strings.Repeat("é", maxName-2) + "☔ "
+	m.Description = long(maxDescription)
+	m.Nodes[0].Label = "Prévisions ☔ " + long(maxTitle-13)
+	m.Nodes[0].Description = "Line one.\nLine two, \u200fمطر\u200f too." // a description may break lines, and mark direction
+	m.Nodes = append(m.Nodes, nodes(maxTypes-1)...)
+	m.Scenarios[0].Name = "Rain watch"
+	require.NoError(t, Check(m), "generous: as long, and as many, as any plugin needs")
+
+	for _, tt := range []struct {
+		name, want string
+		change     func(*plugin.Manifest)
+	}{
+		{"a long name", "the name: up to 64 characters", func(m *plugin.Manifest) { m.Name = strings.Repeat("W", maxName+1) }},
+		{"a name padded unseen (P2)", "the name: up to 64", func(m *plugin.Manifest) { m.Name = "Movers" + strings.Repeat("\u200b", 4090) }},
+		{"a name turned around", "the name: no control or bidi characters", func(m *plugin.Manifest) { m.Name = "Weather \u202esredro" }},
+		{"a name isolating", "the name: no control or bidi", func(m *plugin.Manifest) { m.Name = "Weather \u2067x\u2069" }},
+		{"a name over two lines", "the name: no control or bidi", func(m *plugin.Manifest) { m.Name = "Weather\nPolythought" }},
+		{"a name, a separator", "the name: no control or bidi", func(m *plugin.Manifest) { m.Name = "Weather\u2028Polythought" }},
+		{"a long description", "the plugin: a description of up to 2000 characters", func(m *plugin.Manifest) { m.Description = long(maxDescription + 1) }},
+		{"a node's long label", `node "forecast": a label of up to 100 characters`, func(m *plugin.Manifest) { m.Nodes[0].Label = long(maxTitle + 1) }},
+		{"a node's label, a NUL", `node "forecast": a label without control or bidi characters`, func(m *plugin.Manifest) { m.Nodes[0].Label = "Fore\x00cast" }},
+		{"a trigger's long description", `trigger "storm": a description of up to 2000`, func(m *plugin.Manifest) {
+			m.Triggers[0].Description = long(maxDescription + 1)
+		}},
+		{"a setting's label turned", `setting "api_key": a label without control or bidi`, func(m *plugin.Manifest) { m.Settings[0].Label = "\u202eyek IPA" }},
+		{"a metric's long help", `metric "forecasts_total": a description of up to 2000`, func(m *plugin.Manifest) { m.Metrics[0].Help = long(maxDescription + 1) }},
+		{"a credential type's label", `credential type "key": a label without control or bidi`, func(m *plugin.Manifest) { m.CredentialTypes[0].Label = "Key\r" }},
+		{"a credential field's label", `credential type "key": field "k": a label of up to 100`, func(m *plugin.Manifest) {
+			m.CredentialTypes[0].Fields = []plugin.CredentialField{{Name: "k", Label: long(maxTitle + 1)}}
+		}},
+		{"a scenario's name", `scenario "rain": a label without control or bidi`, func(m *plugin.Manifest) { m.Scenarios[0].Name = "Rain\twatch" }},
+		{"a scenario's summary", `scenario "rain": a description of up to 2000`, func(m *plugin.Manifest) { m.Scenarios[0].Summary = long(maxDescription + 1) }},
+		{"a node setting's label", `node "forecast": setting "city": a label of up to 100`, func(m *plugin.Manifest) {
+			m.Nodes[0].Params = []plugin.Param{{Name: "city", Kind: "string", Label: long(maxTitle + 1)}}
+		}},
+		{"a column's label turned", `node "forecast": setting "rows": setting "at": a label without control or bidi`, func(m *plugin.Manifest) {
+			m.Nodes[0].Params = []plugin.Param{{Name: "rows", Kind: "table", Columns: []plugin.Param{{Name: "at", Kind: "string", Label: "\u200eAt"}}}}
+		}},
+		{"a field's long description", `node "forecast": field "days": field "": field "rain": a description of up to 2000`, func(m *plugin.Manifest) {
+			m.Nodes[0].Items = &plugin.Items{Fields: []plugin.Field{{Name: "days", Kind: "list", Of: &plugin.Field{
+				Kind: "object", Fields: []plugin.Field{{Name: "rain", Kind: "decimal", Description: long(maxDescription + 1)}},
+			}}}}
+		}},
+		{"too many nodes", "more than 100 nodes", func(m *plugin.Manifest) { m.Nodes = nodes(maxTypes + 1) }},
+		{"too many triggers", "more than 100 triggers", func(m *plugin.Manifest) { m.Triggers = nodes(maxTypes + 1); m.Nodes = nil }},
+		{"too many settings of a node", `node "forecast": more than 64 settings`, func(m *plugin.Manifest) {
+			for i := range maxParams + 1 {
+				m.Nodes[0].Params = append(m.Nodes[0].Params, plugin.Param{Name: fmt.Sprintf("p%d", i), Kind: "string"})
+			}
+		}},
+		{"too many credential types", "more than 32 credential types", func(m *plugin.Manifest) {
+			m.CredentialTypes = nil
+			for i := range maxCredentialTypes + 1 {
+				m.CredentialTypes = append(m.CredentialTypes, plugin.CredentialType{Name: fmt.Sprintf("c%d", i)})
+			}
+		}},
+		{"too many scenarios", "more than 32 scenarios", func(m *plugin.Manifest) {
+			m.Scenarios = nil
+			for i := range maxScenarios + 1 {
+				m.Scenarios = append(m.Scenarios, plugin.Scenario{ID: fmt.Sprintf("s%d", i)})
+			}
+		}},
+		{"a credential's default (P25)", `node "forecast": setting "key": a credential has no default`, func(m *plugin.Manifest) {
+			m.Nodes[0].Params = []plugin.Param{{Name: "key", Kind: "credential", CredentialTypes: []string{"key"}, Default: "9b1c-alice"}}
+		}},
+	} {
+		m := good()
+		tt.change(&m)
+		assert.ErrorContains(t, Check(m), tt.want, tt.name)
+	}
+}
+
 func TestNodeType(t *testing.T) {
 	typ, err := nodeType("weather", plugin.NodeType{
 		Name: "forecast",
@@ -148,6 +235,9 @@ func TestNodeType(t *testing.T) {
 			{Name: "inner", Kind: "table", Columns: []plugin.Param{{Name: "a", Kind: "string"}}},
 		}}}},
 		"an item's kind": {Name: "x", Items: &plugin.Items{Fields: []plugin.Field{{Name: "a", Kind: "blob"}}}},
+		"a credential's default": {Name: "x", Params: []plugin.Param{
+			{Name: "key", Kind: "credential", CredentialTypes: []string{"key"}, Default: "9b1c-alice"},
+		}},
 	} {
 		_, err := nodeType("weather", n, false)
 		assert.Error(t, err, name)

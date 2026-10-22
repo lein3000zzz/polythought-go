@@ -22,4 +22,5 @@ type PluginVersions struct {
 	InstalledAt time.Time
 	ApprovedBy  *uuid.UUID
 	ApprovedAt  *time.Time
+	Digest      string
 }

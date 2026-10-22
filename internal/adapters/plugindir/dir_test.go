@@ -11,6 +11,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"maps"
 	"os"
 	"path/filepath"
 	"slices"
@@ -362,6 +363,25 @@ func TestData(t *testing.T) {
 	assert.Empty(t, data)
 
 	require.ErrorIs(t, d.RemoveData("../weather"), plugindir.ErrInvalid)
+
+	// By its ID as a manifest has it: where the filesystem ignores case, Weather would be weather's (P27).
+	require.NoError(t, os.MkdirAll(v.Data, 0o700))
+	require.ErrorIs(t, d.RemoveData("Weather"), plugindir.ErrInvalid)
+	assert.DirExists(t, v.Data)
+
+	require.NoError(t, os.MkdirAll(filepath.Join(d.Root(), ".data", "Other"), 0o700))
+	data, err = d.Data()
+	require.NoError(t, err)
+	assert.Equal(t, []string{"weather"}, idsOf(data), "only what could be removed")
+}
+
+func idsOf(data []plugindir.Data) []string {
+	out := make([]string, len(data))
+	for i, d := range data {
+		out[i] = d.ID
+	}
+
+	return out
 }
 
 func TestTrustedKeys(t *testing.T) {
@@ -383,4 +403,147 @@ func TestTrustedKeys(t *testing.T) {
 		_, err := plugindir.ParseTrustedKeys([]string{bad})
 		assert.Error(t, err, bad)
 	}
+}
+
+// A manifest is kept, and read again at every start: one larger than 256 KiB is refused,
+// unpacked or on disk, before it is read; and an archive unpacks to 4 times its bytes at
+// most, whatever the cap (P5, D322).
+func TestSizes(t *testing.T) {
+	t.Run("a manifest too large, unpacked", func(t *testing.T) {
+		fs := files("1.0.0")
+		fs["manifest.json"] = append(manifest("1.0.0"), bytes.Repeat([]byte(" "), 256<<10)...)
+
+		_, err := open(t).Install(bytes.NewReader(archive(t, fs, nil, nil)), 100<<20, nil)
+		require.ErrorIs(t, err, plugindir.ErrInvalid)
+		assert.Contains(t, err.Error(), "manifest.json is larger than the 262144 bytes it may be")
+	})
+
+	t.Run("a manifest too large, on disk", func(t *testing.T) {
+		d := open(t)
+
+		_, err := d.Install(bytes.NewReader(archive(t, files("1.0.0"), nil, nil)), 1<<20, nil)
+		require.NoError(t, err)
+
+		// Rewritten, with checksums.txt to match.
+		at := filepath.Join(d.Root(), "weather", "1.0.0")
+		fs := files("1.0.0")
+		fs["manifest.json"] = append(manifest("1.0.0"), bytes.Repeat([]byte(" "), 256<<10)...)
+		require.NoError(t, os.WriteFile(filepath.Join(at, "manifest.json"), fs["manifest.json"], 0o600))
+		require.NoError(t, os.WriteFile(filepath.Join(at, "checksums.txt"), []byte(sumsOf(fs)), 0o600))
+
+		_, err = d.Open("weather", "1.0.0", nil)
+		require.ErrorIs(t, err, plugindir.ErrInvalid)
+		assert.Contains(t, err.Error(), "manifest.json is larger than")
+	})
+
+	t.Run("more than 4 times its bytes, under any cap", func(t *testing.T) {
+		raw := archive(t, withFile("README.md", bytes.Repeat([]byte("x"), 8<<20)), nil, nil)
+		require.Less(t, len(raw), 64<<10, "it compresses well")
+
+		_, err := open(t).Install(bytes.NewReader(raw), 100<<20, nil)
+		require.ErrorIs(t, err, plugindir.ErrInvalid)
+		assert.Contains(t, err.Error(), "it unpacks to more than 4 times its size")
+	})
+}
+
+func withFile(name string, body []byte) map[string][]byte {
+	fs := files("1.0.0")
+	fs[name] = body
+
+	return fs
+}
+
+// sumsOf is checksums.txt for files.
+func sumsOf(fs map[string][]byte) string {
+	var sums strings.Builder
+
+	for _, name := range slices.Sorted(maps.Keys(fs)) {
+		h := sha256.Sum256(fs[name])
+		fmt.Fprintf(&sums, "%s  %s\n", hex.EncodeToString(h[:]), name)
+	}
+
+	return sums.String()
+}
+
+// A version's digest is its checksums.txt's, which holds every file's, its program's
+// among them (P16); and its manifest is kept as decoded, one value whoever reads it (P19).
+func TestDigest(t *testing.T) {
+	d := open(t)
+
+	fs := files("1.0.0")
+	fs["manifest.json"] = []byte(" {\n  \"version\": \"1.0.0\", \"id\": \"weather\", \"name\": \"<Weather>\", \"sdk\": \"" + plugin.SDKVersion + "\",\n  \"nodes\": [{\"name\": \"forecast\"}] }\n")
+
+	f, err := plugindir.NewFiles(d, nil).Install(bytes.NewReader(archive(t, fs, nil, nil)), 1<<20)
+	require.NoError(t, err)
+
+	sums := sha256.Sum256([]byte(sumsOf(fs)))
+	program := sha256.Sum256(fs["bin/"+plugindir.Platform()+"/plugin"])
+
+	assert.Equal(t, hex.EncodeToString(sums[:]), f.Digest)
+	assert.Equal(t, hex.EncodeToString(program[:]), f.ProgramSum)
+
+	want, err := json.Marshal(plugin.Manifest{
+		ID: "weather", Version: "1.0.0", Name: "<Weather>", SDK: plugin.SDKVersion, Nodes: []plugin.NodeType{{Name: "forecast"}},
+	})
+	require.NoError(t, err)
+	assert.Equal(t, string(want), string(f.Manifest))
+
+	again, err := plugindir.NewFiles(d, nil).Open("weather", "1.0.0")
+	require.NoError(t, err)
+	assert.Equal(t, f.Digest, again.Digest)
+}
+
+// encoding/json takes keys equal ignoring case for one, the last winning: a manifest with
+// such keys, anywhere in it, is refused, so what is shown is what runs (P19).
+func TestManifestKeys(t *testing.T) {
+	base := `"id":"weather","version":"1.0.0","sdk":"` + plugin.SDKVersion + `"`
+
+	for name, m := range map[string]string{
+		"nodes, then Nodes": `{` + base + `,"name":"Weather","nodes":[{"name":"forecast"}],"Nodes":[{"name":"buyEverything","trades":true}]}`,
+		"a name twice":      `{` + base + `,"name":"Weather","name":"Polythought"}`,
+		"in a node":         `{` + base + `,"name":"Weather","nodes":[{"name":"forecast","label":"A","LABEL":"B"}]}`,
+		// The Kelvin sign folds to k, as encoding/json matches it.
+		"by a fold": `{` + base + `,"name":"Weather","nodes":[{"name":"forecast","params":[{"name":"p","kind":"string","\u212aind":"number"}]}]}`,
+		"in a scenario's nodes": `{` + base + `,"name":"Weather","scenarios":[{"id":"s","name":"S","summary":"S",` +
+			`"nodes":[{"id":"a","ID":"b"}],"connections":[]}]}`,
+		"two values": `{` + base + `,"name":"Weather"} {}`,
+	} {
+		fs := files("1.0.0")
+		fs["manifest.json"] = []byte(m)
+
+		_, err := open(t).Install(bytes.NewReader(archive(t, fs, nil, nil)), 1<<20, nil)
+		require.ErrorIs(t, err, plugindir.ErrInvalid, name)
+	}
+
+	fs := files("1.0.0")
+	fs["manifest.json"] = []byte(`{` + base + `,"name":"Weather","nodes":[{"name":"forecast","outputs":["main"],"params":[{"name":"name","kind":"string"}]}]}`)
+	_, err := open(t).Install(bytes.NewReader(archive(t, fs, nil, nil)), 1<<20, nil)
+	require.NoError(t, err, "the same key in objects of their own")
+}
+
+// A version that cannot name its directory is refused before it is put there, so nothing of
+// it is left (P20); and what an install left unpacked as the server stopped is removed as
+// the directory is opened.
+func TestNames(t *testing.T) {
+	for _, version := range []string{"1.0.0-a..b", "1.0.0-" + strings.Repeat("a", 120)} {
+		d := open(t)
+
+		for range 2 {
+			_, err := d.Install(bytes.NewReader(archive(t, files(version), nil, nil)), 1<<20, nil)
+			require.ErrorIs(t, err, plugindir.ErrInvalid, version)
+			require.NotErrorIs(t, err, plugindir.ErrInstalled, version)
+		}
+
+		left, err := os.ReadDir(d.Root())
+		require.NoError(t, err)
+		assert.Empty(t, left, version)
+	}
+
+	root := filepath.Join(t.TempDir(), "plugins")
+	require.NoError(t, os.MkdirAll(filepath.Join(root, ".incoming-123", "bin"), 0o700))
+	require.NoError(t, os.WriteFile(filepath.Join(root, ".incoming-123", "manifest.json"), []byte("{}"), 0o600))
+
+	_, err := plugindir.Open(root)
+	require.NoError(t, err)
+	assert.NoDirExists(t, filepath.Join(root, ".incoming-123"))
 }

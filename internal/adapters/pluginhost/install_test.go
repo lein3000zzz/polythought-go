@@ -109,4 +109,21 @@ func TestInstallThenLoad(t *testing.T) {
 	found, err := pf.List()
 	require.NoError(t, err)
 	assert.Len(t, found, 1)
+
+	// Its program changed after the files' check is refused, its path the same (P17).
+	_ = os.Remove(filepath.Join(f.Dir, "planted")) // what the disk node wrote where no sandbox refused it
+
+	f, err = pf.Open("echo", "1.2.0")
+	require.NoError(t, err)
+	assert.Equal(t, hash(echo), f.ProgramSum)
+
+	other, err := os.ReadFile(bare)
+	require.NoError(t, err)
+	require.NoError(t, os.Chmod(f.Program, 0o700))
+	require.NoError(t, os.WriteFile(f.Program, other, 0o700)) //nolint:gosec // a program
+
+	again := pluginhost.NewRuntime(ctx, sandboxed(pluginhost.Deps{}), registry(t))
+	t.Cleanup(again.Close)
+
+	assert.ErrorContains(t, again.Load(ctx, f), "its program changed after its files were checked")
 }

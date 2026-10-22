@@ -98,7 +98,7 @@ func (r *Plugins) complete(ctx context.Context, row model.Plugins) (domain.Insta
 	for _, pv := range versions {
 		out := domain.PluginVersion{
 			PluginID: pv.PluginID, Version: pv.Version, Manifest: json.RawMessage(pv.Manifest), Signer: pv.Signer, KeyID: pv.KeyID,
-			InstalledBy: uuidString[domain.UserID](pv.InstalledBy), InstalledAt: pv.InstalledAt,
+			Digest: pv.Digest, InstalledBy: uuidString[domain.UserID](pv.InstalledBy), InstalledAt: pv.InstalledAt,
 			ApprovedBy: uuidString[domain.UserID](pv.ApprovedBy),
 		}
 
@@ -145,10 +145,10 @@ func (r *Plugins) AddVersion(ctx context.Context, pv domain.PluginVersion, a dom
 		v := table.PluginVersions
 		row := model.PluginVersions{
 			PluginID: pv.PluginID, Version: pv.Version, Manifest: string(pv.Manifest), Signer: pv.Signer, KeyID: pv.KeyID,
-			InstalledBy: by, InstalledAt: pv.InstalledAt,
+			Digest: pv.Digest, InstalledBy: by, InstalledAt: pv.InstalledAt,
 		}
 
-		_, err = v.INSERT(v.PluginID, v.Version, v.Manifest, v.Signer, v.KeyID, v.InstalledBy, v.InstalledAt).MODEL(row).
+		_, err = v.INSERT(v.PluginID, v.Version, v.Manifest, v.Signer, v.KeyID, v.Digest, v.InstalledBy, v.InstalledAt).MODEL(row).
 			ExecContext(ctx, r.db.conn(ctx))
 		if isUniqueViolation(err, "plugin_versions_pkey") {
 			return domain.ErrPluginInstalled
@@ -181,6 +181,37 @@ func (r *Plugins) Approve(ctx context.Context, a domain.PluginAudit) error {
 		p := table.Plugins
 		if _, err := p.UPDATE(p.Version, p.UpdatedAt).SET(a.Version, a.At).WHERE(p.ID.EQ(jet.String(a.PluginID))).
 			ExecContext(ctx, r.db.conn(ctx)); err != nil {
+			return err
+		}
+
+		return r.audit(ctx, a)
+	})
+}
+
+func (r *Plugins) SetDigest(ctx context.Context, digest string, a domain.PluginAudit) error {
+	return r.db.WithinTx(ctx, func(ctx context.Context) error {
+		v := table.PluginVersions
+
+		// Never in place of one recorded.
+		res, err := v.UPDATE(v.Digest).SET(digest).
+			WHERE(v.PluginID.EQ(jet.String(a.PluginID)).AND(v.Version.EQ(jet.String(a.Version))).AND(v.Digest.EQ(jet.String("")))).
+			ExecContext(ctx, r.db.conn(ctx))
+		if err := oneRow(res, err); err != nil {
+			return err
+		}
+
+		return r.audit(ctx, a)
+	})
+}
+
+func (r *Plugins) SetSigner(ctx context.Context, signer, keyID string, a domain.PluginAudit) error {
+	return r.db.WithinTx(ctx, func(ctx context.Context) error {
+		v := table.PluginVersions
+
+		res, err := v.UPDATE(v.Signer, v.KeyID).SET(signer, keyID).
+			WHERE(v.PluginID.EQ(jet.String(a.PluginID)).AND(v.Version.EQ(jet.String(a.Version)))).
+			ExecContext(ctx, r.db.conn(ctx))
+		if err := oneRow(res, err); err != nil {
 			return err
 		}
 

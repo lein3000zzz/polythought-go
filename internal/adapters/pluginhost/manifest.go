@@ -10,6 +10,8 @@ import (
 	"slices"
 	"strings"
 	"time"
+	"unicode"
+	"unicode/utf8"
 
 	"github.com/lein3000zzz/polythought-go/internal/core/engine"
 	"github.com/lein3000zzz/polythought-go/pkg/plugin"
@@ -27,6 +29,19 @@ const (
 	maxBuckets      = 32
 )
 
+// What a manifest may bring (P2, P5): text an admin and users read, in characters, and how
+// many of each thing, generous for any plugin, but no more than a page shows.
+const (
+	maxName             = 64   // the plugin's name, which marks its messages
+	maxTitle            = 100  // a label, or a scenario's name
+	maxDescription      = 2000 // a description, a scenario's summary, a metric's help
+	maxTypes            = 100  // nodes, and triggers
+	maxParams           = 64   // a node's settings, and a table's columns
+	maxCredentialTypes  = 32
+	maxCredentialFields = 32 // fields of a credential type
+	maxScenarios        = 32
+)
+
 var (
 	pluginID = regexp.MustCompile(`^[a-z][a-z0-9-]{0,39}$`)
 	// metricName is a metric's or a label's name: Prometheus's, lowercase, no colons.
@@ -37,7 +52,8 @@ var (
 )
 
 // Check refuses a manifest the host cannot take: an ID, version or name not in their
-// form, names given twice, or an SDK of another major version.
+// form, names given twice, an SDK of another major version, or more, or longer, than
+// checkText takes.
 func Check(m plugin.Manifest) error {
 	var errs []error
 
@@ -115,6 +131,7 @@ func Check(m plugin.Manifest) error {
 
 	errs = append(errs, checkMetrics(m.Metrics)...)
 	errs = append(errs, checkSettings(m.Settings)...)
+	errs = append(errs, checkText(m)...)
 
 	if len(errs) > 0 {
 		return fmt.Errorf("its manifest: %w", errors.Join(errs...))
@@ -189,6 +206,146 @@ func checkMetrics(list []plugin.Metric) []error {
 	}
 
 	return errs
+}
+
+// checkText refuses more of anything than the bounds above, text longer than they say,
+// and in the name and labels, control and bidi characters, which could make them read as
+// something else on the page that approves the plugin, or in a message (P2, P19). Nor may
+// a credential setting have a default, which would pick a credential the owner did not
+// (D289, P25).
+func checkText(m plugin.Manifest) []error {
+	var errs []error
+
+	fail := func(format string, args ...any) { errs = append(errs, fmt.Errorf(format, args...)) }
+
+	label := func(what, text string) {
+		switch {
+		case utf8.RuneCountInString(text) > maxTitle:
+			fail("%s: a label of up to %d characters", what, maxTitle)
+		case !plain(text):
+			fail("%s: a label without control or bidi characters", what)
+		}
+	}
+
+	description := func(what, text string) {
+		if utf8.RuneCountInString(text) > maxDescription {
+			fail("%s: a description of up to %d characters", what, maxDescription)
+		}
+	}
+
+	switch {
+	case utf8.RuneCountInString(m.Name) > maxName:
+		fail("the name: up to %d characters", maxName)
+	case !plain(m.Name):
+		fail("the name: no control or bidi characters")
+	}
+
+	description("the plugin", m.Description)
+
+	for kind, list := range map[string][]plugin.NodeType{"node": m.Nodes, "trigger": m.Triggers} {
+		if len(list) > maxTypes {
+			fail("more than %d %ss", maxTypes, kind)
+		}
+
+		for _, t := range list {
+			what := fmt.Sprintf("%s %.64q", kind, t.Name)
+			label(what, t.Label)
+			description(what, t.Description)
+			errs = append(errs, checkParams(what, t.Params, label, description)...)
+
+			if t.Items != nil {
+				checkFields(what, t.Items.Fields, description)
+			}
+		}
+	}
+
+	for _, st := range m.Settings {
+		what := fmt.Sprintf("setting %.64q", st.Key)
+		label(what, st.Label)
+		description(what, st.Description)
+	}
+
+	for _, mt := range m.Metrics {
+		description(fmt.Sprintf("metric %.64q", mt.Name), mt.Help)
+	}
+
+	if len(m.CredentialTypes) > maxCredentialTypes {
+		fail("more than %d credential types", maxCredentialTypes)
+	}
+
+	for _, c := range m.CredentialTypes {
+		what := fmt.Sprintf("credential type %.64q", c.Name)
+		label(what, c.Label)
+		description(what, c.Description)
+
+		if len(c.Fields) > maxCredentialFields {
+			fail("%s: more than %d fields", what, maxCredentialFields)
+		}
+
+		for _, f := range c.Fields {
+			label(fmt.Sprintf("%s: field %.64q", what, f.Name), f.Label)
+			description(fmt.Sprintf("%s: field %.64q", what, f.Name), f.Description)
+		}
+	}
+
+	if len(m.Scenarios) > maxScenarios {
+		fail("more than %d scenarios", maxScenarios)
+	}
+
+	for _, sc := range m.Scenarios {
+		what := fmt.Sprintf("scenario %.64q", sc.ID)
+		label(what, sc.Name)
+		description(what, sc.Summary)
+		description(what, sc.Description)
+	}
+
+	return errs
+}
+
+// checkParams refuses a node's settings past maxParams, a table's columns too, their text
+// as checkText's, and a credential setting's default.
+func checkParams(node string, params []plugin.Param, label, description func(what, text string)) []error {
+	var errs []error
+
+	if len(params) > maxParams {
+		errs = append(errs, fmt.Errorf("%s: more than %d settings", node, maxParams))
+	}
+
+	for _, p := range params {
+		what := fmt.Sprintf("%s: setting %.64q", node, p.Name)
+		label(what, p.Label)
+		description(what, p.Description)
+
+		if p.Kind == "credential" && p.Default != nil {
+			errs = append(errs, fmt.Errorf("%s: a credential has no default: the owner picks theirs", what))
+		}
+
+		errs = append(errs, checkParams(what, p.Columns, label, description)...)
+	}
+
+	return errs
+}
+
+// checkFields holds what items' fields say of themselves to description.
+func checkFields(node string, fields []plugin.Field, description func(what, text string)) {
+	for _, f := range fields {
+		what := fmt.Sprintf("%s: field %.64q", node, f.Name)
+		description(what, f.Description)
+
+		if f.Of != nil {
+			checkFields(what, []plugin.Field{*f.Of}, description)
+		}
+
+		checkFields(what, f.Fields, description)
+	}
+}
+
+// plain says text has no control characters, line or paragraph separators, nor bidi
+// controls, which reorder what follows them.
+func plain(text string) bool {
+	return !strings.ContainsFunc(text, func(r rune) bool {
+		return unicode.IsControl(r) || unicode.In(r, unicode.Zl, unicode.Zp, unicode.Bidi_Control)
+	})
 }
 
 // Same says whether two manifests describe the same plugin, word for word, whichever SDK
@@ -373,6 +530,10 @@ func param(id string, p plugin.Param, cell bool) (engine.ParamSpec, error) {
 	kind, ok := paramKinds[p.Kind]
 	if !ok {
 		return engine.ParamSpec{}, fmt.Errorf("setting %q: %q is not a kind a plugin's setting can be", p.Name, p.Kind)
+	}
+
+	if kind == engine.ParamCredential && p.Default != nil {
+		return engine.ParamSpec{}, fmt.Errorf("setting %q: a credential has no default: the owner picks theirs (D289)", p.Name)
 	}
 
 	spec := engine.ParamSpec{

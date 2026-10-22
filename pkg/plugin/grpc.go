@@ -9,13 +9,18 @@ import (
 	"io"
 	"log/slog"
 	"os"
+	"runtime/debug"
+	"slices"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	goplugin "github.com/hashicorp/go-plugin"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/keepalive"
 	"google.golang.org/grpc/status"
+	"google.golang.org/grpc/tap"
 
 	pluginv1 "github.com/lein3000zzz/polythought-go/pkg/plugin/v1"
 )
@@ -61,9 +66,88 @@ func Serve(p Plugin) {
 	})
 }
 
-// HostPlugins are what the host dispenses, a *Client, serving host to the plugin.
-func HostPlugins(host pluginv1.HostServiceServer) goplugin.PluginSet {
-	return goplugin.PluginSet{Name: &grpcPlugin{host: host}}
+// HostPlugins are what the host dispenses, a *Client, serving host to the plugin. Its
+// HostService server is held to the SDK's bounds, then to opts, which may change them; not
+// an InTapHandle, which is the SDK's.
+func HostPlugins(host pluginv1.HostServiceServer, opts ...grpc.ServerOption) goplugin.PluginSet {
+	return goplugin.PluginSet{Name: &grpcPlugin{host: host, hostOpts: opts}}
+}
+
+// What the HostService server takes of a plugin (P3): a call no larger than the largest a
+// host takes, a fetch's body or a value stored, 64 MiB at most as their settings allow,
+// with room for the rest; hostStreams calls at once on a connection, more waiting their
+// turn; and hostCalls over all of them, which go-plugin's broker lets a plugin open as
+// many of as it likes, more refused.
+const (
+	hostMessage = 65 << 20
+	hostHeaders = 64 << 10
+	hostStreams = 64
+	hostCalls   = 2 * hostStreams
+)
+
+// hostOptions are the HostService server's bounds, and its recovery from a call that
+// panics, which answers it failed rather than take the server down (P2).
+func hostOptions() []grpc.ServerOption {
+	calls := &admission{most: hostCalls}
+
+	return []grpc.ServerOption{
+		grpc.MaxRecvMsgSize(hostMessage),
+		grpc.MaxHeaderListSize(hostHeaders),
+		grpc.MaxConcurrentStreams(hostStreams),
+		grpc.InTapHandle(calls.admit),
+		grpc.KeepaliveEnforcementPolicy(keepalive.EnforcementPolicy{MinTime: time.Minute}),
+		grpc.KeepaliveParams(keepalive.ServerParameters{Time: time.Minute, Timeout: 20 * time.Second}),
+		grpc.ChainUnaryInterceptor(recoverUnary),
+		grpc.ChainStreamInterceptor(recoverStream),
+	}
+}
+
+// hostServer is the HostService's server, with opts: go-plugin's, its TLS, then the SDK's
+// bounds, then the host's own.
+func hostServer(host pluginv1.HostServiceServer, opts ...grpc.ServerOption) *grpc.Server {
+	s := grpc.NewServer(opts...)
+	pluginv1.RegisterHostServiceServer(s, host)
+
+	return s
+}
+
+// admission bounds the calls the host serves a plugin at once, over all its connections:
+// past most, refused.
+type admission struct {
+	n    atomic.Int64
+	most int64
+}
+
+func (a *admission) admit(ctx context.Context, _ *tap.Info) (context.Context, error) {
+	if a.n.Add(1) > a.most {
+		a.n.Add(-1)
+		return nil, status.Errorf(codes.ResourceExhausted, "past the %d calls the host takes from a plugin at once", a.most)
+	}
+
+	// The call's context ends with it, however it ends.
+	context.AfterFunc(ctx, func() { a.n.Add(-1) })
+
+	return ctx, nil
+}
+
+// recovered answers a call that panicked as failed, logging why.
+func recovered(method string, err *error) {
+	if v := recover(); v != nil {
+		slog.Error("Plugin's host call panicked", "method", method, "panic", fmt.Sprint(v), "stack", string(debug.Stack()))
+		*err = status.Error(codes.Internal, "the host failed on the call")
+	}
+}
+
+func recoverUnary(ctx context.Context, req any, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (_ any, err error) {
+	defer recovered(info.FullMethod, &err)
+
+	return handler(ctx, req)
+}
+
+func recoverStream(srv any, ss grpc.ServerStream, info *grpc.StreamServerInfo, handler grpc.StreamHandler) (err error) {
+	defer recovered(info.FullMethod, &err)
+
+	return handler(srv, ss)
 }
 
 // Client is a plugin as the host holds it: the contract's client, and the broker ID the
@@ -78,8 +162,9 @@ type Client struct {
 type grpcPlugin struct {
 	goplugin.NetRPCUnsupportedPlugin
 
-	impl *Plugin
-	host pluginv1.HostServiceServer
+	impl     *Plugin
+	host     pluginv1.HostServiceServer
+	hostOpts []grpc.ServerOption
 }
 
 func (g *grpcPlugin) GRPCServer(broker *goplugin.GRPCBroker, s *grpc.Server) error {
@@ -94,10 +179,7 @@ func (g *grpcPlugin) GRPCClient(_ context.Context, broker *goplugin.GRPCBroker, 
 		c.HostID = broker.NextId()
 
 		go broker.AcceptAndServe(c.HostID, func(opts []grpc.ServerOption) *grpc.Server {
-			s := grpc.NewServer(opts...)
-			pluginv1.RegisterHostServiceServer(s, g.host)
-
-			return s
+			return hostServer(g.host, slices.Concat(opts, hostOptions(), g.hostOpts)...)
 		})
 	}
 

@@ -13,10 +13,16 @@ import (
 	"bytes"
 	"cmp"
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
+	"io"
+	"math"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"sync"
@@ -25,6 +31,7 @@ import (
 	"github.com/hashicorp/go-hclog"
 	goplugin "github.com/hashicorp/go-plugin"
 	"github.com/lein3000zzz/the-watchers/pkg/observability/logging"
+	"golang.org/x/time/rate"
 
 	"github.com/lein3000zzz/polythought-go/internal/adapters/sandbox"
 	"github.com/lein3000zzz/polythought-go/internal/core/domain"
@@ -39,6 +46,15 @@ const (
 	startFor = 30 * time.Second
 	// checkFor bounds a credential's check by the plugin.
 	checkFor = 10 * time.Second
+
+	// headroom is what a plugin's process may map past twice its memory cap before the
+	// kernel refuses it more (P7): a Go plugin's runtime maps about 80 MiB at rest under
+	// the sandbox, its first heap arena among it, and grows its heap 64 MiB at a time.
+	headroom = 256 << 20
+
+	// linesBurst of a plugin's lines are logged at once, then linesPerSecond (P4).
+	linesBurst     = 100
+	linesPerSecond = 10
 )
 
 // Plugin is a plugin the host started: its manifest, and its process while it runs.
@@ -48,7 +64,8 @@ type Plugin struct {
 	manifest plugin.Manifest
 	log      logging.Logger
 	api      *api
-	out      *ring // what its process and go-plugin last said about it
+	out      *ring  // what its process and go-plugin last said about it
+	quota    *quota // how much of that the server's log still takes
 
 	mu      sync.Mutex
 	conn    *conn // nil while it does not run
@@ -61,26 +78,30 @@ type Plugin struct {
 	used    usage
 }
 
-// conn is a plugin's running process, and its temporary directory.
+// conn is a plugin's running process, its temporary directory, and the directory of the
+// copy of its program it runs.
 type conn struct {
 	client    *goplugin.Client
 	rpc       *plugin.Client
-	temp      string
+	temp, bin string
 	pid       int
 	sandboxed bool
 }
 
-// end stops the process, emptying its temporary directory (D339).
+// end stops the process, emptying its temporary directory (D339) and removing its
+// program's copy (P17).
 func (c *conn) end() {
 	c.client.Kill()
 	_ = os.RemoveAll(c.temp)
+	_ = os.RemoveAll(c.bin)
 }
 
 // Program is a plugin's program, and the directories its process may touch (D339).
 type Program struct {
 	ID   string // the plugin's, as its files name it, which its caps are read by
-	Path string // the program
-	Dir  string // its version's directory, holding it: read, never written
+	Path string // the program, which its process runs a private copy of (P17)
+	Sum  string // its SHA-256, in hex, as checked; empty: not checked again here
+	Dir  string // its version's directory, holding it, which its process is given none of
 	Data string // its plugin's lasting directory, made when it is not there; empty: none
 }
 
@@ -102,7 +123,10 @@ func Start(ctx context.Context, prog Program, deps Deps) (*Plugin, error) {
 		}
 	}
 
-	p := &Plugin{prog: prog, log: api.log, api: api, out: newRing(logLines), wake: make(chan struct{}, 1)}
+	p := &Plugin{
+		prog: prog, log: api.log, api: api, out: newRing(logLines), wake: make(chan struct{}, 1),
+		quota: &quota{limit: rate.NewLimiter(linesPerSecond, linesBurst)},
+	}
 
 	c, m, err := p.connect(ctx)
 	if err != nil {
@@ -129,21 +153,34 @@ func (p *Plugin) connect(ctx context.Context) (*conn, plugin.Manifest, error) {
 
 	caps := p.caps()
 
-	data := Usage(p.prog.Data)
+	data, unmeasured := taken(p.prog.Data)
 
 	p.mu.Lock()
 	p.used = usage{data: data, caps: caps}
 	p.mu.Unlock()
 
-	// Starting it again would not take its data back under its cap (D341).
-	if caps.Data > 0 && data > caps.Data {
+	// Starting it again would not take its data back under its cap (D341), nor measure
+	// what cannot be (P9).
+	switch {
+	case unmeasured != nil:
+		_ = os.RemoveAll(temp)
+		return nil, plugin.Manifest{}, stopped{fmt.Errorf("its data cannot all be measured (%w), which counts as past its cap", unmeasured)}
+	case caps.Data > 0 && data > caps.Data:
 		_ = os.RemoveAll(temp)
 		return nil, plugin.Manifest{}, stopped{fmt.Errorf("its data takes %s, past its cap of %s", mib(data), mib(caps.Data))}
 	}
 
-	cmd, err := p.command(temp, caps)
+	bin, program, err := p.private()
 	if err != nil {
 		_ = os.RemoveAll(temp)
+		return nil, plugin.Manifest{}, err
+	}
+
+	cmd, err := p.command(program, temp, bin, caps)
+	if err != nil {
+		_ = os.RemoveAll(temp)
+		_ = os.RemoveAll(bin)
+
 		return nil, plugin.Manifest{}, err
 	}
 
@@ -160,11 +197,11 @@ func (p *Plugin) connect(ctx context.Context) (*conn, plugin.Manifest, error) {
 		AutoMTLS:            true,
 		StartTimeout:        startFor,
 		Logger: hclog.New(&hclog.LoggerOptions{
-			Name: "plugin", Level: hclog.Info, Output: &lines{log: p.log, out: p.out}, DisableTime: true,
+			Name: "plugin", Level: hclog.Info, Output: &lines{log: p.log, out: p.out, quota: p.quota}, DisableTime: true,
 		}),
 	})
 
-	c := &conn{client: client, temp: temp, sandboxed: p.api.deps.Sandbox != nil}
+	c := &conn{client: client, temp: temp, bin: bin, sandboxed: p.api.deps.Sandbox != nil}
 
 	fail := func(err error) (*conn, plugin.Manifest, error) {
 		c.end()
@@ -215,9 +252,52 @@ func (p *Plugin) connect(ctx context.Context) (*conn, plugin.Manifest, error) {
 	return c, m, nil
 }
 
-// command is the command starting the plugin's program: under the sandbox, or where there
-// is none, without one if deps allow it, asked each time (D338).
-func (p *Plugin) command(temp string, caps Caps) (*exec.Cmd, error) {
+// private copies the plugin's program into a directory of its own, which only the server
+// may write, hashing the bytes as it copies them, and is the directory and the copy (P17):
+// its process runs the copy, so what runs is what was checked, whatever becomes of the
+// version's files meanwhile. A copy not as checked is refused.
+func (p *Plugin) private() (string, string, error) {
+	src, err := os.Open(p.prog.Path)
+	if err != nil {
+		return "", "", fmt.Errorf("its program: %w", err)
+	}
+	defer func() { _ = src.Close() }()
+
+	bin, err := os.MkdirTemp("", "polythought-program-")
+	if err != nil {
+		return "", "", fmt.Errorf("its program's directory: %w", err)
+	}
+
+	program := filepath.Join(bin, filepath.Base(p.prog.Path))
+
+	fail := func(err error) (string, string, error) {
+		_ = os.RemoveAll(bin)
+		return "", "", err
+	}
+
+	dst, err := os.OpenFile(program, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o500) //nolint:gosec // the server's own copy, run as the plugin's program
+	if err != nil {
+		return fail(fmt.Errorf("its program's copy: %w", err))
+	}
+
+	sum := sha256.New()
+
+	_, err = io.Copy(io.MultiWriter(dst, sum), src)
+	if err = cmp.Or(err, dst.Close()); err != nil {
+		return fail(fmt.Errorf("its program's copy: %w", err))
+	}
+
+	if got := hex.EncodeToString(sum.Sum(nil)); p.prog.Sum != "" && !strings.EqualFold(got, p.prog.Sum) {
+		return fail(errors.New("its program changed after its files were checked"))
+	}
+
+	return bin, program, nil
+}
+
+// command is the command starting program, the copy of the plugin's in bin: under the
+// sandbox, held to hard limits past its caps (P7, P9), or where there is none, without
+// one if deps allow it, asked each time (D338), in a session of its own (P8).
+func (p *Plugin) command(program, temp, bin string, caps Caps) (*exec.Cmd, error) {
 	var (
 		cmd  *exec.Cmd
 		deps = p.api.deps
@@ -225,14 +305,18 @@ func (p *Plugin) command(temp string, caps Caps) (*exec.Cmd, error) {
 
 	switch {
 	case deps.Sandbox != nil:
-		c, err := deps.Sandbox.Command(sandbox.Policy{Program: p.prog.Path, Dir: p.prog.Dir, Temp: temp, Data: p.prog.Data})
+		c, err := deps.Sandbox.Command(sandbox.Policy{
+			Program: program, Dir: bin, Temp: temp, Data: p.prog.Data,
+			Memory: hardMemory(caps.Memory), FileSize: caps.Data,
+		})
 		if err != nil {
 			return nil, err
 		}
 
 		cmd = c
 	case deps.Unsandboxed != nil && deps.Unsandboxed():
-		cmd = exec.Command(p.prog.Path) //nolint:gosec // an admin's plugin, approved by them (5c), and let run unsandboxed
+		cmd = exec.Command(program) //nolint:gosec // an admin's plugin, approved by them (5c), and let run unsandboxed
+		ownSession(cmd)
 	default:
 		return nil, fmt.Errorf("%w, and unsandboxed plugins are not allowed", cmp.Or(deps.NoSandbox, sandbox.ErrUnavailable))
 	}
@@ -249,6 +333,18 @@ func (p *Plugin) command(temp string, caps Caps) (*exec.Cmd, error) {
 	}
 
 	return cmd, nil
+}
+
+// hardMemory is the hard limit of a plugin's memory, its data segment, given its cap
+// (P7): twice the cap and headroom, as a Go runtime keeps mapped what its heap once took,
+// so a plugin within its cap never meets it, while native code cannot outrun the watch of
+// its cap by more. Zero, none, for no cap.
+func hardMemory(capped int64) int64 {
+	if capped <= 0 || capped > (math.MaxInt64-headroom)/2 {
+		return 0
+	}
+
+	return 2*capped + headroom
 }
 
 // caps are what the plugin may take, as deps say now.
@@ -412,20 +508,63 @@ func (p *Plugin) credentialType(c plugin.CredentialType) engine.CredentialType {
 	return t
 }
 
-// lines writes what go-plugin logs, the plugin's stderr among it, to the server's log,
-// keeping the last lines as the plugin's own log.
+// lines writes what go-plugin logs, the plugin's stderr among it, to the server's log, as
+// much as its quota takes, each line cut to maxText (P4), keeping the last lines as the
+// plugin's own log.
 type lines struct {
-	log logging.Logger
-	out *ring
+	log   logging.Logger
+	out   *ring
+	quota *quota
 }
 
 func (l *lines) Write(b []byte) (int, error) {
 	for line := range strings.SplitSeq(strings.TrimRight(string(b), "\n"), "\n") {
 		if line = strings.TrimSpace(line); line != "" {
-			l.log.Info(context.Background(), "Plugin says", "line", line)
+			line = clip(line)
+
+			if l.quota.take(l.log) {
+				l.log.Info(context.Background(), "Plugin says", "line", line)
+			}
+
 			l.out.add(line)
 		}
 	}
 
 	return len(b), nil
+}
+
+// quota is how many of a plugin's lines the server's log still takes, every process of
+// its alike: linesBurst, then linesPerSecond. The lines past it are dropped, and counted,
+// their count logged a second after the first of them.
+type quota struct {
+	limit *rate.Limiter
+
+	mu      sync.Mutex
+	dropped int
+}
+
+// take is whether log may take one more line; when not, it is counted as dropped.
+func (q *quota) take(log logging.Logger) bool {
+	if q.limit.Allow() {
+		return true
+	}
+
+	q.mu.Lock()
+	defer q.mu.Unlock()
+
+	if q.dropped++; q.dropped == 1 {
+		time.AfterFunc(time.Second, func() { q.report(log) })
+	}
+
+	return false
+}
+
+// report logs how many lines were dropped since it last did.
+func (q *quota) report(log logging.Logger) {
+	q.mu.Lock()
+	n := q.dropped
+	q.dropped = 0
+	q.mu.Unlock()
+
+	log.Warn(context.Background(), "Plugin said too much: lines not logged", "dropped", n)
 }

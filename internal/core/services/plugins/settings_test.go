@@ -154,4 +154,27 @@ func TestSettings(t *testing.T) {
 
 		require.ErrorIs(t, f.s.SetSettings(ctx, alice, "weather", nil), domain.ErrForbidden)
 	})
+
+	t.Run("a secret an upgrade declares not secret: unset, never opened (P18)", func(t *testing.T) {
+		require.NoError(t, f.s.SetSettings(ctx, admin, "weather", map[string]json.RawMessage{"api_key": json.RawMessage(`"sk-live-123"`)}))
+
+		upgrade := withSettings("weather", "1.0.1")
+		upgrade.Manifest = []byte(strings.Replace(string(upgrade.Manifest), `"secret":true`, `"secret":false`, 1))
+		f.files.versions[ports.PluginFound{ID: "weather", Version: "1.0.1"}] = upgrade
+
+		_, err := f.s.Adopt(ctx, admin, "weather", "1.0.1")
+		require.NoError(t, err)
+		require.NoError(t, f.s.Approve(ctx, admin, "weather", "1.0.1", nil))
+
+		got, err := f.s.Settings(ctx, admin, "weather")
+		require.NoError(t, err)
+		assert.Equal(t, "api_key", got[3].Key)
+		assert.False(t, got[3].Secret)
+		assert.Equal(t, "", got[3].Value, "its default")
+		assert.False(t, got[3].IsSet)
+		assert.Equal(t, "", f.s.RunSettings("weather")["api_key"])
+
+		require.NoError(t, f.s.SetSettings(ctx, admin, "weather", map[string]json.RawMessage{"api_key": json.RawMessage(`"x"`)}))
+		assert.Equal(t, `api_key: "" → "x"`, store.audits[len(store.audits)-1].Detail, "never the secret in clear")
+	})
 }

@@ -6,7 +6,7 @@
 //
 // An archive is a gzipped tar of exactly these files:
 //
-//	manifest.json              the plugin's manifest
+//	manifest.json              the plugin's manifest, 256 KiB at most
 //	bin/<os>_<arch>/plugin     its program for each platform it runs on, linux_amd64 say
 //	checksums.txt              the SHA-256 of every other file, as sha256sum writes them
 //	checksums.txt.minisig      optional: a minisign signature of checksums.txt (D316)
@@ -38,10 +38,12 @@ import (
 	"runtime"
 	"slices"
 	"strings"
+	"unicode"
 
 	"github.com/jedisct1/go-minisign"
 
 	"github.com/lein3000zzz/polythought-go/internal/adapters/pluginhost"
+	"github.com/lein3000zzz/polythought-go/internal/core/domain"
 	"github.com/lein3000zzz/polythought-go/pkg/plugin"
 )
 
@@ -50,13 +52,20 @@ const (
 	checksumsFile = "checksums.txt"
 	signatureFile = "checksums.txt.minisig"
 	programName   = "plugin"
-	dataDir       = ".data" // hidden, so never taken for a plugin
+	dataDir       = ".data"      // hidden, so never taken for a plugin
+	incoming      = ".incoming-" // an archive as it is unpacked
 
 	maxFiles = 64
-	// unpackedPer is how much larger than its archive an archive may unpack to: more is
-	// a bomb.
+	// unpackedPer is how much larger than its archive an archive may unpack to (D322): more
+	// is a bomb. unpackSlack is how much more it may while it is read, since a program's
+	// headers and padding compress best of all.
 	unpackedPer = 4
+	unpackSlack = 1 << 20
 )
+
+// readWhole are the files check reads whole, and the most each may be (P5): a manifest is
+// kept, and read again at every start and every page.
+var readWhole = map[string]int64{manifestFile: 256 << 10, checksumsFile: 64 << 10, signatureFile: 64 << 10}
 
 // platforms are those an archive may carry a program for.
 var platforms = []string{"linux_amd64", "linux_arm64", "darwin_amd64", "darwin_arm64"}
@@ -82,10 +91,22 @@ type Dir struct {
 	root string
 }
 
-// Open opens the directory at root, making it if it is not there.
+// Open opens the directory at root, making it if it is not there, and removes what installs
+// left unpacked as the server stopped (P20).
 func Open(root string) (*Dir, error) {
 	if err := os.MkdirAll(root, 0o700); err != nil {
 		return nil, fmt.Errorf("plugins directory: %w", err)
+	}
+
+	entries, err := os.ReadDir(root)
+	if err != nil {
+		return nil, fmt.Errorf("plugins directory: %w", err)
+	}
+
+	for _, e := range entries {
+		if e.IsDir() && strings.HasPrefix(e.Name(), incoming) {
+			_ = os.RemoveAll(filepath.Join(root, e.Name()))
+		}
 	}
 
 	return &Dir{root: root}, nil
@@ -107,24 +128,34 @@ type Version struct {
 	Signer  string
 	KeyID   string // the signing key's ID, as minisign shows it
 	Warning string // for the admin who approves it, when it is not signed by a trusted key
+
+	// Digest is the SHA-256 of its checksums.txt, in hex: all its files, which an approval
+	// holds to (P16). ProgramSum is Program's, as checksums.txt has it.
+	Digest     string
+	ProgramSum string
 }
 
 // Install unpacks an archive of at most max bytes and checks it, keeping it as the
 // version its manifest says. The archive is refused whole when anything is wrong.
 func (d *Dir) Install(archive io.Reader, max int64, keys []TrustedKey) (Version, error) {
-	incoming, err := os.MkdirTemp(d.root, ".incoming-")
+	tmp, err := os.MkdirTemp(d.root, incoming)
 	if err != nil {
 		return Version{}, fmt.Errorf("plugins directory: %w", err)
 	}
-	defer func() { _ = os.RemoveAll(incoming) }()
+	defer func() { _ = os.RemoveAll(tmp) }()
 
-	if err := unpack(archive, max, incoming); err != nil {
+	if err := unpack(archive, max, tmp); err != nil {
 		return Version{}, err
 	}
 
-	v, err := check(incoming, keys, ErrInvalid)
+	v, err := check(tmp, keys, ErrInvalid)
 	if err != nil {
 		return Version{}, err
+	}
+
+	// Never renamed into place to be refused there, unlisted (P20).
+	if !safeName(v.Manifest.ID) || !safeName(v.Manifest.Version) {
+		return Version{}, fmt.Errorf("%w: %q %q cannot name its directory", ErrInvalid, v.Manifest.ID, v.Manifest.Version)
 	}
 
 	dir := filepath.Join(d.root, v.Manifest.ID)
@@ -137,11 +168,17 @@ func (d *Dir) Install(archive io.Reader, max int64, keys []TrustedKey) (Version,
 		return Version{}, fmt.Errorf("%s %s: %w", v.Manifest.ID, v.Manifest.Version, ErrInstalled)
 	}
 
-	if err := os.Rename(incoming, to); err != nil {
+	if err := os.Rename(tmp, to); err != nil {
 		return Version{}, fmt.Errorf("plugins directory: %w", err)
 	}
 
-	return d.Open(v.Manifest.ID, v.Manifest.Version, keys)
+	installed, err := d.Open(v.Manifest.ID, v.Manifest.Version, keys)
+	if err != nil {
+		_ = d.Remove(v.Manifest.ID, v.Manifest.Version) // refused, never kept (P20)
+		return Version{}, err
+	}
+
+	return installed, nil
 }
 
 // Open checks a version on disk again, as it is about to run: ErrTampered when its files
@@ -206,7 +243,7 @@ func (d *Dir) Data() ([]Data, error) {
 	var out []Data
 
 	for _, e := range dirs {
-		if e.IsDir() && safeName(e.Name()) {
+		if e.IsDir() && domain.ValidPluginID(e.Name()) { // what RemoveData takes (P27)
 			out = append(out, Data{ID: e.Name(), Bytes: pluginhost.Usage(filepath.Join(d.root, dataDir, e.Name()))})
 		}
 	}
@@ -214,9 +251,10 @@ func (d *Dir) Data() ([]Data, error) {
 	return out, nil
 }
 
-// RemoveData removes a plugin's lasting directory (D348).
+// RemoveData removes a plugin's lasting directory (D348): by its ID as a manifest has it,
+// so never another's where the filesystem ignores case (P27).
 func (d *Dir) RemoveData(id string) error {
-	if !safeName(id) {
+	if !domain.ValidPluginID(id) {
 		return fmt.Errorf("%w: %q", ErrInvalid, id)
 	}
 
@@ -295,7 +333,7 @@ func unpack(archive io.Reader, max int64, to string) error {
 	}
 
 	tr := tar.NewReader(gz)
-	budget := max * unpackedPer
+	out := &unpacked{archive: limited, max: max}
 	seen := map[string]bool{}
 
 	for {
@@ -307,7 +345,7 @@ func unpack(archive io.Reader, max int64, to string) error {
 				return fmt.Errorf("%w: it is larger than the %d bytes an archive may be", ErrInvalid, max)
 			}
 
-			return nil
+			return out.add(0, 0) // its size known at last (D322)
 		case limited.N <= 0:
 			return fmt.Errorf("%w: it is larger than the %d bytes an archive may be", ErrInvalid, max)
 		case err != nil:
@@ -330,20 +368,55 @@ func unpack(archive io.Reader, max int64, to string) error {
 			continue
 		case h.Typeflag != tar.TypeReg || !allowed(name):
 			return fmt.Errorf("%w: %s is none of the files a plugin archive holds", ErrInvalid, h.Name)
-		case h.Size > budget:
+		case readWhole[name] > 0 && h.Size > readWhole[name]:
+			return fmt.Errorf("%w: %s is larger than the %d bytes it may be", ErrInvalid, name, readWhole[name])
+		case h.Size > max*unpackedPer:
 			return fmt.Errorf("%w: it unpacks to more than %d bytes", ErrInvalid, max*unpackedPer)
 		}
 
 		seen[name] = true
-		budget -= h.Size
 
-		if err := write(filepath.Join(to, filepath.FromSlash(name)), tr, h.Size, strings.HasSuffix(name, "/"+programName)); err != nil {
+		if err := write(filepath.Join(to, filepath.FromSlash(name)), tr, h.Size, strings.HasSuffix(name, "/"+programName), out); err != nil {
 			return err
 		}
 	}
 }
 
-func write(at string, r io.Reader, size int64, program bool) error {
+// unpacked counts what unpack writes, held to unpackedPer times the archive's bytes read
+// (D322).
+type unpacked struct {
+	archive *io.LimitedReader // limited to max+1
+	max     int64
+	n       int64
+}
+
+// add counts n bytes more written: refused past unpackedPer times the archive's bytes read
+// so far, and slack.
+func (u *unpacked) add(n, slack int64) error {
+	u.n += n
+
+	if read := u.max + 1 - u.archive.N; u.n > unpackedPer*read+slack {
+		return fmt.Errorf("%w: it unpacks to more than %d times its size", ErrInvalid, unpackedPer)
+	}
+
+	return nil
+}
+
+// counted is a file unpack writes, each write counted first.
+type counted struct {
+	f   *os.File
+	out *unpacked
+}
+
+func (c counted) Write(p []byte) (int, error) {
+	if err := c.out.add(int64(len(p)), unpackSlack); err != nil {
+		return 0, err
+	}
+
+	return c.f.Write(p)
+}
+
+func write(at string, r io.Reader, size int64, program bool, out *unpacked) error {
 	if err := os.MkdirAll(filepath.Dir(at), 0o700); err != nil {
 		return err
 	}
@@ -358,8 +431,13 @@ func write(at string, r io.Reader, size int64, program bool) error {
 		return err
 	}
 
-	if _, err := io.CopyN(f, r, size); err != nil {
+	if _, err := io.CopyN(counted{f: f, out: out}, r, size); err != nil {
 		_ = f.Close()
+
+		if errors.Is(err, ErrInvalid) {
+			return err
+		}
+
 		return fmt.Errorf("%w: %v", ErrInvalid, err)
 	}
 
@@ -376,9 +454,13 @@ func check(dir string, keys []TrustedKey, mismatch error) (Version, error) {
 		return Version{}, err
 	}
 
-	sums, err := os.ReadFile(filepath.Join(dir, checksumsFile))
-	if err != nil {
+	sums, err := readSmall(dir, checksumsFile)
+	if errors.Is(err, fs.ErrNotExist) {
 		return Version{}, fmt.Errorf("%w: no %s", ErrInvalid, checksumsFile)
+	}
+
+	if err != nil {
+		return Version{}, err
 	}
 
 	listed, err := parseChecksums(sums)
@@ -404,32 +486,71 @@ func check(dir string, keys []TrustedKey, mismatch error) (Version, error) {
 		}
 	}
 
-	v := Version{Path: dir, Program: filepath.Join(dir, "bin", Platform(), programName)}
+	digest := sha256.Sum256(sums)
+	program := "bin/" + Platform() + "/" + programName
 
-	if err := v.signature(filepath.Join(dir, signatureFile), sums, keys, mismatch); err != nil {
+	v := Version{
+		Path: dir, Program: filepath.Join(dir, "bin", Platform(), programName),
+		Digest: hex.EncodeToString(digest[:]), ProgramSum: listed[program],
+	}
+
+	if err := v.signature(dir, sums, keys, mismatch); err != nil {
 		return Version{}, err
 	}
 
-	raw, err := os.ReadFile(filepath.Join(dir, manifestFile))
-	if err != nil {
+	raw, err := readSmall(dir, manifestFile)
+	if errors.Is(err, fs.ErrNotExist) {
 		return Version{}, fmt.Errorf("%w: no %s", ErrInvalid, manifestFile)
+	}
+
+	if err != nil {
+		return Version{}, err
 	}
 
 	if v.Manifest, err = decodeManifest(raw); err != nil {
 		return Version{}, err
 	}
 
-	if _, ok := files["bin/"+Platform()+"/"+programName]; !ok {
+	if _, ok := files[program]; !ok {
 		return Version{}, fmt.Errorf("%w: it has no program for %s, this server's platform", ErrInvalid, Platform())
 	}
 
 	return v, nil
 }
 
+// readSmall reads one of the files check reads whole: refused when it is larger than it may
+// be (P5), before it is read.
+func readSmall(dir, name string) ([]byte, error) {
+	f, err := os.Open(filepath.Join(dir, name)) //nolint:gosec // a file of the plugins directory
+	if err != nil {
+		return nil, err
+	}
+	defer func() { _ = f.Close() }()
+
+	most := readWhole[name]
+	tooLarge := fmt.Errorf("%w: %s is larger than the %d bytes it may be", ErrInvalid, name, most)
+
+	info, err := f.Stat()
+	if err != nil {
+		return nil, err
+	}
+
+	if info.Size() > most {
+		return nil, tooLarge
+	}
+
+	raw, err := io.ReadAll(io.LimitReader(f, most+1))
+	if err == nil && int64(len(raw)) > most {
+		return nil, tooLarge // it grew since
+	}
+
+	return raw, err
+}
+
 // signature checks the version's signature, if it has one: by a key an admin trusts it
 // must hold, or the version is not what it claims; by any other it is as good as none.
-func (v *Version) signature(at string, sums []byte, keys []TrustedKey, mismatch error) error {
-	raw, err := os.ReadFile(at)
+func (v *Version) signature(dir string, sums []byte, keys []TrustedKey, mismatch error) error {
+	raw, err := readSmall(dir, signatureFile)
 	if errors.Is(err, fs.ErrNotExist) {
 		v.Warning = "It is not signed: nobody vouches for what it is."
 		return nil
@@ -465,15 +586,14 @@ func (v *Version) signature(at string, sums []byte, keys []TrustedKey, mismatch 
 	return nil
 }
 
-// manifestJSON is a checked version's manifest.json, as it is.
-func manifestJSON(dir string) ([]byte, error) {
-	return os.ReadFile(filepath.Join(dir, manifestFile)) //nolint:gosec // a file of the plugins directory
-}
-
 // decodeManifest reads manifest.json as the host reads Describe's, held to the same
-// checks.
+// checks; and refuses keys encoding/json would take for one (P19).
 func decodeManifest(raw []byte) (plugin.Manifest, error) {
 	var m plugin.Manifest
+
+	if err := uniqueKeys(raw); err != nil {
+		return m, fmt.Errorf("%w: %s: %v", ErrInvalid, manifestFile, err)
+	}
 
 	dec := json.NewDecoder(bytes.NewReader(raw))
 	dec.DisallowUnknownFields()
@@ -488,6 +608,86 @@ func decodeManifest(raw []byte) (plugin.Manifest, error) {
 	}
 
 	return m, nil
+}
+
+// uniqueKeys refuses JSON with an object that has a key twice, as encoding/json matches
+// keys to fields: ignoring case (P19). Of "nodes" and "Nodes", it takes the last; a page
+// reading the JSON could take the other.
+func uniqueKeys(raw []byte) error {
+	dec := json.NewDecoder(bytes.NewReader(raw))
+	dec.UseNumber()
+
+	// Each object open, with its keys folded; nil for an array.
+	type object struct {
+		keys map[string]bool
+		key  bool // its next string is a key
+	}
+
+	var (
+		open []*object
+		done bool
+	)
+
+	for {
+		t, err := dec.Token()
+		if errors.Is(err, io.EOF) {
+			return nil
+		}
+
+		if err != nil {
+			return err
+		}
+
+		if done {
+			return errors.New("more than one value")
+		}
+
+		if k, ok := t.(string); ok && len(open) > 0 && open[len(open)-1] != nil && open[len(open)-1].key {
+			top := open[len(open)-1]
+
+			if top.keys[fold(k)] {
+				return fmt.Errorf("%q twice, in some case", k)
+			}
+
+			top.keys[fold(k)], top.key = true, false
+
+			continue
+		}
+
+		switch t {
+		case json.Delim('{'):
+			open = append(open, &object{keys: map[string]bool{}, key: true})
+			continue
+		case json.Delim('['):
+			open = append(open, nil)
+			continue
+		case json.Delim('}'), json.Delim(']'):
+			open = open[:len(open)-1]
+		}
+
+		// A value ended: its object's next string is a key; at the top, the JSON's end.
+		switch {
+		case len(open) == 0:
+			done = true
+		case open[len(open)-1] != nil:
+			open[len(open)-1].key = true
+		}
+	}
+}
+
+// fold is a key as encoding/json matches it to a field: each rune the least of those it
+// folds to, as bytes.EqualFold has them.
+func fold(key string) string {
+	return strings.Map(func(r rune) rune {
+		for {
+			next := unicode.SimpleFold(r)
+			if next <= r {
+				return next
+			}
+
+			r = next
+		}
+	}, key)
 }
 
 // filesIn are the files under dir, by their names in the archive: refused when one is a

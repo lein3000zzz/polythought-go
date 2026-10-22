@@ -63,7 +63,7 @@ func (a *api) SendMessage(ctx context.Context, req *pluginv1.SendMessageRequest)
 
 		err = a.deps.Telegram.Messenger.MessageUser(ctx, s.rc.OwnerID, ports.UserMessage{HTML: text, Silent: req.GetSilent()})
 		if err != nil {
-			return nil, telegramError(err)
+			return nil, a.telegramError(ctx, s, err)
 		}
 
 		return &pluginv1.SendMessageResponse{}, nil
@@ -94,10 +94,14 @@ func (a *api) AskQuestion(ctx context.Context, req *pluginv1.AskQuestionRequest)
 		q.Message, err = a.deps.Telegram.Asker.AskUser(ctx, s.rc.OwnerID, ports.Question{
 			HTML: q.HTML, Options: q.Options, ExecutionID: s.rc.ExecutionID, Key: q.Key,
 		})
-		s.sent(q, err)
+
+		if waited := s.sent(q, err); err == nil && !waited {
+			// Sent once the plugin had answered the run, which no longer waits.
+			a.closeQuestion(ctx, s.rc.OwnerID, q, notWaited)
+		}
 
 		if err != nil {
-			return nil, telegramError(err)
+			return nil, a.telegramError(ctx, s, err)
 		}
 
 		return &pluginv1.AskQuestionResponse{Deadline: timeText(q.Deadline)}, nil
@@ -168,8 +172,11 @@ func (s *session) ask() error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	if s.question != nil || s.asking {
+	switch {
+	case s.question != nil || s.asking:
 		return status.Error(codes.FailedPrecondition, "a run asks one question")
+	case s.settled:
+		return status.Error(codes.FailedPrecondition, "the run is over: the plugin answered it")
 	}
 
 	s.asking = true
@@ -177,8 +184,9 @@ func (s *session) ask() error {
 	return nil
 }
 
-// sent records the run's question, or frees its place when it could not be sent.
-func (s *session) sent(q question, err error) {
+// sent records the run's question, or frees its place when it could not be sent; it
+// says whether the run waits on it, which it does not once settled.
+func (s *session) sent(q question, err error) bool {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -186,6 +194,8 @@ func (s *session) sent(q question, err error) {
 	if err == nil {
 		s.question = &q
 	}
+
+	return !s.settled
 }
 
 // marked is a message as the owner gets it: the plugin's name first, then the text
@@ -196,7 +206,12 @@ func (a *api) marked(text string, isHTML bool, most int) (string, error) {
 	}
 
 	mark := "🧩 <b>" + html.EscapeString(a.name) + "</b>\n"
+
 	room := most - utf8.RuneCountInString(mark)
+	if room < 1 {
+		// Check bounds the name, but no name may cut the text out of range (P2).
+		return "", status.Error(codes.FailedPrecondition, "the plugin's name leaves no room for a message")
+	}
 
 	if !isHTML {
 		if utf8.RuneCountInString(text) > room {
@@ -266,15 +281,13 @@ func (a *api) closeQuestion(ctx context.Context, owner domain.UserID, q question
 	_ = a.deps.Telegram.Asker.CloseQuestion(ctx, owner, q.Message, q.HTML+"\n\n"+closing)
 }
 
-func telegramError(err error) error {
-	switch {
-	case errors.Is(err, context.Canceled), errors.Is(err, context.DeadlineExceeded):
-		return status.FromContextError(err).Err()
-	case errors.Is(err, domain.ErrTelegramNotLinked):
-		return status.Error(codes.FailedPrecondition, err.Error())
-	default:
-		return status.Errorf(codes.Unavailable, "telegram: %v", err)
+// telegramError is why Telegram failed, as the plugin hears it (P13).
+func (a *api) telegramError(ctx context.Context, s *session, err error) error {
+	if errors.Is(err, domain.ErrTelegramNotLinked) {
+		return status.Error(codes.FailedPrecondition, domain.ErrTelegramNotLinked.Error())
 	}
+
+	return a.sourceError(ctx, s, "telegram", err)
 }
 
 // newKey is a random key for a question's wait, safe in button data.

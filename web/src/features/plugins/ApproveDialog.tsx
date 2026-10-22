@@ -1,6 +1,8 @@
+import { useQueryClient } from '@tanstack/react-query'
 import { useState } from 'react'
 import { toast } from 'sonner'
 
+import { keys } from '@/api/keys'
 import { type Plugin, useApprovePlugin } from '@/api/plugins'
 import { ErrorAlert } from '@/components/ErrorAlert'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
@@ -33,6 +35,7 @@ type Props = {
  */
 export function ApproveDialog({ plugin, version, onClose }: Props) {
   const approve = useApprovePlugin()
+  const queryClient = useQueryClient()
   const [ticked, setTicked] = useState<Set<string>>(new Set())
   const [warned, setWarned] = useState(false)
 
@@ -62,6 +65,8 @@ export function ApproveDialog({ plugin, version, onClose }: Props) {
           toast.success(`${plugin.name} ${version} is approved: it runs once the server restarts`)
           onClose()
         },
+        // A refusal may change what it shows: who signed it, as the keys trusted now say (P21).
+        onError: () => void queryClient.invalidateQueries({ queryKey: keys.plugins }),
       },
     )
 

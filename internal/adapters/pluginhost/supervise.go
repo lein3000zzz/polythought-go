@@ -1,6 +1,7 @@
 package pluginhost
 
 import (
+	"cmp"
 	"context"
 	"errors"
 	"fmt"
@@ -175,15 +176,23 @@ func (p *Plugin) supervise(ctx context.Context, r Restarts, w Watch) {
 }
 
 // overCaps measures its process: its memory each time, its data when measure says (D341,
-// D343). It is why it is stopped when past a cap: its memory a crash (D347), its data
-// stopping it at once; nil within them.
+// D343), the files it holds open with no name left among it (P9). It is why it is stopped
+// when past a cap: its memory a crash (D347), its data stopping it at once, as does data
+// that cannot all be measured; nil within them.
 func (p *Plugin) overCaps(c *conn, measure bool) error {
 	caps := p.caps()
 	memory, watched := sandbox.Memory(c.pid)
 
-	var data int64
+	var (
+		data       int64
+		unmeasured error
+	)
+
 	if measure {
-		data = Usage(p.prog.Data, c.temp)
+		data, unmeasured = taken(p.prog.Data, c.temp)
+
+		held, err := unlinked(c.pid)
+		data, unmeasured = data+held, cmp.Or(unmeasured, err)
 	}
 
 	p.mu.Lock()
@@ -201,6 +210,8 @@ func (p *Plugin) overCaps(c *conn, measure bool) error {
 	switch {
 	case watched && caps.Memory > 0 && memory > caps.Memory:
 		return fmt.Errorf("its memory, %s, went past its cap of %s", mib(memory), mib(caps.Memory))
+	case measure && unmeasured != nil:
+		return stopped{fmt.Errorf("its data cannot all be measured (%w), which counts as past its cap", unmeasured)}
 	case measure && caps.Data > 0 && data > caps.Data:
 		return stopped{fmt.Errorf("its data, %s, went past its cap of %s", mib(data), mib(caps.Data))}
 	}

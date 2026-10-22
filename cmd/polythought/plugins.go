@@ -51,8 +51,7 @@ func (a *app) initPlugins(ctx context.Context, pmc polymarket, allowPrivate func
 		Telegram: pluginhost.Telegram{Messenger: a.telegram, Asker: a.telegram, Reminder: a.notify},
 		Trading:  pluginhost.Trading{Orders: a.trading, Batches: a.trading, Canceller: a.trading},
 	}, a.registry, pluginhost.WithChecks(func(id, version string) error {
-		_, err := files.Open(id, version)
-		return err
+		return a.plugins.CheckFiles(ctx, id, version) // held to what was installed and approved (P16)
 	}, a.notify.PluginCrashed))
 
 	a.util.OnShutdown(func(context.Context) error {

@@ -2,6 +2,8 @@ package pluginhost_test
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -15,6 +17,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/lein3000zzz/the-watchers/pkg/observability"
+	"github.com/lein3000zzz/the-watchers/pkg/observability/logging"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -28,8 +32,11 @@ import (
 )
 
 // echo and bare are the test plugins' programs, built once for the package, each in a
-// directory of its own, as a version's is.
-var echo, bare string
+// directory of its own, as a version's is; sums their SHA-256s.
+var (
+	echo, bare string
+	sums       = map[string]string{}
+)
 
 // launcher is the sandbox, where the kernel has one: the test plugins run under it there,
 // as the server's do, and without one elsewhere.
@@ -57,6 +64,8 @@ func TestMain(m *testing.M) {
 			fmt.Fprintf(os.Stderr, "build the test plugin %s: %v\n%s", src, err, out)
 			os.Exit(1)
 		}
+
+		sums[path] = hash(path)
 	}
 
 	code := m.Run()
@@ -71,11 +80,29 @@ func start(t *testing.T) (*pluginhost.Plugin, *engine.Registry) {
 	return startWith(t, pluginhost.Deps{})
 }
 
-// program is a test plugin's program, with a lasting directory of its own.
+// program is a test plugin's program, its sum as its files' check finds it, with a
+// lasting directory of its own.
 func program(t *testing.T, path string) pluginhost.Program {
 	t.Helper()
 
-	return pluginhost.Program{Path: path, Dir: filepath.Dir(path), Data: t.TempDir()}
+	sum, ok := sums[path]
+	if !ok {
+		sum = hash(path)
+	}
+
+	return pluginhost.Program{Path: path, Sum: sum, Dir: filepath.Dir(path), Data: t.TempDir()}
+}
+
+// hash is the SHA-256 of the file at path, in hex; empty where there is none.
+func hash(path string) string {
+	raw, err := os.ReadFile(path) //nolint:gosec // the test's
+	if err != nil {
+		return ""
+	}
+
+	sum := sha256.Sum256(raw)
+
+	return hex.EncodeToString(sum[:])
 }
 
 // sandboxed is deps starting plugins under the sandbox, where there is one, and else
@@ -285,13 +312,10 @@ func TestSupervise(t *testing.T) {
 // fast are restarts for tests, measuring at every look.
 var fast = pluginhost.Restarts{First: 10 * time.Millisecond, Max: 40 * time.Millisecond, Crashes: 3, Within: time.Minute, Every: 5 * time.Millisecond}
 
-// Past its data cap a plugin is stopped as crashed at once, the admins told; it is not
-// started again while its data is past it (D341).
-func TestDataCap(t *testing.T) {
-	var limit atomic.Int64
-	limit.Store(1 << 20)
-
-	p, r := startWith(t, pluginhost.Deps{Caps: func(string) pluginhost.Caps { return pluginhost.Caps{Data: limit.Load()} }})
+// supervised supervises p, its restarts fast, and is what waits for it to be stopped as
+// crashed at once, saying want.
+func supervised(t *testing.T, p *pluginhost.Plugin) (stoppedFor func(want string)) {
+	t.Helper()
 
 	crashed := make(chan error, 2)
 
@@ -300,7 +324,7 @@ func TestDataCap(t *testing.T) {
 
 	p.Supervise(ctx, fast, pluginhost.Watch{Crashed: func(err error) { crashed <- err }})
 
-	stoppedFor := func(want string) {
+	return func(want string) {
 		t.Helper()
 
 		select {
@@ -314,8 +338,19 @@ func TestDataCap(t *testing.T) {
 		assert.Equal(t, pluginhost.Crashed, st.State)
 		assert.Equal(t, 1, st.Crashes, "once is enough")
 	}
+}
 
-	_, err := run(t, r, "plugin.echo.fill", map[string]any{"bytes": 2 << 20}, items(map[string]any{}))
+// Past its data cap a plugin is stopped as crashed at once, the admins told; it is not
+// started again while its data is past it (D341).
+func TestDataCap(t *testing.T) {
+	var limit atomic.Int64
+	limit.Store(1 << 20)
+
+	p, r := startWith(t, pluginhost.Deps{Caps: func(string) pluginhost.Caps { return pluginhost.Caps{Data: limit.Load()} }})
+	stoppedFor := supervised(t, p)
+
+	// Two files, each within its cap, which is what one file may take (P9).
+	_, err := run(t, r, "plugin.echo.fill", map[string]any{"bytes": 1 << 20, "files": 2}, items(map[string]any{}))
 	require.NoError(t, err)
 
 	stoppedFor("its data, 2.0 MiB, went past its cap of 1.0 MiB")
@@ -328,6 +363,39 @@ func TestDataCap(t *testing.T) {
 	limit.Store(10 << 20)
 	require.NoError(t, p.Start())
 	require.Eventually(t, func() bool { return p.Status().State == pluginhost.Running }, 5*time.Second, 10*time.Millisecond, "its cap raised")
+}
+
+// Data its process hides from a walk of its directories counts against its cap (P9):
+// files it holds open with no name left, counted on Linux, where /proc shows them; and
+// an entry too deep to be measured, which counts as past its cap, at once and as it would
+// start again.
+func TestHiddenData(t *testing.T) {
+	t.Run("open with no name left", func(t *testing.T) {
+		if runtime.GOOS != "linux" {
+			t.Skip("counted on Linux")
+		}
+
+		p, r := startWith(t, pluginhost.Deps{Caps: func(string) pluginhost.Caps { return pluginhost.Caps{Data: 1 << 20} }})
+		stoppedFor := supervised(t, p)
+
+		_, err := run(t, r, "plugin.echo.hide", map[string]any{"bytes": 1 << 20, "files": 2}, items(map[string]any{}))
+		require.NoError(t, err)
+
+		stoppedFor("its data, 2.0 MiB, went past its cap of 1.0 MiB")
+	})
+
+	t.Run("too deep to measure", func(t *testing.T) {
+		p, r := startWith(t, pluginhost.Deps{Caps: func(string) pluginhost.Caps { return pluginhost.Caps{Data: 100 << 20} }})
+		stoppedFor := supervised(t, p)
+
+		_, err := run(t, r, "plugin.echo.deep", map[string]any{"depth": 25, "bytes": 1 << 20}, items(map[string]any{}))
+		require.NoError(t, err)
+
+		stoppedFor("its data cannot all be measured (file name too long), which counts as past its cap")
+
+		require.NoError(t, p.Start())
+		stoppedFor("its data cannot all be measured (file name too long), which counts as past its cap")
+	})
 }
 
 // Past its memory cap a plugin's process is killed, which counts as a crash: it is
@@ -354,6 +422,133 @@ func TestMemoryCap(t *testing.T) {
 		return st.Crashes == 1 && st.State == pluginhost.Running
 	}, 10*time.Second, 10*time.Millisecond, "killed, and started again")
 	assert.Contains(t, p.Status().LastError, "past its cap of 64.0 MiB")
+}
+
+// Under the sandbox the kernel holds a plugin's process too, however fast it goes: its
+// memory, its data segment, to twice its cap and headroom, which a Go plugin within its
+// cap never meets (P7), and any one file it writes to its data cap (P9). No cap, no limit.
+func TestHardLimits(t *testing.T) {
+	if launcher == nil {
+		t.Skip("the sandbox sets them")
+	}
+
+	env := func(t *testing.T, caps pluginhost.Caps) map[string]any {
+		t.Helper()
+
+		_, r := startWith(t, pluginhost.Deps{Caps: func(string) pluginhost.Caps { return caps }})
+
+		out, err := run(t, r, "plugin.echo.env", nil, items(map[string]any{}))
+		require.NoError(t, err)
+
+		return out[engine.DefaultPort][0].JSON
+	}
+
+	got := env(t, pluginhost.DefaultCaps)
+	assert.Equal(t, strconv.FormatInt(2*pluginhost.DefaultCaps.Memory+256<<20, 10), got["data_limit"])
+	assert.Equal(t, strconv.FormatInt(pluginhost.DefaultCaps.Data, 10), got["file_limit"])
+
+	got = env(t, pluginhost.Caps{})
+	assert.Equal(t, "none", got["data_limit"])
+	assert.Equal(t, "none", got["file_limit"])
+
+	t.Run("a file past its data cap", func(t *testing.T) {
+		_, r := startWith(t, pluginhost.Deps{Caps: func(string) pluginhost.Caps { return pluginhost.Caps{Data: 1 << 20} }})
+
+		out, err := run(t, r, "plugin.echo.fill", map[string]any{"bytes": 2 << 20}, items(map[string]any{}))
+		require.NoError(t, err)
+		require.Len(t, out[engine.ErrorPort], 1)
+		assert.ErrorContains(t, out[engine.ErrorPort][0].Err, "file too large")
+	})
+
+	t.Run("memory past twice its cap and headroom, taken faster than it is watched", func(t *testing.T) {
+		p, r := startWith(t, pluginhost.Deps{Caps: func(string) pluginhost.Caps { return pluginhost.Caps{Memory: 64 << 20} }})
+
+		// 384 MiB at most: unwatched, its runtime is refused memory, and it dies.
+		_, err := run(t, r, "plugin.echo.hog", map[string]any{"mib": 512}, items(map[string]any{}))
+		require.Error(t, err)
+		require.Eventually(t, p.Exited, 5*time.Second, 10*time.Millisecond)
+	})
+}
+
+// An unsandboxed plugin's process leads a session of its own, with no terminal to push
+// input into (P8); under the sandbox, the launcher gives it one.
+func TestOwnSession(t *testing.T) {
+	session := func(t *testing.T, deps pluginhost.Deps) any {
+		t.Helper()
+
+		p, err := pluginhost.Start(context.Background(), program(t, echo), deps)
+		require.NoError(t, err)
+		t.Cleanup(p.Close)
+
+		r := registry(t)
+		require.NoError(t, p.Register(r))
+
+		out, err := run(t, r, "plugin.echo.env", nil, items(map[string]any{}))
+		require.NoError(t, err)
+
+		return out[engine.DefaultPort][0].JSON["session"]
+	}
+
+	assert.Equal(t, true, session(t, pluginhost.Deps{Unsandboxed: func() bool { return true }}), "unsandboxed")
+
+	if launcher != nil {
+		assert.Equal(t, true, session(t, pluginhost.Deps{Sandbox: launcher}), "sandboxed")
+	}
+}
+
+// A plugin's stderr reaches the server's log a burst of lines at once, then a few a
+// second, each cut to 8 KiB; the lines past that are dropped, and counted (P4).
+func TestStderrQuota(t *testing.T) {
+	logs := &recordedLogs{}
+	util := observability.NoopUtility()
+	util.Logger = logging.New(logCore{logs: logs})
+
+	started := time.Now()
+	p, r := startWith(t, pluginhost.Deps{Util: util})
+
+	const spammed = 2000
+
+	out, err := run(t, r, "plugin.echo.spam", map[string]any{"lines": spammed, "size": 20 << 10}, items(map[string]any{}))
+	require.NoError(t, err)
+	require.Empty(t, out[engine.ErrorPort], "every line written")
+
+	tally := func() (said, dropped int) {
+		logs.mu.Lock()
+		defer logs.mu.Unlock()
+
+		for _, l := range logs.lines {
+			switch l.msg {
+			case "Plugin says":
+				if line, _ := l.attrs["line"].(string); strings.Contains(line, "xxxxxxxx") {
+					said++
+
+					assert.LessOrEqual(t, len(line), 8<<10+len("…"), "cut")
+				}
+			case "Plugin said too much: lines not logged":
+				n, _ := l.attrs["dropped"].(int)
+				dropped += n
+			}
+		}
+
+		return said, dropped
+	}
+
+	require.Eventually(t, func() bool {
+		said, dropped := tally()
+		return said+dropped >= spammed
+	}, 10*time.Second, 50*time.Millisecond, "each line logged, or counted as dropped")
+
+	logged, dropped := tally()
+	assert.LessOrEqual(t, logged, 100+int(10*time.Since(started).Seconds())+1, "a burst, then ten a second")
+	assert.Positive(t, logged)
+	t.Logf("of %d lines, %d logged, %d dropped", spammed, logged, dropped)
+
+	kept := p.Status().Log
+	require.NotEmpty(t, kept, "its own log keeps its last lines, cut too")
+
+	for _, line := range kept {
+		assert.LessOrEqual(t, len(line), 8<<10+len("…"))
+	}
 }
 
 func TestTrigger(t *testing.T) {
@@ -454,6 +649,33 @@ func TestStartRefuses(t *testing.T) {
 	require.Error(t, err)
 }
 
+// What runs is a private copy of the program, made as its sum is checked: a program
+// changed after its files' check is refused (P17).
+func TestProgramChanged(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "plugin")
+
+	put := func(from string) {
+		t.Helper()
+
+		raw, err := os.ReadFile(from) //nolint:gosec // the test's
+		require.NoError(t, err)
+		require.NoError(t, os.WriteFile(path, raw, 0o700)) //nolint:gosec // a program
+	}
+
+	put(echo)
+	prog := program(t, path)
+	put(bare) // after the check
+
+	_, err := pluginhost.Start(context.Background(), prog, sandboxed(pluginhost.Deps{}))
+	require.EqualError(t, err, "plugin "+path+": its program changed after its files were checked")
+
+	put(echo)
+
+	p, err := pluginhost.Start(context.Background(), prog, sandboxed(pluginhost.Deps{}))
+	require.NoError(t, err, "as checked")
+	p.Close()
+}
+
 // Where there is no sandbox, a plugin does not start, saying why, unless an admin allows
 // it, which is asked each time (D338).
 func TestNoSandbox(t *testing.T) {
@@ -498,10 +720,16 @@ func TestDirectories(t *testing.T) {
 
 	assert.Equal(t, launcher != nil, p.Status().Sandboxed)
 
+	// It runs a copy of its program, in a directory of its own (P17).
+	exe, _ := got["exe"].(string)
+	require.NotEmpty(t, exe)
+	assert.True(t, strings.HasPrefix(filepath.Base(filepath.Dir(exe)), "polythought-program-"), exe)
+
 	if launcher != nil {
 		assert.NotEqual(t, "ok", got["read_outside"], "the server's files")
 		assert.NotEqual(t, "ok", got["write_own"], "its own program's directory")
-		t.Logf("refused as: %s; %s", got["read_outside"], got["write_own"])
+		assert.NotEqual(t, "ok", got["write_exe"], "its program's copy's")
+		t.Logf("refused as: %s; %s; %s", got["read_outside"], got["write_own"], got["write_exe"])
 	} else {
 		t.Log("no sandbox here: what it refuses is not tried")
 	}
@@ -509,6 +737,7 @@ func TestDirectories(t *testing.T) {
 	p.Close()
 
 	assert.NoDirExists(t, temp, "emptied as it stops")
+	assert.NoDirExists(t, filepath.Dir(exe), "its program's copy removed as it stops")
 
 	kept, err := os.ReadFile(filepath.Join(data, "kept.txt")) //nolint:gosec // the test's
 	require.NoError(t, err, "its lasting directory outlives it")

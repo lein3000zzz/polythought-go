@@ -3,6 +3,7 @@ package domain
 import (
 	"encoding/json"
 	"errors"
+	"regexp"
 	"time"
 )
 
@@ -17,6 +18,14 @@ var (
 	// ErrPluginInstalled means a version of a plugin is installed already.
 	ErrPluginInstalled = errors.New("that version of the plugin is installed already")
 )
+
+// pluginID is a plugin's ID, as its manifest has it (D285): a-z, 0-9 and dashes, starting
+// with a letter.
+var pluginID = regexp.MustCompile(`^[a-z][a-z0-9-]{0,39}$`)
+
+// ValidPluginID says whether id is a plugin's ID as a manifest may have it: lowercase, so
+// one plugin's directory is never another's where the filesystem ignores case (P27).
+func ValidPluginID(id string) bool { return pluginID.MatchString(id) }
 
 // InstalledPlugin is a plugin admins installed, as they decided about it (D321): the
 // version that runs, whether it does, who may use it.
@@ -83,6 +92,7 @@ type PluginVersion struct {
 	Manifest json.RawMessage
 	Signer   string // the trusted key's name; empty for none an admin trusts
 	KeyID    string // the signing key's ID; empty unsigned
+	Digest   string // the SHA-256 of its checksums.txt, in hex: its files as installed
 
 	InstalledBy UserID
 	InstalledAt time.Time
@@ -106,6 +116,13 @@ const (
 	PluginCapsSet     = "caps"
 	PluginUninstalled = "uninstalled"
 	PluginDataRemoved = "data removed"
+
+	// What the server itself records: a version's digest, recorded as it was first opened
+	// when it was recorded without one (P16); who signed it, as the keys admins trust now
+	// say (P21); a version that would not load, or start again (P29).
+	PluginDigest    = "digest recorded"
+	PluginSigner    = "signer changed"
+	PluginNotLoaded = "not loaded"
 )
 
 // PluginAudit is something an admin did with a plugin.

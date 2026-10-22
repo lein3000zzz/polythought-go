@@ -2,8 +2,6 @@ package pluginhost
 
 import (
 	"context"
-	"errors"
-	"fmt"
 	"slices"
 	"strings"
 	"time"
@@ -45,7 +43,7 @@ const (
 var errNoSource = status.Error(codes.Unavailable, "this is not available here")
 
 func (a *api) SearchMarkets(ctx context.Context, req *pluginv1.SearchMarketsRequest) (*pluginv1.SearchMarketsResponse, error) {
-	return call(ctx, a, req.GetSession(), opSearchMarkets, func(ctx context.Context, _ *session, _ trace.Span) (*pluginv1.SearchMarketsResponse, error) {
+	return call(ctx, a, req.GetSession(), opSearchMarkets, func(ctx context.Context, s *session, _ trace.Span) (*pluginv1.SearchMarketsResponse, error) {
 		query := strings.TrimSpace(req.GetQuery())
 
 		switch {
@@ -57,7 +55,7 @@ func (a *api) SearchMarkets(ctx context.Context, req *pluginv1.SearchMarketsRequ
 
 		found, err := markets.FindMarkets(ctx, a.deps.Data.Events, query, page(req.GetLimit(), 20, maxResults), req.GetClosed())
 		if err != nil {
-			return nil, sourceError("search markets", err)
+			return nil, a.sourceError(ctx, s, "search markets", err)
 		}
 
 		out := &pluginv1.SearchMarketsResponse{Markets: make([]*pluginv1.Market, len(found))}
@@ -87,7 +85,7 @@ func marketOf(f markets.Found) *pluginv1.Market {
 }
 
 func (a *api) GetOrderBook(ctx context.Context, req *pluginv1.GetOrderBookRequest) (*pluginv1.GetOrderBookResponse, error) {
-	return call(ctx, a, req.GetSession(), opOrderBook, func(ctx context.Context, _ *session, _ trace.Span) (*pluginv1.GetOrderBookResponse, error) {
+	return call(ctx, a, req.GetSession(), opOrderBook, func(ctx context.Context, s *session, _ trace.Span) (*pluginv1.GetOrderBookResponse, error) {
 		token := strings.TrimSpace(req.GetTokenId())
 
 		switch {
@@ -99,7 +97,7 @@ func (a *api) GetOrderBook(ctx context.Context, req *pluginv1.GetOrderBookReques
 
 		books, err := a.deps.Data.Books.OrderBooks(ctx, domain.TokenID(token))
 		if err != nil {
-			return nil, sourceError("order book", err)
+			return nil, a.sourceError(ctx, s, "order book", err)
 		}
 
 		if len(books) == 0 {
@@ -124,7 +122,7 @@ func (a *api) GetOrderBook(ctx context.Context, req *pluginv1.GetOrderBookReques
 }
 
 func (a *api) GetPriceHistory(ctx context.Context, req *pluginv1.GetPriceHistoryRequest) (*pluginv1.GetPriceHistoryResponse, error) {
-	return call(ctx, a, req.GetSession(), opPriceHistory, func(ctx context.Context, _ *session, _ trace.Span) (*pluginv1.GetPriceHistoryResponse, error) {
+	return call(ctx, a, req.GetSession(), opPriceHistory, func(ctx context.Context, s *session, _ trace.Span) (*pluginv1.GetPriceHistoryResponse, error) {
 		if a.deps.Data.History == nil {
 			return nil, errNoSource
 		}
@@ -136,7 +134,7 @@ func (a *api) GetPriceHistory(ctx context.Context, req *pluginv1.GetPriceHistory
 
 		got, err := a.deps.Data.History.PriceHistory(ctx, f)
 		if err != nil {
-			return nil, sourceError("price history", err)
+			return nil, a.sourceError(ctx, s, "price history", err)
 		}
 
 		points := slices.SortedFunc(slices.Values(got.Items), func(a, b domain.PricePoint) int { return a.At.Compare(b.At) })
@@ -189,7 +187,7 @@ func historyFilter(req *pluginv1.GetPriceHistoryRequest, now time.Time) (ports.P
 }
 
 func (a *api) ListTrades(ctx context.Context, req *pluginv1.ListTradesRequest) (*pluginv1.ListTradesResponse, error) {
-	return call(ctx, a, req.GetSession(), opTrades, func(ctx context.Context, _ *session, _ trace.Span) (*pluginv1.ListTradesResponse, error) {
+	return call(ctx, a, req.GetSession(), opTrades, func(ctx context.Context, s *session, _ trace.Span) (*pluginv1.ListTradesResponse, error) {
 		if a.deps.Data.Trades == nil {
 			return nil, errNoSource
 		}
@@ -215,7 +213,7 @@ func (a *api) ListTrades(ctx context.Context, req *pluginv1.ListTradesRequest) (
 
 		got, err := a.deps.Data.Trades.Trades(ctx, f)
 		if err != nil {
-			return nil, sourceError("trades", err)
+			return nil, a.sourceError(ctx, s, "trades", err)
 		}
 
 		trades := got.Items[:min(len(got.Items), f.Limit)]
@@ -234,7 +232,7 @@ func (a *api) ListTrades(ctx context.Context, req *pluginv1.ListTradesRequest) (
 }
 
 func (a *api) ListPositions(ctx context.Context, req *pluginv1.ListPositionsRequest) (*pluginv1.ListPositionsResponse, error) {
-	return call(ctx, a, req.GetSession(), opPositions, func(ctx context.Context, _ *session, _ trace.Span) (*pluginv1.ListPositionsResponse, error) {
+	return call(ctx, a, req.GetSession(), opPositions, func(ctx context.Context, s *session, _ trace.Span) (*pluginv1.ListPositionsResponse, error) {
 		if a.deps.Data.Positions == nil {
 			return nil, errNoSource
 		}
@@ -248,7 +246,7 @@ func (a *api) ListPositions(ctx context.Context, req *pluginv1.ListPositionsRequ
 
 		got, err := a.deps.Data.Positions.Positions(ctx, f)
 		if err != nil {
-			return nil, sourceError("positions", err)
+			return nil, a.sourceError(ctx, s, "positions", err)
 		}
 
 		held := got.Items[:min(len(got.Items), f.Limit)]
@@ -280,7 +278,7 @@ func (a *api) ListWallets(ctx context.Context, req *pluginv1.ListWalletsRequest)
 
 		wallets, err := a.deps.Data.Wallets.ListForUser(ctx, s.rc.OwnerID)
 		if err != nil {
-			return nil, sourceError("wallets", err)
+			return nil, a.sourceError(ctx, s, "wallets", err)
 		}
 
 		out := &pluginv1.ListWalletsResponse{Wallets: make([]*pluginv1.Wallet, len(wallets))}
@@ -292,18 +290,6 @@ func (a *api) ListWallets(ctx context.Context, req *pluginv1.ListWalletsRequest)
 
 		return out, nil
 	})
-}
-
-// sourceError is why a read failed, as the plugin hears it.
-func sourceError(what string, err error) error {
-	switch {
-	case errors.Is(err, context.Canceled), errors.Is(err, context.DeadlineExceeded):
-		return status.FromContextError(err).Err()
-	case errors.Is(err, domain.ErrNotFound):
-		return status.Errorf(codes.NotFound, "%s: not found", what)
-	default:
-		return status.Error(codes.Unavailable, fmt.Sprintf("%s: %v", what, err))
-	}
 }
 
 // text is a decimal as exact text.

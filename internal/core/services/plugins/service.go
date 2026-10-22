@@ -13,6 +13,8 @@ import (
 	"fmt"
 	"io"
 	"maps"
+	"net/url"
+	"reflect"
 	"slices"
 	"strings"
 	"sync"
@@ -181,12 +183,17 @@ func (s *Service) Install(ctx context.Context, p auth.Principal, archive io.Read
 		return Installed{}, domain.ErrForbidden
 	}
 
+	return s.install(ctx, p, archive, "uploaded")
+}
+
+// install installs an archive from where its audit says (P29).
+func (s *Service) install(ctx context.Context, p auth.Principal, archive io.Reader, from string) (Installed, error) {
 	f, err := s.files.Install(archive, s.limits().MaxArchive)
 	if err != nil {
 		return Installed{}, err
 	}
 
-	in, err := s.record(ctx, p, f, "")
+	in, err := s.record(ctx, p, f, from)
 	if err != nil {
 		// What the database does not know is not installed.
 		if rmErr := s.files.Remove(f.ID, f.Version); rmErr != nil {
@@ -197,8 +204,8 @@ func (s *Service) Install(ctx context.Context, p auth.Principal, archive io.Read
 	return in, err
 }
 
-// InstallFrom installs the archive at url.
-func (s *Service) InstallFrom(ctx context.Context, p auth.Principal, url string) (Installed, error) {
+// InstallFrom installs the archive at addr.
+func (s *Service) InstallFrom(ctx context.Context, p auth.Principal, addr string) (Installed, error) {
 	if !p.User.IsAdmin() {
 		return Installed{}, domain.ErrForbidden
 	}
@@ -207,13 +214,26 @@ func (s *Service) InstallFrom(ctx context.Context, p auth.Principal, url string)
 		return Installed{}, fmt.Errorf("%w: archives cannot be fetched here", domain.ErrInvalidInput)
 	}
 
-	body, err := s.fetcher.Fetch(ctx, url, s.limits().MaxArchive)
+	body, err := s.fetcher.Fetch(ctx, addr, s.limits().MaxArchive)
 	if err != nil {
 		return Installed{}, err
 	}
 	defer func() { _ = body.Close() }()
 
-	return s.Install(ctx, p, body)
+	return s.install(ctx, p, body, fetchedFrom(addr))
+}
+
+// fetchedFrom is where an archive was fetched from, as its audit says (P29): without its
+// query, fragment and user, which can hold a secret.
+func fetchedFrom(addr string) string {
+	u, err := url.Parse(addr)
+	if err != nil {
+		return "fetched from a URL"
+	}
+
+	u.User, u.RawQuery, u.ForceQuery, u.Fragment, u.RawFragment = nil, "", false, "", ""
+
+	return "fetched from " + u.String()
 }
 
 // Adopt installs a version found on disk that no admin installed (D321), checked as an
@@ -231,21 +251,19 @@ func (s *Service) Adopt(ctx context.Context, p auth.Principal, id, version strin
 	return s.record(ctx, p, f, "found on disk")
 }
 
-// record records a version installed, and says what it asks for that is new.
-func (s *Service) record(ctx context.Context, p auth.Principal, f ports.PluginFile, detail string) (Installed, error) {
+// record records a version installed from where from says, and says what it asks for that
+// is new. Its audit says where it came from, who signed it and its digest (P29).
+func (s *Service) record(ctx context.Context, p auth.Principal, f ports.PluginFile, from string) (Installed, error) {
 	before, err := s.repo.Get(ctx, f.ID)
 	if err != nil && !errors.Is(err, domain.ErrNotFound) {
 		return Installed{}, err
 	}
 
 	at := s.now()
-
-	if detail == "" {
-		detail = signedBy(f)
-	}
+	detail := from + "; " + signedBy(f.Signer, f.KeyID) + "; digest " + f.Digest
 
 	err = s.repo.AddVersion(ctx, domain.PluginVersion{
-		PluginID: f.ID, Version: f.Version, Manifest: f.Manifest, Signer: f.Signer, KeyID: f.KeyID,
+		PluginID: f.ID, Version: f.Version, Manifest: f.Manifest, Signer: f.Signer, KeyID: f.KeyID, Digest: f.Digest,
 		InstalledBy: p.User.ID, InstalledAt: at,
 	}, domain.PluginAudit{PluginID: f.ID, Version: f.Version, Action: domain.PluginInstalled, Detail: detail, By: p.User.ID, At: at})
 	if err != nil {
@@ -269,12 +287,14 @@ func (s *Service) record(ctx context.Context, p auth.Principal, f ports.PluginFi
 	return in, nil
 }
 
-func signedBy(f ports.PluginFile) string {
+// signedBy is who signed a version, as its audit says: a key's ID is there when it is
+// signed.
+func signedBy(signer, keyID string) string {
 	switch {
-	case f.Signer != "":
-		return "signed by " + f.Signer
-	case f.Signed:
-		return "signed by a key not trusted, " + f.KeyID
+	case signer != "":
+		return "signed by " + signer + ", key " + keyID
+	case keyID != "":
+		return "signed by a key not trusted, " + keyID
 	default:
 		return "not signed"
 	}
@@ -303,9 +323,17 @@ func (s *Service) Approve(ctx context.Context, p auth.Principal, id, version str
 	}
 
 	// Its files as they are now: what runs is what was approved.
-	f, err := s.files.Open(id, version)
+	f, err := s.opened(ctx, v)
 	if err != nil {
 		return err
+	}
+
+	// The page said a key the admins trusted signed it; it was told so when it was opened (P21).
+	if v.Signer != "" && f.Signer == "" {
+		s.reload(ctx)
+
+		return fmt.Errorf("%w: %s, which signed it, is no longer a key you trust: look at it again before you approve it",
+			domain.ErrInvalidInput, v.Signer)
 	}
 
 	asked, err := permissionsOf(v)
@@ -322,7 +350,8 @@ func (s *Service) Approve(ctx context.Context, p auth.Principal, id, version str
 	}
 
 	err = s.repo.Approve(ctx, domain.PluginAudit{
-		PluginID: id, Version: version, Action: domain.PluginApproved, Detail: listOf(asked), By: p.User.ID, At: s.now(),
+		PluginID: id, Version: version, Action: domain.PluginApproved, Detail: listOf(asked) + "; digest " + f.Digest,
+		By: p.User.ID, At: s.now(),
 	})
 	if err != nil {
 		return err
@@ -550,6 +579,11 @@ func (s *Service) RemoveLeftBehind(ctx context.Context, p auth.Principal, id str
 		return domain.ErrForbidden
 	}
 
+	// As a manifest has it, so never an installed one's by another case (P27).
+	if !domain.ValidPluginID(id) {
+		return fmt.Errorf("%w: %q is no plugin's ID", domain.ErrInvalidInput, id)
+	}
+
 	switch _, err := s.repo.Get(ctx, id); {
 	case err == nil:
 		return fmt.Errorf("%w: %s is installed: uninstall it, removing its data", domain.ErrInvalidInput, id)
@@ -640,9 +674,15 @@ func (s *Service) Load(ctx context.Context) error {
 		s.loaded[ip.ID] = ip.Version
 		s.mu.Unlock()
 
-		f, err := s.files.Open(ip.ID, ip.Version)
-		if err == nil {
-			err = s.runtime.Load(ctx, f)
+		err := fmt.Errorf("%w: %s has no version %s", domain.ErrNotFound, ip.ID, ip.Version)
+		if v, ok := ip.Find(ip.Version); ok {
+			// Its files held to the version approved, their manifest the approved one (P16):
+			// the runtime gets it as the files have it, since jsonb orders keys anew, and the
+			// program must describe itself in it word for word (D324).
+			var f ports.PluginFile
+			if f, err = s.opened(ctx, v); err == nil {
+				err = s.runtime.Load(ctx, f)
+			}
 		}
 
 		if err != nil {
@@ -651,6 +691,7 @@ func (s *Service) Load(ctx context.Context) error {
 			s.mu.Unlock()
 
 			s.log.Error(ctx, "Plugin not loaded", "plugin", ip.ID, "version", ip.Version, logging.Err(err))
+			s.note(ctx, domain.PluginAudit{PluginID: ip.ID, Version: ip.Version, Action: domain.PluginNotLoaded, Detail: err.Error(), At: s.now()})
 
 			if s.notifier != nil {
 				s.notifier.PluginCrashed(ip.ID, "it would not start: "+err.Error())
@@ -667,6 +708,150 @@ func (s *Service) Load(ctx context.Context) error {
 	s.reload(ctx)
 
 	return s.refreshErr()
+}
+
+// CheckFiles checks a version's files again before the runtime starts it again after a
+// crash (D322): held to what was recorded of them (P16), a refusal recorded in its plugin's
+// history (P29).
+func (s *Service) CheckFiles(ctx context.Context, id, version string) error {
+	ip, err := s.repo.Get(ctx, id)
+	if err != nil {
+		return err
+	}
+
+	v, ok := ip.Find(version)
+	if !ok {
+		return fmt.Errorf("%w: %s has no version %s", domain.ErrNotFound, id, version)
+	}
+
+	if _, err := s.opened(ctx, v); err != nil {
+		s.note(ctx, domain.PluginAudit{PluginID: id, Version: version, Action: domain.PluginNotLoaded, Detail: "as it started again: " + err.Error(), At: s.now()})
+		return err
+	}
+
+	return nil
+}
+
+// opened opens a version's files, held to what was recorded of them (P16): their digest,
+// recorded now for a version recorded without one, and their manifest, the one installed
+// and approved. Who signed them is recorded again when the keys admins trust now say
+// otherwise (P21).
+func (s *Service) opened(ctx context.Context, v domain.PluginVersion) (ports.PluginFile, error) {
+	f, err := s.files.Open(v.PluginID, v.Version)
+	if err != nil {
+		return ports.PluginFile{}, err
+	}
+
+	tampered := func(what string) error {
+		return fmt.Errorf("%w: %s %s: %s", domain.ErrInvalidInput, v.PluginID, v.Version, what)
+	}
+
+	switch {
+	case f.Digest == "":
+		return ports.PluginFile{}, tampered("its files have no digest")
+	case v.Digest != "" && f.Digest != v.Digest:
+		return ports.PluginFile{}, tampered(fmt.Sprintf("its files are not those installed: their digest is %s, not %s", f.Digest, v.Digest))
+	}
+
+	same, err := sameManifest(v.Manifest, f.Manifest)
+	if err != nil {
+		return ports.PluginFile{}, err
+	}
+
+	if !same {
+		return ports.PluginFile{}, tampered("its files' manifest is not the one installed")
+	}
+
+	audit := domain.PluginAudit{PluginID: v.PluginID, Version: v.Version, At: s.now()}
+
+	if v.Digest == "" {
+		audit.Action, audit.Detail = domain.PluginDigest, f.Digest
+		if err := s.repo.SetDigest(ctx, f.Digest, audit); err != nil {
+			return ports.PluginFile{}, fmt.Errorf("its digest not recorded: %w", err)
+		}
+	}
+
+	if f.Signer != v.Signer || f.KeyID != v.KeyID {
+		audit.Action, audit.Detail = domain.PluginSigner, signedBy(f.Signer, f.KeyID)+"; was "+signedBy(v.Signer, v.KeyID)
+		if err := s.repo.SetSigner(ctx, f.Signer, f.KeyID, audit); err != nil {
+			return ports.PluginFile{}, fmt.Errorf("its signer not recorded: %w", err)
+		}
+
+		s.log.Warn(ctx, "Plugin's signer changed", "plugin", v.PluginID, "version", v.Version, "signer", f.Signer, "was", v.Signer)
+	}
+
+	return f, nil
+}
+
+// sameManifest says whether two manifests say the same, as JSON reads them: whatever the
+// order of their keys, the form of their numbers, and members empty or not there, which
+// one kept before P19 may have.
+func sameManifest(a, b json.RawMessage) (bool, error) {
+	var va, vb any
+
+	if err := json.Unmarshal(a, &va); err != nil {
+		return false, fmt.Errorf("a manifest: %w", err)
+	}
+
+	if err := json.Unmarshal(b, &vb); err != nil {
+		return false, fmt.Errorf("a manifest: %w", err)
+	}
+
+	return reflect.DeepEqual(withoutEmpty(va), withoutEmpty(vb)), nil
+}
+
+// withoutEmpty is a JSON value with its objects' members null, false, "", [] or {} left
+// out, as omitempty leaves them.
+func withoutEmpty(v any) any {
+	switch v := v.(type) {
+	case map[string]any:
+		out := make(map[string]any, len(v))
+
+		for k, m := range v {
+			m = withoutEmpty(m)
+
+			switch m := m.(type) {
+			case nil:
+				continue
+			case bool:
+				if !m {
+					continue
+				}
+			case string:
+				if m == "" {
+					continue
+				}
+			case []any:
+				if len(m) == 0 {
+					continue
+				}
+			case map[string]any:
+				if len(m) == 0 {
+					continue
+				}
+			}
+
+			out[k] = m
+		}
+
+		return out
+	case []any:
+		out := make([]any, len(v))
+		for i, e := range v {
+			out[i] = withoutEmpty(e)
+		}
+
+		return out
+	default:
+		return v
+	}
+}
+
+// note records what the server did with a plugin in its history.
+func (s *Service) note(ctx context.Context, a domain.PluginAudit) {
+	if err := s.repo.Record(ctx, a); err != nil {
+		s.log.Warn(ctx, "Plugin's history not written", "plugin", a.PluginID, "action", a.Action, logging.Err(err))
+	}
 }
 
 // PauseGone pauses the active workflows using plugins disabled or uninstalled, or ones

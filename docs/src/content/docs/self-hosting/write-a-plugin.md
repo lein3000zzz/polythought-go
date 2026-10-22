@@ -78,6 +78,11 @@ var manifest = plugin.Manifest{
 - **Items** describe what a node sends on, for the editor and for code written against it.
 - **Scenarios** are workflows for the library, written as the built-in ones are.
 
+The server refuses a manifest past its bounds: a name of at most 64 characters, labels of 100,
+descriptions of 2,000, no control or bidi characters in names and labels, up to 100 nodes and
+100 triggers of 64 params each, 32 settings, metrics, credential types and scenarios, and a
+`manifest.json` of at most 256 KiB. A credential param has no default: the owner picks it.
+
 ## main
 
 `plugin.Serve` runs the plugin. It refuses a plugin whose manifest declares a node, trigger or
@@ -180,7 +185,9 @@ up on what it missed.
 
 Each call but `Metric` and `Span` counts against **Data requests per run** on the Config page;
 a trigger's, against as many each minute. Logs, metrics and spans are capped apart, at 1,000 a
-run. A fetch is held to **Plugin fetch time** and **Plugin fetch size (KiB)**, a
+run, a log line at 16 KiB with its fields, a span's attributes at 16 KiB, 100 spans open at
+once. A run's calls go four at a time; the others wait. The server's own failures come back in
+a few fixed words, never its internals. A fetch is held to **Plugin fetch time** and **Plugin fetch size (KiB)**, a
 store to **Plugin store per node (KiB)**. A call the permissions do not allow fails with
 `plugin.ErrNotAllowed`, one past a limit with `plugin.ErrLimit`.
 
@@ -190,13 +197,19 @@ On Linux, the server runs a plugin in [its sandbox](/docs/self-hosting/plugins/#
 and a plugin is written for it:
 
 - **No network of its own.** Every request goes through `Host.Fetch`, held to the permissions.
+  It connects to no socket at all: go-plugin's listener, in its temporary directory, is the one
+  it may have, and Unix sockets are streams only.
 - **Two directories.** `plugin.DataDir()` is its own, kept across restarts and upgrades;
   `os.TempDir()` is emptied when it stops. Nothing else on disk, its own files read only.
 - **No other process.** It starts no process, and runs no program but its own.
 - **Caps.** Its data and its memory are capped, 1 GiB and 256 MiB unless an admin says. A Go
-  plugin gets a soft memory limit under its cap, which its garbage collector keeps to.
+  plugin gets a soft memory limit under its cap, which its garbage collector keeps to, and the
+  kernel a hard one, twice the cap and 256 MiB. No one file may be larger than the data cap.
+- **No terminal.** Its standard input is empty and it runs in a session of its own. What it
+  writes to standard error reaches the server's log a hundred lines at once, then ten a second,
+  each cut to 8 KiB.
 - **A static program.** The sandbox gives it no C library, so it is built with CGO off, as
-  pluginpack builds it.
+  pluginpack builds it. The server runs a copy of it, made as it checks it.
 
 One process serves every workflow and every owner using the plugin. Keep what belongs to a run
 in that run, its `Run` and its items, never in a global another run could see.

@@ -19,8 +19,11 @@ Open **Admin → Plugins**. Under **Install a plugin**, pick its archive, a `.ta
 inside the server's network unless **Private addresses** on the Config page allows it.
 
 The archive is checked whole before anything of it is kept: its files against the checksums it
-carries, its signature, if it has one, against the keys you trust, and its manifest. One that is
-not as it should be is refused, saying why. Archives may be up to **Largest archive (MB)** on
+carries, its signature, if it has one, against the keys you trust, and its manifest, which may
+be at most 256 KiB. One that is not as it should be is refused, saying why. The server also
+keeps the digest of its files as installed: a version whose files change after that, approved
+or not, is refused as tampered, as it is approved, as the server starts and each time the
+plugin starts again. Archives may be up to **Largest archive (MB)** on
 the Config page, 100 MB unless you change it.
 
 Installed plugins are kept in the plugins directory, `plugins` beside the server unless
@@ -39,7 +42,9 @@ Polythought RWQf6LRCGA9i53mlYecO4IzT51TGPpvWucNSCh1CBM0QTaLn73Y7GFO3
 
 A plugin one of them signed shows who did. One signed by a key you do not trust, or not signed
 at all, installs too, with a warning you tick before approving it. One whose signature by a
-trusted key does not hold is refused: it is not what it says it is.
+trusted key does not hold is refused: it is not what it says it is. Stop trusting a key, and
+the versions it signed lose their signer: **Approve** refuses one that waits until you look at
+it again, warning and all.
 
 ## Approving
 
@@ -68,11 +73,16 @@ new are marked. **Remove** drops a version you do not want.
 On Linux 6.2 or later, the server starts each plugin's process in a sandbox built from
 Landlock and seccomp. There is nothing to set up, in Docker or out. In the sandbox a plugin:
 
-- reads its own version's files, and runs no program but its own;
+- runs a copy of its program the server makes as it checks it, and no other program;
 - writes only its own directory and a temporary one, which the server empties when it stops;
 - opens no network connection, so every request goes through the server and its permissions;
+- connects to no socket: it only listens on one in its temporary directory, which the server
+  dials;
 - starts no other process, and cannot signal or trace the server or anything else;
-- keeps at most 1024 files open.
+- has no terminal: its input is empty, and it runs in a session of its own, at a lower
+  priority than the server's;
+- keeps at most 1024 files open, and its memory and any one file it writes are held to hard
+  limits from its caps.
 
 Its card says **Sandboxed**.
 
@@ -123,8 +133,8 @@ and its data on disk, each against its cap. A bar turns amber at 80% of its cap 
 
 | Setting | Default | Past it |
 | --- | --- | --- |
-| **Plugin data cap (MiB)** | 1024 | The server stops the plugin, marks it **Crashed** and tells admins. The cap counts its own directory and its temporary one together. |
-| **Plugin memory cap (MiB)** | 256 | The server kills its process. That counts as a crash, so it starts again after a wait. A plugin written in Go also gets a soft limit a little under the cap, which its garbage collector keeps to. |
+| **Plugin data cap (MiB)** | 1024 | The server stops the plugin, marks it **Crashed** and tells admins. The cap counts its own directory and its temporary one together, and the files it deleted but keeps open. No one file it writes may be larger than the cap. |
+| **Plugin memory cap (MiB)** | 256 | The server kills its process. That counts as a crash, so it starts again after a wait. A plugin written in Go also gets a soft limit a little under the cap, which its garbage collector keeps to. In the sandbox, the kernel also holds its memory to twice the cap and 256 MiB, at once, and it has no shared memory to hide any in. |
 
 The server measures a plugin's memory twice a second, on Linux only, and its data every 30
 seconds. **Caps** on a plugin's card sets caps for that plugin alone. Leave a field blank for
@@ -132,7 +142,8 @@ the Config page's. A new cap holds from the next measurement, and a Go plugin's 
 its next start.
 
 A plugin stopped for its data stays stopped while its data is past its cap: after **Start
-again**, the server stops it at once. Raise its cap first.
+again**, the server stops it at once. Raise its cap first. Data the server cannot measure, a path
+too long to walk say, counts as past the cap.
 
 ## What a plugin may ask of the server
 
@@ -150,4 +161,6 @@ stored in workflows. A reinstall finds the data it kept.
 What uninstalled plugins kept is listed under **Data left behind** on the Plugins page, with
 what it takes. **Remove** there deletes it for good.
 
-**History**, on a plugin's card, lists what admins did with it, kept after it is uninstalled.
+**History**, on a plugin's card, lists what admins did with it, kept after it is uninstalled:
+where each version came from and the digest of its files, and each time a version would not
+start.

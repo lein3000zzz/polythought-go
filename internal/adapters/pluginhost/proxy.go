@@ -138,7 +138,7 @@ func (n *proxyNode) run(ctx context.Context, rc engine.RunContext, in engine.Por
 	}
 
 	res, err := rpc.RunNode(ctx, req)
-	q := s.asked()
+	q := s.settle()
 
 	out, wait, err := n.answered(ctx, s, in, res, err, q)
 	if q != nil && wait == nil {

@@ -17,7 +17,8 @@ import (
 // Host is what a node or trigger may ask of Polythought while it runs, in Run.Host: its
 // only way out of its process. Each call is checked against the permissions the manifest
 // asks for. Fetch and Credential count against the run's limit (a trigger's, a minute):
-// past it they fail, and so does the node, whether it minds or not.
+// past it they fail, and so does the node, whether it minds or not. A run's calls go four
+// at a time, the rest waiting their turn, and end with the run.
 type Host interface {
 	// Fetch makes an HTTP request to a host a fetch permission names, fetch:api.example.com,
 	// or to any public address with fetch:*. Any status is a response, not an error.
@@ -33,7 +34,8 @@ type Host interface {
 	Metric(ctx context.Context, name string, value float64, labels map[string]string) error
 
 	// Span starts a span, under the one ctx carries or else the node's, with attributes;
-	// end ends it, failed unless err is nil. The context it returns carries it.
+	// end ends it, failed unless err is nil. The context it returns carries it. A run has
+	// 100 going at most, each with 16 KiB of attributes, at start and end together.
 	Span(ctx context.Context, name string, attributes map[string]string) (_ context.Context, end func(err error))
 
 	// Get, Set, Delete and Keys are the node's own store in its workflow, for a node its
@@ -45,8 +47,8 @@ type Host interface {
 	Get(ctx context.Context, key string, v any) (bool, error)
 	Set(ctx context.Context, key string, v any) error
 	Delete(ctx context.Context, key string) error
-	// Keys are those starting with prefix, in byte order, after after: up to limit,
-	// 100 when 0, 1000 at most.
+	// Keys are those starting with prefix, in byte order, after after, both no longer
+	// than a key: up to limit, 100 when 0, 1000 at most.
 	Keys(ctx context.Context, prefix, after string, limit int) ([]string, error)
 
 	// SearchMarkets, OrderBook, PriceHistory, Trades and Positions read Polymarket's

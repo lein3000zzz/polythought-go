@@ -39,11 +39,21 @@ func (a *api) storeOf(s *session) (ports.PluginNode, error) {
 
 // checkKey refuses a key the store cannot keep: empty, too long, or not text.
 func checkKey(key string) error {
-	switch {
-	case key == "" || len(key) > maxKey:
+	if key == "" || len(key) > maxKey {
 		return status.Errorf(codes.InvalidArgument, "a key: 1 to %d bytes", maxKey)
-	case !utf8.ValidString(key) || strings.ContainsRune(key, 0):
-		return status.Error(codes.InvalidArgument, "a key: UTF-8 text, no NUL")
+	}
+
+	return checkKeyText("a key", key)
+}
+
+// checkKeyText refuses text a key could not be, or start with: too long, or not text. A
+// list's prefix and after are held to it too (P24).
+func checkKeyText(what, text string) error {
+	switch {
+	case len(text) > maxKey:
+		return status.Errorf(codes.InvalidArgument, "%s: up to %d bytes", what, maxKey)
+	case !utf8.ValidString(text) || strings.ContainsRune(text, 0):
+		return status.Errorf(codes.InvalidArgument, "%s: UTF-8 text, no NUL", what)
 	}
 
 	return nil
@@ -122,6 +132,14 @@ func (a *api) ListKeys(ctx context.Context, req *pluginv1.ListKeysRequest) (*plu
 			return nil, err
 		}
 
+		if err := checkKeyText("the prefix", req.GetPrefix()); err != nil {
+			return nil, err
+		}
+
+		if err := checkKeyText("after", req.GetAfter()); err != nil {
+			return nil, err
+		}
+
 		keys, err := a.deps.Store.Keys(ctx, n, req.GetPrefix(), req.GetAfter(), page(req.GetLimit(), 100, maxKeys))
 		if err != nil {
 			return nil, a.storeError(ctx, err)
@@ -133,8 +151,8 @@ func (a *api) ListKeys(ctx context.Context, req *pluginv1.ListKeysRequest) (*plu
 
 // storeError is why the store failed, logged; the plugin hears only that it did.
 func (a *api) storeError(ctx context.Context, err error) error {
-	if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
-		return status.FromContextError(err).Err()
+	if e := ended(err); e != nil {
+		return e
 	}
 
 	a.log.Warn(ctx, "Plugin store failed", logging.Err(err))

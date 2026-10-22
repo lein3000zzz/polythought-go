@@ -2,6 +2,8 @@ package plugins_test
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"io"
@@ -123,6 +125,35 @@ func (r *repo) Approve(_ context.Context, a domain.PluginAudit) error {
 	})
 }
 
+// version changes a.Version of a.PluginID.
+func (r *repo) version(a domain.PluginAudit, fn func(v *domain.PluginVersion) error) error {
+	return r.change(a.PluginID, a, func(p *domain.InstalledPlugin) error {
+		for i := range p.Versions {
+			if p.Versions[i].Version == a.Version {
+				return fn(&p.Versions[i])
+			}
+		}
+
+		return domain.ErrNotFound
+	})
+}
+
+func (r *repo) SetDigest(_ context.Context, digest string, a domain.PluginAudit) error {
+	return r.version(a, func(v *domain.PluginVersion) error {
+		if v.Digest != "" {
+			return domain.ErrNotFound
+		}
+
+		v.Digest = digest
+
+		return nil
+	})
+}
+
+func (r *repo) SetSigner(_ context.Context, signer, keyID string, a domain.PluginAudit) error {
+	return r.version(a, func(v *domain.PluginVersion) error { v.Signer, v.KeyID = signer, keyID; return nil })
+}
+
 func (r *repo) RemoveVersion(_ context.Context, a domain.PluginAudit) error {
 	return r.change(a.PluginID, a, func(p *domain.InstalledPlugin) error {
 		p.Versions = slices.DeleteFunc(p.Versions, func(v domain.PluginVersion) bool { return v.Version == a.Version })
@@ -229,7 +260,16 @@ func newFiles() *files {
 func file(id, version string, perms ...string) ports.PluginFile {
 	m, _ := json.Marshal(map[string]any{"id": id, "version": version, "permissions": perms})
 
-	return ports.PluginFile{ID: id, Version: version, Name: id, Permissions: perms, Manifest: m, Program: "/plugins/" + id + "/" + version}
+	return ports.PluginFile{
+		ID: id, Version: version, Name: id, Permissions: perms, Manifest: m, Program: "/plugins/" + id + "/" + version,
+		Digest: digestOf(string(m)),
+	}
+}
+
+// digestOf stands for the digest of a version's checksums.txt.
+func digestOf(text string) string {
+	sum := sha256.Sum256([]byte(text))
+	return hex.EncodeToString(sum[:])
 }
 
 func archive(id, version string, perms ...string) io.Reader {
@@ -503,7 +543,7 @@ func TestAdopt(t *testing.T) {
 
 	history, err := f.s.History(ctx, admin, "copied")
 	require.NoError(t, err)
-	assert.Equal(t, "found on disk", history[0].Detail)
+	assert.Equal(t, "found on disk; not signed; digest "+file("copied", "2.0.0").Digest, history[0].Detail)
 }
 
 // installed installs and approves a version of a plugin, as an admin.
@@ -557,6 +597,11 @@ func TestUninstallData(t *testing.T) {
 		assert.Contains(t, f.files.data, "kept")
 
 		require.ErrorIs(t, f.s.RemoveLeftBehind(ctx, alice, "news"), domain.ErrForbidden)
+
+		// Where the filesystem ignores case, Kept would be kept's (P27).
+		require.ErrorIs(t, f.s.RemoveLeftBehind(ctx, admin, "Kept"), domain.ErrInvalidInput)
+		assert.Contains(t, f.files.data, "kept")
+
 		require.NoError(t, f.s.RemoveLeftBehind(ctx, admin, "news"))
 
 		left, _ := f.s.LeftBehind(ctx, admin)
@@ -666,6 +711,10 @@ func TestLoad(t *testing.T) {
 		assert.Equal(t, "failed", broken.Status.State)
 		assert.Equal(t, "exit status 3", broken.Status.LastError)
 		assert.Equal(t, []string{"broken: it would not start: exit status 3"}, f.notices.crashed)
+
+		history, _ := f.s.History(ctx, admin, "broken")
+		assert.Equal(t, domain.PluginAudit{PluginID: "broken", Version: "1.0.0", Action: domain.PluginNotLoaded, Detail: "exit status 3", At: at}, history[0],
+			"in its history, by the server (P29)")
 	})
 
 	t.Run("workflows of plugins disabled, uninstalled or forbidden paused (D319)", func(t *testing.T) {
@@ -727,5 +776,170 @@ func TestStartAndHistory(t *testing.T) {
 	}
 
 	assert.Equal(t, []string{domain.PluginStarted, domain.PluginApproved, domain.PluginInstalled}, actions)
-	assert.Equal(t, "not signed", history[2].Detail)
+
+	digest := file("weather", "1.0.0").Digest
+	assert.Equal(t, "no permissions; digest "+digest, history[1].Detail, "the bytes approved (P29)")
+	assert.Equal(t, "uploaded; not signed; digest "+digest, history[2].Detail, "where from, who signed it, the bytes installed (P29)")
+}
+
+// historyOf is a plugin's history, its actions and details.
+func historyOf(t *testing.T, f fixture, id string) []string {
+	t.Helper()
+
+	history, err := f.s.History(context.Background(), admin, id)
+	require.NoError(t, err)
+
+	out := make([]string, len(history))
+	for i, a := range history {
+		out[i] = a.Action + ": " + a.Detail
+	}
+
+	return out
+}
+
+// An approval holds to the files installed (P16): a version replaced whole on disk, as a
+// new checksums.txt would let it be, is neither approved, loaded nor started again, and its
+// history says so (P29).
+func TestApprovalHoldsToTheFiles(t *testing.T) {
+	ctx := context.Background()
+	f := newFixture()
+
+	installed(t, f, "weather", "1.0.0")
+	_, err := f.s.Install(ctx, admin, archive("weather", "1.1.0"))
+	require.NoError(t, err)
+
+	replaced := func(version string) {
+		pf := file("weather", version)
+		pf.Digest = digestOf("other files")
+		f.files.versions[ports.PluginFound{ID: "weather", Version: version}] = pf
+	}
+
+	replaced("1.0.0")
+	replaced("1.1.0")
+
+	err = f.s.Approve(ctx, admin, "weather", "1.1.0", nil)
+	require.ErrorIs(t, err, domain.ErrInvalidInput)
+	assert.Contains(t, err.Error(), "its files are not those installed")
+
+	require.NoError(t, f.s.Load(ctx))
+	assert.Empty(t, f.runtime.loaded, "not loaded")
+	assert.Contains(t, historyOf(t, f, "weather")[0], domain.PluginNotLoaded+": invalid input: weather 1.0.0: its files are not those installed")
+
+	err = f.s.CheckFiles(ctx, "weather", "1.0.0")
+	require.ErrorIs(t, err, domain.ErrInvalidInput, "nor started again")
+	assert.Contains(t, historyOf(t, f, "weather")[0], domain.PluginNotLoaded+": as it started again: invalid input: weather 1.0.0: its files are not those installed")
+
+	f.files.versions[ports.PluginFound{ID: "weather", Version: "1.0.0"}] = file("weather", "1.0.0")
+	require.NoError(t, f.s.CheckFiles(ctx, "weather", "1.0.0"), "as installed again")
+}
+
+// A version recorded before digests were has its digest recorded as it is first opened,
+// held to from then; and its files' manifest must be the one recorded, as JSON reads it
+// (P16).
+func TestDigestRecordedFirstOpened(t *testing.T) {
+	ctx := context.Background()
+
+	recordedBefore := func(t *testing.T, manifest string) fixture {
+		t.Helper()
+
+		f := newFixture()
+		installed(t, f, "weather", "1.0.0")
+
+		v := &f.repo.plugins["weather"].Versions[0]
+		v.Digest, v.Manifest = "", json.RawMessage(manifest)
+
+		return f
+	}
+
+	t.Run("recorded, then held to", func(t *testing.T) {
+		// As kept before P19: its bytes, empty members and numbers as written.
+		f := recordedBefore(t, `{"version": "1.0.0", "id": "weather", "permissions": [], "description": "", "n": 1e2}`)
+		pf := file("weather", "1.0.0")
+		pf.Manifest = json.RawMessage(`{"id":"weather","version":"1.0.0","n":100}`)
+		f.files.versions[ports.PluginFound{ID: "weather", Version: "1.0.0"}] = pf
+
+		require.NoError(t, f.s.Load(ctx))
+		require.Len(t, f.runtime.loaded, 1)
+
+		ip, _ := f.repo.Get(ctx, "weather")
+		assert.Equal(t, pf.Digest, ip.Versions[0].Digest)
+		assert.Equal(t, domain.PluginDigest+": "+pf.Digest, historyOf(t, f, "weather")[0])
+
+		pf.Digest = digestOf("other files")
+		f.files.versions[ports.PluginFound{ID: "weather", Version: "1.0.0"}] = pf
+		require.ErrorIs(t, f.s.CheckFiles(ctx, "weather", "1.0.0"), domain.ErrInvalidInput)
+	})
+
+	t.Run("refused when its manifest is another", func(t *testing.T) {
+		f := recordedBefore(t, `{"id": "weather", "version": "1.0.0"}`)
+		f.files.versions[ports.PluginFound{ID: "weather", Version: "1.0.0"}] = file("weather", "1.0.0", "orders")
+
+		require.NoError(t, f.s.Load(ctx))
+		assert.Empty(t, f.runtime.loaded)
+		assert.Contains(t, historyOf(t, f, "weather")[0], "its files' manifest is not the one installed")
+
+		ip, _ := f.repo.Get(ctx, "weather")
+		assert.Empty(t, ip.Versions[0].Digest, "never recorded for files not as recorded")
+	})
+}
+
+// Who signed a version is as the keys admins trust now say (P21): one whose key is no
+// longer trusted is not approved as signed, and shows so; at load, the signer is recorded
+// again.
+func TestSignerAsTrustedNow(t *testing.T) {
+	ctx := context.Background()
+	f := newFixture()
+
+	k := ports.PluginFound{ID: "weather", Version: "1.0.0"}
+	signedBy := func(signer string) {
+		pf := file("weather", "1.0.0")
+		pf.Signed, pf.Signer, pf.KeyID = true, signer, "E7620F1842B4E81F"
+		f.files.versions[k] = pf
+	}
+
+	signedBy("Alice")
+	_, err := f.s.Adopt(ctx, admin, "weather", "1.0.0")
+	require.NoError(t, err)
+
+	signedBy("") // her key removed from those trusted
+
+	err = f.s.Approve(ctx, admin, "weather", "1.0.0", nil)
+	require.ErrorIs(t, err, domain.ErrInvalidInput)
+	assert.Contains(t, err.Error(), "Alice, which signed it, is no longer a key you trust")
+
+	ip, _ := f.repo.Get(ctx, "weather")
+	assert.Empty(t, ip.Versions[0].Signer, "the page warns again")
+	assert.Equal(t, "E7620F1842B4E81F", ip.Versions[0].KeyID)
+	assert.Equal(t, domain.PluginSigner+": signed by a key not trusted, E7620F1842B4E81F; was signed by Alice, key E7620F1842B4E81F",
+		historyOf(t, f, "weather")[0])
+
+	require.NoError(t, f.s.Approve(ctx, admin, "weather", "1.0.0", nil), "approved as it now shows")
+
+	signedBy("Alice's company") // trusted again, by another name
+	require.NoError(t, f.s.Load(ctx))
+
+	ip, _ = f.repo.Get(ctx, "weather")
+	assert.Equal(t, "Alice's company", ip.Versions[0].Signer)
+}
+
+// fetcher fetches the same archive from any URL.
+type fetcher struct{ archive string }
+
+func (f fetcher) Fetch(context.Context, string, int64) (io.ReadCloser, error) {
+	return io.NopCloser(strings.NewReader(f.archive)), nil
+}
+
+// The install's audit says where the archive came from, without what in its URL could be a
+// secret (P29).
+func TestInstalledFrom(t *testing.T) {
+	ctx := context.Background()
+	f := newFixture()
+	f.s = plugins.New(f.repo, f.files, f.runtime, f.workflows, logging.Noop(),
+		plugins.WithClock(func() time.Time { return at }), plugins.WithFetcher(fetcher{archive: "weather 1.0.0 "}))
+
+	_, err := f.s.InstallFrom(ctx, admin, "https://bob:pw@example.com/weather.tgz?token=secret#top")
+	require.NoError(t, err)
+
+	assert.Equal(t, domain.PluginInstalled+": fetched from https://example.com/weather.tgz; not signed; digest "+file("weather", "1.0.0").Digest,
+		historyOf(t, f, "weather")[0])
 }

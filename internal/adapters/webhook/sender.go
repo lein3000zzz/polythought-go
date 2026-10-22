@@ -291,6 +291,8 @@ func public(addr netip.Addr) bool {
 // reserved are the ranges netip counts as global that are not, or that carry an IPv4
 // address inside an IPv6 one, which a gateway may reach inside the network (R13).
 var reserved = []netip.Prefix{
+	netip.MustParsePrefix("::/96"),          // IPv4-compatible, deprecated, which a tunnel may route (P14)
+	netip.MustParsePrefix("fec0::/10"),      // site-local, deprecated, routed inside some networks still (P14)
 	netip.MustParsePrefix("64:ff9b::/96"),   // NAT64
 	netip.MustParsePrefix("64:ff9b:1::/48"), // NAT64, local
 	netip.MustParsePrefix("2002::/16"),      // 6to4

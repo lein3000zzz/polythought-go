@@ -46,6 +46,14 @@ func TestPublic(t *testing.T) {
 		{addr: "198.18.0.1"},
 		{addr: "240.0.0.1"},
 		{addr: "255.255.255.255"},
+		// Deprecated forms a sit0 tunnel or an old site-local route still reaches (P14).
+		{addr: "::7f00:1"},
+		{addr: "::a00:1"},
+		{addr: "::808:808"},
+		{addr: "fec0::1"},
+		{addr: "feff:ffff::1"},
+		{addr: "ff00::1"}, // multicast, past site-local
+		{addr: "2001:4860:4860::8888", want: true},
 	}
 
 	for _, tt := range tests {

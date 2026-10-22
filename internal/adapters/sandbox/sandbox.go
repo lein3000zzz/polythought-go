@@ -14,11 +14,22 @@
 //     running what it writes there;
 //   - reads /dev/null, /dev/urandom and the time zones, writes /dev/null; nothing else on
 //     disk, the server's files and /proc included;
-//   - opens no socket but a Unix one, so no network at all: what it fetches goes through
+//   - opens no socket but a Unix stream one, and connects none: it listens, in its
+//     temporary directory, and the host dials it; so no network at all, and no one else's
+//     socket reached, whatever the kernel's Landlock (P6): what it fetches goes through
 //     the host;
 //   - signals only itself, traces nothing, mounts nothing, makes no namespace, loads
-//     nothing into the kernel, and has no io_uring;
-//   - opens at most 1024 files, and dumps no core.
+//     nothing into the kernel, has no io_uring, keeps its personality (P30), and makes no
+//     syscall of another architecture's, which kills it;
+//   - holds no memory past its resident set, which the host watches: no memfd, no System V
+//     shared memory (P7);
+//   - has a session of its own, so no terminal to push input into, nor the ioctls that
+//     would (P8, P30); a program's stdin is /dev/null, an entry's the one its command
+//     gave it;
+//   - runs at nice 10, or nicer where the server is, and cannot raise its priority (P23);
+//   - opens at most 1024 files, dumps no core, maps no more than Policy.Memory writable,
+//     refused more past it, and writes no file past Policy.FileSize, told so with EFBIG
+//     (P7, P9).
 package sandbox
 
 import (
@@ -55,6 +66,14 @@ type Policy struct {
 	Dir     string // the program's directory, read only, the only programs it may run
 	Temp    string // its private temporary directory, read and written
 	Data    string // its lasting directory, read and written; empty for none
+
+	// Memory and FileSize are hard limits, in bytes, of what its memory may take, its
+	// data segment (RLIMIT_DATA), and of any one file it writes (RLIMIT_FSIZE); zero for
+	// none. The data segment is what it maps writable, touched or not: a Go program maps
+	// some 40 MiB before main, linked with cgo 8 MiB more for each thread's stack, and its
+	// runtime dies when refused more (P7).
+	Memory   int64
+	FileSize int64
 }
 
 // Entry is a program of the server's own binary, which the launcher runs in place of

@@ -1,6 +1,6 @@
 // Echo is the host's test plugin: a node of each shape, a trigger, a credential type and
 // a scenario, a node that misbehaves, nodes that ask the host for what they may and may
-// not, and ones that try the disk and take memory.
+// not, and ones that try the disk, hide data from its cap, take memory and chatter.
 package main
 
 import (
@@ -12,9 +12,12 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
+
+	"golang.org/x/sys/unix"
 
 	"github.com/lein3000zzz/polythought-go/pkg/plugin"
 )
@@ -40,8 +43,11 @@ var manifest = plugin.Manifest{
 		{Name: "count", Label: "Count", Items: &plugin.Items{Fields: []plugin.Field{{Name: "count", Kind: "number"}}}},
 		{Name: "env", Label: "Environment"},
 		{Name: "disk", Label: "Disk", Params: []plugin.Param{{Name: "outside", Kind: "string"}, {Name: "dir", Kind: "string"}}},
-		{Name: "fill", Label: "Fill", Params: []plugin.Param{{Name: "bytes", Kind: "number"}}},
+		{Name: "fill", Label: "Fill", Params: []plugin.Param{{Name: "bytes", Kind: "number"}, {Name: "files", Kind: "number", Default: 1}}},
+		{Name: "hide", Label: "Hide", Params: []plugin.Param{{Name: "bytes", Kind: "number"}, {Name: "files", Kind: "number", Default: 1}}},
+		{Name: "deep", Label: "Deep", Params: []plugin.Param{{Name: "depth", Kind: "number"}, {Name: "bytes", Kind: "number"}}},
 		{Name: "hog", Label: "Hog", Params: []plugin.Param{{Name: "mib", Kind: "number"}}},
+		{Name: "spam", Label: "Spam", Params: []plugin.Param{{Name: "lines", Kind: "number"}, {Name: "size", Kind: "number"}}},
 		{Name: "misbehave", Label: "Misbehave", Params: []plugin.Param{{Name: "how", Kind: "string"}}},
 		{
 			Name: "keyed", Label: "Keyed",
@@ -99,7 +105,10 @@ func main() {
 			"env":       plugin.PerItem(env),
 			"disk":      plugin.PerItem(disk),
 			"fill":      plugin.PerItem(fill),
+			"hide":      plugin.PerItem(hide),
+			"deep":      plugin.PerItem(deep),
 			"hog":       plugin.PerItem(hog),
+			"spam":      plugin.PerItem(spam),
 			"misbehave": plugin.NodeFunc(misbehave),
 			"keyed":     plugin.PerItem(keyed),
 			"fetch":     plugin.NodeFunc(fetch),
@@ -163,15 +172,33 @@ func count(_ context.Context, _ plugin.Run, in plugin.Ports) (plugin.Ports, erro
 	return out, nil
 }
 
-// env is what the plugin's process can see of the server's environment: nothing.
+// env is what the plugin's process can see of the server's environment, nothing, and
+// what it is held to: its limits, and its session.
 func env(context.Context, plugin.Run, plugin.Item) (string, map[string]any, error) {
 	var names []string
 	for _, kv := range os.Environ() {
 		names = append(names, strings.SplitN(kv, "=", 2)[0])
 	}
 
+	limit := func(resource int) string {
+		var l unix.Rlimit
+		if err := unix.Getrlimit(resource, &l); err != nil {
+			return err.Error()
+		}
+
+		if l.Max == unix.RLIM_INFINITY {
+			return "none"
+		}
+
+		return strconv.FormatUint(l.Max, 10)
+	}
+
+	sid, _ := unix.Getsid(0)
+
 	return "", map[string]any{
 		"names": strings.Join(names, ","), "secret": os.Getenv("POLYTHOUGHT_SECRET_KEYS"), "gomemlimit": os.Getenv("GOMEMLIMIT"),
+		"data_limit": limit(unix.RLIMIT_DATA), "file_limit": limit(unix.RLIMIT_FSIZE),
+		"session": sid == os.Getpid(),
 	}, nil
 }
 
@@ -189,23 +216,102 @@ func disk(_ context.Context, _ plugin.Run, item plugin.Item) (string, map[string
 	outside, _ := item.Params["outside"].(string)
 	dir, _ := item.Params["dir"].(string)
 	_, read := os.ReadFile(outside) //nolint:gosec // what the test names, to be refused
+	exe, _ := os.Executable()
 
 	return "", map[string]any{
 		"data_dir":     plugin.DataDir(),
 		"temp_dir":     os.TempDir(),
+		"exe":          exe,
 		"write_data":   said(os.WriteFile(filepath.Join(plugin.DataDir(), "kept.txt"), []byte("kept"), 0o600)),
 		"write_temp":   said(os.WriteFile(filepath.Join(os.TempDir(), "scratch.txt"), []byte("scratch"), 0o600)),
 		"read_outside": said(read),
 		"write_own":    said(os.WriteFile(filepath.Join(dir, "planted"), []byte("planted"), 0o600)),
+		"write_exe":    said(os.WriteFile(filepath.Join(filepath.Dir(exe), "planted"), []byte("planted"), 0o600)),
 	}, nil
 }
 
-// fill writes bytes to its lasting directory.
-func fill(_ context.Context, _ plugin.Run, item plugin.Item) (string, map[string]any, error) {
-	raw, _ := item.Params["bytes"].(json.Number)
+// number is the item's param name as an int64.
+func number(item plugin.Item, name string) int64 {
+	raw, _ := item.Params[name].(json.Number)
 	n, _ := raw.Int64()
 
-	return "", nil, os.WriteFile(filepath.Join(plugin.DataDir(), "fill"), make([]byte, n), 0o600)
+	return n
+}
+
+// fill writes bytes to each of files files, one unless it says, in its lasting directory.
+func fill(_ context.Context, _ plugin.Run, item plugin.Item) (string, map[string]any, error) {
+	for i := range max(1, number(item, "files")) {
+		if err := os.WriteFile(filepath.Join(plugin.DataDir(), fmt.Sprint("fill", i)), make([]byte, number(item, "bytes")), 0o600); err != nil {
+			return "", nil, err
+		}
+	}
+
+	return "", nil, nil
+}
+
+// hidden are the files hide holds open.
+var hidden []*os.File
+
+// hide writes bytes to each of files files, one unless it says, in its temporary
+// directory, each removed first and held open: no walk of its directories finds them.
+func hide(_ context.Context, _ plugin.Run, item plugin.Item) (string, map[string]any, error) {
+	for range max(1, number(item, "files")) {
+		f, err := os.CreateTemp("", "hidden-")
+		if err != nil {
+			return "", nil, err
+		}
+
+		hidden = append(hidden, f)
+
+		if err := os.Remove(f.Name()); err != nil {
+			return "", nil, err
+		}
+
+		if _, err := f.Write(make([]byte, number(item, "bytes"))); err != nil {
+			return "", nil, err
+		}
+	}
+
+	return "", nil, nil
+}
+
+// deep writes bytes to a file under depth directories of long names in its lasting
+// directory, each made from the last, so their path is past what the system takes.
+func deep(_ context.Context, _ plugin.Run, item plugin.Item) (string, map[string]any, error) {
+	fd, err := unix.Open(plugin.DataDir(), unix.O_RDONLY|unix.O_DIRECTORY, 0)
+	if err != nil {
+		return "", nil, err
+	}
+
+	name := strings.Repeat("d", 200)
+
+	for range number(item, "depth") {
+		if err := unix.Mkdirat(fd, name, 0o700); err != nil {
+			return "", nil, err
+		}
+
+		next, err := unix.Openat(fd, name, unix.O_RDONLY|unix.O_DIRECTORY, 0)
+		_ = unix.Close(fd)
+
+		if err != nil {
+			return "", nil, err
+		}
+
+		fd = next
+	}
+
+	defer func() { _ = unix.Close(fd) }()
+
+	file, err := unix.Openat(fd, "deep", unix.O_WRONLY|unix.O_CREAT, 0o600)
+	if err != nil {
+		return "", nil, err
+	}
+
+	defer func() { _ = unix.Close(file) }()
+
+	_, err = unix.Write(file, make([]byte, number(item, "bytes")))
+
+	return "", nil, err
 }
 
 // hoard is what hog holds on to.
@@ -226,6 +332,23 @@ func hog(_ context.Context, _ plugin.Run, item plugin.Item) (string, map[string]
 	}
 
 	return "", map[string]any{"held": len(hoard)}, nil
+}
+
+// stderr is the process's own, which go-plugin's host reads, before its Serve takes
+// os.Stderr for a stream of its own.
+var stderr = os.Stderr
+
+// spam writes lines lines of size bytes to its stderr, as go-plugin forwards errors.
+func spam(_ context.Context, _ plugin.Run, item plugin.Item) (string, map[string]any, error) {
+	line := []byte("[ERROR] " + strings.Repeat("x", int(number(item, "size"))) + "\n")
+
+	for range number(item, "lines") {
+		if _, err := stderr.Write(line); err != nil {
+			return "", nil, err
+		}
+	}
+
+	return "", nil, nil
 }
 
 // keyed reads the credential in the setting which names.

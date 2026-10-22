@@ -140,6 +140,10 @@ func (s *Service) values(ctx context.Context, ip domain.InstalledPlugin) (map[st
 		var raw any
 
 		switch {
+		case st.Sealed != nil && !spec.Secret:
+			// Sealed as a version before declared it secret: never opened for one that does
+			// not, so never shown nor audited in clear (P18). Unset until it is set again.
+			continue
 		case st.Sealed != nil && s.box != nil:
 			plain, err := s.box.Open(ctx, st.Sealed, settingAAD(ip.ID, spec.Key))
 			if err != nil {
