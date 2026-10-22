@@ -57,6 +57,16 @@ const (
 	MaxPluginMemoryMiB = 64 << 10
 )
 
+// PluginKey is the key a plugin's ID is bound to (D365): the one a trusted key verified on
+// its first signed version. Its versions after are those it signs, and it stays while the
+// plugin's data does (D366).
+type PluginKey struct {
+	PluginID string
+	KeyID    string
+	Signer   string // the trusted key's name, as it bound the ID
+	BoundAt  time.Time
+}
+
 // Find is the plugin's version v, when it has it.
 func (p InstalledPlugin) Find(v string) (PluginVersion, bool) {
 	for _, pv := range p.Versions {

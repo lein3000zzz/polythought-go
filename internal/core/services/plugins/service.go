@@ -102,13 +102,22 @@ func New(repo ports.PluginRepository, files ports.PluginFiles, runtime ports.Plu
 	return s
 }
 
-// Info is a plugin as admins see it: what they decided, how it runs, and whether a
-// restart would change that (D317).
+// Info is a plugin as admins see it: what they decided, how it runs, whether a restart
+// would change that (D317), and what its data takes.
 type Info struct {
 	domain.InstalledPlugin
 
 	Status  *ports.PluginStatus // as it was loaded at start; nil when it was not
 	Restart bool                // what runs is not what admins decided: a restart applies it
+	Data    DataTaken
+}
+
+// DataTaken is what a plugin's data takes, in bytes: its directory, and what its nodes
+// stored (D342). One no version of which was approved yet has the data of the one it
+// shares its ID with, left behind as it was uninstalled (D366).
+type DataTaken struct {
+	Files  int64
+	Stored int64
 }
 
 // List is every plugin installed, and the versions on disk no admin installed, to adopt
@@ -123,6 +132,21 @@ func (s *Service) List(ctx context.Context, p auth.Principal) ([]Info, []ports.P
 		return nil, nil, err
 	}
 
+	data, err := s.files.Data()
+	if err != nil {
+		return nil, nil, err
+	}
+
+	stores, err := s.repo.StoreBytes(ctx)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	files := map[string]int64{}
+	for _, d := range data {
+		files[d.ID] = d.Bytes
+	}
+
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
@@ -130,7 +154,7 @@ func (s *Service) List(ctx context.Context, p auth.Principal) ([]Info, []ports.P
 	out := make([]Info, len(installed))
 
 	for i, ip := range installed {
-		out[i] = Info{InstalledPlugin: ip, Status: s.status(ip.ID)}
+		out[i] = Info{InstalledPlugin: ip, Status: s.status(ip.ID), Data: DataTaken{Files: files[ip.ID], Stored: stores[ip.ID]}}
 
 		want := ""
 		if ip.Enabled {
@@ -259,6 +283,10 @@ func (s *Service) record(ctx context.Context, p auth.Principal, f ports.PluginFi
 		return Installed{}, err
 	}
 
+	if err := s.keyRefusal(ctx, f); err != nil {
+		return Installed{}, err
+	}
+
 	at := s.now()
 	detail := from + "; " + signedBy(f.Signer, f.KeyID) + "; digest " + f.Digest
 
@@ -269,6 +297,8 @@ func (s *Service) record(ctx context.Context, p auth.Principal, f ports.PluginFi
 	if err != nil {
 		return Installed{}, err
 	}
+
+	s.bind(ctx, f)
 
 	s.log.Info(ctx, "Plugin installed", "plugin", f.ID, "version", f.Version, "by", p.User.ID, "signer", f.Signer)
 	s.reload(ctx)
@@ -285,6 +315,45 @@ func (s *Service) record(ctx context.Context, p auth.Principal, f ports.PluginFi
 	}
 
 	return in, nil
+}
+
+// keyRefusal is why f may not be a version of its plugin, by the key its ID is bound to
+// (D365): another's, or none a trusted key verified; nil when it may, or its ID is bound to
+// none yet.
+func (s *Service) keyRefusal(ctx context.Context, f ports.PluginFile) error {
+	k, ok, err := s.repo.Key(ctx, f.ID)
+	if err != nil || !ok {
+		return err
+	}
+
+	if f.Signer != "" && f.KeyID == k.KeyID {
+		return nil
+	}
+
+	this := "not signed"
+
+	switch {
+	case f.Signer != "":
+		this = "signed by " + f.Signer + ", key " + f.KeyID
+	case f.KeyID != "":
+		this = "signed by a key you do not trust, " + f.KeyID
+	}
+
+	return fmt.Errorf("%w: plugin %s is bound to the key %s, %s's, which signed its first signed version, and this one is %s: "+
+		"trust that key again if it signed this one, or uninstall the plugin, removing its data, to install another author's",
+		domain.ErrInvalidInput, f.ID, k.KeyID, k.Signer, this)
+}
+
+// bind binds f's plugin ID to the key that signed it, when a trusted one did, unless it is
+// bound already (D365): a binding not made is logged, its next signed version making it.
+func (s *Service) bind(ctx context.Context, f ports.PluginFile) {
+	if f.Signer == "" || f.KeyID == "" {
+		return
+	}
+
+	if err := s.repo.Bind(ctx, domain.PluginKey{PluginID: f.ID, KeyID: f.KeyID, Signer: f.Signer, BoundAt: s.now()}); err != nil {
+		s.log.Warn(ctx, "Plugin not bound to its key", "plugin", f.ID, "key", f.KeyID, logging.Err(err))
+	}
 }
 
 // signedBy is who signed a version, as its audit says: a key's ID is there when it is
@@ -334,6 +403,11 @@ func (s *Service) Approve(ctx context.Context, p auth.Principal, id, version str
 
 		return fmt.Errorf("%w: %s, which signed it, is no longer a key you trust: look at it again before you approve it",
 			domain.ErrInvalidInput, v.Signer)
+	}
+
+	// A version installed before another, signed, bound its ID (D365).
+	if err := s.keyRefusal(ctx, f); err != nil {
+		return err
 	}
 
 	asked, err := permissionsOf(v)
@@ -540,9 +614,13 @@ func (s *Service) LeftBehind(ctx context.Context, p auth.Principal) ([]LeftData,
 		return nil, err
 	}
 
-	stores, err := s.repo.LeftStores(ctx)
+	stores, err := s.repo.StoreBytes(ctx)
 	if err != nil {
 		return nil, err
+	}
+
+	isInstalled := func(id string) bool {
+		return slices.ContainsFunc(installed, func(ip domain.InstalledPlugin) bool { return ip.ID == id })
 	}
 
 	byID := map[string]*LeftData{}
@@ -555,13 +633,15 @@ func (s *Service) LeftBehind(ctx context.Context, p auth.Principal) ([]LeftData,
 	}
 
 	for _, d := range data {
-		if !slices.ContainsFunc(installed, func(ip domain.InstalledPlugin) bool { return ip.ID == d.ID }) {
+		if !isInstalled(d.ID) {
 			left(d.ID).Files = d.Bytes
 		}
 	}
 
 	for id, n := range stores {
-		left(id).Stored = n
+		if !isInstalled(id) {
+			left(id).Stored = n
+		}
 	}
 
 	out := make([]LeftData, 0, len(byID))
@@ -681,7 +761,9 @@ func (s *Service) Load(ctx context.Context) error {
 			// program must describe itself in it word for word (D324).
 			var f ports.PluginFile
 			if f, err = s.opened(ctx, v); err == nil {
-				err = s.runtime.Load(ctx, f)
+				if err = s.runtime.Load(ctx, f); err == nil {
+					s.bind(ctx, f) // one approved before IDs were bound (D365)
+				}
 			}
 		}
 

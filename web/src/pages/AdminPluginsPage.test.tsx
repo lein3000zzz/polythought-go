@@ -48,6 +48,7 @@ const running: Schemas['Plugin'] = {
   everyone: true,
   users: [],
   caps: { dataCap: 0, memoryCap: 0 },
+  data: { files: 0, stored: 0 },
   versions: [
     version('1.1.0', ['fetch:api.weather.example', 'orders']),
     version('1.0.0', ['fetch:api.weather.example'], {
@@ -218,6 +219,26 @@ describe('admin plugins page', () => {
     await waitFor(() => expect(approved).toEqual({ permissions: ['fetch:*', 'telegram'] }))
     expect(
       await screen.findByText('Weather 1.0.0 is approved: it runs once the server restarts'),
+    ).toBeInTheDocument()
+  })
+
+  it('says when a plugin new here gets data its ID left behind (D366)', async () => {
+    plugins([
+      {
+        ...running,
+        version: '',
+        versions: [version('1.0.0', ['fetch:api.weather.example'])],
+        status: undefined,
+        data: { files: 3 << 20, stored: 512 },
+      },
+    ])
+    const { user } = renderApp('/admin/plugins')
+
+    await user.click(await screen.findByRole('button', { name: 'Review' }))
+    const dialog = within(await screen.findByRole('dialog'))
+    expect(dialog.getByText('Data left behind with this ID')).toBeInTheDocument()
+    expect(
+      dialog.getByText(/3 MiB in its directory, 512 B stored by its nodes/),
     ).toBeInTheDocument()
   })
 

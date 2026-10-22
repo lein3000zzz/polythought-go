@@ -198,18 +198,28 @@ func TestPlugins(t *testing.T) {
 		news.PluginID = "news"
 		require.NoError(t, repo.AddVersion(ctx, news, domain.PluginAudit{PluginID: "news", Version: "1.0.0", Action: domain.PluginInstalled, At: at}))
 
-		left, err := repo.LeftStores(ctx)
+		stored, err := repo.StoreBytes(ctx)
 		require.NoError(t, err)
-		assert.Equal(t, map[string]int64{"weather": 4}, left, "uninstalled above with its stores kept; not news, installed")
+		assert.Equal(t, map[string]int64{"weather": 4, "news": 4}, stored, "weather's kept as it was uninstalled above, news's installed")
+
+		for _, id := range []string{"weather", "news"} {
+			require.NoError(t, repo.Bind(ctx, domain.PluginKey{PluginID: id, KeyID: "K-" + id, Signer: "Alice", BoundAt: at}))
+		}
 
 		require.NoError(t, repo.ForgetStores(ctx, domain.PluginAudit{PluginID: "news", Action: domain.PluginDataRemoved, At: at}))
 		_, ok, err := store.Get(ctx, node("news"), "k")
 		require.NoError(t, err)
 		assert.True(t, ok, "never an installed plugin's")
 
+		_, bound, _ := repo.Key(ctx, "news")
+		assert.True(t, bound, "nor its key")
+
 		require.NoError(t, repo.ForgetStores(ctx, domain.PluginAudit{PluginID: "weather", Action: domain.PluginDataRemoved, By: admin.ID, At: at.Add(5 * time.Hour)}))
-		left, _ = repo.LeftStores(ctx)
-		assert.Empty(t, left)
+		stored, _ = repo.StoreBytes(ctx)
+		assert.Equal(t, map[string]int64{"news": 4}, stored)
+
+		_, bound, _ = repo.Key(ctx, "weather")
+		assert.False(t, bound, "its key gone with its data (D366)")
 
 		history, _ := repo.History(ctx, "weather", 1)
 		require.Len(t, history, 1)
@@ -219,7 +229,26 @@ func TestPlugins(t *testing.T) {
 		_, ok, _ = store.Get(ctx, node("news"), "k")
 		assert.False(t, ok, "gone with it")
 
-		left, _ = repo.LeftStores(ctx)
-		assert.Empty(t, left)
+		stored, _ = repo.StoreBytes(ctx)
+		assert.Empty(t, stored)
+
+		_, bound, _ = repo.Key(ctx, "news")
+		assert.False(t, bound, "its key too, uninstalled with its data")
+	})
+
+	t.Run("a plugin's ID bound to its first key, which stays (D365)", func(t *testing.T) {
+		_, ok, err := repo.Key(ctx, "rain")
+		require.NoError(t, err)
+		assert.False(t, ok)
+
+		require.NoError(t, repo.Bind(ctx, domain.PluginKey{PluginID: "rain", KeyID: "K1", Signer: "Alice", BoundAt: at}))
+		require.NoError(t, repo.Bind(ctx, domain.PluginKey{PluginID: "rain", KeyID: "K2", Signer: "Mallory", BoundAt: at}))
+
+		k, ok, err := repo.Key(ctx, "rain")
+		require.NoError(t, err)
+		require.True(t, ok)
+		assert.Equal(t, "K1", k.KeyID, "the first stays")
+		assert.Equal(t, "Alice", k.Signer)
+		assert.True(t, at.Equal(k.BoundAt), "bound at %s", k.BoundAt)
 	})
 }

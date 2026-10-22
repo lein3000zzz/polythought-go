@@ -63,6 +63,12 @@ type pluginCapsDTO struct {
 	MemoryCap int `json:"memoryCap" minimum:"0" maximum:"65536"`
 } // @name PluginCaps
 
+// pluginDataDTO is what a plugin's data takes, in bytes (D342).
+type pluginDataDTO struct {
+	Files  int64 `json:"files"`  // its directory's
+	Stored int64 `json:"stored"` // what its nodes stored in workflows
+} // @name PluginData
+
 // leftPluginDataDTO is what a plugin no longer installed left behind (D342), in bytes.
 type leftPluginDataDTO struct {
 	ID     string `json:"id"`
@@ -74,11 +80,14 @@ type pluginDTO struct {
 	ID   string `json:"id"`
 	Name string `json:"name"` // its newest version's
 	// Version is the approved one, which runs when enabled; empty until the first approval.
-	Version  string             `json:"version"`
-	Enabled  bool               `json:"enabled"`
-	Everyone bool               `json:"everyone"` // false: only users may use it (D282)
-	Users    []string           `json:"users"`
-	Caps     pluginCapsDTO      `json:"caps"`
+	Version  string        `json:"version"`
+	Enabled  bool          `json:"enabled"`
+	Everyone bool          `json:"everyone"` // false: only users may use it (D282)
+	Users    []string      `json:"users"`
+	Caps     pluginCapsDTO `json:"caps"`
+	// Data is what its data takes; one no version of which was approved yet has what its
+	// ID left behind as it was uninstalled (D366).
+	Data     pluginDataDTO      `json:"data"`
 	Versions []pluginVersionDTO `json:"versions"` // newest first
 	// Status is how it runs, as it was loaded at start; absent when it was not.
 	Status *pluginStatusDTO `json:"status,omitempty" validate:"optional"`
@@ -179,6 +188,7 @@ func toPluginDTO(i plugins.Info) pluginDTO {
 	out := pluginDTO{
 		ID: i.ID, Version: i.Version, Enabled: i.Enabled, Everyone: i.Everyone, Users: []string{},
 		Caps:     pluginCapsDTO{DataCap: i.Caps.DataMiB, MemoryCap: i.Caps.MemoryMiB},
+		Data:     pluginDataDTO{Files: i.Data.Files, Stored: i.Data.Stored},
 		Versions: make([]pluginVersionDTO, len(i.Versions)), Restart: i.Restart,
 	}
 

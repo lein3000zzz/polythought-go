@@ -2583,6 +2583,11 @@ export interface components {
         };
         Plugin: {
             caps: components["schemas"]["PluginCaps"];
+            /**
+             * @description Data is what its data takes; one no version of which was approved yet has what its
+             *     ID left behind as it was uninstalled (D366).
+             */
+            data: components["schemas"]["PluginData"];
             enabled: boolean;
             /** @description false: only users may use it (D282) */
             everyone: boolean;
@@ -2611,6 +2616,12 @@ export interface components {
         PluginCaps: {
             dataCap: number;
             memoryCap: number;
+        };
+        PluginData: {
+            /** @description its directory's */
+            files: number;
+            /** @description what its nodes stored in workflows */
+            stored: number;
         };
         PluginSandbox: {
             available: boolean;

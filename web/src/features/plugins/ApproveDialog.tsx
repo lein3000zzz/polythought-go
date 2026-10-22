@@ -17,6 +17,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
+import { formatBytes } from '@/lib/format'
 import { cn } from 'cn'
 
 import { always, brings, describe } from './permissions'
@@ -46,6 +47,8 @@ export function ApproveDialog({ plugin, version, onClose }: Props) {
   const what = brings(v.manifest)
   const asked = v.permissions.map(describe)
   const signer = signedBy(v)
+  // A plugin new here with data: what one of its ID left behind as it was uninstalled (D366).
+  const inherits = !running && (plugin.data.files > 0 || plugin.data.stored > 0)
   const allTicked = asked.every((p) => ticked.has(p.name)) && (signer.trusted || warned)
 
   const tick = (name: string, on: boolean) =>
@@ -97,6 +100,20 @@ export function ApproveDialog({ plugin, version, onClose }: Props) {
                 <Checkbox checked={warned} onCheckedChange={(on) => setWarned(on === true)} />I know
                 where it came from
               </label>
+            </AlertDescription>
+          </Alert>
+        )}
+
+        {inherits && (
+          <Alert>
+            <AlertTitle>Data left behind with this ID</AlertTitle>
+            <AlertDescription>
+              <p>
+                A plugin of this ID was uninstalled with its data kept:{' '}
+                {formatBytes(plugin.data.files)} in its directory, {formatBytes(plugin.data.stored)}{' '}
+                stored by its nodes. Approved, this one gets it. Uninstall it, removing its data, to
+                start without.
+              </p>
             </AlertDescription>
           </Alert>
         )}

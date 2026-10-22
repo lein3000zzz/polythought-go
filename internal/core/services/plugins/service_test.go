@@ -36,10 +36,11 @@ type repo struct {
 	plugins map[string]*domain.InstalledPlugin
 	audit   []domain.PluginAudit
 	stores  map[string]int64
+	keys    map[string]domain.PluginKey
 }
 
 func newRepo() *repo {
-	return &repo{plugins: map[string]*domain.InstalledPlugin{}, stores: map[string]int64{}}
+	return &repo{plugins: map[string]*domain.InstalledPlugin{}, stores: map[string]int64{}, keys: map[string]domain.PluginKey{}}
 }
 
 func (r *repo) List(context.Context) ([]domain.InstalledPlugin, error) {
@@ -185,6 +186,7 @@ func (r *repo) Delete(_ context.Context, a domain.PluginAudit, stores bool) erro
 
 	if stores {
 		delete(r.stores, a.PluginID)
+		delete(r.keys, a.PluginID)
 	}
 
 	r.audit = append(r.audit, a)
@@ -192,19 +194,11 @@ func (r *repo) Delete(_ context.Context, a domain.PluginAudit, stores bool) erro
 	return nil
 }
 
-func (r *repo) LeftStores(context.Context) (map[string]int64, error) {
+func (r *repo) StoreBytes(context.Context) (map[string]int64, error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
-	out := map[string]int64{}
-
-	for id, n := range r.stores {
-		if _, ok := r.plugins[id]; !ok {
-			out[id] = n
-		}
-	}
-
-	return out, nil
+	return maps.Clone(r.stores), nil
 }
 
 func (r *repo) ForgetStores(_ context.Context, a domain.PluginAudit) error {
@@ -213,9 +207,30 @@ func (r *repo) ForgetStores(_ context.Context, a domain.PluginAudit) error {
 
 	if _, ok := r.plugins[a.PluginID]; !ok {
 		delete(r.stores, a.PluginID)
+		delete(r.keys, a.PluginID)
 	}
 
 	r.audit = append(r.audit, a)
+
+	return nil
+}
+
+func (r *repo) Key(_ context.Context, id string) (domain.PluginKey, bool, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	k, ok := r.keys[id]
+
+	return k, ok, nil
+}
+
+func (r *repo) Bind(_ context.Context, k domain.PluginKey) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	if _, ok := r.keys[k.PluginID]; !ok {
+		r.keys[k.PluginID] = k
+	}
 
 	return nil
 }
@@ -276,11 +291,17 @@ func archive(id, version string, perms ...string) io.Reader {
 	return strings.NewReader(id + " " + version + " " + strings.Join(perms, ","))
 }
 
+// signedArchive is an archive a trusted key named signer, of ID keyID, signed; with no
+// signer, one signed by a key not trusted.
+func signedArchive(id, version, signer, keyID string) io.Reader {
+	return strings.NewReader(id + " " + version + "  " + signer + ":" + keyID)
+}
+
 func (f *files) Install(r io.Reader, _ int64) (ports.PluginFile, error) {
 	raw, _ := io.ReadAll(r)
 
 	parts := strings.Split(string(raw), " ")
-	if len(parts) != 3 {
+	if len(parts) != 3 && len(parts) != 4 {
 		return ports.PluginFile{}, errors.New("not a plugin archive")
 	}
 
@@ -290,6 +311,11 @@ func (f *files) Install(r io.Reader, _ int64) (ports.PluginFile, error) {
 	}
 
 	pf := file(parts[0], parts[1], perms...)
+
+	if len(parts) == 4 {
+		signer, keyID, _ := strings.Cut(parts[3], ":")
+		pf.Signed, pf.Signer, pf.KeyID = true, signer, keyID
+	}
 
 	f.mu.Lock()
 	defer f.mu.Unlock()
@@ -913,9 +939,13 @@ func TestSignerAsTrustedNow(t *testing.T) {
 	assert.Equal(t, domain.PluginSigner+": signed by a key not trusted, E7620F1842B4E81F; was signed by Alice, key E7620F1842B4E81F",
 		historyOf(t, f, "weather")[0])
 
-	require.NoError(t, f.s.Approve(ctx, admin, "weather", "1.0.0", nil), "approved as it now shows")
+	// Its ID is bound to her key (D365): not approved while no trusted key verifies it.
+	err = f.s.Approve(ctx, admin, "weather", "1.0.0", nil)
+	require.ErrorIs(t, err, domain.ErrInvalidInput)
+	assert.Contains(t, err.Error(), "trust that key again if it signed this one")
 
 	signedBy("Alice's company") // trusted again, by another name
+	require.NoError(t, f.s.Approve(ctx, admin, "weather", "1.0.0", nil))
 	require.NoError(t, f.s.Load(ctx))
 
 	ip, _ = f.repo.Get(ctx, "weather")
@@ -942,4 +972,100 @@ func TestInstalledFrom(t *testing.T) {
 
 	assert.Equal(t, domain.PluginInstalled+": fetched from https://example.com/weather.tgz; not signed; digest "+file("weather", "1.0.0").Digest,
 		historyOf(t, f, "weather")[0])
+}
+
+// A plugin's ID is bound to the key a trusted key verified on its first signed version:
+// another key's archive of it, or one not signed, is refused (D365), while its data is left
+// behind too (D366).
+func TestKeyBinding(t *testing.T) {
+	ctx := context.Background()
+	f := newFixture()
+
+	refused := func(t *testing.T, archive io.Reader, why string) {
+		t.Helper()
+
+		_, err := f.s.Install(ctx, admin, archive)
+		require.ErrorIs(t, err, domain.ErrInvalidInput)
+		assert.Contains(t, err.Error(), why)
+	}
+
+	t.Run("bound by its first signed version, then held to its key", func(t *testing.T) {
+		_, err := f.s.Install(ctx, admin, signedArchive("weather", "1.0.0", "Alice", "K1"))
+		require.NoError(t, err)
+
+		k, ok, _ := f.repo.Key(ctx, "weather")
+		require.True(t, ok)
+		assert.Equal(t, "K1", k.KeyID)
+		assert.Equal(t, "Alice", k.Signer)
+
+		refused(t, signedArchive("weather", "1.1.0", "Mallory", "K2"),
+			"plugin weather is bound to the key K1, Alice's, which signed its first signed version, and this one is signed by Mallory, key K2")
+		refused(t, archive("weather", "1.1.0"), "and this one is not signed")
+		refused(t, signedArchive("weather", "1.1.0", "", "K1"), "and this one is signed by a key you do not trust, K1")
+		assert.NotContains(t, f.files.versions, ports.PluginFound{ID: "weather", Version: "1.1.0"}, "its files gone with it")
+
+		_, err = f.s.Install(ctx, admin, signedArchive("weather", "1.1.0", "Alice", "K1"))
+		require.NoError(t, err, "her next version")
+	})
+
+	t.Run("one first installed unsigned is bound by its first signed version", func(t *testing.T) {
+		_, err := f.s.Install(ctx, admin, archive("news", "1.0.0"))
+		require.NoError(t, err)
+
+		_, ok, _ := f.repo.Key(ctx, "news")
+		assert.False(t, ok, "nothing to bind it to")
+
+		_, err = f.s.Install(ctx, admin, signedArchive("news", "1.1.0", "Bob", "K3"))
+		require.NoError(t, err)
+
+		refused(t, archive("news", "1.2.0"), "bound to the key K3")
+
+		err = f.s.Approve(ctx, admin, "news", "1.0.0", nil)
+		require.ErrorIs(t, err, domain.ErrInvalidInput, "the unsigned one waiting, not approved now")
+		assert.Contains(t, err.Error(), "bound to the key K3")
+	})
+
+	t.Run("the binding stays with data left behind, and goes with it", func(t *testing.T) {
+		require.NoError(t, f.s.Uninstall(ctx, admin, "weather", false))
+		refused(t, signedArchive("weather", "2.0.0", "Mallory", "K2"), "bound to the key K1")
+
+		require.NoError(t, f.s.RemoveLeftBehind(ctx, admin, "weather"))
+		_, err := f.s.Install(ctx, admin, signedArchive("weather", "2.0.0", "Mallory", "K2"))
+		require.NoError(t, err, "another author's, once its data is gone")
+
+		require.NoError(t, f.s.Uninstall(ctx, admin, "weather", true))
+		_, ok, _ := f.repo.Key(ctx, "weather")
+		assert.False(t, ok, "uninstalled with its data")
+	})
+
+	t.Run("one approved before IDs were bound is bound as it loads", func(t *testing.T) {
+		_, err := f.s.Install(ctx, admin, signedArchive("rain", "1.0.0", "Carol", "K4"))
+		require.NoError(t, err)
+		require.NoError(t, f.s.Approve(ctx, admin, "rain", "1.0.0", nil))
+
+		delete(f.repo.keys, "rain")
+		require.NoError(t, f.s.Load(ctx))
+
+		k, ok, _ := f.repo.Key(ctx, "rain")
+		require.True(t, ok)
+		assert.Equal(t, "K4", k.KeyID)
+	})
+}
+
+// The list says what each plugin's data takes, its directory and what its nodes stored: one
+// not approved yet has what its ID left behind (D366).
+func TestListData(t *testing.T) {
+	ctx := context.Background()
+	f := newFixture()
+
+	_, err := f.s.Install(ctx, admin, archive("weather", "1.0.0"))
+	require.NoError(t, err)
+
+	f.files.data["weather"] = 3 << 20
+	f.repo.stores["weather"] = 512
+
+	list, _, err := f.s.List(ctx, admin)
+	require.NoError(t, err)
+	require.Len(t, list, 1)
+	assert.Equal(t, plugins.DataTaken{Files: 3 << 20, Stored: 512}, list[0].Data)
 }

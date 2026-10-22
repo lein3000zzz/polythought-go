@@ -48,6 +48,7 @@ func TestPluginRoutes(t *testing.T) {
 			Sandboxed: true, Memory: 40 << 20, MemoryCap: 256 << 20, Data: 1 << 20, DataCap: 2 << 30,
 		},
 		Restart: false,
+		Data:    plugins.DataTaken{Files: 3 << 20, Stored: 512},
 	}
 
 	installed := plugins.Installed{
@@ -71,7 +72,7 @@ func TestPluginRoutes(t *testing.T) {
 			},
 			wantStatus: http.StatusOK,
 			wantBody: []string{
-				`"id":"weather","name":"Weather","version":"1.0.0","enabled":true,"everyone":false,"users":["u-1"],"caps":{"dataCap":2048,"memoryCap":0}`,
+				`"id":"weather","name":"Weather","version":"1.0.0","enabled":true,"everyone":false,"users":["u-1"],"caps":{"dataCap":2048,"memoryCap":0},"data":{"files":3145728,"stored":512}`,
 				`"sandboxed":true,"memory":41943040,"memoryCap":268435456,"data":1048576,"dataCap":2147483648`,
 				`"sandbox":{"available":false,"why":"only Linux has the sandbox","unsandboxed":true}`,
 				`"version":"1.1.0","permissions":["fetch:*","telegram"]`, `"approved":false`,

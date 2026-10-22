@@ -46,6 +46,13 @@ trusted key does not hold is refused: it is not what it says it is. Stop trustin
 the versions it signed lose their signer: **Approve** refuses one that waits until you look at
 it again, warning and all.
 
+A plugin's ID is bound to the key that signed its first version a key you trust verified. Its
+later versions must be signed by that key: an archive of that ID signed by another, or not
+signed at all, is refused, naming both. A plugin first installed unsigned is bound by its
+first signed version. So another author cannot take over a plugin's settings, data and stores
+by giving theirs the same ID. To install another author's plugin of that ID, uninstall the
+plugin, removing its data, which unbinds it.
+
 ## Approving
 
 Once it is installed, the permissions screen opens: what the plugin brings, who signed it, and
@@ -156,7 +163,8 @@ most **Plugin store per node (KiB)**. All of these are on the Config page.
 
 **Uninstall** on a plugin's card removes its files at once. It runs until the server restarts.
 Its data stays unless you tick **Also remove its data**: its own directory, and what its nodes
-stored in workflows. A reinstall finds the data it kept.
+stored in workflows. A reinstall finds the data it kept, and the approval screen says so. Its
+ID stays bound to its key while the data stays, so only that key's archive picks it up.
 
 What uninstalled plugins kept is listed under **Data left behind** on the Plugins page, with
 what it takes. **Remove** there deletes it for good.

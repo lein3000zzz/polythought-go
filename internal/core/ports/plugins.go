@@ -69,15 +69,21 @@ type PluginRepository interface {
 	SetCaps(ctx context.Context, caps domain.PluginCaps, a domain.PluginAudit) error
 
 	// Delete forgets the plugin, its audit kept; with stores, what its nodes stored in
-	// every workflow too (D348).
+	// every workflow too (D348), and the key its ID is bound to (D365).
 	Delete(ctx context.Context, a domain.PluginAudit, stores bool) error
 
-	// LeftStores are the bytes nodes stored of plugins no longer installed (D342), by
-	// plugin.
-	LeftStores(ctx context.Context) (map[string]int64, error)
+	// StoreBytes are the bytes plugins' nodes stored, by plugin, installed or not (D342).
+	StoreBytes(ctx context.Context) (map[string]int64, error)
 
-	// ForgetStores forgets what the nodes of a plugin no longer installed stored.
+	// ForgetStores forgets what the nodes of a plugin no longer installed stored, and the
+	// key its ID is bound to (D366).
 	ForgetStores(ctx context.Context, a domain.PluginAudit) error
+
+	// Key is the key a plugin's ID is bound to (D365), when it is.
+	Key(ctx context.Context, id string) (domain.PluginKey, bool, error)
+
+	// Bind binds a plugin's ID to a key, unless it is bound already: the first stays.
+	Bind(ctx context.Context, k domain.PluginKey) error
 
 	// Record records something done with a plugin that changes nothing kept here.
 	Record(ctx context.Context, a domain.PluginAudit) error

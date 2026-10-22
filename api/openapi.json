@@ -2469,6 +2469,10 @@
                     "caps": {
                         "$ref": "#/components/schemas/PluginCaps"
                     },
+                    "data": {
+                        "$ref": "#/components/schemas/PluginData",
+                        "description": "Data is what its data takes; one no version of which was approved yet has what its\nID left behind as it was uninstalled (D366)."
+                    },
                     "enabled": {
                         "type": "boolean"
                     },
@@ -2513,6 +2517,7 @@
                 },
                 "required": [
                     "caps",
+                    "data",
                     "enabled",
                     "everyone",
                     "id",
@@ -2569,6 +2574,23 @@
                 "required": [
                     "dataCap",
                     "memoryCap"
+                ],
+                "type": "object"
+            },
+            "PluginData": {
+                "properties": {
+                    "files": {
+                        "description": "its directory's",
+                        "type": "integer"
+                    },
+                    "stored": {
+                        "description": "what its nodes stored in workflows",
+                        "type": "integer"
+                    }
+                },
+                "required": [
+                    "files",
+                    "stored"
                 ],
                 "type": "object"
             },

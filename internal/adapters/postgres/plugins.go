@@ -328,14 +328,20 @@ func (r *Plugins) Delete(ctx context.Context, a domain.PluginAudit, stores bool)
 			if _, err := s.DELETE().WHERE(s.PluginID.EQ(jet.String(a.PluginID))).ExecContext(ctx, r.db.conn(ctx)); err != nil {
 				return err
 			}
+
+			// With its data gone, its ID binds to the next key (D366).
+			k := table.PluginKeys
+			if _, err := k.DELETE().WHERE(k.PluginID.EQ(jet.String(a.PluginID))).ExecContext(ctx, r.db.conn(ctx)); err != nil {
+				return err
+			}
 		}
 
 		return r.audit(ctx, a)
 	})
 }
 
-func (r *Plugins) LeftStores(ctx context.Context) (map[string]int64, error) {
-	s, p := table.PluginStore, table.Plugins
+func (r *Plugins) StoreBytes(ctx context.Context) (map[string]int64, error) {
+	s := table.PluginStore
 
 	var rows []struct {
 		Plugin string `alias:"plugin"`
@@ -344,7 +350,6 @@ func (r *Plugins) LeftStores(ctx context.Context) (map[string]int64, error) {
 
 	err := jet.SELECT(s.PluginID.AS("plugin"), jet.SUM(s.Size).AS("bytes")).
 		FROM(s).
-		WHERE(s.PluginID.NOT_IN(p.SELECT(p.ID))).
 		GROUP_BY(s.PluginID).
 		QueryContext(ctx, r.db.conn(ctx), &rows)
 	if err != nil && !errors.Is(err, qrm.ErrNoRows) {
@@ -371,8 +376,46 @@ func (r *Plugins) ForgetStores(ctx context.Context, a domain.PluginAudit) error 
 			return err
 		}
 
+		// Its data gone, so is the key its ID was bound to (D366).
+		k := table.PluginKeys
+
+		_, err = k.DELETE().
+			WHERE(k.PluginID.EQ(jet.String(a.PluginID)).AND(k.PluginID.NOT_IN(p.SELECT(p.ID)))).
+			ExecContext(ctx, r.db.conn(ctx))
+		if err != nil {
+			return err
+		}
+
 		return r.audit(ctx, a)
 	})
+}
+
+func (r *Plugins) Key(ctx context.Context, id string) (domain.PluginKey, bool, error) {
+	var row model.PluginKeys
+
+	k := table.PluginKeys
+
+	err := k.SELECT(k.AllColumns).FROM(k).WHERE(k.PluginID.EQ(jet.String(id))).QueryContext(ctx, r.db.conn(ctx), &row)
+	if errors.Is(err, qrm.ErrNoRows) {
+		return domain.PluginKey{}, false, nil
+	}
+
+	if err != nil {
+		return domain.PluginKey{}, false, err
+	}
+
+	return domain.PluginKey{PluginID: row.PluginID, KeyID: row.KeyID, Signer: row.Signer, BoundAt: row.BoundAt}, true, nil
+}
+
+func (r *Plugins) Bind(ctx context.Context, key domain.PluginKey) error {
+	k := table.PluginKeys
+
+	_, err := k.INSERT(k.AllColumns).
+		MODEL(model.PluginKeys{PluginID: key.PluginID, KeyID: key.KeyID, Signer: key.Signer, BoundAt: key.BoundAt}).
+		ON_CONFLICT(k.PluginID).DO_NOTHING().
+		ExecContext(ctx, r.db.conn(ctx))
+
+	return err
 }
 
 func (r *Plugins) Record(ctx context.Context, a domain.PluginAudit) error {
