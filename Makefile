@@ -242,6 +242,9 @@ docs-gen: ## Regenerate the docs' reference pages from the code (a test fails wh
 .PHONY: e2e
 e2e: ## Browser tests against a throwaway stack in Docker (UI on :3100, removed afterwards)
 	$(PNPM) --dir web exec playwright install --only-shell chromium
+	@# The host's test plugin, for the containers' platform, to install (5c2).
+	$(GO) run ./tools/pluginpack -o web/e2e/.plugins/echo.tar.gz -platforms linux_amd64,linux_arm64 \
+		./internal/adapters/pluginhost/testdata/echo
 	@set -e; \
 	export POLYTHOUGHT_SECRET_KEYS="e2e:$$(openssl rand -base64 32)" \
 		POLYTHOUGHT_ADMIN_EMAIL=admin@e2e.test POLYTHOUGHT_ADMIN_PASSWORD=e2e-admin-password \

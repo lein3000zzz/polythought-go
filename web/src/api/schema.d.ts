@@ -2518,7 +2518,9 @@ export interface components {
              * @description Manifest is the version's manifest.json: its nodes, triggers, credential types,
              *     scenarios and settings.
              */
-            manifest: Record<string, never>;
+            manifest: {
+                [key: string]: unknown;
+            };
             permissions: string[];
             /**
              * @description Signer is the trusted key's name that signed it; empty when none an admin trusts

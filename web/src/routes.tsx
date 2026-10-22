@@ -4,6 +4,7 @@ import { AppShell } from '@/components/AppShell'
 import { RequireAuth } from '@/components/RequireAuth'
 import { Skeleton } from '@/components/ui/skeleton'
 import { AdminConfigPage } from '@/pages/AdminConfigPage'
+import { AdminPluginsPage } from '@/pages/AdminPluginsPage'
 import { AdminPage } from '@/pages/AdminPage'
 import { CredentialsPage } from '@/pages/CredentialsPage'
 import { CustomNodePage } from '@/pages/CustomNodePage'
@@ -64,6 +65,7 @@ export const routes: RouteObject[] = [
           { path: 'settings', element: <SettingsPage /> },
           { path: 'admin', element: <AdminPage /> },
           { path: 'admin/config', element: <AdminConfigPage /> },
+          { path: 'admin/plugins', element: <AdminPluginsPage /> },
         ],
       },
     ],

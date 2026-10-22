@@ -61,7 +61,7 @@ type pluginVersionDTO struct {
 	Permissions []string `json:"permissions"`
 	// Manifest is the version's manifest.json: its nodes, triggers, credential types,
 	// scenarios and settings.
-	Manifest json.RawMessage `json:"manifest" swaggertype:"object"`
+	Manifest map[string]any `json:"manifest"`
 	// Signer is the trusted key's name that signed it; empty when none an admin trusts
 	// did, keyId saying which key did, if any.
 	Signer      string     `json:"signer"`
@@ -160,7 +160,7 @@ func toPluginDTO(i plugins.Info) pluginDTO {
 		}
 
 		dto := pluginVersionDTO{
-			Version: v.Version, Permissions: orNone(m.Permissions), Manifest: v.Manifest, Signer: v.Signer, KeyID: v.KeyID,
+			Version: v.Version, Permissions: orNone(m.Permissions), Manifest: itemJSON(v.Manifest), Signer: v.Signer, KeyID: v.KeyID,
 			InstalledBy: string(v.InstalledBy), InstalledAt: v.InstalledAt, Approved: v.Approved(),
 		}
 

@@ -4,6 +4,7 @@ import { cn } from 'cn'
 const tabs = [
   ['/admin', 'Users'],
   ['/admin/config', 'Config'],
+  ['/admin/plugins', 'Plugins'],
 ] as const
 
 /** The admin pages' title and tabs. */

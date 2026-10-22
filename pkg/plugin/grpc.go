@@ -32,13 +32,26 @@ var Handshake = goplugin.HandshakeConfig{
 const Name = "polythought"
 
 // Serve runs the plugin until the host stops it. It never returns; a plugin that does not
-// implement what its manifest declares exits at once, saying why.
+// implement what its manifest declares exits at once, saying why. Run as `plugin
+// manifest`, it prints its manifest.json instead, for its archive.
 func Serve(p Plugin) {
 	p.Manifest.SDK = SDKVersion
 
 	if err := p.check(); err != nil {
 		fmt.Fprintf(os.Stderr, "plugin %s: %v\n", p.Manifest.ID, err)
 		os.Exit(1)
+	}
+
+	if len(os.Args) == 2 && os.Args[1] == "manifest" {
+		enc := json.NewEncoder(os.Stdout)
+		enc.SetIndent("", "  ")
+
+		if err := enc.Encode(p.Manifest); err != nil {
+			fmt.Fprintf(os.Stderr, "plugin %s: %v\n", p.Manifest.ID, err)
+			os.Exit(1)
+		}
+
+		os.Exit(0)
 	}
 
 	goplugin.Serve(&goplugin.ServeConfig{

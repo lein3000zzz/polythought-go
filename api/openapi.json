@@ -2559,6 +2559,7 @@
                         "type": "string"
                     },
                     "manifest": {
+                        "additionalProperties": {},
                         "description": "Manifest is the version's manifest.json: its nodes, triggers, credential types,\nscenarios and settings.",
                         "type": "object"
                     },
