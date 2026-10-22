@@ -1,3 +1,5 @@
+import type { ReactNode } from 'react'
+
 import {
   AlertDialog,
   AlertDialogAction,
@@ -21,6 +23,8 @@ type Props = {
   // A third choice, between the two.
   alternative?: string
   onAlternative?: () => void
+  // More to choose, between the description and the buttons.
+  children?: ReactNode
 }
 
 export function ConfirmDialog({
@@ -34,6 +38,7 @@ export function ConfirmDialog({
   onCancel,
   alternative,
   onAlternative,
+  children,
 }: Props) {
   return (
     <AlertDialog open={open} onOpenChange={(isOpen) => !isOpen && onCancel()}>
@@ -42,6 +47,7 @@ export function ConfirmDialog({
           <AlertDialogTitle>{title}</AlertDialogTitle>
           <AlertDialogDescription>{description}</AlertDialogDescription>
         </AlertDialogHeader>
+        {children}
         <AlertDialogFooter>
           <AlertDialogCancel>{cancel}</AlertDialogCancel>
           {alternative && (

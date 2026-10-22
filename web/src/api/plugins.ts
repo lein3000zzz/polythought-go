@@ -8,6 +8,9 @@ export type PluginVersion = Schemas['PluginVersion']
 export type PluginStatus = Schemas['PluginStatus']
 export type InstalledPlugin = Schemas['InstalledPlugin']
 export type FoundPlugin = Schemas['FoundPlugin']
+export type PluginSandbox = Schemas['PluginSandbox']
+export type PluginCaps = Schemas['PluginCaps']
+export type LeftPluginData = Schemas['LeftPluginData']
 
 /** The plugins installed, and versions found on disk no admin installed (D321). */
 export function usePlugins() {
@@ -120,9 +123,48 @@ export function useStartPlugin() {
   )
 }
 
+/** Uninstalls a plugin: its data too when removeData says (D348), else left behind (D342). */
 export function useUninstallPlugin() {
+  return useChange(({ id, removeData }: { id: string; removeData: boolean }) =>
+    call(
+      api.DELETE('/admin/plugins/{id}', {
+        params: { path: { id }, query: removeData ? { data: true } : {} },
+        parseAs: 'text',
+      }),
+    ),
+  )
+}
+
+/**
+ * Sets a plugin's own caps, in MiB, 0 for the Config page's (D346). A cap out of bounds is
+ * refused, the error's problems naming it in `param`: dataCap or memoryCap.
+ */
+export function useSetPluginCaps(id: string) {
+  return useChange((caps: PluginCaps) =>
+    call(
+      api.PUT('/admin/plugins/{id}/caps', {
+        params: { path: { id } },
+        body: caps,
+        parseAs: 'text',
+      }),
+    ),
+  )
+}
+
+/** What plugins uninstalled without their data left behind (D342). */
+export function usePluginDataLeft() {
+  return useQuery({
+    queryKey: keys.pluginDataLeft,
+    queryFn: () => call(api.GET('/admin/plugins/left-behind')),
+  })
+}
+
+/** Removes what a plugin no longer installed left behind. */
+export function useRemovePluginDataLeft() {
   return useChange((id: string) =>
-    call(api.DELETE('/admin/plugins/{id}', { params: { path: { id } }, parseAs: 'text' })),
+    call(
+      api.DELETE('/admin/plugins/left-behind/{id}', { params: { path: { id } }, parseAs: 'text' }),
+    ),
   )
 }
 

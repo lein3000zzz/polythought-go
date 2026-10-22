@@ -1,5 +1,6 @@
-import { RefreshCw, Upload } from 'lucide-react'
+import { RefreshCw, ShieldAlert, Upload } from 'lucide-react'
 import { useRef, useState } from 'react'
+import { Link } from 'react-router'
 import { toast } from 'sonner'
 
 import { useMe } from '@/api/auth'
@@ -9,11 +10,14 @@ import {
   type InstalledPlugin,
   type Plugin,
   PluginRestartTimeoutError,
+  type PluginSandbox,
   useAdoptPlugin,
   useFetchPlugin,
   useInstallPlugin,
+  usePluginDataLeft,
   usePluginHistory,
   usePlugins,
+  useRemovePluginDataLeft,
   useRemovePluginVersion,
   useRestartForPlugins,
   useSetPluginEnabled,
@@ -26,6 +30,7 @@ import { ErrorAlert } from '@/components/ErrorAlert'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
+import { Checkbox } from '@/components/ui/checkbox'
 import {
   Dialog,
   DialogContent,
@@ -38,10 +43,12 @@ import { Label } from '@/components/ui/label'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Switch } from '@/components/ui/switch'
 import { ApproveDialog } from '@/features/plugins/ApproveDialog'
+import { CapsDialog } from '@/features/plugins/CapsDialog'
 import { SettingsDialog } from '@/features/plugins/SettingsDialog'
 import { signedBy } from '@/features/plugins/signer'
+import { Usage } from '@/features/plugins/Usage'
 import { UsersDialog } from '@/features/plugins/UsersDialog'
-import { formatDateTime } from '@/lib/format'
+import { formatBytes, formatDateTime } from '@/lib/format'
 
 export function AdminPluginsPage() {
   const { data: me } = useMe()
@@ -71,13 +78,15 @@ function PluginsSection() {
     return <ErrorAlert error={plugins.error} onRetry={() => void plugins.refetch()} />
   }
 
-  const { plugins: list, found } = plugins.data
+  const { plugins: list, found, sandbox } = plugins.data
   const approvingPlugin = approving && list.find((p) => p.id === approving.id)
   const review = (installed: Pick<InstalledPlugin, 'id' | 'version'>) =>
     setApproving({ id: installed.id, version: installed.version })
 
   return (
     <div className="flex flex-col gap-8">
+      {!sandbox.available && <SandboxBanner sandbox={sandbox} />}
+
       {list.some((p) => p.restart) && (
         <RestartBanner
           plugins={list}
@@ -113,6 +122,8 @@ function PluginsSection() {
 
       {found.length > 0 && <FoundSection found={found} onAdopted={review} />}
 
+      <LeftBehindSection />
+
       {approvingPlugin && approving && (
         <ApproveDialog
           plugin={approvingPlugin}
@@ -123,6 +134,48 @@ function PluginsSection() {
 
       {choosing && <UsersDialog plugin={choosing} onClose={() => setChoosing(undefined)} />}
     </div>
+  )
+}
+
+/**
+ * Where the server has no sandbox (D338): plugins do not start, unless admins allow them
+ * to unsandboxed, which this warns of while it is so.
+ */
+function SandboxBanner({ sandbox }: { sandbox: PluginSandbox }) {
+  const why = sandbox.why.charAt(0).toUpperCase() + sandbox.why.slice(1)
+  const config = (
+    <Link to="/admin/config" className="underline underline-offset-4">
+      Config page
+    </Link>
+  )
+
+  if (sandbox.unsandboxed) {
+    return (
+      <Alert variant="destructive">
+        <ShieldAlert />
+        <AlertTitle>Plugins run unsandboxed here</AlertTitle>
+        <AlertDescription>
+          <p>
+            {why}. They reach whatever the server can: its files, its network, its other processes.
+            Turn Unsandboxed plugins off on the {config} to stop that, from each plugin&apos;s next
+            start.
+          </p>
+        </AlertDescription>
+      </Alert>
+    )
+  }
+
+  return (
+    <Alert>
+      <ShieldAlert />
+      <AlertTitle>Plugins do not start here</AlertTitle>
+      <AlertDescription>
+        <p>
+          {why}. An admin may allow unsandboxed plugins on the {config}, where they reach whatever
+          the server can: only for plugins you would run yourself.
+        </p>
+      </AlertDescription>
+    </Alert>
   )
 }
 
@@ -269,8 +322,10 @@ function PluginCard({ plugin: p, onReview, onChooseUsers }: CardProps) {
   const uninstall = useUninstallPlugin()
   const removeVersion = useRemovePluginVersion()
   const [uninstalling, setUninstalling] = useState(false)
+  const [removeData, setRemoveData] = useState(false)
   const [history, setHistory] = useState(false)
   const [settings, setSettings] = useState(false)
+  const [caps, setCaps] = useState(false)
 
   const state = stateOf(p)
   const runs = p.versions.find((v) => v.version === p.version)
@@ -291,9 +346,16 @@ function PluginCard({ plugin: p, onReview, onChooseUsers }: CardProps) {
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <Badge variant={state.bad ? 'destructive' : 'secondary'}>{state.label}</Badge>
+          {p.status?.state === 'running' && (
+            <Badge variant={p.status.sandboxed ? 'outline' : 'destructive'}>
+              {p.status.sandboxed ? 'Sandboxed' : 'Not sandboxed'}
+            </Badge>
+          )}
           {p.restart && <Badge variant="outline">Waits for a restart</Badge>}
         </div>
       </header>
+
+      {p.status && <Usage status={p.status} />}
 
       {p.status && (p.status.lastError || p.status.crashes > 0) && (
         <div className="flex flex-col gap-1 text-sm">
@@ -397,6 +459,9 @@ function PluginCard({ plugin: p, onReview, onChooseUsers }: CardProps) {
             Settings
           </Button>
         )}
+        <Button size="sm" variant="outline" onClick={() => setCaps(true)}>
+          Caps
+        </Button>
         <Button size="sm" variant="ghost" onClick={() => setHistory(true)}>
           History
         </Button>
@@ -404,7 +469,10 @@ function PluginCard({ plugin: p, onReview, onChooseUsers }: CardProps) {
           size="sm"
           variant="ghost"
           className="text-destructive"
-          onClick={() => setUninstalling(true)}
+          onClick={() => {
+            setRemoveData(false)
+            setUninstalling(true)
+          }}
         >
           Uninstall
         </Button>
@@ -419,15 +487,40 @@ function PluginCard({ plugin: p, onReview, onChooseUsers }: CardProps) {
         onCancel={() => setUninstalling(false)}
         onConfirm={() => {
           setUninstalling(false)
-          uninstall.mutate(p.id, {
-            onSuccess: () => toast.success(`${p.name} is uninstalled`),
-            onError: fail,
-          })
+          // From its promise: once done, this card is gone with the plugin, and mutate's
+          // own callbacks would not run.
+          void uninstall
+            .mutateAsync({ id: p.id, removeData })
+            .then(
+              () =>
+                toast.success(
+                  removeData
+                    ? `${p.name} is uninstalled, its data removed`
+                    : `${p.name} is uninstalled, its data kept`,
+                ),
+              fail,
+            )
         }}
-      />
+      >
+        <label className="flex items-start gap-2 text-sm">
+          <Checkbox
+            className="mt-0.5"
+            checked={removeData}
+            onCheckedChange={(on) => setRemoveData(on === true)}
+          />
+          <span className="flex flex-col gap-0.5">
+            Also remove its data
+            <span className="text-muted-foreground">
+              Its own directory, and what its nodes stored in workflows. Kept, a reinstall finds it
+              again, and it is listed below as left behind.
+            </span>
+          </span>
+        </label>
+      </ConfirmDialog>
 
       {history && <HistoryDialog plugin={p} onClose={() => setHistory(false)} />}
       {settings && <SettingsDialog plugin={p} onClose={() => setSettings(false)} />}
+      {caps && <CapsDialog plugin={p} onClose={() => setCaps(false)} />}
     </article>
   )
 }
@@ -506,6 +599,64 @@ function FoundSection({
           </li>
         ))}
       </ul>
+    </section>
+  )
+}
+
+/** What plugins uninstalled without their data left behind (D342), to remove. */
+function LeftBehindSection() {
+  const left = usePluginDataLeft()
+  const remove = useRemovePluginDataLeft()
+  const [removing, setRemoving] = useState<string>()
+
+  if (left.isError) return <ErrorAlert error={left.error} onRetry={() => void left.refetch()} />
+  if (!left.data || left.data.length === 0) return null
+
+  return (
+    <section className="flex flex-col gap-3">
+      <h2 className="font-medium">Data left behind</h2>
+      <p className="text-sm text-muted-foreground">
+        Of plugins uninstalled without their data. Reinstalling one finds its data again.
+      </p>
+      <ul className="flex flex-col gap-2">
+        {left.data.map((d) => (
+          <li key={d.id} className="flex items-center justify-between gap-2 text-sm">
+            <span>
+              {d.id}{' '}
+              <span className="text-muted-foreground">
+                {formatBytes(d.files)} in its directory, {formatBytes(d.stored)} stored by its nodes
+              </span>
+            </span>
+            <Button
+              size="sm"
+              variant="outline"
+              disabled={remove.isPending}
+              onClick={() => setRemoving(d.id)}
+            >
+              Remove
+            </Button>
+          </li>
+        ))}
+      </ul>
+
+      <ConfirmDialog
+        open={removing !== undefined}
+        title={`Remove what ${removing ?? ''} left behind?`}
+        description="Its directory and what its nodes stored in workflows are removed for good: a reinstall starts without them."
+        confirm="Remove"
+        destructive
+        onCancel={() => setRemoving(undefined)}
+        onConfirm={() => {
+          const id = removing
+          setRemoving(undefined)
+          if (!id) return
+
+          remove.mutate(id, {
+            onSuccess: () => toast.success(`What ${id} left behind is removed`),
+            onError: (error) => toast.error(errorMessage(error)),
+          })
+        }}
+      />
     </section>
   )
 }

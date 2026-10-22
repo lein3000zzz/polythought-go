@@ -44,6 +44,22 @@ test.describe('a plugin', () => {
     await expect(card.getByText('Running')).toBeVisible()
     await expect(card.getByText('Version 1.2.0. Not signed.')).toBeVisible()
 
+    // Under the sandbox, in the server's container (D337), what it takes against its caps
+    // (D351): its memory, once measured, and its data.
+    await expect(card.getByText('Sandboxed', { exact: true })).toBeVisible()
+    await expect(card.getByRole('meter', { name: 'Data' })).toHaveAttribute(
+      'aria-valuetext',
+      / of 1 GiB$/,
+    )
+    await expect(async () => {
+      await page.reload()
+      await expect(card.getByRole('meter', { name: 'Memory' })).toHaveAttribute(
+        'aria-valuetext',
+        / of 256 MiB$/,
+        { timeout: 1_000 },
+      )
+    }).toPass()
+
     // Its nodes are the engine's now: a workflow runs one, in the plugin's process.
     const types = (await (await page.request.get('/api/v1/node-types')).json()) as {
       nodeTypes: { name: string }[]
@@ -86,9 +102,31 @@ test.describe('a plugin', () => {
       token: 't-secret',
     })
 
+    // Its own caps, set on its card, hold it as it is next measured (D346, D350).
+    await card.getByRole('button', { name: 'Caps' }).click()
+    const caps = page.getByRole('dialog')
+    await expect(caps.getByLabel('Memory (MiB)')).toHaveAttribute(
+      'placeholder',
+      "The Config page's: 256",
+    )
+    await caps.getByLabel('Memory (MiB)').fill('512')
+    await caps.getByRole('button', { name: 'Save' }).click()
+    await expect(
+      page.getByText("Echo's caps saved: they apply as it is next measured"),
+    ).toBeVisible()
+    await expect(async () => {
+      await page.reload()
+      await expect(card.getByRole('meter', { name: 'Memory' })).toHaveAttribute(
+        'aria-valuetext',
+        / of 512 MiB$/,
+        { timeout: 1_000 },
+      )
+    }).toPass()
+
     // What admins did with it, kept.
     await card.getByRole('button', { name: 'History' }).click()
     const history = page.getByRole('dialog')
+    await expect(history.getByText("caps: data: the Config page's; memory: 512 MiB")).toBeVisible()
     await expect(
       history.getByText(/^settings 1\.2\.0: greeting: "hello" → "hi there"; token changed/),
     ).toBeVisible()
@@ -103,5 +141,23 @@ test.describe('a plugin', () => {
     const trade = nodes.getByRole('button', { name: /^Trade/ })
     await expect(trade.getByText('From Echo')).toBeVisible()
     await expect(trade.getByText('Trades')).toBeVisible()
+
+    // Uninstalled, its data kept, then what it left behind removed (D342, D348).
+    await page.goto('/admin/plugins')
+    await card.getByRole('button', { name: 'Uninstall' }).click()
+    const uninstall = page.getByRole('alertdialog')
+    await expect(
+      uninstall.getByRole('checkbox', { name: /Also remove its data/ }),
+    ).not.toBeChecked()
+    await uninstall.getByRole('button', { name: 'Uninstall' }).click()
+    await expect(page.getByText('Echo is uninstalled, its data kept')).toBeVisible()
+
+    const left = page.getByRole('heading', { name: 'Data left behind' })
+    await expect(left).toBeVisible()
+    await expect(page.locator('section', { has: left }).getByText(/^echo/)).toBeVisible()
+    await page.getByRole('button', { name: 'Remove' }).click()
+    await page.getByRole('alertdialog').getByRole('button', { name: 'Remove' }).click()
+    await expect(page.getByText('What echo left behind is removed')).toBeVisible()
+    await expect(left).toBeHidden()
   })
 })

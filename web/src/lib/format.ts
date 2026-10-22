@@ -24,6 +24,23 @@ export function formatDuration(ms: number): string {
   return seconds > 0 ? `${minutes} min ${seconds} s` : `${minutes} min`
 }
 
+const byteUnits = ['B', 'KiB', 'MiB', 'GiB', 'TiB']
+
+/** 512 KiB, 1.5 MiB, 40 MiB, 1 GiB: sizes as plugins' caps count them. */
+export function formatBytes(n: number): string {
+  let v = n
+  let unit = 0
+
+  while (v >= 1024 && unit < byteUnits.length - 1) {
+    v /= 1024
+    unit++
+  }
+
+  const text = v >= 10 || Number.isInteger(v) ? Math.round(v).toString() : v.toFixed(1)
+
+  return `${text} ${byteUnits[unit]}`
+}
+
 /** 0x5aAe…eAed */
 export function shortAddress(address: string): string {
   return `${address.slice(0, 6)}…${address.slice(-4)}`

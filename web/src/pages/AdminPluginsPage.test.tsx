@@ -74,14 +74,23 @@ const running: Schemas['Plugin'] = {
 
 const sandbox: Schemas['PluginSandbox'] = { available: true, why: '', unsandboxed: false }
 
-function plugins(list: Schemas['Plugin'][], found: Schemas['FoundPlugin'][] = []) {
+function plugins(
+  list: Schemas['Plugin'][],
+  found: Schemas['FoundPlugin'][] = [],
+  sb: Schemas['PluginSandbox'] = sandbox,
+) {
   server.use(
     http.get('/api/v1/me', () => HttpResponse.json(root)),
     registration('invite'),
     http.get('/api/v1/workflows', () => HttpResponse.json({ workflows: [] })),
-    http.get('/api/v1/admin/plugins', () => HttpResponse.json({ plugins: list, found, sandbox })),
+    http.get('/api/v1/admin/plugins', () =>
+      HttpResponse.json({ plugins: list, found, sandbox: sb }),
+    ),
+    http.get('/api/v1/admin/plugins/left-behind', () => HttpResponse.json([])),
   )
 }
+
+const noSandbox = 'plugins cannot be sandboxed here: only Linux has the sandbox, and this is darwin'
 
 describe('admin plugins page', () => {
   it('is for admins only', async () => {
@@ -282,7 +291,7 @@ describe('admin plugins page', () => {
     await waitFor(() => expect(sent).toEqual({ everyone: false, users: ['u-2'] }))
   })
 
-  it('disables and uninstalls', async () => {
+  it('disables, and uninstalls, its data kept or removed too (D342, D348)', async () => {
     const calls: string[] = []
 
     plugins([running])
@@ -291,8 +300,8 @@ describe('admin plugins page', () => {
         calls.push('disable')
         return new HttpResponse(null, { status: 204 })
       }),
-      http.delete('/api/v1/admin/plugins/weather', () => {
-        calls.push('uninstall')
+      http.delete('/api/v1/admin/plugins/weather', ({ request }) => {
+        calls.push(`uninstall, data=${new URL(request.url).searchParams.get('data')}`)
         return new HttpResponse(null, { status: 204 })
       }),
     )
@@ -303,9 +312,175 @@ describe('admin plugins page', () => {
     await waitFor(() => expect(calls).toEqual(['disable']))
 
     await user.click(card.getByRole('button', { name: 'Uninstall' }))
-    const confirm = within(await screen.findByRole('alertdialog'))
+    let confirm = within(await screen.findByRole('alertdialog'))
+    expect(confirm.getByRole('checkbox', { name: /Also remove its data/ })).not.toBeChecked()
     await user.click(confirm.getByRole('button', { name: 'Uninstall' }))
-    await waitFor(() => expect(calls).toEqual(['disable', 'uninstall']))
+    await waitFor(() => expect(calls).toEqual(['disable', 'uninstall, data=null']))
+    expect(await screen.findByText('Weather is uninstalled, its data kept')).toBeInTheDocument()
+
+    await user.click(card.getByRole('button', { name: 'Uninstall' }))
+    confirm = within(await screen.findByRole('alertdialog'))
+    await user.click(confirm.getByRole('checkbox', { name: /Also remove its data/ }))
+    await user.click(confirm.getByRole('button', { name: 'Uninstall' }))
+    await waitFor(() =>
+      expect(calls).toEqual(['disable', 'uninstall, data=null', 'uninstall, data=true']),
+    )
+    expect(await screen.findByText('Weather is uninstalled, its data removed')).toBeInTheDocument()
+  })
+
+  it('shows what a running plugin takes, each against its cap, sandboxed (D351)', async () => {
+    plugins([running])
+    renderApp('/admin/plugins')
+
+    const card = within(await screen.findByRole('article', { name: 'Weather' }))
+    expect(card.getByText('Sandboxed')).toBeInTheDocument()
+    expect(card.getByRole('meter', { name: 'Memory' })).toHaveAttribute(
+      'aria-valuetext',
+      '40 MiB of 256 MiB',
+    )
+    expect(card.getByRole('meter', { name: 'Data' })).toHaveAttribute(
+      'aria-valuetext',
+      '1 MiB of 1 GiB',
+    )
+    expect(card.queryByText(/near its cap/)).not.toBeInTheDocument()
+  })
+
+  it('warns of a plugin near its cap, and says where memory is not watched', async () => {
+    plugins([{ ...running, status: { ...running.status!, memory: 0, data: 1000 << 20 } }])
+    renderApp('/admin/plugins')
+
+    const card = within(await screen.findByRole('article', { name: 'Weather' }))
+    expect(card.getByText('Not measured: it is watched on Linux.')).toBeInTheDocument()
+    expect(card.queryByRole('meter', { name: 'Memory' })).not.toBeInTheDocument()
+    expect(card.getByRole('meter', { name: 'Data' })).toHaveAttribute(
+      'aria-valuetext',
+      '1000 MiB of 1 GiB, near its cap',
+    )
+    expect(card.getByText(/near its cap/)).toBeInTheDocument()
+  })
+
+  it('says plugins do not start where there is no sandbox (D338)', async () => {
+    plugins([], [], { available: false, why: noSandbox, unsandboxed: false })
+    renderApp('/admin/plugins')
+
+    expect(await screen.findByText('Plugins do not start here')).toBeInTheDocument()
+    expect(
+      screen.getByText(/^Plugins cannot be sandboxed here: only Linux has the sandbox/),
+    ).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Config page' })).toHaveAttribute(
+      'href',
+      '/admin/config',
+    )
+  })
+
+  it('warns while plugins run unsandboxed (D338)', async () => {
+    plugins([{ ...running, status: { ...running.status!, sandboxed: false } }], [], {
+      available: false,
+      why: noSandbox,
+      unsandboxed: true,
+    })
+    renderApp('/admin/plugins')
+
+    expect(await screen.findByText('Plugins run unsandboxed here')).toBeInTheDocument()
+    const card = within(screen.getByRole('article', { name: 'Weather' }))
+    expect(card.getByText('Not sandboxed')).toBeInTheDocument()
+  })
+
+  it("sets a plugin's own caps, each blank for the Config page's (D346, D350)", async () => {
+    let sent: unknown
+
+    plugins([{ ...running, caps: { dataCap: 2048, memoryCap: 0 } }])
+    server.use(
+      http.get('/api/v1/admin/settings', () =>
+        HttpResponse.json({
+          restartPending: false,
+          settings: [
+            { key: 'plugins.data_cap', value: 1024 },
+            { key: 'plugins.memory_cap', value: 256 },
+          ],
+        }),
+      ),
+      http.put('/api/v1/admin/plugins/weather/caps', async ({ request }) => {
+        sent = await request.json()
+        return new HttpResponse(null, { status: 204 })
+      }),
+    )
+    const { user } = renderApp('/admin/plugins')
+
+    await user.click(await screen.findByRole('button', { name: 'Caps' }))
+    const dialog = within(await screen.findByRole('dialog'))
+    expect(await dialog.findByPlaceholderText("The Config page's: 256")).toBeInTheDocument()
+    expect(dialog.getByLabelText('Data (MiB)')).toHaveValue(2048)
+
+    await user.clear(dialog.getByLabelText('Data (MiB)'))
+    await user.type(dialog.getByLabelText('Memory (MiB)'), '512')
+    await user.click(dialog.getByRole('button', { name: 'Save' }))
+
+    await waitFor(() => expect(sent).toEqual({ dataCap: 0, memoryCap: 512 }))
+    expect(
+      await screen.findByText("Weather's caps saved: they apply as it is next measured"),
+    ).toBeInTheDocument()
+  })
+
+  it('names a cap out of bounds', async () => {
+    plugins([running])
+    server.use(
+      http.get('/api/v1/admin/settings', () =>
+        HttpResponse.json({ restartPending: false, settings: [] }),
+      ),
+      http.put('/api/v1/admin/plugins/weather/caps', () =>
+        HttpResponse.json(
+          {
+            error: {
+              code: 'invalid_input',
+              message: 'invalid input',
+              problems: [{ param: 'memoryCap', message: 'A memory cap is 16 to 65536 MiB.' }],
+            },
+          },
+          { status: 400 },
+        ),
+      ),
+    )
+    const { user } = renderApp('/admin/plugins')
+
+    await user.click(await screen.findByRole('button', { name: 'Caps' }))
+    const dialog = within(await screen.findByRole('dialog'))
+    await user.type(dialog.getByLabelText('Memory (MiB)'), '8')
+    await user.click(dialog.getByRole('button', { name: 'Save' }))
+
+    expect(await dialog.findByText('A memory cap is 16 to 65536 MiB.')).toBeInTheDocument()
+  })
+
+  it('lists what plugins left behind, and removes it (D342)', async () => {
+    let removed = false
+
+    plugins([])
+    server.use(
+      http.get('/api/v1/admin/plugins/left-behind', () =>
+        HttpResponse.json(removed ? [] : [{ id: 'news', files: 3 << 20, stored: 512 }]),
+      ),
+      http.delete('/api/v1/admin/plugins/left-behind/news', () => {
+        removed = true
+        return new HttpResponse(null, { status: 204 })
+      }),
+    )
+    const { user } = renderApp('/admin/plugins')
+
+    expect(await screen.findByRole('heading', { name: 'Data left behind' })).toBeInTheDocument()
+    expect(
+      screen.getByText('3 MiB in its directory, 512 B stored by its nodes'),
+    ).toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: 'Remove' }))
+    const confirm = within(await screen.findByRole('alertdialog'))
+    expect(confirm.getByText('Remove what news left behind?')).toBeInTheDocument()
+    await user.click(confirm.getByRole('button', { name: 'Remove' }))
+
+    await waitFor(() => expect(removed).toBe(true))
+    expect(await screen.findByText('What news left behind is removed')).toBeInTheDocument()
+    await waitFor(() =>
+      expect(screen.queryByRole('heading', { name: 'Data left behind' })).not.toBeInTheDocument(),
+    )
   })
 
   it('starts a crashed plugin again (D320)', async () => {
@@ -452,7 +627,7 @@ describe('admin plugins page', () => {
     plugins([])
     server.use(
       http.get('/api/v1/admin/plugins', () =>
-        HttpResponse.json({ plugins: [{ ...running, restart: !restarted }], found: [] }),
+        HttpResponse.json({ plugins: [{ ...running, restart: !restarted }], found: [], sandbox }),
       ),
       http.post('/api/v1/admin/restart', () => {
         restarted = true
