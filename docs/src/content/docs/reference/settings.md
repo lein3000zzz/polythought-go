@@ -611,6 +611,18 @@ Let workflows reach addresses inside the server's network, such as a service on 
 | Default | `false` |
 | Applies | at once |
 
+### GitHub stars
+
+Ask GitHub about once an hour how many stars Polythought's repository has, to show beside its link in the app and the docs. Off, the server never calls GitHub, and the link shows no count.
+
+| | |
+|---|---|
+| Key | `github.stars` |
+| Environment variable | `POLYTHOUGHT_GITHUB_STARS` |
+| Kind | `true` or `false` |
+| Default | `true` |
+| Applies | at once |
+
 ## Logging
 
 ### Log level

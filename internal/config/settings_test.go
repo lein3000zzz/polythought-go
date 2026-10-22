@@ -97,6 +97,7 @@ func TestSettingsDefaults(t *testing.T) {
 		config.KeyPolygonRPC:          pm.DefaultRPCURL,
 		config.KeyTrustedProxies:      []string{},
 		config.KeyWebhookAllowPrivate: false,
+		config.KeyGitHubStars:         true,
 		config.KeyLogLevel:            "info",
 		config.KeyLogFormat:           "text",
 		config.KeyTelegramEnabled:     false,
@@ -114,7 +115,7 @@ func TestSettingsDefaults(t *testing.T) {
 		assert.Equal(t, want, spec(t, key).Default, key)
 	}
 
-	assert.Len(t, registry(t).Specs(), 62, "every setting has a default checked above")
+	assert.Len(t, registry(t).Specs(), 63, "every setting has a default checked above")
 
 	for _, key := range []string{
 		config.KeyTelegramToken, config.KeyBuilderAPIKey, config.KeyBuilderSecret, config.KeyBuilderPassphrase, config.KeyPolygonRPC,
@@ -135,6 +136,7 @@ func TestSettingsEnvironmentNames(t *testing.T) {
 		config.KeyExecutionRetention:  "POLYTHOUGHT_EXECUTION_RETENTION",
 		config.KeyTrustedProxies:      "POLYTHOUGHT_TRUSTED_PROXIES",
 		config.KeyWebhookAllowPrivate: "POLYTHOUGHT_WEBHOOK_ALLOW_PRIVATE",
+		config.KeyGitHubStars:         "POLYTHOUGHT_GITHUB_STARS",
 		config.KeyLogLevel:            "POLYTHOUGHT_LOG_LEVEL",
 		config.KeyLogFormat:           "POLYTHOUGHT_LOG_FORMAT",
 		config.KeyInviteTTL:           "POLYTHOUGHT_AUTH_INVITE_TTL",

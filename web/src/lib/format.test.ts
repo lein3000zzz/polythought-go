@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { formatBytes, formatDuration } from './format'
+import { formatBytes, formatCount, formatDuration } from './format'
 
 describe('formatDuration', () => {
   it.each([
@@ -26,5 +26,21 @@ describe('formatBytes', () => {
     { n: 1 << 30, want: '1 GiB' },
   ])('$n bytes', ({ n, want }) => {
     expect(formatBytes(n)).toBe(want)
+  })
+})
+
+describe('formatCount', () => {
+  it.each([
+    { n: 0, want: '0' },
+    { n: 999, want: '999' },
+    { n: 1000, want: '1k' },
+    { n: 1234, want: '1.2k' },
+    { n: 2300, want: '2.3k' },
+    { n: 9999, want: '9.9k' },
+    { n: 12_345, want: '12k' },
+    { n: 999_999, want: '999k' },
+    { n: 1_234_567, want: '1.2m' },
+  ])('$n', ({ n, want }) => {
+    expect(formatCount(n)).toBe(want)
   })
 })

@@ -1819,6 +1819,22 @@
                 ],
                 "type": "object"
             },
+            "Meta": {
+                "properties": {
+                    "repo": {
+                        "description": "Repo is Polythought's repository.",
+                        "type": "string"
+                    },
+                    "stars": {
+                        "description": "Stars is how many stars GitHub counts for it, while GitHub says and the lookup is\non (D372).",
+                        "type": "integer"
+                    }
+                },
+                "required": [
+                    "repo"
+                ],
+                "type": "object"
+            },
             "Model": {
                 "properties": {
                     "id": {
@@ -8437,6 +8453,27 @@
                 "summary": "Change password",
                 "tags": [
                     "me"
+                ]
+            }
+        },
+        "/meta": {
+            "get": {
+                "operationId": "getMeta",
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Meta"
+                                }
+                            }
+                        },
+                        "description": "OK"
+                    }
+                },
+                "summary": "About Polythought",
+                "tags": [
+                    "meta"
                 ]
             }
         },

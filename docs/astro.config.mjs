@@ -10,6 +10,8 @@ export default defineConfig({
       title: 'Polythought',
       description: 'Workflow automation for Polymarket: build, run and share workflows.',
       customCss: ['./src/styles/custom.css'],
+      // The repository's link in the header, with its stars (D372).
+      components: { SocialIcons: './src/components/SocialIcons.astro' },
       sidebar: [
         {
           label: 'Guides',

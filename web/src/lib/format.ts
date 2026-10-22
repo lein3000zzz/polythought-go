@@ -41,6 +41,17 @@ export function formatBytes(n: number): string {
   return `${text} ${byteUnits[unit]}`
 }
 
+/** 999, 1.2k, 12k, 1.2m: a count as GitHub writes it, cut down, never rounded up. */
+export function formatCount(n: number): string {
+  if (n < 1000) return n.toString()
+
+  const [size, unit] = n < 1_000_000 ? [1000, 'k'] : [1_000_000, 'm']
+  const tenths = Math.floor(n / (size / 10))
+  const text = tenths < 100 ? (tenths / 10).toString() : Math.floor(tenths / 10).toString()
+
+  return text + unit
+}
+
 /** 0x5aAe…eAed */
 export function shortAddress(address: string): string {
   return `${address.slice(0, 6)}…${address.slice(-4)}`

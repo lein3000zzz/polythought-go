@@ -334,6 +334,14 @@ webhook:
   # Environment: POLYTHOUGHT_WEBHOOK_ALLOW_PRIVATE.
   # allow_private: false
 
+github:
+
+  # Ask GitHub about once an hour how many stars Polythought's repository has, to show
+  # beside its link in the app and the docs. Off, the server never calls GitHub, and the
+  # link shows no count.
+  # Environment: POLYTHOUGHT_GITHUB_STARS.
+  # stars: true
+
 log:
 
   # The least severe messages the server logs. One of debug, info, warn, error.

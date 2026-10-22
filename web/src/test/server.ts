@@ -7,6 +7,10 @@ import { setupServer } from 'msw/node'
  */
 export const server = setupServer(
   http.get('/api/v1/wallets', () => HttpResponse.json({ wallets: [] })),
+  // Every page asks for the repository's stars: GitHub has not said, unless a test says.
+  http.get('/api/v1/meta', () =>
+    HttpResponse.json({ repo: 'https://github.com/lein3000zzz/polythought-go' }),
+  ),
   // Settings asks what the agents spent: nothing, and no caps, unless a test says.
   http.get('/api/v1/me/agent-spend', () =>
     HttpResponse.json({

@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react'
 
+import { GitHubLink } from '@/components/GitHubLink'
 import { ThemeToggle } from '@/components/ThemeToggle'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 
@@ -13,7 +14,8 @@ type Props = {
 export function AuthLayout({ title, description, children }: Props) {
   return (
     <div className="relative flex min-h-dvh flex-col items-center justify-center gap-6 bg-muted/40 p-4">
-      <div className="absolute top-3 right-3">
+      <div className="absolute top-3 right-3 flex items-center gap-3 text-sm">
+        <GitHubLink />
         <ThemeToggle />
       </div>
       <span className="font-heading text-lg font-semibold">Polythought</span>

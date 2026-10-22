@@ -15,6 +15,7 @@ import (
 	"github.com/shopspring/decimal"
 
 	"github.com/lein3000zzz/polythought-go/internal/adapters/crypto"
+	"github.com/lein3000zzz/polythought-go/internal/adapters/github"
 	"github.com/lein3000zzz/polythought-go/internal/adapters/llm"
 	"github.com/lein3000zzz/polythought-go/internal/adapters/mailer"
 	"github.com/lein3000zzz/polythought-go/internal/adapters/pluginhost"
@@ -40,6 +41,7 @@ import (
 	"github.com/lein3000zzz/polythought-go/internal/core/services/library"
 	"github.com/lein3000zzz/polythought-go/internal/core/services/mail"
 	"github.com/lein3000zzz/polythought-go/internal/core/services/memory"
+	"github.com/lein3000zzz/polythought-go/internal/core/services/meta"
 	"github.com/lein3000zzz/polythought-go/internal/core/services/models"
 	"github.com/lein3000zzz/polythought-go/internal/core/services/notify"
 	"github.com/lein3000zzz/polythought-go/internal/core/services/plugins"
@@ -130,6 +132,7 @@ type app struct {
 	notify          *notify.Service
 	mail            *mail.Service
 	geoblock        *geoblock.Service
+	meta            *meta.Service
 	waits           *waits.Service
 	code            *code.Service
 	codeRunners     func() ports.CodeRunners
@@ -240,6 +243,15 @@ func (a *app) init(ctx context.Context) error {
 
 	// Whether Polymarket takes orders from here (D186); serve checks it every 6 hours.
 	a.geoblock = geoblock.New(pmc.geoblock, a.util.Logger)
+
+	// The repository's stars beside its link, while the setting is on (D372); serve
+	// looks.
+	stars, err := github.New(a.util, github.Config{Repo: meta.Repository})
+	if err != nil {
+		return err
+	}
+
+	a.meta = meta.New(stars, func() bool { return a.settings.Current().Bool(config.KeyGitHubStars) }, a.util.Logger)
 
 	// After notify, which reminds of expiring session keys. A wallet a workflow trades
 	// live from is not unlinked.

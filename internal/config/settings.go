@@ -72,6 +72,7 @@ const (
 	KeyAgentTotal          = "agents.max_total_month"
 	KeyTrustedProxies      = "http.trusted_proxies"
 	KeyWebhookAllowPrivate = "webhook.allow_private"
+	KeyGitHubStars         = "github.stars"
 	KeyLogLevel            = "log.level"
 	KeyLogFormat           = "log.format"
 	KeyTelegramEnabled     = "telegram.enabled"
@@ -393,6 +394,13 @@ func Settings() (*settings.Registry, error) {
 				"public address). Leave off on a shared instance.",
 			Kind: settings.KindBool, Default: false,
 			Env: prefix + "WEBHOOK_ALLOW_PRIVATE",
+		},
+		settings.Spec{
+			Key: KeyGitHubStars, Group: groupNetwork, Label: "GitHub stars",
+			Description: "Ask GitHub about once an hour how many stars Polythought's repository has, to show beside its link " +
+				"in the app and the docs. Off, the server never calls GitHub, and the link shows no count.",
+			Kind: settings.KindBool, Default: true,
+			Env: prefix + "GITHUB_STARS",
 		},
 		settings.Spec{
 			Key: KeyLogLevel, Group: groupLogging, Label: "Log level",

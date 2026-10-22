@@ -20,6 +20,15 @@ describe('signing in', () => {
     expect(router.state.location.search).toBe('?next=%2Fworkflows%2Fwf-1')
   })
 
+  it('links the repository from the corner, beside the theme (D389)', async () => {
+    server.use(signedOut, registration('invite'))
+    renderApp('/login')
+
+    const github = await screen.findByRole('link', { name: 'GitHub' })
+    expect(github).toHaveAttribute('href', 'https://github.com/lein3000zzz/polythought-go')
+    expect(screen.getByRole('button', { name: 'Theme' })).toBeInTheDocument()
+  })
+
   it('shows why signing in failed', async () => {
     server.use(
       signedOut,

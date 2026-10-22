@@ -154,6 +154,14 @@ Paper trading works anywhere.
 Only the server's address is checked: whether each user may trade on Polymarket where they
 are is between them and Polymarket's terms.
 
+## GitHub stars
+
+Every page, the docs too, links to Polythought's repository on GitHub with its star count.
+The server asks GitHub's API for the count at start and about once an hour, without a
+token, and pages read it from the server. While GitHub does not answer, the link shows no
+count. To keep the server from calling GitHub at all, turn off **GitHub stars** in the
+Network group of the Config page, or set `POLYTHOUGHT_GITHUB_STARS=false`.
+
 ## User code
 
 Code that users write, in code nodes, custom nodes and workflows as code, runs in an engine

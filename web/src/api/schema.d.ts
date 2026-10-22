@@ -936,6 +936,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/meta": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** About Polythought */
+        get: operations["getMeta"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/node-types": {
         parameters: {
             query?: never;
@@ -2326,6 +2343,15 @@ export interface components {
         LoginRequest: {
             email: string;
             password: string;
+        };
+        Meta: {
+            /** @description Repo is Polythought's repository. */
+            repo: string;
+            /**
+             * @description Stars is how many stars GitHub counts for it, while GitHub says and the lookup is
+             *     on (D372).
+             */
+            stars?: number;
         };
         Model: {
             /** @description ID is what the provider calls it, the name an agent node asks for. */
@@ -6358,6 +6384,26 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    getMeta: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Meta"];
                 };
             };
         };

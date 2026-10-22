@@ -45,6 +45,22 @@ describe('the top bar (D368)', () => {
     const github = screen.getByRole('link', { name: 'GitHub' })
     expect(github).toHaveAttribute('href', 'https://github.com/lein3000zzz/polythought-go')
     expect(github).toHaveAttribute('target', '_blank')
+    expect(github).not.toHaveTextContent(/\d/) // GitHub has not said
+  })
+
+  it("shows the repository's stars while the server knows them (D372)", async () => {
+    server.use(
+      signedIn,
+      noWorkflows,
+      http.get('/api/v1/meta', () =>
+        HttpResponse.json({ repo: 'https://github.com/lein3000zzz/polythought-go', stars: 1234 }),
+      ),
+    )
+    renderApp('/workflows')
+
+    const github = await screen.findByRole('link', { name: 'GitHub, 1,234 stars' })
+    expect(github).toHaveTextContent('1.2k')
+    expect(github).toHaveAttribute('title', '1,234 stars on GitHub')
   })
 
   it('keeps who is signed in, their pages and the theme in the account menu', async () => {

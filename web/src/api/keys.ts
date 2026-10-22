@@ -6,6 +6,7 @@
 export const keys = {
   me: ['me'],
   authConfig: ['auth-config'],
+  meta: ['meta'],
   nodeTypes: ['node-types'],
   codeTypes: ['node-types', 'code'], // under node types, so what refreshes those does these
   customNodes: ['custom-nodes'],

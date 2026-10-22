@@ -60,6 +60,7 @@ func serve(ctx context.Context) error {
 		Memory:   a.memory,
 		Telegram: a.telegram, TelegramWebhook: a.telegramBot, Notifications: a.notify, Mail: a.mail,
 		Geoblock: a.geoblock,
+		Meta:     a.meta,
 		Plugins:  a.plugins,
 
 		CodeRunners: a.codeRunners,
@@ -107,6 +108,9 @@ func serve(ctx context.Context) error {
 
 	// Whether Polymarket takes orders from here, at start and every 6 hours (D186).
 	go a.geoblock.CheckEvery(ctx, 6*time.Hour)
+
+	// GitHub's star count, at start and about once an hour while it is on (D372).
+	go a.meta.LookEvery(ctx, time.Minute)
 
 	// The bot follows its settings: a change restarts it, not the server.
 	telegramDone := make(chan struct{})

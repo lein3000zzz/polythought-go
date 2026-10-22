@@ -133,6 +133,8 @@ type Services struct {
 	CustomNodes     CustomNodeService
 	Mail            MailService
 	Geoblock        GeoblockService
+	// Meta is what pages show about Polythought itself; nil: its repository alone.
+	Meta MetaService
 	// Spend is what users' agents spend, and the caps on it; nil when there is no agent.
 	Spend SpendService
 	// Plugins are what admins install (5c); nil where there are none.
@@ -178,6 +180,7 @@ type Server struct {
 	notifications NotificationService
 	mail          MailService
 	geoblock      GeoblockService
+	meta          MetaService
 	spend         SpendService
 	plugins       PluginService
 
@@ -255,6 +258,7 @@ func New(cfg Config, util *observability.Utility, services Services) (*Server, e
 		notifications: services.Notifications,
 		mail:          services.Mail,
 		geoblock:      services.Geoblock,
+		meta:          services.Meta,
 		spend:         services.Spend,
 		plugins:       services.Plugins,
 
@@ -310,6 +314,8 @@ func (s *Server) routes() {
 	h.GET("/healthz", s.health)
 
 	v1 := h.Group("/api/v1")
+
+	v1.GET("/meta", s.getMeta)
 
 	v1.GET("/auth/config", s.authConfig)
 	v1.POST("/auth/register", s.register)

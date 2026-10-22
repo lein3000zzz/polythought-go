@@ -1,3 +1,7 @@
+import { Star } from 'lucide-react'
+
+import { useMeta } from '@/api/meta'
+import { formatCount } from '@/lib/format'
 import { repoURL } from '@/lib/project'
 
 /** GitHub's mark, from Octicons (MIT). */
@@ -9,17 +13,33 @@ function GitHubMark({ className }: { className?: string }) {
   )
 }
 
-/** The project's repository on GitHub, opening in a tab of its own (D368). */
+/**
+ * The project's repository on GitHub, opening in a tab of its own (D368), with its stars
+ * while the server knows them (D372, D389).
+ */
 export function GitHubLink() {
+  const stars = useMeta().data?.stars
+  const exact = stars?.toLocaleString('en')
+
   return (
     <a
       href={repoURL}
       target="_blank"
       rel="noopener noreferrer"
+      // Named in full: browsers would otherwise read the count as "1.2k", and differ on
+      // the spacing.
+      aria-label={exact === undefined ? undefined : `GitHub, ${exact} stars`}
+      title={exact === undefined ? undefined : `${exact} stars on GitHub`}
       className="flex items-center gap-1 text-muted-foreground hover:text-foreground"
     >
       <GitHubMark className="size-4" />
       GitHub
+      {stars !== undefined && (
+        <span className="flex items-center gap-0.5 tabular-nums">
+          <Star className="size-3.5" />
+          {formatCount(stars)}
+        </span>
+      )}
     </a>
   )
 }
