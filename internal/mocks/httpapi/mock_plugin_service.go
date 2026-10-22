@@ -423,6 +423,74 @@ func (_c *MockPluginService_InstallFrom_Call) RunAndReturn(run func(ctx context.
 	return _c
 }
 
+// LeftBehind provides a mock function for the type MockPluginService
+func (_mock *MockPluginService) LeftBehind(ctx context.Context, p auth.Principal) ([]plugins.LeftData, error) {
+	ret := _mock.Called(ctx, p)
+
+	if len(ret) == 0 {
+		panic("no return value specified for LeftBehind")
+	}
+
+	var r0 []plugins.LeftData
+	var r1 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context, auth.Principal) ([]plugins.LeftData, error)); ok {
+		return returnFunc(ctx, p)
+	}
+	if returnFunc, ok := ret.Get(0).(func(context.Context, auth.Principal) []plugins.LeftData); ok {
+		r0 = returnFunc(ctx, p)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).([]plugins.LeftData)
+		}
+	}
+	if returnFunc, ok := ret.Get(1).(func(context.Context, auth.Principal) error); ok {
+		r1 = returnFunc(ctx, p)
+	} else {
+		r1 = ret.Error(1)
+	}
+	return r0, r1
+}
+
+// MockPluginService_LeftBehind_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'LeftBehind'
+type MockPluginService_LeftBehind_Call struct {
+	*mock.Call
+}
+
+// LeftBehind is a helper method to define mock.On call
+//   - ctx context.Context
+//   - p auth.Principal
+func (_e *MockPluginService_Expecter) LeftBehind(ctx any, p any) *MockPluginService_LeftBehind_Call {
+	return &MockPluginService_LeftBehind_Call{Call: _e.mock.On("LeftBehind", ctx, p)}
+}
+
+func (_c *MockPluginService_LeftBehind_Call) Run(run func(ctx context.Context, p auth.Principal)) *MockPluginService_LeftBehind_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		var arg1 auth.Principal
+		if args[1] != nil {
+			arg1 = args[1].(auth.Principal)
+		}
+		run(
+			arg0,
+			arg1,
+		)
+	})
+	return _c
+}
+
+func (_c *MockPluginService_LeftBehind_Call) Return(leftDatas []plugins.LeftData, err error) *MockPluginService_LeftBehind_Call {
+	_c.Call.Return(leftDatas, err)
+	return _c
+}
+
+func (_c *MockPluginService_LeftBehind_Call) RunAndReturn(run func(ctx context.Context, p auth.Principal) ([]plugins.LeftData, error)) *MockPluginService_LeftBehind_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // List provides a mock function for the type MockPluginService
 func (_mock *MockPluginService) List(ctx context.Context, p auth.Principal) ([]plugins.Info, []ports.PluginFound, error) {
 	ret := _mock.Called(ctx, p)
@@ -499,6 +567,69 @@ func (_c *MockPluginService_List_Call) RunAndReturn(run func(ctx context.Context
 	return _c
 }
 
+// RemoveLeftBehind provides a mock function for the type MockPluginService
+func (_mock *MockPluginService) RemoveLeftBehind(ctx context.Context, p auth.Principal, id string) error {
+	ret := _mock.Called(ctx, p, id)
+
+	if len(ret) == 0 {
+		panic("no return value specified for RemoveLeftBehind")
+	}
+
+	var r0 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context, auth.Principal, string) error); ok {
+		r0 = returnFunc(ctx, p, id)
+	} else {
+		r0 = ret.Error(0)
+	}
+	return r0
+}
+
+// MockPluginService_RemoveLeftBehind_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'RemoveLeftBehind'
+type MockPluginService_RemoveLeftBehind_Call struct {
+	*mock.Call
+}
+
+// RemoveLeftBehind is a helper method to define mock.On call
+//   - ctx context.Context
+//   - p auth.Principal
+//   - id string
+func (_e *MockPluginService_Expecter) RemoveLeftBehind(ctx any, p any, id any) *MockPluginService_RemoveLeftBehind_Call {
+	return &MockPluginService_RemoveLeftBehind_Call{Call: _e.mock.On("RemoveLeftBehind", ctx, p, id)}
+}
+
+func (_c *MockPluginService_RemoveLeftBehind_Call) Run(run func(ctx context.Context, p auth.Principal, id string)) *MockPluginService_RemoveLeftBehind_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		var arg1 auth.Principal
+		if args[1] != nil {
+			arg1 = args[1].(auth.Principal)
+		}
+		var arg2 string
+		if args[2] != nil {
+			arg2 = args[2].(string)
+		}
+		run(
+			arg0,
+			arg1,
+			arg2,
+		)
+	})
+	return _c
+}
+
+func (_c *MockPluginService_RemoveLeftBehind_Call) Return(err error) *MockPluginService_RemoveLeftBehind_Call {
+	_c.Call.Return(err)
+	return _c
+}
+
+func (_c *MockPluginService_RemoveLeftBehind_Call) RunAndReturn(run func(ctx context.Context, p auth.Principal, id string) error) *MockPluginService_RemoveLeftBehind_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // RemoveVersion provides a mock function for the type MockPluginService
 func (_mock *MockPluginService) RemoveVersion(ctx context.Context, p auth.Principal, id string, version string) error {
 	ret := _mock.Called(ctx, p, id, version)
@@ -564,6 +695,135 @@ func (_c *MockPluginService_RemoveVersion_Call) Return(err error) *MockPluginSer
 }
 
 func (_c *MockPluginService_RemoveVersion_Call) RunAndReturn(run func(ctx context.Context, p auth.Principal, id string, version string) error) *MockPluginService_RemoveVersion_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// Sandbox provides a mock function for the type MockPluginService
+func (_mock *MockPluginService) Sandbox(p auth.Principal) (ports.PluginSandbox, error) {
+	ret := _mock.Called(p)
+
+	if len(ret) == 0 {
+		panic("no return value specified for Sandbox")
+	}
+
+	var r0 ports.PluginSandbox
+	var r1 error
+	if returnFunc, ok := ret.Get(0).(func(auth.Principal) (ports.PluginSandbox, error)); ok {
+		return returnFunc(p)
+	}
+	if returnFunc, ok := ret.Get(0).(func(auth.Principal) ports.PluginSandbox); ok {
+		r0 = returnFunc(p)
+	} else {
+		r0 = ret.Get(0).(ports.PluginSandbox)
+	}
+	if returnFunc, ok := ret.Get(1).(func(auth.Principal) error); ok {
+		r1 = returnFunc(p)
+	} else {
+		r1 = ret.Error(1)
+	}
+	return r0, r1
+}
+
+// MockPluginService_Sandbox_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'Sandbox'
+type MockPluginService_Sandbox_Call struct {
+	*mock.Call
+}
+
+// Sandbox is a helper method to define mock.On call
+//   - p auth.Principal
+func (_e *MockPluginService_Expecter) Sandbox(p any) *MockPluginService_Sandbox_Call {
+	return &MockPluginService_Sandbox_Call{Call: _e.mock.On("Sandbox", p)}
+}
+
+func (_c *MockPluginService_Sandbox_Call) Run(run func(p auth.Principal)) *MockPluginService_Sandbox_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 auth.Principal
+		if args[0] != nil {
+			arg0 = args[0].(auth.Principal)
+		}
+		run(
+			arg0,
+		)
+	})
+	return _c
+}
+
+func (_c *MockPluginService_Sandbox_Call) Return(pluginSandbox ports.PluginSandbox, err error) *MockPluginService_Sandbox_Call {
+	_c.Call.Return(pluginSandbox, err)
+	return _c
+}
+
+func (_c *MockPluginService_Sandbox_Call) RunAndReturn(run func(p auth.Principal) (ports.PluginSandbox, error)) *MockPluginService_Sandbox_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// SetCaps provides a mock function for the type MockPluginService
+func (_mock *MockPluginService) SetCaps(ctx context.Context, p auth.Principal, id string, caps domain.PluginCaps) error {
+	ret := _mock.Called(ctx, p, id, caps)
+
+	if len(ret) == 0 {
+		panic("no return value specified for SetCaps")
+	}
+
+	var r0 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context, auth.Principal, string, domain.PluginCaps) error); ok {
+		r0 = returnFunc(ctx, p, id, caps)
+	} else {
+		r0 = ret.Error(0)
+	}
+	return r0
+}
+
+// MockPluginService_SetCaps_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'SetCaps'
+type MockPluginService_SetCaps_Call struct {
+	*mock.Call
+}
+
+// SetCaps is a helper method to define mock.On call
+//   - ctx context.Context
+//   - p auth.Principal
+//   - id string
+//   - caps domain.PluginCaps
+func (_e *MockPluginService_Expecter) SetCaps(ctx any, p any, id any, caps any) *MockPluginService_SetCaps_Call {
+	return &MockPluginService_SetCaps_Call{Call: _e.mock.On("SetCaps", ctx, p, id, caps)}
+}
+
+func (_c *MockPluginService_SetCaps_Call) Run(run func(ctx context.Context, p auth.Principal, id string, caps domain.PluginCaps)) *MockPluginService_SetCaps_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		var arg1 auth.Principal
+		if args[1] != nil {
+			arg1 = args[1].(auth.Principal)
+		}
+		var arg2 string
+		if args[2] != nil {
+			arg2 = args[2].(string)
+		}
+		var arg3 domain.PluginCaps
+		if args[3] != nil {
+			arg3 = args[3].(domain.PluginCaps)
+		}
+		run(
+			arg0,
+			arg1,
+			arg2,
+			arg3,
+		)
+	})
+	return _c
+}
+
+func (_c *MockPluginService_SetCaps_Call) Return(err error) *MockPluginService_SetCaps_Call {
+	_c.Call.Return(err)
+	return _c
+}
+
+func (_c *MockPluginService_SetCaps_Call) RunAndReturn(run func(ctx context.Context, p auth.Principal, id string, caps domain.PluginCaps) error) *MockPluginService_SetCaps_Call {
 	_c.Call.Return(run)
 	return _c
 }
@@ -919,16 +1179,16 @@ func (_c *MockPluginService_Start_Call) RunAndReturn(run func(ctx context.Contex
 }
 
 // Uninstall provides a mock function for the type MockPluginService
-func (_mock *MockPluginService) Uninstall(ctx context.Context, p auth.Principal, id string) error {
-	ret := _mock.Called(ctx, p, id)
+func (_mock *MockPluginService) Uninstall(ctx context.Context, p auth.Principal, id string, removeData bool) error {
+	ret := _mock.Called(ctx, p, id, removeData)
 
 	if len(ret) == 0 {
 		panic("no return value specified for Uninstall")
 	}
 
 	var r0 error
-	if returnFunc, ok := ret.Get(0).(func(context.Context, auth.Principal, string) error); ok {
-		r0 = returnFunc(ctx, p, id)
+	if returnFunc, ok := ret.Get(0).(func(context.Context, auth.Principal, string, bool) error); ok {
+		r0 = returnFunc(ctx, p, id, removeData)
 	} else {
 		r0 = ret.Error(0)
 	}
@@ -944,11 +1204,12 @@ type MockPluginService_Uninstall_Call struct {
 //   - ctx context.Context
 //   - p auth.Principal
 //   - id string
-func (_e *MockPluginService_Expecter) Uninstall(ctx any, p any, id any) *MockPluginService_Uninstall_Call {
-	return &MockPluginService_Uninstall_Call{Call: _e.mock.On("Uninstall", ctx, p, id)}
+//   - removeData bool
+func (_e *MockPluginService_Expecter) Uninstall(ctx any, p any, id any, removeData any) *MockPluginService_Uninstall_Call {
+	return &MockPluginService_Uninstall_Call{Call: _e.mock.On("Uninstall", ctx, p, id, removeData)}
 }
 
-func (_c *MockPluginService_Uninstall_Call) Run(run func(ctx context.Context, p auth.Principal, id string)) *MockPluginService_Uninstall_Call {
+func (_c *MockPluginService_Uninstall_Call) Run(run func(ctx context.Context, p auth.Principal, id string, removeData bool)) *MockPluginService_Uninstall_Call {
 	_c.Call.Run(func(args mock.Arguments) {
 		var arg0 context.Context
 		if args[0] != nil {
@@ -962,10 +1223,15 @@ func (_c *MockPluginService_Uninstall_Call) Run(run func(ctx context.Context, p 
 		if args[2] != nil {
 			arg2 = args[2].(string)
 		}
+		var arg3 bool
+		if args[3] != nil {
+			arg3 = args[3].(bool)
+		}
 		run(
 			arg0,
 			arg1,
 			arg2,
+			arg3,
 		)
 	})
 	return _c
@@ -976,7 +1242,7 @@ func (_c *MockPluginService_Uninstall_Call) Return(err error) *MockPluginService
 	return _c
 }
 
-func (_c *MockPluginService_Uninstall_Call) RunAndReturn(run func(ctx context.Context, p auth.Principal, id string) error) *MockPluginService_Uninstall_Call {
+func (_c *MockPluginService_Uninstall_Call) RunAndReturn(run func(ctx context.Context, p auth.Principal, id string, removeData bool) error) *MockPluginService_Uninstall_Call {
 	_c.Call.Return(run)
 	return _c
 }

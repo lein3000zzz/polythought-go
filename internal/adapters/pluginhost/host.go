@@ -17,6 +17,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -57,13 +58,16 @@ type Plugin struct {
 	lastErr string
 	closed  bool
 	wake    chan struct{} // an admin's start, for a plugin stopped as crashed
+	used    usage
 }
 
 // conn is a plugin's running process, and its temporary directory.
 type conn struct {
-	client *goplugin.Client
-	rpc    *plugin.Client
-	temp   string
+	client    *goplugin.Client
+	rpc       *plugin.Client
+	temp      string
+	pid       int
+	sandboxed bool
 }
 
 // end stops the process, emptying its temporary directory (D339).
@@ -74,6 +78,7 @@ func (c *conn) end() {
 
 // Program is a plugin's program, and the directories its process may touch (D339).
 type Program struct {
+	ID   string // the plugin's, as its files name it, which its caps are read by
 	Path string // the program
 	Dir  string // its version's directory, holding it: read, never written
 	Data string // its plugin's lasting directory, made when it is not there; empty: none
@@ -122,7 +127,21 @@ func (p *Plugin) connect(ctx context.Context) (*conn, plugin.Manifest, error) {
 		return nil, plugin.Manifest{}, fmt.Errorf("its temporary directory: %w", err)
 	}
 
-	cmd, err := p.command(temp)
+	caps := p.caps()
+
+	data := Usage(p.prog.Data)
+
+	p.mu.Lock()
+	p.used = usage{data: data, caps: caps}
+	p.mu.Unlock()
+
+	// Starting it again would not take its data back under its cap (D341).
+	if caps.Data > 0 && data > caps.Data {
+		_ = os.RemoveAll(temp)
+		return nil, plugin.Manifest{}, stopped{fmt.Errorf("its data takes %s, past its cap of %s", mib(data), mib(caps.Data))}
+	}
+
+	cmd, err := p.command(temp, caps)
 	if err != nil {
 		_ = os.RemoveAll(temp)
 		return nil, plugin.Manifest{}, err
@@ -145,7 +164,7 @@ func (p *Plugin) connect(ctx context.Context) (*conn, plugin.Manifest, error) {
 		}),
 	})
 
-	c := &conn{client: client, temp: temp}
+	c := &conn{client: client, temp: temp, sandboxed: p.api.deps.Sandbox != nil}
 
 	fail := func(err error) (*conn, plugin.Manifest, error) {
 		c.end()
@@ -156,6 +175,8 @@ func (p *Plugin) connect(ctx context.Context) (*conn, plugin.Manifest, error) {
 	if err != nil {
 		return fail(fmt.Errorf("start: %w", err))
 	}
+
+	c.pid = cmd.Process.Pid
 
 	raw, err := cc.Dispense(plugin.Name)
 	if err != nil {
@@ -196,7 +217,7 @@ func (p *Plugin) connect(ctx context.Context) (*conn, plugin.Manifest, error) {
 
 // command is the command starting the plugin's program: under the sandbox, or where there
 // is none, without one if deps allow it, asked each time (D338).
-func (p *Plugin) command(temp string) (*exec.Cmd, error) {
+func (p *Plugin) command(temp string, caps Caps) (*exec.Cmd, error) {
 	var (
 		cmd  *exec.Cmd
 		deps = p.api.deps
@@ -222,7 +243,21 @@ func (p *Plugin) command(temp string) (*exec.Cmd, error) {
 		cmd.Env = append(cmd.Env, plugin.EnvData+"="+p.prog.Data)
 	}
 
+	if caps.Memory > 0 {
+		// A soft limit a little under its cap, which a Go plugin's collector keeps to (D345).
+		cmd.Env = append(cmd.Env, "GOMEMLIMIT="+strconv.FormatInt(caps.Memory/10*9, 10))
+	}
+
 	return cmd, nil
+}
+
+// caps are what the plugin may take, as deps say now.
+func (p *Plugin) caps() Caps {
+	if p.api.deps.Caps == nil {
+		return DefaultCaps
+	}
+
+	return p.api.deps.Caps(p.prog.ID)
 }
 
 func (p *Plugin) Manifest() plugin.Manifest { return p.manifest }

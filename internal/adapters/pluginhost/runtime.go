@@ -2,12 +2,14 @@ package pluginhost
 
 import (
 	"bytes"
+	"cmp"
 	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"sync"
 
+	"github.com/lein3000zzz/polythought-go/internal/adapters/sandbox"
 	"github.com/lein3000zzz/polythought-go/internal/core/domain"
 	"github.com/lein3000zzz/polythought-go/internal/core/engine"
 	"github.com/lein3000zzz/polythought-go/internal/core/ports"
@@ -81,7 +83,7 @@ func (r *Runtime) Load(ctx context.Context, f ports.PluginFile) error {
 		return fmt.Errorf("plugin %s is loaded already", f.ID)
 	}
 
-	p, err := Start(ctx, Program{Path: f.Program, Dir: f.Dir, Data: f.Data}, r.deps)
+	p, err := Start(ctx, Program{ID: f.ID, Path: f.Program, Dir: f.Dir, Data: f.Data}, r.deps)
 	if err != nil {
 		return err
 	}
@@ -113,9 +115,16 @@ func (r *Runtime) Load(ctx context.Context, f ports.PluginFile) error {
 			return r.check(f.ID, f.Version)
 		},
 		Crashed: func(err error) {
-			if r.crashed != nil {
-				r.crashed(f.ID, fmt.Sprintf("it crashed %d times in %s: %v", r.restarts.Crashes, r.restarts.Within, err))
+			if r.crashed == nil {
+				return
 			}
+
+			why := fmt.Sprintf("it crashed %d times in %s: %v", r.restarts.Crashes, r.restarts.Within, err)
+			if errors.As(err, new(stopped)) {
+				why = "it was stopped: " + err.Error()
+			}
+
+			r.crashed(f.ID, why)
 		},
 	})
 
@@ -149,7 +158,17 @@ func (r *Runtime) Status(id string) (ports.PluginStatus, bool) {
 
 	return ports.PluginStatus{
 		Version: l.version, State: string(st.State), Since: st.Since, Crashes: st.Crashes, LastError: st.LastError, Log: st.Log,
+		Sandboxed: st.Sandboxed, Memory: st.Memory, MemoryCap: st.Caps.Memory, Data: st.Data, DataCap: st.Caps.Data,
 	}, true
+}
+
+func (r *Runtime) Sandbox() ports.PluginSandbox {
+	sb := ports.PluginSandbox{Available: r.deps.Sandbox != nil, Unsandboxed: r.deps.Unsandboxed != nil && r.deps.Unsandboxed()}
+	if !sb.Available {
+		sb.Why = cmp.Or(r.deps.NoSandbox, sandbox.ErrUnavailable).Error()
+	}
+
+	return sb
 }
 
 func (r *Runtime) Start(id string) error {

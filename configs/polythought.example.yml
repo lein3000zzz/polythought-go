@@ -204,6 +204,27 @@ plugins:
   # Environment: POLYTHOUGHT_PLUGINS_STORE_SIZE.
   # store_size: 1024
 
+  # Whether plugins start without the sandbox where the server has none: not on Linux,
+  # or on a kernel older than 6.2. Unsandboxed, a plugin reaches whatever the server
+  # can, its files, its network and its other processes, so allow it only for plugins
+  # you would run yourself. Off, they do not start there. Where the server has a
+  # sandbox, plugins always run in it. From each plugin's next start.
+  # Environment: POLYTHOUGHT_PLUGINS_UNSANDBOXED.
+  # unsandboxed: false
+
+  # How much disk one plugin may take, its own directory and its temporary one together.
+  # Past it, the plugin is stopped as crashed and the admins told. Its card on the
+  # Plugins page may set its own.
+  # Environment: POLYTHOUGHT_PLUGINS_DATA_CAP.
+  # data_cap: 1024
+
+  # How much memory one plugin's process may take. Past it, the process is killed, which
+  # counts as a crash, and started again; a plugin written in Go also gets a soft limit
+  # a little under it, from its next start. Watched on Linux. Its card on the Plugins
+  # page may set its own.
+  # Environment: POLYTHOUGHT_PLUGINS_MEMORY_CAP.
+  # memory_cap: 256
+
 trading:
 
   # What a workflow's paper account starts with, in dollars: its paper buys spend it and

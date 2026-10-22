@@ -382,8 +382,10 @@ func (s *Service) SetEnabled(ctx context.Context, p auth.Principal, id string, e
 }
 
 // Uninstall removes a plugin and its files. It runs until the next start, when the
-// workflows using it are paused (D319); its history is kept.
-func (s *Service) Uninstall(ctx context.Context, p auth.Principal, id string) error {
+// workflows using it are paused (D319); its history is kept. Its data, its directory and
+// what its nodes stored, goes with it when removeData says (D348), and is otherwise left
+// behind for a reinstall to find (D342).
+func (s *Service) Uninstall(ctx context.Context, p auth.Principal, id string, removeData bool) error {
 	if !p.User.IsAdmin() {
 		return domain.ErrForbidden
 	}
@@ -393,7 +395,13 @@ func (s *Service) Uninstall(ctx context.Context, p auth.Principal, id string) er
 		return err
 	}
 
-	if err := s.repo.Delete(ctx, domain.PluginAudit{PluginID: id, Action: domain.PluginUninstalled, By: p.User.ID, At: s.now()}); err != nil {
+	detail := "its data kept"
+	if removeData {
+		detail = "its data removed"
+	}
+
+	audit := domain.PluginAudit{PluginID: id, Action: domain.PluginUninstalled, Detail: detail, By: p.User.ID, At: s.now()}
+	if err := s.repo.Delete(ctx, audit, removeData); err != nil {
 		return err
 	}
 
@@ -401,8 +409,164 @@ func (s *Service) Uninstall(ctx context.Context, p auth.Principal, id string) er
 		s.removeFiles(ctx, id, v.Version)
 	}
 
-	s.log.Info(ctx, "Plugin uninstalled", "plugin", id, "by", p.User.ID)
+	if removeData {
+		// Left behind, it is listed as such, to remove again.
+		if err := s.files.RemoveData(id); err != nil {
+			s.log.Warn(ctx, "Plugin data not removed", "plugin", id, logging.Err(err))
+		}
+	}
+
+	s.log.Info(ctx, "Plugin uninstalled", "plugin", id, "by", p.User.ID, "data_removed", removeData)
 	s.reload(ctx)
+
+	return nil
+}
+
+// SetCaps sets a plugin's own caps (D346), zero for the Config page's. They apply as it is
+// next measured; its memory's soft limit from its next start.
+func (s *Service) SetCaps(ctx context.Context, p auth.Principal, id string, caps domain.PluginCaps) error {
+	if !p.User.IsAdmin() {
+		return domain.ErrForbidden
+	}
+
+	problems := domain.ValidationError{Base: domain.ErrInvalidInput}
+
+	if caps.DataMiB < 0 || caps.DataMiB > domain.MaxPluginDataMiB {
+		problems.Add(domain.Problem{Param: "dataCap", Message: fmt.Sprintf("A data cap is 1 to %d MiB.", domain.MaxPluginDataMiB)})
+	}
+
+	if caps.MemoryMiB != 0 && (caps.MemoryMiB < domain.MinPluginMemoryMiB || caps.MemoryMiB > domain.MaxPluginMemoryMiB) {
+		problems.Add(domain.Problem{
+			Param: "memoryCap", Message: fmt.Sprintf("A memory cap is %d to %d MiB.", domain.MinPluginMemoryMiB, domain.MaxPluginMemoryMiB),
+		})
+	}
+
+	if err := problems.Err(); err != nil {
+		return err
+	}
+
+	audit := domain.PluginAudit{PluginID: id, Action: domain.PluginCapsSet, Detail: capsDetail(caps), By: p.User.ID, At: s.now()}
+	if err := s.repo.SetCaps(ctx, caps, audit); err != nil {
+		return err
+	}
+
+	s.log.Info(ctx, "Plugin caps set", "plugin", id, "by", p.User.ID, "data_mib", caps.DataMiB, "memory_mib", caps.MemoryMiB)
+	s.reload(ctx)
+
+	return nil
+}
+
+// capsDetail is what a plugin's audit says of its caps.
+func capsDetail(c domain.PluginCaps) string {
+	said := func(what string, mib int) string {
+		if mib == 0 {
+			return what + ": the Config page's"
+		}
+
+		return fmt.Sprintf("%s: %d MiB", what, mib)
+	}
+
+	return said("data", c.DataMiB) + "; " + said("memory", c.MemoryMiB)
+}
+
+// CapsOf are a plugin's own caps (D346), as admins last set them: zero for the Config
+// page's.
+func (s *Service) CapsOf(id string) domain.PluginCaps {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	return s.known[id].Caps
+}
+
+// Sandbox is whether this server runs plugins under the sandbox (D338).
+func (s *Service) Sandbox(p auth.Principal) (ports.PluginSandbox, error) {
+	if !p.User.IsAdmin() {
+		return ports.PluginSandbox{}, domain.ErrForbidden
+	}
+
+	return s.runtime.Sandbox(), nil
+}
+
+// LeftData is what a plugin no longer installed left behind (D342): bytes of its directory,
+// and of what its nodes stored.
+type LeftData struct {
+	ID     string
+	Files  int64
+	Stored int64
+}
+
+// LeftBehind is the data of plugins uninstalled without it, by plugin.
+func (s *Service) LeftBehind(ctx context.Context, p auth.Principal) ([]LeftData, error) {
+	if !p.User.IsAdmin() {
+		return nil, domain.ErrForbidden
+	}
+
+	installed, err := s.repo.List(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	data, err := s.files.Data()
+	if err != nil {
+		return nil, err
+	}
+
+	stores, err := s.repo.LeftStores(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	byID := map[string]*LeftData{}
+	left := func(id string) *LeftData {
+		if byID[id] == nil {
+			byID[id] = &LeftData{ID: id}
+		}
+
+		return byID[id]
+	}
+
+	for _, d := range data {
+		if !slices.ContainsFunc(installed, func(ip domain.InstalledPlugin) bool { return ip.ID == d.ID }) {
+			left(d.ID).Files = d.Bytes
+		}
+	}
+
+	for id, n := range stores {
+		left(id).Stored = n
+	}
+
+	out := make([]LeftData, 0, len(byID))
+	for _, id := range slices.Sorted(maps.Keys(byID)) {
+		out = append(out, *byID[id])
+	}
+
+	return out, nil
+}
+
+// RemoveLeftBehind removes what a plugin no longer installed left behind: never an
+// installed one's, which goes as it is uninstalled.
+func (s *Service) RemoveLeftBehind(ctx context.Context, p auth.Principal, id string) error {
+	if !p.User.IsAdmin() {
+		return domain.ErrForbidden
+	}
+
+	switch _, err := s.repo.Get(ctx, id); {
+	case err == nil:
+		return fmt.Errorf("%w: %s is installed: uninstall it, removing its data", domain.ErrInvalidInput, id)
+	case !errors.Is(err, domain.ErrNotFound):
+		return err
+	}
+
+	if err := s.files.RemoveData(id); err != nil {
+		return err
+	}
+
+	audit := domain.PluginAudit{PluginID: id, Action: domain.PluginDataRemoved, Detail: "left behind as it was uninstalled", By: p.User.ID, At: s.now()}
+	if err := s.repo.ForgetStores(ctx, audit); err != nil {
+		return err
+	}
+
+	s.log.Info(ctx, "Plugin data left behind removed", "plugin", id, "by", p.User.ID)
 
 	return nil
 }

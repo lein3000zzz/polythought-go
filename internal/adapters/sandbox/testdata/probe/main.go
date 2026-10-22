@@ -13,6 +13,10 @@ import (
 )
 
 func main() {
+	if len(os.Args) > 1 {
+		return // run again by itself
+	}
+
 	dir, data, tmp := os.Getenv("PROBE_DIR"), os.Getenv("PROBE_DATA"), os.TempDir()
 	parent := os.Getppid()
 
@@ -32,6 +36,7 @@ func main() {
 		},
 		"run a shell":       func() error { return exec.Command("/bin/sh", "-c", "true").Run() },
 		"run what it wrote": func() error { return runCopy(tmp) },
+		"run itself again":  func() error { return exec.Command(os.Args[0], "again").Run() }, //nolint:gosec // itself
 		"dial tcp": func() error {
 			c, err := net.Dial("tcp", "1.1.1.1:53")
 			if err == nil {

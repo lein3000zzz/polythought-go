@@ -47,6 +47,7 @@ const running: Schemas['Plugin'] = {
   enabled: true,
   everyone: true,
   users: [],
+  caps: { dataCap: 0, memoryCap: 0 },
   versions: [
     version('1.1.0', ['fetch:api.weather.example', 'orders']),
     version('1.0.0', ['fetch:api.weather.example'], {
@@ -62,16 +63,23 @@ const running: Schemas['Plugin'] = {
     crashes: 1,
     lastError: 'exit status 3',
     log: ['starting', 'listening'],
+    sandboxed: true,
+    memory: 40 << 20,
+    memoryCap: 256 << 20,
+    data: 1 << 20,
+    dataCap: 1 << 30,
   },
   restart: false,
 }
+
+const sandbox: Schemas['PluginSandbox'] = { available: true, why: '', unsandboxed: false }
 
 function plugins(list: Schemas['Plugin'][], found: Schemas['FoundPlugin'][] = []) {
   server.use(
     http.get('/api/v1/me', () => HttpResponse.json(root)),
     registration('invite'),
     http.get('/api/v1/workflows', () => HttpResponse.json({ workflows: [] })),
-    http.get('/api/v1/admin/plugins', () => HttpResponse.json({ plugins: list, found })),
+    http.get('/api/v1/admin/plugins', () => HttpResponse.json({ plugins: list, found, sandbox })),
   )
 }
 
@@ -131,7 +139,9 @@ describe('admin plugins page', () => {
 
     plugins([])
     server.use(
-      http.get('/api/v1/admin/plugins', () => HttpResponse.json({ plugins: list, found: [] })),
+      http.get('/api/v1/admin/plugins', () =>
+        HttpResponse.json({ plugins: list, found: [], sandbox }),
+      ),
       http.post('/api/v1/admin/plugins', async ({ request }) => {
         uploaded = {
           type: request.headers.get('Content-Type'),

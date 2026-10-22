@@ -119,8 +119,21 @@ func TestPlugins(t *testing.T) {
 		assert.Len(t, got, 1, "reset to its default")
 	})
 
+	t.Run("its own caps, then the Config page's again (D346)", func(t *testing.T) {
+		require.NoError(t, repo.SetCaps(ctx, domain.PluginCaps{DataMiB: 2048}, domain.PluginAudit{PluginID: "weather", Action: domain.PluginCapsSet, By: admin.ID, At: at}))
+
+		p, _ := repo.Get(ctx, "weather")
+		assert.Equal(t, domain.PluginCaps{DataMiB: 2048}, p.Caps)
+
+		require.NoError(t, repo.SetCaps(ctx, domain.PluginCaps{}, domain.PluginAudit{PluginID: "weather", Action: domain.PluginCapsSet, At: at}))
+		p, _ = repo.Get(ctx, "weather")
+		assert.Zero(t, p.Caps)
+
+		require.ErrorIs(t, repo.SetCaps(ctx, domain.PluginCaps{MemoryMiB: 512}, domain.PluginAudit{PluginID: "none", Action: domain.PluginCapsSet, At: at}), domain.ErrNotFound)
+	})
+
 	t.Run("uninstalled, what was done kept", func(t *testing.T) {
-		require.NoError(t, repo.Delete(ctx, domain.PluginAudit{PluginID: "weather", Action: domain.PluginUninstalled, By: admin.ID, At: at.Add(4 * time.Hour)}))
+		require.NoError(t, repo.Delete(ctx, domain.PluginAudit{PluginID: "weather", Action: domain.PluginUninstalled, By: admin.ID, At: at.Add(4 * time.Hour)}, false))
 
 		_, err := repo.Get(ctx, "weather")
 		require.ErrorIs(t, err, domain.ErrNotFound)
@@ -137,6 +150,49 @@ func TestPlugins(t *testing.T) {
 		assert.Contains(t, actions, domain.PluginInstalled)
 		assert.Equal(t, admin.ID, history[0].By)
 
-		require.ErrorIs(t, repo.Delete(ctx, domain.PluginAudit{PluginID: "weather", Action: domain.PluginUninstalled, At: at}), domain.ErrNotFound)
+		require.ErrorIs(t, repo.Delete(ctx, domain.PluginAudit{PluginID: "weather", Action: domain.PluginUninstalled, At: at}, false), domain.ErrNotFound)
+	})
+
+	t.Run("what its nodes stored: left behind, then forgotten, or gone with it (D342, D348)", func(t *testing.T) {
+		store := postgres.NewPluginStore(db)
+
+		w := newWorkflow(bob.ID, "stores")
+		require.NoError(t, postgres.NewWorkflows(db).Create(ctx, w))
+
+		node := func(plugin string) ports.PluginNode {
+			return ports.PluginNode{Workflow: w.ID, Node: "n", Plugin: plugin}
+		}
+
+		for _, plugin := range []string{"weather", "news"} {
+			require.NoError(t, store.Set(ctx, node(plugin), "k", json.RawMessage(`"v"`), 1024, at))
+		}
+
+		news := v1
+		news.PluginID = "news"
+		require.NoError(t, repo.AddVersion(ctx, news, domain.PluginAudit{PluginID: "news", Version: "1.0.0", Action: domain.PluginInstalled, At: at}))
+
+		left, err := repo.LeftStores(ctx)
+		require.NoError(t, err)
+		assert.Equal(t, map[string]int64{"weather": 4}, left, "uninstalled above with its stores kept; not news, installed")
+
+		require.NoError(t, repo.ForgetStores(ctx, domain.PluginAudit{PluginID: "news", Action: domain.PluginDataRemoved, At: at}))
+		_, ok, err := store.Get(ctx, node("news"), "k")
+		require.NoError(t, err)
+		assert.True(t, ok, "never an installed plugin's")
+
+		require.NoError(t, repo.ForgetStores(ctx, domain.PluginAudit{PluginID: "weather", Action: domain.PluginDataRemoved, By: admin.ID, At: at.Add(5 * time.Hour)}))
+		left, _ = repo.LeftStores(ctx)
+		assert.Empty(t, left)
+
+		history, _ := repo.History(ctx, "weather", 1)
+		require.Len(t, history, 1)
+		assert.Equal(t, domain.PluginDataRemoved, history[0].Action)
+
+		require.NoError(t, repo.Delete(ctx, domain.PluginAudit{PluginID: "news", Action: domain.PluginUninstalled, At: at}, true))
+		_, ok, _ = store.Get(ctx, node("news"), "k")
+		assert.False(t, ok, "gone with it")
+
+		left, _ = repo.LeftStores(ctx)
+		assert.Empty(t, left)
 	})
 }

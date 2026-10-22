@@ -34,6 +34,7 @@ func TestPluginRoutes(t *testing.T) {
 	weather := plugins.Info{
 		InstalledPlugin: domain.InstalledPlugin{
 			ID: "weather", Version: "1.0.0", Enabled: true, Everyone: false, Users: []domain.UserID{"u-1"},
+			Caps: domain.PluginCaps{DataMiB: 2048},
 			Versions: []domain.PluginVersion{
 				{Version: "1.1.0", Manifest: json.RawMessage(`{"name":"Weather","permissions":["fetch:*","telegram"]}`), InstalledAt: installedAt},
 				{
@@ -42,7 +43,10 @@ func TestPluginRoutes(t *testing.T) {
 				},
 			},
 		},
-		Status:  &ports.PluginStatus{Version: "1.0.0", State: "crashed", Since: installedAt, Crashes: 5, LastError: "exit status 3", Log: []string{"boom"}},
+		Status: &ports.PluginStatus{
+			Version: "1.0.0", State: "crashed", Since: installedAt, Crashes: 5, LastError: "exit status 3", Log: []string{"boom"},
+			Sandboxed: true, Memory: 40 << 20, MemoryCap: 256 << 20, Data: 1 << 20, DataCap: 2 << 30,
+		},
 		Restart: false,
 	}
 
@@ -63,10 +67,13 @@ func TestPluginRoutes(t *testing.T) {
 			req:  request{method: "GET", path: "/api/v1/admin/plugins", headers: cookie},
 			setup: func(s *httpapimocks.MockPluginService) {
 				s.EXPECT().List(mock.Anything, adminP).Return([]plugins.Info{weather}, []ports.PluginFound{{ID: "copied", Version: "2.0.0"}}, nil)
+				s.EXPECT().Sandbox(adminP).Return(ports.PluginSandbox{Why: "only Linux has the sandbox", Unsandboxed: true}, nil)
 			},
 			wantStatus: http.StatusOK,
 			wantBody: []string{
-				`"id":"weather","name":"Weather","version":"1.0.0","enabled":true,"everyone":false,"users":["u-1"]`,
+				`"id":"weather","name":"Weather","version":"1.0.0","enabled":true,"everyone":false,"users":["u-1"],"caps":{"dataCap":2048,"memoryCap":0}`,
+				`"sandboxed":true,"memory":41943040,"memoryCap":268435456,"data":1048576,"dataCap":2147483648`,
+				`"sandbox":{"available":false,"why":"only Linux has the sandbox","unsandboxed":true}`,
 				`"version":"1.1.0","permissions":["fetch:*","telegram"]`, `"approved":false`,
 				`"signer":"Alice"`, `"approved":true,"approvedAt":"2026-10-22T12:00:00Z"`,
 				`"status":{"version":"1.0.0","state":"crashed"`, `"crashes":5,"lastError":"exit status 3","log":["boom"]`,
@@ -136,6 +143,58 @@ func TestPluginRoutes(t *testing.T) {
 			req:  request{method: "POST", path: "/api/v1/admin/plugins/weather/start", headers: cookie},
 			setup: func(s *httpapimocks.MockPluginService) {
 				s.EXPECT().Start(mock.Anything, adminP, "weather").Return(nil)
+			},
+			wantStatus: http.StatusNoContent,
+		},
+		{
+			name: "uninstalled with its data (D348)",
+			req:  request{method: "DELETE", path: "/api/v1/admin/plugins/weather?data=true", headers: cookie},
+			setup: func(s *httpapimocks.MockPluginService) {
+				s.EXPECT().Uninstall(mock.Anything, adminP, "weather", true).Return(nil)
+			},
+			wantStatus: http.StatusNoContent,
+		},
+		{
+			name: "uninstalled, its data left behind (D342)",
+			req:  request{method: "DELETE", path: "/api/v1/admin/plugins/weather", headers: cookie},
+			setup: func(s *httpapimocks.MockPluginService) {
+				s.EXPECT().Uninstall(mock.Anything, adminP, "weather", false).Return(nil)
+			},
+			wantStatus: http.StatusNoContent,
+		},
+		{
+			name: "its own caps (D346)",
+			req:  request{method: "PUT", path: "/api/v1/admin/plugins/weather/caps", body: `{"dataCap":2048,"memoryCap":0}`, headers: cookie},
+			setup: func(s *httpapimocks.MockPluginService) {
+				s.EXPECT().SetCaps(mock.Anything, adminP, "weather", domain.PluginCaps{DataMiB: 2048}).Return(nil)
+			},
+			wantStatus: http.StatusNoContent,
+		},
+		{
+			name: "caps out of bounds, each named",
+			req:  request{method: "PUT", path: "/api/v1/admin/plugins/weather/caps", body: `{"dataCap":0,"memoryCap":8}`, headers: cookie},
+			setup: func(s *httpapimocks.MockPluginService) {
+				s.EXPECT().SetCaps(mock.Anything, adminP, "weather", domain.PluginCaps{MemoryMiB: 8}).Return(&domain.ValidationError{
+					Base: domain.ErrInvalidInput, Problems: []domain.Problem{{Param: "memoryCap", Message: "A memory cap is 16 to 65536 MiB."}},
+				})
+			},
+			wantStatus: http.StatusBadRequest,
+			wantBody:   []string{`"param":"memoryCap"`},
+		},
+		{
+			name: "data left behind",
+			req:  request{method: "GET", path: "/api/v1/admin/plugins/left-behind", headers: cookie},
+			setup: func(s *httpapimocks.MockPluginService) {
+				s.EXPECT().LeftBehind(mock.Anything, adminP).Return([]plugins.LeftData{{ID: "news", Files: 4096, Stored: 12}}, nil)
+			},
+			wantStatus: http.StatusOK,
+			wantBody:   []string{`[{"id":"news","files":4096,"stored":12}]`},
+		},
+		{
+			name: "data left behind, removed",
+			req:  request{method: "DELETE", path: "/api/v1/admin/plugins/left-behind/news", headers: cookie},
+			setup: func(s *httpapimocks.MockPluginService) {
+				s.EXPECT().RemoveLeftBehind(mock.Anything, adminP, "news").Return(nil)
 			},
 			wantStatus: http.StatusNoContent,
 		},

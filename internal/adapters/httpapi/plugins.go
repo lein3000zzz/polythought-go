@@ -27,10 +27,14 @@ type PluginService interface {
 	SetEnabled(ctx context.Context, p auth.Principal, id string, enabled bool) error
 	SetUsers(ctx context.Context, p auth.Principal, id string, everyone bool, users []domain.UserID) error
 	Start(ctx context.Context, p auth.Principal, id string) error
-	Uninstall(ctx context.Context, p auth.Principal, id string) error
+	Uninstall(ctx context.Context, p auth.Principal, id string, removeData bool) error
 	History(ctx context.Context, p auth.Principal, id string) ([]domain.PluginAudit, error)
 	Settings(ctx context.Context, p auth.Principal, id string) ([]plugins.Setting, error)
 	SetSettings(ctx context.Context, p auth.Principal, id string, changes map[string]json.RawMessage) error
+	SetCaps(ctx context.Context, p auth.Principal, id string, caps domain.PluginCaps) error
+	Sandbox(p auth.Principal) (ports.PluginSandbox, error)
+	LeftBehind(ctx context.Context, p auth.Principal) ([]plugins.LeftData, error)
+	RemoveLeftBehind(ctx context.Context, p auth.Principal, id string) error
 }
 
 // archiveRoute is where admins upload archives: its body streams, past the size other
@@ -40,8 +44,31 @@ const archiveRoute = "/api/v1/admin/plugins"
 type pluginsDTO struct {
 	Plugins []pluginDTO `json:"plugins"`
 	// Found are versions on disk no admin installed, to adopt (D321).
-	Found []foundPluginDTO `json:"found"`
+	Found   []foundPluginDTO `json:"found"`
+	Sandbox pluginSandboxDTO `json:"sandbox"`
 } // @name Plugins
+
+// pluginSandboxDTO is whether this server runs plugins under the sandbox (D338).
+type pluginSandboxDTO struct {
+	Available bool   `json:"available"`
+	Why       string `json:"why"` // why not, when it is not
+	// Unsandboxed says admins let plugins start without it where it is not: the Config
+	// page's setting.
+	Unsandboxed bool `json:"unsandboxed"`
+} // @name PluginSandbox
+
+// pluginCapsDTO are a plugin's own caps (D346), in MiB: 0 for the Config page's.
+type pluginCapsDTO struct {
+	DataCap   int `json:"dataCap" minimum:"0" maximum:"1048576"`
+	MemoryCap int `json:"memoryCap" minimum:"0" maximum:"65536"`
+} // @name PluginCaps
+
+// leftPluginDataDTO is what a plugin no longer installed left behind (D342), in bytes.
+type leftPluginDataDTO struct {
+	ID     string `json:"id"`
+	Files  int64  `json:"files"`  // its directory's
+	Stored int64  `json:"stored"` // what its nodes stored in workflows
+} // @name LeftPluginData
 
 type pluginDTO struct {
 	ID   string `json:"id"`
@@ -51,6 +78,7 @@ type pluginDTO struct {
 	Enabled  bool               `json:"enabled"`
 	Everyone bool               `json:"everyone"` // false: only users may use it (D282)
 	Users    []string           `json:"users"`
+	Caps     pluginCapsDTO      `json:"caps"`
 	Versions []pluginVersionDTO `json:"versions"` // newest first
 	// Status is how it runs, as it was loaded at start; absent when it was not.
 	Status *pluginStatusDTO `json:"status,omitempty" validate:"optional"`
@@ -81,6 +109,14 @@ type pluginStatusDTO struct {
 	Crashes   int       `json:"crashes"` // in the last 10 minutes
 	LastError string    `json:"lastError"`
 	Log       []string  `json:"log"` // its last lines
+	// Sandboxed says its process runs under the sandbox. Memory and data are what it took
+	// when last measured, in bytes, memory 0 where it is not watched; the caps are those
+	// it is held to, in bytes.
+	Sandboxed bool  `json:"sandboxed"`
+	Memory    int64 `json:"memory"`
+	MemoryCap int64 `json:"memoryCap"`
+	Data      int64 `json:"data"`
+	DataCap   int64 `json:"dataCap"`
 } // @name PluginStatus
 
 type foundPluginDTO struct {
@@ -142,6 +178,7 @@ func (s *Server) hasPlugins(ctx context.Context, c *app.RequestContext) {
 func toPluginDTO(i plugins.Info) pluginDTO {
 	out := pluginDTO{
 		ID: i.ID, Version: i.Version, Enabled: i.Enabled, Everyone: i.Everyone, Users: []string{},
+		Caps:     pluginCapsDTO{DataCap: i.Caps.DataMiB, MemoryCap: i.Caps.MemoryMiB},
 		Versions: make([]pluginVersionDTO, len(i.Versions)), Restart: i.Restart,
 	}
 
@@ -176,7 +213,7 @@ func toPluginDTO(i plugins.Info) pluginDTO {
 	if st := i.Status; st != nil {
 		out.Status = &pluginStatusDTO{
 			Version: st.Version, State: st.State, Since: st.Since, Crashes: st.Crashes, LastError: st.LastError,
-			Log: orNone(st.Log),
+			Log: orNone(st.Log), Sandboxed: st.Sandboxed, Memory: st.Memory, MemoryCap: st.MemoryCap, Data: st.Data, DataCap: st.DataCap,
 		}
 	}
 
@@ -220,7 +257,16 @@ func (s *Server) listPlugins(ctx context.Context, c *app.RequestContext) {
 		return
 	}
 
-	out := pluginsDTO{Plugins: make([]pluginDTO, len(list)), Found: make([]foundPluginDTO, len(found))}
+	sb, err := s.plugins.Sandbox(p)
+	if err != nil {
+		s.fail(ctx, c, err)
+		return
+	}
+
+	out := pluginsDTO{
+		Plugins: make([]pluginDTO, len(list)), Found: make([]foundPluginDTO, len(found)),
+		Sandbox: pluginSandboxDTO{Available: sb.Available, Why: sb.Why, Unsandboxed: sb.Unsandboxed},
+	}
 	for i, info := range list {
 		out.Plugins[i] = toPluginDTO(info)
 	}
@@ -499,12 +545,15 @@ func (s *Server) startPlugin(ctx context.Context, c *app.RequestContext) {
 }
 
 // uninstallPlugin is admin only. It runs until the next start, when the active workflows
-// using it are paused (D319); its history is kept.
+// using it are paused (D319); its history is kept. Its data, its directory and what its
+// nodes stored, goes too when data is true (D348), and is otherwise left behind, for a
+// reinstall to find (D342).
 //
 //	@Summary	Uninstall a plugin
 //	@ID			uninstallPlugin
 //	@Tags		admin
-//	@Param		id	path	string	true	"Plugin ID"
+//	@Param		id		path	string	true	"Plugin ID"
+//	@Param		data	query	bool	false	"Remove its data too"
 //	@Success	204
 //	@Failure	401	{object}	errorBody	"unauthenticated"
 //	@Failure	403	{object}	errorBody	"forbidden"
@@ -515,7 +564,95 @@ func (s *Server) startPlugin(ctx context.Context, c *app.RequestContext) {
 func (s *Server) uninstallPlugin(ctx context.Context, c *app.RequestContext) {
 	p, _ := principal(c)
 
-	if err := s.plugins.Uninstall(ctx, p, c.Param("id")); err != nil {
+	if err := s.plugins.Uninstall(ctx, p, c.Param("id"), c.Query("data") == "true"); err != nil {
+		s.fail(ctx, c, err)
+		return
+	}
+
+	c.SetStatusCode(http.StatusNoContent)
+}
+
+// setPluginCaps is admin only: the plugin's own caps (D346), 0 for the Config page's. They
+// apply as it is next measured; its memory's soft limit from its next start.
+//
+//	@Summary	Set a plugin's own caps
+//	@ID			setPluginCaps
+//	@Tags		admin
+//	@Param		id		path	string			true	"Plugin ID"
+//	@Param		body	body	pluginCapsDTO	true	"Its caps, in MiB"
+//	@Success	204
+//	@Failure	400	{object}	errorBody	"invalid_input"
+//	@Failure	401	{object}	errorBody	"unauthenticated"
+//	@Failure	403	{object}	errorBody	"forbidden"
+//	@Failure	404	{object}	errorBody	"not_found"
+//	@Security	SessionCookie
+//	@Security	APIToken
+//	@Router		/admin/plugins/{id}/caps [put]
+func (s *Server) setPluginCaps(ctx context.Context, c *app.RequestContext) {
+	var req pluginCapsDTO
+
+	if err := decodeJSON(c, &req); err != nil {
+		s.fail(ctx, c, err)
+		return
+	}
+
+	p, _ := principal(c)
+
+	if err := s.plugins.SetCaps(ctx, p, c.Param("id"), domain.PluginCaps{DataMiB: req.DataCap, MemoryMiB: req.MemoryCap}); err != nil {
+		s.fail(ctx, c, err)
+		return
+	}
+
+	c.SetStatusCode(http.StatusNoContent)
+}
+
+// pluginDataLeft is admin only: what plugins uninstalled without their data left behind
+// (D342).
+//
+//	@Summary	The data plugins left behind
+//	@ID			pluginDataLeft
+//	@Tags		admin
+//	@Success	200	{array}		leftPluginDataDTO
+//	@Failure	401	{object}	errorBody	"unauthenticated"
+//	@Failure	403	{object}	errorBody	"forbidden"
+//	@Security	SessionCookie
+//	@Security	APIToken
+//	@Router		/admin/plugins/left-behind [get]
+func (s *Server) pluginDataLeft(ctx context.Context, c *app.RequestContext) {
+	p, _ := principal(c)
+
+	left, err := s.plugins.LeftBehind(ctx, p)
+	if err != nil {
+		s.fail(ctx, c, err)
+		return
+	}
+
+	out := make([]leftPluginDataDTO, len(left))
+	for i, l := range left {
+		out[i] = leftPluginDataDTO{ID: l.ID, Files: l.Files, Stored: l.Stored}
+	}
+
+	c.JSON(http.StatusOK, out)
+}
+
+// removePluginDataLeft is admin only: what a plugin no longer installed left behind. An
+// installed plugin's is refused: it goes as the plugin is uninstalled.
+//
+//	@Summary	Remove the data a plugin left behind
+//	@ID			removePluginDataLeft
+//	@Tags		admin
+//	@Param		id	path	string	true	"Plugin ID"
+//	@Success	204
+//	@Failure	400	{object}	errorBody	"invalid_input"
+//	@Failure	401	{object}	errorBody	"unauthenticated"
+//	@Failure	403	{object}	errorBody	"forbidden"
+//	@Security	SessionCookie
+//	@Security	APIToken
+//	@Router		/admin/plugins/left-behind/{id} [delete]
+func (s *Server) removePluginDataLeft(ctx context.Context, c *app.RequestContext) {
+	p, _ := principal(c)
+
+	if err := s.plugins.RemoveLeftBehind(ctx, p, c.Param("id")); err != nil {
 		s.fail(ctx, c, err)
 		return
 	}

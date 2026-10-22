@@ -23,6 +23,8 @@ type pluginsTable struct {
 	Everyone  postgres.ColumnBool
 	CreatedAt postgres.ColumnTimestampz
 	UpdatedAt postgres.ColumnTimestampz
+	DataCap   postgres.ColumnInteger
+	MemoryCap postgres.ColumnInteger
 
 	AllColumns     postgres.ColumnList
 	MutableColumns postgres.ColumnList
@@ -70,8 +72,10 @@ func newPluginsTableImpl(schemaName, tableName, alias string) pluginsTable {
 		EveryoneColumn  = postgres.BoolColumn("everyone")
 		CreatedAtColumn = postgres.TimestampzColumn("created_at")
 		UpdatedAtColumn = postgres.TimestampzColumn("updated_at")
-		allColumns      = postgres.ColumnList{IDColumn, VersionColumn, EnabledColumn, EveryoneColumn, CreatedAtColumn, UpdatedAtColumn}
-		mutableColumns  = postgres.ColumnList{VersionColumn, EnabledColumn, EveryoneColumn, CreatedAtColumn, UpdatedAtColumn}
+		DataCapColumn   = postgres.IntegerColumn("data_cap")
+		MemoryCapColumn = postgres.IntegerColumn("memory_cap")
+		allColumns      = postgres.ColumnList{IDColumn, VersionColumn, EnabledColumn, EveryoneColumn, CreatedAtColumn, UpdatedAtColumn, DataCapColumn, MemoryCapColumn}
+		mutableColumns  = postgres.ColumnList{VersionColumn, EnabledColumn, EveryoneColumn, CreatedAtColumn, UpdatedAtColumn, DataCapColumn, MemoryCapColumn}
 		defaultColumns  = postgres.ColumnList{EnabledColumn, EveryoneColumn}
 	)
 
@@ -85,6 +89,8 @@ func newPluginsTableImpl(schemaName, tableName, alias string) pluginsTable {
 		Everyone:  EveryoneColumn,
 		CreatedAt: CreatedAtColumn,
 		UpdatedAt: UpdatedAtColumn,
+		DataCap:   DataCapColumn,
+		MemoryCap: MemoryCapColumn,
 
 		AllColumns:     allColumns,
 		MutableColumns: mutableColumns,

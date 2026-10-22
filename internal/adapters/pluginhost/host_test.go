@@ -7,6 +7,8 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
+	"strconv"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -191,6 +193,7 @@ func TestNodes(t *testing.T) {
 		got := out[engine.DefaultPort][0].JSON
 		assert.Empty(t, got["secret"])
 		assert.NotContains(t, got["names"], "POLYTHOUGHT_SECRET_KEYS")
+		assert.Equal(t, strconv.FormatInt(pluginhost.DefaultCaps.Memory/10*9, 10), got["gomemlimit"], "a soft limit under its memory cap (D345)")
 	})
 
 	t.Run("what it gets wrong fails the node, with why", func(t *testing.T) {
@@ -277,6 +280,80 @@ func TestSupervise(t *testing.T) {
 
 		assert.Error(t, p.Start(), "only a crashed one")
 	})
+}
+
+// fast are restarts for tests, measuring at every look.
+var fast = pluginhost.Restarts{First: 10 * time.Millisecond, Max: 40 * time.Millisecond, Crashes: 3, Within: time.Minute, Every: 5 * time.Millisecond}
+
+// Past its data cap a plugin is stopped as crashed at once, the admins told; it is not
+// started again while its data is past it (D341).
+func TestDataCap(t *testing.T) {
+	var limit atomic.Int64
+	limit.Store(1 << 20)
+
+	p, r := startWith(t, pluginhost.Deps{Caps: func(string) pluginhost.Caps { return pluginhost.Caps{Data: limit.Load()} }})
+
+	crashed := make(chan error, 2)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	t.Cleanup(cancel)
+
+	p.Supervise(ctx, fast, pluginhost.Watch{Crashed: func(err error) { crashed <- err }})
+
+	stoppedFor := func(want string) {
+		t.Helper()
+
+		select {
+		case err := <-crashed:
+			assert.ErrorContains(t, err, want)
+		case <-time.After(5 * time.Second):
+			t.Fatal("not stopped")
+		}
+
+		st := p.Status()
+		assert.Equal(t, pluginhost.Crashed, st.State)
+		assert.Equal(t, 1, st.Crashes, "once is enough")
+	}
+
+	_, err := run(t, r, "plugin.echo.fill", map[string]any{"bytes": 2 << 20}, items(map[string]any{}))
+	require.NoError(t, err)
+
+	stoppedFor("its data, 2.0 MiB, went past its cap of 1.0 MiB")
+	assert.Equal(t, pluginhost.Caps{Data: 1 << 20}, p.Status().Caps)
+	assert.Greater(t, p.Status().Data, int64(2<<20))
+
+	require.NoError(t, p.Start())
+	stoppedFor("its data takes 2.0 MiB, past its cap of 1.0 MiB")
+
+	limit.Store(10 << 20)
+	require.NoError(t, p.Start())
+	require.Eventually(t, func() bool { return p.Status().State == pluginhost.Running }, 5*time.Second, 10*time.Millisecond, "its cap raised")
+}
+
+// Past its memory cap a plugin's process is killed, which counts as a crash: it is
+// started again (D347).
+func TestMemoryCap(t *testing.T) {
+	if runtime.GOOS != "linux" {
+		t.Skip("memory is watched on Linux")
+	}
+
+	p, r := startWith(t, pluginhost.Deps{Caps: func(string) pluginhost.Caps { return pluginhost.Caps{Memory: 64 << 20} }})
+
+	ctx, cancel := context.WithCancel(context.Background())
+	t.Cleanup(cancel)
+
+	p.Supervise(ctx, fast, pluginhost.Watch{})
+
+	require.Eventually(t, func() bool { return p.Status().Memory > 0 }, 5*time.Second, 10*time.Millisecond, "measured")
+	assert.Less(t, p.Status().Memory, int64(64<<20))
+
+	_, _ = run(t, r, "plugin.echo.hog", map[string]any{"mib": 128}, items(map[string]any{}))
+
+	require.Eventually(t, func() bool {
+		st := p.Status()
+		return st.Crashes == 1 && st.State == pluginhost.Running
+	}, 10*time.Second, 10*time.Millisecond, "killed, and started again")
+	assert.Contains(t, p.Status().LastError, "past its cap of 64.0 MiB")
 }
 
 func TestTrigger(t *testing.T) {
@@ -418,6 +495,8 @@ func TestDirectories(t *testing.T) {
 	assert.Equal(t, "ok", got["write_data"])
 	assert.Equal(t, "ok", got["write_temp"])
 	assert.FileExists(t, filepath.Join(temp, "scratch.txt"))
+
+	assert.Equal(t, launcher != nil, p.Status().Sandboxed)
 
 	if launcher != nil {
 		assert.NotEqual(t, "ok", got["read_outside"], "the server's files")

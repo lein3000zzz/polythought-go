@@ -7,6 +7,8 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/lein3000zzz/polythought-go/internal/adapters/pluginhost"
+	"github.com/lein3000zzz/polythought-go/internal/config"
 	"github.com/lein3000zzz/polythought-go/internal/core/domain"
 	"github.com/lein3000zzz/polythought-go/internal/core/engine"
 	"github.com/lein3000zzz/polythought-go/internal/core/nodes/triggers"
@@ -57,4 +59,16 @@ func TestNodeTypesOfPlugins(t *testing.T) {
 
 	assert.ElementsMatch(t, []string{"trigger.manual", "plugin.weather.forecast", "plugin.weather.rain"}, names)
 	assert.Equal(t, 2, gate.asked, "once a plugin")
+}
+
+// A plugin's caps are its own where its card sets them, and the Config page's elsewhere
+// (D346).
+func TestPluginCaps(t *testing.T) {
+	r, err := config.Settings()
+	require.NoError(t, err)
+
+	s := r.Snapshot(map[string]any{config.KeyPluginDataCap: 512})
+
+	assert.Equal(t, pluginhost.Caps{Data: 512 << 20, Memory: 256 << 20}, pluginCaps(s, domain.PluginCaps{}))
+	assert.Equal(t, pluginhost.Caps{Data: 512 << 20, Memory: 1 << 30}, pluginCaps(s, domain.PluginCaps{MemoryMiB: 1024}))
 }

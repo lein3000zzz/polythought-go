@@ -365,6 +365,42 @@ How much one plugin node may keep in its store, its keys and values, in each wor
 | Default | `1024` |
 | Applies | at once |
 
+### Unsandboxed plugins
+
+Whether plugins start without the sandbox where the server has none: not on Linux, or on a kernel older than 6.2. Unsandboxed, a plugin reaches whatever the server can, its files, its network and its other processes, so allow it only for plugins you would run yourself. Off, they do not start there. Where the server has a sandbox, plugins always run in it. From each plugin's next start.
+
+| | |
+|---|---|
+| Key | `plugins.unsandboxed` |
+| Environment variable | `POLYTHOUGHT_PLUGINS_UNSANDBOXED` |
+| Kind | `true` or `false` |
+| Default | `false` |
+| Applies | at once |
+
+### Plugin data cap (MiB)
+
+How much disk one plugin may take, its own directory and its temporary one together. Past it, the plugin is stopped as crashed and the admins told. Its card on the Plugins page may set its own.
+
+| | |
+|---|---|
+| Key | `plugins.data_cap` |
+| Environment variable | `POLYTHOUGHT_PLUGINS_DATA_CAP` |
+| Kind | whole number |
+| Default | `1024` |
+| Applies | at once |
+
+### Plugin memory cap (MiB)
+
+How much memory one plugin's process may take. Past it, the process is killed, which counts as a crash, and started again; a plugin written in Go also gets a soft limit a little under it, from its next start. Watched on Linux. Its card on the Plugins page may set its own.
+
+| | |
+|---|---|
+| Key | `plugins.memory_cap` |
+| Environment variable | `POLYTHOUGHT_PLUGINS_MEMORY_CAP` |
+| Kind | whole number |
+| Default | `256` |
+| Applies | at once |
+
 ## Trading
 
 ### Paper balance ($)

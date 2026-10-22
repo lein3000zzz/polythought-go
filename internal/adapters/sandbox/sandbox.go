@@ -7,7 +7,7 @@
 //
 // A program under the sandbox (D339, D343):
 //
-//   - reads its version's directory, and runs only the programs in it;
+//   - reads its version's directory, and starts no process: threads only (D349);
 //   - reads and writes a private temporary directory and its lasting directory, never
 //     running what it writes there;
 //   - reads /dev/null, /dev/urandom and the time zones, writes /dev/null; nothing else on

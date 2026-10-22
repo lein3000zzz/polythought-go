@@ -328,6 +328,42 @@ func TestOpen(t *testing.T) {
 	})
 }
 
+// A plugin's lasting directory is beside its versions, never taken for one, and kept as
+// they go until it is removed (D339, D342).
+func TestData(t *testing.T) {
+	alice := newSigner(t)
+	d := open(t)
+
+	v, err := d.Install(bytes.NewReader(archive(t, files("1.0.0"), &alice, nil)), 1<<20, alice.trusted(t, "Alice"))
+	require.NoError(t, err)
+	assert.Equal(t, filepath.Join(d.Root(), ".data", "weather"), v.Data)
+
+	none, err := d.Data()
+	require.NoError(t, err)
+	assert.Empty(t, none, "made as it first runs")
+
+	require.NoError(t, os.MkdirAll(v.Data, 0o700))
+	require.NoError(t, os.WriteFile(filepath.Join(v.Data, "kept"), make([]byte, 5000), 0o600))
+
+	found, err := d.List()
+	require.NoError(t, err)
+	assert.Equal(t, []plugindir.Found{{ID: "weather", Version: "1.0.0"}}, found, "no version")
+
+	require.NoError(t, d.Remove("weather", "1.0.0"))
+
+	data, err := d.Data()
+	require.NoError(t, err)
+	assert.Equal(t, []plugindir.Data{{ID: "weather", Bytes: 4096 + 8192}}, data, "kept as its versions go: a block for the directory, two for the file")
+
+	require.NoError(t, d.RemoveData("weather"))
+
+	data, err = d.Data()
+	require.NoError(t, err)
+	assert.Empty(t, data)
+
+	require.ErrorIs(t, d.RemoveData("../weather"), plugindir.ErrInvalid)
+}
+
 func TestTrustedKeys(t *testing.T) {
 	// minisign's own test key and signature, from its Go library's tests.
 	keys, err := plugindir.ParseTrustedKeys([]string{"RWQf6LRCGA9i53mlYecO4IzT51TGPpvWucNSCh1CBM0QTaLn73Y7GFO3", " ", "Frank RWQf6LRCGA9i53mlYecO4IzT51TGPpvWucNSCh1CBM0QTaLn73Y7GFO3"})

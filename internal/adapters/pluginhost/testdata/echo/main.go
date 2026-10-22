@@ -1,6 +1,6 @@
 // Echo is the host's test plugin: a node of each shape, a trigger, a credential type and
 // a scenario, a node that misbehaves, nodes that ask the host for what they may and may
-// not, and one that tries the disk.
+// not, and ones that try the disk and take memory.
 package main
 
 import (
@@ -40,6 +40,8 @@ var manifest = plugin.Manifest{
 		{Name: "count", Label: "Count", Items: &plugin.Items{Fields: []plugin.Field{{Name: "count", Kind: "number"}}}},
 		{Name: "env", Label: "Environment"},
 		{Name: "disk", Label: "Disk", Params: []plugin.Param{{Name: "outside", Kind: "string"}, {Name: "dir", Kind: "string"}}},
+		{Name: "fill", Label: "Fill", Params: []plugin.Param{{Name: "bytes", Kind: "number"}}},
+		{Name: "hog", Label: "Hog", Params: []plugin.Param{{Name: "mib", Kind: "number"}}},
 		{Name: "misbehave", Label: "Misbehave", Params: []plugin.Param{{Name: "how", Kind: "string"}}},
 		{
 			Name: "keyed", Label: "Keyed",
@@ -96,6 +98,8 @@ func main() {
 			"count":     plugin.NodeFunc(count),
 			"env":       plugin.PerItem(env),
 			"disk":      plugin.PerItem(disk),
+			"fill":      plugin.PerItem(fill),
+			"hog":       plugin.PerItem(hog),
 			"misbehave": plugin.NodeFunc(misbehave),
 			"keyed":     plugin.PerItem(keyed),
 			"fetch":     plugin.NodeFunc(fetch),
@@ -166,7 +170,9 @@ func env(context.Context, plugin.Run, plugin.Item) (string, map[string]any, erro
 		names = append(names, strings.SplitN(kv, "=", 2)[0])
 	}
 
-	return "", map[string]any{"names": strings.Join(names, ","), "secret": os.Getenv("POLYTHOUGHT_SECRET_KEYS")}, nil
+	return "", map[string]any{
+		"names": strings.Join(names, ","), "secret": os.Getenv("POLYTHOUGHT_SECRET_KEYS"), "gomemlimit": os.Getenv("GOMEMLIMIT"),
+	}, nil
 }
 
 // disk writes its lasting directory and its temporary one, and tries what the sandbox
@@ -192,6 +198,34 @@ func disk(_ context.Context, _ plugin.Run, item plugin.Item) (string, map[string
 		"read_outside": said(read),
 		"write_own":    said(os.WriteFile(filepath.Join(dir, "planted"), []byte("planted"), 0o600)),
 	}, nil
+}
+
+// fill writes bytes to its lasting directory.
+func fill(_ context.Context, _ plugin.Run, item plugin.Item) (string, map[string]any, error) {
+	raw, _ := item.Params["bytes"].(json.Number)
+	n, _ := raw.Int64()
+
+	return "", nil, os.WriteFile(filepath.Join(plugin.DataDir(), "fill"), make([]byte, n), 0o600)
+}
+
+// hoard is what hog holds on to.
+var hoard [][]byte
+
+// hog takes mib MiB of memory and keeps it, every page touched.
+func hog(_ context.Context, _ plugin.Run, item plugin.Item) (string, map[string]any, error) {
+	raw, _ := item.Params["mib"].(json.Number)
+	n, _ := raw.Int64()
+
+	for range n {
+		b := make([]byte, 1<<20)
+		for i := range b {
+			b[i] = 1
+		}
+
+		hoard = append(hoard, b)
+	}
+
+	return "", map[string]any{"held": len(hoard)}, nil
 }
 
 // keyed reads the credential in the setting which names.

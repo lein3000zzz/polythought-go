@@ -58,8 +58,19 @@ type PluginRepository interface {
 	// SetUsers says who may use the plugin: everyone, or the users given.
 	SetUsers(ctx context.Context, everyone bool, users []domain.UserID, a domain.PluginAudit) error
 
-	// Delete forgets the plugin, its audit kept.
-	Delete(ctx context.Context, a domain.PluginAudit) error
+	// SetCaps sets the plugin's own caps (D346).
+	SetCaps(ctx context.Context, caps domain.PluginCaps, a domain.PluginAudit) error
+
+	// Delete forgets the plugin, its audit kept; with stores, what its nodes stored in
+	// every workflow too (D348).
+	Delete(ctx context.Context, a domain.PluginAudit, stores bool) error
+
+	// LeftStores are the bytes nodes stored of plugins no longer installed (D342), by
+	// plugin.
+	LeftStores(ctx context.Context) (map[string]int64, error)
+
+	// ForgetStores forgets what the nodes of a plugin no longer installed stored.
+	ForgetStores(ctx context.Context, a domain.PluginAudit) error
 
 	// Record records something done with a plugin that changes nothing kept here.
 	Record(ctx context.Context, a domain.PluginAudit) error
@@ -89,6 +100,19 @@ type PluginFiles interface {
 
 	// List is every version on disk.
 	List() ([]PluginFound, error)
+
+	// Data is every plugin's lasting directory on disk (D339), installed or not, and what
+	// it takes, as the data cap counts it.
+	Data() ([]PluginData, error)
+
+	// RemoveData removes a plugin's lasting directory (D348).
+	RemoveData(id string) error
+}
+
+// PluginData is a plugin's lasting directory, and the bytes it takes.
+type PluginData struct {
+	ID    string
+	Bytes int64
 }
 
 // PluginFile is a version of a plugin on disk, checked: its manifest, its program for
@@ -132,6 +156,17 @@ type PluginRuntime interface {
 
 	// Start starts again a plugin stopped as crashed (D320).
 	Start(id string) error
+
+	// Sandbox is whether plugins run under the sandbox here (D338).
+	Sandbox() PluginSandbox
+}
+
+// PluginSandbox is whether this server sandboxes plugins: Why says why not, and
+// Unsandboxed whether admins let them run without it then.
+type PluginSandbox struct {
+	Available   bool
+	Why         string
+	Unsandboxed bool
 }
 
 // PluginStatus is how a plugin loaded is.
@@ -142,6 +177,15 @@ type PluginStatus struct {
 	Crashes   int // in the last 10 minutes
 	LastError string
 	Log       []string // its last lines
+
+	// Sandboxed says its process runs under the sandbox. Memory and Data are what it took
+	// when last measured, in bytes, Memory zero where it is not watched; the caps are
+	// those it is held to.
+	Sandboxed bool
+	Memory    int64
+	MemoryCap int64
+	Data      int64
+	DataCap   int64
 }
 
 // StoredPluginSetting is a plugin's setting as kept: its value as JSON, or sealed for a

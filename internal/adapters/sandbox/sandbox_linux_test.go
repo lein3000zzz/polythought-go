@@ -78,7 +78,7 @@ func TestSandbox(t *testing.T) {
 	}
 
 	for _, mayNot := range []string{
-		"write its dir", "read /etc", "read the parent", "run a shell", "run what it wrote",
+		"write its dir", "read /etc", "read the parent", "run a shell", "run what it wrote", "run itself again",
 		"dial tcp", "listen tcp", "listen udp", "signal the parent", "trace the parent", "open 2000 files",
 	} {
 		assert.NotEqual(t, "ok", got[mayNot], "it may not %s", mayNot)

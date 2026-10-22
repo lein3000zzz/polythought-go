@@ -1,6 +1,7 @@
 package main
 
 import (
+	"cmp"
 	"context"
 
 	"github.com/lein3000zzz/the-watchers/pkg/observability/logging"
@@ -28,7 +29,7 @@ func (a *app) initPlugins(ctx context.Context, pmc polymarket, allowPrivate func
 
 	launcher, noSandbox := sandbox.New()
 	if noSandbox != nil {
-		a.util.Logger.Warn(ctx, "Plugins cannot be sandboxed here, so none starts", logging.Err(noSandbox))
+		a.util.Logger.Warn(ctx, "Plugins cannot be sandboxed here: they start only where admins allow unsandboxed plugins", logging.Err(noSandbox))
 	}
 
 	files := plugindir.NewFiles(dir, func() []string { return a.settings.Current().Strings(config.KeyPluginTrustedKeys) })
@@ -43,6 +44,8 @@ func (a *app) initPlugins(ctx context.Context, pmc polymarket, allowPrivate func
 		Settings:     func(id string) map[string]any { return a.plugins.RunSettings(id) },
 		Sandbox:      launcher,
 		NoSandbox:    noSandbox,
+		Unsandboxed:  func() bool { return a.settings.Current().Bool(config.KeyPluginUnsandboxed) },
+		Caps:         func(id string) pluginhost.Caps { return pluginCaps(a.settings.Current(), a.plugins.CapsOf(id)) },
 		Data: pluginhost.Data{
 			Events: pmc.reader, Books: pmc.reader, History: pmc.reader, Trades: pmc.reader, Positions: pmc.reader,
 			Wallets: postgres.NewWallets(a.db),
@@ -77,6 +80,15 @@ func pluginLimits(s *settings.Snapshot) pluginhost.Limits {
 		FetchTime:  s.Duration(config.KeyPluginFetchTime),
 		FetchBody:  s.Int(config.KeyPluginFetchBody) << 10,
 		StoreBytes: s.Int(config.KeyPluginStoreSize) << 10,
+	}
+}
+
+// pluginCaps are what one plugin may take (D341, D343): its own caps, set on its card, or
+// the Config page's (D346).
+func pluginCaps(s *settings.Snapshot, own domain.PluginCaps) pluginhost.Caps {
+	return pluginhost.Caps{
+		Data:   int64(cmp.Or(own.DataMiB, s.Int(config.KeyPluginDataCap))) << 20,
+		Memory: int64(cmp.Or(own.MemoryMiB, s.Int(config.KeyPluginMemoryCap))) << 20,
 	}
 }
 

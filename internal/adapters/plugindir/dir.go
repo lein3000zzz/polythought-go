@@ -185,6 +185,44 @@ func (d *Dir) Remove(id, version string) error {
 	return nil
 }
 
+// Data is a plugin's lasting directory, and what it takes, as its cap counts it.
+type Data struct {
+	ID    string
+	Bytes int64
+}
+
+// Data is every plugin's lasting directory on disk, by plugin: an installed one's, and
+// one left behind as it was uninstalled (D342).
+func (d *Dir) Data() ([]Data, error) {
+	dirs, err := os.ReadDir(filepath.Join(d.root, dataDir))
+	if errors.Is(err, fs.ErrNotExist) {
+		return nil, nil
+	}
+
+	if err != nil {
+		return nil, err
+	}
+
+	var out []Data
+
+	for _, e := range dirs {
+		if e.IsDir() && safeName(e.Name()) {
+			out = append(out, Data{ID: e.Name(), Bytes: pluginhost.Usage(filepath.Join(d.root, dataDir, e.Name()))})
+		}
+	}
+
+	return out, nil
+}
+
+// RemoveData removes a plugin's lasting directory (D348).
+func (d *Dir) RemoveData(id string) error {
+	if !safeName(id) {
+		return fmt.Errorf("%w: %q", ErrInvalid, id)
+	}
+
+	return os.RemoveAll(filepath.Join(d.root, dataDir, id))
+}
+
 // Found is a version on disk.
 type Found struct {
 	ID, Version string

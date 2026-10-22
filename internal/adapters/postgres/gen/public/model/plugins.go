@@ -18,4 +18,6 @@ type Plugins struct {
 	Everyone  bool
 	CreatedAt time.Time
 	UpdatedAt time.Time
+	DataCap   *int32
+	MemoryCap *int32
 }

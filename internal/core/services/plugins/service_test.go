@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"io"
+	"maps"
 	"slices"
 	"strings"
 	"sync"
@@ -27,14 +28,17 @@ var (
 	at    = time.Date(2026, 10, 22, 12, 0, 0, 0, time.UTC)
 )
 
-// repo keeps plugins in memory, as Postgres would.
+// repo keeps plugins in memory, as Postgres would, and the bytes their nodes stored.
 type repo struct {
 	mu      sync.Mutex
 	plugins map[string]*domain.InstalledPlugin
 	audit   []domain.PluginAudit
+	stores  map[string]int64
 }
 
-func newRepo() *repo { return &repo{plugins: map[string]*domain.InstalledPlugin{}} }
+func newRepo() *repo {
+	return &repo{plugins: map[string]*domain.InstalledPlugin{}, stores: map[string]int64{}}
+}
 
 func (r *repo) List(context.Context) ([]domain.InstalledPlugin, error) {
 	r.mu.Lock()
@@ -134,7 +138,11 @@ func (r *repo) SetUsers(_ context.Context, everyone bool, users []domain.UserID,
 	return r.change(a.PluginID, a, func(p *domain.InstalledPlugin) error { p.Everyone, p.Users = everyone, users; return nil })
 }
 
-func (r *repo) Delete(_ context.Context, a domain.PluginAudit) error {
+func (r *repo) SetCaps(_ context.Context, caps domain.PluginCaps, a domain.PluginAudit) error {
+	return r.change(a.PluginID, a, func(p *domain.InstalledPlugin) error { p.Caps = caps; return nil })
+}
+
+func (r *repo) Delete(_ context.Context, a domain.PluginAudit, stores bool) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
@@ -143,6 +151,39 @@ func (r *repo) Delete(_ context.Context, a domain.PluginAudit) error {
 	}
 
 	delete(r.plugins, a.PluginID)
+
+	if stores {
+		delete(r.stores, a.PluginID)
+	}
+
+	r.audit = append(r.audit, a)
+
+	return nil
+}
+
+func (r *repo) LeftStores(context.Context) (map[string]int64, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	out := map[string]int64{}
+
+	for id, n := range r.stores {
+		if _, ok := r.plugins[id]; !ok {
+			out[id] = n
+		}
+	}
+
+	return out, nil
+}
+
+func (r *repo) ForgetStores(_ context.Context, a domain.PluginAudit) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	if _, ok := r.plugins[a.PluginID]; !ok {
+		delete(r.stores, a.PluginID)
+	}
+
 	r.audit = append(r.audit, a)
 
 	return nil
@@ -171,16 +212,18 @@ func (r *repo) History(_ context.Context, id string, _ int) ([]domain.PluginAudi
 	return out, nil
 }
 
-// files are versions on disk: an archive is the text "id version perm,perm".
+// files are versions on disk, and plugins' lasting directories, by the bytes they take:
+// an archive is the text "id version perm,perm".
 type files struct {
 	mu       sync.Mutex
 	versions map[ports.PluginFound]ports.PluginFile
 	removed  []ports.PluginFound
 	tampered map[ports.PluginFound]bool
+	data     map[string]int64
 }
 
 func newFiles() *files {
-	return &files{versions: map[ports.PluginFound]ports.PluginFile{}, tampered: map[ports.PluginFound]bool{}}
+	return &files{versions: map[ports.PluginFound]ports.PluginFile{}, tampered: map[ports.PluginFound]bool{}, data: map[string]int64{}}
 }
 
 func file(id, version string, perms ...string) ports.PluginFile {
@@ -244,6 +287,27 @@ func (f *files) Remove(id, version string) error {
 	return nil
 }
 
+func (f *files) Data() ([]ports.PluginData, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+
+	var out []ports.PluginData
+	for _, id := range slices.Sorted(maps.Keys(f.data)) {
+		out = append(out, ports.PluginData{ID: id, Bytes: f.data[id]})
+	}
+
+	return out, nil
+}
+
+func (f *files) RemoveData(id string) error {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+
+	delete(f.data, id)
+
+	return nil
+}
+
 func (f *files) List() ([]ports.PluginFound, error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
@@ -297,6 +361,10 @@ func (r *runtime) Start(id string) error {
 	}
 
 	return nil
+}
+
+func (r *runtime) Sandbox() ports.PluginSandbox {
+	return ports.PluginSandbox{Why: "plugins cannot be sandboxed here: only Linux has the sandbox"}
 }
 
 // workflows are the active ones, paused as they are told.
@@ -447,6 +515,93 @@ func installed(t *testing.T, f fixture, id, version string, perms ...string) {
 	require.NoError(t, f.s.Approve(context.Background(), admin, id, version, perms))
 }
 
+// Uninstalled with its data, nothing of a plugin is left; without, it is left behind, for a
+// reinstall to find or an admin to remove (D342, D348).
+func TestUninstallData(t *testing.T) {
+	ctx := context.Background()
+	f := newFixture()
+
+	for _, id := range []string{"weather", "news"} {
+		installed(t, f, id, "1.0.0")
+		f.files.data[id] = 1 << 20
+		f.repo.stores[id] = 512
+	}
+
+	left, err := f.s.LeftBehind(ctx, admin)
+	require.NoError(t, err)
+	assert.Empty(t, left, "nothing of plugins installed")
+
+	require.NoError(t, f.s.Uninstall(ctx, admin, "weather", true))
+	require.NoError(t, f.s.Uninstall(ctx, admin, "news", false))
+
+	left, err = f.s.LeftBehind(ctx, admin)
+	require.NoError(t, err)
+	assert.Equal(t, []plugins.LeftData{{ID: "news", Files: 1 << 20, Stored: 512}}, left)
+
+	history, _ := f.s.History(ctx, admin, "weather")
+	assert.Equal(t, "its data removed", history[0].Detail)
+
+	history, _ = f.s.History(ctx, admin, "news")
+	assert.Equal(t, "its data kept", history[0].Detail)
+
+	_, err = f.s.LeftBehind(ctx, alice)
+	require.ErrorIs(t, err, domain.ErrForbidden, "admins only")
+
+	t.Run("removed by an admin, never an installed plugin's", func(t *testing.T) {
+		installed(t, f, "kept", "1.0.0")
+		f.files.data["kept"] = 10
+
+		err := f.s.RemoveLeftBehind(ctx, admin, "kept")
+		require.ErrorIs(t, err, domain.ErrInvalidInput)
+		assert.Contains(t, err.Error(), "kept is installed: uninstall it, removing its data")
+		assert.Contains(t, f.files.data, "kept")
+
+		require.ErrorIs(t, f.s.RemoveLeftBehind(ctx, alice, "news"), domain.ErrForbidden)
+		require.NoError(t, f.s.RemoveLeftBehind(ctx, admin, "news"))
+
+		left, _ := f.s.LeftBehind(ctx, admin)
+		assert.Empty(t, left)
+
+		history, _ := f.s.History(ctx, admin, "news")
+		assert.Equal(t, domain.PluginDataRemoved, history[0].Action)
+	})
+}
+
+// A plugin's own caps apply at once, checked as the Config page's are (D346).
+func TestCaps(t *testing.T) {
+	ctx := context.Background()
+	f := newFixture()
+
+	installed(t, f, "weather", "1.0.0")
+
+	require.ErrorIs(t, f.s.SetCaps(ctx, alice, "weather", domain.PluginCaps{DataMiB: 10}), domain.ErrForbidden)
+
+	err := f.s.SetCaps(ctx, admin, "weather", domain.PluginCaps{DataMiB: -1, MemoryMiB: 8})
+
+	var problems *domain.ValidationError
+	require.ErrorAs(t, err, &problems)
+	require.ErrorIs(t, err, domain.ErrInvalidInput)
+	require.Len(t, problems.Problems, 2)
+	assert.Equal(t, "dataCap", problems.Problems[0].Param)
+	assert.Equal(t, "A memory cap is 16 to 65536 MiB.", problems.Problems[1].Message)
+
+	require.NoError(t, f.s.SetCaps(ctx, admin, "weather", domain.PluginCaps{DataMiB: 2048}))
+	assert.Equal(t, domain.PluginCaps{DataMiB: 2048}, f.s.CapsOf("weather"), "at once")
+
+	history, _ := f.s.History(ctx, admin, "weather")
+	assert.Equal(t, "data: 2048 MiB; memory: the Config page's", history[0].Detail)
+
+	require.ErrorIs(t, f.s.SetCaps(ctx, admin, "none", domain.PluginCaps{}), domain.ErrNotFound)
+	assert.Zero(t, f.s.CapsOf("none"))
+
+	sb, err := f.s.Sandbox(admin)
+	require.NoError(t, err)
+	assert.False(t, sb.Available)
+
+	_, err = f.s.Sandbox(alice)
+	require.ErrorIs(t, err, domain.ErrForbidden)
+}
+
 func TestLoad(t *testing.T) {
 	ctx := context.Background()
 	f := newFixture()
@@ -462,7 +617,7 @@ func TestLoad(t *testing.T) {
 	require.NoError(t, err)
 
 	require.NoError(t, f.s.SetEnabled(ctx, admin, "news", false))
-	require.NoError(t, f.s.Uninstall(ctx, admin, "gone"))
+	require.NoError(t, f.s.Uninstall(ctx, admin, "gone", false))
 	require.NoError(t, f.s.SetUsers(ctx, admin, "private", false, []domain.UserID{"bob"}))
 	f.runtime.fail["broken"] = errors.New("exit status 3")
 

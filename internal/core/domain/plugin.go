@@ -26,11 +26,27 @@ type InstalledPlugin struct {
 	Enabled  bool
 	Everyone bool     // false: only Users may use it (D282)
 	Users    []UserID // when not Everyone
+	Caps     PluginCaps
 
 	Versions  []PluginVersion // newest first
 	CreatedAt time.Time
 	UpdatedAt time.Time
 }
+
+// PluginCaps are what one plugin may take, as its card sets them (D346): MiB of its data,
+// its directory and its temporary one together (D341), and of its process's memory
+// (D343); zero for the Config page's.
+type PluginCaps struct {
+	DataMiB   int
+	MemoryMiB int
+}
+
+// The bounds of a plugin's caps, on its card as on the Config page.
+const (
+	MaxPluginDataMiB   = 1 << 20 // a TiB
+	MinPluginMemoryMiB = 16
+	MaxPluginMemoryMiB = 64 << 10
+)
 
 // Find is the plugin's version v, when it has it.
 func (p InstalledPlugin) Find(v string) (PluginVersion, bool) {
@@ -87,7 +103,9 @@ const (
 	PluginUsers       = "users"
 	PluginStarted     = "started"
 	PluginSettings    = "settings"
+	PluginCapsSet     = "caps"
 	PluginUninstalled = "uninstalled"
+	PluginDataRemoved = "data removed"
 )
 
 // PluginAudit is something an admin did with a plugin.

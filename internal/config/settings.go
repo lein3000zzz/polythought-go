@@ -49,6 +49,9 @@ const (
 	KeyPluginFetchTime     = "plugins.fetch_time"
 	KeyPluginFetchBody     = "plugins.fetch_body"
 	KeyPluginStoreSize     = "plugins.store_size"
+	KeyPluginUnsandboxed   = "plugins.unsandboxed"
+	KeyPluginDataCap       = "plugins.data_cap"
+	KeyPluginMemoryCap     = "plugins.memory_cap"
 	KeyPaperBalance        = "trading.paper_balance"
 	KeyKeyImport           = "trading.key_import"
 	KeyBuilderAPIKey       = "trading.builder_api_key"
@@ -284,6 +287,21 @@ func Settings() (*settings.Registry, error) {
 			Key: KeyPluginStoreSize, Group: groupPlugins, Label: "Plugin store per node (KiB)",
 			Description: "How much one plugin node may keep in its store, its keys and values, in each workflow. Writes past it are refused; what is kept already stays.",
 			Kind:        settings.KindInt, Default: 1024, Check: between(1, 65536),
+		},
+		settings.Spec{
+			Key: KeyPluginUnsandboxed, Group: groupPlugins, Label: "Unsandboxed plugins",
+			Description: "Whether plugins start without the sandbox where the server has none: not on Linux, or on a kernel older than 6.2. Unsandboxed, a plugin reaches whatever the server can, its files, its network and its other processes, so allow it only for plugins you would run yourself. Off, they do not start there. Where the server has a sandbox, plugins always run in it. From each plugin's next start.",
+			Kind:        settings.KindBool, Default: false,
+		},
+		settings.Spec{
+			Key: KeyPluginDataCap, Group: groupPlugins, Label: "Plugin data cap (MiB)",
+			Description: "How much disk one plugin may take, its own directory and its temporary one together. Past it, the plugin is stopped as crashed and the admins told. Its card on the Plugins page may set its own.",
+			Kind:        settings.KindInt, Default: 1024, Check: between(1, domain.MaxPluginDataMiB),
+		},
+		settings.Spec{
+			Key: KeyPluginMemoryCap, Group: groupPlugins, Label: "Plugin memory cap (MiB)",
+			Description: "How much memory one plugin's process may take. Past it, the process is killed, which counts as a crash, and started again; a plugin written in Go also gets a soft limit a little under it, from its next start. Watched on Linux. Its card on the Plugins page may set its own.",
+			Kind:        settings.KindInt, Default: 256, Check: between(domain.MinPluginMemoryMiB, domain.MaxPluginMemoryMiB),
 		},
 		settings.Spec{
 			Key: KeyPaperBalance, Group: groupTrading, Label: "Paper balance ($)",

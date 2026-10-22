@@ -19,7 +19,7 @@ import (
 var _ ports.PluginRepository = (*Plugins)(nil)
 
 // Plugins keeps what admins decided about plugins (D321) in plugins, plugin_versions,
-// plugin_users and plugin_audit.
+// plugin_users and plugin_audit; and forgets what plugins' nodes stored (D348).
 type Plugins struct {
 	db *DB
 }
@@ -75,6 +75,14 @@ func (r *Plugins) complete(ctx context.Context, row model.Plugins) (domain.Insta
 
 	if row.Version != nil {
 		ip.Version = *row.Version
+	}
+
+	if row.DataCap != nil {
+		ip.Caps.DataMiB = int(*row.DataCap)
+	}
+
+	if row.MemoryCap != nil {
+		ip.Caps.MemoryMiB = int(*row.MemoryCap)
 	}
 
 	var versions []model.PluginVersions
@@ -249,12 +257,86 @@ func (r *Plugins) SetUsers(ctx context.Context, everyone bool, users []domain.Us
 	})
 }
 
-func (r *Plugins) Delete(ctx context.Context, a domain.PluginAudit) error {
+func (r *Plugins) SetCaps(ctx context.Context, caps domain.PluginCaps, a domain.PluginAudit) error {
 	return r.db.WithinTx(ctx, func(ctx context.Context) error {
 		p := table.Plugins
 
+		res, err := p.UPDATE(p.DataCap, p.MemoryCap, p.UpdatedAt).
+			MODEL(model.Plugins{DataCap: mibOf(caps.DataMiB), MemoryCap: mibOf(caps.MemoryMiB), UpdatedAt: a.At}).
+			WHERE(p.ID.EQ(jet.String(a.PluginID))).
+			ExecContext(ctx, r.db.conn(ctx))
+		if err := oneRow(res, err); err != nil {
+			return err
+		}
+
+		return r.audit(ctx, a)
+	})
+}
+
+// mibOf is a cap as its column keeps it: NULL for the Config page's.
+func mibOf(mib int) *int32 {
+	if mib <= 0 {
+		return nil
+	}
+
+	c := int32(min(mib, 1<<30)) //nolint:gosec // capped
+
+	return &c
+}
+
+func (r *Plugins) Delete(ctx context.Context, a domain.PluginAudit, stores bool) error {
+	return r.db.WithinTx(ctx, func(ctx context.Context) error {
+		p, s := table.Plugins, table.PluginStore
+
 		res, err := p.DELETE().WHERE(p.ID.EQ(jet.String(a.PluginID))).ExecContext(ctx, r.db.conn(ctx))
 		if err := oneRow(res, err); err != nil {
+			return err
+		}
+
+		if stores {
+			if _, err := s.DELETE().WHERE(s.PluginID.EQ(jet.String(a.PluginID))).ExecContext(ctx, r.db.conn(ctx)); err != nil {
+				return err
+			}
+		}
+
+		return r.audit(ctx, a)
+	})
+}
+
+func (r *Plugins) LeftStores(ctx context.Context) (map[string]int64, error) {
+	s, p := table.PluginStore, table.Plugins
+
+	var rows []struct {
+		Plugin string `alias:"plugin"`
+		Bytes  int64  `alias:"bytes"`
+	}
+
+	err := jet.SELECT(s.PluginID.AS("plugin"), jet.SUM(s.Size).AS("bytes")).
+		FROM(s).
+		WHERE(s.PluginID.NOT_IN(p.SELECT(p.ID))).
+		GROUP_BY(s.PluginID).
+		QueryContext(ctx, r.db.conn(ctx), &rows)
+	if err != nil && !errors.Is(err, qrm.ErrNoRows) {
+		return nil, err
+	}
+
+	out := make(map[string]int64, len(rows))
+	for _, row := range rows {
+		out[row.Plugin] = row.Bytes
+	}
+
+	return out, nil
+}
+
+func (r *Plugins) ForgetStores(ctx context.Context, a domain.PluginAudit) error {
+	return r.db.WithinTx(ctx, func(ctx context.Context) error {
+		s, p := table.PluginStore, table.Plugins
+
+		// Only a plugin no longer installed: an installed one's nodes still use theirs.
+		_, err := s.DELETE().
+			WHERE(s.PluginID.EQ(jet.String(a.PluginID)).AND(s.PluginID.NOT_IN(p.SELECT(p.ID)))).
+			ExecContext(ctx, r.db.conn(ctx))
+		if err != nil {
 			return err
 		}
 

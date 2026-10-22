@@ -5,6 +5,7 @@ package sandbox
 import (
 	"fmt"
 	"os"
+	"runtime"
 	"syscall"
 
 	seccomp "github.com/elastic/go-seccomp-bpf"
@@ -82,6 +83,12 @@ func become(p Policy) error {
 func filter() seccomp.Filter {
 	self := uint64(os.Getpid()) //nolint:gosec // a pid
 
+	// No process of its own, which its caps would not reach (D349): threads only.
+	var spawn []string
+	if runtime.GOARCH == "amd64" {
+		spawn = []string{"fork", "vfork"} // arm64 has only clone
+	}
+
 	return seccomp.Filter{
 		NoNewPrivs: true,
 		Flag:       seccomp.FilterFlagTSync,
@@ -90,7 +97,7 @@ func filter() seccomp.Filter {
 			Syscalls: []seccomp.SyscallGroup{
 				{
 					Action: seccomp.ActionErrno,
-					Names: []string{
+					Names: append([]string{
 						// Others' processes, and the kernel.
 						"ptrace", "process_vm_readv", "process_vm_writev", "pidfd_getfd", "pidfd_send_signal", "tkill",
 						"kcmp", "perf_event_open", "bpf", "userfaultfd", "keyctl", "add_key", "request_key",
@@ -101,8 +108,10 @@ func filter() seccomp.Filter {
 						"fsopen", "fsconfig", "fsmount", "fspick", "mount_setattr",
 						// io_uring opens sockets past this filter.
 						"io_uring_setup", "io_uring_enter", "io_uring_register",
-					},
+					}, spawn...),
 					NamesWithCondtions: []seccomp.NameWithConditions{
+						// Threads, never a process.
+						{Name: "clone", Conditions: seccomp.ArgumentConditions{{Argument: 0, Operation: seccomp.BitsNotSet, Value: unix.CLONE_THREAD}}},
 						// Sockets but Unix ones: no network of its own (D287).
 						{Name: "socket", Conditions: seccomp.ArgumentConditions{{Argument: 0, Operation: seccomp.NotEqual, Value: unix.AF_UNIX}}},
 						{Name: "socketpair", Conditions: seccomp.ArgumentConditions{{Argument: 0, Operation: seccomp.NotEqual, Value: unix.AF_UNIX}}},
@@ -114,6 +123,12 @@ func filter() seccomp.Filter {
 						// Its own limits only, never raised past what it was given.
 						{Name: "prlimit64", Conditions: seccomp.ArgumentConditions{{Argument: 0, Operation: seccomp.NotEqual, Value: 0}}},
 					},
+				},
+				{
+					// clone3's flags are past a filter's reach: refused as if the kernel had
+					// none, so a C library starts its threads with clone.
+					Action: seccomp.Action(unix.SECCOMP_RET_ERRNO | uint32(unix.ENOSYS)),
+					Names:  []string{"clone3"},
 				},
 			},
 		},

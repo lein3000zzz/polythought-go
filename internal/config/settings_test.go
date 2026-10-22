@@ -77,6 +77,9 @@ func TestSettingsDefaults(t *testing.T) {
 		config.KeyPluginFetchTime:     pluginhost.DefaultLimits.FetchTime,
 		config.KeyPluginFetchBody:     pluginhost.DefaultLimits.FetchBody >> 10,
 		config.KeyPluginStoreSize:     pluginhost.DefaultLimits.StoreBytes >> 10,
+		config.KeyPluginUnsandboxed:   false,
+		config.KeyPluginDataCap:       int(pluginhost.DefaultCaps.Data >> 20),
+		config.KeyPluginMemoryCap:     int(pluginhost.DefaultCaps.Memory >> 20),
 		config.KeyPaperBalance:        1000,
 		config.KeyKeyImport:           config.KeyImportAuto,
 		config.KeyLiveTrading:         false,
@@ -110,7 +113,7 @@ func TestSettingsDefaults(t *testing.T) {
 		assert.Equal(t, want, spec(t, key).Default, key)
 	}
 
-	assert.Len(t, registry(t).Specs(), 58, "every setting has a default checked above")
+	assert.Len(t, registry(t).Specs(), 61, "every setting has a default checked above")
 
 	for _, key := range []string{
 		config.KeyTelegramToken, config.KeyBuilderAPIKey, config.KeyBuilderSecret, config.KeyBuilderPassphrase, config.KeyPolygonRPC,

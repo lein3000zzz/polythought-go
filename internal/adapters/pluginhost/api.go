@@ -86,6 +86,10 @@ type Deps struct {
 	Sandbox     *sandbox.Launcher
 	NoSandbox   error
 	Unsandboxed func() bool
+
+	// Caps are what each plugin may take, by its ID (D341, D343), read as its process
+	// starts and each time it is measured; nil: DefaultCaps.
+	Caps func(plugin string) Caps
 }
 
 // Limits bound what one run may ask of the host (D293).

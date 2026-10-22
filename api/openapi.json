@@ -1555,6 +1555,27 @@
                 ],
                 "type": "object"
             },
+            "LeftPluginData": {
+                "properties": {
+                    "files": {
+                        "description": "its directory's",
+                        "type": "integer"
+                    },
+                    "id": {
+                        "type": "string"
+                    },
+                    "stored": {
+                        "description": "what its nodes stored in workflows",
+                        "type": "integer"
+                    }
+                },
+                "required": [
+                    "files",
+                    "id",
+                    "stored"
+                ],
+                "type": "object"
+            },
             "LinkWalletRequest": {
                 "properties": {
                     "address": {
@@ -2400,6 +2421,9 @@
             },
             "Plugin": {
                 "properties": {
+                    "caps": {
+                        "$ref": "#/components/schemas/PluginCaps"
+                    },
                     "enabled": {
                         "type": "boolean"
                     },
@@ -2443,6 +2467,7 @@
                     }
                 },
                 "required": [
+                    "caps",
                     "enabled",
                     "everyone",
                     "id",
@@ -2480,6 +2505,46 @@
                     "by",
                     "detail",
                     "version"
+                ],
+                "type": "object"
+            },
+            "PluginCaps": {
+                "properties": {
+                    "dataCap": {
+                        "maximum": 1048576,
+                        "minimum": 0,
+                        "type": "integer"
+                    },
+                    "memoryCap": {
+                        "maximum": 65536,
+                        "minimum": 0,
+                        "type": "integer"
+                    }
+                },
+                "required": [
+                    "dataCap",
+                    "memoryCap"
+                ],
+                "type": "object"
+            },
+            "PluginSandbox": {
+                "properties": {
+                    "available": {
+                        "type": "boolean"
+                    },
+                    "unsandboxed": {
+                        "description": "Unsandboxed says admins let plugins start without it where it is not: the Config\npage's setting.",
+                        "type": "boolean"
+                    },
+                    "why": {
+                        "description": "why not, when it is not",
+                        "type": "string"
+                    }
+                },
+                "required": [
+                    "available",
+                    "unsandboxed",
+                    "why"
                 ],
                 "type": "object"
             },
@@ -2558,6 +2623,12 @@
                         "description": "in the last 10 minutes",
                         "type": "integer"
                     },
+                    "data": {
+                        "type": "integer"
+                    },
+                    "dataCap": {
+                        "type": "integer"
+                    },
                     "lastError": {
                         "type": "string"
                     },
@@ -2568,6 +2639,16 @@
                         },
                         "type": "array",
                         "uniqueItems": false
+                    },
+                    "memory": {
+                        "type": "integer"
+                    },
+                    "memoryCap": {
+                        "type": "integer"
+                    },
+                    "sandboxed": {
+                        "description": "Sandboxed says its process runs under the sandbox. Memory and data are what it took\nwhen last measured, in bytes, memory 0 where it is not watched; the caps are those\nit is held to, in bytes.",
+                        "type": "boolean"
                     },
                     "since": {
                         "format": "date-time",
@@ -2589,8 +2670,13 @@
                 },
                 "required": [
                     "crashes",
+                    "data",
+                    "dataCap",
                     "lastError",
                     "log",
+                    "memory",
+                    "memoryCap",
+                    "sandboxed",
                     "since",
                     "state",
                     "version"
@@ -2685,11 +2771,15 @@
                         },
                         "type": "array",
                         "uniqueItems": false
+                    },
+                    "sandbox": {
+                        "$ref": "#/components/schemas/PluginSandbox"
                     }
                 },
                 "required": [
                     "found",
-                    "plugins"
+                    "plugins",
+                    "sandbox"
                 ],
                 "type": "object"
             },
@@ -4667,6 +4757,121 @@
                 ]
             }
         },
+        "/admin/plugins/left-behind": {
+            "get": {
+                "operationId": "pluginDataLeft",
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "items": {
+                                        "$ref": "#/components/schemas/LeftPluginData"
+                                    },
+                                    "type": "array"
+                                }
+                            }
+                        },
+                        "description": "OK"
+                    },
+                    "401": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "unauthenticated"
+                    },
+                    "403": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "forbidden"
+                    }
+                },
+                "security": [
+                    {
+                        "SessionCookie": []
+                    },
+                    {
+                        "APIToken": []
+                    }
+                ],
+                "summary": "The data plugins left behind",
+                "tags": [
+                    "admin"
+                ]
+            }
+        },
+        "/admin/plugins/left-behind/{id}": {
+            "delete": {
+                "operationId": "removePluginDataLeft",
+                "parameters": [
+                    {
+                        "description": "Plugin ID",
+                        "in": "path",
+                        "name": "id",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "No Content"
+                    },
+                    "400": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "invalid_input"
+                    },
+                    "401": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "unauthenticated"
+                    },
+                    "403": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "forbidden"
+                    }
+                },
+                "security": [
+                    {
+                        "SessionCookie": []
+                    },
+                    {
+                        "APIToken": []
+                    }
+                ],
+                "summary": "Remove the data a plugin left behind",
+                "tags": [
+                    "admin"
+                ]
+            }
+        },
         "/admin/plugins/{id}": {
             "delete": {
                 "operationId": "uninstallPlugin",
@@ -4678,6 +4883,14 @@
                         "required": true,
                         "schema": {
                             "type": "string"
+                        }
+                    },
+                    {
+                        "description": "Remove its data too",
+                        "in": "query",
+                        "name": "data",
+                        "schema": {
+                            "type": "boolean"
                         }
                     }
                 ],
@@ -4725,6 +4938,92 @@
                     }
                 ],
                 "summary": "Uninstall a plugin",
+                "tags": [
+                    "admin"
+                ]
+            }
+        },
+        "/admin/plugins/{id}/caps": {
+            "put": {
+                "operationId": "setPluginCaps",
+                "parameters": [
+                    {
+                        "description": "Plugin ID",
+                        "in": "path",
+                        "name": "id",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/PluginCaps",
+                                "summary": "body",
+                                "description": "Its caps, in MiB"
+                            }
+                        }
+                    },
+                    "description": "Its caps, in MiB",
+                    "required": true
+                },
+                "responses": {
+                    "204": {
+                        "description": "No Content"
+                    },
+                    "400": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "invalid_input"
+                    },
+                    "401": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "unauthenticated"
+                    },
+                    "403": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "forbidden"
+                    },
+                    "404": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "not_found"
+                    }
+                },
+                "security": [
+                    {
+                        "SessionCookie": []
+                    },
+                    {
+                        "APIToken": []
+                    }
+                ],
+                "summary": "Set a plugin's own caps",
                 "tags": [
                     "admin"
                 ]

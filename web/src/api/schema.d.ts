@@ -125,6 +125,40 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/admin/plugins/left-behind": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The data plugins left behind */
+        get: operations["pluginDataLeft"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/plugins/left-behind/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Remove the data a plugin left behind */
+        delete: operations["removePluginDataLeft"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/admin/plugins/{id}": {
         parameters: {
             query?: never;
@@ -137,6 +171,23 @@ export interface paths {
         post?: never;
         /** Uninstall a plugin */
         delete: operations["uninstallPlugin"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/plugins/{id}/caps": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Set a plugin's own caps */
+        put: operations["setPluginCaps"];
+        post?: never;
+        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -2161,6 +2212,13 @@ export interface components {
         KillSwitchRequest: {
             on: boolean;
         };
+        LeftPluginData: {
+            /** @description its directory's */
+            files: number;
+            id: string;
+            /** @description what its nodes stored in workflows */
+            stored: number;
+        };
         LinkWalletRequest: {
             address: string;
             label?: string;
@@ -2488,6 +2546,7 @@ export interface components {
             email: string;
         };
         Plugin: {
+            caps: components["schemas"]["PluginCaps"];
             enabled: boolean;
             /** @description false: only users may use it (D282) */
             everyone: boolean;
@@ -2513,6 +2572,20 @@ export interface components {
             detail: string;
             version: string;
         };
+        PluginCaps: {
+            dataCap: number;
+            memoryCap: number;
+        };
+        PluginSandbox: {
+            available: boolean;
+            /**
+             * @description Unsandboxed says admins let plugins start without it where it is not: the Config
+             *     page's setting.
+             */
+            unsandboxed: boolean;
+            /** @description why not, when it is not */
+            why: string;
+        };
         PluginSetting: {
             default: unknown;
             description: string;
@@ -2534,9 +2607,19 @@ export interface components {
         PluginStatus: {
             /** @description in the last 10 minutes */
             crashes: number;
+            data: number;
+            dataCap: number;
             lastError: string;
             /** @description its last lines */
             log: string[];
+            memory: number;
+            memoryCap: number;
+            /**
+             * @description Sandboxed says its process runs under the sandbox. Memory and data are what it took
+             *     when last measured, in bytes, memory 0 where it is not watched; the caps are those
+             *     it is held to, in bytes.
+             */
+            sandboxed: boolean;
             /** Format: date-time */
             since: string;
             /** @enum {string} */
@@ -2576,6 +2659,7 @@ export interface components {
             /** @description Found are versions on disk no admin installed, to adopt (D321). */
             found: components["schemas"]["FoundPlugin"][];
             plugins: components["schemas"]["Plugin"][];
+            sandbox: components["schemas"]["PluginSandbox"];
         };
         Problem: {
             column?: number;
@@ -3562,7 +3646,45 @@ export interface operations {
             };
         };
     };
-    uninstallPlugin: {
+    pluginDataLeft: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LeftPluginData"][];
+                };
+            };
+            /** @description unauthenticated */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    removePluginDataLeft: {
         parameters: {
             query?: never;
             header?: never;
@@ -3580,6 +3702,119 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+            /** @description invalid_input */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description unauthenticated */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    uninstallPlugin: {
+        parameters: {
+            query?: {
+                /** @description Remove its data too */
+                data?: boolean;
+            };
+            header?: never;
+            path: {
+                /** @description Plugin ID */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No Content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description unauthenticated */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description not_found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    setPluginCaps: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Plugin ID */
+                id: string;
+            };
+            cookie?: never;
+        };
+        /** @description Its caps, in MiB */
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PluginCaps"];
+            };
+        };
+        responses: {
+            /** @description No Content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description invalid_input */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
             };
             /** @description unauthenticated */
             401: {

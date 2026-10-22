@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -92,4 +93,42 @@ func TestRuntime(t *testing.T) {
 
 	_, ok := rt.Status("none")
 	assert.False(t, ok)
+
+	t.Run("whether it sandboxes plugins, and why not", func(t *testing.T) {
+		sb := rt.Sandbox()
+		assert.Equal(t, launcher != nil, sb.Available)
+		assert.Equal(t, launcher == nil, sb.Unsandboxed, "as the tests allow where there is none")
+
+		if !sb.Available {
+			assert.Contains(t, sb.Why, "plugins cannot be sandboxed here")
+		}
+	})
+}
+
+// The admins are told why a plugin was stopped: not a crash too many, its data (D341).
+func TestRuntimeStopped(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	t.Cleanup(cancel)
+
+	told := make(chan string, 1)
+
+	r := registry(t)
+	rt := pluginhost.NewRuntime(ctx, sandboxed(pluginhost.Deps{Caps: func(string) pluginhost.Caps { return pluginhost.Caps{Data: 1 << 20} }}), r,
+		pluginhost.WithRestarts(fast), pluginhost.WithChecks(nil, func(id, why string) { told <- id + ": " + why }))
+	t.Cleanup(rt.Close)
+
+	require.NoError(t, rt.Load(ctx, echoFile(t, nil)))
+
+	_, err := run(t, r, "plugin.echo.fill", map[string]any{"bytes": 2 << 20}, items(map[string]any{}))
+	require.NoError(t, err)
+
+	select {
+	case why := <-told:
+		assert.Equal(t, "echo: it was stopped: its data, 2.0 MiB, went past its cap of 1.0 MiB", why)
+	case <-time.After(5 * time.Second):
+		t.Fatal("not told")
+	}
+
+	st, _ := rt.Status("echo")
+	assert.Equal(t, int64(1<<20), st.DataCap)
 }

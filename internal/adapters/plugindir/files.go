@@ -65,6 +65,22 @@ func (f *Files) Open(id, version string) (ports.PluginFile, error) {
 
 func (f *Files) Remove(id, version string) error { return domainError(f.dir.Remove(id, version)) }
 
+func (f *Files) Data() ([]ports.PluginData, error) {
+	data, err := f.dir.Data()
+	if err != nil {
+		return nil, err
+	}
+
+	out := make([]ports.PluginData, len(data))
+	for i, d := range data {
+		out[i] = ports.PluginData{ID: d.ID, Bytes: d.Bytes}
+	}
+
+	return out, nil
+}
+
+func (f *Files) RemoveData(id string) error { return domainError(f.dir.RemoveData(id)) }
+
 func (f *Files) List() ([]ports.PluginFound, error) {
 	found, err := f.dir.List()
 	if err != nil {
