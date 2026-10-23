@@ -91,6 +91,12 @@ export function SettingsPage() {
       label: 'Connected agents',
       words: 'mcp oauth claude code codex cursor agents access revoke',
     },
+    {
+      slug: 'connected',
+      key: 'agents-see-personal',
+      label: 'Agents see personal settings',
+      words: 'agents mcp personal sensitive webhook url secret hidden',
+    },
     ...(grants.data ?? [])
       .filter((g) => !g.revokedAt)
       .map((g) => ({

@@ -40,8 +40,11 @@ type userDTO struct {
 	// the instance's (D271).
 	AgentCaps agentCapsDTO `json:"agentCaps"`
 	// KillStopsAgents is their choice that their kill switch stops their agents too.
-	KillStopsAgents bool      `json:"killStopsAgents"`
-	CreatedAt       time.Time `json:"createdAt" format:"date-time"`
+	KillStopsAgents bool `json:"killStopsAgents"`
+	// AgentsSeePersonal is their choice that agents over MCP see their workflows' personal
+	// settings (D401).
+	AgentsSeePersonal bool      `json:"agentsSeePersonal"`
+	CreatedAt         time.Time `json:"createdAt" format:"date-time"`
 } // @name User
 
 // liveCapsDTO caps a user's live buys in whole dollars: one order, and 24 hours. Left out,
@@ -88,19 +91,20 @@ func (dto agentCapsDTO) caps() (domain.AgentCaps, error) {
 
 func (s *Server) userDTO(u domain.User) userDTO {
 	return userDTO{
-		ID:              string(u.ID),
-		Email:           u.Email,
-		Role:            string(u.Role),
-		EmailVerified:   !u.EmailVerifiedAt.IsZero(),
-		Disabled:        u.Disabled(),
-		CodeChosen:      u.CodeChosen,
-		MayWriteCode:    s.auth.CodeAccess().Allows(u),
-		LiveStopped:     u.LiveStopped(),
-		LiveStoppedAt:   optionalTime(u.LiveStoppedAt),
-		LiveCaps:        liveCapsDTO{PerOrder: u.LiveCaps.PerOrder, PerDay: u.LiveCaps.PerDay},
-		AgentCaps:       toAgentCapsDTO(u.AgentCaps),
-		KillStopsAgents: u.KillStopsAgents,
-		CreatedAt:       u.CreatedAt,
+		ID:                string(u.ID),
+		Email:             u.Email,
+		Role:              string(u.Role),
+		EmailVerified:     !u.EmailVerifiedAt.IsZero(),
+		Disabled:          u.Disabled(),
+		CodeChosen:        u.CodeChosen,
+		MayWriteCode:      s.auth.CodeAccess().Allows(u),
+		LiveStopped:       u.LiveStopped(),
+		LiveStoppedAt:     optionalTime(u.LiveStoppedAt),
+		LiveCaps:          liveCapsDTO{PerOrder: u.LiveCaps.PerOrder, PerDay: u.LiveCaps.PerDay},
+		AgentCaps:         toAgentCapsDTO(u.AgentCaps),
+		KillStopsAgents:   u.KillStopsAgents,
+		AgentsSeePersonal: u.AgentsSeePersonal,
+		CreatedAt:         u.CreatedAt,
 	}
 }
 

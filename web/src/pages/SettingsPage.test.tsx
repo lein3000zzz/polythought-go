@@ -488,6 +488,24 @@ describe('settings page', () => {
     )
   })
 
+  it('lets agents see personal settings, off to start with (D401)', async () => {
+    let sent: unknown
+    server.use(
+      signedIn,
+      http.put('/api/v1/me/agent-access', async ({ request }) => {
+        sent = await request.json()
+        return new HttpResponse(null, { status: 204 })
+      }),
+    )
+    const { user } = renderApp('/settings/connected')
+
+    const on = await screen.findByRole('switch', { name: 'Agents see personal settings' })
+    expect(on).not.toBeChecked()
+    await user.click(on)
+
+    await waitFor(() => expect(sent).toEqual({ seePersonal: true }))
+  })
+
   it('has Credentials as a page, where its old address goes (D392)', async () => {
     server.use(signedIn)
     const { router } = renderApp('/credentials')

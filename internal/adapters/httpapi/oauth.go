@@ -31,6 +31,7 @@ type OAuthService interface {
 	Revoke(ctx context.Context, token, client string) error
 	Grants(ctx context.Context, p auth.Principal) ([]domain.Grant, error)
 	RevokeGrant(ctx context.Context, p auth.Principal, id domain.GrantID) error
+	SetAgentsSeePersonal(ctx context.Context, p auth.Principal, on bool) error
 }
 
 // oauthEndpoints are called by agents' programs, not the app: they take no cookie and say
@@ -490,6 +491,40 @@ func (s *Server) listGrants(ctx context.Context, c *app.RequestContext) {
 	}
 
 	c.JSON(http.StatusOK, out)
+}
+
+type agentAccessRequest struct {
+	// SeePersonal lets agents see the workflows' personal settings, such as webhook URLs.
+	SeePersonal bool `json:"seePersonal"`
+} // @name AgentAccessRequest
+
+// setAgentAccess sets what the user's agents may see (D401), at a browser only.
+//
+//	@Summary	What your agents may see
+//	@ID			setAgentAccess
+//	@Tags		oauth
+//	@Param		body	body	agentAccessRequest	true	"What they may see"
+//	@Success	204
+//	@Failure	401	{object}	errorBody	"unauthenticated"
+//	@Failure	403	{object}	errorBody	"forbidden: not from a browser session"
+//	@Security	SessionCookie
+//	@Router		/me/agent-access [put]
+func (s *Server) setAgentAccess(ctx context.Context, c *app.RequestContext) {
+	var req agentAccessRequest
+
+	if err := decodeJSON(c, &req); err != nil {
+		s.fail(ctx, c, err)
+		return
+	}
+
+	p, _ := principal(c)
+
+	if err := s.oauth.SetAgentsSeePersonal(ctx, p, req.SeePersonal); err != nil {
+		s.fail(ctx, c, err)
+		return
+	}
+
+	c.Status(http.StatusNoContent)
 }
 
 // revokeGrant ends a grant: the agent's tokens stop working at once.

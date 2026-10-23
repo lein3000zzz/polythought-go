@@ -151,9 +151,16 @@ func (b bearer) RoundTrip(r *http.Request) (*http.Response, error) {
 func whoami(ctx context.Context, t *testing.T, session *mcp.ClientSession) map[string]any {
 	t.Helper()
 
-	res, err := session.CallTool(ctx, &mcp.CallToolParams{Name: "whoami"})
-	require.NoError(t, err)
-	require.False(t, res.IsError)
+	return tool(ctx, t, session, "whoami", nil)
+}
+
+// tool calls a tool and gives its result as JSON reads it.
+func tool(ctx context.Context, t *testing.T, session *mcp.ClientSession, name string, args map[string]any) map[string]any {
+	t.Helper()
+
+	res, err := session.CallTool(ctx, &mcp.CallToolParams{Name: name, Arguments: args})
+	require.NoError(t, err, name)
+	require.False(t, res.IsError, "%s: %v", name, res.Content)
 
 	data, err := json.Marshal(res.StructuredContent)
 	require.NoError(t, err)
@@ -202,6 +209,30 @@ func TestAgentSignsInOverMCP(t *testing.T) {
 	assert.Equal(t, map[string]any{
 		"email": admin, "role": "admin", "via": "oauth", "agent": "Go SDK e2e", "scopes": []any{"read", "build", "paper"},
 	}, whoami(ctx, t, agent))
+
+	// It reads what the user builds (D401): a workflow, as the editor's Code view has it, its
+	// webhook's URL hidden.
+	var made struct{ ID string }
+	b.call(http.MethodPost, "/api/v1/workflows", map[string]any{
+		"name": "Agent reads me",
+		"nodes": []map[string]any{
+			{"id": "manual", "type": "trigger.manual", "position": map[string]any{"x": 0, "y": 0}},
+			{"id": "hook", "type": "output.webhook", "params": map[string]any{"url": "https://hooks.example/secret-path"}, "position": map[string]any{"x": 300, "y": 0}},
+		},
+		"connections": []map[string]any{{"from": "manual", "fromPort": "main", "to": "hook", "toPort": "main"}},
+	}, http.StatusCreated, &made)
+
+	code := tool(ctx, t, agent, "get_workflow", map[string]any{"id": made.ID, "format": "typescript"})
+	assert.Contains(t, code["code"], `const manual = w.trigger("manual", "trigger.manual")`)
+	assert.Contains(t, code["code"], `$personal: "hidden"`)
+	assert.NotContains(t, code["code"], "secret-path")
+	assert.Equal(t, []any{"hook.url"}, code["hidden"])
+
+	types := tool(ctx, t, agent, "get_node_type", map[string]any{"name": "output.webhook"})
+	assert.Equal(t, "output.webhook", types["name"])
+
+	sdk := tool(ctx, t, agent, "get_code_sdk", nil)
+	assert.NotEmpty(t, sdk["files"])
 
 	// An API token with the read scope alone works there too, with that scope.
 	var token struct{ Token string }

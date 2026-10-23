@@ -669,6 +669,69 @@ func (_c *MockOAuthService_RevokeGrant_Call) RunAndReturn(run func(ctx context.C
 	return _c
 }
 
+// SetAgentsSeePersonal provides a mock function for the type MockOAuthService
+func (_mock *MockOAuthService) SetAgentsSeePersonal(ctx context.Context, p auth.Principal, on bool) error {
+	ret := _mock.Called(ctx, p, on)
+
+	if len(ret) == 0 {
+		panic("no return value specified for SetAgentsSeePersonal")
+	}
+
+	var r0 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context, auth.Principal, bool) error); ok {
+		r0 = returnFunc(ctx, p, on)
+	} else {
+		r0 = ret.Error(0)
+	}
+	return r0
+}
+
+// MockOAuthService_SetAgentsSeePersonal_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'SetAgentsSeePersonal'
+type MockOAuthService_SetAgentsSeePersonal_Call struct {
+	*mock.Call
+}
+
+// SetAgentsSeePersonal is a helper method to define mock.On call
+//   - ctx context.Context
+//   - p auth.Principal
+//   - on bool
+func (_e *MockOAuthService_Expecter) SetAgentsSeePersonal(ctx any, p any, on any) *MockOAuthService_SetAgentsSeePersonal_Call {
+	return &MockOAuthService_SetAgentsSeePersonal_Call{Call: _e.mock.On("SetAgentsSeePersonal", ctx, p, on)}
+}
+
+func (_c *MockOAuthService_SetAgentsSeePersonal_Call) Run(run func(ctx context.Context, p auth.Principal, on bool)) *MockOAuthService_SetAgentsSeePersonal_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		var arg1 auth.Principal
+		if args[1] != nil {
+			arg1 = args[1].(auth.Principal)
+		}
+		var arg2 bool
+		if args[2] != nil {
+			arg2 = args[2].(bool)
+		}
+		run(
+			arg0,
+			arg1,
+			arg2,
+		)
+	})
+	return _c
+}
+
+func (_c *MockOAuthService_SetAgentsSeePersonal_Call) Return(err error) *MockOAuthService_SetAgentsSeePersonal_Call {
+	_c.Call.Return(err)
+	return _c
+}
+
+func (_c *MockOAuthService_SetAgentsSeePersonal_Call) RunAndReturn(run func(ctx context.Context, p auth.Principal, on bool) error) *MockOAuthService_SetAgentsSeePersonal_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // Token provides a mock function for the type MockOAuthService
 func (_mock *MockOAuthService) Token(ctx context.Context, req oauth.TokenRequest) (oauth.Tokens, error) {
 	ret := _mock.Called(ctx, req)

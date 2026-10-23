@@ -1,13 +1,16 @@
 import { useState } from 'react'
 import { toast } from 'sonner'
 
+import { useMe } from '@/api/auth'
 import { errorMessage, type Schemas } from '@/api/client'
-import { useGrants, useRevokeGrant } from '@/api/oauth'
+import { useGrants, useRevokeGrant, useSetAgentAccess } from '@/api/oauth'
 import { ConfirmDialog } from '@/components/ConfirmDialog'
 import { ErrorAlert } from '@/components/ErrorAlert'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
+import { Label } from '@/components/ui/label'
 import { Skeleton } from '@/components/ui/skeleton'
+import { Switch } from '@/components/ui/switch'
 import {
   Table,
   TableBody,
@@ -25,6 +28,8 @@ import { jumpId } from './pages'
 export function ConnectedSection() {
   const grants = useGrants()
   const revoke = useRevokeGrant()
+  const me = useMe()
+  const access = useSetAgentAccess()
   const [revoking, setRevoking] = useState<Schemas['OAuthGrant']>()
 
   return (
@@ -36,6 +41,36 @@ export function ConnectedSection() {
           over MCP. Each may do what you ticked when it asked. Revoke one and it stops at once; it
           asks you again the next time it signs in.
         </p>
+      </div>
+
+      <div id={jumpId('agents-see-personal')} className="flex items-start justify-between gap-4">
+        <div className="flex flex-col gap-0.5">
+          <Label htmlFor="agents-see-personal">Agents see personal settings</Label>
+          <p id="agents-see-personal-hint" className="text-xs text-muted-foreground">
+            Settings such as a webhook's URL, which can be a secret. Off, agents see that they are
+            set, never what they are, as sharing a workflow leaves them out.
+          </p>
+        </div>
+        <Switch
+          id="agents-see-personal"
+          aria-describedby="agents-see-personal-hint"
+          checked={me.data?.agentsSeePersonal ?? false}
+          disabled={access.isPending || !me.data}
+          onCheckedChange={(on) =>
+            access.mutate(
+              { seePersonal: on },
+              {
+                onSuccess: () =>
+                  toast.success(
+                    on
+                      ? 'Your agents see personal settings'
+                      : 'Your agents no longer see personal settings',
+                  ),
+                onError: (error) => toast.error(errorMessage(error)),
+              },
+            )
+          }
+        />
       </div>
 
       {grants.isPending && <Skeleton className="h-24" />}

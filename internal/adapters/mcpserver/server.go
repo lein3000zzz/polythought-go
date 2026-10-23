@@ -57,6 +57,13 @@ type Deps struct {
 	// Limiter counts each agent's or token's tool calls (D400).
 	Limiter ports.RateLimiter
 	Util    *observability.Utility
+
+	// What the tools read (D401); a tool whose source is missing is not offered.
+	Workflows Workflows
+	NodeTypes NodeTypes
+	CodeTypes CodeTypes
+	Library   Library
+	Trading   Trading
 }
 
 type Server struct {
@@ -64,6 +71,13 @@ type Server struct {
 	tokens  Tokens
 	limiter ports.RateLimiter
 	log     logging.Logger
+
+	workflows Workflows
+	nodeTypes NodeTypes
+	codeTypes CodeTypes
+	library   Library
+	trading   Trading
+
 	kit     *redkit.Kit
 	scope   tracing.Scope
 	handler http.Handler
@@ -81,6 +95,7 @@ func New(cfg Config, d Deps) (*Server, error) {
 
 	s := &Server{
 		agents: d.Agents, tokens: d.Tokens, limiter: d.Limiter, log: log, kit: kit,
+		workflows: d.Workflows, nodeTypes: d.NodeTypes, codeTypes: d.CodeTypes, library: d.Library, trading: d.Trading,
 		scope: tracing.Scope{Manager: d.Util.TracerManager, TracerName: tracerName},
 	}
 
@@ -98,6 +113,14 @@ func New(cfg Config, d Deps) (*Server, error) {
 		ReadOnly:    true,
 		Handle:      whoami,
 	})
+
+	if s.workflows != nil && s.nodeTypes != nil {
+		s.addWorkflowTools(srv)
+	}
+
+	if s.nodeTypes != nil && s.codeTypes != nil && s.library != nil {
+		s.addCatalogTools(srv)
+	}
 
 	stream := mcp.NewStreamableHTTPHandler(func(*http.Request) *mcp.Server { return srv }, &mcp.StreamableHTTPOptions{
 		SessionTimeout:      sessionIdle,

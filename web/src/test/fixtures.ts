@@ -14,6 +14,7 @@ export const alice: Schemas['User'] = {
   liveCaps: {},
   agentCaps: {},
   killStopsAgents: false,
+  agentsSeePersonal: false,
   createdAt: '2026-10-01T10:00:00Z',
 }
 

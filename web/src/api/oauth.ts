@@ -44,6 +44,17 @@ export function useGrants() {
   })
 }
 
+/** Whether agents see the workflows' personal settings (D401), at a browser only. */
+export function useSetAgentAccess() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: (body: Schemas['AgentAccessRequest']) =>
+      call(api.PUT('/me/agent-access', { body })),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: keys.me }),
+  })
+}
+
 export function useRevokeGrant() {
   const queryClient = useQueryClient()
 

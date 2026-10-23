@@ -55,6 +55,7 @@ var routeScopes = map[string]access{
 	"PUT /api/v1/me/kill-switch":     anyToken, // on with any scope, off with live: the service's
 	"PUT /api/v1/me/agents":          need(domain.ScopeSettings),
 	"DELETE /api/v1/me/grants/:id":   need(domain.ScopeSettings),
+	"PUT /api/v1/me/agent-access":    browserOnly, // what agents may see (D401)
 	"POST /api/v1/tokens":            browserOnly,
 	"DELETE /api/v1/tokens/:id":      browserOnly,
 	"PUT /api/v1/notifications/:key": need(domain.ScopeSettings),

@@ -48,6 +48,11 @@ func serve(ctx context.Context) error {
 		return err
 	}
 
+	mcp, err := a.newMCP()
+	if err != nil {
+		return err
+	}
+
 	srv, err := httpapi.New(httpapi.Config{
 		Addr:           a.cfg.HTTPAddr,
 		PublicURL:      a.cfg.PublicURL,
@@ -62,7 +67,7 @@ func serve(ctx context.Context) error {
 		Geoblock: a.geoblock,
 		Meta:     a.meta,
 		OAuth:    a.oauth,
-		MCP:      a.mcp,
+		MCP:      mcp,
 		Plugins:  a.plugins,
 
 		CodeRunners: a.codeRunners,

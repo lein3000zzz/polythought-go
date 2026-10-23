@@ -40,24 +40,25 @@ func (r *Users) Create(ctx context.Context, u domain.User, passwordHash string) 
 	}
 
 	m := model.Users{
-		ID:              id,
-		Email:           u.Email,
-		EmailNormalized: normalizedEmail(u.Email),
-		PasswordHash:    passwordHash,
-		Role:            string(u.Role),
-		EmailVerifiedAt: timePtr(u.EmailVerifiedAt),
-		DisabledAt:      timePtr(u.DisabledAt),
-		CodeChosen:      u.CodeChosen,
-		LiveStoppedAt:   timePtr(u.LiveStoppedAt),
-		MaxLiveOrder:    capOf(u.LiveCaps.PerOrder),
-		MaxLiveDay:      capOf(u.LiveCaps.PerDay),
-		MaxAgentDollars: u.AgentCaps.Dollars,
-		MaxAgentInput:   u.AgentCaps.InputTokens,
-		MaxAgentOutput:  u.AgentCaps.OutputTokens,
-		MaxAgentTotal:   u.AgentCaps.TotalTokens,
-		KillStopsAgents: u.KillStopsAgents,
-		CreatedAt:       u.CreatedAt,
-		UpdatedAt:       u.UpdatedAt,
+		ID:                id,
+		Email:             u.Email,
+		EmailNormalized:   normalizedEmail(u.Email),
+		PasswordHash:      passwordHash,
+		Role:              string(u.Role),
+		EmailVerifiedAt:   timePtr(u.EmailVerifiedAt),
+		DisabledAt:        timePtr(u.DisabledAt),
+		CodeChosen:        u.CodeChosen,
+		LiveStoppedAt:     timePtr(u.LiveStoppedAt),
+		MaxLiveOrder:      capOf(u.LiveCaps.PerOrder),
+		MaxLiveDay:        capOf(u.LiveCaps.PerDay),
+		MaxAgentDollars:   u.AgentCaps.Dollars,
+		MaxAgentInput:     u.AgentCaps.InputTokens,
+		MaxAgentOutput:    u.AgentCaps.OutputTokens,
+		MaxAgentTotal:     u.AgentCaps.TotalTokens,
+		KillStopsAgents:   u.KillStopsAgents,
+		CreatedAt:         u.CreatedAt,
+		UpdatedAt:         u.UpdatedAt,
+		AgentsSeePersonal: u.AgentsSeePersonal,
 	}
 
 	_, err = table.Users.INSERT(table.Users.AllColumns).MODEL(m).ExecContext(ctx, r.db.conn(ctx))
@@ -155,6 +156,21 @@ func (r *Users) SetKillStopsAgents(ctx context.Context, id domain.UserID, on boo
 	t := table.Users
 
 	return affectedOne(t.UPDATE(t.KillStopsAgents).
+		SET(on).
+		WHERE(t.ID.EQ(jet.UUID(uid))).
+		ExecContext(ctx, r.db.conn(ctx)))
+}
+
+// SetAgentsSeePersonal records whether agents see the user's personal settings (D401).
+func (r *Users) SetAgentsSeePersonal(ctx context.Context, id domain.UserID, on bool) error {
+	uid, err := parseID(id)
+	if err != nil {
+		return err
+	}
+
+	t := table.Users
+
+	return affectedOne(t.UPDATE(t.AgentsSeePersonal).
 		SET(on).
 		WHERE(t.ID.EQ(jet.UUID(uid))).
 		ExecContext(ctx, r.db.conn(ctx)))
@@ -312,9 +328,10 @@ func toUser(m model.Users) domain.User {
 		AgentCaps: domain.AgentCaps{
 			Dollars: m.MaxAgentDollars, InputTokens: m.MaxAgentInput, OutputTokens: m.MaxAgentOutput, TotalTokens: m.MaxAgentTotal,
 		},
-		KillStopsAgents: m.KillStopsAgents,
-		CreatedAt:       m.CreatedAt.UTC(),
-		UpdatedAt:       m.UpdatedAt.UTC(),
+		KillStopsAgents:   m.KillStopsAgents,
+		AgentsSeePersonal: m.AgentsSeePersonal,
+		CreatedAt:         m.CreatedAt.UTC(),
+		UpdatedAt:         m.UpdatedAt.UTC(),
 	}
 }
 

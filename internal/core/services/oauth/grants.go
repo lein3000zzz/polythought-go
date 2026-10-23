@@ -23,6 +23,22 @@ func (s *Service) RevokeGrant(ctx context.Context, p auth.Principal, id domain.G
 	return nil
 }
 
+// SetAgentsSeePersonal lets the user's agents see their workflows' personal settings, or
+// stops them (D401). Only at a browser: an agent cannot let itself see more (D383).
+func (s *Service) SetAgentsSeePersonal(ctx context.Context, p auth.Principal, on bool) error {
+	if !p.ViaSession() {
+		return domain.ErrForbidden
+	}
+
+	if err := s.users.SetAgentsSeePersonal(ctx, p.User.ID, on); err != nil {
+		return err
+	}
+
+	s.log.Info(ctx, "Agents' sight of personal settings set", "user_id", p.User.ID, "on", on)
+
+	return nil
+}
+
 // Prune removes ended codes and tokens, and registered clients no grant came of; run it
 // periodically.
 func (s *Service) Prune(ctx context.Context) (int64, error) {

@@ -344,6 +344,7 @@ func (s *Server) routes() {
 	v1.POST("/oauth/authorization/deny", s.requireAuth, s.oauthDeny)
 	v1.GET("/me/grants", s.requireAuth, s.listGrants)
 	v1.DELETE("/me/grants/:id", s.requireAuth, s.revokeGrant)
+	v1.PUT("/me/agent-access", s.requireAuth, s.setAgentAccess)
 
 	// Agents' endpoint (D398) and its metadata (RFC 9728), at the path clients derive from
 	// /mcp and at the root.

@@ -73,6 +73,15 @@ scopes on a consent page and revokes it on Settings, as
 
 So is the endpoint, `/mcp`: the official Go SDK's MCP server, over Streamable HTTP, inside the
 API server. An agent's OAuth token works there, and so does an API token, each with its
-scopes; a request without one is told where to sign in. Its tools are being built: for now
-one, `whoami`, says who the agent acts for and what it may do. This page will describe the
-rest as it comes.
+scopes; a request without one is told where to sign in. Each tool asks for a scope, and each
+agent or token may call 120 a minute unless an admin changes it; an answer is kept under
+about 8,000 tokens, and a list comes a page at a time.
+
+The tools so far read what the user builds: their workflows, as JSON or as the TypeScript the
+Code view shows (the server prints it as the app does, held to it by shared tests), their
+problems, their executions and the first items a run by hand kept, the node types with their
+settings, the code SDK's declarations, and the library. Text others wrote, a plugin's words,
+another user's library entry, what flowed through a workflow from the markets, comes in fields
+named `untrusted`, which the server tells agents are data, never instructions. A workflow's
+personal settings, such as a webhook's URL, show only as set unless the user lets agents see
+them. Tools that trade and build are coming; this page will describe them as they do.

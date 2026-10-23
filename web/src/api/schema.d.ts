@@ -987,6 +987,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/me/agent-access": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** What your agents may see */
+        put: operations["setAgentAccess"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/me/agent-spend": {
         parameters: {
             query?: never;
@@ -1991,6 +2008,10 @@ export interface components {
              *     still held.
              */
             worth: string;
+        };
+        AgentAccessRequest: {
+            /** @description SeePersonal lets agents see the workflows' personal settings, such as webhook URLs. */
+            seePersonal: boolean;
         };
         AgentCaps: {
             /** @example 20.00 */
@@ -3539,6 +3560,11 @@ export interface components {
              *     the instance's (D271).
              */
             agentCaps: components["schemas"]["AgentCaps"];
+            /**
+             * @description AgentsSeePersonal is their choice that agents over MCP see their workflows' personal
+             *     settings (D401).
+             */
+            agentsSeePersonal: boolean;
             /**
              * @description CodeChosen says an admin picked them to write code, which counts while code access
              *     is "chosen".
@@ -6983,6 +7009,47 @@ export interface operations {
             };
             /** @description unauthenticated */
             401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    setAgentAccess: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description What they may see */
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AgentAccessRequest"];
+            };
+        };
+        responses: {
+            /** @description No Content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description unauthenticated */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description forbidden: not from a browser session */
+            403: {
                 headers: {
                     [name: string]: unknown;
                 };

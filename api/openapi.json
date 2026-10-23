@@ -129,6 +129,18 @@
                 ],
                 "type": "object"
             },
+            "AgentAccessRequest": {
+                "properties": {
+                    "seePersonal": {
+                        "description": "SeePersonal lets agents see the workflows' personal settings, such as webhook URLs.",
+                        "type": "boolean"
+                    }
+                },
+                "required": [
+                    "seePersonal"
+                ],
+                "type": "object"
+            },
             "AgentCaps": {
                 "properties": {
                     "dollars": {
@@ -4338,6 +4350,10 @@
                         "$ref": "#/components/schemas/AgentCaps",
                         "description": "AgentCaps are an admin's caps on their agents' spend a month; those left out are\nthe instance's (D271)."
                     },
+                    "agentsSeePersonal": {
+                        "description": "AgentsSeePersonal is their choice that agents over MCP see their workflows' personal\nsettings (D401).",
+                        "type": "boolean"
+                    },
                     "codeChosen": {
                         "description": "CodeChosen says an admin picked them to write code, which counts while code access\nis \"chosen\".",
                         "type": "boolean"
@@ -4388,6 +4404,7 @@
                 },
                 "required": [
                     "agentCaps",
+                    "agentsSeePersonal",
                     "codeChosen",
                     "createdAt",
                     "disabled",
@@ -9202,6 +9219,58 @@
                 "summary": "Current user",
                 "tags": [
                     "me"
+                ]
+            }
+        },
+        "/me/agent-access": {
+            "put": {
+                "operationId": "setAgentAccess",
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/AgentAccessRequest",
+                                "summary": "body",
+                                "description": "What they may see"
+                            }
+                        }
+                    },
+                    "description": "What they may see",
+                    "required": true
+                },
+                "responses": {
+                    "204": {
+                        "description": "No Content"
+                    },
+                    "401": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "unauthenticated"
+                    },
+                    "403": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "forbidden: not from a browser session"
+                    }
+                },
+                "security": [
+                    {
+                        "SessionCookie": []
+                    }
+                ],
+                "summary": "What your agents may see",
+                "tags": [
+                    "oauth"
                 ]
             }
         },

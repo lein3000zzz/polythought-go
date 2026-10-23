@@ -138,7 +138,6 @@ type app struct {
 	geoblock        *geoblock.Service
 	meta            *meta.Service
 	oauth           *oauth.Service
-	mcp             *mcpserver.Server
 	waits           *waits.Service
 	code            *code.Service
 	codeRunners     func() ports.CodeRunners
@@ -313,18 +312,30 @@ func (a *app) init(ctx context.Context) error {
 		auth.WithInviteBox(a.box), // codes kept to copy again (D393)
 		auth.WithJoinNotifier(a.notify),
 	)
-	if err != nil {
-		return err
-	}
-
-	// Agents' endpoint (D398), for their OAuth tokens and for API tokens, each agent's tool
-	// calls held to the setting's a minute (D400).
-	a.mcp, err = mcpserver.New(mcpserver.Config{PublicURL: a.cfg.PublicURL}, mcpserver.Deps{
-		Agents: a.oauth, Tokens: a.auth, Util: a.util,
-		Limiter: ratelimit.NewPerMinute(func() int { return a.settings.Current().Int(config.KeyMCPRate) }),
-	})
-
 	return err
+}
+
+// newMCP is agents' endpoint (D398), for their OAuth tokens and for API tokens, each
+// agent's tool calls held to the setting's a minute (D400), its tools reading what the
+// API does (D401). Made once every service is, plugins' included.
+func (a *app) newMCP() (*mcpserver.Server, error) {
+	return mcpserver.New(mcpserver.Config{PublicURL: a.cfg.PublicURL}, mcpserver.Deps{
+		Agents: a.oauth, Tokens: a.auth, Util: a.util,
+		Limiter:   ratelimit.NewPerMinute(func() int { return a.settings.Current().Int(config.KeyMCPRate) }),
+		Workflows: a.workflows,
+		NodeTypes: nodeTypes{types: a.customNodes, plugins: a.plugins},
+		CodeTypes: codeTypes{types: a.customNodes},
+		Library:   a.library,
+		Trading: func(ctx context.Context, w domain.Workflow) (string, error) {
+			if !nodes.PlacesOrders(a.registry, w) {
+				return "none", nil
+			}
+
+			mode, err := a.trading.Mode(ctx, w.ID)
+
+			return string(mode), err
+		},
+	})
 }
 
 // telegramConfig is how the bot should run, from the settings.

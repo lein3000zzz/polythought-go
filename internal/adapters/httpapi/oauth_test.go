@@ -357,6 +357,22 @@ func TestOAuthDecisionRoutes(t *testing.T) {
 	})
 }
 
+// What agents may see is set at a browser only (D401).
+func TestAgentAccessRoute(t *testing.T) {
+	srv, authSvc, svc := oauthServer(t)
+	withSession(authSvc, alice)
+	svc.EXPECT().SetAgentsSeePersonal(mock.Anything, mock.Anything, true).Return(nil)
+
+	w := request{method: http.MethodPut, path: "/api/v1/me/agent-access", body: `{"seePersonal": true}`, headers: cookie}.do(t, srv)
+	assert.Equal(t, http.StatusNoContent, w.Code, w.Body.String())
+
+	srv, authSvc, _ = oauthServer(t)
+	withToken(authSvc, alice)
+
+	w = request{method: http.MethodPut, path: "/api/v1/me/agent-access", body: `{"seePersonal": true}`, headers: bearer}.do(t, srv)
+	assert.Equal(t, http.StatusForbidden, w.Code, "refused before the service, for any token")
+}
+
 func TestGrantRoutes(t *testing.T) {
 	t.Run("listed", func(t *testing.T) {
 		srv, authSvc, svc := oauthServer(t)
