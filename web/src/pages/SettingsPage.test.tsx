@@ -499,7 +499,9 @@ describe('settings page', () => {
     )
     const { user } = renderApp('/settings/connected')
 
-    const on = await screen.findByRole('switch', { name: 'Agents see personal settings' })
+    const on = await screen.findByRole('switch', {
+      name: 'Agents and tokens see personal settings',
+    })
     expect(on).not.toBeChecked()
     await user.click(on)
 

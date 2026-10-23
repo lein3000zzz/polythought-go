@@ -56,10 +56,11 @@ each agent allowed, to revoke.
 
 At `/mcp`, every request's token is checked as it comes: an agent's with its grant and its
 user, so revoking the agent or disabling its user stops it at once, and allowing it less
-narrows the tokens it has. An admin can switch agents off for the whole instance. What
-agents read of a workflow leaves its personal settings out, such as a webhook's URL, which
-can be a secret, unless its owner lets them see those, at a browser; text others wrote comes
-marked as such.
+narrows the tokens it has. An admin can switch agents off for the whole instance. What an
+agent or an API token reads of a workflow, over MCP or the API, leaves its personal settings
+out, such as a webhook's URL, which can be a secret, unless its owner lets them see those, at
+a browser; a workflow they save keeps those as they were. Text others wrote comes marked as
+such.
 
 Every admin action checks the role in the service, not only in the page, and the last admin
 cannot be demoted or disabled. Disabling a user signs them out everywhere, stops their

@@ -6,6 +6,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"maps"
 	"strings"
 	"time"
 
@@ -77,6 +78,7 @@ type Service struct {
 	memory     NodeMemory          // optional: without it, removed nodes' memory waits to expire
 	orders     RestingOrders       // optional: without it, live resting orders outlive their workflow
 	tradeScope TradeScope          // optional: without it, a workflow's orders need no scope of their own
+	personal   Personal            // optional: without it, nothing is hidden from tokens and agents
 	limits     func() Limits
 	log        logging.Logger
 	now        func() time.Time
@@ -154,6 +156,84 @@ func WithNodeMemory(m NodeMemory) Option {
 type RestingOrders interface {
 	// CancelResting says how many still rest: those Polymarket would not or could not cancel.
 	CancelResting(ctx context.Context, w domain.WorkflowID, why string) (int, error)
+}
+
+// Personal names a node type's personal settings, such as a webhook's URL (D401).
+type Personal func(nodeType string) []string
+
+// WithPersonal hides personal settings from tokens and agents whose user has not let them
+// see those (D402), and keeps the values saved hidden as they were.
+func WithPersonal(f Personal) Option {
+	return func(s *Service) { s.personal = f }
+}
+
+// forCaller is the workflow as the caller may see it: a copy with its personal settings
+// hidden, for a token or an agent whose user has not let them see those.
+func (s *Service) forCaller(p auth.Principal, w domain.Workflow) domain.Workflow {
+	if s.personal == nil || p.SeesPersonal() {
+		return w
+	}
+
+	nodes := make([]domain.NodeSpec, len(w.Nodes))
+
+	for i, n := range w.Nodes {
+		copied := false
+
+		for _, name := range s.personal(n.Type) {
+			if _, set := n.Params[name]; !set {
+				continue
+			}
+
+			if !copied {
+				n.Params, copied = maps.Clone(n.Params), true
+			}
+
+			n.Params[name] = domain.HiddenPersonal()
+		}
+
+		nodes[i] = n
+	}
+
+	w.Nodes = nodes
+
+	return w
+}
+
+// keepHidden puts back the values of personal settings saved hidden (D402): each as the
+// node of the same ID had it before; one that had none has none.
+func keepHidden(def Definition, before []domain.NodeSpec) Definition {
+	had := make(map[domain.NodeID]map[string]any, len(before))
+	for _, n := range before {
+		had[n.ID] = n.Params
+	}
+
+	nodes := make([]domain.NodeSpec, len(def.Nodes))
+
+	for i, n := range def.Nodes {
+		copied := false
+
+		for k, v := range n.Params {
+			if !domain.IsHiddenPersonal(v) {
+				continue
+			}
+
+			if !copied {
+				n.Params, copied = maps.Clone(n.Params), true
+			}
+
+			if old, ok := had[n.ID][k]; ok {
+				n.Params[k] = old
+			} else {
+				delete(n.Params, k)
+			}
+		}
+
+		nodes[i] = n
+	}
+
+	def.Nodes = nodes
+
+	return def
 }
 
 // TradeScope is the scope a workflow's orders need, by the mode it trades in (D399): none
@@ -250,7 +330,7 @@ func (s *Service) Create(ctx context.Context, p auth.Principal, def Definition) 
 		UpdatedAt: now,
 	}
 
-	if err := s.apply(ctx, &w, def); err != nil {
+	if err := s.apply(ctx, &w, keepHidden(def, nil)); err != nil {
 		return domain.Workflow{}, err
 	}
 
@@ -264,15 +344,26 @@ func (s *Service) Create(ctx context.Context, p auth.Principal, def Definition) 
 
 	s.log.Info(ctx, "Workflow created", "user_id", p.User.ID, "workflow_id", w.ID)
 
-	return w, nil
+	return s.forCaller(p, w), nil
 }
 
 func (s *Service) Get(ctx context.Context, p auth.Principal, id domain.WorkflowID) (domain.Workflow, error) {
-	return s.repo.Get(ctx, p.User.ID, id)
+	w, err := s.repo.Get(ctx, p.User.ID, id)
+	if err != nil {
+		return domain.Workflow{}, err
+	}
+
+	return s.forCaller(p, w), nil
 }
 
 func (s *Service) List(ctx context.Context, p auth.Principal, f ports.PageFilter) (ports.Page[domain.Workflow], error) {
-	return s.repo.List(ctx, p.User.ID, f)
+	page, err := s.repo.List(ctx, p.User.ID, f)
+
+	for i, w := range page.Items {
+		page.Items[i] = s.forCaller(p, w)
+	}
+
+	return page, err
 }
 
 // Update replaces the definition if version is still current. An active workflow is
@@ -287,7 +378,7 @@ func (s *Service) Update(ctx context.Context, p auth.Principal, id domain.Workfl
 		return domain.Workflow{}, domain.ErrConflict
 	}
 
-	if err := s.apply(ctx, &w, def); err != nil {
+	if err := s.apply(ctx, &w, keepHidden(def, w.Nodes)); err != nil {
 		return domain.Workflow{}, err
 	}
 
@@ -320,7 +411,7 @@ func (s *Service) Update(ctx context.Context, p auth.Principal, id domain.Workfl
 
 	s.log.Info(ctx, "Workflow updated", "user_id", p.User.ID, "workflow_id", w.ID, "version", w.Version)
 
-	return w, nil
+	return s.forCaller(p, w), nil
 }
 
 func (s *Service) Delete(ctx context.Context, p auth.Principal, id domain.WorkflowID) error {
@@ -380,7 +471,7 @@ func (s *Service) Activate(ctx context.Context, p auth.Principal, id domain.Work
 	w.Active = true
 	s.supervisor.Start(w)
 
-	return w, nil
+	return s.forCaller(p, w), nil
 }
 
 func (s *Service) Deactivate(ctx context.Context, p auth.Principal, id domain.WorkflowID) (domain.Workflow, error) {
@@ -403,7 +494,7 @@ func (s *Service) Deactivate(ctx context.Context, p auth.Principal, id domain.Wo
 		}
 	}
 
-	return w, nil
+	return s.forCaller(p, w), nil
 }
 
 // SwitchOff deactivates the workflow and, its owner asking, cancels its live resting

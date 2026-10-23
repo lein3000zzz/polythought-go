@@ -132,7 +132,7 @@
             "AgentAccessRequest": {
                 "properties": {
                     "seePersonal": {
-                        "description": "SeePersonal lets agents see the workflows' personal settings, such as webhook URLs.",
+                        "description": "SeePersonal lets agents and API tokens see the workflows' personal settings, such as\nwebhook URLs.",
                         "type": "boolean"
                     }
                 },
@@ -4351,7 +4351,7 @@
                         "description": "AgentCaps are an admin's caps on their agents' spend a month; those left out are\nthe instance's (D271)."
                     },
                     "agentsSeePersonal": {
-                        "description": "AgentsSeePersonal is their choice that agents over MCP see their workflows' personal\nsettings (D401).",
+                        "description": "AgentsSeePersonal is their choice that agents and API tokens see their workflows'\npersonal settings (D401, D402).",
                         "type": "boolean"
                     },
                     "codeChosen": {

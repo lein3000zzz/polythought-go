@@ -225,6 +225,12 @@ func (p Principal) Can(scope domain.Scope) bool {
 	return slices.Contains(p.Scopes, scope)
 }
 
+// SeesPersonal says the principal may see personal settings, such as webhook URLs (D401,
+// D402): the user themself always, a token or an agent when the user lets them.
+func (p Principal) SeesPersonal() bool {
+	return (p.TokenID == "" && p.GrantID == "") || p.User.AgentsSeePersonal
+}
+
 // Need is nil when the principal's scopes allow one of scopes, and says which it lacks
 // otherwise.
 func (p Principal) Need(scopes ...domain.Scope) error {

@@ -45,10 +45,11 @@ export function ConnectedSection() {
 
       <div id={jumpId('agents-see-personal')} className="flex items-start justify-between gap-4">
         <div className="flex flex-col gap-0.5">
-          <Label htmlFor="agents-see-personal">Agents see personal settings</Label>
+          <Label htmlFor="agents-see-personal">Agents and tokens see personal settings</Label>
           <p id="agents-see-personal-hint" className="text-xs text-muted-foreground">
-            Settings such as a webhook's URL, which can be a secret. Off, agents see that they are
-            set, never what they are, as sharing a workflow leaves them out.
+            Settings such as a webhook's URL, which can be a secret. Off, agents and API tokens see
+            that they are set, never what they are, as sharing a workflow leaves them out; a
+            workflow they save keeps them as they were.
           </p>
         </div>
         <Switch
@@ -63,8 +64,8 @@ export function ConnectedSection() {
                 onSuccess: () =>
                   toast.success(
                     on
-                      ? 'Your agents see personal settings'
-                      : 'Your agents no longer see personal settings',
+                      ? 'Your agents and tokens see personal settings'
+                      : 'Your agents and tokens no longer see personal settings',
                   ),
                 onError: (error) => toast.error(errorMessage(error)),
               },

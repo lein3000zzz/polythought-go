@@ -4,8 +4,10 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"maps"
 	"net/http"
 	"net/http/httptest"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -46,12 +48,22 @@ func (workflows) List(context.Context, auth.Principal, ports.PageFilter) (ports.
 	return ports.Page[domain.Workflow]{Items: []domain.Workflow{flow}, NextCursor: "c-2"}, nil
 }
 
-func (workflows) Get(_ context.Context, _ auth.Principal, id domain.WorkflowID) (domain.Workflow, error) {
+// Get hides the webhook's URL as the workflows service does (D402).
+func (workflows) Get(_ context.Context, p auth.Principal, id domain.WorkflowID) (domain.Workflow, error) {
 	if id != flow.ID {
 		return domain.Workflow{}, domain.ErrNotFound
 	}
 
-	return flow, nil
+	if p.SeesPersonal() {
+		return flow, nil
+	}
+
+	w := flow
+	w.Nodes = slices.Clone(flow.Nodes)
+	w.Nodes[1].Params = maps.Clone(flow.Nodes[1].Params)
+	w.Nodes[1].Params["url"] = domain.HiddenPersonal()
+
+	return w, nil
 }
 
 func (workflows) Check(context.Context, auth.Principal, domain.WorkflowID) ([]domain.Problem, error) {

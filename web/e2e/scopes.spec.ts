@@ -126,3 +126,55 @@ test('any token turns the kill switch on; only live turns it off', async ({
     await script.dispose()
   }
 })
+
+// A workflow's personal settings, a webhook's URL here, are hidden from tokens unless the
+// user lets agents see them, and a token's save keeps them as they were (D402).
+test('a token sees a personal setting as hidden, and its save keeps it', async ({
+  page,
+  playwright,
+  baseURL,
+}) => {
+  const script = await playwright.request.newContext({ baseURL })
+  const token = await makeToken(page, 'build')
+  const url = 'https://hooks.example/' + unique('secret')
+
+  const made = await page.request.post('/api/v1/workflows', {
+    data: {
+      name: unique('hooked'),
+      nodes: [
+        { id: 'manual', type: 'trigger.manual', position: { x: 0, y: 0 } },
+        { id: 'hook', type: 'output.webhook', params: { url }, position: { x: 300, y: 0 } },
+      ],
+      connections: [{ from: 'manual', fromPort: 'main', to: 'hook', toPort: 'main' }],
+    },
+  })
+  expect(made.status(), await made.text()).toBe(201)
+  const id = ((await made.json()) as { id: string }).id
+
+  const read = await as(script, token, 'GET', `/api/v1/workflows/${id}`)
+  expect(read.status).toBe(200)
+  expect(read.text).not.toContain('secret')
+  const w = JSON.parse(read.text) as {
+    name: string
+    version: number
+    nodes: { id: string; params?: Record<string, unknown> }[]
+    connections: unknown[]
+  }
+  expect(w.nodes[1].params?.url).toEqual({ $personal: 'hidden' })
+
+  // Saved back as read, a new name and all: the URL stays.
+  const saved = await as(script, token, 'PUT', `/api/v1/workflows/${id}`, {
+    name: w.name + ' (renamed)',
+    nodes: w.nodes,
+    connections: w.connections,
+    version: w.version,
+  })
+  expect(saved.status, saved.text).toBe(200)
+  expect(saved.text).not.toContain('secret')
+
+  const own = (await (await page.request.get(`/api/v1/workflows/${id}`)).json()) as typeof w
+  expect(own.name).toContain('(renamed)')
+  expect(own.nodes[1].params?.url).toBe(url)
+
+  await script.dispose()
+})

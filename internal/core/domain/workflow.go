@@ -49,6 +49,17 @@ type NodeSpec struct {
 	ContinueOnFail bool
 }
 
+// HiddenPersonal stands for the value of a personal setting, such as a webhook's URL, that
+// a token or an agent may not see (D401, D402): a workflow saved with it keeps the value
+// it had.
+func HiddenPersonal() map[string]any { return map[string]any{"$personal": "hidden"} }
+
+// IsHiddenPersonal says v stands for a hidden personal setting.
+func IsHiddenPersonal(v any) bool {
+	m, ok := v.(map[string]any)
+	return ok && len(m) == 1 && m["$personal"] == "hidden"
+}
+
 // Connection feeds the items one node emits on FromPort into another node's ToPort.
 type Connection struct {
 	From     NodeID

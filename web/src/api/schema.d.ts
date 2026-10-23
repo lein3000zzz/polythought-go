@@ -2010,7 +2010,10 @@ export interface components {
             worth: string;
         };
         AgentAccessRequest: {
-            /** @description SeePersonal lets agents see the workflows' personal settings, such as webhook URLs. */
+            /**
+             * @description SeePersonal lets agents and API tokens see the workflows' personal settings, such as
+             *     webhook URLs.
+             */
             seePersonal: boolean;
         };
         AgentCaps: {
@@ -3561,8 +3564,8 @@ export interface components {
              */
             agentCaps: components["schemas"]["AgentCaps"];
             /**
-             * @description AgentsSeePersonal is their choice that agents over MCP see their workflows' personal
-             *     settings (D401).
+             * @description AgentsSeePersonal is their choice that agents and API tokens see their workflows'
+             *     personal settings (D401, D402).
              */
             agentsSeePersonal: boolean;
             /**

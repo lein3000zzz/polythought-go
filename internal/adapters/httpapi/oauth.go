@@ -494,11 +494,13 @@ func (s *Server) listGrants(ctx context.Context, c *app.RequestContext) {
 }
 
 type agentAccessRequest struct {
-	// SeePersonal lets agents see the workflows' personal settings, such as webhook URLs.
+	// SeePersonal lets agents and API tokens see the workflows' personal settings, such as
+	// webhook URLs.
 	SeePersonal bool `json:"seePersonal"`
 } // @name AgentAccessRequest
 
-// setAgentAccess sets what the user's agents may see (D401), at a browser only.
+// setAgentAccess sets what the user's agents and API tokens may see (D401, D402), at a
+// browser only.
 //
 //	@Summary	What your agents may see
 //	@ID			setAgentAccess

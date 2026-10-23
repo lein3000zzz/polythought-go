@@ -880,6 +880,24 @@ func (a *app) initEngine(ctx context.Context, pmc polymarket) error {
 		workflows.WithExpressionChecks(checks), workflows.WithCodeAccess(checks), workflows.WithNodeMemory(a.nodeMemory),
 		workflows.WithPluginAccess(checks), workflows.WithPauser(a.notify),
 		workflows.WithRestingOrders(a.trading),
+		// Personal settings hidden from tokens and agents but where their user lets them see
+		// (D402): the node types' sensitive ones.
+		workflows.WithPersonal(func(nodeType string) []string {
+			t, _, ok := a.registry.Type(nodeType)
+			if !ok {
+				return nil
+			}
+
+			var out []string
+
+			for _, p := range t.Params {
+				if p.Sensitive {
+					out = append(out, p.Name)
+				}
+			}
+
+			return out
+		}),
 		// A workflow that places orders needs its mode's scope too (D399).
 		workflows.WithTradeScope(func(ctx context.Context, w domain.Workflow) (domain.Scope, error) {
 			if !nodes.PlacesOrders(a.registry, w) {

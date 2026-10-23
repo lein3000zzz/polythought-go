@@ -41,8 +41,8 @@ type userDTO struct {
 	AgentCaps agentCapsDTO `json:"agentCaps"`
 	// KillStopsAgents is their choice that their kill switch stops their agents too.
 	KillStopsAgents bool `json:"killStopsAgents"`
-	// AgentsSeePersonal is their choice that agents over MCP see their workflows' personal
-	// settings (D401).
+	// AgentsSeePersonal is their choice that agents and API tokens see their workflows'
+	// personal settings (D401, D402).
 	AgentsSeePersonal bool      `json:"agentsSeePersonal"`
 	CreatedAt         time.Time `json:"createdAt" format:"date-time"`
 } // @name User

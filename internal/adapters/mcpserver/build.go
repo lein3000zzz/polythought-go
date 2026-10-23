@@ -105,9 +105,6 @@ type connOut struct {
 	ToPort   string `json:"toPort"`
 }
 
-// hidden is what a personal setting shows to an agent the user has not let see them (D401).
-var hidden = map[string]any{"$personal": "hidden"}
-
 // typeIndex is the user's node types by name.
 type typeIndex map[string]engine.TypeInfo
 
@@ -155,35 +152,20 @@ func (ti typeIndex) printer(extra ...engine.NodeType) workflowcode.Types {
 	}
 }
 
-// personal hides a node's personal settings (D401), unless see; it gives the node with
-// what it hid, as node.param.
-func (ti typeIndex) personal(n domain.NodeSpec, see bool) (domain.NodeSpec, []string) {
-	t, ok := ti[n.Type]
-	if see || !ok {
-		return n, nil
-	}
+// hiddenIn are the personal settings the workflows service hid from the caller (D402), as
+// node.param.
+func hiddenIn(nodes []domain.NodeSpec) []string {
+	var out []string
 
-	var gone []string
-
-	for _, spec := range t.Params {
-		if _, set := n.Params[spec.Name]; !spec.Sensitive || !set {
-			continue
-		}
-
-		if gone == nil {
-			params := make(map[string]any, len(n.Params))
-			for k, v := range n.Params {
-				params[k] = v
+	for _, n := range nodes {
+		for k, v := range n.Params {
+			if domain.IsHiddenPersonal(v) {
+				out = append(out, string(n.ID)+"."+k)
 			}
-
-			n.Params = params
 		}
-
-		n.Params[spec.Name] = hidden
-		gone = append(gone, string(n.ID)+"."+spec.Name)
 	}
 
-	return n, gone
+	return sortedStrings(out)
 }
 
 func graphOf(nodes []domain.NodeSpec, conns []domain.Connection) *graph {

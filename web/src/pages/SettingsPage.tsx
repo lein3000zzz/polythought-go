@@ -94,8 +94,8 @@ export function SettingsPage() {
     {
       slug: 'connected',
       key: 'agents-see-personal',
-      label: 'Agents see personal settings',
-      words: 'agents mcp personal sensitive webhook url secret hidden',
+      label: 'Agents and tokens see personal settings',
+      words: 'agents api tokens mcp personal sensitive webhook url secret hidden',
     },
     ...(grants.data ?? [])
       .filter((g) => !g.revokedAt)

@@ -229,20 +229,13 @@ func (s *Server) getWorkflow(ctx context.Context, p auth.Principal, in workflowI
 		return workflowOut{}, err
 	}
 
-	out := workflowOut{workflowSummary: summary}
-
-	nodes := make([]domain.NodeSpec, len(w.Nodes))
-	for i, n := range w.Nodes {
-		var gone []string
-
-		nodes[i], gone = types.personal(n, p.User.AgentsSeePersonal)
-		out.Hidden = append(out.Hidden, gone...)
-	}
+	// Personal settings come hidden from the workflows service, where they must be.
+	out := workflowOut{workflowSummary: summary, Hidden: hiddenIn(w.Nodes)}
 
 	if format == formatTypeScript {
-		out.Code = workflowcode.Print(w.Name, nodes, w.Connections, types.printer())
+		out.Code = workflowcode.Print(w.Name, w.Nodes, w.Connections, types.printer())
 	} else {
-		out.Workflow = graphOf(nodes, w.Connections)
+		out.Workflow = graphOf(w.Nodes, w.Connections)
 	}
 
 	return out, nil

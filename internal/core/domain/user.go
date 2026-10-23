@@ -107,8 +107,8 @@ type User struct {
 	// KillStopsAgents is their choice that their kill switch stops their agents too
 	// (D276).
 	KillStopsAgents bool
-	// AgentsSeePersonal is their choice that agents over MCP see their workflows'
-	// personal settings, such as webhook URLs (D401).
+	// AgentsSeePersonal is their choice that agents and API tokens see their workflows'
+	// personal settings, such as webhook URLs (D401, D402).
 	AgentsSeePersonal bool
 	CreatedAt         time.Time
 	UpdatedAt         time.Time
