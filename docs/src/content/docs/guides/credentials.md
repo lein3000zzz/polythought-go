@@ -4,7 +4,7 @@ description: Keys and tokens your workflows use, kept encrypted.
 ---
 
 Some services want a key or a token with each request. Rather than typing it into a
-workflow, keep it as a **credential** on the **Credentials** page and pick it in the node
+workflow, keep it as a **credential** on **Settings → Credentials** and pick it in the node
 that needs it.
 
 - Secret values are stored encrypted and never shown again, not even to you. To change one,

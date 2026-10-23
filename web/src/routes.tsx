@@ -6,7 +6,6 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { AdminConfigPage } from '@/pages/AdminConfigPage'
 import { AdminPluginsPage } from '@/pages/AdminPluginsPage'
 import { AdminPage } from '@/pages/AdminPage'
-import { CredentialsPage } from '@/pages/CredentialsPage'
 import { CustomNodePage } from '@/pages/CustomNodePage'
 import { ForgotPasswordPage } from '@/pages/ForgotPasswordPage'
 import { LibraryPage } from '@/pages/LibraryPage'
@@ -61,8 +60,9 @@ export const routes: RouteObject[] = [
           { path: 'nodes/:id', element: <CustomNodePage /> },
           { path: 'wallets', element: <WalletsPage /> },
           { path: 'orders', element: <OrdersPage /> },
-          { path: 'credentials', element: <CredentialsPage /> },
-          { path: 'settings', element: <SettingsPage /> },
+          // A page of Settings now (D392): old links still get there.
+          { path: 'credentials', element: <Navigate to="/settings/credentials" replace /> },
+          { path: 'settings/:page?', element: <SettingsPage /> },
           { path: 'admin', element: <AdminPage /> },
           { path: 'admin/config/:page?', element: <AdminConfigPage /> },
           { path: 'admin/plugins', element: <AdminPluginsPage /> },

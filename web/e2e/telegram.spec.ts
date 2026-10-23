@@ -1,7 +1,7 @@
 import { canvasNode, expect, test, unique } from './fixtures'
 
 test('the bot follows its settings, and Settings says what it is missing', async ({ page }) => {
-  await page.goto('/settings')
+  await page.goto('/settings/telegram')
   await expect(page.getByText('Telegram is not set up on this instance.')).toBeVisible()
   await expect(page.getByRole('button', { name: 'Link Telegram' })).toHaveCount(0)
 
@@ -11,7 +11,7 @@ test('the bot follows its settings, and Settings says what it is missing', async
   await page.getByRole('button', { name: 'Save' }).click()
   await expect(page.getByText('Settings saved')).toBeVisible()
 
-  await page.goto('/settings')
+  await page.goto('/settings/telegram')
   await expect(page.getByText('The bot reported a problem')).toBeVisible()
   await expect(page.getByText(/there is no bot token; add one on the Config page/)).toBeVisible()
 
@@ -21,7 +21,7 @@ test('the bot follows its settings, and Settings says what it is missing', async
   await page.getByRole('button', { name: 'Save' }).click()
   await expect(page.getByText('Settings saved')).toBeVisible()
 
-  await page.goto('/settings')
+  await page.goto('/settings/telegram')
   await expect(page.getByText('Telegram is not set up on this instance.')).toBeVisible()
   await expect(page.getByText('The bot reported a problem')).toHaveCount(0)
 })
@@ -29,10 +29,10 @@ test('the bot follows its settings, and Settings says what it is missing', async
 test('notification choices are kept, and the editor offers the Telegram nodes', async ({
   page,
 }) => {
-  await page.goto('/settings')
+  await page.goto('/settings/notifications')
   const failures = page.getByRole('switch', { name: 'A workflow fails, on Telegram' })
   await expect(failures).toBeChecked()
-  await expect(page.getByText(/link Telegram above to get them/)).toBeVisible()
+  await expect(page.getByRole('link', { name: 'link Telegram' })).toBeVisible()
 
   await failures.click()
   await expect(failures).not.toBeChecked()
@@ -103,7 +103,7 @@ test('a question has a port per button, which keeps its line when renamed', asyn
   await expect(canvasNode(page, 'ask').getByLabel('Failed')).toBeVisible()
   await expect(page.getByText(/telegram is not linked/).first()).toBeVisible()
 
-  await page.goto('/settings')
+  await page.goto('/settings/notifications')
   await expect(
     page.getByRole('switch', { name: 'A question waits for your answer, on Telegram' }),
   ).toBeChecked()

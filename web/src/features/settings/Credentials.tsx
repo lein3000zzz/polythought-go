@@ -41,16 +41,19 @@ import {
 } from '@/components/ui/table'
 import { formatDateTime } from '@/lib/format'
 
-export function CredentialsPage() {
+import { jumpId } from './pages'
+
+/** The credentials page of Settings (D392), which was a page of its own. */
+export function Credentials() {
   const list = useCredentialList()
   const types = useCredentialTypes()
   const [creating, setCreating] = useState(false)
 
   return (
-    <div className="mx-auto flex max-w-4xl flex-col gap-6 p-6">
-      <div className="flex items-start justify-between gap-4">
+    <section className="flex flex-col gap-6">
+      <div id={jumpId('new-credential')} className="flex items-start justify-between gap-4">
         <div className="flex flex-col gap-1">
-          <h1 className="font-heading text-xl font-semibold">Credentials</h1>
+          <h2 className="font-medium">Credentials</h2>
           <p className="text-sm text-muted-foreground">
             Keys and tokens your workflows use, such as a header a webhook sends. Secret values are
             stored encrypted and never shown again. Only your own workflows can use them, and
@@ -79,7 +82,7 @@ export function CredentialsPage() {
       {creating && types.data && (
         <CredentialDialog types={types.data} onClose={() => setCreating(false)} />
       )}
-    </div>
+    </section>
   )
 }
 
@@ -113,7 +116,7 @@ function CredentialTable({
             const type = byName.get(c.type)
 
             return (
-              <TableRow key={c.id}>
+              <TableRow key={c.id} id={jumpId(`credential-${c.id}`)}>
                 <TableCell className="font-medium">{c.name}</TableCell>
                 <TableCell>{type?.label ?? c.type}</TableCell>
                 <TableCell>

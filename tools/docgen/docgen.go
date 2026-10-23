@@ -547,7 +547,7 @@ func credentialTypesPage(credTypes []engine.CredentialType, nodes []engine.TypeI
 	var b strings.Builder
 
 	frontmatter(&b, "Credential types", "The kinds of credential nodes can use, and their fields.", 0)
-	b.WriteString("Credentials are kept on the **Credentials** page; see [Credentials](" + base +
+	b.WriteString("Credentials are kept on **Settings → Credentials**; see [Credentials](" + base +
 		"/guides/credentials/). Secret fields are stored encrypted and never shown again.\n")
 
 	for _, ct := range credTypes {

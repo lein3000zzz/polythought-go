@@ -77,7 +77,7 @@ describe('the top bar (D368)', () => {
     expect(menu.getByRole('menuitem', { name: 'Settings' })).toHaveAttribute('href', '/settings')
     expect(menu.getByRole('menuitem', { name: 'Credentials' })).toHaveAttribute(
       'href',
-      '/credentials',
+      '/settings/credentials',
     )
     expect(menu.queryByRole('menuitem', { name: 'Admin' })).not.toBeInTheDocument()
     expect(menu.getByRole('menuitemradio', { name: 'System' })).toBeChecked()

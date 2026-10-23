@@ -16,7 +16,7 @@ test('an admin changes settings live and restarts the server for the rest', asyn
   await page.getByRole('button', { name: 'Save' }).click()
   await expect(page.getByText('Settings saved')).toBeVisible()
 
-  await page.goto('/settings')
+  await page.goto('/settings/account')
   await expect(page.getByText('At least 20 characters.')).toBeVisible()
 
   // Back to the default, for the tests that create accounts.

@@ -11,7 +11,7 @@ provider unless one of your workflows does.
 
 ## Setting it up
 
-1. Add your key on the **Credentials** page and press **Test**; see
+1. Add your key on **Settings → Credentials** and press **Test**; see
    [Language model keys](/docs/guides/credentials/#language-model-keys).
 2. Add an **AI agent** node, pick the key under **Key**, and a **Model**. The model field
    suggests those the key can use, as the provider lists them, refreshed every hour; any

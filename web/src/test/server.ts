@@ -11,6 +11,12 @@ export const server = setupServer(
   http.get('/api/v1/meta', () =>
     HttpResponse.json({ repo: 'https://github.com/lein3000zzz/polythought-go' }),
   ),
+  // Settings searches its pages' tokens, notifications and credentials: none, unless a
+  // test says.
+  http.get('/api/v1/tokens', () => HttpResponse.json({ tokens: [] })),
+  http.get('/api/v1/notifications', () => HttpResponse.json({ notifications: [], mailOn: false })),
+  http.get('/api/v1/credentials', () => HttpResponse.json({ credentials: [] })),
+  http.get('/api/v1/credential-types', () => HttpResponse.json({ credentialTypes: [] })),
   // Settings asks what the agents spent: nothing, and no caps, unless a test says.
   http.get('/api/v1/me/agent-spend', () =>
     HttpResponse.json({

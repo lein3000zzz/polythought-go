@@ -157,7 +157,7 @@ function AccountMenu({ user }: { user: Schemas['User'] }) {
   const admin = user.role === 'admin'
   const own: (readonly [string, string])[] = [
     ['/settings', 'Settings'],
-    ['/credentials', 'Credentials'],
+    ['/settings/credentials', 'Credentials'],
     ...(admin ? ([['/admin', 'Admin']] as const) : []),
   ]
 

@@ -26,7 +26,7 @@ test('a failing workflow is told by email, once the admin allows it and the user
     expect(set.status(), await set.text()).toBe(200)
 
     // Off until an admin allows it (D184).
-    await page.goto('/settings')
+    await page.goto('/settings/notifications')
     const byEmail = page.getByRole('switch', { name: 'A workflow fails, by email' })
     await expect(byEmail).toBeDisabled()
 
@@ -104,7 +104,7 @@ test('a paper order that comes to rest is told by email, once its kind is switch
     expect(set.status(), await set.text()).toBe(200)
 
     // Off to start with, as every paper kind is; by email it is the user's choice.
-    await page.goto('/settings')
+    await page.goto('/settings/notifications')
     await expect(page.getByRole('heading', { name: 'Paper orders' })).toBeVisible()
     const rests = page.getByRole('switch', { name: 'A paper order rests on the book, by email' })
     await expect(rests).not.toBeChecked()

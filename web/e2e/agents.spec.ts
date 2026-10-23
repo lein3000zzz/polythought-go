@@ -79,7 +79,7 @@ test("agents' spend this month shows on Settings, against caps an admin sets (D2
 
   try {
     // Nothing spent, as no provider is ever called here, against the instance's caps.
-    await page.goto('/settings')
+    await page.goto('/settings/agents')
     const spend = page.getByLabel('Agent spend', { exact: true })
     await expect(spend).toContainText('$0.00 of $20.00')
     await expect(spend).toContainText('0 of 20,000,000')
@@ -102,7 +102,7 @@ test("agents' spend this month shows on Settings, against caps an admin sets (D2
       '$5.50 a month, 1,000 out',
     )
 
-    await page.goto('/settings')
+    await page.goto('/settings/agents')
     await expect(spend).toContainText('$0.00 of $5.50')
     await expect(spend).toContainText('Output tokens0 of 1,000')
 

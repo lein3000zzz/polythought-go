@@ -37,9 +37,7 @@ describe('settings page', () => {
 
     server.use(
       signedIn,
-      noTelegram,
-      notifications,
-      http.get('/api/v1/tokens', () => HttpResponse.json({ tokens: [] })),
+      registration('invite'), // the shortest password
       http.put('/api/v1/me/password', async ({ request }) => {
         sent.push(await request.json())
         return sent.length === 1
@@ -47,7 +45,7 @@ describe('settings page', () => {
           : new HttpResponse(null, { status: 204 })
       }),
     )
-    const { router, user } = renderApp('/settings')
+    const { router, user } = renderApp('/settings/account')
 
     await user.type(await screen.findByLabelText('Current password'), 'old password!')
     await user.type(screen.getByLabelText('New password'), 'a brand new password')
@@ -61,7 +59,7 @@ describe('settings page', () => {
     await user.type(screen.getByLabelText('Repeat the new password'), 'a brand new password')
     await user.click(screen.getByRole('button', { name: 'Change password' }))
     expect(await screen.findByText('That is not your current password.')).toBeInTheDocument()
-    expect(router.state.location.pathname).toBe('/settings') // a wrong password is no sign-out
+    expect(router.state.location.pathname).toBe('/settings/account') // a wrong password is no sign-out
 
     await user.click(screen.getByRole('button', { name: 'Change password' }))
     expect(await screen.findByText('Password changed')).toBeInTheDocument()
@@ -91,7 +89,7 @@ describe('settings page', () => {
         return new HttpResponse(null, { status: 204 })
       }),
     )
-    const { user } = renderApp('/settings')
+    const { user } = renderApp('/settings/tokens')
 
     await user.type(await screen.findByLabelText('Name'), 'backtest')
     await user.click(screen.getByRole('button', { name: 'Create token' }))
@@ -119,7 +117,7 @@ describe('settings page', () => {
 
     it('says when the instance has no bot', async () => {
       server.use(...base, noTelegram)
-      renderApp('/settings')
+      renderApp('/settings/telegram')
 
       expect(await screen.findByText(/Telegram is not set up on this instance/)).toBeInTheDocument()
       expect(screen.queryByRole('button', { name: 'Link Telegram' })).not.toBeInTheDocument()
@@ -139,7 +137,7 @@ describe('settings page', () => {
           }),
         ),
       )
-      renderApp('/settings')
+      renderApp('/settings/telegram')
 
       expect(await screen.findByRole('link', { name: 'Admin → Config' })).toHaveAttribute(
         'href',
@@ -168,7 +166,7 @@ describe('settings page', () => {
           ),
         ),
       )
-      const { user } = renderApp('/settings')
+      const { user } = renderApp('/settings/telegram')
 
       await user.click(await screen.findByRole('button', { name: 'Link Telegram' }))
 
@@ -197,7 +195,7 @@ describe('settings page', () => {
           return new HttpResponse(null, { status: 204 })
         }),
       )
-      const { user } = renderApp('/settings')
+      const { user } = renderApp('/settings/telegram')
 
       expect(await screen.findByText('Alice')).toBeInTheDocument()
       await user.click(screen.getByRole('button', { name: 'Unlink' }))
@@ -222,11 +220,15 @@ describe('settings page', () => {
         return HttpResponse.json({ ...failedPref, enabled: false })
       }),
     )
-    const { user } = renderApp('/settings')
+    const { user } = renderApp('/settings/notifications')
 
     const toggle = await screen.findByRole('switch', { name: 'A workflow fails, on Telegram' })
     expect(toggle).toBeChecked()
-    expect(screen.getByText(/link Telegram above to get them/)).toBeInTheDocument()
+    // Telegram is a page of its own, linked from here while it is not linked (D392).
+    expect(screen.getByRole('link', { name: 'link Telegram' })).toHaveAttribute(
+      'href',
+      '/settings/telegram',
+    )
 
     // Not by email while mail cannot carry it (D184).
     expect(screen.getByRole('switch', { name: 'A workflow fails, by email' })).toBeDisabled()
@@ -263,7 +265,7 @@ describe('settings page', () => {
         }),
       ),
     )
-    renderApp('/settings')
+    renderApp('/settings/notifications')
 
     expect(await screen.findByRole('heading', { name: 'Live orders' })).toBeInTheDocument()
     expect(screen.getAllByRole('heading', { name: 'Live orders' })).toHaveLength(1)
@@ -289,7 +291,7 @@ describe('settings page', () => {
         return HttpResponse.json({ ...failedPref, email: true })
       }),
     )
-    const { user } = renderApp('/settings')
+    const { user } = renderApp('/settings/notifications')
 
     const email = await screen.findByRole('switch', { name: 'A workflow fails, by email' })
     expect(email).not.toBeChecked()
@@ -330,7 +332,7 @@ describe('settings page', () => {
         return HttpResponse.json({ ...spent, killStopsAgents: true })
       }),
     )
-    const { user } = renderApp('/settings')
+    const { user } = renderApp('/settings/agents')
 
     const spend = await screen.findByLabelText('Agent spend')
     expect(spend).toHaveTextContent('$4.20 of $20.00 (20 of 70 calls priced by their provider)')
@@ -355,11 +357,75 @@ describe('settings page', () => {
       http.get('/api/v1/tokens', () => HttpResponse.json({ tokens: [] })),
       http.get('/api/v1/me/agent-spend', () => apiError(404, 'not_found', 'not found')),
     )
+    const { router } = renderApp('/settings/agents')
+
+    // The page goes once the server says there are no agents, and so does its card.
+    await waitFor(() => expect(router.state.location.pathname).toBe('/settings'))
+    const cards = within(await screen.findByRole('list', { name: 'Overview' }))
+    expect(await cards.findByRole('link', { name: /^Notifications/ })).toBeInTheDocument()
+    expect(cards.queryByRole('link', { name: /AI agents/ })).not.toBeInTheDocument()
+    expect(screen.queryByRole('link', { name: 'AI agents' })).not.toBeInTheDocument() // the menu
+  })
+
+  it('shows each page on the overview, with how things are there (D392)', async () => {
+    server.use(
+      signedIn,
+      noTelegram,
+      notifications,
+      http.get('/api/v1/tokens', () => HttpResponse.json({ tokens: [token] })),
+    )
     renderApp('/settings')
 
-    expect(await screen.findByRole('heading', { name: 'Notifications' })).toBeInTheDocument()
-    await waitFor(() =>
-      expect(screen.queryByRole('heading', { name: 'AI agents' })).not.toBeInTheDocument(),
+    const cards = within(await screen.findByRole('list', { name: 'Overview' }))
+    const card = (name: RegExp) => cards.findByRole('link', { name })
+    expect(await card(/^Account/)).toHaveTextContent(`Signed in as ${alice.email}`)
+    expect(await card(/^Account/)).toHaveAttribute('href', '/settings/account')
+    expect(await card(/^Telegram/)).toHaveTextContent('Not set up on this instance')
+    expect(await card(/^Notifications/)).toHaveTextContent('1 on Telegram, 0 by email, of 1')
+    expect(await card(/^API tokens/)).toHaveTextContent('1 token')
+    expect(await card(/^Credentials/)).toHaveTextContent('None yet')
+  })
+
+  it('finds a notification or a token from any page, and opens its page at it (D392)', async () => {
+    server.use(
+      signedIn,
+      noTelegram,
+      notifications,
+      http.get('/api/v1/tokens', () => HttpResponse.json({ tokens: [token] })),
     )
+    const { user, router } = renderApp('/settings/account')
+
+    await screen.findByRole('heading', { name: 'Password' })
+    await user.keyboard('/')
+    const search = screen.getByRole('searchbox', { name: 'Search settings' })
+    await user.type(search, 'workflow fails')
+
+    const found = within(screen.getByRole('navigation', { name: 'Matching settings' }))
+    expect(found.getByText('Notifications')).toBeInTheDocument()
+    await user.keyboard('{Enter}')
+    expect(router.state.location.pathname).toBe('/settings/notifications')
+    await waitFor(() =>
+      expect(screen.getByRole('switch', { name: 'A workflow fails, on Telegram' })).toHaveFocus(),
+    )
+
+    await user.clear(search)
+    await user.type(search, 'backtest')
+    await user.click(
+      within(screen.getByRole('navigation', { name: 'Matching settings' })).getByRole('link', {
+        name: 'backtest',
+      }),
+    )
+    expect(router.state.location.pathname).toBe('/settings/tokens')
+    expect(router.state.location.hash).toBe('#token-t-1')
+  })
+
+  it('has Credentials as a page, where its old address goes (D392)', async () => {
+    server.use(signedIn)
+    const { router } = renderApp('/credentials')
+
+    expect(await screen.findByRole('heading', { name: 'Credentials' })).toBeInTheDocument()
+    expect(router.state.location.pathname).toBe('/settings/credentials')
+    const menu = within(screen.getByRole('navigation', { name: 'Settings pages' }))
+    expect(menu.getByRole('link', { name: 'Credentials' })).toHaveAttribute('aria-current', 'page')
   })
 })

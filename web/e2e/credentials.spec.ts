@@ -3,7 +3,9 @@ import { canvasNode, createWorkflow, expect, test, unique } from './fixtures'
 test('a credential is made once, picked in a webhook node, and kept private', async ({ page }) => {
   const name = unique('relay')
 
+  // A page of Settings now, which its old address opens (D392).
   await page.goto('/credentials')
+  await expect(page).toHaveURL(/\/settings\/credentials$/)
   await page.getByRole('button', { name: 'New credential' }).click()
   const dialog = page.getByRole('dialog')
   await dialog.getByLabel('Kind').selectOption({ label: 'HTTP header' })
@@ -16,6 +18,14 @@ test('a credential is made once, picked in a webhook node, and kept private', as
   const row = page.getByRole('row', { name: new RegExp(name) })
   await expect(row.getByText('Header: Authorization')).toBeVisible()
   await expect(row.getByText('Value saved')).toBeVisible()
+
+  // Settings' search finds it by name, from any page, and opens its row.
+  await page.goto('/settings')
+  await page.keyboard.press('/')
+  await page.getByRole('searchbox', { name: 'Search settings' }).fill(name)
+  await page.keyboard.press('Enter')
+  await expect(page).toHaveURL(/\/settings\/credentials#credential-/)
+  await expect(row).toBeInViewport()
 
   // The secret never comes back.
   const listed = await page.request.get('/api/v1/credentials')
@@ -56,7 +66,7 @@ test('a credential is made once, picked in a webhook node, and kept private', as
   await expect(page.getByRole('dialog').getByLabel('Credential')).toHaveValue('')
 
   // Deleted, the node shows it is gone.
-  await page.goto('/credentials')
+  await page.goto('/settings/credentials')
   await row.getByRole('button', { name: `Delete ${name}` }).click()
   await page.getByRole('alertdialog').getByRole('button', { name: 'Delete' }).click()
   await expect(page.getByText(`Deleted ${name}`)).toBeVisible()
@@ -71,7 +81,7 @@ test('a language model key is checked as saved, and its test sends nothing in cl
 }) => {
   const name = unique('router')
 
-  await page.goto('/credentials')
+  await page.goto('/settings/credentials')
   await page.getByRole('button', { name: 'New credential' }).click()
   const dialog = page.getByRole('dialog')
   await dialog.getByLabel('Kind').selectOption({ label: 'OpenAI-compatible API key' })

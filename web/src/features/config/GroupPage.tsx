@@ -1,15 +1,16 @@
-import { useEffect, useState } from 'react'
-import { Link, useLocation } from 'react-router'
+import { useState } from 'react'
+import { Link } from 'react-router'
 import { toast } from 'sonner'
 
 import { ApiError, errorMessage } from '@/api/client'
 import { useUpdateSettings, type Setting } from '@/api/settings'
 import { ConfirmDialog } from '@/components/ConfirmDialog'
 import { Button } from '@/components/ui/button'
+import { useJump } from '@/lib/jump'
 
 import { CodeRunners } from './CodeRunners'
 import { MailTest } from './MailTest'
-import { configPath, isChange, rowId, type ConfigPage, type Drafts } from './pages'
+import { configPath, isChange, rowId, settingPrefix, type ConfigPage, type Drafts } from './pages'
 import { SettingRow } from './SettingRow'
 
 const mailGroup = 'Mail'
@@ -34,7 +35,7 @@ type Props = {
 
 /**
  * A group's settings, saving its own changes (D370): drafts of the other pages wait on
- * theirs. A link to #<key> shows the setting, highlighted for a moment (D391).
+ * theirs. A link to #<key> shows the setting (useJump).
  */
 export function GroupPage({
   page,
@@ -48,23 +49,9 @@ export function GroupPage({
 }: Props) {
   const update = useUpdateSettings()
   const [askLiveOff, setAskLiveOff] = useState(false)
-  const location = useLocation()
-  const target = decodeURIComponent(location.hash.slice(1))
+  const keys = page.settings.map((s) => s.key)
 
-  // location.key: a second click on the same link shows it again.
-  useEffect(() => {
-    if (!page.settings.some((s) => s.key === target)) return
-
-    const row = document.getElementById(rowId(target))
-    row?.scrollIntoView({ block: 'center' })
-    row
-      ?.querySelector<HTMLElement>('input, select, textarea, button')
-      ?.focus({ preventScroll: true })
-    row?.animate?.(
-      [{ backgroundColor: 'color-mix(in oklab, var(--color-amber-500) 20%, transparent)' }, {}],
-      { duration: 1500, easing: 'ease-in' },
-    )
-  }, [page, target, location.key])
+  useJump(settingPrefix, keys)
 
   const changes = Object.fromEntries(
     page.settings
@@ -72,7 +59,6 @@ export function GroupPage({
       .map((s) => [s.key, drafts[s.key]]),
   )
   const count = Object.keys(changes).length
-  const keys = page.settings.map((s) => s.key)
 
   const problems = new Map(
     update.error instanceof ApiError

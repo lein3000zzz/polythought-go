@@ -62,6 +62,8 @@ export function isChange(s: Setting, draft: unknown): boolean {
 }
 
 /** Where a setting's row is, for a link to it: #<key> on its page. */
+export const settingPrefix = 'setting-'
+
 export function rowId(key: string): string {
-  return `setting-${key}`
+  return settingPrefix + key
 }

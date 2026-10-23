@@ -11,7 +11,7 @@ Link your Telegram account once to use any of it.
 
 ## Linking
 
-1. In Polythought, open **Settings** and, under **Telegram**, press **Link Telegram**.
+1. In Polythought, open **Settings → Telegram** and press **Link Telegram**.
 2. Press **Open Telegram**. Telegram opens a chat with the bot; press **Start**.
 3. The bot says which account the chat is linked to, and Settings shows it too.
 
