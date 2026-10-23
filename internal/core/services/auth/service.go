@@ -83,6 +83,7 @@ type Service struct {
 	workflows WorkflowStopper   // optional; commands without the engine have none
 	live      LiveStopper       // optional; without it, disabling stops no live trading
 	mail      ports.AccountMail // optional; without it, nothing is mailed
+	inviteBox ports.SecretBox   // optional; without it, an invite's code shows only as made
 
 	// dummyHash is verified against when an email is unknown, so a miss takes as long
 	// as a wrong password and response times do not reveal which emails exist.
@@ -134,6 +135,11 @@ type LiveStopper interface {
 // WithLiveStopper stops a user's live trading when an admin disables them.
 func WithLiveStopper(l LiveStopper) Option {
 	return func(s *Service) { s.live = l }
+}
+
+// WithInviteBox seals invites' codes, so admins can copy them again (D393).
+func WithInviteBox(box ports.SecretBox) Option {
+	return func(s *Service) { s.inviteBox = box }
 }
 
 // WithLiveConfig reads the configuration through config on every use, so changes to it

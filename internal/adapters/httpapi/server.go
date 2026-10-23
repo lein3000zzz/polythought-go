@@ -40,7 +40,7 @@ type AuthService interface {
 	RequestPasswordReset(ctx context.Context, email, ip string) error
 	ResetPassword(ctx context.Context, token, password, ip string) (string, error)
 	InviteEmail() bool
-	InviteByEmail(ctx context.Context, actor auth.Principal, email string) (string, domain.Invite, bool, error)
+	InviteByEmail(ctx context.Context, actor auth.Principal, email string) (domain.Invite, bool, error)
 	InviteFor(ctx context.Context, code, ip string) (domain.Invite, error)
 	Login(ctx context.Context, in auth.LoginInput) (auth.LoginResult, error)
 	Logout(ctx context.Context, id domain.SessionID) error
@@ -55,7 +55,9 @@ type AuthService interface {
 	CreateUser(ctx context.Context, actor auth.Principal, email, password string, role domain.Role) (domain.User, error)
 	ListUsers(ctx context.Context, actor auth.Principal, f ports.PageFilter) (ports.Page[domain.User], error)
 	UpdateUser(ctx context.Context, actor auth.Principal, id domain.UserID, upd auth.UserUpdate) (domain.User, error)
-	CreateInvite(ctx context.Context, actor auth.Principal) (string, domain.Invite, error)
+	CreateInvite(ctx context.Context, actor auth.Principal, spec auth.InviteSpec) (domain.Invite, error)
+	CheckInviteCode(ctx context.Context, actor auth.Principal, code string) (string, error)
+	RevokeInvite(ctx context.Context, actor auth.Principal, id domain.InviteID) error
 	ListInvites(ctx context.Context, actor auth.Principal) ([]domain.Invite, error)
 }
 
@@ -433,6 +435,8 @@ func (s *Server) routes() {
 	admin.GET("/users/:id/agent-spend", s.userAgentSpend)
 	admin.GET("/invites", s.listInvites)
 	admin.POST("/invites", s.createInvite)
+	admin.POST("/invites/check", s.checkInviteCode)
+	admin.POST("/invites/:id/revoke", s.revokeInvite)
 	admin.GET("/settings", s.listSettings)
 	admin.PATCH("/settings", s.updateSettings)
 	admin.GET("/settings/history", s.listSettingChanges)

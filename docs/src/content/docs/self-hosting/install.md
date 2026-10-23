@@ -182,6 +182,25 @@ the runners start without it and the Config page says so. Runners that do not st
 the server running, but code does not run until they do: it never runs in the server's
 process instead.
 
+## Invites
+
+While registration is by invite, people sign up with a code an admin gives them. On
+**Admin → Invites**, **Make invite** makes one:
+
+- **Code**: type one, 8 to 64 letters, digits, `-` and `_`, or leave it empty to have one
+  made. Any case is the same code, so `SPRING-2026` and `spring-2026` are one; the field
+  says as you type whether another invite has it already.
+- **Sign-ups**: how many accounts it admits, 1 to 1,000.
+- **Expires**: a day within a year. Left empty, it lasts **Invite lifetime**, under Accounts
+  on the Config page, 7 days unless changed.
+
+Share its link, `/register?invite=<code>`, or the code itself, which the sign-up form takes.
+The list shows every invite: its code, to copy again; how many sign-ups it admitted of those
+it allows, and who they were; when it expires; and whether it is open, used up, expired or
+revoked. **Revoke** ends an open invite, and the accounts made with it stay. Codes are kept
+sealed with the server's keys, as its other secrets are; an invite made before Polythought
+kept codes shows none.
+
 ## More admins
 
 Admins can promote users on **Admin → Users**. To create one from the command line, with the
@@ -232,12 +251,12 @@ The setting cannot be turned on without mail, nor mail removed while it is on.
 
 ### Invites by email
 
-While mail is set up, the Invites section of **Admin → Users** takes an address: **Send
-invite** mails the invite there, naming you, unless **Invites by email** (under Accounts, on
-by default) is off. Only that address signs up with it, filled in on the form, and the
-account counts as verified, as the mail proved the address. An address that has an account
-already is refused. If the mail does not go out, the invite is made anyway and its link
-shown, to send yourself. **Create invite** still makes a link for anyone, to copy.
+While mail is set up, **Admin → Invites** takes an address: **Send invite** mails an invite
+there, naming you, unless **Invites by email** (under Accounts, on by default) is off. Only
+that address signs up with it, once, filled in on the form, and the account counts as
+verified, as the mail proved the address. An address that has an account already is
+refused. If the mail does not go out, the invite is made anyway and its link shown, to send
+yourself. **Make invite** still makes one for anyone, to share.
 
 ### Notifications by email
 

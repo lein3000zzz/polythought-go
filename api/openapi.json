@@ -440,6 +440,17 @@
                 ],
                 "type": "object"
             },
+            "CheckInviteCodeRequest": {
+                "properties": {
+                    "code": {
+                        "type": "string"
+                    }
+                },
+                "required": [
+                    "code"
+                ],
+                "type": "object"
+            },
             "CodeFile": {
                 "properties": {
                     "content": {
@@ -564,9 +575,22 @@
             },
             "CreateInviteRequest": {
                 "properties": {
-                    "email": {
-                        "description": "Email, when given, mails the invite there; only that address signs up with it.",
+                    "code": {
+                        "description": "Code is typed (D393): 8 to 64 letters, digits, - and _, any case; made when empty.",
                         "type": "string"
+                    },
+                    "email": {
+                        "description": "Email, when given, mails the invite there, and only that address signs up with it,\nonce (D371): the server makes its code and it lasts Invite lifetime, so it takes no\ncode, uses or end.",
+                        "type": "string"
+                    },
+                    "expiresAt": {
+                        "description": "ExpiresAt is when it ends, within a year; Invite lifetime from now when absent.",
+                        "format": "date-time",
+                        "type": "string"
+                    },
+                    "maxUses": {
+                        "description": "MaxUses is how many sign-ups it admits, 1 to 1000; 1 when absent.",
+                        "type": "integer"
                     }
                 },
                 "type": "object"
@@ -1415,7 +1439,7 @@
             "Invite": {
                 "properties": {
                     "code": {
-                        "description": "Code is the secret, present only in the response that creates it.",
+                        "description": "Code is the code to copy (D393); absent for an invite made before codes were kept.",
                         "type": "string"
                     },
                     "createdAt": {
@@ -1426,7 +1450,7 @@
                         "type": "string"
                     },
                     "email": {
-                        "description": "Email is the address it was mailed to, which alone signs up with it (D181).",
+                        "description": "Email is the address it was mailed to, which alone signs up with it, once (D181).",
                         "type": "string"
                     },
                     "expiresAt": {
@@ -1436,24 +1460,59 @@
                     "id": {
                         "type": "string"
                     },
+                    "maxUses": {
+                        "description": "MaxUses is how many sign-ups it admits (D371); Used, how many it did.",
+                        "type": "integer"
+                    },
+                    "revokedAt": {
+                        "format": "date-time",
+                        "type": "string"
+                    },
                     "sent": {
                         "description": "Sent says the mail went, in the response that mails it; when it did not, the\ncode can still be copied.",
                         "type": "boolean"
                     },
-                    "usedAt": {
-                        "format": "date-time",
+                    "signups": {
+                        "description": "Signups are who signed up with it, oldest first.",
+                        "items": {
+                            "$ref": "#/components/schemas/InviteUse"
+                        },
+                        "type": "array",
+                        "uniqueItems": false
+                    },
+                    "status": {
+                        "description": "Status is whether it admits sign-ups now, by the server's clock, and why not.",
+                        "enum": [
+                            "open",
+                            "used",
+                            "expired",
+                            "revoked"
+                        ],
                         "type": "string"
                     },
-                    "usedBy": {
-                        "type": "string"
+                    "used": {
+                        "type": "integer"
                     }
                 },
                 "required": [
                     "createdAt",
                     "createdBy",
                     "expiresAt",
-                    "id"
+                    "id",
+                    "maxUses",
+                    "signups",
+                    "status",
+                    "used"
                 ],
+                "type": "object"
+            },
+            "InviteCodeCheck": {
+                "properties": {
+                    "problem": {
+                        "description": "Problem says what keeps the code from making an invite: its form, or another\ninvite having it; absent when it can.",
+                        "type": "string"
+                    }
+                },
                 "type": "object"
             },
             "InviteFor": {
@@ -1494,6 +1553,25 @@
                 "required": [
                     "byEmail",
                     "invites"
+                ],
+                "type": "object"
+            },
+            "InviteUse": {
+                "properties": {
+                    "at": {
+                        "format": "date-time",
+                        "type": "string"
+                    },
+                    "email": {
+                        "type": "string"
+                    },
+                    "userId": {
+                        "description": "UserID and Email are the account's, absent once it is gone.",
+                        "type": "string"
+                    }
+                },
+                "required": [
+                    "at"
                 ],
                 "type": "object"
             },
@@ -4417,11 +4495,11 @@
                             "schema": {
                                 "$ref": "#/components/schemas/CreateInviteRequest",
                                 "summary": "body",
-                                "description": "Where to mail it"
+                                "description": "Its code, uses and end, or where to mail it"
                             }
                         }
                     },
-                    "description": "Where to mail it"
+                    "description": "Its code, uses and end, or where to mail it"
                 },
                 "responses": {
                     "201": {
@@ -4442,7 +4520,7 @@
                                 }
                             }
                         },
-                        "description": "invalid_email"
+                        "description": "invalid_input, or invalid_email"
                     },
                     "401": {
                         "content": {
@@ -4472,7 +4550,7 @@
                                 }
                             }
                         },
-                        "description": "email_taken: the address has an account already"
+                        "description": "invite_code_taken, or email_taken: the address has an account already"
                     }
                 },
                 "security": [
@@ -4484,6 +4562,131 @@
                     }
                 ],
                 "summary": "Create an invite",
+                "tags": [
+                    "admin"
+                ]
+            }
+        },
+        "/admin/invites/check": {
+            "post": {
+                "operationId": "checkInviteCode",
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/CheckInviteCodeRequest",
+                                "summary": "body",
+                                "description": "The code typed"
+                            }
+                        }
+                    },
+                    "description": "The code typed",
+                    "required": true
+                },
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/InviteCodeCheck"
+                                }
+                            }
+                        },
+                        "description": "OK"
+                    },
+                    "401": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "unauthenticated"
+                    },
+                    "403": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "forbidden"
+                    }
+                },
+                "security": [
+                    {
+                        "SessionCookie": []
+                    },
+                    {
+                        "APIToken": []
+                    }
+                ],
+                "summary": "Check an invite code",
+                "tags": [
+                    "admin"
+                ]
+            }
+        },
+        "/admin/invites/{id}/revoke": {
+            "post": {
+                "operationId": "revokeInvite",
+                "parameters": [
+                    {
+                        "description": "Invite ID",
+                        "in": "path",
+                        "name": "id",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "No Content"
+                    },
+                    "401": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "unauthenticated"
+                    },
+                    "403": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "forbidden"
+                    },
+                    "404": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "not_found"
+                    }
+                },
+                "security": [
+                    {
+                        "SessionCookie": []
+                    },
+                    {
+                        "APIToken": []
+                    }
+                ],
+                "summary": "Revoke an invite",
                 "tags": [
                     "admin"
                 ]
@@ -6566,7 +6769,7 @@
                                 }
                             }
                         },
-                        "description": "invalid_invite: used, expired or none"
+                        "description": "invalid_invite: used up, expired, revoked or none"
                     },
                     "429": {
                         "content": {

@@ -45,7 +45,7 @@ func (s *Service) Register(ctx context.Context, in RegisterInput) (Registration,
 		}
 
 		var err error
-		if invite, err = s.repos.Invites.ByCode(ctx, hashSecret(code), s.now()); err != nil {
+		if invite, err = s.repos.Invites.ByCode(ctx, inviteHashes(code), s.now()); err != nil {
 			return Registration{}, err
 		}
 	}
@@ -78,7 +78,7 @@ func (s *Service) Register(ctx context.Context, in RegisterInput) (Registration,
 			return nil
 		}
 
-		return s.repos.Invites.Consume(ctx, hashSecret(strings.TrimSpace(in.InviteCode)), user.ID, user.CreatedAt)
+		return s.repos.Invites.Consume(ctx, invite.ID, user.ID, user.CreatedAt)
 	})
 	if err != nil {
 		return Registration{}, err

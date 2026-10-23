@@ -73,6 +73,40 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/admin/invites/check": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Check an invite code */
+        post: operations["checkInviteCode"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/invites/{id}/revoke": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Revoke an invite */
+        post: operations["revokeInvite"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/admin/mail/test": {
         parameters: {
             query?: never;
@@ -1852,6 +1886,9 @@ export interface components {
             currentPassword: string;
             newPassword: string;
         };
+        CheckInviteCodeRequest: {
+            code: string;
+        };
         CodeFile: {
             content: string;
             /** @description Path is the file's in the @polythought/sdk package, like index.d.ts. */
@@ -1897,8 +1934,21 @@ export interface components {
             };
         };
         CreateInviteRequest: {
-            /** @description Email, when given, mails the invite there; only that address signs up with it. */
+            /** @description Code is typed (D393): 8 to 64 letters, digits, - and _, any case; made when empty. */
+            code?: string;
+            /**
+             * @description Email, when given, mails the invite there, and only that address signs up with it,
+             *     once (D371): the server makes its code and it lasts Invite lifetime, so it takes no
+             *     code, uses or end.
+             */
             email?: string;
+            /**
+             * Format: date-time
+             * @description ExpiresAt is when it ends, within a year; Invite lifetime from now when absent.
+             */
+            expiresAt?: string;
+            /** @description MaxUses is how many sign-ups it admits, 1 to 1000; 1 when absent. */
+            maxUses?: number;
         };
         CreateTokenRequest: {
             /**
@@ -2196,24 +2246,40 @@ export interface components {
             warning: string;
         };
         Invite: {
-            /** @description Code is the secret, present only in the response that creates it. */
+            /** @description Code is the code to copy (D393); absent for an invite made before codes were kept. */
             code?: string;
             /** Format: date-time */
             createdAt: string;
             createdBy: string;
-            /** @description Email is the address it was mailed to, which alone signs up with it (D181). */
+            /** @description Email is the address it was mailed to, which alone signs up with it, once (D181). */
             email?: string;
             /** Format: date-time */
             expiresAt: string;
             id: string;
+            /** @description MaxUses is how many sign-ups it admits (D371); Used, how many it did. */
+            maxUses: number;
+            /** Format: date-time */
+            revokedAt?: string;
             /**
              * @description Sent says the mail went, in the response that mails it; when it did not, the
              *     code can still be copied.
              */
             sent?: boolean;
-            /** Format: date-time */
-            usedAt?: string;
-            usedBy?: string;
+            /** @description Signups are who signed up with it, oldest first. */
+            signups: components["schemas"]["InviteUse"][];
+            /**
+             * @description Status is whether it admits sign-ups now, by the server's clock, and why not.
+             * @enum {string}
+             */
+            status: "open" | "used" | "expired" | "revoked";
+            used: number;
+        };
+        InviteCodeCheck: {
+            /**
+             * @description Problem says what keeps the code from making an invite: its form, or another
+             *     invite having it; absent when it can.
+             */
+            problem?: string;
         };
         InviteFor: {
             /**
@@ -2230,6 +2296,13 @@ export interface components {
             /** @description ByEmail says invites can be mailed now: switched on, and mail set up (D180). */
             byEmail: boolean;
             invites: components["schemas"]["Invite"][];
+        };
+        InviteUse: {
+            /** Format: date-time */
+            at: string;
+            email?: string;
+            /** @description UserID and Email are the account's, absent once it is gone. */
+            userId?: string;
         };
         ItemField: {
             description?: string;
@@ -3404,7 +3477,7 @@ export interface operations {
             path?: never;
             cookie?: never;
         };
-        /** @description Where to mail it */
+        /** @description Its code, uses and end, or where to mail it */
         requestBody?: {
             content: {
                 "application/json": components["schemas"]["CreateInviteRequest"];
@@ -3420,7 +3493,7 @@ export interface operations {
                     "application/json": components["schemas"]["Invite"];
                 };
             };
-            /** @description invalid_email */
+            /** @description invalid_input, or invalid_email */
             400: {
                 headers: {
                     [name: string]: unknown;
@@ -3447,8 +3520,99 @@ export interface operations {
                     "application/json": components["schemas"]["Error"];
                 };
             };
-            /** @description email_taken: the address has an account already */
+            /** @description invite_code_taken, or email_taken: the address has an account already */
             409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    checkInviteCode: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description The code typed */
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CheckInviteCodeRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InviteCodeCheck"];
+                };
+            };
+            /** @description unauthenticated */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    revokeInvite: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Invite ID */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No Content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description unauthenticated */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description not_found */
+            404: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -4981,7 +5145,7 @@ export interface operations {
                     "application/json": components["schemas"]["InviteFor"];
                 };
             };
-            /** @description invalid_invite: used, expired or none */
+            /** @description invalid_invite: used up, expired, revoked or none */
             400: {
                 headers: {
                     [name: string]: unknown;

@@ -136,45 +136,6 @@ type tokenList struct {
 	Tokens []tokenDTO `json:"tokens"`
 } // @name APITokenList
 
-type inviteDTO struct {
-	ID        string     `json:"id"`
-	CreatedBy string     `json:"createdBy"`
-	CreatedAt time.Time  `json:"createdAt" format:"date-time"`
-	ExpiresAt time.Time  `json:"expiresAt" format:"date-time"`
-	UsedBy    string     `json:"usedBy,omitempty" validate:"optional"`
-	UsedAt    *time.Time `json:"usedAt,omitempty" validate:"optional" format:"date-time"`
-	// Code is the secret, present only in the response that creates it.
-	Code string `json:"code,omitempty" validate:"optional"`
-	// Email is the address it was mailed to, which alone signs up with it (D181).
-	Email string `json:"email,omitempty" validate:"optional"`
-	// Sent says the mail went, in the response that mails it; when it did not, the
-	// code can still be copied.
-	Sent *bool `json:"sent,omitempty" validate:"optional"`
-} // @name Invite
-
-func toInviteDTO(i domain.Invite) inviteDTO {
-	return inviteDTO{
-		ID:        string(i.ID),
-		CreatedBy: string(i.CreatedBy),
-		CreatedAt: i.CreatedAt,
-		ExpiresAt: i.ExpiresAt,
-		UsedBy:    string(i.UsedBy),
-		UsedAt:    optionalTime(i.UsedAt),
-		Email:     i.Email,
-	}
-}
-
-type inviteList struct {
-	Invites []inviteDTO `json:"invites"`
-	// ByEmail says invites can be mailed now: switched on, and mail set up (D180).
-	ByEmail bool `json:"byEmail"`
-} // @name InviteList
-
-type createInviteRequest struct {
-	// Email, when given, mails the invite there; only that address signs up with it.
-	Email string `json:"email" validate:"optional"`
-} // @name CreateInviteRequest
-
 func optionalTime(t time.Time) *time.Time {
 	if t.IsZero() {
 		return nil
@@ -809,89 +770,6 @@ func (s *Server) updateUser(ctx context.Context, c *app.RequestContext) {
 	c.JSON(http.StatusOK, s.userDTO(user))
 }
 
-// listInvites is admin only.
-//
-//	@Summary	List invites
-//	@ID			listInvites
-//	@Tags		admin
-//	@Success	200	{object}	inviteList
-//	@Failure	401	{object}	errorBody	"unauthenticated"
-//	@Failure	403	{object}	errorBody	"forbidden"
-//	@Security	SessionCookie
-//	@Security	APIToken
-//	@Router		/admin/invites [get]
-func (s *Server) listInvites(ctx context.Context, c *app.RequestContext) {
-	p, _ := principal(c)
-
-	invites, err := s.auth.ListInvites(ctx, p)
-	if err != nil {
-		s.fail(ctx, c, err)
-		return
-	}
-
-	out := inviteList{Invites: make([]inviteDTO, len(invites)), ByEmail: s.auth.InviteEmail()}
-	for i, inv := range invites {
-		out.Invites[i] = toInviteDTO(inv)
-	}
-
-	c.JSON(http.StatusOK, out)
-}
-
-// createInvite is admin only and returns the invite code once. With an address, it mails
-// the invite there, naming the admin, and only that address signs up with it (D180 to
-// D183); the invite is made even when the mail fails.
-//
-//	@Summary	Create an invite
-//	@ID			createInvite
-//	@Tags		admin
-//	@Param		body	body		createInviteRequest	false	"Where to mail it"
-//	@Success	201		{object}	inviteDTO
-//	@Failure	400		{object}	errorBody	"invalid_email"
-//	@Failure	401		{object}	errorBody	"unauthenticated"
-//	@Failure	403		{object}	errorBody	"forbidden, or invite_email_off"
-//	@Failure	409		{object}	errorBody	"email_taken: the address has an account already"
-//	@Security	SessionCookie
-//	@Security	APIToken
-//	@Router		/admin/invites [post]
-func (s *Server) createInvite(ctx context.Context, c *app.RequestContext) {
-	var req createInviteRequest
-
-	if len(bytes.TrimSpace(c.Request.Body())) > 0 {
-		if err := decodeJSON(c, &req); err != nil {
-			s.fail(ctx, c, err)
-			return
-		}
-	}
-
-	p, _ := principal(c)
-
-	if strings.TrimSpace(req.Email) == "" {
-		code, inv, err := s.auth.CreateInvite(ctx, p)
-		if err != nil {
-			s.fail(ctx, c, err)
-			return
-		}
-
-		out := toInviteDTO(inv)
-		out.Code = code
-
-		c.JSON(http.StatusCreated, out)
-
-		return
-	}
-
-	code, inv, sent, err := s.auth.InviteByEmail(ctx, p, req.Email)
-	if err != nil {
-		s.fail(ctx, c, err)
-		return
-	}
-
-	out := toInviteDTO(inv)
-	out.Code, out.Sent = code, &sent
-
-	c.JSON(http.StatusCreated, out)
-}
-
 type inviteForRequest struct {
 	// Code is the one in the invite link.
 	Code string `json:"code"`
@@ -911,7 +789,7 @@ type inviteForDTO struct {
 //	@Tags		auth
 //	@Param		body	body		inviteForRequest	true	"The invite's code"
 //	@Success	200		{object}	inviteForDTO
-//	@Failure	400		{object}	errorBody	"invalid_invite: used, expired or none"
+//	@Failure	400		{object}	errorBody	"invalid_invite: used up, expired, revoked or none"
 //	@Failure	429		{object}	errorBody	"rate_limited"
 //	@Router		/auth/invite [post]
 func (s *Server) inviteFor(ctx context.Context, c *app.RequestContext) {

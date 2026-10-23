@@ -18,6 +18,7 @@ func UseSchema(schema string) {
 	EmailTokens = EmailTokens.FromSchema(schema)
 	Executions = Executions.FromSchema(schema)
 	Holdings = Holdings.FromSchema(schema)
+	InviteUses = InviteUses.FromSchema(schema)
 	Invites = Invites.FromSchema(schema)
 	NodeMemory = NodeMemory.FromSchema(schema)
 	NotificationPrefs = NotificationPrefs.FromSchema(schema)

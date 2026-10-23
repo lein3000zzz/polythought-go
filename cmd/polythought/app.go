@@ -292,6 +292,7 @@ func (a *app) init(ctx context.Context) error {
 		auth.WithAccountLimiter(ratelimit.NewMemory(6*time.Second, 50)), // per address, from every IP
 		auth.WithLiveConfig(func() auth.Config { return authConfig(a.settings.Current()) }),
 		auth.WithAccountMail(a.mail),
+		auth.WithInviteBox(a.box), // codes kept to copy again (D393)
 	)
 
 	return err

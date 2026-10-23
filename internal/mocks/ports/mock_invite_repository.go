@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/lein3000zzz/polythought-go/internal/core/domain"
+	"github.com/lein3000zzz/polythought-go/internal/core/ports"
 	mock "github.com/stretchr/testify/mock"
 )
 
@@ -49,8 +50,8 @@ func (_m *MockInviteRepository) EXPECT() *MockInviteRepository_Expecter {
 }
 
 // ByCode provides a mock function for the type MockInviteRepository
-func (_mock *MockInviteRepository) ByCode(ctx context.Context, codeHash []byte, at time.Time) (domain.Invite, error) {
-	ret := _mock.Called(ctx, codeHash, at)
+func (_mock *MockInviteRepository) ByCode(ctx context.Context, codeHashes [][]byte, at time.Time) (domain.Invite, error) {
+	ret := _mock.Called(ctx, codeHashes, at)
 
 	if len(ret) == 0 {
 		panic("no return value specified for ByCode")
@@ -58,16 +59,16 @@ func (_mock *MockInviteRepository) ByCode(ctx context.Context, codeHash []byte, 
 
 	var r0 domain.Invite
 	var r1 error
-	if returnFunc, ok := ret.Get(0).(func(context.Context, []byte, time.Time) (domain.Invite, error)); ok {
-		return returnFunc(ctx, codeHash, at)
+	if returnFunc, ok := ret.Get(0).(func(context.Context, [][]byte, time.Time) (domain.Invite, error)); ok {
+		return returnFunc(ctx, codeHashes, at)
 	}
-	if returnFunc, ok := ret.Get(0).(func(context.Context, []byte, time.Time) domain.Invite); ok {
-		r0 = returnFunc(ctx, codeHash, at)
+	if returnFunc, ok := ret.Get(0).(func(context.Context, [][]byte, time.Time) domain.Invite); ok {
+		r0 = returnFunc(ctx, codeHashes, at)
 	} else {
 		r0 = ret.Get(0).(domain.Invite)
 	}
-	if returnFunc, ok := ret.Get(1).(func(context.Context, []byte, time.Time) error); ok {
-		r1 = returnFunc(ctx, codeHash, at)
+	if returnFunc, ok := ret.Get(1).(func(context.Context, [][]byte, time.Time) error); ok {
+		r1 = returnFunc(ctx, codeHashes, at)
 	} else {
 		r1 = ret.Error(1)
 	}
@@ -81,21 +82,21 @@ type MockInviteRepository_ByCode_Call struct {
 
 // ByCode is a helper method to define mock.On call
 //   - ctx context.Context
-//   - codeHash []byte
+//   - codeHashes [][]byte
 //   - at time.Time
-func (_e *MockInviteRepository_Expecter) ByCode(ctx any, codeHash any, at any) *MockInviteRepository_ByCode_Call {
-	return &MockInviteRepository_ByCode_Call{Call: _e.mock.On("ByCode", ctx, codeHash, at)}
+func (_e *MockInviteRepository_Expecter) ByCode(ctx any, codeHashes any, at any) *MockInviteRepository_ByCode_Call {
+	return &MockInviteRepository_ByCode_Call{Call: _e.mock.On("ByCode", ctx, codeHashes, at)}
 }
 
-func (_c *MockInviteRepository_ByCode_Call) Run(run func(ctx context.Context, codeHash []byte, at time.Time)) *MockInviteRepository_ByCode_Call {
+func (_c *MockInviteRepository_ByCode_Call) Run(run func(ctx context.Context, codeHashes [][]byte, at time.Time)) *MockInviteRepository_ByCode_Call {
 	_c.Call.Run(func(args mock.Arguments) {
 		var arg0 context.Context
 		if args[0] != nil {
 			arg0 = args[0].(context.Context)
 		}
-		var arg1 []byte
+		var arg1 [][]byte
 		if args[1] != nil {
-			arg1 = args[1].([]byte)
+			arg1 = args[1].([][]byte)
 		}
 		var arg2 time.Time
 		if args[2] != nil {
@@ -115,22 +116,22 @@ func (_c *MockInviteRepository_ByCode_Call) Return(invite domain.Invite, err err
 	return _c
 }
 
-func (_c *MockInviteRepository_ByCode_Call) RunAndReturn(run func(ctx context.Context, codeHash []byte, at time.Time) (domain.Invite, error)) *MockInviteRepository_ByCode_Call {
+func (_c *MockInviteRepository_ByCode_Call) RunAndReturn(run func(ctx context.Context, codeHashes [][]byte, at time.Time) (domain.Invite, error)) *MockInviteRepository_ByCode_Call {
 	_c.Call.Return(run)
 	return _c
 }
 
 // Consume provides a mock function for the type MockInviteRepository
-func (_mock *MockInviteRepository) Consume(ctx context.Context, codeHash []byte, userID domain.UserID, at time.Time) error {
-	ret := _mock.Called(ctx, codeHash, userID, at)
+func (_mock *MockInviteRepository) Consume(ctx context.Context, id domain.InviteID, userID domain.UserID, at time.Time) error {
+	ret := _mock.Called(ctx, id, userID, at)
 
 	if len(ret) == 0 {
 		panic("no return value specified for Consume")
 	}
 
 	var r0 error
-	if returnFunc, ok := ret.Get(0).(func(context.Context, []byte, domain.UserID, time.Time) error); ok {
-		r0 = returnFunc(ctx, codeHash, userID, at)
+	if returnFunc, ok := ret.Get(0).(func(context.Context, domain.InviteID, domain.UserID, time.Time) error); ok {
+		r0 = returnFunc(ctx, id, userID, at)
 	} else {
 		r0 = ret.Error(0)
 	}
@@ -144,22 +145,22 @@ type MockInviteRepository_Consume_Call struct {
 
 // Consume is a helper method to define mock.On call
 //   - ctx context.Context
-//   - codeHash []byte
+//   - id domain.InviteID
 //   - userID domain.UserID
 //   - at time.Time
-func (_e *MockInviteRepository_Expecter) Consume(ctx any, codeHash any, userID any, at any) *MockInviteRepository_Consume_Call {
-	return &MockInviteRepository_Consume_Call{Call: _e.mock.On("Consume", ctx, codeHash, userID, at)}
+func (_e *MockInviteRepository_Expecter) Consume(ctx any, id any, userID any, at any) *MockInviteRepository_Consume_Call {
+	return &MockInviteRepository_Consume_Call{Call: _e.mock.On("Consume", ctx, id, userID, at)}
 }
 
-func (_c *MockInviteRepository_Consume_Call) Run(run func(ctx context.Context, codeHash []byte, userID domain.UserID, at time.Time)) *MockInviteRepository_Consume_Call {
+func (_c *MockInviteRepository_Consume_Call) Run(run func(ctx context.Context, id domain.InviteID, userID domain.UserID, at time.Time)) *MockInviteRepository_Consume_Call {
 	_c.Call.Run(func(args mock.Arguments) {
 		var arg0 context.Context
 		if args[0] != nil {
 			arg0 = args[0].(context.Context)
 		}
-		var arg1 []byte
+		var arg1 domain.InviteID
 		if args[1] != nil {
-			arg1 = args[1].([]byte)
+			arg1 = args[1].(domain.InviteID)
 		}
 		var arg2 domain.UserID
 		if args[2] != nil {
@@ -184,22 +185,22 @@ func (_c *MockInviteRepository_Consume_Call) Return(err error) *MockInviteReposi
 	return _c
 }
 
-func (_c *MockInviteRepository_Consume_Call) RunAndReturn(run func(ctx context.Context, codeHash []byte, userID domain.UserID, at time.Time) error) *MockInviteRepository_Consume_Call {
+func (_c *MockInviteRepository_Consume_Call) RunAndReturn(run func(ctx context.Context, id domain.InviteID, userID domain.UserID, at time.Time) error) *MockInviteRepository_Consume_Call {
 	_c.Call.Return(run)
 	return _c
 }
 
 // Create provides a mock function for the type MockInviteRepository
-func (_mock *MockInviteRepository) Create(ctx context.Context, inv domain.Invite, codeHash []byte) error {
-	ret := _mock.Called(ctx, inv, codeHash)
+func (_mock *MockInviteRepository) Create(ctx context.Context, inv domain.Invite, codeHash []byte, sealed []byte) error {
+	ret := _mock.Called(ctx, inv, codeHash, sealed)
 
 	if len(ret) == 0 {
 		panic("no return value specified for Create")
 	}
 
 	var r0 error
-	if returnFunc, ok := ret.Get(0).(func(context.Context, domain.Invite, []byte) error); ok {
-		r0 = returnFunc(ctx, inv, codeHash)
+	if returnFunc, ok := ret.Get(0).(func(context.Context, domain.Invite, []byte, []byte) error); ok {
+		r0 = returnFunc(ctx, inv, codeHash, sealed)
 	} else {
 		r0 = ret.Error(0)
 	}
@@ -215,11 +216,12 @@ type MockInviteRepository_Create_Call struct {
 //   - ctx context.Context
 //   - inv domain.Invite
 //   - codeHash []byte
-func (_e *MockInviteRepository_Expecter) Create(ctx any, inv any, codeHash any) *MockInviteRepository_Create_Call {
-	return &MockInviteRepository_Create_Call{Call: _e.mock.On("Create", ctx, inv, codeHash)}
+//   - sealed []byte
+func (_e *MockInviteRepository_Expecter) Create(ctx any, inv any, codeHash any, sealed any) *MockInviteRepository_Create_Call {
+	return &MockInviteRepository_Create_Call{Call: _e.mock.On("Create", ctx, inv, codeHash, sealed)}
 }
 
-func (_c *MockInviteRepository_Create_Call) Run(run func(ctx context.Context, inv domain.Invite, codeHash []byte)) *MockInviteRepository_Create_Call {
+func (_c *MockInviteRepository_Create_Call) Run(run func(ctx context.Context, inv domain.Invite, codeHash []byte, sealed []byte)) *MockInviteRepository_Create_Call {
 	_c.Call.Run(func(args mock.Arguments) {
 		var arg0 context.Context
 		if args[0] != nil {
@@ -233,10 +235,15 @@ func (_c *MockInviteRepository_Create_Call) Run(run func(ctx context.Context, in
 		if args[2] != nil {
 			arg2 = args[2].([]byte)
 		}
+		var arg3 []byte
+		if args[3] != nil {
+			arg3 = args[3].([]byte)
+		}
 		run(
 			arg0,
 			arg1,
 			arg2,
+			arg3,
 		)
 	})
 	return _c
@@ -247,29 +254,29 @@ func (_c *MockInviteRepository_Create_Call) Return(err error) *MockInviteReposit
 	return _c
 }
 
-func (_c *MockInviteRepository_Create_Call) RunAndReturn(run func(ctx context.Context, inv domain.Invite, codeHash []byte) error) *MockInviteRepository_Create_Call {
+func (_c *MockInviteRepository_Create_Call) RunAndReturn(run func(ctx context.Context, inv domain.Invite, codeHash []byte, sealed []byte) error) *MockInviteRepository_Create_Call {
 	_c.Call.Return(run)
 	return _c
 }
 
 // List provides a mock function for the type MockInviteRepository
-func (_mock *MockInviteRepository) List(ctx context.Context) ([]domain.Invite, error) {
+func (_mock *MockInviteRepository) List(ctx context.Context) ([]ports.StoredInvite, error) {
 	ret := _mock.Called(ctx)
 
 	if len(ret) == 0 {
 		panic("no return value specified for List")
 	}
 
-	var r0 []domain.Invite
+	var r0 []ports.StoredInvite
 	var r1 error
-	if returnFunc, ok := ret.Get(0).(func(context.Context) ([]domain.Invite, error)); ok {
+	if returnFunc, ok := ret.Get(0).(func(context.Context) ([]ports.StoredInvite, error)); ok {
 		return returnFunc(ctx)
 	}
-	if returnFunc, ok := ret.Get(0).(func(context.Context) []domain.Invite); ok {
+	if returnFunc, ok := ret.Get(0).(func(context.Context) []ports.StoredInvite); ok {
 		r0 = returnFunc(ctx)
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).([]domain.Invite)
+			r0 = ret.Get(0).([]ports.StoredInvite)
 		}
 	}
 	if returnFunc, ok := ret.Get(1).(func(context.Context) error); ok {
@@ -304,12 +311,147 @@ func (_c *MockInviteRepository_List_Call) Run(run func(ctx context.Context)) *Mo
 	return _c
 }
 
-func (_c *MockInviteRepository_List_Call) Return(invites []domain.Invite, err error) *MockInviteRepository_List_Call {
-	_c.Call.Return(invites, err)
+func (_c *MockInviteRepository_List_Call) Return(storedInvites []ports.StoredInvite, err error) *MockInviteRepository_List_Call {
+	_c.Call.Return(storedInvites, err)
 	return _c
 }
 
-func (_c *MockInviteRepository_List_Call) RunAndReturn(run func(ctx context.Context) ([]domain.Invite, error)) *MockInviteRepository_List_Call {
+func (_c *MockInviteRepository_List_Call) RunAndReturn(run func(ctx context.Context) ([]ports.StoredInvite, error)) *MockInviteRepository_List_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// Revoke provides a mock function for the type MockInviteRepository
+func (_mock *MockInviteRepository) Revoke(ctx context.Context, id domain.InviteID, by domain.UserID, at time.Time) error {
+	ret := _mock.Called(ctx, id, by, at)
+
+	if len(ret) == 0 {
+		panic("no return value specified for Revoke")
+	}
+
+	var r0 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context, domain.InviteID, domain.UserID, time.Time) error); ok {
+		r0 = returnFunc(ctx, id, by, at)
+	} else {
+		r0 = ret.Error(0)
+	}
+	return r0
+}
+
+// MockInviteRepository_Revoke_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'Revoke'
+type MockInviteRepository_Revoke_Call struct {
+	*mock.Call
+}
+
+// Revoke is a helper method to define mock.On call
+//   - ctx context.Context
+//   - id domain.InviteID
+//   - by domain.UserID
+//   - at time.Time
+func (_e *MockInviteRepository_Expecter) Revoke(ctx any, id any, by any, at any) *MockInviteRepository_Revoke_Call {
+	return &MockInviteRepository_Revoke_Call{Call: _e.mock.On("Revoke", ctx, id, by, at)}
+}
+
+func (_c *MockInviteRepository_Revoke_Call) Run(run func(ctx context.Context, id domain.InviteID, by domain.UserID, at time.Time)) *MockInviteRepository_Revoke_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		var arg1 domain.InviteID
+		if args[1] != nil {
+			arg1 = args[1].(domain.InviteID)
+		}
+		var arg2 domain.UserID
+		if args[2] != nil {
+			arg2 = args[2].(domain.UserID)
+		}
+		var arg3 time.Time
+		if args[3] != nil {
+			arg3 = args[3].(time.Time)
+		}
+		run(
+			arg0,
+			arg1,
+			arg2,
+			arg3,
+		)
+	})
+	return _c
+}
+
+func (_c *MockInviteRepository_Revoke_Call) Return(err error) *MockInviteRepository_Revoke_Call {
+	_c.Call.Return(err)
+	return _c
+}
+
+func (_c *MockInviteRepository_Revoke_Call) RunAndReturn(run func(ctx context.Context, id domain.InviteID, by domain.UserID, at time.Time) error) *MockInviteRepository_Revoke_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// Taken provides a mock function for the type MockInviteRepository
+func (_mock *MockInviteRepository) Taken(ctx context.Context, codeHashes [][]byte) (bool, error) {
+	ret := _mock.Called(ctx, codeHashes)
+
+	if len(ret) == 0 {
+		panic("no return value specified for Taken")
+	}
+
+	var r0 bool
+	var r1 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context, [][]byte) (bool, error)); ok {
+		return returnFunc(ctx, codeHashes)
+	}
+	if returnFunc, ok := ret.Get(0).(func(context.Context, [][]byte) bool); ok {
+		r0 = returnFunc(ctx, codeHashes)
+	} else {
+		r0 = ret.Get(0).(bool)
+	}
+	if returnFunc, ok := ret.Get(1).(func(context.Context, [][]byte) error); ok {
+		r1 = returnFunc(ctx, codeHashes)
+	} else {
+		r1 = ret.Error(1)
+	}
+	return r0, r1
+}
+
+// MockInviteRepository_Taken_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'Taken'
+type MockInviteRepository_Taken_Call struct {
+	*mock.Call
+}
+
+// Taken is a helper method to define mock.On call
+//   - ctx context.Context
+//   - codeHashes [][]byte
+func (_e *MockInviteRepository_Expecter) Taken(ctx any, codeHashes any) *MockInviteRepository_Taken_Call {
+	return &MockInviteRepository_Taken_Call{Call: _e.mock.On("Taken", ctx, codeHashes)}
+}
+
+func (_c *MockInviteRepository_Taken_Call) Run(run func(ctx context.Context, codeHashes [][]byte)) *MockInviteRepository_Taken_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		var arg1 [][]byte
+		if args[1] != nil {
+			arg1 = args[1].([][]byte)
+		}
+		run(
+			arg0,
+			arg1,
+		)
+	})
+	return _c
+}
+
+func (_c *MockInviteRepository_Taken_Call) Return(b bool, err error) *MockInviteRepository_Taken_Call {
+	_c.Call.Return(b, err)
+	return _c
+}
+
+func (_c *MockInviteRepository_Taken_Call) RunAndReturn(run func(ctx context.Context, codeHashes [][]byte) (bool, error)) *MockInviteRepository_Taken_Call {
 	_c.Call.Return(run)
 	return _c
 }

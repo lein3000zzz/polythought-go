@@ -2,12 +2,10 @@ package auth
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"strings"
 	"time"
 
-	"github.com/lein3000zzz/the-watchers/pkg/observability/logging"
 	"github.com/shopspring/decimal"
 
 	"github.com/lein3000zzz/polythought-go/internal/core/domain"
@@ -231,106 +229,6 @@ func (s *Service) UpdateUser(ctx context.Context, actor Principal, id domain.Use
 	}
 
 	return updated, nil
-}
-
-// CreateInvite issues a single-use registration code. The code is shown once.
-func (s *Service) CreateInvite(ctx context.Context, actor Principal) (string, domain.Invite, error) {
-	if !actor.User.IsAdmin() {
-		return "", domain.Invite{}, domain.ErrForbidden
-	}
-
-	return s.newInvite(ctx, actor, "")
-}
-
-// InviteEmail says whether invites can be mailed now: switched on, and mail set up (D180).
-func (s *Service) InviteEmail() bool {
-	return s.config().InviteEmail && s.mailSetUp()
-}
-
-// InviteByEmail makes an invite that only email signs up with, and mails it, naming the
-// admin (D180 to D182). An address with an account is refused (D183); one whose account
-// never verified is not, as signing up replaces that. The invite is made even when the
-// mail fails: sent says whether it went, and the code is given, to copy.
-func (s *Service) InviteByEmail(ctx context.Context, actor Principal, email string) (code string, inv domain.Invite, sent bool, err error) {
-	if !actor.User.IsAdmin() {
-		return "", domain.Invite{}, false, domain.ErrForbidden
-	}
-
-	if !s.InviteEmail() {
-		return "", domain.Invite{}, false, domain.ErrInviteEmailOff
-	}
-
-	addr, err := validateEmail(email)
-	if err != nil {
-		return "", domain.Invite{}, false, err
-	}
-
-	if u, _, err := s.repos.Users.ByEmail(ctx, normalizeEmail(addr)); err == nil && !u.EmailVerifiedAt.IsZero() {
-		return "", domain.Invite{}, false, fmt.Errorf("%w: %s has an account already", domain.ErrEmailTaken, addr)
-	} else if err != nil && !errors.Is(err, domain.ErrNotFound) {
-		return "", domain.Invite{}, false, err
-	}
-
-	code, inv, err = s.newInvite(ctx, actor, addr)
-	if err != nil {
-		return "", domain.Invite{}, false, err
-	}
-
-	if err := s.mail.SendInvite(ctx, addr, actor.User.Email, code, inv.ExpiresAt); err != nil {
-		s.log.Warn(ctx, "Invite not mailed", "actor_id", actor.User.ID, "invite_id", inv.ID, logging.Err(err))
-		return code, inv, false, nil
-	}
-
-	s.log.Info(ctx, "Invite mailed", "actor_id", actor.User.ID, "invite_id", inv.ID)
-
-	return code, inv, true, nil
-}
-
-// InviteFor is the invite of a code, for the sign-up form to fill in the address it is
-// for; domain.ErrInvalidInvite when it is used, expired or none.
-func (s *Service) InviteFor(ctx context.Context, code, ip string) (domain.Invite, error) {
-	if !s.limiter.Allow("invite:ip:" + ip) {
-		return domain.Invite{}, domain.ErrRateLimited
-	}
-
-	code = strings.TrimSpace(code)
-	if code == "" || len(code) > maxTokenLength {
-		return domain.Invite{}, domain.ErrInvalidInvite
-	}
-
-	return s.repos.Invites.ByCode(ctx, hashSecret(code), s.now())
-}
-
-func (s *Service) newInvite(ctx context.Context, actor Principal, email string) (string, domain.Invite, error) {
-	code, err := newSecret(invitePrefix)
-	if err != nil {
-		return "", domain.Invite{}, err
-	}
-
-	now := s.now()
-	inv := domain.Invite{
-		ID:        domain.InviteID(newID()),
-		CreatedBy: actor.User.ID,
-		Email:     email,
-		CreatedAt: now,
-		ExpiresAt: now.Add(s.config().InviteTTL),
-	}
-
-	if err := s.repos.Invites.Create(ctx, inv, hashSecret(code)); err != nil {
-		return "", domain.Invite{}, err
-	}
-
-	s.log.Info(ctx, "Invite created", "actor_id", actor.User.ID, "invite_id", inv.ID, "mailed", email != "")
-
-	return code, inv, nil
-}
-
-func (s *Service) ListInvites(ctx context.Context, actor Principal) ([]domain.Invite, error) {
-	if !actor.User.IsAdmin() {
-		return nil, domain.ErrForbidden
-	}
-
-	return s.repos.Invites.List(ctx)
 }
 
 // RegistrationMode tells clients which sign-up form to show.

@@ -6,9 +6,10 @@ test('an invited user, disabled and enabled again, comes back to stopped workflo
 }) => {
   const person = { email: `${unique('invited')}@e2e.test`, password: 'invited-password-123' }
 
-  await page.goto('/admin')
-  await page.getByRole('button', { name: 'Create invite' }).click()
+  await page.goto('/admin/invites')
+  await page.getByRole('button', { name: 'Make invite' }).click()
   const link = (await page.locator('code', { hasText: '/register?invite=' }).innerText()).trim()
+  const code = new URL(link).searchParams.get('invite')!
 
   // The invited person registers in their own browser and starts a workflow.
   const theirs = await browser.newContext({ storageState: signedOut }) // not the admin's
@@ -27,7 +28,8 @@ test('an invited user, disabled and enabled again, comes back to stopped workflo
 
   // The invite is used up.
   await page.reload()
-  await expect(page.getByText(/^Used /)).toBeVisible()
+  await expect(page.getByRole('row', { name: new RegExp(code) })).toContainText('Used up')
+  await page.goto('/admin')
 
   // An admin's caps for their live buys, over the instance's (D222).
   const row = page.getByRole('row', { name: new RegExp(person.email) })

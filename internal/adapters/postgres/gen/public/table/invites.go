@@ -17,14 +17,17 @@ type invitesTable struct {
 	postgres.Table
 
 	// Columns
-	ID        postgres.ColumnString
-	CodeHash  postgres.ColumnBytea
-	CreatedBy postgres.ColumnString
-	CreatedAt postgres.ColumnTimestampz
-	ExpiresAt postgres.ColumnTimestampz
-	UsedBy    postgres.ColumnString
-	UsedAt    postgres.ColumnTimestampz
-	Email     postgres.ColumnString
+	ID         postgres.ColumnString
+	CodeHash   postgres.ColumnBytea
+	CreatedBy  postgres.ColumnString
+	CreatedAt  postgres.ColumnTimestampz
+	ExpiresAt  postgres.ColumnTimestampz
+	Email      postgres.ColumnString
+	CodeSealed postgres.ColumnBytea
+	MaxUses    postgres.ColumnInteger
+	Uses       postgres.ColumnInteger
+	RevokedAt  postgres.ColumnTimestampz
+	RevokedBy  postgres.ColumnString
 
 	AllColumns     postgres.ColumnList
 	MutableColumns postgres.ColumnList
@@ -66,31 +69,37 @@ func newInvitesTable(schemaName, tableName, alias string) *InvitesTable {
 
 func newInvitesTableImpl(schemaName, tableName, alias string) invitesTable {
 	var (
-		IDColumn        = postgres.StringColumn("id")
-		CodeHashColumn  = postgres.ByteaColumn("code_hash")
-		CreatedByColumn = postgres.StringColumn("created_by")
-		CreatedAtColumn = postgres.TimestampzColumn("created_at")
-		ExpiresAtColumn = postgres.TimestampzColumn("expires_at")
-		UsedByColumn    = postgres.StringColumn("used_by")
-		UsedAtColumn    = postgres.TimestampzColumn("used_at")
-		EmailColumn     = postgres.StringColumn("email")
-		allColumns      = postgres.ColumnList{IDColumn, CodeHashColumn, CreatedByColumn, CreatedAtColumn, ExpiresAtColumn, UsedByColumn, UsedAtColumn, EmailColumn}
-		mutableColumns  = postgres.ColumnList{CodeHashColumn, CreatedByColumn, CreatedAtColumn, ExpiresAtColumn, UsedByColumn, UsedAtColumn, EmailColumn}
-		defaultColumns  = postgres.ColumnList{EmailColumn}
+		IDColumn         = postgres.StringColumn("id")
+		CodeHashColumn   = postgres.ByteaColumn("code_hash")
+		CreatedByColumn  = postgres.StringColumn("created_by")
+		CreatedAtColumn  = postgres.TimestampzColumn("created_at")
+		ExpiresAtColumn  = postgres.TimestampzColumn("expires_at")
+		EmailColumn      = postgres.StringColumn("email")
+		CodeSealedColumn = postgres.ByteaColumn("code_sealed")
+		MaxUsesColumn    = postgres.IntegerColumn("max_uses")
+		UsesColumn       = postgres.IntegerColumn("uses")
+		RevokedAtColumn  = postgres.TimestampzColumn("revoked_at")
+		RevokedByColumn  = postgres.StringColumn("revoked_by")
+		allColumns       = postgres.ColumnList{IDColumn, CodeHashColumn, CreatedByColumn, CreatedAtColumn, ExpiresAtColumn, EmailColumn, CodeSealedColumn, MaxUsesColumn, UsesColumn, RevokedAtColumn, RevokedByColumn}
+		mutableColumns   = postgres.ColumnList{CodeHashColumn, CreatedByColumn, CreatedAtColumn, ExpiresAtColumn, EmailColumn, CodeSealedColumn, MaxUsesColumn, UsesColumn, RevokedAtColumn, RevokedByColumn}
+		defaultColumns   = postgres.ColumnList{EmailColumn, MaxUsesColumn, UsesColumn}
 	)
 
 	return invitesTable{
 		Table: postgres.NewTable(schemaName, tableName, alias, allColumns...),
 
 		//Columns
-		ID:        IDColumn,
-		CodeHash:  CodeHashColumn,
-		CreatedBy: CreatedByColumn,
-		CreatedAt: CreatedAtColumn,
-		ExpiresAt: ExpiresAtColumn,
-		UsedBy:    UsedByColumn,
-		UsedAt:    UsedAtColumn,
-		Email:     EmailColumn,
+		ID:         IDColumn,
+		CodeHash:   CodeHashColumn,
+		CreatedBy:  CreatedByColumn,
+		CreatedAt:  CreatedAtColumn,
+		ExpiresAt:  ExpiresAtColumn,
+		Email:      EmailColumn,
+		CodeSealed: CodeSealedColumn,
+		MaxUses:    MaxUsesColumn,
+		Uses:       UsesColumn,
+		RevokedAt:  RevokedAtColumn,
+		RevokedBy:  RevokedByColumn,
 
 		AllColumns:     allColumns,
 		MutableColumns: mutableColumns,

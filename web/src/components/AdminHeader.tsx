@@ -3,6 +3,7 @@ import { cn } from 'cn'
 
 const tabs = [
   ['/admin', 'Users'],
+  ['/admin/invites', 'Invites'],
   ['/admin/config', 'Config'],
   ['/admin/plugins', 'Plugins'],
 ] as const

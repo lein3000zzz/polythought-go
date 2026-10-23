@@ -1,25 +1,16 @@
-import { Copy, Plus } from 'lucide-react'
 import { useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { Link } from 'react-router'
 import { toast } from 'sonner'
 
-import {
-  useCreateInvite,
-  useCreateUser,
-  useInvites,
-  useSendVerificationLink,
-  useUpdateUser,
-  useUsers,
-} from '@/api/admin'
-import { useAuthConfig, useMe, useMinPasswordLength } from '@/api/auth'
+import { useCreateUser, useSendVerificationLink, useUpdateUser, useUsers } from '@/api/admin'
+import { useMe, useMinPasswordLength } from '@/api/auth'
 import { errorMessage, type Schemas } from '@/api/client'
 import { useSettings } from '@/api/settings'
 import { type AgentCaps, tokens, useUserAgentSpend } from '@/api/spend'
 import { AdminHeader } from '@/components/AdminHeader'
 import { ConfirmDialog } from '@/components/ConfirmDialog'
 import { ErrorAlert } from '@/components/ErrorAlert'
-import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import {
@@ -57,12 +48,6 @@ const codeAccessModes: Record<CodeAccess, string> = {
   off: 'Code is off for everyone, admins included.',
 }
 
-const registrationModes: Record<Schemas['AuthConfig']['registration'], string> = {
-  open: 'Anyone can create an account.',
-  invite: 'People need an invite to create an account.',
-  closed: 'Only admins create accounts.',
-}
-
 export function AdminPage() {
   const { data: me } = useMe()
 
@@ -74,7 +59,6 @@ export function AdminPage() {
     <div className="mx-auto flex max-w-4xl flex-col gap-10 p-6">
       <AdminHeader />
       <UsersSection me={me} />
-      <InvitesSection />
     </div>
   )
 }
@@ -497,165 +481,6 @@ function CreateUserForm() {
         </Button>
       </div>
     </form>
-  )
-}
-
-function InvitesSection() {
-  const config = useAuthConfig()
-  const invites = useInvites()
-  const create = useCreateInvite()
-  const [created, setCreated] = useState<Schemas['Invite']>()
-  const [email, setEmail] = useState('')
-  const [now] = useState(() => Date.now()) // when the page opened, to tell expired invites
-  const list = invites.data?.invites
-
-  const link = created?.code
-    ? `${window.location.origin}/register?invite=${encodeURIComponent(created.code)}`
-    : undefined
-
-  return (
-    <section className="flex flex-col gap-4">
-      <div className="flex items-start justify-between gap-4">
-        <div>
-          <h2 className="font-medium">Invites</h2>
-          {config.data && (
-            <p className="text-sm text-muted-foreground">
-              {registrationModes[config.data.registration]} Change who may sign up under{' '}
-              <Link
-                to={configPath('accounts', 'auth.registration')}
-                className="text-foreground underline underline-offset-4"
-              >
-                Config
-              </Link>
-              .
-            </p>
-          )}
-        </div>
-        <Button
-          variant="outline"
-          disabled={create.isPending}
-          onClick={() =>
-            create.mutate(undefined, {
-              onSuccess: setCreated,
-              onError: (error) => toast.error(errorMessage(error)),
-            })
-          }
-        >
-          <Plus />
-          Create invite
-        </Button>
-      </div>
-
-      {/* Mailed, an invite is for its address alone (D180, D181). */}
-      {invites.data?.byEmail && (
-        <form
-          className="flex flex-wrap items-end gap-2"
-          onSubmit={(e) => {
-            e.preventDefault()
-            create.mutate(email.trim(), {
-              onSuccess: (invite) => {
-                setCreated(invite)
-                setEmail('')
-                if (invite.sent) toast.success(`Invite mailed to ${invite.email}`)
-              },
-              onError: (error) => toast.error(errorMessage(error)),
-            })
-          }}
-        >
-          <div className="flex min-w-64 flex-1 flex-col gap-2">
-            <Label htmlFor="invite-email">Invite by email</Label>
-            <Input
-              id="invite-email"
-              type="email"
-              placeholder="someone@example.com"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              required
-            />
-          </div>
-          <Button type="submit" disabled={create.isPending || !email.trim()}>
-            Send invite
-          </Button>
-        </form>
-      )}
-
-      {link && created && (
-        <Alert>
-          <AlertTitle>
-            {!created.email
-              ? 'Send this link now'
-              : created.sent
-                ? `Mailed to ${created.email}`
-                : `The mail to ${created.email} did not go out: send this link yourself`}
-          </AlertTitle>
-          <AlertDescription className="flex flex-col gap-2">
-            <p>
-              It works once, until {formatDateTime(created.expiresAt)}
-              {created.email && `, for ${created.email} alone`}, and is shown only this once.
-            </p>
-            <div className="flex items-center gap-2">
-              <code className="min-w-0 flex-1 truncate rounded bg-muted px-2 py-1 font-mono text-xs">
-                {link}
-              </code>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() =>
-                  void navigator.clipboard
-                    .writeText(link)
-                    .then(() => toast.success('Invite link copied'))
-                }
-              >
-                <Copy />
-                Copy
-              </Button>
-              <Button variant="ghost" size="sm" onClick={() => setCreated(undefined)}>
-                Done
-              </Button>
-            </div>
-          </AlertDescription>
-        </Alert>
-      )}
-
-      {invites.isPending && <Skeleton className="h-24" />}
-      {invites.isError && (
-        <ErrorAlert error={invites.error} onRetry={() => void invites.refetch()} />
-      )}
-      {list?.length === 0 && <p className="text-sm text-muted-foreground">No invites yet.</p>}
-
-      {list && list.length > 0 && (
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>For</TableHead>
-              <TableHead>Created</TableHead>
-              <TableHead>Expires</TableHead>
-              <TableHead>Status</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {list.map((i) => (
-              <TableRow key={i.id}>
-                <TableCell>
-                  {i.email || <span className="text-muted-foreground">Anyone with the link</span>}
-                </TableCell>
-                <TableCell>{formatDateTime(i.createdAt)}</TableCell>
-                <TableCell>{formatDateTime(i.expiresAt)}</TableCell>
-                <TableCell>
-                  {i.usedAt ? (
-                    <Badge variant="secondary">Used {formatDateTime(i.usedAt)}</Badge>
-                  ) : Date.parse(i.expiresAt) < now ? (
-                    <Badge variant="outline">Expired</Badge>
-                  ) : (
-                    <Badge>Open</Badge>
-                  )}
-                </TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-      )}
-    </section>
   )
 }
 

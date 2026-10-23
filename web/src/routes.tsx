@@ -4,6 +4,7 @@ import { AppShell } from '@/components/AppShell'
 import { RequireAuth } from '@/components/RequireAuth'
 import { Skeleton } from '@/components/ui/skeleton'
 import { AdminConfigPage } from '@/pages/AdminConfigPage'
+import { AdminInvitesPage } from '@/pages/AdminInvitesPage'
 import { AdminPluginsPage } from '@/pages/AdminPluginsPage'
 import { AdminPage } from '@/pages/AdminPage'
 import { CustomNodePage } from '@/pages/CustomNodePage'
@@ -64,6 +65,7 @@ export const routes: RouteObject[] = [
           { path: 'credentials', element: <Navigate to="/settings/credentials" replace /> },
           { path: 'settings/:page?', element: <SettingsPage /> },
           { path: 'admin', element: <AdminPage /> },
+          { path: 'admin/invites', element: <AdminInvitesPage /> },
           { path: 'admin/config/:page?', element: <AdminConfigPage /> },
           { path: 'admin/plugins', element: <AdminPluginsPage /> },
         ],

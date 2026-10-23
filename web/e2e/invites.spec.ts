@@ -25,7 +25,7 @@ test('an invite mailed to an address signs that address up, verified', async ({
     const on = await settings({ ...mail, 'auth.verify_email': true })
     expect(on.status(), await on.text()).toBe(200)
 
-    await page.goto('/admin')
+    await page.goto('/admin/invites')
     await page.getByLabel('Invite by email').fill(email)
     await page.getByRole('button', { name: 'Send invite' }).click()
     await expect(page.getByText(`Mailed to ${email}`, { exact: true })).toBeVisible()
@@ -76,4 +76,71 @@ test('an invite mailed to an address signs that address up, verified', async ({
     })
     expect(reset.status(), await reset.text()).toBe(200)
   }
+})
+
+test('a typed code admits as many sign-ups as it allows, any case, and says who (D371)', async ({
+  page,
+  browser,
+}) => {
+  const code = unique('E2E-Spring')
+  const people = [1, 2, 3].map((n) => `${unique('multi')}-${n}@e2e.test`.toLowerCase())
+
+  await page.goto('/admin/invites')
+  await page.getByLabel('Code').fill(code)
+  await expect(page.getByText('Free to take.')).toBeVisible()
+  await page.getByLabel('Sign-ups').fill('2')
+  await page.getByRole('button', { name: 'Make invite' }).click()
+  await expect(page.getByText('Invite made: share its link')).toBeVisible()
+  await expect(page.getByText(/It admits 2 sign-ups/)).toBeVisible()
+
+  // Any case is the same code: it is taken now (D393).
+  await page.getByLabel('Code').fill(code.toUpperCase())
+  await expect(page.getByText('Another invite has this code.')).toBeVisible()
+  await page.getByLabel('Code').fill('')
+
+  // Through the API, which signs no one in: sign-ins are limited per address, and every
+  // test's browser has the same one. The mailed invite's test signs up on the page.
+  const context = await browser.newContext({ storageState: signedOut })
+  const register = (email: string) =>
+    context.request.post('/api/v1/auth/register', {
+      data: { email, password: 'a long enough password', inviteCode: code.toLowerCase() },
+    })
+  expect((await register(people[0])).status()).toBe(201)
+  expect((await register(people[1])).status()).toBe(201)
+  const third = await register(people[2])
+  expect(third.status()).toBe(400)
+  expect(await third.text()).toContain('invalid_invite')
+  await context.close()
+
+  await page.reload()
+  const row = page.getByRole('row', { name: new RegExp(code) })
+  await expect(row).toContainText('Used up')
+  await row.getByRole('button', { name: '2 of 2' }).click()
+  const who = page.getByRole('list', { name: `Who signed up with ${code}` })
+  await expect(who).toContainText(people[0])
+  await expect(who).toContainText(people[1])
+})
+
+test('a revoked invite admits no one, and stays listed', async ({ page, browser }) => {
+  const code = unique('E2E-Revoked')
+
+  await page.goto('/admin/invites')
+  await page.getByLabel('Code').fill(code)
+  await expect(page.getByText('Free to take.')).toBeVisible()
+  await page.getByRole('button', { name: 'Make invite' }).click()
+  await expect(page.getByText('Invite made: share its link')).toBeVisible()
+
+  const row = page.getByRole('row', { name: new RegExp(code) })
+  await row.getByRole('button', { name: 'Revoke', exact: true }).click()
+  await page.getByRole('alertdialog').getByRole('button', { name: 'Revoke' }).click()
+  await expect(row).toContainText('Revoked')
+
+  const context = await browser.newContext({ storageState: signedOut })
+  const visitor = await context.newPage()
+  await visitor.goto(`/register?invite=${code}`)
+  await visitor.getByLabel('Email').fill(`${unique('late')}@e2e.test`.toLowerCase())
+  await visitor.getByLabel('Password').fill('a long enough password')
+  await visitor.getByRole('button', { name: 'Create account' }).click()
+  await expect(visitor.getByText(/invalid or expired invite/i)).toBeVisible()
+  await context.close()
 })

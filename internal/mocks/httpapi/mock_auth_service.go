@@ -251,6 +251,78 @@ func (_c *MockAuthService_ChangePassword_Call) RunAndReturn(run func(ctx context
 	return _c
 }
 
+// CheckInviteCode provides a mock function for the type MockAuthService
+func (_mock *MockAuthService) CheckInviteCode(ctx context.Context, actor auth.Principal, code string) (string, error) {
+	ret := _mock.Called(ctx, actor, code)
+
+	if len(ret) == 0 {
+		panic("no return value specified for CheckInviteCode")
+	}
+
+	var r0 string
+	var r1 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context, auth.Principal, string) (string, error)); ok {
+		return returnFunc(ctx, actor, code)
+	}
+	if returnFunc, ok := ret.Get(0).(func(context.Context, auth.Principal, string) string); ok {
+		r0 = returnFunc(ctx, actor, code)
+	} else {
+		r0 = ret.Get(0).(string)
+	}
+	if returnFunc, ok := ret.Get(1).(func(context.Context, auth.Principal, string) error); ok {
+		r1 = returnFunc(ctx, actor, code)
+	} else {
+		r1 = ret.Error(1)
+	}
+	return r0, r1
+}
+
+// MockAuthService_CheckInviteCode_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'CheckInviteCode'
+type MockAuthService_CheckInviteCode_Call struct {
+	*mock.Call
+}
+
+// CheckInviteCode is a helper method to define mock.On call
+//   - ctx context.Context
+//   - actor auth.Principal
+//   - code string
+func (_e *MockAuthService_Expecter) CheckInviteCode(ctx any, actor any, code any) *MockAuthService_CheckInviteCode_Call {
+	return &MockAuthService_CheckInviteCode_Call{Call: _e.mock.On("CheckInviteCode", ctx, actor, code)}
+}
+
+func (_c *MockAuthService_CheckInviteCode_Call) Run(run func(ctx context.Context, actor auth.Principal, code string)) *MockAuthService_CheckInviteCode_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		var arg1 auth.Principal
+		if args[1] != nil {
+			arg1 = args[1].(auth.Principal)
+		}
+		var arg2 string
+		if args[2] != nil {
+			arg2 = args[2].(string)
+		}
+		run(
+			arg0,
+			arg1,
+			arg2,
+		)
+	})
+	return _c
+}
+
+func (_c *MockAuthService_CheckInviteCode_Call) Return(s string, err error) *MockAuthService_CheckInviteCode_Call {
+	_c.Call.Return(s, err)
+	return _c
+}
+
+func (_c *MockAuthService_CheckInviteCode_Call) RunAndReturn(run func(ctx context.Context, actor auth.Principal, code string) (string, error)) *MockAuthService_CheckInviteCode_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // CodeAccess provides a mock function for the type MockAuthService
 func (_mock *MockAuthService) CodeAccess() domain.CodeAccess {
 	ret := _mock.Called()
@@ -380,35 +452,29 @@ func (_c *MockAuthService_CreateAPIToken_Call) RunAndReturn(run func(ctx context
 }
 
 // CreateInvite provides a mock function for the type MockAuthService
-func (_mock *MockAuthService) CreateInvite(ctx context.Context, actor auth.Principal) (string, domain.Invite, error) {
-	ret := _mock.Called(ctx, actor)
+func (_mock *MockAuthService) CreateInvite(ctx context.Context, actor auth.Principal, spec auth.InviteSpec) (domain.Invite, error) {
+	ret := _mock.Called(ctx, actor, spec)
 
 	if len(ret) == 0 {
 		panic("no return value specified for CreateInvite")
 	}
 
-	var r0 string
-	var r1 domain.Invite
-	var r2 error
-	if returnFunc, ok := ret.Get(0).(func(context.Context, auth.Principal) (string, domain.Invite, error)); ok {
-		return returnFunc(ctx, actor)
+	var r0 domain.Invite
+	var r1 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context, auth.Principal, auth.InviteSpec) (domain.Invite, error)); ok {
+		return returnFunc(ctx, actor, spec)
 	}
-	if returnFunc, ok := ret.Get(0).(func(context.Context, auth.Principal) string); ok {
-		r0 = returnFunc(ctx, actor)
+	if returnFunc, ok := ret.Get(0).(func(context.Context, auth.Principal, auth.InviteSpec) domain.Invite); ok {
+		r0 = returnFunc(ctx, actor, spec)
 	} else {
-		r0 = ret.Get(0).(string)
+		r0 = ret.Get(0).(domain.Invite)
 	}
-	if returnFunc, ok := ret.Get(1).(func(context.Context, auth.Principal) domain.Invite); ok {
-		r1 = returnFunc(ctx, actor)
+	if returnFunc, ok := ret.Get(1).(func(context.Context, auth.Principal, auth.InviteSpec) error); ok {
+		r1 = returnFunc(ctx, actor, spec)
 	} else {
-		r1 = ret.Get(1).(domain.Invite)
+		r1 = ret.Error(1)
 	}
-	if returnFunc, ok := ret.Get(2).(func(context.Context, auth.Principal) error); ok {
-		r2 = returnFunc(ctx, actor)
-	} else {
-		r2 = ret.Error(2)
-	}
-	return r0, r1, r2
+	return r0, r1
 }
 
 // MockAuthService_CreateInvite_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'CreateInvite'
@@ -419,11 +485,12 @@ type MockAuthService_CreateInvite_Call struct {
 // CreateInvite is a helper method to define mock.On call
 //   - ctx context.Context
 //   - actor auth.Principal
-func (_e *MockAuthService_Expecter) CreateInvite(ctx any, actor any) *MockAuthService_CreateInvite_Call {
-	return &MockAuthService_CreateInvite_Call{Call: _e.mock.On("CreateInvite", ctx, actor)}
+//   - spec auth.InviteSpec
+func (_e *MockAuthService_Expecter) CreateInvite(ctx any, actor any, spec any) *MockAuthService_CreateInvite_Call {
+	return &MockAuthService_CreateInvite_Call{Call: _e.mock.On("CreateInvite", ctx, actor, spec)}
 }
 
-func (_c *MockAuthService_CreateInvite_Call) Run(run func(ctx context.Context, actor auth.Principal)) *MockAuthService_CreateInvite_Call {
+func (_c *MockAuthService_CreateInvite_Call) Run(run func(ctx context.Context, actor auth.Principal, spec auth.InviteSpec)) *MockAuthService_CreateInvite_Call {
 	_c.Call.Run(func(args mock.Arguments) {
 		var arg0 context.Context
 		if args[0] != nil {
@@ -433,20 +500,25 @@ func (_c *MockAuthService_CreateInvite_Call) Run(run func(ctx context.Context, a
 		if args[1] != nil {
 			arg1 = args[1].(auth.Principal)
 		}
+		var arg2 auth.InviteSpec
+		if args[2] != nil {
+			arg2 = args[2].(auth.InviteSpec)
+		}
 		run(
 			arg0,
 			arg1,
+			arg2,
 		)
 	})
 	return _c
 }
 
-func (_c *MockAuthService_CreateInvite_Call) Return(s string, invite domain.Invite, err error) *MockAuthService_CreateInvite_Call {
-	_c.Call.Return(s, invite, err)
+func (_c *MockAuthService_CreateInvite_Call) Return(invite domain.Invite, err error) *MockAuthService_CreateInvite_Call {
+	_c.Call.Return(invite, err)
 	return _c
 }
 
-func (_c *MockAuthService_CreateInvite_Call) RunAndReturn(run func(ctx context.Context, actor auth.Principal) (string, domain.Invite, error)) *MockAuthService_CreateInvite_Call {
+func (_c *MockAuthService_CreateInvite_Call) RunAndReturn(run func(ctx context.Context, actor auth.Principal, spec auth.InviteSpec) (domain.Invite, error)) *MockAuthService_CreateInvite_Call {
 	_c.Call.Return(run)
 	return _c
 }
@@ -536,41 +608,35 @@ func (_c *MockAuthService_CreateUser_Call) RunAndReturn(run func(ctx context.Con
 }
 
 // InviteByEmail provides a mock function for the type MockAuthService
-func (_mock *MockAuthService) InviteByEmail(ctx context.Context, actor auth.Principal, email string) (string, domain.Invite, bool, error) {
+func (_mock *MockAuthService) InviteByEmail(ctx context.Context, actor auth.Principal, email string) (domain.Invite, bool, error) {
 	ret := _mock.Called(ctx, actor, email)
 
 	if len(ret) == 0 {
 		panic("no return value specified for InviteByEmail")
 	}
 
-	var r0 string
-	var r1 domain.Invite
-	var r2 bool
-	var r3 error
-	if returnFunc, ok := ret.Get(0).(func(context.Context, auth.Principal, string) (string, domain.Invite, bool, error)); ok {
+	var r0 domain.Invite
+	var r1 bool
+	var r2 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context, auth.Principal, string) (domain.Invite, bool, error)); ok {
 		return returnFunc(ctx, actor, email)
 	}
-	if returnFunc, ok := ret.Get(0).(func(context.Context, auth.Principal, string) string); ok {
+	if returnFunc, ok := ret.Get(0).(func(context.Context, auth.Principal, string) domain.Invite); ok {
 		r0 = returnFunc(ctx, actor, email)
 	} else {
-		r0 = ret.Get(0).(string)
+		r0 = ret.Get(0).(domain.Invite)
 	}
-	if returnFunc, ok := ret.Get(1).(func(context.Context, auth.Principal, string) domain.Invite); ok {
+	if returnFunc, ok := ret.Get(1).(func(context.Context, auth.Principal, string) bool); ok {
 		r1 = returnFunc(ctx, actor, email)
 	} else {
-		r1 = ret.Get(1).(domain.Invite)
+		r1 = ret.Get(1).(bool)
 	}
-	if returnFunc, ok := ret.Get(2).(func(context.Context, auth.Principal, string) bool); ok {
+	if returnFunc, ok := ret.Get(2).(func(context.Context, auth.Principal, string) error); ok {
 		r2 = returnFunc(ctx, actor, email)
 	} else {
-		r2 = ret.Get(2).(bool)
+		r2 = ret.Error(2)
 	}
-	if returnFunc, ok := ret.Get(3).(func(context.Context, auth.Principal, string) error); ok {
-		r3 = returnFunc(ctx, actor, email)
-	} else {
-		r3 = ret.Error(3)
-	}
-	return r0, r1, r2, r3
+	return r0, r1, r2
 }
 
 // MockAuthService_InviteByEmail_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'InviteByEmail'
@@ -609,12 +675,12 @@ func (_c *MockAuthService_InviteByEmail_Call) Run(run func(ctx context.Context, 
 	return _c
 }
 
-func (_c *MockAuthService_InviteByEmail_Call) Return(s string, invite domain.Invite, b bool, err error) *MockAuthService_InviteByEmail_Call {
-	_c.Call.Return(s, invite, b, err)
+func (_c *MockAuthService_InviteByEmail_Call) Return(invite domain.Invite, b bool, err error) *MockAuthService_InviteByEmail_Call {
+	_c.Call.Return(invite, b, err)
 	return _c
 }
 
-func (_c *MockAuthService_InviteByEmail_Call) RunAndReturn(run func(ctx context.Context, actor auth.Principal, email string) (string, domain.Invite, bool, error)) *MockAuthService_InviteByEmail_Call {
+func (_c *MockAuthService_InviteByEmail_Call) RunAndReturn(run func(ctx context.Context, actor auth.Principal, email string) (domain.Invite, bool, error)) *MockAuthService_InviteByEmail_Call {
 	_c.Call.Return(run)
 	return _c
 }
@@ -1527,6 +1593,69 @@ func (_c *MockAuthService_RevokeAPIToken_Call) Return(err error) *MockAuthServic
 }
 
 func (_c *MockAuthService_RevokeAPIToken_Call) RunAndReturn(run func(ctx context.Context, p auth.Principal, id domain.APITokenID) error) *MockAuthService_RevokeAPIToken_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// RevokeInvite provides a mock function for the type MockAuthService
+func (_mock *MockAuthService) RevokeInvite(ctx context.Context, actor auth.Principal, id domain.InviteID) error {
+	ret := _mock.Called(ctx, actor, id)
+
+	if len(ret) == 0 {
+		panic("no return value specified for RevokeInvite")
+	}
+
+	var r0 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context, auth.Principal, domain.InviteID) error); ok {
+		r0 = returnFunc(ctx, actor, id)
+	} else {
+		r0 = ret.Error(0)
+	}
+	return r0
+}
+
+// MockAuthService_RevokeInvite_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'RevokeInvite'
+type MockAuthService_RevokeInvite_Call struct {
+	*mock.Call
+}
+
+// RevokeInvite is a helper method to define mock.On call
+//   - ctx context.Context
+//   - actor auth.Principal
+//   - id domain.InviteID
+func (_e *MockAuthService_Expecter) RevokeInvite(ctx any, actor any, id any) *MockAuthService_RevokeInvite_Call {
+	return &MockAuthService_RevokeInvite_Call{Call: _e.mock.On("RevokeInvite", ctx, actor, id)}
+}
+
+func (_c *MockAuthService_RevokeInvite_Call) Run(run func(ctx context.Context, actor auth.Principal, id domain.InviteID)) *MockAuthService_RevokeInvite_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		var arg1 auth.Principal
+		if args[1] != nil {
+			arg1 = args[1].(auth.Principal)
+		}
+		var arg2 domain.InviteID
+		if args[2] != nil {
+			arg2 = args[2].(domain.InviteID)
+		}
+		run(
+			arg0,
+			arg1,
+			arg2,
+		)
+	})
+	return _c
+}
+
+func (_c *MockAuthService_RevokeInvite_Call) Return(err error) *MockAuthService_RevokeInvite_Call {
+	_c.Call.Return(err)
+	return _c
+}
+
+func (_c *MockAuthService_RevokeInvite_Call) RunAndReturn(run func(ctx context.Context, actor auth.Principal, id domain.InviteID) error) *MockAuthService_RevokeInvite_Call {
 	_c.Call.Return(run)
 	return _c
 }

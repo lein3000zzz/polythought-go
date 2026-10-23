@@ -5,6 +5,7 @@ package postgres_test
 import (
 	"context"
 	"errors"
+	"fmt"
 	"sync"
 	"testing"
 	"time"
@@ -265,44 +266,115 @@ func TestAPITokens(t *testing.T) {
 func TestInvites(t *testing.T) {
 	ctx := context.Background()
 
-	tests := []struct {
-		name    string
-		expires time.Duration
-		used    bool
-		wantErr error
-	}{
-		{name: "fresh invite is consumed", expires: time.Hour},
-		{name: "used invite is rejected", expires: time.Hour, used: true, wantErr: domain.ErrInvalidInvite},
-		{name: "expired invite is rejected", expires: -time.Second, wantErr: domain.ErrInvalidInvite},
-	}
+	t.Run("used as many times as it admits, each sign-up kept", func(t *testing.T) {
+		db := fresh(t)
+		invites := postgres.NewInvites(db)
+		admin := seedUser(t, db, "admin@x.io", domain.RoleAdmin)
+		first := seedUser(t, db, "first@x.io", domain.RoleUser)
+		second := seedUser(t, db, "second@x.io", domain.RoleUser)
+		third := seedUser(t, db, "third@x.io", domain.RoleUser)
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			db := fresh(t)
-			invites := postgres.NewInvites(db)
-			admin := seedUser(t, db, "admin@x.io", domain.RoleAdmin)
-			joiner := seedUser(t, db, "new@x.io", domain.RoleUser)
+		inv := domain.Invite{ID: domain.InviteID(newID()), CreatedBy: admin.ID, CreatedAt: at.Add(-time.Hour), ExpiresAt: at.Add(time.Hour), MaxUses: 2}
+		require.NoError(t, invites.Create(ctx, inv, []byte("code"), []byte("sealed")))
 
-			inv := domain.Invite{ID: domain.InviteID(newID()), CreatedBy: admin.ID, CreatedAt: at.Add(-time.Hour), ExpiresAt: at.Add(tt.expires)}
-			require.NoError(t, invites.Create(ctx, inv, []byte("code")))
+		require.NoError(t, invites.Consume(ctx, inv.ID, first.ID, at))
+		require.NoError(t, invites.Consume(ctx, inv.ID, second.ID, at.Add(time.Minute)))
+		require.ErrorIs(t, invites.Consume(ctx, inv.ID, third.ID, at.Add(2*time.Minute)), domain.ErrInvalidInvite, "used up")
 
-			if tt.used {
-				require.NoError(t, invites.Consume(ctx, []byte("code"), admin.ID, at))
+		_, err := invites.ByCode(ctx, [][]byte{[]byte("code")}, at)
+		require.ErrorIs(t, err, domain.ErrInvalidInvite, "used up")
+
+		list, err := invites.List(ctx)
+		require.NoError(t, err)
+		require.Len(t, list, 1)
+		assert.Equal(t, 2, list[0].Used)
+		assert.Equal(t, 2, list[0].MaxUses)
+		assert.Equal(t, []byte("sealed"), list[0].Sealed)
+		assert.Equal(t, []domain.InviteUse{
+			{UserID: first.ID, Email: "first@x.io", At: at},
+			{UserID: second.ID, Email: "second@x.io", At: at.Add(time.Minute)},
+		}, list[0].Signups)
+	})
+
+	t.Run("its last use taken once, by racing sign-ups", func(t *testing.T) {
+		db := fresh(t)
+		invites := postgres.NewInvites(db)
+		admin := seedUser(t, db, "admin@x.io", domain.RoleAdmin)
+
+		inv := domain.Invite{ID: domain.InviteID(newID()), CreatedBy: admin.ID, CreatedAt: at, ExpiresAt: at.Add(time.Hour), MaxUses: 1}
+		require.NoError(t, invites.Create(ctx, inv, []byte("code"), nil))
+
+		joiners := make([]domain.User, 8)
+		for i := range joiners {
+			joiners[i] = seedUser(t, db, fmt.Sprintf("j%d@x.io", i), domain.RoleUser)
+		}
+
+		errs := make(chan error, len(joiners))
+		for _, j := range joiners {
+			go func() { errs <- invites.Consume(ctx, inv.ID, j.ID, at) }()
+		}
+
+		won := 0
+		for range joiners {
+			if err := <-errs; err == nil {
+				won++
+			} else {
+				require.ErrorIs(t, err, domain.ErrInvalidInvite)
 			}
+		}
 
-			err := invites.Consume(ctx, []byte("code"), joiner.ID, at)
-			require.ErrorIs(t, err, tt.wantErr)
+		assert.Equal(t, 1, won)
+	})
 
-			if tt.wantErr == nil {
-				list, err := invites.List(ctx)
-				require.NoError(t, err)
-				require.Len(t, list, 1)
-				assert.Equal(t, joiner.ID, list[0].UsedBy)
-				assert.Equal(t, at, list[0].UsedAt)
-				assert.Equal(t, admin.ID, list[0].CreatedBy)
-			}
-		})
-	}
+	t.Run("expired or revoked, it admits no one", func(t *testing.T) {
+		db := fresh(t)
+		invites := postgres.NewInvites(db)
+		admin := seedUser(t, db, "admin@x.io", domain.RoleAdmin)
+		joiner := seedUser(t, db, "new@x.io", domain.RoleUser)
+
+		old := domain.Invite{ID: domain.InviteID(newID()), CreatedBy: admin.ID, CreatedAt: at.Add(-time.Hour), ExpiresAt: at.Add(-time.Second), MaxUses: 5}
+		require.NoError(t, invites.Create(ctx, old, []byte("old"), nil))
+		require.ErrorIs(t, invites.Consume(ctx, old.ID, joiner.ID, at), domain.ErrInvalidInvite)
+
+		ended := domain.Invite{ID: domain.InviteID(newID()), CreatedBy: admin.ID, CreatedAt: at, ExpiresAt: at.Add(time.Hour), MaxUses: 5}
+		require.NoError(t, invites.Create(ctx, ended, []byte("ended"), nil))
+		require.NoError(t, invites.Revoke(ctx, ended.ID, admin.ID, at))
+		require.NoError(t, invites.Revoke(ctx, ended.ID, joiner.ID, at.Add(time.Hour)), "again, keeping the first")
+		require.ErrorIs(t, invites.Consume(ctx, ended.ID, joiner.ID, at), domain.ErrInvalidInvite)
+
+		_, err := invites.ByCode(ctx, [][]byte{[]byte("ended")}, at)
+		require.ErrorIs(t, err, domain.ErrInvalidInvite, "revoked")
+
+		list, err := invites.List(ctx)
+		require.NoError(t, err)
+		require.Len(t, list, 2)
+		assert.Equal(t, ended.ID, list[0].ID, "newest first")
+		assert.Equal(t, at, list[0].RevokedAt)
+		assert.Equal(t, admin.ID, list[0].RevokedBy)
+		assert.Nil(t, list[1].Sealed, "no code kept")
+
+		require.ErrorIs(t, invites.Revoke(ctx, domain.InviteID(newID()), admin.ID, at), domain.ErrNotFound)
+	})
+
+	t.Run("a code is an invite's alone, whatever became of it", func(t *testing.T) {
+		db := fresh(t)
+		invites := postgres.NewInvites(db)
+		admin := seedUser(t, db, "admin@x.io", domain.RoleAdmin)
+
+		inv := domain.Invite{ID: domain.InviteID(newID()), CreatedBy: admin.ID, CreatedAt: at, ExpiresAt: at.Add(time.Hour), MaxUses: 1}
+		require.NoError(t, invites.Create(ctx, inv, []byte("spring-2026"), nil))
+
+		taken, err := invites.Taken(ctx, [][]byte{[]byte("spring-2026"), []byte("Spring-2026")})
+		require.NoError(t, err)
+		assert.True(t, taken)
+
+		taken, err = invites.Taken(ctx, [][]byte{[]byte("autumn-2026")})
+		require.NoError(t, err)
+		assert.False(t, taken)
+
+		again := domain.Invite{ID: domain.InviteID(newID()), CreatedBy: admin.ID, CreatedAt: at, ExpiresAt: at.Add(time.Hour), MaxUses: 1}
+		require.ErrorIs(t, invites.Create(ctx, again, []byte("spring-2026"), nil), domain.ErrInviteCodeTaken)
+	})
 }
 
 func TestInviteByCode(t *testing.T) {
@@ -311,25 +383,23 @@ func TestInviteByCode(t *testing.T) {
 	invites := postgres.NewInvites(db)
 	admin := seedUser(t, db, "admin@x.io", domain.RoleAdmin)
 
-	mailed := domain.Invite{ID: domain.InviteID(newID()), CreatedBy: admin.ID, Email: "Joiner@x.io", CreatedAt: at, ExpiresAt: at.Add(time.Hour)}
-	require.NoError(t, invites.Create(ctx, mailed, []byte("mailed")))
+	mailed := domain.Invite{ID: domain.InviteID(newID()), CreatedBy: admin.ID, Email: "Joiner@x.io", CreatedAt: at, ExpiresAt: at.Add(time.Hour), MaxUses: 1}
+	require.NoError(t, invites.Create(ctx, mailed, []byte("mailed"), nil))
 
-	got, err := invites.ByCode(ctx, []byte("mailed"), at)
+	// Found by either of its hashes: an invite from before codes were any case has the
+	// second.
+	got, err := invites.ByCode(ctx, [][]byte{[]byte("other"), []byte("mailed")}, at)
 	require.NoError(t, err)
 	assert.Equal(t, mailed, got)
 
-	list, err := invites.List(ctx)
-	require.NoError(t, err)
-	assert.Equal(t, "Joiner@x.io", list[0].Email)
-
-	_, err = invites.ByCode(ctx, []byte("mailed"), at.Add(2*time.Hour))
+	_, err = invites.ByCode(ctx, [][]byte{[]byte("mailed")}, at.Add(2*time.Hour))
 	require.ErrorIs(t, err, domain.ErrInvalidInvite, "expired")
 
-	_, err = invites.ByCode(ctx, []byte("nope"), at)
+	_, err = invites.ByCode(ctx, [][]byte{[]byte("nope")}, at)
 	require.ErrorIs(t, err, domain.ErrInvalidInvite)
 
-	require.NoError(t, invites.Consume(ctx, []byte("mailed"), admin.ID, at))
-	_, err = invites.ByCode(ctx, []byte("mailed"), at)
+	require.NoError(t, invites.Consume(ctx, mailed.ID, admin.ID, at))
+	_, err = invites.ByCode(ctx, [][]byte{[]byte("mailed")}, at)
 	require.ErrorIs(t, err, domain.ErrInvalidInvite, "used")
 }
 

@@ -52,15 +52,38 @@ export function useInvites() {
 }
 
 /**
- * Creates an invite, mailed to email when one is given (D180). The response carries its
- * code, which cannot be read again.
+ * Creates an invite (D371): its code typed or made, its uses and its end; or, with an
+ * email, one mailed there, one use (D180).
  */
 export function useCreateInvite() {
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: (email?: string) =>
-      call(api.POST('/admin/invites', email ? { body: { email } } : {})),
+    mutationFn: (body: Schemas['CreateInviteRequest']) =>
+      call(api.POST('/admin/invites', { body })),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: keys.invites }),
+  })
+}
+
+/**
+ * What keeps a typed code from making an invite, asked as the admin types it (D393):
+ * problem is absent while it can. Under the invites, so a new one asks again.
+ */
+export function useInviteCodeCheck(code: string) {
+  return useQuery({
+    queryKey: [...keys.invites, 'check', code],
+    queryFn: () => call(api.POST('/admin/invites/check', { body: { code } })),
+    enabled: code !== '',
+  })
+}
+
+/** Ends an invite: it admits no more sign-ups, and stays listed. */
+export function useRevokeInvite() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: (id: string) =>
+      call(api.POST('/admin/invites/{id}/revoke', { params: { path: { id } } })),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: keys.invites }),
   })
 }

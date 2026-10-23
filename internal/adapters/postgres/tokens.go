@@ -141,13 +141,22 @@ func NewInvites(db *DB) *Invites {
 	return &Invites{db: db}
 }
 
-func (r *Invites) Create(ctx context.Context, inv domain.Invite, codeHash []byte) error {
+const invitesCodeKey = "invites_code_hash_key"
+
+func (r *Invites) Create(ctx context.Context, inv domain.Invite, codeHash, sealed []byte) error {
 	id, err := uuid.Parse(string(inv.ID))
 	if err != nil {
 		return err
 	}
 
-	m := model.Invites{ID: id, CodeHash: codeHash, Email: inv.Email, CreatedAt: inv.CreatedAt, ExpiresAt: inv.ExpiresAt}
+	m := model.Invites{
+		ID: id, CodeHash: codeHash, Email: inv.Email, CreatedAt: inv.CreatedAt, ExpiresAt: inv.ExpiresAt,
+		MaxUses: int32(inv.MaxUses), //nolint:gosec // 1 to 1000, checked by the service and the table
+	}
+
+	if sealed != nil {
+		m.CodeSealed = &sealed
+	}
 
 	if inv.CreatedBy != "" {
 		by, err := uuid.Parse(string(inv.CreatedBy))
@@ -159,37 +168,90 @@ func (r *Invites) Create(ctx context.Context, inv domain.Invite, codeHash []byte
 	}
 
 	_, err = table.Invites.INSERT(table.Invites.AllColumns).MODEL(m).ExecContext(ctx, r.db.conn(ctx))
+	if isUniqueViolation(err, invitesCodeKey) {
+		return domain.ErrInviteCodeTaken
+	}
 
 	return err
 }
 
-func (r *Invites) List(ctx context.Context) ([]domain.Invite, error) {
+func (r *Invites) List(ctx context.Context) ([]ports.StoredInvite, error) {
 	var rows []model.Invites
 
 	err := jet.SELECT(table.Invites.AllColumns).
 		FROM(table.Invites).
-		ORDER_BY(table.Invites.ID.DESC()).
+		ORDER_BY(table.Invites.CreatedAt.DESC(), table.Invites.ID.DESC()).
 		QueryContext(ctx, r.db.conn(ctx), &rows)
 	if err != nil {
 		return nil, err
 	}
 
-	out := make([]domain.Invite, len(rows))
+	var uses []struct {
+		model.InviteUses
+
+		Email *string `alias:"users.email"`
+	}
+
+	u := table.InviteUses
+	err = jet.SELECT(u.AllColumns, table.Users.Email).
+		FROM(u.LEFT_JOIN(table.Users, table.Users.ID.EQ(u.UserID))).
+		ORDER_BY(u.UsedAt.ASC()).
+		QueryContext(ctx, r.db.conn(ctx), &uses)
+	if err != nil {
+		return nil, err
+	}
+
+	signups := map[uuid.UUID][]domain.InviteUse{}
+	for _, use := range uses {
+		signup := domain.InviteUse{UserID: uuidString[domain.UserID](use.UserID), At: use.UsedAt.UTC()}
+		if use.Email != nil {
+			signup.Email = *use.Email
+		}
+
+		signups[use.InviteID] = append(signups[use.InviteID], signup)
+	}
+
+	out := make([]ports.StoredInvite, len(rows))
 	for i, m := range rows {
-		out[i] = toInvite(m)
+		out[i] = ports.StoredInvite{Invite: toInvite(m)}
+		out[i].Signups = signups[m.ID]
+
+		if m.CodeSealed != nil {
+			out[i].Sealed = *m.CodeSealed
+		}
 	}
 
 	return out, nil
 }
 
-func (r *Invites) ByCode(ctx context.Context, codeHash []byte, at time.Time) (domain.Invite, error) {
+func (r *Invites) Taken(ctx context.Context, codeHashes [][]byte) (bool, error) {
+	var found []struct {
+		ID uuid.UUID `alias:"invites.id"`
+	}
+
+	err := jet.SELECT(table.Invites.ID).
+		FROM(table.Invites).
+		WHERE(table.Invites.CodeHash.IN(byteas(codeHashes)...)).
+		LIMIT(1).
+		QueryContext(ctx, r.db.conn(ctx), &found)
+
+	return len(found) > 0, err
+}
+
+// openInvite is an invite still admitting sign-ups at at.
+func openInvite(t *table.InvitesTable, at time.Time) jet.BoolExpression {
+	return t.RevokedAt.IS_NULL().AND(t.ExpiresAt.GT(jet.TimestampzT(at))).AND(t.Uses.LT(t.MaxUses))
+}
+
+func (r *Invites) ByCode(ctx context.Context, codeHashes [][]byte, at time.Time) (domain.Invite, error) {
 	t := table.Invites
 
 	var m model.Invites
 
 	err := jet.SELECT(t.AllColumns).
 		FROM(t).
-		WHERE(t.CodeHash.EQ(jet.Bytea(codeHash)).AND(t.UsedAt.IS_NULL()).AND(t.ExpiresAt.GT(jet.TimestampzT(at)))).
+		WHERE(t.CodeHash.IN(byteas(codeHashes)...).AND(openInvite(t, at))).
+		LIMIT(1).
 		QueryContext(ctx, r.db.conn(ctx), &m)
 	if errors.Is(err, qrm.ErrNoRows) {
 		return domain.Invite{}, domain.ErrInvalidInvite
@@ -209,31 +271,74 @@ func toInvite(m model.Invites) domain.Invite {
 		Email:     m.Email,
 		CreatedAt: m.CreatedAt.UTC(),
 		ExpiresAt: m.ExpiresAt.UTC(),
-		UsedBy:    uuidString[domain.UserID](m.UsedBy),
-		UsedAt:    timeOf(m.UsedAt),
+		MaxUses:   int(m.MaxUses),
+		Used:      int(m.Uses),
+		RevokedAt: timeOf(m.RevokedAt),
+		RevokedBy: uuidString[domain.UserID](m.RevokedBy),
 	}
 }
 
-// Consume claims the invite in a single conditional UPDATE, so two registrations racing
-// for one code cannot both succeed.
-func (r *Invites) Consume(ctx context.Context, codeHash []byte, userID domain.UserID, at time.Time) error {
+// Consume takes a use in a single conditional UPDATE, so registrations racing for an
+// invite's last use cannot both have it, then keeps who took it.
+func (r *Invites) Consume(ctx context.Context, id domain.InviteID, userID domain.UserID, at time.Time) error {
+	iid, err := uuid.Parse(string(id))
+	if err != nil {
+		return err
+	}
+
 	uid, err := uuid.Parse(string(userID))
 	if err != nil {
 		return err
 	}
 
-	err = affectedOne(table.Invites.
-		UPDATE(table.Invites.UsedBy, table.Invites.UsedAt).
-		SET(jet.UUID(uid), jet.TimestampzT(at)).
-		WHERE(table.Invites.CodeHash.EQ(jet.Bytea(codeHash)).
-			AND(table.Invites.UsedAt.IS_NULL()).
-			AND(table.Invites.ExpiresAt.GT(jet.TimestampzT(at)))).
+	t := table.Invites
+
+	err = affectedOne(t.UPDATE(t.Uses).
+		SET(t.Uses.ADD(jet.Int(1))).
+		WHERE(t.ID.EQ(jet.UUID(iid)).AND(openInvite(t, at))).
 		ExecContext(ctx, r.db.conn(ctx)))
 	if errors.Is(err, domain.ErrNotFound) {
 		return domain.ErrInvalidInvite
 	}
 
+	if err != nil {
+		return err
+	}
+
+	_, err = table.InviteUses.INSERT(table.InviteUses.AllColumns).
+		MODEL(model.InviteUses{InviteID: iid, UserID: &uid, UsedAt: at}).
+		ExecContext(ctx, r.db.conn(ctx))
+
 	return err
+}
+
+// Revoke ends an invite; one revoked before keeps when and by whom it was.
+func (r *Invites) Revoke(ctx context.Context, id domain.InviteID, by domain.UserID, at time.Time) error {
+	iid, err := uuid.Parse(string(id))
+	if err != nil {
+		return domain.ErrNotFound
+	}
+
+	byID, err := uuid.Parse(string(by))
+	if err != nil {
+		return err
+	}
+
+	t := table.Invites
+
+	return affectedOne(t.UPDATE(t.RevokedAt, t.RevokedBy).
+		SET(jet.COALESCE(t.RevokedAt, jet.TimestampzT(at)), jet.COALESCE(t.RevokedBy, jet.UUID(byID))).
+		WHERE(t.ID.EQ(jet.UUID(iid))).
+		ExecContext(ctx, r.db.conn(ctx)))
+}
+
+func byteas(hashes [][]byte) []jet.Expression {
+	out := make([]jet.Expression, len(hashes))
+	for i, h := range hashes {
+		out[i] = jet.Bytea(h)
+	}
+
+	return out
 }
 
 func uuidString[T ~string](u *uuid.UUID) T {

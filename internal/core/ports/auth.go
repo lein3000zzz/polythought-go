@@ -79,15 +79,31 @@ type APITokenRepository interface {
 	TouchLastUsed(ctx context.Context, id domain.APITokenID, at time.Time) error
 }
 
+// StoredInvite is an invite as kept: its code sealed, to open for admins (D393), nil for
+// one made before codes were kept.
+type StoredInvite struct {
+	domain.Invite
+
+	Sealed []byte
+}
+
+// InviteRepository keeps invites. A code is found by its hashes: the hash of the code in
+// lower case, and for invites made before codes were any case, of the code as given.
 type InviteRepository interface {
-	Create(ctx context.Context, inv domain.Invite, codeHash []byte) error
-	List(ctx context.Context) ([]domain.Invite, error)
-	// Consume marks an unused, unexpired invite as used by userID, or returns
-	// domain.ErrInvalidInvite. It is atomic: an invite admits exactly one registration.
-	Consume(ctx context.Context, codeHash []byte, userID domain.UserID, at time.Time) error
-	// ByCode is the unused invite of the code, unexpired at at; domain.ErrInvalidInvite
-	// when there is none.
-	ByCode(ctx context.Context, codeHash []byte, at time.Time) (domain.Invite, error)
+	// Create keeps an invite; domain.ErrInviteCodeTaken when another has its hash.
+	Create(ctx context.Context, inv domain.Invite, codeHash, sealed []byte) error
+	// List is every invite, newest first, with its sign-ups.
+	List(ctx context.Context) ([]StoredInvite, error)
+	// Taken says whether an invite has one of the hashes, whatever became of it.
+	Taken(ctx context.Context, codeHashes [][]byte) (bool, error)
+	// Consume takes one use of the invite for userID, while it is open at at, or returns
+	// domain.ErrInvalidInvite. It is atomic: an invite admits at most MaxUses sign-ups.
+	Consume(ctx context.Context, id domain.InviteID, userID domain.UserID, at time.Time) error
+	// ByCode is the open invite of the code at at; domain.ErrInvalidInvite when there is
+	// none: used up, expired, revoked or never made.
+	ByCode(ctx context.Context, codeHashes [][]byte, at time.Time) (domain.Invite, error)
+	// Revoke ends an invite, by an admin, at at; domain.ErrNotFound when there is none.
+	Revoke(ctx context.Context, id domain.InviteID, by domain.UserID, at time.Time) error
 }
 
 // RateLimiter answers whether one more attempt under key is allowed right now.

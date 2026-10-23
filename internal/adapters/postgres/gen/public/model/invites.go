@@ -13,12 +13,15 @@ import (
 )
 
 type Invites struct {
-	ID        uuid.UUID `sql:"primary_key"`
-	CodeHash  []byte
-	CreatedBy *uuid.UUID
-	CreatedAt time.Time
-	ExpiresAt time.Time
-	UsedBy    *uuid.UUID
-	UsedAt    *time.Time
-	Email     string
+	ID         uuid.UUID `sql:"primary_key"`
+	CodeHash   []byte
+	CreatedBy  *uuid.UUID
+	CreatedAt  time.Time
+	ExpiresAt  time.Time
+	Email      string
+	CodeSealed *[]byte
+	MaxUses    int32
+	Uses       int32
+	RevokedAt  *time.Time
+	RevokedBy  *uuid.UUID
 }

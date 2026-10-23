@@ -318,11 +318,11 @@ func TestInvitesAndUserList(t *testing.T) {
 			setup: func(d deps) {
 				d.invites.EXPECT().Create(mock.Anything, mock.MatchedBy(func(i domain.Invite) bool {
 					return i.CreatedBy == "admin" && i.ExpiresAt.Equal(now.Add(7*24*time.Hour))
-				}), mock.Anything).Return(nil)
+				}), mock.Anything, mock.Anything).Return(nil)
 			},
 			call: func(s *auth.Service) error {
-				code, _, err := s.CreateInvite(context.Background(), admin)
-				assert.True(t, strings.HasPrefix(code, "inv_"))
+				inv, err := s.CreateInvite(context.Background(), admin, auth.InviteSpec{})
+				assert.True(t, strings.HasPrefix(inv.Code, "inv_"))
 
 				return err
 			},
@@ -351,7 +351,7 @@ func TestInvitesAndUserList(t *testing.T) {
 			name:  "regular users cannot invite",
 			setup: func(deps) {},
 			call: func(s *auth.Service) error {
-				_, _, err := s.CreateInvite(context.Background(), regular)
+				_, err := s.CreateInvite(context.Background(), regular, auth.InviteSpec{})
 				return err
 			},
 			wantErr: domain.ErrForbidden,

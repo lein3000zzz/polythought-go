@@ -69,11 +69,13 @@ var (
 	ErrUserDisabled       = errors.New("account disabled")
 	ErrRegistrationClosed = errors.New("registration is closed")
 	ErrInvalidInvite      = errors.New("invalid or expired invite")
-	ErrUnauthenticated    = errors.New("not authenticated")
-	ErrForbidden          = errors.New("forbidden")
-	ErrRateLimited        = errors.New("too many attempts")
-	ErrLastAdmin          = errors.New("the last admin cannot be demoted or disabled")
-	ErrInvalidInput       = errors.New("invalid input")
+	// ErrInviteCodeTaken means another invite has the code, any case (D393).
+	ErrInviteCodeTaken = errors.New("another invite has this code")
+	ErrUnauthenticated = errors.New("not authenticated")
+	ErrForbidden       = errors.New("forbidden")
+	ErrRateLimited     = errors.New("too many attempts")
+	ErrLastAdmin       = errors.New("the last admin cannot be demoted or disabled")
+	ErrInvalidInput    = errors.New("invalid input")
 	// ErrEmailNotVerified means the account must verify its address before it signs in
 	// (D166).
 	ErrEmailNotVerified = errors.New("verify your email first: open the link we mailed you")
@@ -163,18 +165,53 @@ func (t APIToken) Expired(now time.Time) bool {
 	return !t.ExpiresAt.IsZero() && !now.Before(t.ExpiresAt)
 }
 
-// Invite is a single-use code that admits one registration in invite mode.
+// Invite admits registrations in invite mode (D371): up to MaxUses of them, until it
+// expires or an admin revokes it. One mailed to an address admits it once (D181).
 type Invite struct {
-	ID        InviteID
+	ID InviteID
+	// Code is the code itself, for admins to copy again (D393); empty for an invite made
+	// before codes were kept.
+	Code      string
 	CreatedBy UserID
 	Email     string // the address it was mailed to, which alone signs up with it; empty for a copied link
 	CreatedAt time.Time
 	ExpiresAt time.Time
-	UsedBy    UserID
-	UsedAt    time.Time
+	MaxUses   int
+	Used      int         // the sign-ups it admitted
+	Signups   []InviteUse // who they were, oldest first, where listed
+	RevokedAt time.Time
+	RevokedBy UserID
 }
 
-func (i Invite) Used() bool { return !i.UsedAt.IsZero() }
+// InviteUse is a sign-up with an invite.
+type InviteUse struct {
+	UserID UserID // empty once the account is gone
+	Email  string
+	At     time.Time
+}
+
+// InviteStatus is whether an invite still admits sign-ups, and why not.
+type InviteStatus string
+
+const (
+	InviteOpen    InviteStatus = "open"
+	InviteUsedUp  InviteStatus = "used"
+	InviteExpired InviteStatus = "expired"
+	InviteRevoked InviteStatus = "revoked"
+)
+
+func (i Invite) Status(now time.Time) InviteStatus {
+	switch {
+	case !i.RevokedAt.IsZero():
+		return InviteRevoked
+	case i.Used >= i.MaxUses:
+		return InviteUsedUp
+	case !now.Before(i.ExpiresAt):
+		return InviteExpired
+	}
+
+	return InviteOpen
+}
 
 // EmailTokenPurpose is what a mailed link does.
 type EmailTokenPurpose string

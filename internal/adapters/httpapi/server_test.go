@@ -334,12 +334,13 @@ func TestRoutes(t *testing.T) {
 			req:  request{method: "POST", path: "/api/v1/admin/invites", headers: cookie},
 			setup: func(svc *httpapimocks.MockAuthService) {
 				withSession(svc, root)
-				svc.EXPECT().CreateInvite(mock.Anything, mock.Anything).Return("inv_code", domain.Invite{ID: "i-1", CreatedBy: root.ID}, nil)
+				svc.EXPECT().CreateInvite(mock.Anything, mock.Anything, auth.InviteSpec{}).
+					Return(domain.Invite{ID: "i-1", Code: "inv_code", CreatedBy: root.ID, MaxUses: 1, ExpiresAt: time.Now().Add(time.Hour)}, nil)
 			},
 			wantStatus: http.StatusCreated,
-			wantBody:   []string{`"code":"inv_code"`},
+			wantBody:   []string{`"code":"inv_code"`, `"maxUses":1`, `"used":0`, `"signups":[]`, `"status":"open"`},
 			check: func(t *testing.T, w *ut.ResponseRecorder) {
-				assert.NotContains(t, w.Body.String(), "usedAt", "unset times are left out, not null")
+				assert.NotContains(t, w.Body.String(), "revokedAt", "unset times are left out, not null")
 			},
 		},
 		{
@@ -347,7 +348,7 @@ func TestRoutes(t *testing.T) {
 			req:  request{method: "POST", path: "/api/v1/admin/invites", headers: map[string]string{"Authorization": "Bearer pt_secret", origin: "https://evil.example"}},
 			setup: func(svc *httpapimocks.MockAuthService) {
 				withToken(svc, root)
-				svc.EXPECT().CreateInvite(mock.Anything, mock.Anything).Return("inv_code", domain.Invite{}, nil)
+				svc.EXPECT().CreateInvite(mock.Anything, mock.Anything, mock.Anything).Return(domain.Invite{}, nil)
 			},
 			wantStatus: http.StatusCreated,
 		},
@@ -510,7 +511,7 @@ func TestRoutes(t *testing.T) {
 			setup: func(svc *httpapimocks.MockAuthService) {
 				withSession(svc, root)
 				svc.EXPECT().InviteByEmail(mock.Anything, mock.Anything, "new@example.com").
-					Return("inv_code", domain.Invite{ID: "i-1", CreatedBy: root.ID, Email: "new@example.com"}, false, nil)
+					Return(domain.Invite{ID: "i-1", Code: "inv_code", CreatedBy: root.ID, Email: "new@example.com"}, false, nil)
 			},
 			wantStatus: http.StatusCreated,
 			wantBody:   []string{`"code":"inv_code"`, `"email":"new@example.com"`, `"sent":false`},
@@ -520,21 +521,90 @@ func TestRoutes(t *testing.T) {
 			req:  request{method: "POST", path: "/api/v1/admin/invites", headers: cookie, body: `{"email":"bob@example.com"}`},
 			setup: func(svc *httpapimocks.MockAuthService) {
 				withSession(svc, root)
-				svc.EXPECT().InviteByEmail(mock.Anything, mock.Anything, mock.Anything).Return("", domain.Invite{}, false, domain.ErrEmailTaken)
+				svc.EXPECT().InviteByEmail(mock.Anything, mock.Anything, mock.Anything).Return(domain.Invite{}, false, domain.ErrEmailTaken)
 			},
 			wantStatus: http.StatusConflict,
 			wantBody:   []string{`"code":"email_taken"`},
+		},
+		{
+			name: "a typed code, its uses and its end (D371)",
+			req: request{method: "POST", path: "/api/v1/admin/invites", headers: cookie,
+				body: `{"code":"Spring-2026","maxUses":25,"expiresAt":"2026-11-30T00:00:00Z"}`},
+			setup: func(svc *httpapimocks.MockAuthService) {
+				withSession(svc, root)
+				svc.EXPECT().CreateInvite(mock.Anything, mock.Anything, auth.InviteSpec{
+					Code: "Spring-2026", MaxUses: 25, ExpiresAt: time.Date(2026, 11, 30, 0, 0, 0, 0, time.UTC),
+				}).Return(domain.Invite{ID: "i-1", Code: "Spring-2026", MaxUses: 25}, nil)
+			},
+			wantStatus: http.StatusCreated,
+			wantBody:   []string{`"code":"Spring-2026"`, `"maxUses":25`},
+		},
+		{
+			name: "a code another invite has",
+			req:  request{method: "POST", path: "/api/v1/admin/invites", headers: cookie, body: `{"code":"Spring-2026"}`},
+			setup: func(svc *httpapimocks.MockAuthService) {
+				withSession(svc, root)
+				svc.EXPECT().CreateInvite(mock.Anything, mock.Anything, mock.Anything).Return(domain.Invite{}, domain.ErrInviteCodeTaken)
+			},
+			wantStatus: http.StatusConflict,
+			wantBody:   []string{`"code":"invite_code_taken"`},
+		},
+		{
+			name: "a mailed invite takes no code, uses or end",
+			req:  request{method: "POST", path: "/api/v1/admin/invites", headers: cookie, body: `{"email":"new@example.com","maxUses":5}`},
+			setup: func(svc *httpapimocks.MockAuthService) {
+				withSession(svc, root)
+			},
+			wantStatus: http.StatusBadRequest,
+			wantBody:   []string{`"code":"invalid_input"`, `a mailed invite is one use`},
+		},
+		{
+			name: "a typed code checked as the admin types",
+			req:  request{method: "POST", path: "/api/v1/admin/invites/check", headers: cookie, body: `{"code":"short"}`},
+			setup: func(svc *httpapimocks.MockAuthService) {
+				withSession(svc, root)
+				svc.EXPECT().CheckInviteCode(mock.Anything, mock.Anything, "short").Return("A code has 8 to 64 characters.", nil)
+			},
+			wantStatus: http.StatusOK,
+			wantBody:   []string{`{"problem":"A code has 8 to 64 characters."}`},
+		},
+		{
+			name: "a code free to take",
+			req:  request{method: "POST", path: "/api/v1/admin/invites/check", headers: cookie, body: `{"code":"free-code"}`},
+			setup: func(svc *httpapimocks.MockAuthService) {
+				withSession(svc, root)
+				svc.EXPECT().CheckInviteCode(mock.Anything, mock.Anything, "free-code").Return("", nil)
+			},
+			wantStatus: http.StatusOK,
+			wantBody:   []string{`{}`},
+		},
+		{
+			name: "revoke an invite",
+			req:  request{method: "POST", path: "/api/v1/admin/invites/i-1/revoke", headers: cookie},
+			setup: func(svc *httpapimocks.MockAuthService) {
+				withSession(svc, root)
+				svc.EXPECT().RevokeInvite(mock.Anything, mock.Anything, domain.InviteID("i-1")).Return(nil)
+			},
+			wantStatus: http.StatusNoContent,
 		},
 		{
 			name: "the invite list says whether invites can be mailed",
 			req:  request{method: "GET", path: "/api/v1/admin/invites", headers: cookie},
 			setup: func(svc *httpapimocks.MockAuthService) {
 				withSession(svc, root)
-				svc.EXPECT().ListInvites(mock.Anything, mock.Anything).Return([]domain.Invite{{ID: "i-1", Email: "new@example.com"}}, nil)
+				svc.EXPECT().ListInvites(mock.Anything, mock.Anything).Return([]domain.Invite{
+					{ID: "i-1", Email: "new@example.com", MaxUses: 1, Used: 1, Signups: []domain.InviteUse{
+						{UserID: "u-9", Email: "new@example.com", At: time.Date(2026, 10, 20, 9, 0, 0, 0, time.UTC)},
+					}},
+					{ID: "i-2", MaxUses: 5, ExpiresAt: time.Now().Add(time.Hour), RevokedAt: time.Date(2026, 10, 21, 9, 0, 0, 0, time.UTC)},
+				}, nil)
 				svc.EXPECT().InviteEmail().Return(true)
 			},
 			wantStatus: http.StatusOK,
-			wantBody:   []string{`"email":"new@example.com"`, `"byEmail":true`},
+			wantBody: []string{
+				`"email":"new@example.com"`, `"byEmail":true`, `"status":"used"`, `"status":"revoked"`,
+				`"signups":[{"userId":"u-9","email":"new@example.com","at":"2026-10-20T09:00:00Z"}]`,
+			},
 		},
 		{
 			name: "look an invite up",

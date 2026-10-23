@@ -75,10 +75,10 @@ func TestRegister(t *testing.T) {
 			mode: domain.RegistrationInvite,
 			in:   auth.RegisterInput{Email: "Bob@Example.com", Password: goodPass, InviteCode: " inv_code "},
 			setup: func(d deps) {
-				d.invites.EXPECT().ByCode(mock.Anything, sha("inv_code"), now).Return(domain.Invite{ID: "i-1"}, nil)
+				d.invites.EXPECT().ByCode(mock.Anything, [][]byte{sha("inv_code")}, now).Return(domain.Invite{ID: "i-1"}, nil)
 				d.hasher.EXPECT().Hash(goodPass).Return(userHash, nil)
 				d.users.EXPECT().Create(mock.Anything, createdUser, userHash).Return(nil)
-				d.invites.EXPECT().Consume(mock.Anything, sha("inv_code"), mock.Anything, now).Return(nil)
+				d.invites.EXPECT().Consume(mock.Anything, domain.InviteID("i-1"), mock.Anything, now).Return(nil)
 			},
 		},
 		{
@@ -95,10 +95,10 @@ func TestRegister(t *testing.T) {
 			in:   auth.RegisterInput{Email: "Bob@Example.com", Password: goodPass, InviteCode: "inv_used"},
 			setup: func(d deps) {
 				// Free when looked up, taken by someone else by the time it is used.
-				d.invites.EXPECT().ByCode(mock.Anything, sha("inv_used"), now).Return(domain.Invite{ID: "i-1"}, nil)
+				d.invites.EXPECT().ByCode(mock.Anything, [][]byte{sha("inv_used")}, now).Return(domain.Invite{ID: "i-1"}, nil)
 				d.hasher.EXPECT().Hash(goodPass).Return(userHash, nil)
 				d.users.EXPECT().Create(mock.Anything, createdUser, userHash).Return(nil)
-				d.invites.EXPECT().Consume(mock.Anything, sha("inv_used"), mock.Anything, now).Return(domain.ErrInvalidInvite)
+				d.invites.EXPECT().Consume(mock.Anything, domain.InviteID("i-1"), mock.Anything, now).Return(domain.ErrInvalidInvite)
 			},
 			wantErr: domain.ErrInvalidInvite,
 		},
