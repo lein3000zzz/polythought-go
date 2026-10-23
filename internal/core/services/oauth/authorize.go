@@ -65,8 +65,8 @@ func (s *Service) Prepare(ctx context.Context, p auth.Principal, req AuthRequest
 			continue
 		}
 
-		// Live trading and admin start unticked, asked for or not.
-		ticked := sc != domain.ScopeLive && sc != domain.ScopeAdmin &&
+		// Live trading, admin and settings start unticked, asked for or not (D384, D399).
+		ticked := sc != domain.ScopeLive && sc != domain.ScopeAdmin && sc != domain.ScopeSettings &&
 			(len(scopes) == 0 || slices.Contains(scopes, sc))
 		c.Offered = append(c.Offered, Offer{Scope: sc, Ticked: ticked})
 	}

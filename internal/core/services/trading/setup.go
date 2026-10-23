@@ -108,6 +108,11 @@ func (s *Service) SetSetup(ctx context.Context, p auth.Principal, id domain.Work
 		return Setup{}, fmt.Errorf("%w: a mode is paper or live", domain.ErrInvalidInput)
 	}
 
+	// Going live, or changing a live setup, needs live; back to paper, paper (D399).
+	if err := p.Need(c.Mode.Scope()); err != nil {
+		return Setup{}, err
+	}
+
 	if s.d.Trading == nil || s.d.Wallets == nil {
 		return Setup{}, domain.ErrLiveTradingOff
 	}

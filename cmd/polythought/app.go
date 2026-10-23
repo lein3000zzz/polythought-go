@@ -855,7 +855,17 @@ func (a *app) initEngine(ctx context.Context, pmc polymarket) error {
 		workflows.WithWaits(a.waits), workflows.WithFieldChecks(checks),
 		workflows.WithExpressionChecks(checks), workflows.WithCodeAccess(checks), workflows.WithNodeMemory(a.nodeMemory),
 		workflows.WithPluginAccess(checks), workflows.WithPauser(a.notify),
-		workflows.WithRestingOrders(a.trading))
+		workflows.WithRestingOrders(a.trading),
+		// A workflow that places orders needs its mode's scope too (D399).
+		workflows.WithTradeScope(func(ctx context.Context, w domain.Workflow) (domain.Scope, error) {
+			if !nodes.PlacesOrders(a.registry, w) {
+				return "", nil
+			}
+
+			mode, err := a.trading.Mode(ctx, w.ID)
+
+			return mode.Scope(), err
+		}))
 	a.memory = memory.New(a.nodeMemory, a.workflows, a.util.Logger)
 
 	if a.library, err = library.New(postgres.NewTemplates(a.db), a.workflows, a.registry, a.util.Logger,

@@ -584,6 +584,10 @@ func (s *Service) Cancel(ctx context.Context, p auth.Principal, w domain.Workflo
 		return domain.PlacedOrder{}, domain.ErrNotOpen
 	}
 
+	if err := p.Need(o.Mode.Scope()); err != nil {
+		return domain.PlacedOrder{}, err
+	}
+
 	if o.Mode == domain.ModePaper {
 		if err := s.endPaper(ctx, id, domain.OrderCanceled, "cancelled by its owner"); err != nil {
 			return domain.PlacedOrder{}, err

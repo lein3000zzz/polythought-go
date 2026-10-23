@@ -89,8 +89,13 @@ func (s *Service) sendingOf(u domain.UserID) *sending {
 // orders are refused and theirs resting on the book cancelled (D221); off, they trade as
 // before.
 func (s *Service) SetKillSwitch(ctx context.Context, p auth.Principal, on bool) (KillSwitch, error) {
+	// Any scope may stop live trading; only live starts it again (D399).
 	if on {
 		return s.StopLive(ctx, p.User.ID, whyKillSwitch)
+	}
+
+	if err := p.Need(domain.ScopeLive); err != nil {
+		return KillSwitch{}, err
 	}
 
 	if s.d.Users == nil {

@@ -159,7 +159,7 @@ func TestMetadata(t *testing.T) {
 	assert.Equal(t, issuer+"/api/v1/oauth/token", m.TokenEndpoint)
 	assert.Equal(t, issuer+"/api/v1/oauth/register", m.RegistrationEndpoint)
 	assert.Equal(t, issuer+"/api/v1/oauth/revoke", m.RevocationEndpoint)
-	assert.Equal(t, []string{"read", "build", "paper", "live", "admin"}, m.ScopesSupported)
+	assert.Equal(t, []string{"read", "build", "settings", "paper", "live", "admin"}, m.ScopesSupported)
 	assert.Equal(t, []string{"S256"}, m.CodeChallengeMethods)
 	assert.Equal(t, []string{"none"}, m.TokenAuthMethods)
 	assert.True(t, m.ClientIDDocuments)
@@ -353,15 +353,15 @@ func TestPrepare(t *testing.T) {
 		user, admin := f.user("u1", domain.RoleUser), f.user("a1", domain.RoleAdmin)
 
 		assert.Equal(t, []Offer{
-			{domain.ScopeRead, true}, {domain.ScopeBuild, true}, {domain.ScopePaper, true}, {domain.ScopeLive, false},
-		}, offered(user, ""), "everything but live, no admin for a user")
+			{domain.ScopeRead, true}, {domain.ScopeBuild, true}, {domain.ScopeSettings, false}, {domain.ScopePaper, true}, {domain.ScopeLive, false},
+		}, offered(user, ""), "everything but settings and live, no admin for a user")
 
 		assert.Equal(t, []Offer{
-			{domain.ScopeRead, true}, {domain.ScopeBuild, false}, {domain.ScopePaper, false}, {domain.ScopeLive, false},
-		}, offered(user, "read live"), "what it asks for, live never ticked")
+			{domain.ScopeRead, true}, {domain.ScopeBuild, false}, {domain.ScopeSettings, false}, {domain.ScopePaper, false}, {domain.ScopeLive, false},
+		}, offered(user, "read live settings"), "what it asks for, live and settings never ticked")
 
 		assert.Equal(t, []Offer{
-			{domain.ScopeRead, false}, {domain.ScopeBuild, false}, {domain.ScopePaper, false}, {domain.ScopeLive, false}, {domain.ScopeAdmin, false},
+			{domain.ScopeRead, false}, {domain.ScopeBuild, false}, {domain.ScopeSettings, false}, {domain.ScopePaper, false}, {domain.ScopeLive, false}, {domain.ScopeAdmin, false},
 		}, offered(admin, "admin"), "admin offered to an admin, unticked")
 	})
 

@@ -117,6 +117,7 @@ var errorMapping = []struct {
 	{domain.ErrRegistrationClosed, http.StatusForbidden, "registration_closed"},
 	{domain.ErrForbidden, http.StatusForbidden, "forbidden"},
 	{domain.ErrAgentsOff, http.StatusNotFound, "agents_off"},
+	{domain.ErrInsufficientScope, http.StatusForbidden, "insufficient_scope"},
 	{domain.ErrNotFound, http.StatusNotFound, "not_found"},
 	{domain.ErrEmailTaken, http.StatusConflict, "email_taken"},
 	{domain.ErrWalletExists, http.StatusConflict, "wallet_exists"},

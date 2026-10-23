@@ -119,7 +119,7 @@ type tokenDTO struct {
 	LastUsedAt *time.Time `json:"lastUsedAt,omitempty" validate:"optional" format:"date-time"`
 	// Scopes are what it may do (D398); absent, for a token made before scopes, it has
 	// every scope its user's role allows.
-	Scopes []string `json:"scopes,omitempty" validate:"optional" enums:"read,build,paper,live,admin"`
+	Scopes []string `json:"scopes,omitempty" validate:"optional" enums:"read,build,settings,paper,live,admin"`
 	// Token is the secret, present only in the response that creates it.
 	Token string `json:"token,omitempty" validate:"optional"`
 } // @name APIToken
@@ -185,7 +185,7 @@ type createTokenRequest struct {
 	// ExpiresAt left out means the token never expires.
 	ExpiresAt *time.Time `json:"expiresAt" validate:"optional" format:"date-time"`
 	// Scopes are what it may do (D398): at least one; admin for an admin's token only.
-	Scopes []string `json:"scopes" enums:"read,build,paper,live,admin"`
+	Scopes []string `json:"scopes" enums:"read,build,settings,paper,live,admin"`
 } // @name CreateTokenRequest
 
 type createUserRequest struct {

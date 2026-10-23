@@ -386,8 +386,9 @@ func TestAuthenticateTokenScopes(t *testing.T) {
 	assert.False(t, p.Can(domain.ScopeBuild))
 }
 
-// A session has every scope, as has a token made before scopes; a scoped token and an
-// agent have theirs, and an agent with none left has none.
+// A session has every scope, as has the user in their Telegram chat and a token made
+// before scopes; a scoped token and an agent have theirs, each with read, and an agent
+// with none left has none (D399).
 func TestPrincipalCan(t *testing.T) {
 	u := user("u1", domain.RoleUser)
 
@@ -395,15 +396,16 @@ func TestPrincipalCan(t *testing.T) {
 		p    auth.Principal
 		want map[domain.Scope]bool
 	}{
-		"a session":           {sessionPrincipal(u), map[domain.Scope]bool{domain.ScopeRead: true, domain.ScopeLive: true}},
-		"a token from before": {tokenPrincipal(u), map[domain.Scope]bool{domain.ScopeRead: true, domain.ScopeLive: true}},
+		"a session":             {sessionPrincipal(u), map[domain.Scope]bool{domain.ScopeRead: true, domain.ScopeLive: true}},
+		"a token from before":   {tokenPrincipal(u), map[domain.Scope]bool{domain.ScopeRead: true, domain.ScopeLive: true, domain.ScopeSettings: true}},
+		"the user, in Telegram": {auth.Principal{User: u}, map[domain.Scope]bool{domain.ScopePaper: true, domain.ScopeLive: true}},
 		"a scoped token": {
-			auth.Principal{User: u, TokenID: "t", Scopes: []domain.Scope{domain.ScopeRead, domain.ScopePaper}},
-			map[domain.Scope]bool{domain.ScopeRead: true, domain.ScopePaper: true, domain.ScopeLive: false},
+			auth.Principal{User: u, TokenID: "t", Scopes: []domain.Scope{domain.ScopePaper}},
+			map[domain.Scope]bool{domain.ScopeRead: true, domain.ScopePaper: true, domain.ScopeLive: false, domain.ScopeSettings: false},
 		},
 		"an agent": {
 			auth.Principal{User: u, GrantID: "g", Scopes: []domain.Scope{domain.ScopeBuild}},
-			map[domain.Scope]bool{domain.ScopeBuild: true, domain.ScopeRead: false},
+			map[domain.Scope]bool{domain.ScopeBuild: true, domain.ScopeRead: true, domain.ScopePaper: false},
 		},
 		"an agent with none left": {
 			auth.Principal{User: u, GrantID: "g", Scopes: []domain.Scope{}},

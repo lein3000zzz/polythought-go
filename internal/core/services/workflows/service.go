@@ -76,6 +76,7 @@ type Service struct {
 	pauser     Pauser              // optional: without it, owners are not told of pauses
 	memory     NodeMemory          // optional: without it, removed nodes' memory waits to expire
 	orders     RestingOrders       // optional: without it, live resting orders outlive their workflow
+	tradeScope TradeScope          // optional: without it, a workflow's orders need no scope of their own
 	limits     func() Limits
 	log        logging.Logger
 	now        func() time.Time
@@ -155,6 +156,31 @@ type RestingOrders interface {
 	CancelResting(ctx context.Context, w domain.WorkflowID, why string) (int, error)
 }
 
+// TradeScope is the scope a workflow's orders need, by the mode it trades in (D399): none
+// for a workflow that places no orders.
+type TradeScope func(ctx context.Context, w domain.Workflow) (domain.Scope, error)
+
+// WithTradeScope holds tokens and agents to their scopes for a workflow's orders: saving,
+// switching on or running one that places orders needs paper, or live where it trades
+// live.
+func WithTradeScope(f TradeScope) Option {
+	return func(s *Service) { s.tradeScope = f }
+}
+
+// mayTrade is nil when the principal may have the workflow place its orders.
+func (s *Service) mayTrade(ctx context.Context, p auth.Principal, w domain.Workflow) error {
+	if s.tradeScope == nil {
+		return nil
+	}
+
+	sc, err := s.tradeScope(ctx, w)
+	if err != nil || sc == "" {
+		return err
+	}
+
+	return p.Need(sc)
+}
+
 // WithRestingOrders cancels a workflow's live resting orders when it is deleted, and when
 // it is switched off and its owner asks.
 func WithRestingOrders(o RestingOrders) Option {
@@ -228,6 +254,10 @@ func (s *Service) Create(ctx context.Context, p auth.Principal, def Definition) 
 		return domain.Workflow{}, err
 	}
 
+	if err := s.mayTrade(ctx, p, w); err != nil {
+		return domain.Workflow{}, err
+	}
+
 	if err := s.repo.Create(ctx, w); err != nil {
 		return domain.Workflow{}, err
 	}
@@ -258,6 +288,10 @@ func (s *Service) Update(ctx context.Context, p auth.Principal, id domain.Workfl
 	}
 
 	if err := s.apply(ctx, &w, def); err != nil {
+		return domain.Workflow{}, err
+	}
+
+	if err := s.mayTrade(ctx, p, w); err != nil {
 		return domain.Workflow{}, err
 	}
 
@@ -332,6 +366,10 @@ func (s *Service) Activate(ctx context.Context, p auth.Principal, id domain.Work
 
 	// Node types may have changed since the workflow was saved.
 	if err := s.validator.Validate(ctx, w); err != nil {
+		return domain.Workflow{}, err
+	}
+
+	if err := s.mayTrade(ctx, p, w); err != nil {
 		return domain.Workflow{}, err
 	}
 
@@ -491,6 +529,10 @@ func (s *Service) Run(ctx context.Context, p auth.Principal, id domain.WorkflowI
 
 	// A run that no longer holds is recorded as failed; by hand, say what to fix instead.
 	if err := s.validator.Validate(ctx, w); err != nil {
+		return domain.Execution{}, err
+	}
+
+	if err := s.mayTrade(ctx, p, w); err != nil {
 		return domain.Execution{}, err
 	}
 

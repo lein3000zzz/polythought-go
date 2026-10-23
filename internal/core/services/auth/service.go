@@ -207,15 +207,38 @@ type Principal struct {
 
 func (p Principal) ViaSession() bool { return p.SessionID != "" }
 
-// Can says the principal's scopes allow scope: a session has every scope, as has a token
-// made before scopes; an agent has those its user allowed it. Whether the user's role
-// allows it is the services' to say.
+// Can says the principal's scopes allow scope (D398, D399). Scopes limit tokens and
+// agents: the user themself, at a browser or in their Telegram chat, has every scope, as
+// has a token made before scopes. Every scope brings read, so an agent with none left has
+// none. Whether the user's role allows it is the services' to say.
 func (p Principal) Can(scope domain.Scope) bool {
-	if p.ViaSession() || (p.TokenID != "" && p.Scopes == nil) {
+	switch {
+	case p.TokenID == "" && p.GrantID == "":
 		return true
+	case p.TokenID != "" && p.Scopes == nil:
+		return true
+	case scope == domain.ScopeRead:
+		return len(p.Scopes) > 0
 	}
 
 	return slices.Contains(p.Scopes, scope)
+}
+
+// Need is nil when the principal's scopes allow one of scopes, and says which it lacks
+// otherwise.
+func (p Principal) Need(scopes ...domain.Scope) error {
+	for _, sc := range scopes {
+		if p.Can(sc) {
+			return nil
+		}
+	}
+
+	names := make([]string, len(scopes))
+	for i, sc := range scopes {
+		names[i] = string(sc)
+	}
+
+	return fmt.Errorf("%w: it needs the %s scope", domain.ErrInsufficientScope, strings.Join(names, " or "))
 }
 
 // now is UTC at the database's microsecond precision, so values the service returns

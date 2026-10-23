@@ -17,6 +17,15 @@ const (
 	ModeLive  TradingMode = "live"
 )
 
+// Scope is what a token or an agent needs to trade in the mode (D399).
+func (m TradingMode) Scope() Scope {
+	if m == ModeLive {
+		return ScopeLive
+	}
+
+	return ScopePaper
+}
+
 // OrderType is how long an order may wait for the book.
 type OrderType string
 

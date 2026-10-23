@@ -13,6 +13,10 @@ import (
 // sign-in are not there.
 var ErrAgentsOff = errors.New("agents over MCP are off on this instance")
 
+// ErrInsufficientScope means a token or an agent may not do that: it lacks the scope
+// (D398, D399).
+var ErrInsufficientScope = errors.New("this token may not do that")
+
 type OAuthClientKind string
 
 const (
@@ -34,19 +38,22 @@ type OAuthClient struct {
 	FetchedAt    time.Time // a document's, when it was last fetched
 }
 
-// Scope is what a grant lets an agent do (D384).
+// Scope is what a grant or an API token lets its holder do (D384, D398, D399).
 type Scope string
 
 const (
 	ScopeRead  Scope = "read"
 	ScopeBuild Scope = "build"
-	ScopePaper Scope = "paper"
-	ScopeLive  Scope = "live"
-	ScopeAdmin Scope = "admin"
+	// ScopeSettings is the account's own settings: notifications, Telegram, connected
+	// agents (D399).
+	ScopeSettings Scope = "settings"
+	ScopePaper    Scope = "paper"
+	ScopeLive     Scope = "live"
+	ScopeAdmin    Scope = "admin"
 )
 
 // Scopes are every scope, in the order the consent page lists them.
-var Scopes = []Scope{ScopeRead, ScopeBuild, ScopePaper, ScopeLive, ScopeAdmin}
+var Scopes = []Scope{ScopeRead, ScopeBuild, ScopeSettings, ScopePaper, ScopeLive, ScopeAdmin}
 
 func (s Scope) Valid() bool { return slices.Contains(Scopes, s) }
 

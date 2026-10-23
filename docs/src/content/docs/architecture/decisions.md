@@ -86,7 +86,8 @@ still work, marked as unverified.
 **The MCP server is inside the API server.** `/mcp` is the official Go SDK's server, mounted
 beside the API, not a service of its own: an agent then reaches what a user does through the
 same services and the same checks, and there is nothing more to deploy. API tokens work there
-too, with scopes chosen as they are made, so a script given only read can only read there.
+too, with scopes chosen as they are made, and hold everywhere, so a script given only read
+can only read.
 
 ## Plugins
 

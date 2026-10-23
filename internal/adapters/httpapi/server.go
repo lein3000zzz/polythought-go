@@ -325,7 +325,7 @@ func (s *Server) Shutdown(ctx context.Context) error {
 func (s *Server) routes() {
 	h := s.hertz
 
-	h.Use(s.limitBody(s.maxBody), s.observe, s.authenticate, s.checkOrigin)
+	h.Use(s.limitBody(s.maxBody), s.observe, s.authenticate, s.checkOrigin, s.checkScope)
 	h.NoRoute(func(ctx context.Context, c *app.RequestContext) { s.fail(ctx, c, domain.ErrNotFound) })
 
 	h.GET("/healthz", s.health)

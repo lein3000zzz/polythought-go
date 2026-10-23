@@ -30,6 +30,7 @@
                             "enum": [
                                 "read",
                                 "build",
+                                "settings",
                                 "paper",
                                 "live",
                                 "admin"
@@ -643,6 +644,7 @@
                             "enum": [
                                 "read",
                                 "build",
+                                "settings",
                                 "paper",
                                 "live",
                                 "admin"
@@ -2537,6 +2539,7 @@
                         "enum": [
                             "read",
                             "build",
+                            "settings",
                             "paper",
                             "live",
                             "admin"

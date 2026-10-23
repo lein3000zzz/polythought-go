@@ -336,10 +336,10 @@ func TestOAuthDecisionRoutes(t *testing.T) {
 		assert.JSONEq(t, `{"redirect": "http://127.0.0.1:4000/cb?code=c&state=st"}`, w.Body.String())
 	})
 
+	// A token is refused before the service is asked (D383, D399).
 	t.Run("not at a browser", func(t *testing.T) {
-		srv, authSvc, svc := oauthServer(t)
+		srv, authSvc, _ := oauthServer(t)
 		withToken(authSvc, alice)
-		svc.EXPECT().Approve(mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return("", domain.ErrForbidden)
 
 		w := request{method: http.MethodPost, path: "/api/v1/oauth/authorization/approve", body: `{"request": ` + authRequestJSON + `, "scopes": ["read"]}`, headers: bearer}.do(t, srv)
 		assert.Equal(t, http.StatusForbidden, w.Code)

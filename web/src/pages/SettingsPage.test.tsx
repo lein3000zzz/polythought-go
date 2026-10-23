@@ -96,6 +96,7 @@ describe('settings page', () => {
     // Read, build and paper to start with; live by hand; admin only for admins (D398).
     expect(screen.getByRole('checkbox', { name: 'Read' })).toBeChecked()
     expect(screen.getByRole('checkbox', { name: 'Trade live' })).not.toBeChecked()
+    expect(screen.getByRole('checkbox', { name: 'Change settings' })).not.toBeChecked() // D399
     expect(screen.queryByRole('checkbox', { name: 'Admin' })).not.toBeInTheDocument()
     await user.click(screen.getByRole('checkbox', { name: 'Build' }))
     await user.click(screen.getByRole('checkbox', { name: 'Trade live' }))

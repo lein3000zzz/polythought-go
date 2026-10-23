@@ -30,8 +30,9 @@ import { jumpId } from './pages'
 type TokenForm = { name: string; expires: string }
 type Scope = Schemas['CreateTokenRequest']['scopes'][number]
 
-const scopes: Scope[] = ['read', 'build', 'paper', 'live', 'admin']
-// What a new token may do to start with (D398): live trading and admin are ticked by hand.
+const scopes: Scope[] = ['read', 'build', 'settings', 'paper', 'live', 'admin']
+// What a new token may do to start with (D398, D399): settings, live trading and admin are
+// ticked by hand.
 const firstTicked: Scope[] = ['read', 'build', 'paper']
 
 export function TokensSection() {
@@ -62,10 +63,9 @@ export function TokensSection() {
           For scripts, tools and agents: send{' '}
           <code className="font-mono text-xs">Authorization: Bearer pt_…</code> with requests to{' '}
           <code className="font-mono text-xs">/api/v1</code>, or to{' '}
-          <code className="font-mono text-xs">/mcp</code> from an agent. Over MCP a token may do
-          only what its scopes allow; on <code className="font-mono text-xs">/api/v1</code>, for
-          now, what you can. Either way it cannot change your password, create or revoke tokens, or
-          store wallet credentials.
+          <code className="font-mono text-xs">/mcp</code> from an agent. A token may do only what
+          its scopes allow, there and over MCP alike, and never change your password, create or
+          revoke tokens, store wallet credentials or allow an agent.
         </p>
       </div>
 

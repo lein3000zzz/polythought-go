@@ -1,4 +1,7 @@
-/** What each scope lets an agent do (D384), as the consent page and Settings say it. */
+/**
+ * What each scope lets an agent or a token do (D384, D399), as the consent page and Settings
+ * say it. Every scope brings read: what it may change, it may see.
+ */
 export const scopeInfo: Record<string, { title: string; detail: string; risky?: boolean }> = {
   read: {
     title: 'Read',
@@ -9,6 +12,11 @@ export const scopeInfo: Record<string, { title: string; detail: string; risky?: 
     title: 'Build',
     detail:
       'Create, edit, check and run workflows and code nodes, switch them on and off, and answer runs that wait.',
+  },
+  settings: {
+    title: 'Change settings',
+    detail:
+      'Your notifications, linking Telegram, whether the kill switch stops your agents, and the agents connected.',
   },
   paper: {
     title: 'Trade on paper',

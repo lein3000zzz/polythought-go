@@ -34,8 +34,13 @@ A session is a random 256-bit token, kept only as its hash, in an HttpOnly, Same
 cookie, Secure and named `__Host-` over https, so a sibling subdomain cannot set it. Sessions
 end after 7 idle days or 30 in all. API tokens are the same kind of secret, sent as a Bearer
 header, with the scopes chosen as they were made, as agents' grants have them; a token made
-before scopes has them all. Over MCP a token does only what its scopes allow; on `/api/v1`,
-for now, what its user can. Neither ever does what needs a person at a browser: changing the
+before scopes has them all. A token does only what its scopes allow, on `/api/v1` and over
+MCP alike: read; build, workflows, nodes and credentials; settings, the account's own;
+paper; live; admin, for an admin. Every scope brings read. Paper and live are told apart
+inside a route: setting a workflow live, or saving, switching on or running one that trades
+live, needs live, as does turning the kill switch off; any token may turn it on. Every route
+of the API that changes something names its scope, and one that names none takes no token.
+Neither a token nor an agent ever does what needs a person at a browser: changing the
 password, making or revoking tokens, storing wallet credentials, importing a private key,
 approving session keys or a wallet's approvals, or allowing an agent.
 
