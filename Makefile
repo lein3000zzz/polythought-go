@@ -7,6 +7,7 @@ PNPM          ?= COREPACK_ENABLE_DOWNLOAD_PROMPT=0 corepack pnpm
 
 INTEGRATION_TAG := integration
 DB_TAG          := db
+E2E_TAG         := e2e
 COVER_PROFILE   := coverage.out
 # deployments/docker-compose.override.yml, a machine's own and not committed, joins when it is there.
 COMPOSE         := docker compose -f deployments/docker-compose.yml $(addprefix -f ,$(wildcard deployments/docker-compose.override.yml))
@@ -63,14 +64,15 @@ fmt-check: ## Fail if any file needs formatting
 	@out="$$(gofmt -l .)"; if [ -n "$$out" ]; then echo "needs gofmt:"; echo "$$out"; exit 1; fi
 
 .PHONY: vet
-vet: ## Vet unit, integration and database test code
+vet: ## Vet unit, integration, database and e2e test code
 	$(GO) vet ./...
 	$(GO) vet -tags $(INTEGRATION_TAG) ./...
 	$(GO) vet -tags $(DB_TAG) ./...
+	$(GO) vet -tags $(E2E_TAG) ./...
 
 .PHONY: lint
-lint: ## Run golangci-lint (unit, integration and database test code)
-	$(GOLANGCI_LINT) run --build-tags $(INTEGRATION_TAG),$(DB_TAG) ./...
+lint: ## Run golangci-lint (unit, integration, database and e2e test code)
+	$(GOLANGCI_LINT) run --build-tags $(INTEGRATION_TAG),$(DB_TAG),$(E2E_TAG) ./...
 
 ## Tests
 
@@ -254,7 +256,7 @@ docs-gen: ## Regenerate the docs' reference pages from the code (a test fails wh
 	$(GO) run ./tools/docgen
 
 .PHONY: e2e
-e2e: ## Browser tests against a throwaway stack in Docker (UI on :3100, removed afterwards)
+e2e: ## Browser and agent tests against a throwaway stack in Docker (UI on :3100, removed afterwards)
 	$(PNPM) --dir web exec playwright install --only-shell chromium
 	@# The host's test plugin, for the containers' platform, to install (5c2).
 	$(GO) run ./tools/pluginpack -o web/e2e/.plugins/echo.tar.gz -platforms linux_amd64,linux_arm64 \
@@ -262,14 +264,19 @@ e2e: ## Browser tests against a throwaway stack in Docker (UI on :3100, removed 
 	@# And the example plugin, as an admin installs it (5f).
 	$(GO) run ./tools/pluginpack -o web/e2e/.plugins/movers.tar.gz -platforms linux_amd64,linux_arm64 \
 		./examples/plugins/movers
+	@# An agent through the Go SDK's client first (D398), then the browser tests; E2E_ONLY=go
+	@# runs the agent's alone, E2E_ONLY=<spec> one browser spec.
 	@set -e; \
 	export POLYTHOUGHT_SECRET_KEYS="e2e:$$(openssl rand -base64 32)" \
 		POLYTHOUGHT_ADMIN_EMAIL=admin@e2e.test POLYTHOUGHT_ADMIN_PASSWORD=e2e-admin-password \
 		POLYTHOUGHT_REGISTRATION=invite; \
 	trap '$(E2E_COMPOSE) down -v --remove-orphans >/dev/null 2>&1' EXIT; \
 	$(E2E_COMPOSE) up -d --build --wait; \
-	E2E_ADMIN_EMAIL=$$POLYTHOUGHT_ADMIN_EMAIL E2E_ADMIN_PASSWORD=$$POLYTHOUGHT_ADMIN_PASSWORD \
-		$(PNPM) --dir web exec playwright test $(E2E_ONLY)
+	export E2E_ADMIN_EMAIL=$$POLYTHOUGHT_ADMIN_EMAIL E2E_ADMIN_PASSWORD=$$POLYTHOUGHT_ADMIN_PASSWORD; \
+	if [ -z "$(E2E_ONLY)" ] || [ "$(E2E_ONLY)" = go ]; then \
+		E2E_BASE_URL=http://localhost:3100 $(GO) test -tags $(E2E_TAG) -count=1 ./internal/e2e/...; \
+	fi; \
+	if [ "$(E2E_ONLY)" != go ]; then $(PNPM) --dir web exec playwright test $(E2E_ONLY); fi
 
 ## Aggregates
 

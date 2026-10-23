@@ -68,10 +68,19 @@ const (
 
 	// Agent spend caps a month, for every user unless an admin gives them their own
 	// (D271): dollars to the cent, as providers report them, and tokens; 0 is no cap.
-	KeyAgentDollars        = "agents.max_dollars_month"
-	KeyAgentInput          = "agents.max_input_month"
-	KeyAgentOutput         = "agents.max_output_month"
-	KeyAgentTotal          = "agents.max_total_month"
+	KeyAgentDollars = "agents.max_dollars_month"
+	KeyAgentInput   = "agents.max_input_month"
+	KeyAgentOutput  = "agents.max_output_month"
+	KeyAgentTotal   = "agents.max_total_month"
+
+	// Agents over MCP (D398): agents such as Claude Code, signed in with OAuth.
+	KeyMCPEnabled          = "mcp.enabled"
+	KeyMCPRegistration     = "mcp.registration"
+	KeyMCPPrivateDocuments = "mcp.private_documents"
+	KeyMCPSkipConsent      = "mcp.skip_consent"
+	KeyMCPAccessTTL        = "mcp.access_ttl"
+	KeyMCPRefreshTTL       = "mcp.refresh_ttl"
+
 	KeyTrustedProxies      = "http.trusted_proxies"
 	KeyWebhookAllowPrivate = "webhook.allow_private"
 	KeyGitHubStars         = "github.stars"
@@ -126,6 +135,7 @@ const (
 	groupPlugins    = "Plugins"
 	groupTrading    = "Trading"
 	groupAgents     = "AI agents"
+	groupMCP        = "Agents over MCP"
 	groupNetwork    = "Network"
 	groupLogging    = "Logging"
 	groupTelegram   = "Telegram"
@@ -394,6 +404,45 @@ func Settings() (*settings.Registry, error) {
 			Key: KeyAgentTotal, Group: groupAgents, Label: "Max tokens a month",
 			Description: "The most tokens a user's AI agent nodes may take in a calendar month, UTC, input and output together. A call that could go over is refused before it is made. 0 for no cap.",
 			Kind:        settings.KindInt, Default: 20_000_000, Check: between(0, maxTokensMonth),
+		},
+		settings.Spec{
+			Key: KeyMCPEnabled, Group: groupMCP, Label: "Agents over MCP",
+			Description: "Let users connect agents such as Claude Code and Codex: an agent signs in through its user's browser, " +
+				"where they allow it scopes, then works at /mcp. Off, /mcp and agents' sign-in are not there, and agents " +
+				"already connected stop until it is on again; their grants stay, to revoke on Settings.",
+			Kind: settings.KindBool, Default: true,
+		},
+		settings.Spec{
+			Key: KeyMCPRegistration, Group: groupMCP, Label: "Agents register themselves",
+			Description: "Let an agent with no metadata document of its own register itself, naming itself, as older agents " +
+				"do; the consent page marks it unverified. Off, only agents whose metadata document is at an https address " +
+				"can sign in. Agents registered before keep working.",
+			Kind: settings.KindBool, Default: true,
+		},
+		settings.Spec{
+			Key: KeyMCPPrivateDocuments, Group: groupMCP, Label: "Documents at private addresses",
+			Description: "Fetch agents' metadata documents from addresses inside the server's network too, for an agent " +
+				"published there. Leave off on a shared instance: any signed-in user could have the server fetch one. " +
+				"Agents on a private network can register themselves instead.",
+			Kind: settings.KindBool, Default: false,
+		},
+		settings.Spec{
+			Key: KeyMCPSkipConsent, Group: groupMCP, Label: "Let allowed agents through",
+			Description: "An agent asking for no more than its user allowed it before gets in without the consent page " +
+				"asking again, as when it starts on another of their machines. Off, the page asks every time.",
+			Kind: settings.KindBool, Default: true,
+		},
+		settings.Spec{
+			Key: KeyMCPAccessTTL, Group: groupMCP, Label: "Access token lifetime",
+			Description: "How long an agent's access token works before it refreshes it. Revoking an agent stops it at once " +
+				"whatever this is. Applies to tokens given from now.",
+			Kind: settings.KindDuration, Default: time.Hour, Check: within(5*time.Minute, 24*time.Hour),
+		},
+		settings.Spec{
+			Key: KeyMCPRefreshTTL, Group: groupMCP, Label: "Refresh token lifetime",
+			Description: "How long an agent may go unused before its user signs it in again: each refresh gives it a new " +
+				"refresh token, lasting this long. Applies to tokens given from now.",
+			Kind: settings.KindDuration, Default: 30 * 24 * time.Hour, Check: within(time.Hour, 365*24*time.Hour),
 		},
 		settings.Spec{
 			Key: KeyTrustedProxies, Group: groupNetwork, Label: "Trusted proxies",

@@ -233,6 +233,22 @@ func TestAPITokens(t *testing.T) {
 			require.NoError(t, err)
 			assert.Equal(t, []domain.APIToken{tok}, list)
 		}},
+		// A token's scopes are kept; one made before scopes has none kept, every scope (D398).
+		{"scopes", func(t *testing.T, db *postgres.DB, tokens *postgres.APITokens) {
+			u := seedUser(t, db, "a@x.io", domain.RoleUser)
+			scoped := domain.APIToken{ID: domain.APITokenID(newID()), UserID: u.ID, Name: "agent", Prefix: "pt_s", CreatedAt: at, Scopes: []domain.Scope{domain.ScopeRead, domain.ScopePaper}}
+			before := domain.APIToken{ID: domain.APITokenID(newID()), UserID: u.ID, Name: "old", Prefix: "pt_o", CreatedAt: at}
+			require.NoError(t, tokens.Create(ctx, scoped, []byte("s")))
+			require.NoError(t, tokens.Create(ctx, before, []byte("o")))
+
+			got, err := tokens.ByTokenHash(ctx, []byte("s"))
+			require.NoError(t, err)
+			assert.Equal(t, []domain.Scope{domain.ScopeRead, domain.ScopePaper}, got.Scopes)
+
+			got, err = tokens.ByTokenHash(ctx, []byte("o"))
+			require.NoError(t, err)
+			assert.Nil(t, got.Scopes)
+		}},
 		{"delete is scoped to the owner", func(t *testing.T, db *postgres.DB, tokens *postgres.APITokens) {
 			owner := seedUser(t, db, "a@x.io", domain.RoleUser)
 			stranger := seedUser(t, db, "b@x.io", domain.RoleUser)

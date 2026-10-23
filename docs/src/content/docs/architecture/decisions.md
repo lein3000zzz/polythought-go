@@ -83,6 +83,11 @@ use is looked up, so revoking one stops it at once. Agents that describe themsel
 metadata document at an https address are shown as verified; those that register themselves
 still work, marked as unverified.
 
+**The MCP server is inside the API server.** `/mcp` is the official Go SDK's server, mounted
+beside the API, not a service of its own: an agent then reaches what a user does through the
+same services and the same checks, and there is nothing more to deploy. API tokens work there
+too, with scopes chosen as they are made, so a script given only read can only read there.
+
 ## Plugins
 
 **Plugins are processes, not libraries.** A Go plugin loaded into the server could do anything

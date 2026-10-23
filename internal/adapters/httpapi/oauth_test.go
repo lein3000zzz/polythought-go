@@ -1,11 +1,13 @@
 package httpapi_test
 
 import (
+	"bufio"
 	"bytes"
 	"encoding/json"
 	"errors"
 	"net/http"
 	"net/url"
+	"strings"
 	"testing"
 	"time"
 
@@ -53,6 +55,7 @@ var agentHeaders = map[string]string{origin: "https://elsewhere.example", "Autho
 
 func TestOAuthMetadataRoute(t *testing.T) {
 	srv, _, svc := oauthServer(t)
+	svc.EXPECT().Enabled().Return(true)
 	svc.EXPECT().Metadata().Return(oauth.Metadata{Issuer: publicURL, TokenEndpoint: publicURL + "/api/v1/oauth/token"})
 
 	w := request{method: http.MethodGet, path: "/.well-known/oauth-authorization-server", headers: agentHeaders}.do(t, srv)
@@ -66,6 +69,98 @@ func TestOAuthMetadataRoute(t *testing.T) {
 	assert.Equal(t, publicURL+"/api/v1/oauth/token", got["token_endpoint"])
 }
 
+// /mcp's metadata (RFC 9728), where agents look for it: the path from /mcp, and the root.
+func TestResourceMetadataRoute(t *testing.T) {
+	for _, path := range []string{"/.well-known/oauth-protected-resource/mcp", "/.well-known/oauth-protected-resource"} {
+		srv, _, svc := oauthServer(t)
+		svc.EXPECT().Enabled().Return(true)
+		svc.EXPECT().ResourceMetadata().Return(oauth.ResourceMetadata{
+			Resource: publicURL + "/mcp", AuthorizationServers: []string{publicURL}, ScopesSupported: []string{"read"},
+			BearerMethodsSupported: []string{"header"}, ResourceName: "Polythought", ResourceDocumentation: publicURL + "/docs/",
+		})
+
+		w := request{method: http.MethodGet, path: path, headers: agentHeaders}.do(t, srv)
+
+		require.Equal(t, http.StatusOK, w.Code, path)
+		assert.JSONEq(t, `{
+			"resource": "https://app.example/mcp", "authorization_servers": ["https://app.example"], "scopes_supported": ["read"],
+			"bearer_methods_supported": ["header"], "resource_name": "Polythought", "resource_documentation": "https://app.example/docs/"
+		}`, w.Body.String(), path)
+	}
+}
+
+// Switched off (D398), agents' endpoints are not there.
+func TestAgentsOffRoutes(t *testing.T) {
+	for _, path := range []string{"/.well-known/oauth-authorization-server", "/.well-known/oauth-protected-resource/mcp"} {
+		srv, _, svc := oauthServer(t)
+		svc.EXPECT().Enabled().Return(false)
+
+		w := request{method: http.MethodGet, path: path}.do(t, srv)
+
+		assert.Equal(t, http.StatusNotFound, w.Code, path)
+		assert.Contains(t, w.Body.String(), `"agents_off"`, path)
+	}
+
+	srv, _, svc := oauthServer(t)
+	svc.EXPECT().Token(mock.Anything, mock.Anything).Return(oauth.Tokens{}, domain.ErrAgentsOff)
+
+	w := postForm(t, srv, "/api/v1/oauth/token", url.Values{"grant_type": {"refresh_token"}}, nil)
+
+	assert.Equal(t, http.StatusNotFound, w.Code)
+	assert.JSONEq(t, `{"error": "agents_off", "error_description": "agents over MCP are off on this instance"}`, w.Body.String())
+}
+
+// /mcp is the SDK's: it gets the request as it came, an agent's token and all, which the
+// session check would refuse, and from another site, which the origin check would; and
+// what it writes streams, each event as it is flushed. (A real server: the SDK writes to
+// the connection itself.)
+func TestMCPRoute(t *testing.T) {
+	read := make(chan struct{})
+
+	mcp := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Header.Get("Authorization") != "Bearer poa_agent" || r.Header.Get("Origin") != "https://elsewhere.example" {
+			http.Error(w, "not as it came", http.StatusTeapot)
+			return
+		}
+
+		w.Header().Set("Content-Type", "text/event-stream")
+		_, _ = w.Write([]byte("data: " + r.Method + "\n\n"))
+		w.(http.Flusher).Flush()
+
+		select {
+		case <-read: // the client has the first event before the second is written
+		case <-time.After(5 * time.Second):
+		}
+
+		_, _ = w.Write([]byte("data: done\n\n"))
+	})
+
+	base, _ := startServer(t, httpapi.Services{Auth: httpapimocks.NewMockAuthService(t), MCP: mcp}) // no session asked
+
+	for _, method := range []string{http.MethodPost, http.MethodGet, http.MethodDelete} {
+		req, err := http.NewRequest(method, base+"/mcp", strings.NewReader(`{"jsonrpc":"2.0","id":1,"method":"ping"}`))
+		require.NoError(t, err)
+		req.Header.Set("Authorization", "Bearer poa_agent")
+		req.Header.Set("Origin", "https://elsewhere.example")
+
+		res, err := client.Do(req)
+		require.NoError(t, err)
+
+		require.Equal(t, http.StatusOK, res.StatusCode, method)
+		r := bufio.NewReader(res.Body)
+		assert.Equal(t, []string{"data: " + method}, nextEvent(t, r), "streamed, %s", method)
+		read <- struct{}{}
+		assert.Equal(t, []string{"data: done"}, nextEvent(t, r))
+		_ = res.Body.Close()
+	}
+}
+
+// With no MCP server, there is no /mcp.
+func TestNoMCP(t *testing.T) {
+	w := request{method: http.MethodPost, path: "/mcp"}.do(t, newServer(t, httpapimocks.NewMockAuthService(t)))
+	assert.Equal(t, http.StatusNotFound, w.Code)
+}
+
 func TestOAuthRegisterRoute(t *testing.T) {
 	const body = `{"client_name": "Agent", "redirect_uris": ["http://127.0.0.1/cb"], "grant_types": ["authorization_code"]}`
 
@@ -75,7 +170,10 @@ func TestOAuthRegisterRoute(t *testing.T) {
 			ClientName: "Agent", RedirectURIs: []string{"http://127.0.0.1/cb"}, GrantTypes: []string{"authorization_code"},
 		}, mock.Anything).Return(domain.OAuthClient{ID: "pc_1", Name: "Agent", RedirectURIs: []string{"http://127.0.0.1/cb"}, CreatedAt: created}, nil)
 
-		w := request{method: http.MethodPost, path: "/api/v1/oauth/register", body: body, headers: agentHeaders}.do(t, srv)
+		// Clients send metadata the server does not know: it is ignored (RFC 7591 2).
+		withMore := strings.Replace(body, `{`, `{"application_type": "native", "scope": "read build", "logo_uri": "https://a.example/l.png", "software_id": "x", `, 1)
+
+		w := request{method: http.MethodPost, path: "/api/v1/oauth/register", body: withMore, headers: agentHeaders}.do(t, srv)
 
 		require.Equal(t, http.StatusCreated, w.Code, w.Body.String())
 		assert.JSONEq(t, `{

@@ -1,12 +1,17 @@
 package domain
 
 import (
+	"errors"
 	"slices"
 	"time"
 )
 
 // Agents sign in with OAuth 2.1 (D382, D397): a client is the agent's program, a grant is
 // what a user allowed it, and its tokens act within that.
+
+// ErrAgentsOff means an admin has switched agents over MCP off (D398): /mcp and agents'
+// sign-in are not there.
+var ErrAgentsOff = errors.New("agents over MCP are off on this instance")
 
 type OAuthClientKind string
 

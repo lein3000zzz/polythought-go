@@ -92,11 +92,25 @@ describe('settings page', () => {
     const { user } = renderApp('/settings/tokens')
 
     await user.type(await screen.findByLabelText('Name'), 'backtest')
+
+    // Read, build and paper to start with; live by hand; admin only for admins (D398).
+    expect(screen.getByRole('checkbox', { name: 'Read' })).toBeChecked()
+    expect(screen.getByRole('checkbox', { name: 'Trade live' })).not.toBeChecked()
+    expect(screen.queryByRole('checkbox', { name: 'Admin' })).not.toBeInTheDocument()
+    await user.click(screen.getByRole('checkbox', { name: 'Build' }))
+    await user.click(screen.getByRole('checkbox', { name: 'Trade live' }))
     await user.click(screen.getByRole('button', { name: 'Create token' }))
 
     expect(await screen.findByText('pt_abc_the_whole_secret')).toBeInTheDocument()
-    expect(created).toEqual({ name: 'backtest' })
+    expect(created).toEqual({ name: 'backtest', scopes: ['read', 'paper', 'live'] })
     expect(await screen.findByText('pt_abc…')).toBeInTheDocument()
+    expect(screen.getByText('pt_abc…').closest('tr')).toHaveTextContent('All') // made before scopes
+    expect(screen.getByRole('checkbox', { name: 'Build' })).toBeChecked() // as it starts again
+
+    for (const name of ['Read', 'Build', 'Trade on paper']) {
+      await user.click(screen.getByRole('checkbox', { name }))
+    }
+    expect(screen.getByRole('button', { name: 'Create token' })).toBeDisabled()
 
     await user.click(screen.getByRole('button', { name: 'Done' }))
     expect(screen.queryByText('pt_abc_the_whole_secret')).not.toBeInTheDocument()

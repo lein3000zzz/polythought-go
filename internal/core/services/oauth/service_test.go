@@ -48,6 +48,7 @@ type fixture struct {
 	users   *portsmocks.MockUserRepository
 	limiter *limiter
 	at      time.Time
+	policy  Policy
 }
 
 func newFixture(t *testing.T) *fixture {
@@ -55,10 +56,11 @@ func newFixture(t *testing.T) *fixture {
 
 	f := &fixture{
 		repo: newFakeRepo(), docs: portsmocks.NewMockClientDocuments(t), users: portsmocks.NewMockUserRepository(t),
-		limiter: &limiter{}, at: start,
+		limiter: &limiter{}, at: start, policy: DefaultPolicy(),
 	}
 
-	f.s = New(Config{Issuer: issuer + "/", Resource: resource}, f.repo, f.docs, f.users, f.limiter, logging.Noop())
+	f.s = New(Config{Issuer: issuer + "/", Resource: resource}, f.repo, f.docs, f.users, f.limiter, logging.Noop(),
+		WithPolicy(func() Policy { return f.policy }))
 	f.s.now = func() time.Time { return f.at }
 
 	return f

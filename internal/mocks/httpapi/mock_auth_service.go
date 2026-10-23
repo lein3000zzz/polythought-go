@@ -509,8 +509,8 @@ func (_c *MockAuthService_ConfirmJoin_Call) RunAndReturn(run func(ctx context.Co
 }
 
 // CreateAPIToken provides a mock function for the type MockAuthService
-func (_mock *MockAuthService) CreateAPIToken(ctx context.Context, p auth.Principal, name string, expiresAt time.Time) (string, domain.APIToken, error) {
-	ret := _mock.Called(ctx, p, name, expiresAt)
+func (_mock *MockAuthService) CreateAPIToken(ctx context.Context, p auth.Principal, name string, expiresAt time.Time, scopes []domain.Scope) (string, domain.APIToken, error) {
+	ret := _mock.Called(ctx, p, name, expiresAt, scopes)
 
 	if len(ret) == 0 {
 		panic("no return value specified for CreateAPIToken")
@@ -519,21 +519,21 @@ func (_mock *MockAuthService) CreateAPIToken(ctx context.Context, p auth.Princip
 	var r0 string
 	var r1 domain.APIToken
 	var r2 error
-	if returnFunc, ok := ret.Get(0).(func(context.Context, auth.Principal, string, time.Time) (string, domain.APIToken, error)); ok {
-		return returnFunc(ctx, p, name, expiresAt)
+	if returnFunc, ok := ret.Get(0).(func(context.Context, auth.Principal, string, time.Time, []domain.Scope) (string, domain.APIToken, error)); ok {
+		return returnFunc(ctx, p, name, expiresAt, scopes)
 	}
-	if returnFunc, ok := ret.Get(0).(func(context.Context, auth.Principal, string, time.Time) string); ok {
-		r0 = returnFunc(ctx, p, name, expiresAt)
+	if returnFunc, ok := ret.Get(0).(func(context.Context, auth.Principal, string, time.Time, []domain.Scope) string); ok {
+		r0 = returnFunc(ctx, p, name, expiresAt, scopes)
 	} else {
 		r0 = ret.Get(0).(string)
 	}
-	if returnFunc, ok := ret.Get(1).(func(context.Context, auth.Principal, string, time.Time) domain.APIToken); ok {
-		r1 = returnFunc(ctx, p, name, expiresAt)
+	if returnFunc, ok := ret.Get(1).(func(context.Context, auth.Principal, string, time.Time, []domain.Scope) domain.APIToken); ok {
+		r1 = returnFunc(ctx, p, name, expiresAt, scopes)
 	} else {
 		r1 = ret.Get(1).(domain.APIToken)
 	}
-	if returnFunc, ok := ret.Get(2).(func(context.Context, auth.Principal, string, time.Time) error); ok {
-		r2 = returnFunc(ctx, p, name, expiresAt)
+	if returnFunc, ok := ret.Get(2).(func(context.Context, auth.Principal, string, time.Time, []domain.Scope) error); ok {
+		r2 = returnFunc(ctx, p, name, expiresAt, scopes)
 	} else {
 		r2 = ret.Error(2)
 	}
@@ -550,11 +550,12 @@ type MockAuthService_CreateAPIToken_Call struct {
 //   - p auth.Principal
 //   - name string
 //   - expiresAt time.Time
-func (_e *MockAuthService_Expecter) CreateAPIToken(ctx any, p any, name any, expiresAt any) *MockAuthService_CreateAPIToken_Call {
-	return &MockAuthService_CreateAPIToken_Call{Call: _e.mock.On("CreateAPIToken", ctx, p, name, expiresAt)}
+//   - scopes []domain.Scope
+func (_e *MockAuthService_Expecter) CreateAPIToken(ctx any, p any, name any, expiresAt any, scopes any) *MockAuthService_CreateAPIToken_Call {
+	return &MockAuthService_CreateAPIToken_Call{Call: _e.mock.On("CreateAPIToken", ctx, p, name, expiresAt, scopes)}
 }
 
-func (_c *MockAuthService_CreateAPIToken_Call) Run(run func(ctx context.Context, p auth.Principal, name string, expiresAt time.Time)) *MockAuthService_CreateAPIToken_Call {
+func (_c *MockAuthService_CreateAPIToken_Call) Run(run func(ctx context.Context, p auth.Principal, name string, expiresAt time.Time, scopes []domain.Scope)) *MockAuthService_CreateAPIToken_Call {
 	_c.Call.Run(func(args mock.Arguments) {
 		var arg0 context.Context
 		if args[0] != nil {
@@ -572,11 +573,16 @@ func (_c *MockAuthService_CreateAPIToken_Call) Run(run func(ctx context.Context,
 		if args[3] != nil {
 			arg3 = args[3].(time.Time)
 		}
+		var arg4 []domain.Scope
+		if args[4] != nil {
+			arg4 = args[4].([]domain.Scope)
+		}
 		run(
 			arg0,
 			arg1,
 			arg2,
 			arg3,
+			arg4,
 		)
 	})
 	return _c
@@ -587,7 +593,7 @@ func (_c *MockAuthService_CreateAPIToken_Call) Return(s string, aPIToken domain.
 	return _c
 }
 
-func (_c *MockAuthService_CreateAPIToken_Call) RunAndReturn(run func(ctx context.Context, p auth.Principal, name string, expiresAt time.Time) (string, domain.APIToken, error)) *MockAuthService_CreateAPIToken_Call {
+func (_c *MockAuthService_CreateAPIToken_Call) RunAndReturn(run func(ctx context.Context, p auth.Principal, name string, expiresAt time.Time, scopes []domain.Scope) (string, domain.APIToken, error)) *MockAuthService_CreateAPIToken_Call {
 	_c.Call.Return(run)
 	return _c
 }

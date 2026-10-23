@@ -5,6 +5,7 @@ package main
 import (
 	"fmt"
 	"os"
+	"strconv"
 	"syscall"
 )
 
@@ -17,5 +18,28 @@ func reexec() error {
 		return fmt.Errorf("restart: %w", err)
 	}
 
+	if err := closeOnExec(); err != nil {
+		return fmt.Errorf("restart: %w", err)
+	}
+
 	return fmt.Errorf("restart: %w", syscall.Exec(exe, os.Args, os.Environ()))
+}
+
+// closeOnExec marks every open file but stdin, stdout and stderr to close as the process
+// execs. Hertz's network poller accepts connections without close-on-exec, so the new
+// server would inherit the old one's open connections, serve none of them, and a proxy
+// sending a request down one would wait for an answer that never comes.
+func closeOnExec() error {
+	entries, err := os.ReadDir("/dev/fd")
+	if err != nil {
+		return err
+	}
+
+	for _, e := range entries {
+		if fd, err := strconv.Atoi(e.Name()); err == nil && fd > 2 {
+			syscall.CloseOnExec(fd) // the directory's own, closed by now, is no matter
+		}
+	}
+
+	return nil
 }

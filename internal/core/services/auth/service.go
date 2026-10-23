@@ -8,6 +8,7 @@ import (
 	"crypto/sha256"
 	"encoding/base64"
 	"fmt"
+	"slices"
 	"strings"
 	"time"
 
@@ -198,9 +199,24 @@ type Principal struct {
 	User      domain.User
 	SessionID domain.SessionID
 	TokenID   domain.APITokenID
+	// GrantID is set for an agent signed in with OAuth (D397).
+	GrantID domain.GrantID
+	// Scopes are what a token or an agent may do (D398).
+	Scopes []domain.Scope
 }
 
 func (p Principal) ViaSession() bool { return p.SessionID != "" }
+
+// Can says the principal's scopes allow scope: a session has every scope, as has a token
+// made before scopes; an agent has those its user allowed it. Whether the user's role
+// allows it is the services' to say.
+func (p Principal) Can(scope domain.Scope) bool {
+	if p.ViaSession() || (p.TokenID != "" && p.Scopes == nil) {
+		return true
+	}
+
+	return slices.Contains(p.Scopes, scope)
+}
 
 // now is UTC at the database's microsecond precision, so values the service returns
 // equal the ones read back later.

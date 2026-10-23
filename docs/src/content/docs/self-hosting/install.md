@@ -4,8 +4,8 @@ description: Run Polythought with Docker.
 ---
 
 Polythought is three containers: PostgreSQL, the API server, and a web server (Caddy) that
-serves the app and these docs and passes `/api` on to the API. Docker Compose runs them
-together.
+serves the app and these docs and passes `/api`, `/mcp` and the OAuth metadata under
+`/.well-known` on to the API. Docker Compose runs them together.
 
 ## What you need
 
@@ -137,6 +137,31 @@ final on chain, and tells the owner when one fails.
 polymarket.com/settings?tab=builder: live orders then carry it, crediting your builder
 account with their volume, and pay the builder fee you set there on top of Polymarket's.
 Empty, which it is to start with, orders carry none.
+
+## Agents over MCP
+
+Users can connect agents such as Claude Code and Codex at the server's address followed by
+`/mcp`, such as `https://polythought.example.com/mcp`. The agent signs in through its user's
+browser, where they choose what it may do, and **Settings → Connected agents** lists the
+agents allowed, to revoke. An API token works there too, with the scopes it was made with.
+Its tools are being built: for now one, `whoami`, says who an agent acts for and what it may
+do.
+
+Under **Agents over MCP** on the Config page:
+
+- **Agents over MCP** switches it all on or off. Off, `/mcp` and agents' sign-in are not
+  there; agents already connected stop, and their grants stay for users to revoke.
+- **Agents register themselves** lets an agent with no metadata document of its own
+  register, as older agents do; the consent page marks it unverified.
+- **Documents at private addresses** lets the server fetch an agent's metadata document from
+  inside its own network. Off to start with: any signed-in user could have it fetch one.
+- **Let allowed agents through** skips the consent page when an agent asks for no more than
+  it has, as when it starts on another of its user's machines.
+- **Access token lifetime** and **Refresh token lifetime**, an hour and 30 days to start
+  with: an agent unused for the second signs in again through the browser.
+
+A proxy of your own in front of the API must pass `/mcp` and `/.well-known/oauth-*` on as
+Caddy does, and must not buffer `/mcp`'s answers, which stream.
 
 ## Where the server runs
 

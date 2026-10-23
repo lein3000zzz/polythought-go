@@ -609,6 +609,80 @@ The most tokens a user's AI agent nodes may take in a calendar month, UTC, input
 | Default | `20000000` |
 | Applies | at once |
 
+## Agents over MCP
+
+### Agents over MCP
+
+Let users connect agents such as Claude Code and Codex: an agent signs in through its user's browser, where they allow it scopes, then works at /mcp. Off, /mcp and agents' sign-in are not there, and agents already connected stop until it is on again; their grants stay, to revoke on Settings.
+
+| | |
+|---|---|
+| Key | `mcp.enabled` |
+| Environment variable | `POLYTHOUGHT_MCP_ENABLED` |
+| Kind | `true` or `false` |
+| Default | `true` |
+| Applies | at once |
+
+### Agents register themselves
+
+Let an agent with no metadata document of its own register itself, naming itself, as older agents do; the consent page marks it unverified. Off, only agents whose metadata document is at an https address can sign in. Agents registered before keep working.
+
+| | |
+|---|---|
+| Key | `mcp.registration` |
+| Environment variable | `POLYTHOUGHT_MCP_REGISTRATION` |
+| Kind | `true` or `false` |
+| Default | `true` |
+| Applies | at once |
+
+### Documents at private addresses
+
+Fetch agents' metadata documents from addresses inside the server's network too, for an agent published there. Leave off on a shared instance: any signed-in user could have the server fetch one. Agents on a private network can register themselves instead.
+
+| | |
+|---|---|
+| Key | `mcp.private_documents` |
+| Environment variable | `POLYTHOUGHT_MCP_PRIVATE_DOCUMENTS` |
+| Kind | `true` or `false` |
+| Default | `false` |
+| Applies | at once |
+
+### Let allowed agents through
+
+An agent asking for no more than its user allowed it before gets in without the consent page asking again, as when it starts on another of their machines. Off, the page asks every time.
+
+| | |
+|---|---|
+| Key | `mcp.skip_consent` |
+| Environment variable | `POLYTHOUGHT_MCP_SKIP_CONSENT` |
+| Kind | `true` or `false` |
+| Default | `true` |
+| Applies | at once |
+
+### Access token lifetime
+
+How long an agent's access token works before it refreshes it. Revoking an agent stops it at once whatever this is. Applies to tokens given from now.
+
+| | |
+|---|---|
+| Key | `mcp.access_ttl` |
+| Environment variable | `POLYTHOUGHT_MCP_ACCESS_TTL` |
+| Kind | duration, e.g. `30s`, `5m`, `168h` |
+| Default | `1h` |
+| Applies | at once |
+
+### Refresh token lifetime
+
+How long an agent may go unused before its user signs it in again: each refresh gives it a new refresh token, lasting this long. Applies to tokens given from now.
+
+| | |
+|---|---|
+| Key | `mcp.refresh_ttl` |
+| Environment variable | `POLYTHOUGHT_MCP_REFRESH_TTL` |
+| Kind | duration, e.g. `30s`, `5m`, `168h` |
+| Default | `720h` |
+| Applies | at once |
+
 ## Network
 
 ### Trusted proxies

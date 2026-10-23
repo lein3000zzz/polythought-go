@@ -337,6 +337,45 @@ agents:
   # Environment: POLYTHOUGHT_AGENTS_MAX_TOTAL_MONTH.
   # max_total_month: 20000000
 
+mcp:
+
+  # Let users connect agents such as Claude Code and Codex: an agent signs in through
+  # its user's browser, where they allow it scopes, then works at /mcp. Off, /mcp and
+  # agents' sign-in are not there, and agents already connected stop until it is on
+  # again; their grants stay, to revoke on Settings.
+  # Environment: POLYTHOUGHT_MCP_ENABLED.
+  # enabled: true
+
+  # Let an agent with no metadata document of its own register itself, naming itself, as
+  # older agents do; the consent page marks it unverified. Off, only agents whose
+  # metadata document is at an https address can sign in. Agents registered before keep
+  # working.
+  # Environment: POLYTHOUGHT_MCP_REGISTRATION.
+  # registration: true
+
+  # Fetch agents' metadata documents from addresses inside the server's network too, for
+  # an agent published there. Leave off on a shared instance: any signed-in user could
+  # have the server fetch one. Agents on a private network can register themselves
+  # instead.
+  # Environment: POLYTHOUGHT_MCP_PRIVATE_DOCUMENTS.
+  # private_documents: false
+
+  # An agent asking for no more than its user allowed it before gets in without the
+  # consent page asking again, as when it starts on another of their machines. Off, the
+  # page asks every time.
+  # Environment: POLYTHOUGHT_MCP_SKIP_CONSENT.
+  # skip_consent: true
+
+  # How long an agent's access token works before it refreshes it. Revoking an agent
+  # stops it at once whatever this is. Applies to tokens given from now.
+  # Environment: POLYTHOUGHT_MCP_ACCESS_TTL.
+  # access_ttl: "1h"
+
+  # How long an agent may go unused before its user signs it in again: each refresh
+  # gives it a new refresh token, lasting this long. Applies to tokens given from now.
+  # Environment: POLYTHOUGHT_MCP_REFRESH_TTL.
+  # refresh_ttl: "720h"
+
 webhook:
 
   # Let workflows reach addresses inside the server's network, such as a service on the

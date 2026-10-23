@@ -199,6 +199,50 @@ func (_c *MockOAuthService_Deny_Call) RunAndReturn(run func(ctx context.Context,
 	return _c
 }
 
+// Enabled provides a mock function for the type MockOAuthService
+func (_mock *MockOAuthService) Enabled() bool {
+	ret := _mock.Called()
+
+	if len(ret) == 0 {
+		panic("no return value specified for Enabled")
+	}
+
+	var r0 bool
+	if returnFunc, ok := ret.Get(0).(func() bool); ok {
+		r0 = returnFunc()
+	} else {
+		r0 = ret.Get(0).(bool)
+	}
+	return r0
+}
+
+// MockOAuthService_Enabled_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'Enabled'
+type MockOAuthService_Enabled_Call struct {
+	*mock.Call
+}
+
+// Enabled is a helper method to define mock.On call
+func (_e *MockOAuthService_Expecter) Enabled() *MockOAuthService_Enabled_Call {
+	return &MockOAuthService_Enabled_Call{Call: _e.mock.On("Enabled")}
+}
+
+func (_c *MockOAuthService_Enabled_Call) Run(run func()) *MockOAuthService_Enabled_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run()
+	})
+	return _c
+}
+
+func (_c *MockOAuthService_Enabled_Call) Return(b bool) *MockOAuthService_Enabled_Call {
+	_c.Call.Return(b)
+	return _c
+}
+
+func (_c *MockOAuthService_Enabled_Call) RunAndReturn(run func() bool) *MockOAuthService_Enabled_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // Grants provides a mock function for the type MockOAuthService
 func (_mock *MockOAuthService) Grants(ctx context.Context, p auth.Principal) ([]domain.Grant, error) {
 	ret := _mock.Called(ctx, p)
@@ -451,6 +495,50 @@ func (_c *MockOAuthService_Register_Call) Return(oAuthClient domain.OAuthClient,
 }
 
 func (_c *MockOAuthService_Register_Call) RunAndReturn(run func(ctx context.Context, reg oauth.Registration, ip string) (domain.OAuthClient, error)) *MockOAuthService_Register_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// ResourceMetadata provides a mock function for the type MockOAuthService
+func (_mock *MockOAuthService) ResourceMetadata() oauth.ResourceMetadata {
+	ret := _mock.Called()
+
+	if len(ret) == 0 {
+		panic("no return value specified for ResourceMetadata")
+	}
+
+	var r0 oauth.ResourceMetadata
+	if returnFunc, ok := ret.Get(0).(func() oauth.ResourceMetadata); ok {
+		r0 = returnFunc()
+	} else {
+		r0 = ret.Get(0).(oauth.ResourceMetadata)
+	}
+	return r0
+}
+
+// MockOAuthService_ResourceMetadata_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'ResourceMetadata'
+type MockOAuthService_ResourceMetadata_Call struct {
+	*mock.Call
+}
+
+// ResourceMetadata is a helper method to define mock.On call
+func (_e *MockOAuthService_Expecter) ResourceMetadata() *MockOAuthService_ResourceMetadata_Call {
+	return &MockOAuthService_ResourceMetadata_Call{Call: _e.mock.On("ResourceMetadata")}
+}
+
+func (_c *MockOAuthService_ResourceMetadata_Call) Run(run func()) *MockOAuthService_ResourceMetadata_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run()
+	})
+	return _c
+}
+
+func (_c *MockOAuthService_ResourceMetadata_Call) Return(resourceMetadata oauth.ResourceMetadata) *MockOAuthService_ResourceMetadata_Call {
+	_c.Call.Return(resourceMetadata)
+	return _c
+}
+
+func (_c *MockOAuthService_ResourceMetadata_Call) RunAndReturn(run func() oauth.ResourceMetadata) *MockOAuthService_ResourceMetadata_Call {
 	_c.Call.Return(run)
 	return _c
 }

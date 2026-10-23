@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"net"
+	"net/http"
 	"net/url"
 	"sync"
 	"sync/atomic"
@@ -51,7 +52,7 @@ type AuthService interface {
 	AuthenticateToken(ctx context.Context, token string) (auth.Principal, error)
 	ChangePassword(ctx context.Context, p auth.Principal, current, next string) error
 
-	CreateAPIToken(ctx context.Context, p auth.Principal, name string, expiresAt time.Time) (string, domain.APIToken, error)
+	CreateAPIToken(ctx context.Context, p auth.Principal, name string, expiresAt time.Time, scopes []domain.Scope) (string, domain.APIToken, error)
 	ListAPITokens(ctx context.Context, p auth.Principal) ([]domain.APIToken, error)
 	RevokeAPIToken(ctx context.Context, p auth.Principal, id domain.APITokenID) error
 
@@ -145,6 +146,8 @@ type Services struct {
 	Meta MetaService
 	// OAuth is the OAuth server agents sign in with (D397).
 	OAuth OAuthService
+	// MCP serves /mcp, agents' endpoint (D398): the SDK's server, checking its own tokens.
+	MCP http.Handler
 	// Spend is what users' agents spend, and the caps on it; nil when there is no agent.
 	Spend SpendService
 	// Plugins are what admins install (5c); nil where there are none.
@@ -192,6 +195,7 @@ type Server struct {
 	geoblock      GeoblockService
 	meta          MetaService
 	oauth         OAuthService
+	mcp           http.Handler
 	spend         SpendService
 	plugins       PluginService
 
@@ -271,6 +275,7 @@ func New(cfg Config, util *observability.Utility, services Services) (*Server, e
 		geoblock:      services.Geoblock,
 		meta:          services.Meta,
 		oauth:         services.OAuth,
+		mcp:           services.MCP,
 		spend:         services.Spend,
 		plugins:       services.Plugins,
 
@@ -339,6 +344,14 @@ func (s *Server) routes() {
 	v1.POST("/oauth/authorization/deny", s.requireAuth, s.oauthDeny)
 	v1.GET("/me/grants", s.requireAuth, s.listGrants)
 	v1.DELETE("/me/grants/:id", s.requireAuth, s.revokeGrant)
+
+	// Agents' endpoint (D398) and its metadata (RFC 9728), at the path clients derive from
+	// /mcp and at the root.
+	h.GET("/.well-known/oauth-protected-resource", s.resourceMetadata)
+	h.GET("/.well-known/oauth-protected-resource/mcp", s.resourceMetadata)
+	h.GET("/mcp", s.serveMCP)
+	h.POST("/mcp", s.serveMCP)
+	h.DELETE("/mcp", s.serveMCP)
 
 	v1.GET("/auth/config", s.authConfig)
 	v1.POST("/auth/register", s.register)

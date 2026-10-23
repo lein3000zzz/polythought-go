@@ -46,8 +46,9 @@ signing in, building, running and trading on paper as a user does.
 
 Caddy serves the app, the docs and the API from one origin. The session cookie then needs no
 cross-site settings, the API's origin check has one origin to compare with, and there is no
-CORS to configure, or to get wrong. In development, Vite passes `/api` and `/docs` to their
-servers the same way.
+CORS to configure, or to get wrong. Agents' endpoint, `/mcp`, and the OAuth metadata they look
+for under `/.well-known` go to the API too. In development, Vite passes them, `/api` and
+`/docs` to their servers the same way.
 
 ## The docs
 

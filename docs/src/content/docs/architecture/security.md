@@ -33,9 +33,11 @@ link, a request to join, answer at once and the same way, and do their work afte
 A session is a random 256-bit token, kept only as its hash, in an HttpOnly, SameSite=Lax
 cookie, Secure and named `__Host-` over https, so a sibling subdomain cannot set it. Sessions
 end after 7 idle days or 30 in all. API tokens are the same kind of secret, sent as a Bearer
-header; a token can do what its user can, except what needs a person at a browser: changing
-the password, making or revoking tokens, storing wallet credentials, importing a private key,
-approving session keys or a wallet's approvals.
+header, with the scopes chosen as they were made, as agents' grants have them; a token made
+before scopes has them all. Over MCP a token does only what its scopes allow; on `/api/v1`,
+for now, what its user can. Neither ever does what needs a person at a browser: changing the
+password, making or revoking tokens, storing wallet credentials, importing a private key,
+approving session keys or a wallet's approvals, or allowing an agent.
 
 Agents such as Claude Code sign in with OAuth 2.1, through the user's browser. The agent
 registers, or names a metadata document at an https address it controls; the user sees on a
@@ -46,6 +48,10 @@ with. Its access token lasts an hour; its refresh token works once, for 30 days,
 refresh gives a new pair. A code or refresh token used twice means a copy is about, so the
 grant is revoked, with every token it gave. Tokens are kept only as hashes, and Settings lists
 each agent allowed, to revoke.
+
+At `/mcp`, every request's token is checked as it comes: an agent's with its grant and its
+user, so revoking the agent or disabling its user stops it at once, and allowing it less
+narrows the tokens it has. An admin can switch agents off for the whole instance.
 
 Every admin action checks the role in the service, not only in the page, and the last admin
 cannot be demoted or disabled. Disabling a user signs them out everywhere, stops their
@@ -85,7 +91,8 @@ connection and redirect, after DNS: addresses inside the server's network are re
 private, loopback, link-local and the less common ranges that reach them, so a webhook cannot
 be turned on the server's own services, and a name that resolves inside cannot either.
 Webhooks, OpenAI-compatible model addresses, plugins' fetches, plugin archives fetched by
-URL and agents' metadata documents all go through it; an admin may let workflows reach private addresses, for a self-hosted
+URL and agents' metadata documents all go through it, the last from public addresses unless
+an admin allows otherwise with a setting of their own; an admin may let workflows reach private addresses, for a self-hosted
 service beside the server. A webhook's extra headers go only to the host named; a redirect
 elsewhere loses them.
 

@@ -69,5 +69,10 @@ A coming part of Polythought lets agents such as Claude Code and Codex work with
 user does, over an MCP server in the app; and lets a workflow hand a task to its owner's own
 agent. The sign-in is built: an OAuth 2.1 server in the app, where the user allows an agent
 scopes on a consent page and revokes it on Settings, as
-[the security model](/docs/architecture/security/#accounts) describes. The MCP server itself
-is planned; this page will describe it when it is built.
+[the security model](/docs/architecture/security/#accounts) describes.
+
+So is the endpoint, `/mcp`: the official Go SDK's MCP server, over Streamable HTTP, inside the
+API server. An agent's OAuth token works there, and so does an API token, each with its
+scopes; a request without one is told where to sign in. Its tools are being built: for now
+one, `whoami`, says who the agent acts for and what it may do. This page will describe the
+rest as it comes.

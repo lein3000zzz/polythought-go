@@ -4,11 +4,13 @@ import { useForm } from 'react-hook-form'
 import { toast } from 'sonner'
 
 import { useCreateToken, useRevokeToken, useTokens } from '@/api/account'
+import { useMe } from '@/api/auth'
 import { errorMessage, type Schemas } from '@/api/client'
 import { ConfirmDialog } from '@/components/ConfirmDialog'
 import { ErrorAlert } from '@/components/ErrorAlert'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
+import { Checkbox } from '@/components/ui/checkbox'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Skeleton } from '@/components/ui/skeleton'
@@ -20,11 +22,17 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
+import { scopeInfo, scopeTitle } from '@/features/oauth/scopes'
 import { formatDateTime } from '@/lib/format'
 
 import { jumpId } from './pages'
 
 type TokenForm = { name: string; expires: string }
+type Scope = Schemas['CreateTokenRequest']['scopes'][number]
+
+const scopes: Scope[] = ['read', 'build', 'paper', 'live', 'admin']
+// What a new token may do to start with (D398): live trading and admin are ticked by hand.
+const firstTicked: Scope[] = ['read', 'build', 'paper']
 
 export function TokensSection() {
   const tokens = useTokens()
@@ -33,6 +41,16 @@ export function TokensSection() {
   const [revoking, setRevoking] = useState<Schemas['APIToken']>()
   const revoke = useRevokeToken()
   const { register, handleSubmit, reset } = useForm<TokenForm>()
+  const me = useMe()
+  const offered = scopes.filter((sc) => sc !== 'admin' || me.data?.role === 'admin')
+  const [ticked, setTicked] = useState(() => new Set<Scope>(firstTicked))
+  const tick = (sc: Scope, on: boolean) =>
+    setTicked((was) => {
+      const next = new Set(was)
+      if (on) next.add(sc)
+      else next.delete(sc)
+      return next
+    })
   // The date picker's first day, in the user's time zone (en-CA writes YYYY-MM-DD).
   const [today] = useState(() => new Date().toLocaleDateString('en-CA'))
 
@@ -41,10 +59,13 @@ export function TokensSection() {
       <div>
         <h2 className="font-medium">API tokens</h2>
         <p className="text-sm text-muted-foreground">
-          For scripts and tools: send{' '}
+          For scripts, tools and agents: send{' '}
           <code className="font-mono text-xs">Authorization: Bearer pt_…</code> with requests to{' '}
-          <code className="font-mono text-xs">/api/v1</code>. A token can do what you can, except
-          change your password, create or revoke tokens, and store wallet credentials.
+          <code className="font-mono text-xs">/api/v1</code>, or to{' '}
+          <code className="font-mono text-xs">/mcp</code> from an agent. Over MCP a token may do
+          only what its scopes allow; on <code className="font-mono text-xs">/api/v1</code>, for
+          now, what you can. Either way it cannot change your password, create or revoke tokens, or
+          store wallet credentials.
         </p>
       </div>
 
@@ -87,10 +108,12 @@ export function TokensSection() {
               name,
               // The end of the chosen day, in the user's time zone.
               ...(expires ? { expiresAt: new Date(`${expires}T23:59:59`).toISOString() } : {}),
+              scopes: offered.filter((sc) => ticked.has(sc)),
             },
             {
               onSuccess: (token) => {
                 reset()
+                setTicked(new Set(firstTicked))
                 setCreated(token)
               },
             },
@@ -115,9 +138,22 @@ export function TokensSection() {
           <Label htmlFor="token-expires">Expires</Label>
           <Input id="token-expires" type="date" min={today} {...register('expires')} />
         </div>
-        <Button type="submit" disabled={create.isPending}>
+        <Button type="submit" disabled={create.isPending || ticked.size === 0}>
           Create token
         </Button>
+        <fieldset className="flex w-full flex-wrap gap-x-4 gap-y-2">
+          <legend className="mb-2 text-sm font-medium">It may</legend>
+          {offered.map((sc) => (
+            <label
+              key={sc}
+              className="flex items-center gap-2 text-sm"
+              title={scopeInfo[sc]?.detail}
+            >
+              <Checkbox checked={ticked.has(sc)} onCheckedChange={(on) => tick(sc, on === true)} />
+              {scopeTitle(sc)}
+            </label>
+          ))}
+        </fieldset>
       </form>
 
       {tokens.isPending && <Skeleton className="h-24" />}
@@ -130,6 +166,7 @@ export function TokensSection() {
             <TableRow>
               <TableHead>Name</TableHead>
               <TableHead>Token</TableHead>
+              <TableHead>May</TableHead>
               <TableHead>Created</TableHead>
               <TableHead>Last used</TableHead>
               <TableHead>Expires</TableHead>
@@ -141,6 +178,7 @@ export function TokensSection() {
               <TableRow key={t.id} id={jumpId(`token-${t.id}`)}>
                 <TableCell className="font-medium">{t.name}</TableCell>
                 <TableCell className="font-mono text-xs">{t.prefix}…</TableCell>
+                <TableCell>{t.scopes ? t.scopes.map(scopeTitle).join(', ') : 'All'}</TableCell>
                 <TableCell>{formatDateTime(t.createdAt)}</TableCell>
                 <TableCell>{t.lastUsedAt ? formatDateTime(t.lastUsedAt) : 'Never'}</TableCell>
                 <TableCell>{t.expiresAt ? formatDateTime(t.expiresAt) : 'Never'}</TableCell>

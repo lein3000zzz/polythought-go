@@ -117,12 +117,15 @@ type tokenDTO struct {
 	CreatedAt  time.Time  `json:"createdAt" format:"date-time"`
 	ExpiresAt  *time.Time `json:"expiresAt,omitempty" validate:"optional" format:"date-time"`
 	LastUsedAt *time.Time `json:"lastUsedAt,omitempty" validate:"optional" format:"date-time"`
+	// Scopes are what it may do (D398); absent, for a token made before scopes, it has
+	// every scope its user's role allows.
+	Scopes []string `json:"scopes,omitempty" validate:"optional" enums:"read,build,paper,live,admin"`
 	// Token is the secret, present only in the response that creates it.
 	Token string `json:"token,omitempty" validate:"optional"`
 } // @name APIToken
 
 func toTokenDTO(t domain.APIToken) tokenDTO {
-	return tokenDTO{
+	out := tokenDTO{
 		ID:         string(t.ID),
 		Name:       t.Name,
 		Prefix:     t.Prefix,
@@ -130,6 +133,12 @@ func toTokenDTO(t domain.APIToken) tokenDTO {
 		ExpiresAt:  optionalTime(t.ExpiresAt),
 		LastUsedAt: optionalTime(t.LastUsedAt),
 	}
+
+	for _, sc := range t.Scopes {
+		out.Scopes = append(out.Scopes, string(sc))
+	}
+
+	return out
 }
 
 type tokenList struct {
@@ -175,6 +184,8 @@ type createTokenRequest struct {
 	Name string `json:"name"`
 	// ExpiresAt left out means the token never expires.
 	ExpiresAt *time.Time `json:"expiresAt" validate:"optional" format:"date-time"`
+	// Scopes are what it may do (D398): at least one; admin for an admin's token only.
+	Scopes []string `json:"scopes" enums:"read,build,paper,live,admin"`
 } // @name CreateTokenRequest
 
 type createUserRequest struct {
@@ -592,7 +603,12 @@ func (s *Server) createToken(ctx context.Context, c *app.RequestContext) {
 
 	p, _ := principal(c)
 
-	secret, token, err := s.auth.CreateAPIToken(ctx, p, req.Name, expires)
+	scopes := make([]domain.Scope, len(req.Scopes))
+	for i, sc := range req.Scopes {
+		scopes[i] = domain.Scope(sc)
+	}
+
+	secret, token, err := s.auth.CreateAPIToken(ctx, p, req.Name, expires, scopes)
 	if err != nil {
 		s.fail(ctx, c, err)
 		return

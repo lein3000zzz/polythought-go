@@ -162,6 +162,8 @@ type APIToken struct {
 	CreatedAt  time.Time
 	ExpiresAt  time.Time // zero means it never expires
 	LastUsedAt time.Time
+	// Scopes are what it may do (D398); nil, for a token made before scopes, is every one.
+	Scopes []Scope
 }
 
 func (t APIToken) Expired(now time.Time) bool {

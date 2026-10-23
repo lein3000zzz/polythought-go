@@ -9,6 +9,7 @@ package model
 
 import (
 	"github.com/google/uuid"
+	"github.com/lib/pq"
 	"time"
 )
 
@@ -21,4 +22,5 @@ type APITokens struct {
 	CreatedAt  time.Time
 	ExpiresAt  *time.Time
 	LastUsedAt *time.Time
+	Scopes     *pq.StringArray
 }

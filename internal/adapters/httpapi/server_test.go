@@ -436,14 +436,14 @@ func TestRoutes(t *testing.T) {
 		},
 		{
 			name: "create a token shows the secret once",
-			req:  request{method: "POST", path: "/api/v1/tokens", body: `{"name":"cli","expiresAt":"2027-01-01T00:00:00Z"}`, headers: cookie},
+			req:  request{method: "POST", path: "/api/v1/tokens", body: `{"name":"cli","expiresAt":"2027-01-01T00:00:00Z","scopes":["read","paper"]}`, headers: cookie},
 			setup: func(svc *httpapimocks.MockAuthService) {
 				withSession(svc, alice)
-				svc.EXPECT().CreateAPIToken(mock.Anything, mock.Anything, "cli", time.Date(2027, 1, 1, 0, 0, 0, 0, time.UTC)).
-					Return("pt_full_secret", domain.APIToken{ID: "t-9", Name: "cli", Prefix: "pt_full_se"}, nil)
+				svc.EXPECT().CreateAPIToken(mock.Anything, mock.Anything, "cli", time.Date(2027, 1, 1, 0, 0, 0, 0, time.UTC), []domain.Scope{domain.ScopeRead, domain.ScopePaper}).
+					Return("pt_full_secret", domain.APIToken{ID: "t-9", Name: "cli", Prefix: "pt_full_se", Scopes: []domain.Scope{domain.ScopeRead, domain.ScopePaper}}, nil)
 			},
 			wantStatus: http.StatusCreated,
-			wantBody:   []string{`"token":"pt_full_secret"`, `"prefix":"pt_full_se"`},
+			wantBody:   []string{`"token":"pt_full_secret"`, `"prefix":"pt_full_se"`, `"scopes":["read","paper"]`},
 		},
 		{
 			name: "list tokens never shows secrets",

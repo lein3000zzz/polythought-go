@@ -1,7 +1,8 @@
 // Package oauth is the OAuth 2.1 server agents sign in with (D382, D384, D397): clients
 // register themselves or describe themselves in a metadata document; a user allows one
 // scopes on the consent page, for the MCP endpoint; it exchanges the code, with PKCE, for
-// an access token, an hour, and a refresh token, 30 days, rotated at each refresh.
+// an access token, an hour, and a refresh token, 30 days, rotated at each refresh. What
+// admins set, on the Config page, is its Policy (D398).
 package oauth
 
 import (
@@ -28,11 +29,10 @@ import (
 
 // The server's bounds.
 const (
-	codeLasts    = 10 * time.Minute
-	accessLasts  = time.Hour
-	refreshLasts = 30 * 24 * time.Hour
-	docFresh     = 24 * time.Hour // a client's document is fetched again after this
-	unusedFor    = 24 * time.Hour // a registered client no grant uses goes after this
+	codeLasts = 10 * time.Minute
+	docFresh  = 24 * time.Hour  // a client's document is fetched again after this
+	unusedFor = 24 * time.Hour  // a registered client no grant uses goes after this
+	touchEach = 1 * time.Minute // how often a grant's last use is written, at most
 
 	maxRedirects  = 10
 	maxClientName = 100
@@ -49,6 +49,22 @@ type Config struct {
 	Resource string
 }
 
+// Policy is what admins set for agents (D398), read as each request comes.
+type Policy struct {
+	// Enabled off, agents' sign-in and /mcp are not there; grants stay.
+	Enabled bool
+	// Registration lets agents with no metadata document register themselves.
+	Registration bool
+	// SkipConsent lets an agent asking for what it has through without asking again.
+	SkipConsent bool
+	AccessTTL   time.Duration
+	RefreshTTL  time.Duration
+}
+
+func DefaultPolicy() Policy {
+	return Policy{Enabled: true, Registration: true, SkipConsent: true, AccessTTL: time.Hour, RefreshTTL: 30 * 24 * time.Hour}
+}
+
 type Service struct {
 	cfg     Config
 	repo    ports.OAuthRepository
@@ -57,18 +73,36 @@ type Service struct {
 	limiter ports.RateLimiter
 	log     logging.Logger
 	now     func() time.Time
+	policy  func() Policy
 }
 
-func New(cfg Config, repo ports.OAuthRepository, docs ports.ClientDocuments, users ports.UserRepository, limiter ports.RateLimiter, log logging.Logger) *Service {
+type Option func(*Service)
+
+// WithPolicy reads the policy from the settings as it changes.
+func WithPolicy(policy func() Policy) Option {
+	return func(s *Service) { s.policy = policy }
+}
+
+func New(cfg Config, repo ports.OAuthRepository, docs ports.ClientDocuments, users ports.UserRepository, limiter ports.RateLimiter, log logging.Logger, opts ...Option) *Service {
 	cfg.Issuer = strings.TrimRight(cfg.Issuer, "/")
 
-	return &Service{
+	s := &Service{
 		cfg: cfg, repo: repo, docs: docs, users: users, limiter: limiter,
 		log: log.With("component", "oauth"),
 		// At the database's precision, so what it gives equals what is read back.
-		now: func() time.Time { return time.Now().UTC().Truncate(time.Microsecond) },
+		now:    func() time.Time { return time.Now().UTC().Truncate(time.Microsecond) },
+		policy: DefaultPolicy,
 	}
+
+	for _, o := range opts {
+		o(s)
+	}
+
+	return s
 }
+
+// Enabled says agents over MCP are on (D398).
+func (s *Service) Enabled() bool { return s.policy().Enabled }
 
 // Error is an OAuth error, said to the client as RFC 6749 says: its code and a
 // description. Redirect, when set, is where the browser goes with it: a request whose
@@ -101,19 +135,15 @@ type Metadata struct {
 	Documentation         string   `json:"service_documentation"`
 }
 
+// Metadata is the authorization server's; with registration off, it names no registration
+// endpoint, so agents use a metadata document.
 func (s *Service) Metadata() Metadata {
-	scopes := make([]string, len(domain.Scopes))
-	for i, sc := range domain.Scopes {
-		scopes[i] = string(sc)
-	}
-
-	return Metadata{
+	m := Metadata{
 		Issuer:                s.cfg.Issuer,
 		AuthorizationEndpoint: s.cfg.Issuer + "/oauth/authorize",
 		TokenEndpoint:         s.cfg.Issuer + "/api/v1/oauth/token",
-		RegistrationEndpoint:  s.cfg.Issuer + "/api/v1/oauth/register",
 		RevocationEndpoint:    s.cfg.Issuer + "/api/v1/oauth/revoke",
-		ScopesSupported:       scopes,
+		ScopesSupported:       allScopes(),
 		ResponseTypes:         []string{"code"},
 		GrantTypes:            []string{"authorization_code", "refresh_token"},
 		CodeChallengeMethods:  []string{"S256"},
@@ -123,7 +153,36 @@ func (s *Service) Metadata() Metadata {
 		AuthorizationIssuer:   true,
 		Documentation:         s.cfg.Issuer + "/docs/",
 	}
+
+	if s.policy().Registration {
+		m.RegistrationEndpoint = s.cfg.Issuer + "/api/v1/oauth/register"
+	}
+
+	return m
 }
+
+// ResourceMetadata is the MCP endpoint's, as RFC 9728 has it: where its tokens come from.
+type ResourceMetadata struct {
+	Resource               string   `json:"resource"`
+	AuthorizationServers   []string `json:"authorization_servers"`
+	ScopesSupported        []string `json:"scopes_supported"`
+	BearerMethodsSupported []string `json:"bearer_methods_supported"`
+	ResourceName           string   `json:"resource_name"`
+	ResourceDocumentation  string   `json:"resource_documentation"`
+}
+
+func (s *Service) ResourceMetadata() ResourceMetadata {
+	return ResourceMetadata{
+		Resource:               s.cfg.Resource,
+		AuthorizationServers:   []string{s.cfg.Issuer},
+		ScopesSupported:        allScopes(),
+		BearerMethodsSupported: []string{"header"},
+		ResourceName:           "Polythought",
+		ResourceDocumentation:  s.cfg.Issuer + "/docs/",
+	}
+}
+
+func allScopes() []string { return scopeStrings(domain.Scopes) }
 
 // Registration is what a client says of itself to register (RFC 7591).
 type Registration struct {
@@ -138,6 +197,13 @@ type Registration struct {
 // Register registers a client as it describes itself. Every client is public: none gets a
 // secret, as an agent on someone's machine could not keep one; PKCE stands in for it.
 func (s *Service) Register(ctx context.Context, reg Registration, ip string) (domain.OAuthClient, error) {
+	switch policy := s.policy(); {
+	case !policy.Enabled:
+		return domain.OAuthClient{}, domain.ErrAgentsOff
+	case !policy.Registration:
+		return domain.OAuthClient{}, oauthErr("access_denied", "agents do not register themselves here: use a client ID metadata document")
+	}
+
 	if !s.limiter.Allow("oauth-register:ip:" + ip) {
 		return domain.OAuthClient{}, domain.ErrRateLimited
 	}

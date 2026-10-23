@@ -20,6 +20,7 @@ import (
 	"github.com/lein3000zzz/polythought-go/internal/adapters/github"
 	"github.com/lein3000zzz/polythought-go/internal/adapters/llm"
 	"github.com/lein3000zzz/polythought-go/internal/adapters/mailer"
+	"github.com/lein3000zzz/polythought-go/internal/adapters/mcpserver"
 	"github.com/lein3000zzz/polythought-go/internal/adapters/pluginhost"
 	pmadapter "github.com/lein3000zzz/polythought-go/internal/adapters/polymarket"
 	"github.com/lein3000zzz/polythought-go/internal/adapters/postgres"
@@ -137,6 +138,7 @@ type app struct {
 	geoblock        *geoblock.Service
 	meta            *meta.Service
 	oauth           *oauth.Service
+	mcp             *mcpserver.Server
 	waits           *waits.Service
 	code            *code.Service
 	codeRunners     func() ports.CodeRunners
@@ -257,14 +259,16 @@ func (a *app) init(ctx context.Context) error {
 
 	a.meta = meta.New(stars, func() bool { return a.settings.Current().Bool(config.KeyGitHubStars) }, a.util.Logger)
 
-	// The OAuth server agents sign in with, for the MCP endpoint (D382, D397). A client's
-	// document is fetched through the guard webhooks use.
+	// The OAuth server agents sign in with, for the MCP endpoint (D382, D397), as the
+	// Config page sets it (D398). A client's document is fetched through the guard
+	// webhooks use, from public addresses unless an admin allows private ones.
 	a.oauth = oauth.New(oauth.Config{Issuer: a.cfg.PublicURL, Resource: strings.TrimRight(a.cfg.PublicURL, "/") + "/mcp"},
 		postgres.NewOAuth(a.db),
-		clientdocs.New(func() bool { return a.settings.Current().Bool(config.KeyWebhookAllowPrivate) }, nil),
+		clientdocs.New(func() bool { return a.settings.Current().Bool(config.KeyMCPPrivateDocuments) }, nil),
 		postgres.NewUsers(a.db),
 		ratelimit.NewMemory(30*time.Second, 10), // per address: 10, then one every 30 s
-		a.util.Logger)
+		a.util.Logger,
+		oauth.WithPolicy(func() oauth.Policy { return oauthPolicy(a.settings.Current()) }))
 
 	// After notify, which reminds of expiring session keys. A wallet a workflow trades
 	// live from is not unlinked.
@@ -309,8 +313,14 @@ func (a *app) init(ctx context.Context) error {
 		auth.WithInviteBox(a.box), // codes kept to copy again (D393)
 		auth.WithJoinNotifier(a.notify),
 	)
+	if err != nil {
+		return err
+	}
 
-	return err
+	// Agents' endpoint (D398), for their OAuth tokens and for API tokens.
+	a.mcp = mcpserver.New(mcpserver.Config{PublicURL: a.cfg.PublicURL}, a.oauth, a.auth)
+
+	return nil
 }
 
 // telegramConfig is how the bot should run, from the settings.
@@ -380,6 +390,17 @@ func authConfig(s *settings.Snapshot) auth.Config {
 	cfg.RequestDeniedMail = s.Bool(config.KeyRequestDeniedMail)
 
 	return cfg
+}
+
+// oauthPolicy is what admins set for agents over MCP (D398).
+func oauthPolicy(s *settings.Snapshot) oauth.Policy {
+	return oauth.Policy{
+		Enabled:      s.Bool(config.KeyMCPEnabled),
+		Registration: s.Bool(config.KeyMCPRegistration),
+		SkipConsent:  s.Bool(config.KeyMCPSkipConsent),
+		AccessTTL:    s.Duration(config.KeyMCPAccessTTL),
+		RefreshTTL:   s.Duration(config.KeyMCPRefreshTTL),
+	}
 }
 
 func codeAccess(s *settings.Snapshot) domain.CodeAccess {

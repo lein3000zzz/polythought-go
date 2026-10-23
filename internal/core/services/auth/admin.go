@@ -3,6 +3,7 @@ package auth
 import (
 	"context"
 	"fmt"
+	"slices"
 	"strings"
 	"time"
 
@@ -14,11 +15,17 @@ import (
 
 const maxTokenName = 64
 
-// CreateAPIToken issues a token for the principal's user. The returned secret is shown
-// once; only its hash is stored. Tokens can only be managed from a browser session.
-func (s *Service) CreateAPIToken(ctx context.Context, p Principal, name string, expiresAt time.Time) (string, domain.APIToken, error) {
+// CreateAPIToken issues a token for the principal's user, able to do what its scopes
+// allow (D398). The returned secret is shown once; only its hash is stored. Tokens can
+// only be managed from a browser session.
+func (s *Service) CreateAPIToken(ctx context.Context, p Principal, name string, expiresAt time.Time, scopes []domain.Scope) (string, domain.APIToken, error) {
 	if !p.ViaSession() {
 		return "", domain.APIToken{}, domain.ErrForbidden
+	}
+
+	scopes, err := tokenScopes(p.User, scopes)
+	if err != nil {
+		return "", domain.APIToken{}, err
 	}
 
 	name = strings.TrimSpace(name)
@@ -43,15 +50,38 @@ func (s *Service) CreateAPIToken(ctx context.Context, p Principal, name string, 
 		Prefix:    secret[:prefixLength],
 		CreatedAt: now,
 		ExpiresAt: expiresAt,
+		Scopes:    scopes,
 	}
 
 	if err := s.repos.Tokens.Create(ctx, token, hashSecret(secret)); err != nil {
 		return "", domain.APIToken{}, err
 	}
 
-	s.log.Info(ctx, "API token created", "user_id", p.User.ID, "token_id", token.ID)
+	s.log.Info(ctx, "API token created", "user_id", p.User.ID, "token_id", token.ID, "scopes", scopes)
 
 	return secret, token, nil
+}
+
+// tokenScopes checks a new token's scopes, and gives them in their order, once each: at
+// least one, and admin only for an admin.
+func tokenScopes(u domain.User, scopes []domain.Scope) ([]domain.Scope, error) {
+	if len(scopes) == 0 {
+		return nil, fmt.Errorf("%w: a token needs at least one scope", domain.ErrInvalidInput)
+	}
+
+	for _, sc := range scopes {
+		switch {
+		case !sc.Valid():
+			return nil, fmt.Errorf("%w: no scope %q", domain.ErrInvalidInput, sc)
+		case sc == domain.ScopeAdmin && !u.IsAdmin():
+			return nil, fmt.Errorf("%w: only an admin's token may have the admin scope", domain.ErrForbidden)
+		}
+	}
+
+	out := slices.Clone(scopes)
+	slices.SortFunc(out, func(a, b domain.Scope) int { return slices.Index(domain.Scopes, a) - slices.Index(domain.Scopes, b) })
+
+	return slices.Compact(out), nil
 }
 
 func (s *Service) ListAPITokens(ctx context.Context, p Principal) ([]domain.APIToken, error) {

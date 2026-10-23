@@ -372,6 +372,50 @@ func TestAuthenticateToken(t *testing.T) {
 	}
 }
 
+// A token's scopes come with it (D398).
+func TestAuthenticateTokenScopes(t *testing.T) {
+	u := user("u1", domain.RoleUser)
+	d := newDeps(t)
+	d.tokens.EXPECT().ByTokenHash(mock.Anything, sha("pt_abc")).
+		Return(domain.APIToken{ID: "tok-1", UserID: u.ID, LastUsedAt: now, Scopes: []domain.Scope{domain.ScopeRead}}, nil)
+	d.users.EXPECT().ByID(mock.Anything, u.ID).Return(u, nil)
+
+	p, err := newService(t, d, config(domain.RegistrationOpen)).AuthenticateToken(context.Background(), "pt_abc")
+	require.NoError(t, err)
+	assert.True(t, p.Can(domain.ScopeRead))
+	assert.False(t, p.Can(domain.ScopeBuild))
+}
+
+// A session has every scope, as has a token made before scopes; a scoped token and an
+// agent have theirs, and an agent with none left has none.
+func TestPrincipalCan(t *testing.T) {
+	u := user("u1", domain.RoleUser)
+
+	for name, tt := range map[string]struct {
+		p    auth.Principal
+		want map[domain.Scope]bool
+	}{
+		"a session":           {sessionPrincipal(u), map[domain.Scope]bool{domain.ScopeRead: true, domain.ScopeLive: true}},
+		"a token from before": {tokenPrincipal(u), map[domain.Scope]bool{domain.ScopeRead: true, domain.ScopeLive: true}},
+		"a scoped token": {
+			auth.Principal{User: u, TokenID: "t", Scopes: []domain.Scope{domain.ScopeRead, domain.ScopePaper}},
+			map[domain.Scope]bool{domain.ScopeRead: true, domain.ScopePaper: true, domain.ScopeLive: false},
+		},
+		"an agent": {
+			auth.Principal{User: u, GrantID: "g", Scopes: []domain.Scope{domain.ScopeBuild}},
+			map[domain.Scope]bool{domain.ScopeBuild: true, domain.ScopeRead: false},
+		},
+		"an agent with none left": {
+			auth.Principal{User: u, GrantID: "g", Scopes: []domain.Scope{}},
+			map[domain.Scope]bool{domain.ScopeRead: false},
+		},
+	} {
+		for sc, want := range tt.want {
+			assert.Equal(t, want, tt.p.Can(sc), "%s: %s", name, sc)
+		}
+	}
+}
+
 func TestLogoutAndPrune(t *testing.T) {
 	tests := []struct {
 		name  string

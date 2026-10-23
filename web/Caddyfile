@@ -21,8 +21,11 @@
 		reverse_proxy {$API_UPSTREAM:api:8080}
 	}
 
-	# The OAuth server's metadata, which agents look for at the root (RFC 8414); the MCP
-	# endpoint's comes with it (RFC 9728, 7a2).
+	# Agents' endpoint, and the OAuth metadata they look for at the root (RFC 8414, RFC 9728).
+	handle /mcp {
+		reverse_proxy {$API_UPSTREAM:api:8080}
+	}
+
 	handle /.well-known/oauth-* {
 		reverse_proxy {$API_UPSTREAM:api:8080}
 	}

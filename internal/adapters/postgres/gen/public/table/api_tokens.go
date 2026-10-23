@@ -25,6 +25,7 @@ type aPITokensTable struct {
 	CreatedAt  postgres.ColumnTimestampz
 	ExpiresAt  postgres.ColumnTimestampz
 	LastUsedAt postgres.ColumnTimestampz
+	Scopes     postgres.ColumnStringArray
 
 	AllColumns     postgres.ColumnList
 	MutableColumns postgres.ColumnList
@@ -74,8 +75,9 @@ func newAPITokensTableImpl(schemaName, tableName, alias string) aPITokensTable {
 		CreatedAtColumn  = postgres.TimestampzColumn("created_at")
 		ExpiresAtColumn  = postgres.TimestampzColumn("expires_at")
 		LastUsedAtColumn = postgres.TimestampzColumn("last_used_at")
-		allColumns       = postgres.ColumnList{IDColumn, UserIDColumn, NameColumn, PrefixColumn, TokenHashColumn, CreatedAtColumn, ExpiresAtColumn, LastUsedAtColumn}
-		mutableColumns   = postgres.ColumnList{UserIDColumn, NameColumn, PrefixColumn, TokenHashColumn, CreatedAtColumn, ExpiresAtColumn, LastUsedAtColumn}
+		ScopesColumn     = postgres.StringArrayColumn("scopes")
+		allColumns       = postgres.ColumnList{IDColumn, UserIDColumn, NameColumn, PrefixColumn, TokenHashColumn, CreatedAtColumn, ExpiresAtColumn, LastUsedAtColumn, ScopesColumn}
+		mutableColumns   = postgres.ColumnList{UserIDColumn, NameColumn, PrefixColumn, TokenHashColumn, CreatedAtColumn, ExpiresAtColumn, LastUsedAtColumn, ScopesColumn}
 		defaultColumns   = postgres.ColumnList{}
 	)
 
@@ -91,6 +93,7 @@ func newAPITokensTableImpl(schemaName, tableName, alias string) aPITokensTable {
 		CreatedAt:  CreatedAtColumn,
 		ExpiresAt:  ExpiresAtColumn,
 		LastUsedAt: LastUsedAtColumn,
+		Scopes:     ScopesColumn,
 
 		AllColumns:     allColumns,
 		MutableColumns: mutableColumns,

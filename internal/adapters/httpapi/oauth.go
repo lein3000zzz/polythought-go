@@ -2,6 +2,7 @@ package httpapi
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"net/http"
 	"net/url"
@@ -9,6 +10,7 @@ import (
 	"time"
 
 	"github.com/cloudwego/hertz/pkg/app"
+	"github.com/cloudwego/hertz/pkg/common/adaptor"
 	"github.com/lein3000zzz/the-watchers/pkg/observability/logging"
 
 	"github.com/lein3000zzz/polythought-go/internal/core/domain"
@@ -18,7 +20,9 @@ import (
 
 // OAuthService is the OAuth server agents sign in with (D382, D397).
 type OAuthService interface {
+	Enabled() bool
 	Metadata() oauth.Metadata
+	ResourceMetadata() oauth.ResourceMetadata
 	Register(ctx context.Context, reg oauth.Registration, ip string) (domain.OAuthClient, error)
 	Prepare(ctx context.Context, p auth.Principal, req oauth.AuthRequest) (oauth.Consent, error)
 	Approve(ctx context.Context, p auth.Principal, req oauth.AuthRequest, scopes []domain.Scope) (string, error)
@@ -30,12 +34,16 @@ type OAuthService interface {
 }
 
 // oauthEndpoints are called by agents' programs, not the app: they take no cookie and say
-// who they are themselves, so neither the session nor the origin check applies.
+// who they are themselves, so neither the session nor the origin check applies. /mcp
+// checks its own bearer tokens, agents' as well as API tokens.
 var oauthEndpoints = map[string]bool{
-	"/api/v1/oauth/register":                  true,
-	"/api/v1/oauth/token":                     true,
-	"/api/v1/oauth/revoke":                    true,
-	"/.well-known/oauth-authorization-server": true,
+	"/api/v1/oauth/register":                    true,
+	"/api/v1/oauth/token":                       true,
+	"/api/v1/oauth/revoke":                      true,
+	"/.well-known/oauth-authorization-server":   true,
+	"/.well-known/oauth-protected-resource":     true,
+	"/.well-known/oauth-protected-resource/mcp": true,
+	"/mcp": true,
 }
 
 // selfAuthenticating says the request is to one of those.
@@ -43,10 +51,37 @@ func selfAuthenticating(c *app.RequestContext) bool {
 	return oauthEndpoints[string(c.Path())]
 }
 
-// oauthMetadata is the authorization server's metadata (RFC 8414), at the server's root.
-func (s *Server) oauthMetadata(_ context.Context, c *app.RequestContext) {
+// oauthMetadata is the authorization server's metadata (RFC 8414), at the server's root;
+// with agents off, it is not there.
+func (s *Server) oauthMetadata(ctx context.Context, c *app.RequestContext) {
+	if !s.oauth.Enabled() {
+		s.fail(ctx, c, domain.ErrAgentsOff)
+		return
+	}
+
 	c.Header("Cache-Control", "max-age=3600")
 	c.JSON(http.StatusOK, s.oauth.Metadata())
+}
+
+// resourceMetadata is /mcp's protected resource metadata (RFC 9728): where agents sign in.
+func (s *Server) resourceMetadata(ctx context.Context, c *app.RequestContext) {
+	if !s.oauth.Enabled() {
+		s.fail(ctx, c, domain.ErrAgentsOff)
+		return
+	}
+
+	c.Header("Cache-Control", "max-age=3600")
+	c.JSON(http.StatusOK, s.oauth.ResourceMetadata())
+}
+
+// serveMCP hands /mcp to the SDK's server, which streams its answers as it goes.
+func (s *Server) serveMCP(ctx context.Context, c *app.RequestContext) {
+	if s.mcp == nil {
+		s.fail(ctx, c, domain.ErrNotFound)
+		return
+	}
+
+	adaptor.HertzHandler(s.mcp)(ctx, c)
 }
 
 // oauthFail answers as RFC 6749 has the token and registration endpoints answer.
@@ -63,6 +98,8 @@ func (s *Server) oauthFail(ctx context.Context, c *app.RequestContext, err error
 		c.JSON(status, map[string]string{"error": oe.Code, "error_description": oe.Description})
 	case errors.Is(err, domain.ErrRateLimited):
 		c.JSON(http.StatusTooManyRequests, map[string]string{"error": "slow_down", "error_description": "too many attempts"})
+	case errors.Is(err, domain.ErrAgentsOff):
+		c.JSON(http.StatusNotFound, map[string]string{"error": "agents_off", "error_description": err.Error()})
 	default:
 		s.log.Error(ctx, "OAuth request failed", "path", string(c.Path()), logging.Err(err))
 		c.JSON(http.StatusInternalServerError, map[string]string{"error": "server_error"})
@@ -104,7 +141,8 @@ type oauthRegistrationDTO struct {
 func (s *Server) registerOAuthClient(ctx context.Context, c *app.RequestContext) {
 	var reg oauthRegistrationRequest
 
-	if err := decodeJSON(c, &reg); err != nil {
+	// Metadata the server does not know is ignored, as RFC 7591 says: clients send more.
+	if err := json.Unmarshal(c.Request.Body(), &reg); err != nil {
 		s.oauthFail(ctx, c, &oauth.Error{Code: "invalid_client_metadata", Description: "the body is not a client's metadata"})
 		return
 	}

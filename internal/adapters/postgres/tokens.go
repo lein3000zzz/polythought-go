@@ -8,6 +8,7 @@ import (
 	jet "github.com/go-jet/jet/v2/postgres"
 	"github.com/go-jet/jet/v2/qrm"
 	"github.com/google/uuid"
+	"github.com/lib/pq"
 
 	"github.com/lein3000zzz/polythought-go/internal/adapters/postgres/gen/public/model"
 	"github.com/lein3000zzz/polythought-go/internal/adapters/postgres/gen/public/table"
@@ -48,6 +49,7 @@ func (r *APITokens) Create(ctx context.Context, t domain.APIToken, tokenHash []b
 		CreatedAt:  t.CreatedAt,
 		ExpiresAt:  timePtr(t.ExpiresAt),
 		LastUsedAt: timePtr(t.LastUsedAt),
+		Scopes:     tokenScopes(t.Scopes),
 	}).ExecContext(ctx, r.db.conn(ctx))
 
 	return err
@@ -130,7 +132,28 @@ func toAPIToken(m model.APITokens) domain.APIToken {
 		CreatedAt:  m.CreatedAt.UTC(),
 		ExpiresAt:  timeOf(m.ExpiresAt),
 		LastUsedAt: timeOf(m.LastUsedAt),
+		Scopes:     scopesOf(m.Scopes),
 	}
+}
+
+// tokenScopes is a token's scopes as kept: NULL for every scope, as tokens made before
+// scopes have (D398).
+func tokenScopes(scopes []domain.Scope) *pq.StringArray {
+	if scopes == nil {
+		return nil
+	}
+
+	a := scopesArray(scopes)
+
+	return &a
+}
+
+func scopesOf(a *pq.StringArray) []domain.Scope {
+	if a == nil {
+		return nil
+	}
+
+	return toScopes(*a)
 }
 
 type Invites struct {

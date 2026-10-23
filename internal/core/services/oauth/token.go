@@ -40,6 +40,10 @@ type Tokens struct {
 // ones. A code or a refresh token used a second time means a copy is about: the grant is
 // revoked, and its owner signs the agent in again.
 func (s *Service) Token(ctx context.Context, req TokenRequest) (Tokens, error) {
+	if !s.Enabled() {
+		return Tokens{}, domain.ErrAgentsOff
+	}
+
 	if !s.limiter.Allow("oauth-token:ip:" + req.IP) {
 		return Tokens{}, domain.ErrRateLimited
 	}
@@ -205,13 +209,13 @@ func (s *Service) issue(ctx context.Context, grant domain.Grant, scopes []domain
 		return Tokens{}, err
 	}
 
-	now := s.now()
+	now, policy := s.now(), s.policy()
 
 	for _, t := range []struct {
 		secret string
 		kind   domain.OAuthTokenKind
 		lasts  time.Duration
-	}{{access, domain.AccessToken, accessLasts}, {refresh, domain.RefreshToken, refreshLasts}} {
+	}{{access, domain.AccessToken, policy.AccessTTL}, {refresh, domain.RefreshToken, policy.RefreshTTL}} {
 		err := s.repo.SaveToken(ctx, hash(t.secret), domain.OAuthToken{
 			GrantID: grant.ID, Kind: t.kind, Scopes: scopes, CreatedAt: now, ExpiresAt: now.Add(t.lasts),
 		})
@@ -224,7 +228,7 @@ func (s *Service) issue(ctx context.Context, grant domain.Grant, scopes []domain
 		s.log.Warn(ctx, "OAuth grant's last use not noted", "grant_id", grant.ID, logging.Err(err))
 	}
 
-	return Tokens{Access: access, Refresh: refresh, ExpiresIn: accessLasts, Scopes: scopes}, nil
+	return Tokens{Access: access, Refresh: refresh, ExpiresIn: policy.AccessTTL, Scopes: scopes}, nil
 }
 
 // revokeCopied revokes a grant a code or refresh token of was used twice: one of the two
@@ -240,6 +244,10 @@ func (s *Service) revokeCopied(ctx context.Context, id domain.GrantID, why strin
 // Revoke revokes a token's grant, as the client asks when it signs out (RFC 7009): its
 // other tokens too. Whatever the token, the answer is the same.
 func (s *Service) Revoke(ctx context.Context, token, client string) error {
+	if !s.Enabled() {
+		return domain.ErrAgentsOff
+	}
+
 	t, err := s.repo.Token(ctx, hash(token))
 	if errors.Is(err, domain.ErrNotFound) {
 		return nil

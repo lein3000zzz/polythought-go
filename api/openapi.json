@@ -24,6 +24,21 @@
                     "prefix": {
                         "type": "string"
                     },
+                    "scopes": {
+                        "description": "Scopes are what it may do (D398); absent, for a token made before scopes, it has\nevery scope its user's role allows.",
+                        "items": {
+                            "enum": [
+                                "read",
+                                "build",
+                                "paper",
+                                "live",
+                                "admin"
+                            ],
+                            "type": "string"
+                        },
+                        "type": "array",
+                        "uniqueItems": false
+                    },
                     "token": {
                         "description": "Token is the secret, present only in the response that creates it.",
                         "type": "string"
@@ -621,10 +636,26 @@
                     },
                     "name": {
                         "type": "string"
+                    },
+                    "scopes": {
+                        "description": "Scopes are what it may do (D398): at least one; admin for an admin's token only.",
+                        "items": {
+                            "enum": [
+                                "read",
+                                "build",
+                                "paper",
+                                "live",
+                                "admin"
+                            ],
+                            "type": "string"
+                        },
+                        "type": "array",
+                        "uniqueItems": false
                     }
                 },
                 "required": [
-                    "name"
+                    "name",
+                    "scopes"
                 ],
                 "type": "object"
             },

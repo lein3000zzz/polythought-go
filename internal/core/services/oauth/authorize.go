@@ -49,6 +49,10 @@ type Offer struct {
 // wrong gets an error to show; one wrong otherwise, an error with where to send the
 // browser back to the client with it (RFC 6749 4.1.2.1).
 func (s *Service) Prepare(ctx context.Context, p auth.Principal, req AuthRequest) (Consent, error) {
+	if !s.Enabled() {
+		return Consent{}, domain.ErrAgentsOff
+	}
+
 	client, scopes, err := s.check(ctx, req)
 	if err != nil {
 		return Consent{}, err
@@ -65,6 +69,10 @@ func (s *Service) Prepare(ctx context.Context, p auth.Principal, req AuthRequest
 		ticked := sc != domain.ScopeLive && sc != domain.ScopeAdmin &&
 			(len(scopes) == 0 || slices.Contains(scopes, sc))
 		c.Offered = append(c.Offered, Offer{Scope: sc, Ticked: ticked})
+	}
+
+	if !s.policy().SkipConsent {
+		return c, nil // the page asks every time
 	}
 
 	if g, err := s.repo.GrantOf(ctx, p.User.ID, client.ID); err == nil && g.Active() && g.Resource == s.cfg.Resource {
@@ -143,6 +151,10 @@ func (s *Service) Approve(ctx context.Context, p auth.Principal, req AuthRequest
 
 // Deny gives where to send the browser when the user says no.
 func (s *Service) Deny(ctx context.Context, p auth.Principal, req AuthRequest) (string, error) {
+	if !s.Enabled() {
+		return "", domain.ErrAgentsOff
+	}
+
 	if _, _, err := s.check(ctx, req); err != nil {
 		return "", err
 	}

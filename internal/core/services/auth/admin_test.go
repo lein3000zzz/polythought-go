@@ -2,6 +2,7 @@ package auth_test
 
 import (
 	"context"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -17,28 +18,43 @@ import (
 )
 
 func TestCreateAPIToken(t *testing.T) {
-	u := user("u1", domain.RoleUser)
+	u, admin := user("u1", domain.RoleUser), user("a1", domain.RoleAdmin)
+	read := []domain.Scope{domain.ScopeRead}
 
 	tests := []struct {
 		name    string
 		p       auth.Principal
 		tokName string
 		expires time.Time
+		scopes  []domain.Scope
 		setup   func(d deps)
 		wantErr error
 	}{
 		{
 			name: "issued once, stored hashed", p: sessionPrincipal(u), tokName: " cli ", expires: now.Add(time.Hour),
+			scopes: []domain.Scope{domain.ScopePaper, domain.ScopeRead, domain.ScopePaper},
 			setup: func(d deps) {
 				d.tokens.EXPECT().Create(mock.Anything, mock.MatchedBy(func(t domain.APIToken) bool {
-					return t.Name == "cli" && t.UserID == u.ID && t.ExpiresAt.Equal(now.Add(time.Hour)) && strings.HasPrefix(t.Prefix, "pt_")
+					return t.Name == "cli" && t.UserID == u.ID && t.ExpiresAt.Equal(now.Add(time.Hour)) && strings.HasPrefix(t.Prefix, "pt_") &&
+						slices.Equal(t.Scopes, []domain.Scope{domain.ScopeRead, domain.ScopePaper}) // in order, once each
 				}), mock.Anything).Return(nil)
 			},
 		},
-		{name: "not from another token", p: tokenPrincipal(u), tokName: "cli", setup: func(deps) {}, wantErr: domain.ErrForbidden},
-		{name: "empty name", p: sessionPrincipal(u), tokName: "  ", setup: func(deps) {}, wantErr: domain.ErrInvalidInput},
-		{name: "long name", p: sessionPrincipal(u), tokName: strings.Repeat("x", 65), setup: func(deps) {}, wantErr: domain.ErrInvalidInput},
-		{name: "expiry in the past", p: sessionPrincipal(u), tokName: "cli", expires: now, setup: func(deps) {}, wantErr: domain.ErrInvalidInput},
+		{
+			name: "admin, for an admin", p: sessionPrincipal(admin), tokName: "ops", scopes: []domain.Scope{domain.ScopeAdmin},
+			setup: func(d deps) {
+				d.tokens.EXPECT().Create(mock.Anything, mock.MatchedBy(func(t domain.APIToken) bool {
+					return slices.Equal(t.Scopes, []domain.Scope{domain.ScopeAdmin})
+				}), mock.Anything).Return(nil)
+			},
+		},
+		{name: "not from another token", p: tokenPrincipal(u), tokName: "cli", scopes: read, setup: func(deps) {}, wantErr: domain.ErrForbidden},
+		{name: "empty name", p: sessionPrincipal(u), tokName: "  ", scopes: read, setup: func(deps) {}, wantErr: domain.ErrInvalidInput},
+		{name: "long name", p: sessionPrincipal(u), tokName: strings.Repeat("x", 65), scopes: read, setup: func(deps) {}, wantErr: domain.ErrInvalidInput},
+		{name: "expiry in the past", p: sessionPrincipal(u), tokName: "cli", expires: now, scopes: read, setup: func(deps) {}, wantErr: domain.ErrInvalidInput},
+		{name: "no scope", p: sessionPrincipal(u), tokName: "cli", setup: func(deps) {}, wantErr: domain.ErrInvalidInput},
+		{name: "an unknown scope", p: sessionPrincipal(u), tokName: "cli", scopes: []domain.Scope{"root"}, setup: func(deps) {}, wantErr: domain.ErrInvalidInput},
+		{name: "admin, for a user", p: sessionPrincipal(u), tokName: "cli", scopes: []domain.Scope{domain.ScopeRead, domain.ScopeAdmin}, setup: func(deps) {}, wantErr: domain.ErrForbidden},
 	}
 
 	for _, tt := range tests {
@@ -46,7 +62,7 @@ func TestCreateAPIToken(t *testing.T) {
 			d := newDeps(t)
 			tt.setup(d)
 
-			secret, tok, err := newService(t, d, config(domain.RegistrationOpen)).CreateAPIToken(context.Background(), tt.p, tt.tokName, tt.expires)
+			secret, tok, err := newService(t, d, config(domain.RegistrationOpen)).CreateAPIToken(context.Background(), tt.p, tt.tokName, tt.expires, tt.scopes)
 
 			if tt.wantErr != nil {
 				require.ErrorIs(t, err, tt.wantErr)
@@ -70,7 +86,7 @@ func TestStoredTokenHashMatchesSecret(t *testing.T) {
 			return nil
 		})
 
-	secret, _, err := newService(t, d, config(domain.RegistrationOpen)).CreateAPIToken(context.Background(), sessionPrincipal(user("u", domain.RoleUser)), "cli", time.Time{})
+	secret, _, err := newService(t, d, config(domain.RegistrationOpen)).CreateAPIToken(context.Background(), sessionPrincipal(user("u", domain.RoleUser)), "cli", time.Time{}, []domain.Scope{domain.ScopeRead})
 	require.NoError(t, err)
 	assert.Equal(t, sha(secret), stored, "authentication looks the token up by this hash")
 }

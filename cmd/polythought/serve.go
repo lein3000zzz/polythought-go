@@ -62,6 +62,7 @@ func serve(ctx context.Context) error {
 		Geoblock: a.geoblock,
 		Meta:     a.meta,
 		OAuth:    a.oauth,
+		MCP:      a.mcp,
 		Plugins:  a.plugins,
 
 		CodeRunners: a.codeRunners,
