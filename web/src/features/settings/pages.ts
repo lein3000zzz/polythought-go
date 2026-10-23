@@ -10,6 +10,7 @@ export const settingsPages = [
   { slug: 'notifications', label: 'Notifications' },
   { slug: 'agents', label: 'AI agents' },
   { slug: 'tokens', label: 'API tokens' },
+  { slug: 'connected', label: 'Connected agents' },
   { slug: 'credentials', label: 'Credentials' },
 ]
 

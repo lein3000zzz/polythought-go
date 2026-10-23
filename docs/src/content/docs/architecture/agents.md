@@ -66,6 +66,8 @@ month each.
 ## Agents over MCP
 
 A coming part of Polythought lets agents such as Claude Code and Codex work with it as their
-user does, over an MCP server in the app, signed in with OAuth and given scopes; and lets a
-workflow hand a task to its owner's own agent. It is planned, not built; this page will
-describe it when it is.
+user does, over an MCP server in the app; and lets a workflow hand a task to its owner's own
+agent. The sign-in is built: an OAuth 2.1 server in the app, where the user allows an agent
+scopes on a consent page and revokes it on Settings, as
+[the security model](/docs/architecture/security/#accounts) describes. The MCP server itself
+is planned; this page will describe it when it is built.

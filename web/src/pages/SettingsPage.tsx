@@ -4,10 +4,12 @@ import { useTokens } from '@/api/account'
 import { useMe } from '@/api/auth'
 import { ApiError } from '@/api/client'
 import { useNotifications } from '@/api/notifications'
+import { useGrants } from '@/api/oauth'
 import { useAgentSpend } from '@/api/spend'
 import { useCredentialList, useCredentialTypes } from '@/api/vault'
 import { SideMenu } from '@/components/SideMenu'
 import { AgentsSection } from '@/features/settings/AgentsSection'
+import { ConnectedSection } from '@/features/settings/ConnectedSection'
 import { Credentials } from '@/features/settings/Credentials'
 import { NotificationsSection } from '@/features/settings/NotificationsSection'
 import { Overview } from '@/features/settings/Overview'
@@ -34,6 +36,7 @@ export function SettingsPage() {
   const tokenList = useTokens()
   const credentials = useCredentialList()
   const types = useCredentialTypes()
+  const grants = useGrants()
 
   // Without agents on the instance, there is no AI agents page.
   const noAgents = spend.error instanceof ApiError && spend.error.status === 404
@@ -83,6 +86,20 @@ export function SettingsPage() {
       words: 'api token',
     })),
     {
+      slug: 'connected',
+      key: 'connected',
+      label: 'Connected agents',
+      words: 'mcp oauth claude code codex cursor agents access revoke',
+    },
+    ...(grants.data ?? [])
+      .filter((g) => !g.revokedAt)
+      .map((g) => ({
+        slug: 'connected',
+        key: `grant-${g.id}`,
+        label: g.client.name,
+        words: 'connected agent mcp revoke',
+      })),
+    {
       slug: 'credentials',
       key: 'new-credential',
       label: 'New credential',
@@ -128,6 +145,8 @@ export function SettingsPage() {
             <AgentsSection />
           ) : slug === 'tokens' ? (
             <TokensSection />
+          ) : slug === 'connected' ? (
+            <ConnectedSection />
           ) : slug === 'credentials' ? (
             <Credentials />
           ) : (

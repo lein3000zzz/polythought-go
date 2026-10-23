@@ -419,6 +419,60 @@ describe('settings page', () => {
     expect(router.state.location.hash).toBe('#token-t-1')
   })
 
+  it('lists the agents allowed, and revokes one (D384)', async () => {
+    const grant: Schemas['OAuthGrant'] = {
+      id: 'g-1',
+      client: { id: 'pc_1', name: 'Claude Code', verified: false, site: 'claude.ai' },
+      scopes: ['read', 'paper'],
+      createdAt: '2026-10-08T12:00:00Z',
+      lastUsedAt: '2026-10-08T13:00:00Z',
+    }
+    const old: Schemas['OAuthGrant'] = {
+      id: 'g-0',
+      client: { id: 'https://agent.example/client.json', name: 'Old Agent', verified: true },
+      scopes: ['read'],
+      createdAt: '2026-10-01T12:00:00Z',
+      revokedAt: '2026-10-02T12:00:00Z',
+    }
+    let grants = [grant, old]
+    let revoked = ''
+
+    server.use(
+      signedIn,
+      noTelegram,
+      notifications,
+      http.get('/api/v1/me/grants', () => HttpResponse.json({ grants })),
+      http.delete('/api/v1/me/grants/:id', ({ params }) => {
+        revoked = String(params.id)
+        grants = [{ ...grant, revokedAt: '2026-10-09T12:00:00Z' }, old]
+        return new HttpResponse(null, { status: 204 })
+      }),
+    )
+    const { user } = renderApp('/settings')
+
+    const cards = within(await screen.findByRole('list', { name: 'Overview' }))
+    expect(await cards.findByRole('link', { name: /^Connected agents/ })).toHaveTextContent(
+      '1 agent',
+    )
+
+    await user.click(await cards.findByRole('link', { name: /^Connected agents/ }))
+    const row = (await screen.findByText('Claude Code')).closest('tr') as HTMLElement
+    expect(row).toHaveTextContent('Unverified')
+    expect(row).toHaveTextContent('claude.ai')
+    expect(row).toHaveTextContent('Read, Trade on paper')
+    expect(screen.getByText('Old Agent').closest('tr')).toHaveTextContent(/Revoked/)
+
+    await user.click(within(row).getByRole('button', { name: 'Revoke' }))
+    const dialog = within(await screen.findByRole('alertdialog'))
+    expect(dialog.getByText('Revoke “Claude Code”?')).toBeInTheDocument()
+    await user.click(dialog.getByRole('button', { name: 'Revoke' }))
+
+    await waitFor(() => expect(revoked).toBe('g-1'))
+    await waitFor(() =>
+      expect(screen.queryByRole('button', { name: 'Revoke' })).not.toBeInTheDocument(),
+    )
+  })
+
   it('has Credentials as a page, where its old address goes (D392)', async () => {
     server.use(signedIn)
     const { router } = renderApp('/credentials')

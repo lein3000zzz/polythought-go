@@ -1,6 +1,7 @@
 import { useMe } from '@/api/auth'
 import { useTokens } from '@/api/account'
 import { useNotifications } from '@/api/notifications'
+import { useGrants } from '@/api/oauth'
 import { tokens, useAgentSpend } from '@/api/spend'
 import { useTelegram } from '@/api/telegram'
 import { useCredentialList } from '@/api/vault'
@@ -16,6 +17,7 @@ export function Overview({ pages }: { pages: typeof settingsPages }) {
   const spend = useAgentSpend()
   const tokenList = useTokens()
   const credentials = useCredentialList()
+  const grants = useGrants()
 
   const count = (n: number, one: string, many: string) =>
     n === 0 ? 'None yet' : `${n} ${n === 1 ? one : many}`
@@ -37,6 +39,8 @@ export function Overview({ pages }: { pages: typeof settingsPages }) {
     agents:
       spend.data && `$${spend.data.dollars} this month · ${tokens(spend.data.totalTokens)} tokens`,
     tokens: tokenList.data && count(tokenList.data.length, 'token', 'tokens'),
+    connected:
+      grants.data && count(grants.data.filter((g) => !g.revokedAt).length, 'agent', 'agents'),
     credentials: credentials.data && count(credentials.data.length, 'credential', 'credentials'),
   }
 

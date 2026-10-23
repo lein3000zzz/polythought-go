@@ -25,7 +25,7 @@ export default defineConfig({
     ],
   },
   server: {
-    proxy: { '/api': api, '/docs': docs },
+    proxy: { '/api': api, '/docs': docs, '/.well-known/oauth-': api },
     fs: { allow: ['.', sdk] },
   },
   // Monaco's workers are modules that import others.

@@ -75,6 +75,14 @@ Dollars are what providers report; there is no price table to go stale.
 **Agents only read.** The agent node's tools search markets and read books and trades; an
 answer reaches an order only through the workflow's own trading nodes.
 
+**Agents from outside sign in with OAuth, as MCP has it.** Claude Code, Codex and the like
+expect an OAuth 2.1 server, so Polythought is one, rather than asking users to paste API
+tokens into them. A user allows each agent scopes on a consent page, live trading unticked to
+start with, and only at a browser. Tokens are random and kept as hashes, not signed JWTs: each
+use is looked up, so revoking one stops it at once. Agents that describe themselves in a
+metadata document at an https address are shown as verified; those that register themselves
+still work, marked as unverified.
+
 ## Plugins
 
 **Plugins are processes, not libraries.** A Go plugin loaded into the server could do anything

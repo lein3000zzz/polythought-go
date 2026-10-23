@@ -14,6 +14,7 @@ import { LibraryPage } from '@/pages/LibraryPage'
 import { LoginPage } from '@/pages/LoginPage'
 import { NodesPage } from '@/pages/NodesPage'
 import { NotFoundPage } from '@/pages/NotFoundPage'
+import { OAuthAuthorizePage } from '@/pages/OAuthAuthorizePage'
 import { OrdersPage } from '@/pages/OrdersPage'
 import { RegisterPage } from '@/pages/RegisterPage'
 import { RequestAccessPage } from '@/pages/RequestAccessPage'
@@ -47,6 +48,8 @@ export const routes: RouteObject[] = [
   {
     element: <RequireAuth />,
     children: [
+      // Where agents send their users to allow them (D384): a page of its own, as sign-in's.
+      { path: 'oauth/authorize', element: <OAuthAuthorizePage /> },
       {
         element: <AppShell />,
         children: [

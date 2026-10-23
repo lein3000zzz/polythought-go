@@ -1021,6 +1021,40 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/me/grants": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The agents you allowed */
+        get: operations["listGrants"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/me/grants/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Revoke an agent's grant */
+        delete: operations["revokeGrant"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/me/kill-switch": {
         parameters: {
             query?: never;
@@ -1117,6 +1151,108 @@ export interface paths {
         /** Switch a notification on or off */
         put: operations["setNotification"];
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/oauth/authorization": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** What a client asks to be allowed */
+        post: operations["oauthConsent"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/oauth/authorization/approve": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Allow a client */
+        post: operations["oauthApprove"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/oauth/authorization/deny": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Deny a client */
+        post: operations["oauthDeny"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/oauth/register": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Register an OAuth client */
+        post: operations["registerOAuthClient"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/oauth/revoke": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Revoke an OAuth token */
+        post: operations["oauthRevoke"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/oauth/token": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** OAuth token endpoint */
+        post: operations["oauthToken"];
         delete?: never;
         options?: never;
         head?: never;
@@ -2670,6 +2806,86 @@ export interface components {
             mailOn: boolean;
             notifications: components["schemas"]["Notification"][];
         };
+        OAuthApproveRequest: {
+            request: components["schemas"]["OAuthAuthRequest"];
+            scopes: string[];
+        };
+        OAuthAuthRequest: {
+            client_id: string;
+            code_challenge: string;
+            code_challenge_method: string;
+            redirect_uri: string;
+            resource?: string;
+            response_type: string;
+            scope?: string;
+            state?: string;
+        };
+        OAuthClient: {
+            id: string;
+            name: string;
+            /** @description Site is the host it is from: its document's, or its homepage's, unchecked. */
+            site?: string;
+            /**
+             * @description Verified says it is a metadata document at its ID, a URL only its owner could
+             *     publish at; a registered client's name is its own word.
+             */
+            verified: boolean;
+        };
+        OAuthConsent: {
+            /**
+             * @description Allowed says the user's grant covers what the client asks: the page approves with
+             *     Granted, not asking again.
+             */
+            allowed: boolean;
+            client?: components["schemas"]["OAuthClient"];
+            granted?: string[];
+            offered?: components["schemas"]["OAuthOffer"][];
+            /** @description Problem is set instead when the request is wrong. */
+            problem?: components["schemas"]["OAuthProblem"];
+            /** @description RedirectHost is where the browser goes once the user decides. */
+            redirectHost?: string;
+        };
+        OAuthDecision: {
+            problem?: components["schemas"]["OAuthProblem"];
+            /** @description Redirect is where to send the browser. */
+            redirect?: string;
+        };
+        OAuthGrant: {
+            client: components["schemas"]["OAuthClient"];
+            /** Format: date-time */
+            createdAt: string;
+            id: string;
+            /** Format: date-time */
+            lastUsedAt?: string;
+            /** Format: date-time */
+            revokedAt?: string;
+            scopes: string[];
+        };
+        OAuthGrantList: {
+            grants: components["schemas"]["OAuthGrant"][];
+        };
+        OAuthOffer: {
+            /** @enum {string} */
+            scope: "read" | "build" | "paper" | "live" | "admin";
+            ticked: boolean;
+        };
+        OAuthProblem: {
+            code: string;
+            description: string;
+            /**
+             * @description Redirect is where to send the browser with it, back to the client; absent, the page
+             *     shows it, as the client or its redirect is wrong.
+             */
+            redirect?: string;
+        };
+        OAuthRegistrationRequest: {
+            client_name?: string;
+            client_uri?: string;
+            grant_types?: string[];
+            redirect_uris: string[];
+            response_types?: string[];
+            token_endpoint_auth_method?: string;
+        };
         Order: {
             /** Format: date-time */
             at: string;
@@ -3429,6 +3645,22 @@ export interface components {
         WorkflowProblems: {
             /** @description Problems are what saving the workflow as it is would refuse; empty when none. */
             problems: components["schemas"]["Problem"][];
+        };
+        "httpapi.oauthRegistrationDTO": {
+            client_id: string;
+            client_id_issued_at: number;
+            client_name: string;
+            grant_types: string[];
+            redirect_uris: string[];
+            response_types: string[];
+            token_endpoint_auth_method: string;
+        };
+        "httpapi.oauthTokenDTO": {
+            access_token: string;
+            expires_in: number;
+            refresh_token: string;
+            scope: string;
+            token_type: string;
         };
     };
     responses: never;
@@ -6825,6 +7057,74 @@ export interface operations {
             };
         };
     };
+    listGrants: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OAuthGrantList"];
+                };
+            };
+            /** @description unauthenticated */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    revokeGrant: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Grant ID */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No Content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description unauthenticated */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description not_found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
     setKillSwitch: {
         parameters: {
             query?: never;
@@ -7038,6 +7338,256 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    oauthConsent: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description The request, from the page's URL */
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["OAuthAuthRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OAuthConsent"];
+                };
+            };
+            /** @description unauthenticated */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    oauthApprove: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description The request and the scopes allowed */
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["OAuthApproveRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OAuthDecision"];
+                };
+            };
+            /** @description unauthenticated */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description forbidden: not from a browser session */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    oauthDeny: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description The request */
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["OAuthAuthRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OAuthDecision"];
+                };
+            };
+            /** @description unauthenticated */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    registerOAuthClient: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description The client, as it describes itself */
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["OAuthRegistrationRequest"];
+            };
+        };
+        responses: {
+            /** @description Created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["httpapi.oauthRegistrationDTO"];
+                };
+            };
+            /** @description invalid_client_metadata, invalid_redirect_uri */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: string;
+                    };
+                };
+            };
+            /** @description slow_down */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: string;
+                    };
+                };
+            };
+        };
+    };
+    oauthRevoke: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description An access or refresh token */
+        requestBody: {
+            content: {
+                "application/x-www-form-urlencoded": {
+                    /** @description The client */
+                    client_id: string;
+                    /** @description An access or refresh token */
+                    token: string;
+                };
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    oauthToken: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description authorization_code or refresh_token */
+        requestBody?: {
+            content: {
+                "application/x-www-form-urlencoded": {
+                    /** @description The client */
+                    client_id: string;
+                    /** @description The code, for authorization_code */
+                    code?: string;
+                    /** @description PKCE, for authorization_code */
+                    code_verifier?: string;
+                    /** @description authorization_code or refresh_token */
+                    grant_type: string;
+                    /** @description The code's redirect, for authorization_code */
+                    redirect_uri?: string;
+                    /** @description For refresh_token */
+                    refresh_token?: string;
+                    /** @description The MCP endpoint's URL (RFC 8707) */
+                    resource?: string;
+                    /** @description Less than the token had, for refresh_token */
+                    scope?: string;
+                };
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["httpapi.oauthTokenDTO"];
+                };
+            };
+            /** @description invalid_request, invalid_grant, invalid_scope, unsupported_grant_type, invalid_target */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: string;
+                    };
+                };
+            };
+            /** @description slow_down */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: string;
+                    };
                 };
             };
         };

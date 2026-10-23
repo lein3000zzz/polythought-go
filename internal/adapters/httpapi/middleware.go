@@ -79,6 +79,11 @@ func (s *Server) observe(ctx context.Context, c *app.RequestContext) {
 // authenticate resolves the caller from a bearer token or the session cookie. A bearer
 // token that fails is rejected outright instead of falling back to the cookie.
 func (s *Server) authenticate(ctx context.Context, c *app.RequestContext) {
+	if selfAuthenticating(c) {
+		c.Next(ctx)
+		return
+	}
+
 	if header := string(c.GetHeader("Authorization")); header != "" {
 		token, ok := strings.CutPrefix(header, "Bearer ")
 		if !ok {
@@ -136,7 +141,8 @@ func (s *Server) requireAuth(ctx context.Context, c *app.RequestContext) {
 // that header on their own. When a browser omits both Origin and Referer, SameSite=Lax
 // on the cookie is the remaining guard.
 func (s *Server) checkOrigin(ctx context.Context, c *app.RequestContext) {
-	if isSafeMethod(string(c.Method())) || len(c.GetHeader("Authorization")) > 0 {
+	// Agents' programs call the OAuth endpoints with no cookie: nothing to forge there.
+	if isSafeMethod(string(c.Method())) || len(c.GetHeader("Authorization")) > 0 || selfAuthenticating(c) {
 		c.Next(ctx)
 		return
 	}

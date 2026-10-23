@@ -143,6 +143,8 @@ type Services struct {
 	Geoblock        GeoblockService
 	// Meta is what pages show about Polythought itself; nil: its repository alone.
 	Meta MetaService
+	// OAuth is the OAuth server agents sign in with (D397).
+	OAuth OAuthService
 	// Spend is what users' agents spend, and the caps on it; nil when there is no agent.
 	Spend SpendService
 	// Plugins are what admins install (5c); nil where there are none.
@@ -189,6 +191,7 @@ type Server struct {
 	mail          MailService
 	geoblock      GeoblockService
 	meta          MetaService
+	oauth         OAuthService
 	spend         SpendService
 	plugins       PluginService
 
@@ -267,6 +270,7 @@ func New(cfg Config, util *observability.Utility, services Services) (*Server, e
 		mail:          services.Mail,
 		geoblock:      services.Geoblock,
 		meta:          services.Meta,
+		oauth:         services.OAuth,
 		spend:         services.Spend,
 		plugins:       services.Plugins,
 
@@ -324,6 +328,17 @@ func (s *Server) routes() {
 	v1 := h.Group("/api/v1")
 
 	v1.GET("/meta", s.getMeta)
+
+	// The OAuth server agents sign in with (D397); its metadata at the root (RFC 8414).
+	h.GET("/.well-known/oauth-authorization-server", s.oauthMetadata)
+	v1.POST("/oauth/register", s.registerOAuthClient)
+	v1.POST("/oauth/token", s.oauthToken)
+	v1.POST("/oauth/revoke", s.oauthRevoke)
+	v1.POST("/oauth/authorization", s.requireAuth, s.oauthConsent)
+	v1.POST("/oauth/authorization/approve", s.requireAuth, s.oauthApprove)
+	v1.POST("/oauth/authorization/deny", s.requireAuth, s.oauthDeny)
+	v1.GET("/me/grants", s.requireAuth, s.listGrants)
+	v1.DELETE("/me/grants/:id", s.requireAuth, s.revokeGrant)
 
 	v1.GET("/auth/config", s.authConfig)
 	v1.POST("/auth/register", s.register)

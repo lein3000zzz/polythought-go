@@ -13,6 +13,8 @@ export const keys = {
   customNodeList: ['custom-nodes', 'list'],
   customNode: (id: string) => ['custom-nodes', 'detail', id],
   tokens: ['tokens'],
+  grants: ['grants'],
+  consent: (request: object) => ['oauth-consent', request],
   telegram: ['telegram'],
   notifications: ['notifications'],
   users: ['admin', 'users'],

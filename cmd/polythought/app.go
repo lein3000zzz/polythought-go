@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"strings"
 	"sync"
 	"time"
 
@@ -14,6 +15,7 @@ import (
 	"github.com/lein3000zzz/the-watchers/pkg/observability/tracing/oteltracing"
 	"github.com/shopspring/decimal"
 
+	"github.com/lein3000zzz/polythought-go/internal/adapters/clientdocs"
 	"github.com/lein3000zzz/polythought-go/internal/adapters/crypto"
 	"github.com/lein3000zzz/polythought-go/internal/adapters/github"
 	"github.com/lein3000zzz/polythought-go/internal/adapters/llm"
@@ -44,6 +46,7 @@ import (
 	"github.com/lein3000zzz/polythought-go/internal/core/services/meta"
 	"github.com/lein3000zzz/polythought-go/internal/core/services/models"
 	"github.com/lein3000zzz/polythought-go/internal/core/services/notify"
+	"github.com/lein3000zzz/polythought-go/internal/core/services/oauth"
 	"github.com/lein3000zzz/polythought-go/internal/core/services/plugins"
 	"github.com/lein3000zzz/polythought-go/internal/core/services/settings"
 	"github.com/lein3000zzz/polythought-go/internal/core/services/spend"
@@ -133,6 +136,7 @@ type app struct {
 	mail            *mail.Service
 	geoblock        *geoblock.Service
 	meta            *meta.Service
+	oauth           *oauth.Service
 	waits           *waits.Service
 	code            *code.Service
 	codeRunners     func() ports.CodeRunners
@@ -252,6 +256,15 @@ func (a *app) init(ctx context.Context) error {
 	}
 
 	a.meta = meta.New(stars, func() bool { return a.settings.Current().Bool(config.KeyGitHubStars) }, a.util.Logger)
+
+	// The OAuth server agents sign in with, for the MCP endpoint (D382, D397). A client's
+	// document is fetched through the guard webhooks use.
+	a.oauth = oauth.New(oauth.Config{Issuer: a.cfg.PublicURL, Resource: strings.TrimRight(a.cfg.PublicURL, "/") + "/mcp"},
+		postgres.NewOAuth(a.db),
+		clientdocs.New(func() bool { return a.settings.Current().Bool(config.KeyWebhookAllowPrivate) }, nil),
+		postgres.NewUsers(a.db),
+		ratelimit.NewMemory(30*time.Second, 10), // per address: 10, then one every 30 s
+		a.util.Logger)
 
 	// After notify, which reminds of expiring session keys. A wallet a workflow trades
 	// live from is not unlinked.

@@ -21,6 +21,12 @@
 		reverse_proxy {$API_UPSTREAM:api:8080}
 	}
 
+	# The OAuth server's metadata, which agents look for at the root (RFC 8414); the MCP
+	# endpoint's comes with it (RFC 9728, 7a2).
+	handle /.well-known/oauth-* {
+		reverse_proxy {$API_UPSTREAM:api:8080}
+	}
+
 	# The docs, a static site. Its Content-Security-Policy replaces the app's: it allows the
 	# docs' few inline scripts by hash and WebAssembly for search (docs/scripts/csp.mjs
 	# writes it at build time).

@@ -40,9 +40,9 @@ another row does not open:
 Secrets never come back out of the API: a page can replace or clear one, not read it. A
 signing key is opened in memory only to sign an order, by the trading service.
 
-Passwords are hashed with Argon2id (19 MiB, two passes). Sessions, API tokens, mailed links
-and invite codes are random 256-bit secrets kept only as their SHA-256 hash, so the database
-alone signs nobody in.
+Passwords are hashed with Argon2id (19 MiB, two passes). Sessions, API tokens, agents' OAuth
+codes and tokens, mailed links and invite codes are random 256-bit secrets kept only as their
+SHA-256 hash, so the database alone signs nobody in.
 
 ## Kept, and for how long
 
@@ -53,6 +53,9 @@ alone signs nobody in.
 | Sessions | 7 days idle, 30 in all, pruned hourly |
 | Accounts that never verified | 7 days |
 | Requests to join never confirmed | a day after their link stopped working |
+| Agents' OAuth codes and tokens | until they end (a code 10 minutes, an access token an hour, a refresh token 30 days), pruned hourly |
+| Agents that registered themselves and were never allowed | a day |
+| Agents' grants | always, revoked ones too, one for each user and agent |
 | What nodes remember | each value until its expiry, swept every ten minutes |
 | Orders, fills and holdings | always, including those of deleted workflows' live trading |
 | The Config page's history, plugins' audit | always |

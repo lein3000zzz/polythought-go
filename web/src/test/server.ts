@@ -13,9 +13,10 @@ export const server = setupServer(
   ),
   // The admin pages count the requests to join waiting: none, unless a test says.
   http.get('/api/v1/admin/requests', () => HttpResponse.json({ requests: [], pending: 0 })),
-  // Settings searches its pages' tokens, notifications and credentials: none, unless a
-  // test says.
+  // Settings searches its pages' tokens, agents, notifications and credentials: none,
+  // unless a test says.
   http.get('/api/v1/tokens', () => HttpResponse.json({ tokens: [] })),
+  http.get('/api/v1/me/grants', () => HttpResponse.json({ grants: [] })),
   http.get('/api/v1/notifications', () => HttpResponse.json({ notifications: [], mailOn: false })),
   http.get('/api/v1/credentials', () => HttpResponse.json({ credentials: [] })),
   http.get('/api/v1/credential-types', () => HttpResponse.json({ credentialTypes: [] })),

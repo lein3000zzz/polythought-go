@@ -48,6 +48,7 @@ packages:
       APITokenRepository: {}
       InviteRepository: {}
       JoinRequestRepository: {}
+      ClientDocuments: {}
       Transactor: {}
       RateLimiter: {}
       PasswordHasher: {}
@@ -142,3 +143,4 @@ packages:
       MailService: {}
       GeoblockService: {}
       MetaService: {}
+      OAuthService: {}

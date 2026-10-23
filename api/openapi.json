@@ -2321,6 +2321,264 @@
                 ],
                 "type": "object"
             },
+            "OAuthApproveRequest": {
+                "properties": {
+                    "request": {
+                        "$ref": "#/components/schemas/OAuthAuthRequest"
+                    },
+                    "scopes": {
+                        "items": {
+                            "type": "string"
+                        },
+                        "type": "array",
+                        "uniqueItems": false
+                    }
+                },
+                "required": [
+                    "request",
+                    "scopes"
+                ],
+                "type": "object"
+            },
+            "OAuthAuthRequest": {
+                "properties": {
+                    "client_id": {
+                        "type": "string"
+                    },
+                    "code_challenge": {
+                        "type": "string"
+                    },
+                    "code_challenge_method": {
+                        "type": "string"
+                    },
+                    "redirect_uri": {
+                        "type": "string"
+                    },
+                    "resource": {
+                        "type": "string"
+                    },
+                    "response_type": {
+                        "type": "string"
+                    },
+                    "scope": {
+                        "type": "string"
+                    },
+                    "state": {
+                        "type": "string"
+                    }
+                },
+                "required": [
+                    "client_id",
+                    "code_challenge",
+                    "code_challenge_method",
+                    "redirect_uri",
+                    "response_type"
+                ],
+                "type": "object"
+            },
+            "OAuthClient": {
+                "properties": {
+                    "id": {
+                        "type": "string"
+                    },
+                    "name": {
+                        "type": "string"
+                    },
+                    "site": {
+                        "description": "Site is the host it is from: its document's, or its homepage's, unchecked.",
+                        "type": "string"
+                    },
+                    "verified": {
+                        "description": "Verified says it is a metadata document at its ID, a URL only its owner could\npublish at; a registered client's name is its own word.",
+                        "type": "boolean"
+                    }
+                },
+                "required": [
+                    "id",
+                    "name",
+                    "verified"
+                ],
+                "type": "object"
+            },
+            "OAuthConsent": {
+                "properties": {
+                    "allowed": {
+                        "description": "Allowed says the user's grant covers what the client asks: the page approves with\nGranted, not asking again.",
+                        "type": "boolean"
+                    },
+                    "client": {
+                        "$ref": "#/components/schemas/OAuthClient"
+                    },
+                    "granted": {
+                        "items": {
+                            "type": "string"
+                        },
+                        "type": "array",
+                        "uniqueItems": false
+                    },
+                    "offered": {
+                        "items": {
+                            "$ref": "#/components/schemas/OAuthOffer"
+                        },
+                        "type": "array",
+                        "uniqueItems": false
+                    },
+                    "problem": {
+                        "$ref": "#/components/schemas/OAuthProblem",
+                        "description": "Problem is set instead when the request is wrong."
+                    },
+                    "redirectHost": {
+                        "description": "RedirectHost is where the browser goes once the user decides.",
+                        "type": "string"
+                    }
+                },
+                "required": [
+                    "allowed"
+                ],
+                "type": "object"
+            },
+            "OAuthDecision": {
+                "properties": {
+                    "problem": {
+                        "$ref": "#/components/schemas/OAuthProblem"
+                    },
+                    "redirect": {
+                        "description": "Redirect is where to send the browser.",
+                        "type": "string"
+                    }
+                },
+                "type": "object"
+            },
+            "OAuthGrant": {
+                "properties": {
+                    "client": {
+                        "$ref": "#/components/schemas/OAuthClient"
+                    },
+                    "createdAt": {
+                        "format": "date-time",
+                        "type": "string"
+                    },
+                    "id": {
+                        "type": "string"
+                    },
+                    "lastUsedAt": {
+                        "format": "date-time",
+                        "type": "string"
+                    },
+                    "revokedAt": {
+                        "format": "date-time",
+                        "type": "string"
+                    },
+                    "scopes": {
+                        "items": {
+                            "type": "string"
+                        },
+                        "type": "array",
+                        "uniqueItems": false
+                    }
+                },
+                "required": [
+                    "client",
+                    "createdAt",
+                    "id",
+                    "scopes"
+                ],
+                "type": "object"
+            },
+            "OAuthGrantList": {
+                "properties": {
+                    "grants": {
+                        "items": {
+                            "$ref": "#/components/schemas/OAuthGrant"
+                        },
+                        "type": "array",
+                        "uniqueItems": false
+                    }
+                },
+                "required": [
+                    "grants"
+                ],
+                "type": "object"
+            },
+            "OAuthOffer": {
+                "properties": {
+                    "scope": {
+                        "enum": [
+                            "read",
+                            "build",
+                            "paper",
+                            "live",
+                            "admin"
+                        ],
+                        "type": "string"
+                    },
+                    "ticked": {
+                        "type": "boolean"
+                    }
+                },
+                "required": [
+                    "scope",
+                    "ticked"
+                ],
+                "type": "object"
+            },
+            "OAuthProblem": {
+                "properties": {
+                    "code": {
+                        "type": "string"
+                    },
+                    "description": {
+                        "type": "string"
+                    },
+                    "redirect": {
+                        "description": "Redirect is where to send the browser with it, back to the client; absent, the page\nshows it, as the client or its redirect is wrong.",
+                        "type": "string"
+                    }
+                },
+                "required": [
+                    "code",
+                    "description"
+                ],
+                "type": "object"
+            },
+            "OAuthRegistrationRequest": {
+                "properties": {
+                    "client_name": {
+                        "type": "string"
+                    },
+                    "client_uri": {
+                        "type": "string"
+                    },
+                    "grant_types": {
+                        "items": {
+                            "type": "string"
+                        },
+                        "type": "array",
+                        "uniqueItems": false
+                    },
+                    "redirect_uris": {
+                        "items": {
+                            "type": "string"
+                        },
+                        "type": "array",
+                        "uniqueItems": false
+                    },
+                    "response_types": {
+                        "items": {
+                            "type": "string"
+                        },
+                        "type": "array",
+                        "uniqueItems": false
+                    },
+                    "token_endpoint_auth_method": {
+                        "type": "string"
+                    }
+                },
+                "required": [
+                    "redirect_uris"
+                ],
+                "type": "object"
+            },
             "Order": {
                 "properties": {
                     "at": {
@@ -4366,6 +4624,80 @@
                 },
                 "required": [
                     "problems"
+                ],
+                "type": "object"
+            },
+            "httpapi.oauthRegistrationDTO": {
+                "properties": {
+                    "client_id": {
+                        "type": "string"
+                    },
+                    "client_id_issued_at": {
+                        "type": "integer"
+                    },
+                    "client_name": {
+                        "type": "string"
+                    },
+                    "grant_types": {
+                        "items": {
+                            "type": "string"
+                        },
+                        "type": "array",
+                        "uniqueItems": false
+                    },
+                    "redirect_uris": {
+                        "items": {
+                            "type": "string"
+                        },
+                        "type": "array",
+                        "uniqueItems": false
+                    },
+                    "response_types": {
+                        "items": {
+                            "type": "string"
+                        },
+                        "type": "array",
+                        "uniqueItems": false
+                    },
+                    "token_endpoint_auth_method": {
+                        "type": "string"
+                    }
+                },
+                "required": [
+                    "client_id",
+                    "client_id_issued_at",
+                    "client_name",
+                    "grant_types",
+                    "redirect_uris",
+                    "response_types",
+                    "token_endpoint_auth_method"
+                ],
+                "type": "object"
+            },
+            "httpapi.oauthTokenDTO": {
+                "properties": {
+                    "access_token": {
+                        "type": "string"
+                    },
+                    "expires_in": {
+                        "type": "integer"
+                    },
+                    "refresh_token": {
+                        "type": "string"
+                    },
+                    "scope": {
+                        "type": "string"
+                    },
+                    "token_type": {
+                        "type": "string"
+                    }
+                },
+                "required": [
+                    "access_token",
+                    "expires_in",
+                    "refresh_token",
+                    "scope",
+                    "token_type"
                 ],
                 "type": "object"
             }
@@ -8940,6 +9272,98 @@
                 ]
             }
         },
+        "/me/grants": {
+            "get": {
+                "operationId": "listGrants",
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/OAuthGrantList"
+                                }
+                            }
+                        },
+                        "description": "OK"
+                    },
+                    "401": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "unauthenticated"
+                    }
+                },
+                "security": [
+                    {
+                        "SessionCookie": []
+                    },
+                    {
+                        "APIToken": []
+                    }
+                ],
+                "summary": "The agents you allowed",
+                "tags": [
+                    "oauth"
+                ]
+            }
+        },
+        "/me/grants/{id}": {
+            "delete": {
+                "operationId": "revokeGrant",
+                "parameters": [
+                    {
+                        "description": "Grant ID",
+                        "in": "path",
+                        "name": "id",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "No Content"
+                    },
+                    "401": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "unauthenticated"
+                    },
+                    "404": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "not_found"
+                    }
+                },
+                "security": [
+                    {
+                        "SessionCookie": []
+                    },
+                    {
+                        "APIToken": []
+                    }
+                ],
+                "summary": "Revoke an agent's grant",
+                "tags": [
+                    "oauth"
+                ]
+            }
+        },
         "/me/kill-switch": {
             "put": {
                 "operationId": "setKillSwitch",
@@ -9236,6 +9660,357 @@
                 "summary": "Switch a notification on or off",
                 "tags": [
                     "notifications"
+                ]
+            }
+        },
+        "/oauth/authorization": {
+            "post": {
+                "operationId": "oauthConsent",
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/OAuthAuthRequest",
+                                "summary": "body",
+                                "description": "The request, from the page's URL"
+                            }
+                        }
+                    },
+                    "description": "The request, from the page's URL",
+                    "required": true
+                },
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/OAuthConsent"
+                                }
+                            }
+                        },
+                        "description": "OK"
+                    },
+                    "401": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "unauthenticated"
+                    }
+                },
+                "security": [
+                    {
+                        "SessionCookie": []
+                    }
+                ],
+                "summary": "What a client asks to be allowed",
+                "tags": [
+                    "oauth"
+                ]
+            }
+        },
+        "/oauth/authorization/approve": {
+            "post": {
+                "operationId": "oauthApprove",
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/OAuthApproveRequest",
+                                "summary": "body",
+                                "description": "The request and the scopes allowed"
+                            }
+                        }
+                    },
+                    "description": "The request and the scopes allowed",
+                    "required": true
+                },
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/OAuthDecision"
+                                }
+                            }
+                        },
+                        "description": "OK"
+                    },
+                    "401": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "unauthenticated"
+                    },
+                    "403": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "forbidden: not from a browser session"
+                    }
+                },
+                "security": [
+                    {
+                        "SessionCookie": []
+                    }
+                ],
+                "summary": "Allow a client",
+                "tags": [
+                    "oauth"
+                ]
+            }
+        },
+        "/oauth/authorization/deny": {
+            "post": {
+                "operationId": "oauthDeny",
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/OAuthAuthRequest",
+                                "summary": "body",
+                                "description": "The request"
+                            }
+                        }
+                    },
+                    "description": "The request",
+                    "required": true
+                },
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/OAuthDecision"
+                                }
+                            }
+                        },
+                        "description": "OK"
+                    },
+                    "401": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "unauthenticated"
+                    }
+                },
+                "security": [
+                    {
+                        "SessionCookie": []
+                    }
+                ],
+                "summary": "Deny a client",
+                "tags": [
+                    "oauth"
+                ]
+            }
+        },
+        "/oauth/register": {
+            "post": {
+                "operationId": "registerOAuthClient",
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/OAuthRegistrationRequest",
+                                "summary": "body",
+                                "description": "The client, as it describes itself"
+                            }
+                        }
+                    },
+                    "description": "The client, as it describes itself",
+                    "required": true
+                },
+                "responses": {
+                    "201": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/httpapi.oauthRegistrationDTO"
+                                }
+                            }
+                        },
+                        "description": "Created"
+                    },
+                    "400": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "additionalProperties": {
+                                        "type": "string"
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        },
+                        "description": "invalid_client_metadata, invalid_redirect_uri"
+                    },
+                    "429": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "additionalProperties": {
+                                        "type": "string"
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        },
+                        "description": "slow_down"
+                    }
+                },
+                "summary": "Register an OAuth client",
+                "tags": [
+                    "oauth"
+                ]
+            }
+        },
+        "/oauth/revoke": {
+            "post": {
+                "operationId": "oauthRevoke",
+                "requestBody": {
+                    "content": {
+                        "application/x-www-form-urlencoded": {
+                            "schema": {
+                                "properties": {
+                                    "client_id": {
+                                        "description": "The client",
+                                        "type": "string"
+                                    },
+                                    "token": {
+                                        "description": "An access or refresh token",
+                                        "type": "string"
+                                    }
+                                },
+                                "required": [
+                                    "token",
+                                    "client_id"
+                                ],
+                                "type": "object"
+                            }
+                        }
+                    },
+                    "description": "An access or refresh token",
+                    "required": true
+                },
+                "responses": {
+                    "200": {
+                        "description": "OK"
+                    }
+                },
+                "summary": "Revoke an OAuth token",
+                "tags": [
+                    "oauth"
+                ]
+            }
+        },
+        "/oauth/token": {
+            "post": {
+                "operationId": "oauthToken",
+                "requestBody": {
+                    "content": {
+                        "application/x-www-form-urlencoded": {
+                            "schema": {
+                                "properties": {
+                                    "client_id": {
+                                        "description": "The client",
+                                        "type": "string"
+                                    },
+                                    "code": {
+                                        "description": "The code, for authorization_code",
+                                        "type": "string"
+                                    },
+                                    "code_verifier": {
+                                        "description": "PKCE, for authorization_code",
+                                        "type": "string"
+                                    },
+                                    "grant_type": {
+                                        "description": "authorization_code or refresh_token",
+                                        "type": "string"
+                                    },
+                                    "redirect_uri": {
+                                        "description": "The code's redirect, for authorization_code",
+                                        "type": "string"
+                                    },
+                                    "refresh_token": {
+                                        "description": "For refresh_token",
+                                        "type": "string"
+                                    },
+                                    "resource": {
+                                        "description": "The MCP endpoint's URL (RFC 8707)",
+                                        "type": "string"
+                                    },
+                                    "scope": {
+                                        "description": "Less than the token had, for refresh_token",
+                                        "type": "string"
+                                    }
+                                },
+                                "required": [
+                                    "grant_type",
+                                    "client_id"
+                                ],
+                                "type": "object"
+                            }
+                        }
+                    },
+                    "description": "authorization_code or refresh_token"
+                },
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/httpapi.oauthTokenDTO"
+                                }
+                            }
+                        },
+                        "description": "OK"
+                    },
+                    "400": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "additionalProperties": {
+                                        "type": "string"
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        },
+                        "description": "invalid_request, invalid_grant, invalid_scope, unsupported_grant_type, invalid_target"
+                    },
+                    "429": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "additionalProperties": {
+                                        "type": "string"
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        },
+                        "description": "slow_down"
+                    }
+                },
+                "summary": "OAuth token endpoint",
+                "tags": [
+                    "oauth"
                 ]
             }
         },

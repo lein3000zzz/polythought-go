@@ -27,6 +27,7 @@ require (
 	github.com/knadh/koanf/v2 v2.3.8
 	github.com/landlock-lsm/go-landlock v0.10.1
 	github.com/lein3000zzz/the-watchers v0.0.0-20260728160212-a9a1ca05a9eb
+	github.com/lib/pq v1.12.3
 	github.com/openai/openai-go/v3 v3.82.0
 	github.com/pressly/goose/v3 v3.28.0
 	github.com/shopspring/decimal v1.5.0
@@ -103,7 +104,6 @@ require (
 	github.com/klauspost/compress v1.19.2 // indirect
 	github.com/klauspost/cpuid/v2 v2.2.9 // indirect
 	github.com/knadh/koanf/maps v0.1.2 // indirect
-	github.com/lib/pq v1.12.3 // indirect
 	github.com/lufia/plan9stats v0.0.0-20260330125221-c963978e514e // indirect
 	github.com/magiconair/properties v1.8.10 // indirect
 	github.com/mattn/go-colorable v0.1.13 // indirect

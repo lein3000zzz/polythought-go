@@ -61,6 +61,7 @@ func serve(ctx context.Context) error {
 		Telegram: a.telegram, TelegramWebhook: a.telegramBot, Notifications: a.notify, Mail: a.mail,
 		Geoblock: a.geoblock,
 		Meta:     a.meta,
+		OAuth:    a.oauth,
 		Plugins:  a.plugins,
 
 		CodeRunners: a.codeRunners,
@@ -223,6 +224,11 @@ func pruneSessions(ctx context.Context, a *app, log logging.Logger) {
 				log.Warn(ctx, "Unverified accounts not pruned", logging.Err(err))
 			} else if n > 0 {
 				log.Info(ctx, "Unverified accounts removed", "count", n)
+			}
+
+			// Agents' ended codes and tokens, and clients that never got a grant (D397).
+			if _, err := a.oauth.Prune(ctx); err != nil {
+				log.Warn(ctx, "OAuth codes and tokens not pruned", logging.Err(err))
 			}
 		}
 	}
