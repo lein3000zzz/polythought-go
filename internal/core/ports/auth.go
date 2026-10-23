@@ -30,9 +30,8 @@ type UserRepository interface {
 	// SetKillStopsAgents records the user's choice that their kill switch stops their
 	// agents too (D276).
 	SetKillStopsAgents(ctx context.Context, id domain.UserID, on bool) error
-	// SetAgentsSeePersonal records whether agents over MCP see the user's workflows'
-	// personal settings (D401).
-	SetAgentsSeePersonal(ctx context.Context, id domain.UserID, on bool) error
+	// SetAgentAccess records what the user lets their agents and API tokens do (D401, D403).
+	SetAgentAccess(ctx context.Context, id domain.UserID, a domain.AgentAccess) error
 	List(ctx context.Context, f PageFilter) (Page[domain.User], error)
 	CountActiveAdmins(ctx context.Context) (int, error)
 	// LockActiveAdmins locks the active admins' rows until the surrounding transaction

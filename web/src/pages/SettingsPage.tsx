@@ -97,6 +97,18 @@ export function SettingsPage() {
       label: 'Agents and tokens see personal settings',
       words: 'agents api tokens mcp personal sensitive webhook url secret hidden',
     },
+    {
+      slug: 'connected',
+      key: 'agents-may-delete',
+      label: 'Agents and tokens may delete workflows',
+      words: 'agents api tokens mcp delete remove workflows',
+    },
+    {
+      slug: 'connected',
+      key: 'agents-may-share',
+      label: 'Agents and tokens may share to the library',
+      words: 'agents api tokens mcp share library publish',
+    },
     ...(grants.data ?? [])
       .filter((g) => !g.revokedAt)
       .map((g) => ({

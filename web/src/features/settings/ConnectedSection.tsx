@@ -29,7 +29,6 @@ export function ConnectedSection() {
   const grants = useGrants()
   const revoke = useRevokeGrant()
   const me = useMe()
-  const access = useSetAgentAccess()
   const [revoking, setRevoking] = useState<Schemas['OAuthGrant']>()
 
   return (
@@ -43,36 +42,42 @@ export function ConnectedSection() {
         </p>
       </div>
 
-      <div id={jumpId('agents-see-personal')} className="flex items-start justify-between gap-4">
-        <div className="flex flex-col gap-0.5">
-          <Label htmlFor="agents-see-personal">Agents and tokens see personal settings</Label>
-          <p id="agents-see-personal-hint" className="text-xs text-muted-foreground">
-            Settings such as a webhook's URL, which can be a secret. Off, agents and API tokens see
-            that they are set, never what they are, as sharing a workflow leaves them out; a
-            workflow they save keeps them as they were.
-          </p>
-        </div>
-        <Switch
-          id="agents-see-personal"
-          aria-describedby="agents-see-personal-hint"
-          checked={me.data?.agentsSeePersonal ?? false}
-          disabled={access.isPending || !me.data}
-          onCheckedChange={(on) =>
-            access.mutate(
-              { seePersonal: on },
-              {
-                onSuccess: () =>
-                  toast.success(
-                    on
-                      ? 'Your agents and tokens see personal settings'
-                      : 'Your agents and tokens no longer see personal settings',
-                  ),
-                onError: (error) => toast.error(errorMessage(error)),
-              },
-            )
-          }
-        />
-      </div>
+      <AccessSwitch
+        id="agents-see-personal"
+        label="Agents and tokens see personal settings"
+        hint="Settings such as a webhook's URL, which can be a secret. Off, agents and API tokens see that they are set, never what they are, as sharing a workflow leaves them out; a workflow they save keeps them as they were."
+        checked={me.data?.agentsSeePersonal}
+        change={(on) => ({ seePersonal: on })}
+        said={(on) =>
+          on
+            ? 'Your agents and tokens see personal settings'
+            : 'Your agents and tokens no longer see personal settings'
+        }
+      />
+      <AccessSwitch
+        id="agents-may-delete"
+        label="Agents and tokens may delete workflows"
+        hint="A deleted workflow takes its executions with it and cannot be had back. Off, they change workflows and switch them off, but never delete one."
+        checked={me.data?.agentsMayDelete}
+        change={(on) => ({ delete: on })}
+        said={(on) =>
+          on
+            ? 'Your agents and tokens may delete workflows'
+            : 'Your agents and tokens may no longer delete workflows'
+        }
+      />
+      <AccessSwitch
+        id="agents-may-share"
+        label="Agents and tokens may share to the library"
+        hint="A shared workflow is there for everyone on this instance to copy, its personal settings left out. Off, they start from the library's workflows, but never share one."
+        checked={me.data?.agentsMayShare}
+        change={(on) => ({ share: on })}
+        said={(on) =>
+          on
+            ? 'Your agents and tokens may share to the library'
+            : 'Your agents and tokens may no longer share to the library'
+        }
+      />
 
       {grants.isPending && <Skeleton className="h-24" />}
       {grants.isError && <ErrorAlert error={grants.error} onRetry={() => void grants.refetch()} />}
@@ -147,5 +152,47 @@ export function ConnectedSection() {
         }
       />
     </section>
+  )
+}
+
+/** One of the switches for what the user's agents and tokens may see and do (D401, D403). */
+function AccessSwitch({
+  id,
+  label,
+  hint,
+  checked,
+  change,
+  said,
+}: {
+  id: string
+  label: string
+  hint: string
+  checked: boolean | undefined
+  change: (on: boolean) => Schemas['AgentAccessRequest']
+  said: (on: boolean) => string
+}) {
+  const access = useSetAgentAccess()
+
+  return (
+    <div id={jumpId(id)} className="flex items-start justify-between gap-4">
+      <div className="flex flex-col gap-0.5">
+        <Label htmlFor={id}>{label}</Label>
+        <p id={`${id}-hint`} className="text-xs text-muted-foreground">
+          {hint}
+        </p>
+      </div>
+      <Switch
+        id={id}
+        aria-describedby={`${id}-hint`}
+        checked={checked ?? false}
+        disabled={access.isPending || checked === undefined}
+        onCheckedChange={(on) =>
+          access.mutate(change(on), {
+            onSuccess: () => toast.success(said(on)),
+            onError: (error) => toast.error(errorMessage(error)),
+          })
+        }
+      />
+    </div>
   )
 }

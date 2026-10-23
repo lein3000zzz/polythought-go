@@ -242,6 +242,72 @@ func TestAgentSignsInOverMCP(t *testing.T) {
 	wallets := tool(ctx, t, agent, "list_wallets", nil)
 	assert.NotNil(t, wallets["wallets"])
 
+	// It builds (D403): a workflow from code, then changed on the version it read with a
+	// node more, which goes beside the one feeding it; run by hand; deleted once the user
+	// lets agents delete.
+	built := tool(ctx, t, agent, "create_workflow", map[string]any{"code": `import { workflow } from "@polythought/workflow"
+
+export default workflow("Agent builds me", (w) => {
+  const manual = w.trigger("manual", "trigger.manual")
+  const log = w.node("log", "output.log", { message: "hello" })
+
+  manual.to(log)
+})
+`})
+	assert.Equal(t, "Agent builds me", built["name"])
+	assert.Equal(t, false, built["active"])
+
+	id := built["id"].(string)
+
+	var placed struct {
+		Nodes []struct {
+			ID       string
+			Position struct{ X, Y float64 }
+		}
+	}
+	b.call(http.MethodGet, "/api/v1/workflows/"+id, nil, http.StatusOK, &placed)
+	require.Len(t, placed.Nodes, 2)
+	assert.Equal(t, 300.0, placed.Nodes[1].Position.X-placed.Nodes[0].Position.X, "laid out as the canvas would")
+
+	changed := tool(ctx, t, agent, "update_workflow", map[string]any{"id": id, "version": built["version"], "workflow": map[string]any{
+		"nodes": []any{
+			map[string]any{"id": "manual", "type": "trigger.manual"},
+			map[string]any{"id": "log", "type": "output.log", "params": map[string]any{"message": "hello"}},
+			map[string]any{"id": "again", "type": "output.log", "params": map[string]any{"message": "again"}},
+		},
+		"connections": []any{
+			map[string]any{"from": "manual", "fromPort": "main", "to": "log", "toPort": "main"},
+			map[string]any{"from": "log", "fromPort": "main", "to": "again", "toPort": "main"},
+		},
+	}})
+	assert.Equal(t, 2.0, changed["version"])
+
+	b.call(http.MethodGet, "/api/v1/workflows/"+id, nil, http.StatusOK, &placed)
+	require.Len(t, placed.Nodes, 3)
+	assert.Equal(t, placed.Nodes[1].Position.X+300, placed.Nodes[2].Position.X, "after the node feeding it")
+
+	stale, err := agent.CallTool(ctx, &mcp.CallToolParams{Name: "update_workflow", Arguments: map[string]any{
+		"id": id, "version": 1, "workflow": map[string]any{"nodes": []any{map[string]any{"id": "manual", "type": "trigger.manual"}}},
+	}})
+	require.NoError(t, err)
+	require.True(t, stale.IsError)
+	assert.Contains(t, stale.Content[0].(*mcp.TextContent).Text, "changed since version 1", "the version it read is old")
+
+	ran := tool(ctx, t, agent, "run_workflow", map[string]any{"id": id})
+	assert.Equal(t, "succeeded", ran["status"])
+	assert.Len(t, ran["nodes"], 3)
+
+	refused, err := agent.CallTool(ctx, &mcp.CallToolParams{Name: "delete_workflow", Arguments: map[string]any{"id": id}})
+	require.NoError(t, err)
+	require.True(t, refused.IsError)
+	assert.Contains(t, refused.Content[0].(*mcp.TextContent).Text, "has not let agents and tokens delete workflows")
+
+	b.call(http.MethodPut, "/api/v1/me/agent-access", map[string]any{"delete": true}, http.StatusNoContent, nil)
+	defer b.call(http.MethodPut, "/api/v1/me/agent-access", map[string]any{"delete": false}, http.StatusNoContent, nil)
+
+	assert.Equal(t, map[string]any{"deleted": id}, tool(ctx, t, agent, "delete_workflow", map[string]any{"id": id}))
+	b.call(http.MethodGet, "/api/v1/workflows/"+id, nil, http.StatusNotFound, nil)
+
 	// An API token with the read scope alone works there too, with that scope.
 	var token struct{ Token string }
 	b.call(http.MethodPost, "/api/v1/tokens", map[string]any{"name": "mcp e2e", "scopes": []string{"read"}}, http.StatusCreated, &token)

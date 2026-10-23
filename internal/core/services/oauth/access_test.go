@@ -199,18 +199,19 @@ func TestResourceMetadata(t *testing.T) {
 	assert.Equal(t, []string{"header"}, m.BearerMethodsSupported)
 }
 
-// Only the user at a browser lets their agents see personal settings (D383, D401).
-func TestSetAgentsSeePersonal(t *testing.T) {
+// Only the user at a browser lets their agents do more (D383, D401, D403).
+func TestSetAgentAccess(t *testing.T) {
 	ctx := context.Background()
 	f := newFixture(t)
 	p := f.user("u1", domain.RoleUser)
 
-	f.users.EXPECT().SetAgentsSeePersonal(mock.Anything, p.User.ID, true).Return(nil).Once()
-	require.NoError(t, f.s.SetAgentsSeePersonal(ctx, p, true))
+	all := domain.AgentAccess{SeePersonal: true, Delete: true, Share: true}
+	f.users.EXPECT().SetAgentAccess(mock.Anything, p.User.ID, all).Return(nil).Once()
+	require.NoError(t, f.s.SetAgentAccess(ctx, p, all))
 
 	agent := auth.Principal{User: p.User, GrantID: "g-1", Scopes: domain.Scopes}
-	require.ErrorIs(t, f.s.SetAgentsSeePersonal(ctx, agent, true), domain.ErrForbidden, "an agent cannot let itself see more")
+	require.ErrorIs(t, f.s.SetAgentAccess(ctx, agent, all), domain.ErrForbidden, "an agent cannot let itself do more")
 
 	token := auth.Principal{User: p.User, TokenID: "t-1"}
-	require.ErrorIs(t, f.s.SetAgentsSeePersonal(ctx, token, true), domain.ErrForbidden)
+	require.ErrorIs(t, f.s.SetAgentAccess(ctx, token, all), domain.ErrForbidden)
 }

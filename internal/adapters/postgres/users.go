@@ -58,7 +58,9 @@ func (r *Users) Create(ctx context.Context, u domain.User, passwordHash string) 
 		KillStopsAgents:   u.KillStopsAgents,
 		CreatedAt:         u.CreatedAt,
 		UpdatedAt:         u.UpdatedAt,
-		AgentsSeePersonal: u.AgentsSeePersonal,
+		AgentsSeePersonal: u.Agents.SeePersonal,
+		AgentsMayDelete:   u.Agents.Delete,
+		AgentsMayShare:    u.Agents.Share,
 	}
 
 	_, err = table.Users.INSERT(table.Users.AllColumns).MODEL(m).ExecContext(ctx, r.db.conn(ctx))
@@ -161,8 +163,8 @@ func (r *Users) SetKillStopsAgents(ctx context.Context, id domain.UserID, on boo
 		ExecContext(ctx, r.db.conn(ctx)))
 }
 
-// SetAgentsSeePersonal records whether agents see the user's personal settings (D401).
-func (r *Users) SetAgentsSeePersonal(ctx context.Context, id domain.UserID, on bool) error {
+// SetAgentAccess records what the user lets their agents and API tokens do (D401, D403).
+func (r *Users) SetAgentAccess(ctx context.Context, id domain.UserID, a domain.AgentAccess) error {
 	uid, err := parseID(id)
 	if err != nil {
 		return err
@@ -170,8 +172,8 @@ func (r *Users) SetAgentsSeePersonal(ctx context.Context, id domain.UserID, on b
 
 	t := table.Users
 
-	return affectedOne(t.UPDATE(t.AgentsSeePersonal).
-		SET(on).
+	return affectedOne(t.UPDATE(t.AgentsSeePersonal, t.AgentsMayDelete, t.AgentsMayShare).
+		MODEL(model.Users{AgentsSeePersonal: a.SeePersonal, AgentsMayDelete: a.Delete, AgentsMayShare: a.Share}).
 		WHERE(t.ID.EQ(jet.UUID(uid))).
 		ExecContext(ctx, r.db.conn(ctx)))
 }
@@ -328,10 +330,10 @@ func toUser(m model.Users) domain.User {
 		AgentCaps: domain.AgentCaps{
 			Dollars: m.MaxAgentDollars, InputTokens: m.MaxAgentInput, OutputTokens: m.MaxAgentOutput, TotalTokens: m.MaxAgentTotal,
 		},
-		KillStopsAgents:   m.KillStopsAgents,
-		AgentsSeePersonal: m.AgentsSeePersonal,
-		CreatedAt:         m.CreatedAt.UTC(),
-		UpdatedAt:         m.UpdatedAt.UTC(),
+		KillStopsAgents: m.KillStopsAgents,
+		Agents:          domain.AgentAccess{SeePersonal: m.AgentsSeePersonal, Delete: m.AgentsMayDelete, Share: m.AgentsMayShare},
+		CreatedAt:       m.CreatedAt.UTC(),
+		UpdatedAt:       m.UpdatedAt.UTC(),
 	}
 }
 

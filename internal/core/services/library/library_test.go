@@ -445,3 +445,14 @@ func TestListAndDelete(t *testing.T) {
 		})
 	}
 }
+
+// A token or an agent shares to the library only where its user lets it (D403); asked, it
+// reads nothing.
+func TestShareNeedsTheSwitch(t *testing.T) {
+	s, _ := newService(t)
+	token := auth.Principal{User: domain.User{ID: "u-1"}, TokenID: "t-1"}
+
+	_, err := s.Share(context.Background(), token, "wf-1", library.ShareInput{})
+	require.ErrorIs(t, err, domain.ErrForbidden)
+	assert.Contains(t, err.Error(), "Connected agents")
+}

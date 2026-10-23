@@ -66,6 +66,10 @@ type Deps struct {
 	Library   Library
 	Trading   Trading
 
+	// What the build tools change (D403); without them they are not offered.
+	Edit Editing
+	Code WorkflowCode
+
 	// What the market tools read (D402); without a reader they are not offered.
 	Markets Markets
 	// What the money tools read (D402).
@@ -84,6 +88,8 @@ type Server struct {
 	codeTypes CodeTypes
 	library   Library
 	trading   Trading
+	edit      Editing
+	code      WorkflowCode
 
 	markets      ai.Sources
 	marketReader ports.MarketReader
@@ -108,6 +114,7 @@ func New(cfg Config, d Deps) (*Server, error) {
 	s := &Server{
 		agents: d.Agents, tokens: d.Tokens, limiter: d.Limiter, log: log, kit: kit,
 		workflows: d.Workflows, nodeTypes: d.NodeTypes, codeTypes: d.CodeTypes, library: d.Library, trading: d.Trading,
+		edit: d.Edit, code: d.Code,
 		markets: d.Markets.Sources, marketReader: d.Markets.Reader, wallets: d.Wallets, trades: d.Trades,
 		scope: tracing.Scope{Manager: d.Util.TracerManager, TracerName: tracerName},
 	}
@@ -129,6 +136,10 @@ func New(cfg Config, d Deps) (*Server, error) {
 
 	if s.workflows != nil && s.nodeTypes != nil {
 		s.addWorkflowTools(srv)
+	}
+
+	if s.workflows != nil && s.edit != nil && s.code != nil {
+		s.addEditTools(srv)
 	}
 
 	if s.nodeTypes != nil && s.codeTypes != nil && s.library != nil {

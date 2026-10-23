@@ -31,7 +31,7 @@ type OAuthService interface {
 	Revoke(ctx context.Context, token, client string) error
 	Grants(ctx context.Context, p auth.Principal) ([]domain.Grant, error)
 	RevokeGrant(ctx context.Context, p auth.Principal, id domain.GrantID) error
-	SetAgentsSeePersonal(ctx context.Context, p auth.Principal, on bool) error
+	SetAgentAccess(ctx context.Context, p auth.Principal, a domain.AgentAccess) error
 }
 
 // oauthEndpoints are called by agents' programs, not the app: they take no cookie and say
@@ -493,19 +493,23 @@ func (s *Server) listGrants(ctx context.Context, c *app.RequestContext) {
 	c.JSON(http.StatusOK, out)
 }
 
+// agentAccessRequest changes the switches it names, and leaves the others as they are.
 type agentAccessRequest struct {
 	// SeePersonal lets agents and API tokens see the workflows' personal settings, such as
 	// webhook URLs.
-	SeePersonal bool `json:"seePersonal"`
+	SeePersonal *bool `json:"seePersonal,omitempty" validate:"optional"`
+	// Delete lets them delete workflows; Share, share them to the library (D403).
+	Delete *bool `json:"delete,omitempty" validate:"optional"`
+	Share  *bool `json:"share,omitempty" validate:"optional"`
 } // @name AgentAccessRequest
 
-// setAgentAccess sets what the user's agents and API tokens may see (D401, D402), at a
-// browser only.
+// setAgentAccess sets what the user's agents and API tokens may see (D401, D402) and do
+// (D403), at a browser only.
 //
-//	@Summary	What your agents may see
+//	@Summary	What your agents may see and do
 //	@ID			setAgentAccess
 //	@Tags		oauth
-//	@Param		body	body	agentAccessRequest	true	"What they may see"
+//	@Param		body	body	agentAccessRequest	true	"The switches to change"
 //	@Success	204
 //	@Failure	401	{object}	errorBody	"unauthenticated"
 //	@Failure	403	{object}	errorBody	"forbidden: not from a browser session"
@@ -521,7 +525,17 @@ func (s *Server) setAgentAccess(ctx context.Context, c *app.RequestContext) {
 
 	p, _ := principal(c)
 
-	if err := s.oauth.SetAgentsSeePersonal(ctx, p, req.SeePersonal); err != nil {
+	access := p.User.Agents
+	for _, sw := range []struct {
+		to   *bool
+		into *bool
+	}{{req.SeePersonal, &access.SeePersonal}, {req.Delete, &access.Delete}, {req.Share, &access.Share}} {
+		if sw.to != nil {
+			*sw.into = *sw.to
+		}
+	}
+
+	if err := s.oauth.SetAgentAccess(ctx, p, access); err != nil {
 		s.fail(ctx, c, err)
 		return
 	}

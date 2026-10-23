@@ -669,37 +669,37 @@ func (_c *MockOAuthService_RevokeGrant_Call) RunAndReturn(run func(ctx context.C
 	return _c
 }
 
-// SetAgentsSeePersonal provides a mock function for the type MockOAuthService
-func (_mock *MockOAuthService) SetAgentsSeePersonal(ctx context.Context, p auth.Principal, on bool) error {
-	ret := _mock.Called(ctx, p, on)
+// SetAgentAccess provides a mock function for the type MockOAuthService
+func (_mock *MockOAuthService) SetAgentAccess(ctx context.Context, p auth.Principal, a domain.AgentAccess) error {
+	ret := _mock.Called(ctx, p, a)
 
 	if len(ret) == 0 {
-		panic("no return value specified for SetAgentsSeePersonal")
+		panic("no return value specified for SetAgentAccess")
 	}
 
 	var r0 error
-	if returnFunc, ok := ret.Get(0).(func(context.Context, auth.Principal, bool) error); ok {
-		r0 = returnFunc(ctx, p, on)
+	if returnFunc, ok := ret.Get(0).(func(context.Context, auth.Principal, domain.AgentAccess) error); ok {
+		r0 = returnFunc(ctx, p, a)
 	} else {
 		r0 = ret.Error(0)
 	}
 	return r0
 }
 
-// MockOAuthService_SetAgentsSeePersonal_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'SetAgentsSeePersonal'
-type MockOAuthService_SetAgentsSeePersonal_Call struct {
+// MockOAuthService_SetAgentAccess_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'SetAgentAccess'
+type MockOAuthService_SetAgentAccess_Call struct {
 	*mock.Call
 }
 
-// SetAgentsSeePersonal is a helper method to define mock.On call
+// SetAgentAccess is a helper method to define mock.On call
 //   - ctx context.Context
 //   - p auth.Principal
-//   - on bool
-func (_e *MockOAuthService_Expecter) SetAgentsSeePersonal(ctx any, p any, on any) *MockOAuthService_SetAgentsSeePersonal_Call {
-	return &MockOAuthService_SetAgentsSeePersonal_Call{Call: _e.mock.On("SetAgentsSeePersonal", ctx, p, on)}
+//   - a domain.AgentAccess
+func (_e *MockOAuthService_Expecter) SetAgentAccess(ctx any, p any, a any) *MockOAuthService_SetAgentAccess_Call {
+	return &MockOAuthService_SetAgentAccess_Call{Call: _e.mock.On("SetAgentAccess", ctx, p, a)}
 }
 
-func (_c *MockOAuthService_SetAgentsSeePersonal_Call) Run(run func(ctx context.Context, p auth.Principal, on bool)) *MockOAuthService_SetAgentsSeePersonal_Call {
+func (_c *MockOAuthService_SetAgentAccess_Call) Run(run func(ctx context.Context, p auth.Principal, a domain.AgentAccess)) *MockOAuthService_SetAgentAccess_Call {
 	_c.Call.Run(func(args mock.Arguments) {
 		var arg0 context.Context
 		if args[0] != nil {
@@ -709,9 +709,9 @@ func (_c *MockOAuthService_SetAgentsSeePersonal_Call) Run(run func(ctx context.C
 		if args[1] != nil {
 			arg1 = args[1].(auth.Principal)
 		}
-		var arg2 bool
+		var arg2 domain.AgentAccess
 		if args[2] != nil {
-			arg2 = args[2].(bool)
+			arg2 = args[2].(domain.AgentAccess)
 		}
 		run(
 			arg0,
@@ -722,12 +722,12 @@ func (_c *MockOAuthService_SetAgentsSeePersonal_Call) Run(run func(ctx context.C
 	return _c
 }
 
-func (_c *MockOAuthService_SetAgentsSeePersonal_Call) Return(err error) *MockOAuthService_SetAgentsSeePersonal_Call {
+func (_c *MockOAuthService_SetAgentAccess_Call) Return(err error) *MockOAuthService_SetAgentAccess_Call {
 	_c.Call.Return(err)
 	return _c
 }
 
-func (_c *MockOAuthService_SetAgentsSeePersonal_Call) RunAndReturn(run func(ctx context.Context, p auth.Principal, on bool) error) *MockOAuthService_SetAgentsSeePersonal_Call {
+func (_c *MockOAuthService_SetAgentAccess_Call) RunAndReturn(run func(ctx context.Context, p auth.Principal, a domain.AgentAccess) error) *MockOAuthService_SetAgentAccess_Call {
 	_c.Call.Return(run)
 	return _c
 }

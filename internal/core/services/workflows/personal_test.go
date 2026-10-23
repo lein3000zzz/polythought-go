@@ -62,7 +62,7 @@ func url(w domain.Workflow) any { return w.Nodes[1].Params["url"] }
 func TestPersonalHidden(t *testing.T) {
 	ctx := context.Background()
 	user := domain.User{ID: "u-1"}
-	letting := domain.User{ID: "u-1", AgentsSeePersonal: true}
+	letting := domain.User{ID: "u-1", Agents: domain.AgentAccess{SeePersonal: true}}
 
 	for name, tt := range map[string]struct {
 		p    auth.Principal
@@ -161,4 +161,25 @@ func TestPersonalKept(t *testing.T) {
 		assert.Equal(t, secretURL, url(started), "its triggers have the URL")
 		assert.True(t, domain.IsHiddenPersonal(url(got)), "the caller does not")
 	})
+}
+
+// A token or an agent deletes a workflow only where its user lets it (D403).
+func TestDeleteNeedsTheSwitch(t *testing.T) {
+	ctx := context.Background()
+
+	svc, _ := withPersonal(t)
+	err := svc.Delete(ctx, auth.Principal{User: domain.User{ID: "u-1"}, GrantID: "g", Scopes: domain.Scopes}, "wf-1")
+	require.ErrorIs(t, err, domain.ErrForbidden, "asked nothing of the repository")
+
+	for _, p := range []auth.Principal{
+		{User: domain.User{ID: "u-1", Agents: domain.AgentAccess{Delete: true}}, TokenID: "t"},
+		{User: domain.User{ID: "u-1"}, SessionID: "s"},
+	} {
+		svc, d := withPersonal(t)
+		d.repo.EXPECT().Get(mock.Anything, domain.UserID("u-1"), domain.WorkflowID("wf-1")).Return(hooked(), nil)
+		d.supervisor.EXPECT().Stop(domain.WorkflowID("wf-1"))
+		d.repo.EXPECT().Delete(mock.Anything, domain.UserID("u-1"), domain.WorkflowID("wf-1")).Return(nil)
+
+		require.NoError(t, svc.Delete(ctx, p, "wf-1"))
+	}
 }

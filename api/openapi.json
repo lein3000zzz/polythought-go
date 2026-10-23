@@ -131,14 +131,18 @@
             },
             "AgentAccessRequest": {
                 "properties": {
+                    "delete": {
+                        "description": "Delete lets them delete workflows; Share, share them to the library (D403).",
+                        "type": "boolean"
+                    },
                     "seePersonal": {
                         "description": "SeePersonal lets agents and API tokens see the workflows' personal settings, such as\nwebhook URLs.",
                         "type": "boolean"
+                    },
+                    "share": {
+                        "type": "boolean"
                     }
                 },
-                "required": [
-                    "seePersonal"
-                ],
                 "type": "object"
             },
             "AgentCaps": {
@@ -4350,8 +4354,14 @@
                         "$ref": "#/components/schemas/AgentCaps",
                         "description": "AgentCaps are an admin's caps on their agents' spend a month; those left out are\nthe instance's (D271)."
                     },
+                    "agentsMayDelete": {
+                        "type": "boolean"
+                    },
+                    "agentsMayShare": {
+                        "type": "boolean"
+                    },
                     "agentsSeePersonal": {
-                        "description": "AgentsSeePersonal is their choice that agents and API tokens see their workflows'\npersonal settings (D401, D402).",
+                        "description": "AgentsSeePersonal is their choice that agents and API tokens see their workflows'\npersonal settings (D401, D402); AgentsMayDelete and AgentsMayShare, that they may\ndelete workflows and share them to the library (D403).",
                         "type": "boolean"
                     },
                     "codeChosen": {
@@ -4404,6 +4414,8 @@
                 },
                 "required": [
                     "agentCaps",
+                    "agentsMayDelete",
+                    "agentsMayShare",
                     "agentsSeePersonal",
                     "codeChosen",
                     "createdAt",
@@ -9231,11 +9243,11 @@
                             "schema": {
                                 "$ref": "#/components/schemas/AgentAccessRequest",
                                 "summary": "body",
-                                "description": "What they may see"
+                                "description": "The switches to change"
                             }
                         }
                     },
-                    "description": "What they may see",
+                    "description": "The switches to change",
                     "required": true
                 },
                 "responses": {
@@ -9268,7 +9280,7 @@
                         "SessionCookie": []
                     }
                 ],
-                "summary": "What your agents may see",
+                "summary": "What your agents may see and do",
                 "tags": [
                     "oauth"
                 ]

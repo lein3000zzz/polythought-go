@@ -508,6 +508,30 @@ describe('settings page', () => {
     await waitFor(() => expect(sent).toEqual({ seePersonal: true }))
   })
 
+  it('lets agents delete workflows and share them, each off to start with (D403)', async () => {
+    const sent: unknown[] = []
+    server.use(
+      signedIn,
+      http.put('/api/v1/me/agent-access', async ({ request }) => {
+        sent.push(await request.json())
+        return new HttpResponse(null, { status: 204 })
+      }),
+    )
+    const { user } = renderApp('/settings/connected')
+
+    const remove = await screen.findByRole('switch', {
+      name: 'Agents and tokens may delete workflows',
+    })
+    const share = screen.getByRole('switch', { name: 'Agents and tokens may share to the library' })
+    expect(remove).not.toBeChecked()
+    expect(share).not.toBeChecked()
+
+    await user.click(remove)
+    await waitFor(() => expect(sent).toEqual([{ delete: true }]))
+    await user.click(share)
+    await waitFor(() => expect(sent).toEqual([{ delete: true }, { share: true }]))
+  })
+
   it('has Credentials as a page, where its old address goes (D392)', async () => {
     server.use(signedIn)
     const { router } = renderApp('/credentials')

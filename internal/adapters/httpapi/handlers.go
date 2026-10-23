@@ -42,8 +42,11 @@ type userDTO struct {
 	// KillStopsAgents is their choice that their kill switch stops their agents too.
 	KillStopsAgents bool `json:"killStopsAgents"`
 	// AgentsSeePersonal is their choice that agents and API tokens see their workflows'
-	// personal settings (D401, D402).
+	// personal settings (D401, D402); AgentsMayDelete and AgentsMayShare, that they may
+	// delete workflows and share them to the library (D403).
 	AgentsSeePersonal bool      `json:"agentsSeePersonal"`
+	AgentsMayDelete   bool      `json:"agentsMayDelete"`
+	AgentsMayShare    bool      `json:"agentsMayShare"`
 	CreatedAt         time.Time `json:"createdAt" format:"date-time"`
 } // @name User
 
@@ -103,7 +106,9 @@ func (s *Server) userDTO(u domain.User) userDTO {
 		LiveCaps:          liveCapsDTO{PerOrder: u.LiveCaps.PerOrder, PerDay: u.LiveCaps.PerDay},
 		AgentCaps:         toAgentCapsDTO(u.AgentCaps),
 		KillStopsAgents:   u.KillStopsAgents,
-		AgentsSeePersonal: u.AgentsSeePersonal,
+		AgentsSeePersonal: u.Agents.SeePersonal,
+		AgentsMayDelete:   u.Agents.Delete,
+		AgentsMayShare:    u.Agents.Share,
 		CreatedAt:         u.CreatedAt,
 	}
 }

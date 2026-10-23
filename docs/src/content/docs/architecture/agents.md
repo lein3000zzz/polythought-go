@@ -88,5 +88,16 @@ them.
 
 Agents read the markets with the AI agent node's own five tools, the same code answering
 both, and one market's details beside them; and the user's money: their wallets and the pUSD
-in each, how each workflow trades and has done, its orders, and the live order log. Tools that
-trade and build are coming; this page will describe them as they do.
+in each, how each workflow trades and has done, its orders, and the live order log.
+
+With the build scope they build workflows: make one from workflow code or from its graph as
+JSON, change one on the version they read, as the editor does, run it, switch it on and off,
+and cancel an execution that waits. An agent's code runs where the user's would, held to the
+same limits, and only for a user who may write code. A workflow it makes is laid out as the
+canvas lays one out; one it changes keeps its nodes where they were, and a new node goes
+beside the one feeding it, as the editor places them, the server's placing held to the app's
+by shared tests. A refused save tells the agent each problem, and code that does not compile,
+each line and column. Deleting a workflow, which the tool marks as destructive, and sharing
+one to the library work only where the user lets agents and tokens do them, two switches on
+Settings, off to start with. Tools that trade are coming; this page will describe them as
+they do.

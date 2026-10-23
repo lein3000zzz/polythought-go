@@ -1,0 +1,24 @@
+{
+  "nodes": [
+    {
+      "id": "a"
+    },
+    {
+      "id": "b"
+    }
+  ],
+  "connections": [
+    {
+      "from": "a",
+      "to": "ghost"
+    },
+    {
+      "from": "ghost",
+      "to": "b"
+    },
+    {
+      "from": "a",
+      "to": "b"
+    }
+  ]
+}

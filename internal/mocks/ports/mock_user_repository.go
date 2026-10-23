@@ -625,37 +625,37 @@ func (_c *MockUserRepository_PruneUnverified_Call) RunAndReturn(run func(ctx con
 	return _c
 }
 
-// SetAgentsSeePersonal provides a mock function for the type MockUserRepository
-func (_mock *MockUserRepository) SetAgentsSeePersonal(ctx context.Context, id domain.UserID, on bool) error {
-	ret := _mock.Called(ctx, id, on)
+// SetAgentAccess provides a mock function for the type MockUserRepository
+func (_mock *MockUserRepository) SetAgentAccess(ctx context.Context, id domain.UserID, a domain.AgentAccess) error {
+	ret := _mock.Called(ctx, id, a)
 
 	if len(ret) == 0 {
-		panic("no return value specified for SetAgentsSeePersonal")
+		panic("no return value specified for SetAgentAccess")
 	}
 
 	var r0 error
-	if returnFunc, ok := ret.Get(0).(func(context.Context, domain.UserID, bool) error); ok {
-		r0 = returnFunc(ctx, id, on)
+	if returnFunc, ok := ret.Get(0).(func(context.Context, domain.UserID, domain.AgentAccess) error); ok {
+		r0 = returnFunc(ctx, id, a)
 	} else {
 		r0 = ret.Error(0)
 	}
 	return r0
 }
 
-// MockUserRepository_SetAgentsSeePersonal_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'SetAgentsSeePersonal'
-type MockUserRepository_SetAgentsSeePersonal_Call struct {
+// MockUserRepository_SetAgentAccess_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'SetAgentAccess'
+type MockUserRepository_SetAgentAccess_Call struct {
 	*mock.Call
 }
 
-// SetAgentsSeePersonal is a helper method to define mock.On call
+// SetAgentAccess is a helper method to define mock.On call
 //   - ctx context.Context
 //   - id domain.UserID
-//   - on bool
-func (_e *MockUserRepository_Expecter) SetAgentsSeePersonal(ctx any, id any, on any) *MockUserRepository_SetAgentsSeePersonal_Call {
-	return &MockUserRepository_SetAgentsSeePersonal_Call{Call: _e.mock.On("SetAgentsSeePersonal", ctx, id, on)}
+//   - a domain.AgentAccess
+func (_e *MockUserRepository_Expecter) SetAgentAccess(ctx any, id any, a any) *MockUserRepository_SetAgentAccess_Call {
+	return &MockUserRepository_SetAgentAccess_Call{Call: _e.mock.On("SetAgentAccess", ctx, id, a)}
 }
 
-func (_c *MockUserRepository_SetAgentsSeePersonal_Call) Run(run func(ctx context.Context, id domain.UserID, on bool)) *MockUserRepository_SetAgentsSeePersonal_Call {
+func (_c *MockUserRepository_SetAgentAccess_Call) Run(run func(ctx context.Context, id domain.UserID, a domain.AgentAccess)) *MockUserRepository_SetAgentAccess_Call {
 	_c.Call.Run(func(args mock.Arguments) {
 		var arg0 context.Context
 		if args[0] != nil {
@@ -665,9 +665,9 @@ func (_c *MockUserRepository_SetAgentsSeePersonal_Call) Run(run func(ctx context
 		if args[1] != nil {
 			arg1 = args[1].(domain.UserID)
 		}
-		var arg2 bool
+		var arg2 domain.AgentAccess
 		if args[2] != nil {
-			arg2 = args[2].(bool)
+			arg2 = args[2].(domain.AgentAccess)
 		}
 		run(
 			arg0,
@@ -678,12 +678,12 @@ func (_c *MockUserRepository_SetAgentsSeePersonal_Call) Run(run func(ctx context
 	return _c
 }
 
-func (_c *MockUserRepository_SetAgentsSeePersonal_Call) Return(err error) *MockUserRepository_SetAgentsSeePersonal_Call {
+func (_c *MockUserRepository_SetAgentAccess_Call) Return(err error) *MockUserRepository_SetAgentAccess_Call {
 	_c.Call.Return(err)
 	return _c
 }
 
-func (_c *MockUserRepository_SetAgentsSeePersonal_Call) RunAndReturn(run func(ctx context.Context, id domain.UserID, on bool) error) *MockUserRepository_SetAgentsSeePersonal_Call {
+func (_c *MockUserRepository_SetAgentAccess_Call) RunAndReturn(run func(ctx context.Context, id domain.UserID, a domain.AgentAccess) error) *MockUserRepository_SetAgentAccess_Call {
 	_c.Call.Return(run)
 	return _c
 }

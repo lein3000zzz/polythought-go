@@ -167,7 +167,12 @@ func builder(t *testing.T, u domain.User, scopes ...domain.Scope) *mcp.ClientSes
 func builderWith(t *testing.T, u domain.User, tr *trades, scopes ...domain.Scope) *mcp.ClientSession {
 	t.Helper()
 
-	srv, err := mcpserver.New(mcpserver.Config{PublicURL: publicURL}, mcpserver.Deps{
+	return connect(t, deps(u, tr, scopes))
+}
+
+// deps are the fakes' for an agent of u's with scopes, no build tools among them.
+func deps(u domain.User, tr *trades, scopes []domain.Scope) mcpserver.Deps {
+	return mcpserver.Deps{
 		Agents: agents{access: map[string]oauth.Access{
 			"poa_agent": {Principal: auth.Principal{User: u, GrantID: "g-1", Agent: "Claude Code", Scopes: scopes}, ExpiresAt: time.Now().Add(time.Hour)},
 		}},
@@ -176,7 +181,14 @@ func builderWith(t *testing.T, u domain.User, tr *trades, scopes ...domain.Scope
 		Trading: func(context.Context, domain.Workflow) (string, error) { return "paper", nil },
 		Markets: mcpserver.Markets{Reader: markets{}, Sources: ai.Sources{Events: markets{}}},
 		Wallets: wallets{}, Trades: tr,
-	})
+	}
+}
+
+// connect is the agent's session with a server on d.
+func connect(t *testing.T, d mcpserver.Deps) *mcp.ClientSession {
+	t.Helper()
+
+	srv, err := mcpserver.New(mcpserver.Config{PublicURL: publicURL}, d)
 	require.NoError(t, err)
 
 	h := httptest.NewServer(srv)
@@ -263,7 +275,7 @@ func TestBuildTools(t *testing.T) {
 
 	t.Run("its personal settings, where the user lets agents see them", func(t *testing.T) {
 		sees := alice
-		sees.AgentsSeePersonal = true
+		sees.Agents.SeePersonal = true
 
 		got, _ := call(t, builder(t, sees, domain.ScopeRead), "get_workflow", map[string]any{"id": "wf-1"})
 		hook := got["workflow"].(map[string]any)["nodes"].([]any)[1].(map[string]any)

@@ -1,0 +1,23 @@
+{
+  "nodes": [
+    {
+      "id": "manual"
+    },
+    {
+      "id": "a"
+    },
+    {
+      "id": "b"
+    }
+  ],
+  "connections": [
+    {
+      "from": "manual",
+      "to": "a"
+    },
+    {
+      "from": "a",
+      "to": "b"
+    }
+  ]
+}

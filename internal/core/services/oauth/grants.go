@@ -23,18 +23,18 @@ func (s *Service) RevokeGrant(ctx context.Context, p auth.Principal, id domain.G
 	return nil
 }
 
-// SetAgentsSeePersonal lets the user's agents see their workflows' personal settings, or
-// stops them (D401). Only at a browser: an agent cannot let itself see more (D383).
-func (s *Service) SetAgentsSeePersonal(ctx context.Context, p auth.Principal, on bool) error {
+// SetAgentAccess sets what the user lets their agents and API tokens do beyond their
+// scopes (D401, D403). Only at a browser: an agent cannot let itself do more (D383).
+func (s *Service) SetAgentAccess(ctx context.Context, p auth.Principal, a domain.AgentAccess) error {
 	if !p.ViaSession() {
 		return domain.ErrForbidden
 	}
 
-	if err := s.users.SetAgentsSeePersonal(ctx, p.User.ID, on); err != nil {
+	if err := s.users.SetAgentAccess(ctx, p.User.ID, a); err != nil {
 		return err
 	}
 
-	s.log.Info(ctx, "Agents' sight of personal settings set", "user_id", p.User.ID, "on", on)
+	s.log.Info(ctx, "Agents' access set", "user_id", p.User.ID, "see_personal", a.SeePersonal, "delete", a.Delete, "share", a.Share)
 
 	return nil
 }

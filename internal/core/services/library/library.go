@@ -237,6 +237,11 @@ func (s *Service) Use(ctx context.Context, p auth.Principal, id domain.TemplateI
 // before. Personal settings, wallets and values like webhook URLs, are left out: whoever
 // uses the copy fills in their own.
 func (s *Service) Share(ctx context.Context, p auth.Principal, workflowID domain.WorkflowID, in ShareInput) (Entry, error) {
+	// A token or an agent publishes only where its user lets it (D403).
+	if !p.MayShare() {
+		return Entry{}, fmt.Errorf("%w: the user has not let agents and tokens share to the library: Settings, Connected agents", domain.ErrForbidden)
+	}
+
 	summary, description := strings.TrimSpace(in.Summary), strings.TrimSpace(in.Description)
 
 	if utf8.RuneCountInString(summary) > maxSummary || utf8.RuneCountInString(description) > maxDescription {

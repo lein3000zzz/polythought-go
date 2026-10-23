@@ -144,8 +144,9 @@ Users can connect agents such as Claude Code and Codex at the server's address f
 `/mcp`, such as `https://polythought.example.com/mcp`. The agent signs in through its user's
 browser, where they choose what it may do, and **Settings → Connected agents** lists the
 agents allowed, to revoke. An API token works there too, with the scopes it was made with.
-Its tools are being built: for now one, `whoami`, says who an agent acts for and what it may
-do.
+Agents read workflows, executions, the node catalog, the library, the markets and the user's
+wallets and orders, and build workflows; `whoami` says who an agent acts for and what it may
+do. Tools that trade are being built.
 
 Under **Agents over MCP** on the Config page:
 

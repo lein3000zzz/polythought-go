@@ -1,0 +1,40 @@
+{
+  "nodes": [
+    {
+      "id": "manual"
+    },
+    {
+      "id": "a"
+    },
+    {
+      "id": "b"
+    },
+    {
+      "id": "new"
+    }
+  ],
+  "connections": [
+    {
+      "from": "manual",
+      "to": "a"
+    },
+    {
+      "from": "manual",
+      "to": "new"
+    }
+  ],
+  "before": {
+    "manual": {
+      "x": 0,
+      "y": 0
+    },
+    "a": {
+      "x": 300,
+      "y": 0
+    },
+    "b": {
+      "x": 300,
+      "y": 140
+    }
+  }
+}

@@ -107,11 +107,20 @@ type User struct {
 	// KillStopsAgents is their choice that their kill switch stops their agents too
 	// (D276).
 	KillStopsAgents bool
-	// AgentsSeePersonal is their choice that agents and API tokens see their workflows'
-	// personal settings, such as webhook URLs (D401, D402).
-	AgentsSeePersonal bool
-	CreatedAt         time.Time
-	UpdatedAt         time.Time
+	// Agents is what they let their agents and API tokens do beyond their scopes.
+	Agents    AgentAccess
+	CreatedAt time.Time
+	UpdatedAt time.Time
+}
+
+// AgentAccess is what a user lets their agents and API tokens do beyond their scopes, off
+// to start with and switched at a browser only: see their workflows' personal settings,
+// such as webhook URLs (D401, D402), delete workflows, and share them to the library
+// (D403).
+type AgentAccess struct {
+	SeePersonal bool
+	Delete      bool
+	Share       bool
 }
 
 func (u User) IsAdmin() bool     { return u.Role == RoleAdmin }

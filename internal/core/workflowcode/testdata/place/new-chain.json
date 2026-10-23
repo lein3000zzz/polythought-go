@@ -1,0 +1,36 @@
+{
+  "nodes": [
+    {
+      "id": "manual"
+    },
+    {
+      "id": "n1"
+    },
+    {
+      "id": "n2"
+    },
+    {
+      "id": "n3"
+    }
+  ],
+  "connections": [
+    {
+      "from": "manual",
+      "to": "n1"
+    },
+    {
+      "from": "n1",
+      "to": "n2"
+    },
+    {
+      "from": "n2",
+      "to": "n3"
+    }
+  ],
+  "before": {
+    "manual": {
+      "x": 100,
+      "y": 100
+    }
+  }
+}

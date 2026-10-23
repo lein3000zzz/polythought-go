@@ -415,6 +415,11 @@ func (s *Service) Update(ctx context.Context, p auth.Principal, id domain.Workfl
 }
 
 func (s *Service) Delete(ctx context.Context, p auth.Principal, id domain.WorkflowID) error {
+	// A token or an agent deletes only where its user lets it (D403).
+	if !p.MayDelete() {
+		return fmt.Errorf("%w: the user has not let agents and tokens delete workflows: Settings, Connected agents", domain.ErrForbidden)
+	}
+
 	if _, err := s.repo.Get(ctx, p.User.ID, id); err != nil {
 		return err
 	}

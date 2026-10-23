@@ -327,6 +327,8 @@ func (a *app) newMCP() (*mcpserver.Server, error) {
 		Agents: a.oauth, Tokens: a.auth, Util: a.util,
 		Limiter:   ratelimit.NewPerMinute(func() int { return a.settings.Current().Int(config.KeyMCPRate) }),
 		Workflows: a.workflows,
+		Edit:      a.workflows,
+		Code:      workflowCode{code: a.code, gate: a.codeGate},
 		NodeTypes: nodeTypes{types: a.customNodes, plugins: a.plugins},
 		CodeTypes: codeTypes{types: a.customNodes},
 		Library:   a.library,

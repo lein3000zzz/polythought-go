@@ -33,4 +33,6 @@ type Users struct {
 	MaxAgentTotal     *int64
 	KillStopsAgents   bool
 	AgentsSeePersonal bool
+	AgentsMayDelete   bool
+	AgentsMayShare    bool
 }

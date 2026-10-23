@@ -1,0 +1,41 @@
+{
+  "nodes": [
+    {
+      "id": "manual"
+    },
+    {
+      "id": "if"
+    },
+    {
+      "id": "yes"
+    },
+    {
+      "id": "no"
+    },
+    {
+      "id": "join"
+    }
+  ],
+  "connections": [
+    {
+      "from": "manual",
+      "to": "if"
+    },
+    {
+      "from": "if",
+      "to": "yes"
+    },
+    {
+      "from": "if",
+      "to": "no"
+    },
+    {
+      "from": "yes",
+      "to": "join"
+    },
+    {
+      "from": "no",
+      "to": "join"
+    }
+  ]
+}

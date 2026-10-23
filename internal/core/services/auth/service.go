@@ -214,7 +214,7 @@ func (p Principal) ViaSession() bool { return p.SessionID != "" }
 // none. Whether the user's role allows it is the services' to say.
 func (p Principal) Can(scope domain.Scope) bool {
 	switch {
-	case p.TokenID == "" && p.GrantID == "":
+	case p.Itself():
 		return true
 	case p.TokenID != "" && p.Scopes == nil:
 		return true
@@ -225,11 +225,20 @@ func (p Principal) Can(scope domain.Scope) bool {
 	return slices.Contains(p.Scopes, scope)
 }
 
+// Itself says the principal is the user themself, at a browser or in their Telegram chat,
+// not a token or an agent.
+func (p Principal) Itself() bool { return p.TokenID == "" && p.GrantID == "" }
+
 // SeesPersonal says the principal may see personal settings, such as webhook URLs (D401,
 // D402): the user themself always, a token or an agent when the user lets them.
-func (p Principal) SeesPersonal() bool {
-	return (p.TokenID == "" && p.GrantID == "") || p.User.AgentsSeePersonal
-}
+func (p Principal) SeesPersonal() bool { return p.Itself() || p.User.Agents.SeePersonal }
+
+// MayDelete says the principal may delete workflows (D403), as SeesPersonal has it.
+func (p Principal) MayDelete() bool { return p.Itself() || p.User.Agents.Delete }
+
+// MayShare says the principal may share workflows to the library (D403), as SeesPersonal
+// has it.
+func (p Principal) MayShare() bool { return p.Itself() || p.User.Agents.Share }
 
 // Need is nil when the principal's scopes allow one of scopes, and says which it lacks
 // otherwise.

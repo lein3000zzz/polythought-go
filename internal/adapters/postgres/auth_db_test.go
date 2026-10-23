@@ -533,9 +533,9 @@ func TestLastAdminRace(t *testing.T) {
 	}
 }
 
-// Whether agents see personal settings is the user's, set alone (D401): off to start with,
-// and an update of the user leaves it be.
-func TestAgentsSeePersonal(t *testing.T) {
+// What agents and tokens may do is the user's, set alone (D401, D403): nothing more to
+// start with, and an update of the user leaves it be.
+func TestAgentAccess(t *testing.T) {
 	ctx := context.Background()
 	db := fresh(t)
 	users := postgres.NewUsers(db)
@@ -543,14 +543,15 @@ func TestAgentsSeePersonal(t *testing.T) {
 
 	got, err := users.ByID(ctx, u.ID)
 	require.NoError(t, err)
-	assert.False(t, got.AgentsSeePersonal)
+	assert.Equal(t, domain.AgentAccess{}, got.Agents, "nothing more to start with")
 
-	require.NoError(t, users.SetAgentsSeePersonal(ctx, u.ID, true))
+	access := domain.AgentAccess{SeePersonal: true, Share: true}
+	require.NoError(t, users.SetAgentAccess(ctx, u.ID, access))
 	require.NoError(t, users.Update(ctx, got), "an update with the user as it was")
 
 	got, err = users.ByID(ctx, u.ID)
 	require.NoError(t, err)
-	assert.True(t, got.AgentsSeePersonal)
+	assert.Equal(t, access, got.Agents)
 
-	assert.ErrorIs(t, users.SetAgentsSeePersonal(ctx, domain.UserID(newID()), true), domain.ErrNotFound)
+	assert.ErrorIs(t, users.SetAgentAccess(ctx, domain.UserID(newID()), access), domain.ErrNotFound)
 }

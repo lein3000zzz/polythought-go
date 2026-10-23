@@ -44,7 +44,7 @@ export function useGrants() {
   })
 }
 
-/** Whether agents see the workflows' personal settings (D401), at a browser only. */
+/** What agents see and do (D401, D403), the switches named, at a browser only. */
 export function useSetAgentAccess() {
   const queryClient = useQueryClient()
 

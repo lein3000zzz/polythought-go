@@ -361,9 +361,10 @@ func TestOAuthDecisionRoutes(t *testing.T) {
 func TestAgentAccessRoute(t *testing.T) {
 	srv, authSvc, svc := oauthServer(t)
 	withSession(authSvc, alice)
-	svc.EXPECT().SetAgentsSeePersonal(mock.Anything, mock.Anything, true).Return(nil)
+	// A switch named changes; the others stay as they were.
+	svc.EXPECT().SetAgentAccess(mock.Anything, mock.Anything, domain.AgentAccess{Delete: true}).Return(nil)
 
-	w := request{method: http.MethodPut, path: "/api/v1/me/agent-access", body: `{"seePersonal": true}`, headers: cookie}.do(t, srv)
+	w := request{method: http.MethodPut, path: "/api/v1/me/agent-access", body: `{"delete": true}`, headers: cookie}.do(t, srv)
 	assert.Equal(t, http.StatusNoContent, w.Code, w.Body.String())
 
 	srv, authSvc, _ = oauthServer(t)

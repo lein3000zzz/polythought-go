@@ -282,6 +282,10 @@ func (s *Server) getExecution(ctx context.Context, p auth.Principal, in executio
 		return executionOut{}, err
 	}
 
+	return executionOf(e), nil
+}
+
+func executionOf(e domain.Execution) executionOut {
 	out := executionOut{executionSummary: executionSummaryOf(e), Version: e.WorkflowVersion, Nodes: make([]nodeRunOut, len(e.Runs))}
 
 	for i, r := range e.Runs {
@@ -291,7 +295,7 @@ func (s *Server) getExecution(ctx context.Context, p auth.Principal, in executio
 		}
 	}
 
-	return out, nil
+	return out
 }
 
 func keptPorts(r domain.NodeRun) []string {

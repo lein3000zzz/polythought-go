@@ -995,7 +995,7 @@ export interface paths {
             cookie?: never;
         };
         get?: never;
-        /** What your agents may see */
+        /** What your agents may see and do */
         put: operations["setAgentAccess"];
         post?: never;
         delete?: never;
@@ -2010,11 +2010,14 @@ export interface components {
             worth: string;
         };
         AgentAccessRequest: {
+            /** @description Delete lets them delete workflows; Share, share them to the library (D403). */
+            delete?: boolean;
             /**
              * @description SeePersonal lets agents and API tokens see the workflows' personal settings, such as
              *     webhook URLs.
              */
-            seePersonal: boolean;
+            seePersonal?: boolean;
+            share?: boolean;
         };
         AgentCaps: {
             /** @example 20.00 */
@@ -3563,9 +3566,12 @@ export interface components {
              *     the instance's (D271).
              */
             agentCaps: components["schemas"]["AgentCaps"];
+            agentsMayDelete: boolean;
+            agentsMayShare: boolean;
             /**
              * @description AgentsSeePersonal is their choice that agents and API tokens see their workflows'
-             *     personal settings (D401, D402).
+             *     personal settings (D401, D402); AgentsMayDelete and AgentsMayShare, that they may
+             *     delete workflows and share them to the library (D403).
              */
             agentsSeePersonal: boolean;
             /**
@@ -7028,7 +7034,7 @@ export interface operations {
             path?: never;
             cookie?: never;
         };
-        /** @description What they may see */
+        /** @description The switches to change */
         requestBody: {
             content: {
                 "application/json": components["schemas"]["AgentAccessRequest"];

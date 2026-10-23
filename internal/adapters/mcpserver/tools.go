@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/google/jsonschema-go/jsonschema"
@@ -39,6 +40,8 @@ type Tool[In, Out any] struct {
 	Scope domain.Scope
 	// ReadOnly says it changes nothing, which clients may show and trust.
 	ReadOnly bool
+	// Destructive says what it changes cannot be had back, which clients may ask about.
+	Destructive bool
 	// InputSchema is its input's, when it has one of its own rather than In's.
 	InputSchema json.RawMessage
 	Handle      func(ctx context.Context, p auth.Principal, in In) (Out, error)
@@ -50,6 +53,11 @@ func add[In, Out any](s *Server, srv *mcp.Server, t Tool[In, Out]) {
 	tool := &mcp.Tool{
 		Name: t.Name, Title: t.Title, Description: t.Description,
 		Annotations: &mcp.ToolAnnotations{ReadOnlyHint: t.ReadOnly, OpenWorldHint: new(false)},
+	}
+
+	if !t.ReadOnly {
+		// Left out, a tool that writes is taken to destroy.
+		tool.Annotations.DestructiveHint = new(t.Destructive)
 	}
 
 	if t.InputSchema != nil {
@@ -131,11 +139,14 @@ func (s *Server) run(ctx context.Context, p auth.Principal, scope domain.Scope, 
 var expectedErrors = []error{
 	domain.ErrInvalidInput, domain.ErrInvalidWorkflow, domain.ErrNotFound, domain.ErrForbidden,
 	domain.ErrInsufficientScope, domain.ErrRateLimited, domain.ErrConflict, domain.ErrUnavailable,
-	domain.ErrAgentsOff,
+	domain.ErrAgentsOff, domain.ErrCodeOff, domain.ErrPluginNotAllowed, domain.ErrLiveTradingOff,
+	domain.ErrNotConfirmed, domain.ErrWalletCannotTrade, domain.ErrHoldsLive, domain.ErrOrdersLive,
+	domain.ErrNotOpen, domain.ErrWalletTradesLive, domain.ErrNotWaiting, domain.ErrExecutionFinished,
+	domain.ErrCustomNodeTaken, domain.ErrBreaksWorkflows, domain.ErrCredentialExists, domain.ErrNoBuilderKey,
 }
 
 func expected(err error) bool {
-	if errors.As(err, new(said)) {
+	if errors.As(err, new(said)) || errors.As(err, new(*domain.CodeError)) {
 		return true
 	}
 
@@ -160,6 +171,10 @@ func outcome(err error) string {
 }
 
 func (s *Server) toolError(ctx context.Context, tool string, err error) error {
+	if code := (*domain.CodeError)(nil); errors.As(err, &code) {
+		return codeError(code)
+	}
+
 	if expected(err) {
 		return err
 	}
@@ -167,6 +182,20 @@ func (s *Server) toolError(ctx context.Context, tool string, err error) error {
 	s.log.Error(ctx, "MCP tool failed", "tool", tool, logging.Err(err))
 
 	return errors.New("internal error")
+}
+
+// codeError says what in an agent's code failed, each problem where it is.
+func codeError(e *domain.CodeError) error {
+	if len(e.Problems) == 0 {
+		return fmt.Errorf("the code failed: %s%s", e.Message, strings.TrimRight("\n"+e.Stack, "\n"))
+	}
+
+	lines := make([]string, len(e.Problems))
+	for i, p := range e.Problems {
+		lines[i] = fmt.Sprintf("the code does not compile: line %d, column %d: %s", p.Line, p.Column, p.Message)
+	}
+
+	return errors.New(strings.Join(lines, "\n"))
 }
 
 // callerKey is whose calls the limit counts: an agent's grant, or a token.
