@@ -10,3 +10,15 @@
   --sl-color-accent: #404040;
   --sl-color-accent-high: #171717;
 }
+
+/* Diagrams, drawn as inline SVG when the docs build (Mermaid's neutral theme, all greys):
+   centred, and turned dark with the theme, greys inverted and any colour kept. */
+.sl-markdown-content svg[id^='mermaid'] {
+  display: block;
+  margin-inline: auto;
+  height: auto;
+}
+
+:root[data-theme='dark'] .sl-markdown-content svg[id^='mermaid'] {
+  filter: invert(0.88) hue-rotate(180deg);
+}

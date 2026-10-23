@@ -237,8 +237,9 @@ jsruntime-check: ## Fail if the committed JavaScript engine is not what its sour
 	if [ "$$before" != "$$(shasum -a 256 $$wasm)" ]; then echo "$$wasm was stale and has been rebuilt"; exit 1; fi
 
 .PHONY: docs-install
-docs-install: ## Install the docs site's dependencies
+docs-install: ## Install the docs site's dependencies, and the headless Chromium drawing their diagrams
 	$(PNPM) --dir docs install --frozen-lockfile
+	$(PNPM) --dir docs exec playwright install --only-shell chromium
 
 .PHONY: docs-dev
 docs-dev: ## Run the docs on :4321/docs with live reload (make web-dev serves them at /docs too)

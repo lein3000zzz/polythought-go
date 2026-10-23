@@ -1,0 +1,103 @@
+---
+title: The security model
+description: Who can sign in and how, what guards the browser's requests, how secrets are kept, what the server reaches out to, and how users' code and plugins are held apart.
+---
+
+Polythought holds things worth stealing: keys that sign orders, API keys, other people's
+workflows. Its defences are in layers, each meant to hold if the one before it fails.
+
+```mermaid
+flowchart TB
+  browser[Browser] -- "same origin, HttpOnly cookie, CSP" --> caddy[Caddy]
+  caddy -- "/api" --> api[API: origin check, body limit, rate limits]
+  api --> services[Services: every action checks its owner or admin]
+  services --> db[(Postgres: secrets sealed, tokens hashed)]
+  services --> out[Outbound: the guard refuses the internal network]
+  services --> code[User code: WebAssembly, runner processes, sandbox]
+  services --> plugins[Plugins: permissions, signatures, sandbox]
+```
+
+## Accounts
+
+Registration is by invite unless an admin opens or closes it. An invite's code is found by its
+hash; using it and creating the account happen in one transaction, so an invite admits no more
+sign-ups than it allows. A request to join reaches the admins only after its address was
+confirmed by a mailed link.
+
+Passwords are at least 12 characters, hashed with Argon2id and compared in constant time; a
+sign-in with an unknown address checks a dummy hash, so it takes as long as a wrong password,
+and whether an account is disabled or unverified is said only after the password is right.
+Forms that could reveal which addresses have accounts, password reset, a new verification
+link, a request to join, answer at once and the same way, and do their work after.
+
+A session is a random 256-bit token, kept only as its hash, in an HttpOnly, SameSite=Lax
+cookie, Secure and named `__Host-` over https, so a sibling subdomain cannot set it. Sessions
+end after 7 idle days or 30 in all. API tokens are the same kind of secret, sent as a Bearer
+header; a token can do what its user can, except what needs a person at a browser: changing
+the password, making or revoking tokens, storing wallet credentials, importing a private key,
+approving session keys or a wallet's approvals.
+
+Every admin action checks the role in the service, not only in the page, and the last admin
+cannot be demoted or disabled. Disabling a user signs them out everywhere, stops their
+workflows and turns their kill switch on, cancelling their resting live orders; they are
+refused on their next request, by session, token or Telegram.
+
+## The browser
+
+Caddy serves the app, the docs and the API on one origin, so there is no CORS to get wrong.
+A request that changes something with the session cookie must come from that origin, by its
+`Origin` or `Referer`; one with a Bearer token needs no such check, as browsers never add
+the header themselves.
+
+The app's Content-Security-Policy lets scripts come only from its own origin, frames from
+none, and connections only to its own API. The docs' policy is the same, plus their few
+inline scripts by hash, written when they build. Request bodies are capped at 1 MiB, except
+plugin archives, which stream.
+
+Rate limits are per address and per action: signing in (per address, and per address and
+account, with a looser limit per account from everywhere so a stranger cannot lock its owner
+out), signing up, resetting a password, verifying, invites, requests to join. Behind a proxy,
+only the proxies an admin names may say what a client's address is.
+
+## Secrets
+
+Secrets are sealed with envelope encryption before they reach the database, each bound to its
+row and field, under master keys from the server's environment; there is no fallback to plain
+text. They never come back out of the API. [Data and storage](/docs/architecture/data/#sealed)
+lists what is sealed and how keys rotate. Importing a private key is off on an instance with
+open registration, and a key must control the wallet it is imported for.
+
+## Reaching out
+
+What a workflow or plugin asks the server to fetch goes through one guard, on every
+connection and redirect, after DNS: addresses inside the server's network are refused,
+private, loopback, link-local and the less common ranges that reach them, so a webhook cannot
+be turned on the server's own services, and a name that resolves inside cannot either.
+Webhooks, OpenAI-compatible model addresses, plugins' fetches and plugin archives fetched by
+URL all go through it; an admin may let workflows reach private addresses, for a self-hosted
+service beside the server. A webhook's extra headers go only to the host named; a redirect
+elsewhere loses them.
+
+The server itself calls Polymarket, Polygon's RPC, Telegram, the mail server, the model
+providers a user's key names, and GitHub for the repository's stars, which an admin can turn
+off.
+
+## Code and plugins
+
+User code runs in a WebAssembly engine with no files, network or environment, held to memory,
+time and output, its data requests read-only and its owner's; on a public instance, in runner
+processes kept to one owner each, in the Linux sandbox. See
+[User code and WebAssembly](/docs/architecture/user-code/).
+
+Plugins run in the same sandbox, get only the permissions an admin approved by name, and are
+held to the files that were approved; a signed plugin's later versions must be signed by the
+same key. See [Plugins](/docs/architecture/plugins/). Neither ever sees the server's
+environment, so neither has its database's address or its keys.
+
+## What is recorded
+
+The Config page keeps a history of every change, who made it and when, secrets only as
+changed; plugins keep an audit of every install, approval and change, with its source,
+signer and digest. The log records sign-ins and their failures, tokens made, accounts changed
+and by whom, and requests refused for their origin, with route templates, never paths that
+might carry an ID or a token.

@@ -1,10 +1,16 @@
 // @ts-check
 import starlight from '@astrojs/starlight'
 import { defineConfig } from 'astro/config'
+import rehypeMermaid from 'rehype-mermaid'
 
 // The docs are served by the web image's Caddy at /docs, beside the app.
 export default defineConfig({
   base: '/docs',
+  // Diagrams are drawn when the docs build, as inline SVG: no script on the page, and the
+  // theme's colours over them (custom.css), light and dark.
+  markdown: {
+    rehypePlugins: [[rehypeMermaid, { strategy: 'inline-svg', mermaidConfig: { theme: 'neutral' } }]],
+  },
   integrations: [
     starlight({
       title: 'Polythought',
@@ -56,6 +62,23 @@ export default defineConfig({
                 })),
               ],
             },
+          ],
+        },
+        {
+          label: 'Architecture',
+          items: [
+            'architecture/overview',
+            'architecture/engine',
+            'architecture/user-code',
+            'architecture/plugins',
+            'architecture/trading',
+            'architecture/agents',
+            'architecture/security',
+            'architecture/data',
+            'architecture/messaging',
+            'architecture/observability',
+            'architecture/web',
+            'architecture/decisions',
           ],
         },
       ],

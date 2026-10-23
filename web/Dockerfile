@@ -18,7 +18,9 @@ COPY internal/adapters/tscompiler/sdk/workflow.ts /src/internal/adapters/tscompi
 COPY web/ ./
 RUN pnpm exec vite build
 
-FROM node:22-alpine AS docs
+# Debian, not Alpine: the docs' diagrams are drawn by a headless Chromium as they build
+# (Mermaid), which needs glibc. Only this stage has it; the image is Caddy and files.
+FROM node:22-bookworm-slim AS docs
 
 WORKDIR /src
 RUN corepack enable
@@ -26,6 +28,7 @@ ENV ASTRO_TELEMETRY_DISABLED=1
 
 COPY docs/package.json docs/pnpm-lock.yaml docs/pnpm-workspace.yaml ./
 RUN --mount=type=cache,target=/root/.local/share/pnpm/store pnpm install --frozen-lockfile
+RUN pnpm exec playwright install --with-deps --only-shell chromium
 
 # The reference pages are generated from the Go code and committed, so no Go is needed.
 COPY docs/ ./

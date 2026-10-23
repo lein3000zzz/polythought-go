@@ -279,7 +279,7 @@ func TestPruneUnverified(t *testing.T) {
 	d := newDeps(t)
 	d.users.EXPECT().PruneUnverified(mock.Anything, now.Add(-7*24*time.Hour)).Return(2, nil)
 	d.links.EXPECT().DeleteExpired(mock.Anything, now).Return(5, nil)
-	d.joins.EXPECT().PruneUnconfirmed(mock.Anything, now).Return(1, nil) // requests never confirmed (D394)
+	d.joins.EXPECT().PruneUnconfirmed(mock.Anything, now.Add(-24*time.Hour)).Return(1, nil) // a day after their link (D394)
 
 	n, err := newService(t, d, config(domain.RegistrationOpen)).PruneUnverified(context.Background())
 	require.NoError(t, err)

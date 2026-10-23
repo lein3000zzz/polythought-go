@@ -234,8 +234,9 @@ func (s *Service) PruneUnverified(ctx context.Context) (int64, error) {
 		return n, err
 	}
 
+	// A day after its link stopped working, so its count of mails holds till then.
 	if s.repos.JoinRequests != nil {
-		if _, err := s.repos.JoinRequests.PruneUnconfirmed(ctx, now); err != nil {
+		if _, err := s.repos.JoinRequests.PruneUnconfirmed(ctx, now.Add(-joinLinkLasts)); err != nil {
 			return n, err
 		}
 	}

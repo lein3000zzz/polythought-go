@@ -33,3 +33,12 @@ hero:
 - **[Credential types](/docs/reference/credential-types/)**.
 
 These reference pages are generated from the code, so they match the version you run.
+
+## How it is built
+
+- **[How Polythought works](/docs/architecture/overview/)**: its parts, and the way a workflow's
+  run takes through them.
+- **[Key decisions](/docs/architecture/decisions/)**: the choices that shape it, such as why
+  users' code runs in WebAssembly, and why.
+- The rest of **Architecture**: the engine, user code, plugins, trading and its safety, agents,
+  the security model, data, messaging, observability, the web app and the API.
