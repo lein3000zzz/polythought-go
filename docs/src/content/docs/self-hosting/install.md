@@ -159,6 +159,8 @@ Under **Agents over MCP** on the Config page:
   it has, as when it starts on another of its user's machines.
 - **Access token lifetime** and **Refresh token lifetime**, an hour and 30 days to start
   with: an agent unused for the second signs in again through the browser.
+- **Tool calls a minute**, 120 to start with, is how many tool calls one agent, or one API
+  token, may make in a minute.
 
 A proxy of your own in front of the API must pass `/mcp` and `/.well-known/oauth-*` on as
 Caddy does, and must not buffer `/mcp`'s answers, which stream.

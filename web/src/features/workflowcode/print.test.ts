@@ -1,3 +1,6 @@
+import { readdirSync, readFileSync, writeFileSync } from 'node:fs'
+import { join } from 'node:path'
+
 import * as builder from '@polythought/workflow'
 import ts from 'typescript'
 import { describe, expect, it } from 'vitest'
@@ -182,5 +185,53 @@ export default workflow("Spread watch", (w) => {
     expect(roundTrip({ name: 'Empty', nodes: [], connections: [] })).toBe(
       'import { workflow } from "@polythought/workflow"\n\nexport default workflow("Empty", (w) => {\n})\n',
     )
+  })
+})
+
+// The server prints workflows for agents too (D400), with a Go port of this printer. These
+// fixtures hold the two to the same output: each is a workflow and its types, beside the
+// code this prints for it. WRITE_PRINT_FIXTURES=1 writes the code anew from this printer.
+// Tests run in web/.
+const fixtures = join(process.cwd(), '../internal/core/workflowcode/testdata/print')
+
+type Fixture = {
+  workflow: Pick<Definition, 'name' | 'nodes' | 'connections'>
+  types: { name: string; trigger: boolean; params: string[] }[]
+}
+
+// The app gets workflows from the API, whose objects' keys Go writes sorted, byte by byte.
+function asTheAPIWritesIt(v: unknown): unknown {
+  if (Array.isArray(v)) return v.map(asTheAPIWritesIt)
+  if (v === null || typeof v !== 'object') return v
+
+  const bytes = (s: string) => new TextEncoder().encode(s)
+  const order = (a: string, b: string) => {
+    const [x, y] = [bytes(a), bytes(b)]
+    for (let i = 0; i < Math.min(x.length, y.length); i++) if (x[i] !== y[i]) return x[i] - y[i]
+    return x.length - y.length
+  }
+
+  return Object.fromEntries(
+    Object.keys(v)
+      .sort(order)
+      .map((k) => [k, asTheAPIWritesIt((v as Record<string, unknown>)[k])]),
+  )
+}
+
+describe('the printer shared with the server', () => {
+  const names = readdirSync(fixtures).filter((f) => f.endsWith('.json'))
+
+  it.each(names)('prints %s as the fixture has it', (file) => {
+    const { workflow, types } = JSON.parse(readFileSync(join(fixtures, file), 'utf8')) as Fixture
+    const nodeTypes = types.map((t) => ({ ...t, params: t.params.map((name) => ({ name })) }))
+    const code = printWorkflow(
+      asTheAPIWritesIt(workflow) as Fixture['workflow'],
+      nodeTypes as unknown as NodeType[],
+    )
+    const want = join(fixtures, file.replace(/\.json$/, '.ts'))
+
+    if (process.env.WRITE_PRINT_FIXTURES) writeFileSync(want, code)
+
+    expect(code).toBe(readFileSync(want, 'utf8'))
   })
 })

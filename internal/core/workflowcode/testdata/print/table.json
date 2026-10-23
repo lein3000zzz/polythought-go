@@ -1,0 +1,47 @@
+{
+  "workflow": {
+    "name": "Copy",
+    "nodes": [
+      {
+        "id": "copy",
+        "type": "test.copy",
+        "params": {
+          "traders": [
+            {
+              "label": "Alice",
+              "address": "0x5f3c00000000000000000000000000000000a1b2"
+            },
+            {
+              "label": "Bob",
+              "address": "0x91d000000000000000000000000000000000c7e4",
+              "on": false
+            }
+          ]
+        }
+      },
+      {
+        "id": "mixed",
+        "type": "test.copy",
+        "params": {
+          "traders": [
+            {
+              "label": "Alone"
+            },
+            "not a row"
+          ],
+          "empty": []
+        }
+      }
+    ],
+    "connections": []
+  },
+  "types": [
+    {
+      "name": "test.copy",
+      "trigger": false,
+      "params": [
+        "traders"
+      ]
+    }
+  ]
+}

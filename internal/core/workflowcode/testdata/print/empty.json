@@ -1,0 +1,8 @@
+{
+  "workflow": {
+    "name": "Empty",
+    "nodes": [],
+    "connections": []
+  },
+  "types": []
+}

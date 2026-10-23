@@ -378,8 +378,9 @@ func TestHiddenData(t *testing.T) {
 		p, r := startWith(t, pluginhost.Deps{Caps: func(string) pluginhost.Caps { return pluginhost.Caps{Data: 1 << 20} }})
 		stoppedFor := supervised(t, p)
 
-		_, err := run(t, r, "plugin.echo.hide", map[string]any{"bytes": 1 << 20, "files": 2}, items(map[string]any{}))
-		require.NoError(t, err)
+		// The supervisor may measure, and stop it, before the call is answered: the call's
+		// own end is no matter, why it stopped is.
+		_, _ = run(t, r, "plugin.echo.hide", map[string]any{"bytes": 1 << 20, "files": 2}, items(map[string]any{}))
 
 		stoppedFor("its data, 2.0 MiB, went past its cap of 1.0 MiB")
 	})
@@ -388,8 +389,8 @@ func TestHiddenData(t *testing.T) {
 		p, r := startWith(t, pluginhost.Deps{Caps: func(string) pluginhost.Caps { return pluginhost.Caps{Data: 100 << 20} }})
 		stoppedFor := supervised(t, p)
 
-		_, err := run(t, r, "plugin.echo.deep", map[string]any{"depth": 25, "bytes": 1 << 20}, items(map[string]any{}))
-		require.NoError(t, err)
+		// As above: stopped mid-call or after it, it is stopped for its data.
+		_, _ = run(t, r, "plugin.echo.deep", map[string]any{"depth": 25, "bytes": 1 << 20}, items(map[string]any{}))
 
 		stoppedFor("its data cannot all be measured (file name too long), which counts as past its cap")
 

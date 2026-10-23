@@ -659,6 +659,18 @@ An agent asking for no more than its user allowed it before gets in without the 
 | Default | `true` |
 | Applies | at once |
 
+### Tool calls a minute
+
+How many tool calls one agent, or one API token, may make in a minute, all at once if they come so; past it, a call is refused until the minute allows another. A change applies at once.
+
+| | |
+|---|---|
+| Key | `mcp.rate` |
+| Environment variable | `POLYTHOUGHT_MCP_RATE` |
+| Kind | whole number |
+| Default | `120` |
+| Applies | at once |
+
 ### Access token lifetime
 
 How long an agent's access token works before it refreshes it. Revoking an agent stops it at once whatever this is. Applies to tokens given from now.

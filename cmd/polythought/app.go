@@ -317,10 +317,14 @@ func (a *app) init(ctx context.Context) error {
 		return err
 	}
 
-	// Agents' endpoint (D398), for their OAuth tokens and for API tokens.
-	a.mcp = mcpserver.New(mcpserver.Config{PublicURL: a.cfg.PublicURL}, a.oauth, a.auth)
+	// Agents' endpoint (D398), for their OAuth tokens and for API tokens, each agent's tool
+	// calls held to the setting's a minute (D400).
+	a.mcp, err = mcpserver.New(mcpserver.Config{PublicURL: a.cfg.PublicURL}, mcpserver.Deps{
+		Agents: a.oauth, Tokens: a.auth, Util: a.util,
+		Limiter: ratelimit.NewPerMinute(func() int { return a.settings.Current().Int(config.KeyMCPRate) }),
+	})
 
-	return nil
+	return err
 }
 
 // telegramConfig is how the bot should run, from the settings.

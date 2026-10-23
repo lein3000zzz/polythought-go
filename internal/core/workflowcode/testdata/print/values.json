@@ -1,0 +1,70 @@
+{
+  "workflow": {
+    "name": "Values",
+    "nodes": [
+      {
+        "id": "v",
+        "type": "output.log",
+        "params": {
+          "message": "numbers and keys",
+          "numbers": [
+            0,
+            -0.0,
+            1,
+            -2.5,
+            0.1,
+            1e+21,
+            1e+20,
+            123456789012,
+            1e-07,
+            1e-06,
+            1.5e+300,
+            -1e-300,
+            9007199254740993
+          ],
+          "flags": [
+            true,
+            false,
+            null
+          ],
+          "nested": {
+            "deep": [
+              1,
+              2.5,
+              null,
+              true,
+              {
+                "with-dash": "x",
+                "__proto__": 1
+              }
+            ]
+          },
+          "10": "ten",
+          "2": "two",
+          "b": "bee",
+          "a": "ay",
+          "01": "not an index",
+          "4294967295": "too big",
+          "4294967294": "biggest",
+          "$ok": 1,
+          "_ok": 2,
+          "1st": 3,
+          "": 4,
+          "\u00fcn\u00efcode": 5,
+          "with space": 6,
+          "\u05d0\u05d1": 7
+        }
+      }
+    ],
+    "connections": []
+  },
+  "types": [
+    {
+      "name": "output.log",
+      "trigger": false,
+      "params": [
+        "message"
+      ]
+    }
+  ]
+}

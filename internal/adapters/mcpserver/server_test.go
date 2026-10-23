@@ -6,9 +6,11 @@ import (
 	"errors"
 	"net/http"
 	"net/http/httptest"
+	"sync/atomic"
 	"testing"
 	"time"
 
+	"github.com/lein3000zzz/the-watchers/pkg/observability"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -54,13 +56,33 @@ func (t tokens) AuthenticateToken(_ context.Context, token string) (auth.Princip
 	return auth.Principal{}, domain.ErrUnauthenticated
 }
 
+// limiter allows calls until it is told to refuse them.
+type limiter struct{ refuse atomic.Bool }
+
+func (l *limiter) Allow(string) bool { return !l.refuse.Load() }
+
 func serve(t *testing.T, a agents, tk tokens) string {
 	t.Helper()
 
-	srv := httptest.NewServer(mcpserver.New(mcpserver.Config{PublicURL: publicURL + "/"}, a, tk))
+	url, _ := serveLimited(t, a, tk)
+
+	return url
+}
+
+func serveLimited(t *testing.T, a agents, tk tokens) (string, *limiter) {
+	t.Helper()
+
+	l := &limiter{}
+
+	mcp, err := mcpserver.New(mcpserver.Config{PublicURL: publicURL + "/"}, mcpserver.Deps{
+		Agents: a, Tokens: tk, Limiter: l, Util: observability.NoopUtility(),
+	})
+	require.NoError(t, err)
+
+	srv := httptest.NewServer(mcp)
 	t.Cleanup(srv.Close)
 
-	return srv.URL
+	return srv.URL, l
 }
 
 // bearer sends every request with the token, as an agent does.
@@ -113,7 +135,7 @@ func whoami(t *testing.T, url, token string) map[string]any {
 func TestWhoami(t *testing.T) {
 	url := serve(t, agents{access: map[string]oauth.Access{
 		"poa_agent": {
-			Principal: auth.Principal{User: alice, GrantID: "g-1", Scopes: []domain.Scope{domain.ScopeRead, domain.ScopeBuild}},
+			Principal: auth.Principal{User: alice, GrantID: "g-1", Agent: "Claude Code", Scopes: []domain.Scope{domain.ScopeRead, domain.ScopeBuild}},
 			Client:    domain.OAuthClient{Name: "Claude Code"},
 			ExpiresAt: time.Now().Add(time.Hour),
 		},
@@ -179,4 +201,26 @@ func TestChallenge(t *testing.T) {
 	require.NoError(t, err)
 	_ = res.Body.Close()
 	assert.Equal(t, http.StatusNotFound, res.StatusCode)
+}
+
+// A call over the limit is refused as a tool error, which the model reads (D400).
+func TestToolCallLimit(t *testing.T) {
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	url, l := serveLimited(t, agents{}, tokens{"pt_scoped": auth.Principal{User: alice, TokenID: "t-1", Scopes: []domain.Scope{domain.ScopeRead}}})
+
+	client := mcp.NewClient(&mcp.Implementation{Name: "test-agent", Version: "1"}, nil)
+	session, err := client.Connect(ctx, &mcp.StreamableClientTransport{Endpoint: url, HTTPClient: &http.Client{Transport: bearer("pt_scoped")}}, nil)
+	require.NoError(t, err)
+
+	defer func() { _ = session.Close() }()
+
+	l.refuse.Store(true)
+
+	res, err := session.CallTool(ctx, &mcp.CallToolParams{Name: "whoami"})
+	require.NoError(t, err, "a tool error, not the protocol's")
+	require.True(t, res.IsError)
+	require.Len(t, res.Content, 1)
+	assert.Contains(t, res.Content[0].(*mcp.TextContent).Text, "too many tool calls")
 }

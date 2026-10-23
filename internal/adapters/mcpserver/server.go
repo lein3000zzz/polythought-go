@@ -13,10 +13,15 @@ import (
 	"strings"
 	"time"
 
+	"github.com/lein3000zzz/the-watchers/pkg/observability"
+	"github.com/lein3000zzz/the-watchers/pkg/observability/logging"
+	"github.com/lein3000zzz/the-watchers/pkg/observability/metrics/redkit"
+	"github.com/lein3000zzz/the-watchers/pkg/observability/tracing"
 	sdkauth "github.com/modelcontextprotocol/go-sdk/auth"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 
 	"github.com/lein3000zzz/polythought-go/internal/core/domain"
+	"github.com/lein3000zzz/polythought-go/internal/core/ports"
 	"github.com/lein3000zzz/polythought-go/internal/core/services/auth"
 	"github.com/lein3000zzz/polythought-go/internal/core/services/oauth"
 )
@@ -38,33 +43,61 @@ type Tokens interface {
 	AuthenticateToken(ctx context.Context, token string) (auth.Principal, error)
 }
 
+const tracerName = "github.com/lein3000zzz/polythought-go/internal/adapters/mcpserver"
+
 type Config struct {
 	// PublicURL is the server's, which the 401 challenge points to the metadata at.
 	PublicURL string
 }
 
+// Deps are what the server needs.
+type Deps struct {
+	Agents Agents
+	Tokens Tokens
+	// Limiter counts each agent's or token's tool calls (D400).
+	Limiter ports.RateLimiter
+	Util    *observability.Utility
+}
+
 type Server struct {
 	agents  Agents
 	tokens  Tokens
+	limiter ports.RateLimiter
+	log     logging.Logger
+	kit     *redkit.Kit
+	scope   tracing.Scope
 	handler http.Handler
 }
 
-func New(cfg Config, agents Agents, tokens Tokens) *Server {
-	s := &Server{agents: agents, tokens: tokens}
+func New(cfg Config, d Deps) (*Server, error) {
+	log := d.Util.Logger.With("component", "mcp")
+
+	kit, err := redkit.Register(redkit.Params{
+		Manager: d.Util.MetricsManager, Logger: log, Subsystem: "mcp", Buckets: redkit.MediumBuckets, Component: "mcp tool call",
+	})
+	if err != nil {
+		return nil, fmt.Errorf("mcpserver: register metrics: %w", err)
+	}
+
+	s := &Server{
+		agents: d.Agents, tokens: d.Tokens, limiter: d.Limiter, log: log, kit: kit,
+		scope: tracing.Scope{Manager: d.Util.TracerManager, TracerName: tracerName},
+	}
 
 	srv := mcp.NewServer(&mcp.Implementation{
 		Name: "polythought", Title: "Polythought", Version: version(), WebsiteURL: strings.TrimRight(cfg.PublicURL, "/"),
 	}, &mcp.ServerOptions{
 		Instructions: "Polythought builds and runs workflows that trade on Polymarket, on paper or live. " +
-			"You act for the user who allowed you, with the scopes they gave you; whoami says which.",
+			"You act for the user who allowed you, with the scopes they gave you; whoami says which. " + Notice,
 	})
 
-	mcp.AddTool(srv, &mcp.Tool{
+	add(s, srv, Tool[struct{}, whoamiResult]{
 		Name:        "whoami",
 		Title:       "Who am I",
 		Description: "Who you act for in Polythought, how you signed in, and what you may do: your scopes.",
-		Annotations: &mcp.ToolAnnotations{ReadOnlyHint: true, OpenWorldHint: new(false)},
-	}, whoami)
+		ReadOnly:    true,
+		Handle:      whoami,
+	})
 
 	stream := mcp.NewStreamableHTTPHandler(func(*http.Request) *mcp.Server { return srv }, &mcp.StreamableHTTPOptions{
 		SessionTimeout:      sessionIdle,
@@ -81,7 +114,7 @@ func New(cfg Config, agents Agents, tokens Tokens) *Server {
 		AllowMissingExpiration: true,
 	})(stream)
 
-	return s
+	return s, nil
 }
 
 // ResourceMetadataURL is where the endpoint's protected resource metadata is (RFC 9728).
@@ -104,7 +137,6 @@ func (s *Server) verify(ctx context.Context, token string, _ *http.Request) (*sd
 	var (
 		p       auth.Principal
 		expires time.Time
-		agent   string
 		err     error
 	)
 
@@ -112,7 +144,7 @@ func (s *Server) verify(ctx context.Context, token string, _ *http.Request) (*sd
 	case strings.HasPrefix(token, "poa_"):
 		var a oauth.Access
 		a, err = s.agents.Verify(ctx, token)
-		p, expires, agent = a.Principal, a.ExpiresAt, a.Client.Name
+		p, expires = a.Principal, a.ExpiresAt
 	case strings.HasPrefix(token, "pt_"):
 		p, err = s.tokens.AuthenticateToken(ctx, token)
 	default:
@@ -130,7 +162,7 @@ func (s *Server) verify(ctx context.Context, token string, _ *http.Request) (*sd
 		Scopes:     scopesOf(p),
 		Expiration: expires,
 		UserID:     string(p.User.ID), // a session stays its user's
-		Extra:      map[string]any{"agent": agent, principalName: p},
+		Extra:      map[string]any{principalName: p},
 	}, nil
 }
 

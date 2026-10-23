@@ -1,0 +1,88 @@
+{
+  "workflow": {
+    "name": "Widths",
+    "nodes": [
+      {
+        "id": "fits",
+        "type": "output.log",
+        "params": {
+          "message": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+        }
+      },
+      {
+        "id": "over",
+        "type": "output.log",
+        "params": {
+          "message": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+        }
+      },
+      {
+        "id": "emoji",
+        "type": "output.log",
+        "params": {
+          "message": "\ud83d\ude80\ud83d\ude80\ud83d\ude80\ud83d\ude80\ud83d\ude80\ud83d\ude80\ud83d\ude80\ud83d\ude80\ud83d\ude80\ud83d\ude80\ud83d\ude80\ud83d\ude80\ud83d\ude80\ud83d\ude80\ud83d\ude80\ud83d\ude80\ud83d\ude80\ud83d\ude80\ud83d\ude80\ud83d\ude80yyyyyy"
+        }
+      },
+      {
+        "id": "emoji2",
+        "type": "output.log",
+        "params": {
+          "message": "\ud83d\ude80\ud83d\ude80\ud83d\ude80\ud83d\ude80\ud83d\ude80\ud83d\ude80\ud83d\ude80\ud83d\ude80\ud83d\ude80\ud83d\ude80\ud83d\ude80\ud83d\ude80\ud83d\ude80\ud83d\ude80\ud83d\ude80\ud83d\ude80\ud83d\ude80\ud83d\ude80\ud83d\ude80\ud83d\ude80yyyyyyy"
+        }
+      },
+      {
+        "id": "opts",
+        "type": "logic.if",
+        "name": "A name",
+        "notes": "Short notes",
+        "continueOnFail": true,
+        "params": {
+          "field": "spread",
+          "operator": "lt",
+          "value": "0.02",
+          "extra": "a long value to push the line past its width"
+        }
+      },
+      {
+        "id": "longopts",
+        "type": "logic.if",
+        "name": "A name long enough that the options do not fit after the settings' closing brace at all",
+        "params": {
+          "field": "f"
+        }
+      },
+      {
+        "id": "multiline",
+        "type": "output.log",
+        "notes": "two\nlines",
+        "params": {
+          "message": "short"
+        }
+      },
+      {
+        "id": "nosettings",
+        "type": "output.log",
+        "name": "Only a name, long enough to break the line past the width of one hundred"
+      }
+    ],
+    "connections": []
+  },
+  "types": [
+    {
+      "name": "logic.if",
+      "trigger": false,
+      "params": [
+        "field",
+        "operator",
+        "value"
+      ]
+    },
+    {
+      "name": "output.log",
+      "trigger": false,
+      "params": [
+        "message"
+      ]
+    }
+  ]
+}

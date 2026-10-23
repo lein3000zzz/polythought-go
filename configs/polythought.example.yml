@@ -366,6 +366,12 @@ mcp:
   # Environment: POLYTHOUGHT_MCP_SKIP_CONSENT.
   # skip_consent: true
 
+  # How many tool calls one agent, or one API token, may make in a minute, all at once
+  # if they come so; past it, a call is refused until the minute allows another. A
+  # change applies at once.
+  # Environment: POLYTHOUGHT_MCP_RATE.
+  # rate: 120
+
   # How long an agent's access token works before it refreshes it. Revoking an agent
   # stops it at once whatever this is. Applies to tokens given from now.
   # Environment: POLYTHOUGHT_MCP_ACCESS_TTL.

@@ -78,6 +78,7 @@ const (
 	KeyMCPRegistration     = "mcp.registration"
 	KeyMCPPrivateDocuments = "mcp.private_documents"
 	KeyMCPSkipConsent      = "mcp.skip_consent"
+	KeyMCPRate             = "mcp.rate"
 	KeyMCPAccessTTL        = "mcp.access_ttl"
 	KeyMCPRefreshTTL       = "mcp.refresh_ttl"
 
@@ -431,6 +432,12 @@ func Settings() (*settings.Registry, error) {
 			Description: "An agent asking for no more than its user allowed it before gets in without the consent page " +
 				"asking again, as when it starts on another of their machines. Off, the page asks every time.",
 			Kind: settings.KindBool, Default: true,
+		},
+		settings.Spec{
+			Key: KeyMCPRate, Group: groupMCP, Label: "Tool calls a minute",
+			Description: "How many tool calls one agent, or one API token, may make in a minute, all at once if they " +
+				"come so; past it, a call is refused until the minute allows another. A change applies at once.",
+			Kind: settings.KindInt, Default: 120, Check: between(1, 100_000),
 		},
 		settings.Spec{
 			Key: KeyMCPAccessTTL, Group: groupMCP, Label: "Access token lifetime",

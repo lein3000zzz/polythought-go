@@ -199,8 +199,9 @@ type Principal struct {
 	User      domain.User
 	SessionID domain.SessionID
 	TokenID   domain.APITokenID
-	// GrantID is set for an agent signed in with OAuth (D397).
+	// GrantID is set for an agent signed in with OAuth (D397), Agent to its name.
 	GrantID domain.GrantID
+	Agent   string
 	// Scopes are what a token or an agent may do (D398).
 	Scopes []domain.Scope
 }

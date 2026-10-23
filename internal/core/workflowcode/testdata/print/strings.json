@@ -1,0 +1,96 @@
+{
+  "workflow": {
+    "name": "Odd \"names\" and \\ slashes",
+    "nodes": [
+      {
+        "id": "manual",
+        "type": "trigger.manual",
+        "notes": "Starts it\nby hand"
+      },
+      {
+        "id": "code",
+        "type": "code.filter",
+        "params": {
+          "code": "export function keep(item) {\r\n  return `${item.a}` !== \"\\n\" // ${not}\n}\n"
+        }
+      },
+      {
+        "id": "ask",
+        "type": "telegram.ask",
+        "params": {
+          "message": "Buy? \u2713 \u2028 line sep, \u0001 control, \ttab, \u007f del, emoji \ud83d\ude80",
+          "buttons": [
+            "Yes",
+            "No"
+          ]
+        }
+      },
+      {
+        "id": "empty",
+        "type": "logic.unknown"
+      },
+      {
+        "id": "slashes",
+        "type": "output.log",
+        "params": {
+          "message": "back\\slash, \"quotes\", \u00e9t\u00e9, `tick`, ${not a template}"
+        }
+      }
+    ],
+    "connections": [
+      {
+        "from": "manual",
+        "fromPort": "main",
+        "to": "code",
+        "toPort": "main"
+      },
+      {
+        "from": "code",
+        "fromPort": "main",
+        "to": "ask",
+        "toPort": "main"
+      },
+      {
+        "from": "ask",
+        "fromPort": "Yes",
+        "to": "empty",
+        "toPort": "main"
+      },
+      {
+        "from": "ghost",
+        "fromPort": "main",
+        "to": "slashes",
+        "toPort": "in put"
+      }
+    ]
+  },
+  "types": [
+    {
+      "name": "trigger.manual",
+      "trigger": true,
+      "params": []
+    },
+    {
+      "name": "output.log",
+      "trigger": false,
+      "params": [
+        "message"
+      ]
+    },
+    {
+      "name": "code.filter",
+      "trigger": false,
+      "params": [
+        "code"
+      ]
+    },
+    {
+      "name": "telegram.ask",
+      "trigger": false,
+      "params": [
+        "message",
+        "buttons"
+      ]
+    }
+  ]
+}

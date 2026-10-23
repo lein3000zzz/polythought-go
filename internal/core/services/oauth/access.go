@@ -82,7 +82,7 @@ func (s *Service) Verify(ctx context.Context, token string) (Access, error) {
 	}
 
 	return Access{
-		Principal: auth.Principal{User: user, GrantID: grant.ID, Scopes: scopes},
+		Principal: auth.Principal{User: user, GrantID: grant.ID, Agent: grant.Client.Name, Scopes: scopes},
 		Client:    grant.Client,
 		ExpiresAt: t.ExpiresAt,
 	}, nil

@@ -1,0 +1,76 @@
+{
+  "workflow": {
+    "name": "Spread watch",
+    "nodes": [
+      {
+        "id": "manual",
+        "type": "trigger.manual"
+      },
+      {
+        "id": "tight",
+        "type": "logic.if",
+        "name": "Tight spread",
+        "params": {
+          "value": "0.02",
+          "operator": "lt",
+          "field": "spread"
+        }
+      },
+      {
+        "id": "log",
+        "type": "output.log",
+        "params": {
+          "message": "Tight: {{ question }}, at {{ spread }}, worth a closer look"
+        }
+      },
+      {
+        "id": "failed",
+        "type": "output.log",
+        "continueOnFail": true
+      }
+    ],
+    "connections": [
+      {
+        "from": "manual",
+        "fromPort": "main",
+        "to": "tight",
+        "toPort": "main"
+      },
+      {
+        "from": "tight",
+        "fromPort": "true",
+        "to": "log",
+        "toPort": "main"
+      },
+      {
+        "from": "tight",
+        "fromPort": "error",
+        "to": "failed",
+        "toPort": "b"
+      }
+    ]
+  },
+  "types": [
+    {
+      "name": "trigger.manual",
+      "trigger": true,
+      "params": []
+    },
+    {
+      "name": "logic.if",
+      "trigger": false,
+      "params": [
+        "field",
+        "operator",
+        "value"
+      ]
+    },
+    {
+      "name": "output.log",
+      "trigger": false,
+      "params": [
+        "message"
+      ]
+    }
+  ]
+}

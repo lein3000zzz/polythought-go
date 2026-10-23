@@ -1,0 +1,94 @@
+{
+  "workflow": {
+    "name": "w",
+    "nodes": [
+      {
+        "id": "order-books",
+        "type": "output.log"
+      },
+      {
+        "id": "orderBooks",
+        "type": "output.log"
+      },
+      {
+        "id": "new",
+        "type": "output.log"
+      },
+      {
+        "id": "w",
+        "type": "output.log"
+      },
+      {
+        "id": "1st",
+        "type": "output.log"
+      },
+      {
+        "id": "--",
+        "type": "output.log"
+      },
+      {
+        "id": "stra\u00dfe-\u00dfe",
+        "type": "output.log"
+      },
+      {
+        "id": "\u00fcber node",
+        "type": "output.log"
+      },
+      {
+        "id": "\u65e5\u672c-\u8a9e",
+        "type": "output.log"
+      },
+      {
+        "id": "a.b.c",
+        "type": "output.log"
+      },
+      {
+        "id": "$dollar",
+        "type": "output.log"
+      },
+      {
+        "id": "_under",
+        "type": "output.log"
+      },
+      {
+        "id": "x-\ud835\udc9cy",
+        "type": "output.log"
+      },
+      {
+        "id": "workflow",
+        "type": "output.log"
+      },
+      {
+        "id": "node",
+        "type": "output.log"
+      },
+      {
+        "id": "node",
+        "type": "output.log"
+      }
+    ],
+    "connections": [
+      {
+        "from": "order-books",
+        "fromPort": "main",
+        "to": "new",
+        "toPort": "main"
+      },
+      {
+        "from": "orderBooks",
+        "fromPort": "main",
+        "to": "w",
+        "toPort": "main"
+      }
+    ]
+  },
+  "types": [
+    {
+      "name": "output.log",
+      "trigger": false,
+      "params": [
+        "message"
+      ]
+    }
+  ]
+}
