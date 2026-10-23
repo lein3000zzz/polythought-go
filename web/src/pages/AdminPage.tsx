@@ -8,7 +8,6 @@ import { useMe, useMinPasswordLength } from '@/api/auth'
 import { errorMessage, type Schemas } from '@/api/client'
 import { useSettings } from '@/api/settings'
 import { type AgentCaps, tokens, useUserAgentSpend } from '@/api/spend'
-import { AdminHeader } from '@/components/AdminHeader'
 import { ConfirmDialog } from '@/components/ConfirmDialog'
 import { ErrorAlert } from '@/components/ErrorAlert'
 import { Badge } from '@/components/ui/badge'
@@ -48,19 +47,11 @@ const codeAccessModes: Record<CodeAccess, string> = {
   off: 'Code is off for everyone, admins included.',
 }
 
+/** Admin → Users, in AdminLayout, which lets admins alone in. */
 export function AdminPage() {
   const { data: me } = useMe()
 
-  if (me?.role !== 'admin') {
-    return <p className="p-6 text-sm text-muted-foreground">This page is for admins.</p>
-  }
-
-  return (
-    <div className="mx-auto flex max-w-4xl flex-col gap-10 p-6">
-      <AdminHeader />
-      <UsersSection me={me} />
-    </div>
-  )
+  return me ? <UsersSection me={me} /> : null
 }
 
 function UsersSection({ me }: { me: User }) {

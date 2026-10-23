@@ -2,10 +2,8 @@ import { useEffect, useState } from 'react'
 import { Navigate, useBlocker, useParams } from 'react-router'
 import { toast } from 'sonner'
 
-import { useMe } from '@/api/auth'
 import { errorMessage } from '@/api/client'
 import { RestartTimeoutError, useRestart, useSettings } from '@/api/settings'
-import { AdminHeader } from '@/components/AdminHeader'
 import { ConfirmDialog } from '@/components/ConfirmDialog'
 import { ErrorAlert } from '@/components/ErrorAlert'
 import { Skeleton } from '@/components/ui/skeleton'
@@ -23,19 +21,9 @@ import {
 } from '@/features/config/pages'
 import { RestartBanner } from '@/features/config/RestartBanner'
 
+/** Admin → Config, in AdminLayout, which lets admins alone in. */
 export function AdminConfigPage() {
-  const { data: me } = useMe()
-
-  if (me?.role !== 'admin') {
-    return <p className="p-6 text-sm text-muted-foreground">This page is for admins.</p>
-  }
-
-  return (
-    <div className="mx-auto flex max-w-6xl flex-col gap-8 p-6">
-      <AdminHeader />
-      <Config />
-    </div>
-  )
+  return <Config />
 }
 
 /**

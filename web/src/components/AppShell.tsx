@@ -1,5 +1,5 @@
 import { BookOpen, ChevronDown, LogOut, Menu } from 'lucide-react'
-import { Link, NavLink, Outlet, useLocation } from 'react-router'
+import { Link, NavLink, Outlet, useLocation, useMatches } from 'react-router'
 import { cn } from 'cn'
 
 import { useLogout, useMe } from '@/api/auth'
@@ -35,9 +35,13 @@ const tradingLinks = [
 
 const linkClass = 'text-muted-foreground hover:text-foreground'
 
+/** What a route says of itself to the shell: fullBleed for a canvas that fills the page. */
+export type RouteHandle = { fullBleed?: boolean }
+
 export function AppShell() {
   const { data: user } = useMe()
   useLiveEvents()
+  const fullBleed = useMatches().some((m) => (m.handle as RouteHandle | undefined)?.fullBleed)
 
   return (
     <div className="flex h-dvh flex-col">
@@ -79,7 +83,11 @@ export function AppShell() {
 
       {user && <StoppedBanner user={user} />}
 
-      <main className="min-h-0 flex-1 overflow-auto">
+      {/* The scrollbar's room is kept, so a page that scrolls does not move sideways from
+          one that does not; but not beside a canvas that fills the page and never scrolls. */}
+      <main
+        className={cn('min-h-0 flex-1 overflow-auto', !fullBleed && '[scrollbar-gutter:stable]')}
+      >
         <Outlet />
       </main>
 

@@ -1,6 +1,7 @@
 import { Navigate, type RouteObject } from 'react-router'
 
-import { AppShell } from '@/components/AppShell'
+import { AdminLayout } from '@/components/AdminLayout'
+import { AppShell, type RouteHandle } from '@/components/AppShell'
 import { RequireAuth } from '@/components/RequireAuth'
 import { Skeleton } from '@/components/ui/skeleton'
 import { AdminConfigPage } from '@/pages/AdminConfigPage'
@@ -24,6 +25,7 @@ import { WorkflowsPage } from '@/pages/WorkflowsPage'
 
 // The editor and its canvas library are most of the bundle; only these pages need them.
 const editor: RouteObject = {
+  handle: { fullBleed: true } satisfies RouteHandle,
   lazy: async () => ({
     Component: (await import('@/pages/WorkflowEditorPage')).WorkflowEditorPage,
   }),
@@ -66,10 +68,16 @@ export const routes: RouteObject[] = [
           // A page of Settings now (D392): old links still get there.
           { path: 'credentials', element: <Navigate to="/settings/credentials" replace /> },
           { path: 'settings/:page?', element: <SettingsPage /> },
-          { path: 'admin', element: <AdminPage /> },
-          { path: 'admin/invites', element: <AdminInvitesPage /> },
-          { path: 'admin/config/:page?', element: <AdminConfigPage /> },
-          { path: 'admin/plugins', element: <AdminPluginsPage /> },
+          {
+            path: 'admin',
+            element: <AdminLayout />,
+            children: [
+              { index: true, element: <AdminPage /> },
+              { path: 'invites', element: <AdminInvitesPage /> },
+              { path: 'config/:page?', element: <AdminConfigPage /> },
+              { path: 'plugins', element: <AdminPluginsPage /> },
+            ],
+          },
         ],
       },
     ],

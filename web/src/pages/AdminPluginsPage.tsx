@@ -3,7 +3,6 @@ import { useRef, useState } from 'react'
 import { Link } from 'react-router'
 import { toast } from 'sonner'
 
-import { useMe } from '@/api/auth'
 import { errorMessage } from '@/api/client'
 import {
   type FoundPlugin,
@@ -24,7 +23,6 @@ import {
   useStartPlugin,
   useUninstallPlugin,
 } from '@/api/plugins'
-import { AdminHeader } from '@/components/AdminHeader'
 import { ConfirmDialog } from '@/components/ConfirmDialog'
 import { ErrorAlert } from '@/components/ErrorAlert'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
@@ -52,18 +50,7 @@ import { UsersDialog } from '@/features/plugins/UsersDialog'
 import { formatBytes, formatDateTime } from '@/lib/format'
 
 export function AdminPluginsPage() {
-  const { data: me } = useMe()
-
-  if (me?.role !== 'admin') {
-    return <p className="p-6 text-sm text-muted-foreground">This page is for admins.</p>
-  }
-
-  return (
-    <div className="mx-auto flex max-w-4xl flex-col gap-10 p-6">
-      <AdminHeader />
-      <PluginsSection />
-    </div>
-  )
+  return <PluginsSection />
 }
 
 type Approving = { id: string; version: string }

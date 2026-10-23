@@ -12,9 +12,8 @@ import {
   useJoinRequests,
   useRevokeInvite,
 } from '@/api/admin'
-import { useAuthConfig, useMe } from '@/api/auth'
+import { useAuthConfig } from '@/api/auth'
 import { errorMessage, type Schemas } from '@/api/client'
-import { AdminHeader } from '@/components/AdminHeader'
 import { ConfirmDialog } from '@/components/ConfirmDialog'
 import { ErrorAlert } from '@/components/ErrorAlert'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
@@ -65,18 +64,7 @@ function copyLink(code: string) {
 
 /** Admin → Invites (D371, D393): codes to share, as many times as each admits. */
 export function AdminInvitesPage() {
-  const { data: me } = useMe()
-
-  if (me?.role !== 'admin') {
-    return <p className="p-6 text-sm text-muted-foreground">This page is for admins.</p>
-  }
-
-  return (
-    <div className="mx-auto flex max-w-5xl flex-col gap-8 p-6">
-      <AdminHeader />
-      <Invites />
-    </div>
-  )
+  return <Invites />
 }
 
 function Invites() {
