@@ -21,6 +21,7 @@ import (
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 
 	"github.com/lein3000zzz/polythought-go/internal/core/domain"
+	"github.com/lein3000zzz/polythought-go/internal/core/nodes/ai"
 	"github.com/lein3000zzz/polythought-go/internal/core/ports"
 	"github.com/lein3000zzz/polythought-go/internal/core/services/auth"
 	"github.com/lein3000zzz/polythought-go/internal/core/services/oauth"
@@ -64,6 +65,12 @@ type Deps struct {
 	CodeTypes CodeTypes
 	Library   Library
 	Trading   Trading
+
+	// What the market tools read (D402); without a reader they are not offered.
+	Markets Markets
+	// What the money tools read (D402).
+	Wallets Wallets
+	Trades  Trades
 }
 
 type Server struct {
@@ -77,6 +84,11 @@ type Server struct {
 	codeTypes CodeTypes
 	library   Library
 	trading   Trading
+
+	markets      ai.Sources
+	marketReader ports.MarketReader
+	wallets      Wallets
+	trades       Trades
 
 	kit     *redkit.Kit
 	scope   tracing.Scope
@@ -96,6 +108,7 @@ func New(cfg Config, d Deps) (*Server, error) {
 	s := &Server{
 		agents: d.Agents, tokens: d.Tokens, limiter: d.Limiter, log: log, kit: kit,
 		workflows: d.Workflows, nodeTypes: d.NodeTypes, codeTypes: d.CodeTypes, library: d.Library, trading: d.Trading,
+		markets: d.Markets.Sources, marketReader: d.Markets.Reader, wallets: d.Wallets, trades: d.Trades,
 		scope: tracing.Scope{Manager: d.Util.TracerManager, TracerName: tracerName},
 	}
 
@@ -120,6 +133,14 @@ func New(cfg Config, d Deps) (*Server, error) {
 
 	if s.nodeTypes != nil && s.codeTypes != nil && s.library != nil {
 		s.addCatalogTools(srv)
+	}
+
+	if s.marketReader != nil {
+		s.addMarketTools(srv)
+	}
+
+	if s.wallets != nil && s.trades != nil {
+		s.addMoneyTools(srv)
 	}
 
 	stream := mcp.NewStreamableHTTPHandler(func(*http.Request) *mcp.Server { return srv }, &mcp.StreamableHTTPOptions{

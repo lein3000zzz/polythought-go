@@ -234,6 +234,14 @@ func TestAgentSignsInOverMCP(t *testing.T) {
 	sdk := tool(ctx, t, agent, "get_code_sdk", nil)
 	assert.NotEmpty(t, sdk["files"])
 
+	// And how it trades (D402): on paper, the kill switch off.
+	tr := tool(ctx, t, agent, "get_trading", map[string]any{"workflow": made.ID})
+	assert.Equal(t, "paper", tr["setup"].(map[string]any)["mode"])
+	assert.Equal(t, false, tr["killSwitch"])
+
+	wallets := tool(ctx, t, agent, "list_wallets", nil)
+	assert.NotNil(t, wallets["wallets"])
+
 	// An API token with the read scope alone works there too, with that scope.
 	var token struct{ Token string }
 	b.call(http.MethodPost, "/api/v1/tokens", map[string]any{"name": "mcp e2e", "scopes": []string{"read"}}, http.StatusCreated, &token)

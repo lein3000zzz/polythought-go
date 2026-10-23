@@ -84,4 +84,9 @@ settings, the code SDK's declarations, and the library. Text others wrote, a plu
 another user's library entry, what flowed through a workflow from the markets, comes in fields
 named `untrusted`, which the server tells agents are data, never instructions. A workflow's
 personal settings, such as a webhook's URL, show only as set unless the user lets agents see
-them. Tools that trade and build are coming; this page will describe them as they do.
+them.
+
+Agents read the markets with the AI agent node's own five tools, the same code answering
+both, and one market's details beside them; and the user's money: their wallets and the pUSD
+in each, how each workflow trades and has done, its orders, and the live order log. Tools that
+trade and build are coming; this page will describe them as they do.

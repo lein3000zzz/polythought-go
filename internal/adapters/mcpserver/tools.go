@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/google/jsonschema-go/jsonschema"
 	"github.com/lein3000zzz/the-watchers/pkg/observability/logging"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 	"go.opentelemetry.io/otel/attribute"
@@ -38,16 +39,29 @@ type Tool[In, Out any] struct {
 	Scope domain.Scope
 	// ReadOnly says it changes nothing, which clients may show and trust.
 	ReadOnly bool
-	Handle   func(ctx context.Context, p auth.Principal, in In) (Out, error)
+	// InputSchema is its input's, when it has one of its own rather than In's.
+	InputSchema json.RawMessage
+	Handle      func(ctx context.Context, p auth.Principal, in In) (Out, error)
 }
 
 // add puts a tool on the server, held to its scope, the caller's limit and the size a
 // result may be, and watched: a span, a metric and a log line for each call.
 func add[In, Out any](s *Server, srv *mcp.Server, t Tool[In, Out]) {
-	mcp.AddTool(srv, &mcp.Tool{
+	tool := &mcp.Tool{
 		Name: t.Name, Title: t.Title, Description: t.Description,
 		Annotations: &mcp.ToolAnnotations{ReadOnlyHint: t.ReadOnly, OpenWorldHint: new(false)},
-	}, func(ctx context.Context, req *mcp.CallToolRequest, in In) (*mcp.CallToolResult, Out, error) {
+	}
+
+	if t.InputSchema != nil {
+		var schema jsonschema.Schema
+		if err := json.Unmarshal(t.InputSchema, &schema); err != nil {
+			panic(fmt.Sprintf("mcpserver: tool %s: input schema: %v", t.Name, err)) // the server's own
+		}
+
+		tool.InputSchema = &schema
+	}
+
+	mcp.AddTool(srv, tool, func(ctx context.Context, req *mcp.CallToolRequest, in In) (*mcp.CallToolResult, Out, error) {
 		var out Out
 
 		p, ok := Principal(req)
@@ -121,6 +135,10 @@ var expectedErrors = []error{
 }
 
 func expected(err error) bool {
+	if errors.As(err, new(said)) {
+		return true
+	}
+
 	for _, e := range expectedErrors {
 		if errors.Is(err, e) {
 			return true

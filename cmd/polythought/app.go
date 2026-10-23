@@ -33,6 +33,7 @@ import (
 	"github.com/lein3000zzz/polythought-go/internal/core/domain"
 	"github.com/lein3000zzz/polythought-go/internal/core/engine"
 	"github.com/lein3000zzz/polythought-go/internal/core/nodes"
+	"github.com/lein3000zzz/polythought-go/internal/core/nodes/ai"
 	"github.com/lein3000zzz/polythought-go/internal/core/ports"
 	"github.com/lein3000zzz/polythought-go/internal/core/services/auth"
 	"github.com/lein3000zzz/polythought-go/internal/core/services/code"
@@ -138,6 +139,7 @@ type app struct {
 	geoblock        *geoblock.Service
 	meta            *meta.Service
 	oauth           *oauth.Service
+	markets         *pmadapter.Reader
 	waits           *waits.Service
 	code            *code.Service
 	codeRunners     func() ports.CodeRunners
@@ -221,6 +223,8 @@ func (a *app) init(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
+
+	a.markets = pmc.reader // agents' market tools read it too (D402)
 
 	// Before the engine: the Telegram nodes use the bot, and failures are notified.
 	// The bot and the notifications run only in serve, which starts them.
@@ -326,6 +330,11 @@ func (a *app) newMCP() (*mcpserver.Server, error) {
 		NodeTypes: nodeTypes{types: a.customNodes, plugins: a.plugins},
 		CodeTypes: codeTypes{types: a.customNodes},
 		Library:   a.library,
+		Markets: mcpserver.Markets{Reader: a.markets, Sources: ai.Sources{
+			Events: a.markets, Books: a.markets, History: a.markets, Trades: a.markets, Positions: a.markets,
+		}},
+		Wallets: a.wallets,
+		Trades:  a.trading,
 		Trading: func(ctx context.Context, w domain.Workflow) (string, error) {
 			if !nodes.PlacesOrders(a.registry, w) {
 				return "none", nil

@@ -18,6 +18,7 @@ import (
 	"github.com/lein3000zzz/polythought-go/internal/adapters/mcpserver"
 	"github.com/lein3000zzz/polythought-go/internal/core/domain"
 	"github.com/lein3000zzz/polythought-go/internal/core/engine"
+	"github.com/lein3000zzz/polythought-go/internal/core/nodes/ai"
 	"github.com/lein3000zzz/polythought-go/internal/core/ports"
 	"github.com/lein3000zzz/polythought-go/internal/core/services/auth"
 	"github.com/lein3000zzz/polythought-go/internal/core/services/library"
@@ -148,6 +149,12 @@ func (lib) Get(_ context.Context, _ auth.Principal, id domain.TemplateID) (libra
 func builder(t *testing.T, u domain.User, scopes ...domain.Scope) *mcp.ClientSession {
 	t.Helper()
 
+	return builderWith(t, u, &trades{}, scopes...)
+}
+
+func builderWith(t *testing.T, u domain.User, tr *trades, scopes ...domain.Scope) *mcp.ClientSession {
+	t.Helper()
+
 	srv, err := mcpserver.New(mcpserver.Config{PublicURL: publicURL}, mcpserver.Deps{
 		Agents: agents{access: map[string]oauth.Access{
 			"poa_agent": {Principal: auth.Principal{User: u, GrantID: "g-1", Agent: "Claude Code", Scopes: scopes}, ExpiresAt: time.Now().Add(time.Hour)},
@@ -155,6 +162,8 @@ func builder(t *testing.T, u domain.User, scopes ...domain.Scope) *mcp.ClientSes
 		Tokens: tokens{}, Limiter: &limiter{}, Util: observability.NoopUtility(),
 		Workflows: workflows{}, NodeTypes: nodeTypes{}, CodeTypes: codeTypes{}, Library: lib{},
 		Trading: func(context.Context, domain.Workflow) (string, error) { return "paper", nil },
+		Markets: mcpserver.Markets{Reader: markets{}, Sources: ai.Sources{Events: markets{}}},
+		Wallets: wallets{}, Trades: tr,
 	})
 	require.NoError(t, err)
 
@@ -207,6 +216,8 @@ func TestBuildTools(t *testing.T) {
 	assert.ElementsMatch(t, []string{
 		"whoami", "list_workflows", "get_workflow", "check_workflow", "list_executions", "get_execution", "get_execution_items",
 		"list_node_types", "get_node_type", "get_code_sdk", "list_templates", "get_template",
+		"search_markets", "order_book", "price_history", "recent_trades", "positions", "get_market",
+		"list_wallets", "get_wallet", "get_trading", "list_orders", "list_live_orders",
 	}, names)
 
 	t.Run("workflows", func(t *testing.T) {
