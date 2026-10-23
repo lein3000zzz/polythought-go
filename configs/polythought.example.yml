@@ -84,11 +84,23 @@ auth:
   # Environment: POLYTHOUGHT_AUTH_INVITE_TTL.
   # invite_ttl: "168h"
 
-  # Admins can type an address on the Users page, and the invite is mailed, naming them;
-  # only that address signs up with it, verified. Invite links can still be copied.
-  # Works while mail is set up, under Mail.
+  # Admins can type an address on the Invites page, and the invite is mailed, naming
+  # them; only that address signs up with it, once, verified. Invites can still be
+  # shared as links. Works while mail is set up, under Mail.
   # Environment: POLYTHOUGHT_AUTH_INVITE_EMAIL.
   # invite_email: true
+
+  # While registration is by invite, the sign-up page lets people without one ask for
+  # it, with a note. They confirm their address by a mailed link first; admins then
+  # approve on the Invites page, which mails an invite there, or deny. Needs mail set
+  # up, under Mail.
+  # Environment: POLYTHOUGHT_AUTH_REQUESTS.
+  # requests: false
+
+  # Mail someone whose request to join an admin denied, saying they may ask again in 30
+  # days. Off, a denied request just closes.
+  # Environment: POLYTHOUGHT_AUTH_REQUEST_DENIED_MAIL.
+  # request_denied_mail: true
 
   # The fewest characters a new password may have. Existing passwords keep working.
   # Environment: POLYTHOUGHT_AUTH_MIN_PASSWORD_LENGTH.

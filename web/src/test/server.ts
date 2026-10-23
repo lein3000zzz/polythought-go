@@ -11,6 +11,8 @@ export const server = setupServer(
   http.get('/api/v1/meta', () =>
     HttpResponse.json({ repo: 'https://github.com/lein3000zzz/polythought-go' }),
   ),
+  // The admin pages count the requests to join waiting: none, unless a test says.
+  http.get('/api/v1/admin/requests', () => HttpResponse.json({ requests: [], pending: 0 })),
   // Settings searches its pages' tokens, notifications and credentials: none, unless a
   // test says.
   http.get('/api/v1/tokens', () => HttpResponse.json({ tokens: [] })),

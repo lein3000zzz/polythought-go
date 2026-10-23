@@ -3,7 +3,15 @@ import { Fragment, useState } from 'react'
 import { Link } from 'react-router'
 import { toast } from 'sonner'
 
-import { useCreateInvite, useInviteCodeCheck, useInvites, useRevokeInvite } from '@/api/admin'
+import {
+  useApproveJoin,
+  useCreateInvite,
+  useDenyJoin,
+  useInviteCodeCheck,
+  useInvites,
+  useJoinRequests,
+  useRevokeInvite,
+} from '@/api/admin'
 import { useAuthConfig, useMe } from '@/api/auth'
 import { errorMessage, type Schemas } from '@/api/client'
 import { AdminHeader } from '@/components/AdminHeader'
@@ -81,6 +89,8 @@ function Invites() {
 
   return (
     <div className="flex flex-col gap-8">
+      <Requests onApproved={setCreated} />
+
       <section className="flex flex-col gap-4">
         <div>
           <h2 className="font-medium">Invites</h2>
@@ -428,5 +438,126 @@ function InviteTable({ invites }: { invites: Invite[] }) {
         }}
       />
     </>
+  )
+}
+
+const decisions: Record<Schemas['JoinRequest']['status'], string> = {
+  pending: 'Waiting',
+  approved: 'Approved',
+  denied: 'Denied',
+}
+
+/**
+ * Requests to join (D394): confirmed by their address, waiting for an admin, who approves,
+ * mailing an invite there, or denies. Decided ones stay listed for 30 days.
+ */
+function Requests({ onApproved }: { onApproved: (invite: Invite) => void }) {
+  const requests = useJoinRequests()
+  const config = useAuthConfig()
+  const approve = useApproveJoin()
+  const deny = useDenyJoin()
+  const [denying, setDenying] = useState<Schemas['JoinRequest']>()
+  const list = requests.data?.requests ?? []
+  const pending = requests.data?.pending ?? 0
+
+  // Nothing to show while requests are off and none were made.
+  if (requests.isSuccess && list.length === 0 && !config.data?.requests) return null
+
+  return (
+    <section className="flex flex-col gap-4">
+      <div className="flex items-center gap-2">
+        <h2 className="font-medium">Requests to join</h2>
+        {pending > 0 && <Badge aria-label={`${pending} waiting`}>{pending}</Badge>}
+      </div>
+      {config.data && !config.data.requests && (
+        <p className="text-sm text-muted-foreground">
+          Requests are off: turn on{' '}
+          <Link
+            to={configPath('accounts', 'auth.requests')}
+            className="text-foreground underline underline-offset-4"
+          >
+            Requests to join
+          </Link>{' '}
+          to take new ones.
+        </p>
+      )}
+
+      {requests.isPending && <Skeleton className="h-16" />}
+      {requests.isError && (
+        <ErrorAlert error={requests.error} onRetry={() => void requests.refetch()} />
+      )}
+      {requests.isSuccess && list.length === 0 && (
+        <p className="text-sm text-muted-foreground">No requests yet.</p>
+      )}
+
+      {list.length > 0 && (
+        <ul aria-label="Requests to join" className="flex flex-col divide-y rounded-lg border">
+          {list.map((r) => (
+            <li key={r.id} className="flex flex-wrap items-start justify-between gap-3 p-3">
+              <div className="flex min-w-0 flex-1 flex-col gap-1">
+                <span className="text-sm font-medium">{r.email}</span>
+                {r.note && (
+                  <p className="text-sm whitespace-pre-wrap text-muted-foreground">{r.note}</p>
+                )}
+                <span className="text-xs text-muted-foreground">
+                  Asked {formatDateTime(r.confirmedAt)}
+                  {r.decidedAt &&
+                    ` · ${decisions[r.status].toLowerCase()} ${formatDateTime(r.decidedAt)}`}
+                </span>
+              </div>
+              {r.status === 'pending' ? (
+                <div className="flex gap-2">
+                  <Button
+                    size="sm"
+                    disabled={approve.isPending}
+                    aria-label={`Approve ${r.email}`}
+                    onClick={() =>
+                      approve.mutate(r.id, {
+                        onSuccess: (invite) => {
+                          onApproved(invite)
+                          if (invite.sent) toast.success(`Invite mailed to ${invite.email}`)
+                        },
+                        onError: (error) => toast.error(errorMessage(error)),
+                      })
+                    }
+                  >
+                    Approve
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    aria-label={`Deny ${r.email}`}
+                    onClick={() => setDenying(r)}
+                  >
+                    Deny
+                  </Button>
+                </div>
+              ) : (
+                <Badge variant={r.status === 'approved' ? 'secondary' : 'outline'}>
+                  {decisions[r.status]}
+                </Badge>
+              )}
+            </li>
+          ))}
+        </ul>
+      )}
+
+      <ConfirmDialog
+        open={denying !== undefined}
+        title="Deny this request?"
+        description="No invite is mailed. They may ask again in 30 days; while Tell denied requests is on, they are mailed so."
+        confirm="Deny"
+        destructive
+        onCancel={() => setDenying(undefined)}
+        onConfirm={() => {
+          const id = denying!.id
+          setDenying(undefined)
+          deny.mutate(id, {
+            onSuccess: () => toast.success('Request denied'),
+            onError: (error) => toast.error(errorMessage(error)),
+          })
+        }}
+      />
+    </section>
   )
 }

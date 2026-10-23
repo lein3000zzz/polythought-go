@@ -47,6 +47,7 @@ packages:
       SessionRepository: {}
       APITokenRepository: {}
       InviteRepository: {}
+      JoinRequestRepository: {}
       Transactor: {}
       RateLimiter: {}
       PasswordHasher: {}
@@ -94,6 +95,7 @@ packages:
     interfaces:
       WorkflowStopper: {}
       LiveStopper: {}
+      JoinNotifier: {}
   github.com/lein3000zzz/polythought-go/internal/core/services/library:
     config:
       dir: internal/mocks/library

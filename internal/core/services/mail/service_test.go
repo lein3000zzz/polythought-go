@@ -137,6 +137,30 @@ func TestSendInvite(t *testing.T) {
 	assert.Contains(t, sent.Text, "Make my account: https://poly.example/register?invite=inv_1")
 }
 
+// A request to join is confirmed by a link, and a denial says when to ask again (D394).
+func TestJoinMail(t *testing.T) {
+	mailer := portsmocks.NewMockMailer(t)
+
+	var sent []ports.Mail
+	mailer.EXPECT().Send(mock.Anything, mock.Anything).RunAndReturn(func(_ context.Context, m ports.Mail) error {
+		sent = append(sent, m)
+		return nil
+	})
+
+	s := New(mailer, "https://poly.example", logging.Noop())
+	require.NoError(t, s.SendJoinConfirm(context.Background(), "new@example.com", "tok+1", 24*time.Hour))
+	require.NoError(t, s.SendJoinDenied(context.Background(), "new@example.com"))
+
+	assert.Equal(t, "Confirm your request to join Polythought", sent[0].Subject)
+	assert.Contains(t, sent[0].Text, "Confirm my request: https://poly.example/request-access?token=tok%2B1")
+	assert.Contains(t, sent[0].Text, "It works for 24 hours.")
+	assert.Contains(t, sent[0].Text, "nothing is sent to the admins")
+
+	assert.Equal(t, "Your request to join Polythought", sent[1].Subject)
+	assert.Contains(t, sent[1].Text, "did not approve your request")
+	assert.Contains(t, sent[1].Text, "ask again in 30 days")
+}
+
 func TestNotificationMail(t *testing.T) {
 	ctx := context.Background()
 	on := true

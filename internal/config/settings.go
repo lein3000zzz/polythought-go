@@ -27,6 +27,8 @@ const (
 	KeySessionAbsoluteTTL  = "auth.session_absolute_ttl"
 	KeyInviteTTL           = "auth.invite_ttl"
 	KeyInviteEmail         = "auth.invite_email"
+	KeyRequests            = "auth.requests"
+	KeyRequestDeniedMail   = "auth.request_denied_mail"
 	KeyMinPasswordLength   = "auth.min_password_length"
 	KeyMaxWorkflows        = "workflows.max_per_user"
 	KeyMaxActiveWorkflows  = "workflows.max_active_per_user"
@@ -171,7 +173,19 @@ func Settings() (*settings.Registry, error) {
 		},
 		settings.Spec{
 			Key: KeyInviteEmail, Group: groupAccounts, Label: "Invites by email",
-			Description: "Admins can type an address on the Users page, and the invite is mailed, naming them; only that address signs up with it, verified. Invite links can still be copied. Works while mail is set up, under Mail.",
+			Description: "Admins can type an address on the Invites page, and the invite is mailed, naming them; only that address signs up with it, once, verified. Invites can still be shared as links. Works while mail is set up, under Mail.",
+			Kind:        settings.KindBool, Default: true,
+		},
+		settings.Spec{
+			Key: KeyRequests, Group: groupAccounts, Label: "Requests to join",
+			Description: "While registration is by invite, the sign-up page lets people without one ask for it, with a note. " +
+				"They confirm their address by a mailed link first; admins then approve on the Invites page, which mails an invite " +
+				"there, or deny. Needs mail set up, under Mail.",
+			Kind: settings.KindBool, Default: false,
+		},
+		settings.Spec{
+			Key: KeyRequestDeniedMail, Group: groupAccounts, Label: "Tell denied requests",
+			Description: "Mail someone whose request to join an admin denied, saying they may ask again in 30 days. Off, a denied request just closes.",
 			Kind:        settings.KindBool, Default: true,
 		},
 		settings.Spec{
@@ -476,6 +490,15 @@ func Settings() (*settings.Registry, error) {
 	}
 
 	// Verifying sign-ups needs mail, so a missing server cannot block them unseen (D173).
+	// So do requests to join: their confirmation and their invite go by mail (D394).
+	r.AddRule(KeyRequests, func(s *settings.Snapshot) error {
+		if s.Bool(KeyRequests) && !MailSetUp(s) {
+			return errors.New("needs mail set up first: a mail server and a From address, under Mail")
+		}
+
+		return nil
+	})
+
 	r.AddRule(KeyVerifyEmail, func(s *settings.Snapshot) error {
 		if s.Bool(KeyVerifyEmail) && !MailSetUp(s) {
 			return errors.New("needs mail set up first: a mail server and a From address, under Mail")

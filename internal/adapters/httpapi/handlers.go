@@ -150,6 +150,8 @@ type authConfigDTO struct {
 	MinPasswordLength int `json:"minPasswordLength"`
 	// PasswordReset says a forgotten password can be reset by email (D176).
 	PasswordReset bool `json:"passwordReset"`
+	// Requests says people without an invite can ask for one (D394).
+	Requests bool `json:"requests"`
 } // @name AuthConfig
 
 type registerRequest struct {
@@ -227,6 +229,7 @@ func (s *Server) authConfig(_ context.Context, c *app.RequestContext) {
 		Registration:      string(s.auth.RegistrationMode()),
 		MinPasswordLength: s.auth.MinPasswordLength(),
 		PasswordReset:     s.auth.PasswordReset(),
+		Requests:          s.auth.RequestsOpen(),
 	})
 }
 

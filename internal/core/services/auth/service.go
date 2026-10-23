@@ -40,6 +40,10 @@ type Config struct {
 	PasswordReset bool
 	// InviteEmail lets admins mail invites (D180).
 	InviteEmail bool
+	// Requests lets people ask to join while registration is by invite (D394), and
+	// RequestDeniedMail tells those denied.
+	Requests          bool
+	RequestDeniedMail bool
 }
 
 func DefaultConfig() Config {
@@ -53,6 +57,7 @@ func DefaultConfig() Config {
 		CodeAccess:         domain.CodeEveryone,
 		PasswordReset:      true,
 		InviteEmail:        true,
+		RequestDeniedMail:  true,
 	}
 }
 
@@ -67,7 +72,9 @@ type Repositories struct {
 	Invites  ports.InviteRepository
 	// EmailTokens keeps mailed links; needed with WithAccountMail.
 	EmailTokens ports.EmailTokenRepository
-	Tx          ports.Transactor
+	// JoinRequests keeps requests to join (D394); without it, nobody can ask.
+	JoinRequests ports.JoinRequestRepository
+	Tx           ports.Transactor
 }
 
 type Service struct {
@@ -84,6 +91,7 @@ type Service struct {
 	live      LiveStopper       // optional; without it, disabling stops no live trading
 	mail      ports.AccountMail // optional; without it, nothing is mailed
 	inviteBox ports.SecretBox   // optional; without it, an invite's code shows only as made
+	joins     JoinNotifier      // optional; without it, admins are told of no request to join
 
 	// dummyHash is verified against when an email is unknown, so a miss takes as long
 	// as a wrong password and response times do not reveal which emails exist.

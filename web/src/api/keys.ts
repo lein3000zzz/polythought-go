@@ -19,6 +19,7 @@ export const keys = {
   userAgentSpend: (id: string) => ['admin', 'users', 'agent-spend', id], // under users: an update refreshes it
   agentSpend: ['agent-spend'],
   invites: ['admin', 'invites'],
+  joinRequests: ['admin', 'requests'],
   settings: ['admin', 'settings'],
   settingList: ['admin', 'settings', 'list'],
   settingHistory: ['admin', 'settings', 'history'],

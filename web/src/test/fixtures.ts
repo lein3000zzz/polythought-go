@@ -44,9 +44,13 @@ export const signedOut = http.get('/api/v1/me', () =>
   apiError(401, 'unauthenticated', 'not authenticated'),
 )
 
-export function registration(mode: Schemas['AuthConfig']['registration'], minPasswordLength = 12) {
+export function registration(
+  mode: Schemas['AuthConfig']['registration'],
+  minPasswordLength = 12,
+  requests = false,
+) {
   return http.get('/api/v1/auth/config', () =>
-    HttpResponse.json({ registration: mode, minPasswordLength, passwordReset: false }),
+    HttpResponse.json({ registration: mode, minPasswordLength, passwordReset: false, requests }),
   )
 }
 

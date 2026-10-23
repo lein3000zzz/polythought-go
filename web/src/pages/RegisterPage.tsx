@@ -139,6 +139,15 @@ export function RegisterPage() {
           <div className="flex flex-col gap-2">
             <Label htmlFor="inviteCode">Invite code</Label>
             <Input id="inviteCode" autoComplete="off" required {...register('inviteCode')} />
+            {config.data.requests && !code && (
+              <p className="text-xs text-muted-foreground">
+                No invite?{' '}
+                <Link to="/request-access" className="text-foreground underline underline-offset-4">
+                  Ask for one
+                </Link>
+                .
+              </p>
+            )}
           </div>
         )}
 

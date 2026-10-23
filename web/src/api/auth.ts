@@ -110,6 +110,21 @@ export function useVerifyEmail() {
   })
 }
 
+/** Asks to join while requests are open (D394); the server mails a link to confirm it. */
+export function useRequestToJoin() {
+  return useMutation({
+    mutationFn: (body: Schemas['RequestToJoinRequest']) =>
+      call(api.POST('/auth/requests', { body })),
+  })
+}
+
+/** Confirms a request to join by its mailed link, so the admins see it. */
+export function useConfirmJoin() {
+  return useMutation({
+    mutationFn: (token: string) => call(api.POST('/auth/requests/confirm', { body: { token } })),
+  })
+}
+
 export function useLogout() {
   const queryClient = useQueryClient()
 

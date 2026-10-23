@@ -99,7 +99,7 @@ var Kinds = []Kind{
 	WorkflowFailed, ApprovalWaiting, SessionKeyExpiring, LiveTradeFailed,
 	LiveOrderFilled, LiveOrderRefused, LiveOrderUnfilled, LiveOrderRests, LiveOrderEnded,
 	PaperOrderFilled, PaperOrderRefused, PaperOrderUnfilled, PaperOrderRests, PaperOrderEnded,
-	AgentSpendWarned, AgentSpendCapped, WorkflowPaused, PluginCrashed,
+	AgentSpendWarned, AgentSpendCapped, WorkflowPaused, PluginCrashed, JoinRequested,
 }
 
 const (
@@ -127,13 +127,14 @@ type Service struct {
 
 	queue chan failure
 
-	markets ports.MarketReader // optional: an order's market, for what it says
-	orders  chan domain.OrderEvent
-	spends  chan spendAlert
-	paused  chan pausedWorkflow
-	crashed chan crashedPlugin
-	admins  AdminLister   // optional: without it, admins hear of no crashed plugin
-	tick    time.Duration // how often held order notifications are looked at
+	markets   ports.MarketReader // optional: an order's market, for what it says
+	orders    chan domain.OrderEvent
+	spends    chan spendAlert
+	paused    chan pausedWorkflow
+	crashed   chan crashedPlugin
+	requested chan joinRequest
+	admins    AdminLister   // optional: without it, admins hear of no crashed plugin
+	tick      time.Duration // how often held order notifications are looked at
 
 	mu        sync.Mutex
 	cooldowns map[domain.WorkflowID]cooldown
@@ -196,6 +197,7 @@ func New(messenger ports.UserMessenger, prefs ports.NotificationPrefRepository, 
 		spends:    make(chan spendAlert, queueSize),
 		paused:    make(chan pausedWorkflow, queueSize),
 		crashed:   make(chan crashedPlugin, queueSize),
+		requested: make(chan joinRequest, queueSize),
 		tick:      time.Minute,
 		windows:   make(map[windowKey]*window),
 	}
@@ -343,6 +345,8 @@ func (s *Service) Run(ctx context.Context) {
 			s.workflowPaused(ctx, pw)
 		case pc := <-s.crashed:
 			s.pluginCrashed(ctx, pc)
+		case jr := <-s.requested:
+			s.joinRequested(ctx, jr)
 		case <-t.C:
 			s.summarise(ctx)
 		}

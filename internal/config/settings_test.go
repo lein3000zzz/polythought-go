@@ -52,6 +52,8 @@ func TestSettingsDefaults(t *testing.T) {
 		config.KeyVerifyEmail:         authCfg.VerifyEmail,
 		config.KeyPasswordReset:       authCfg.PasswordReset,
 		config.KeyInviteEmail:         authCfg.InviteEmail,
+		config.KeyRequests:            authCfg.Requests,
+		config.KeyRequestDeniedMail:   authCfg.RequestDeniedMail,
 		config.KeySessionIdleTTL:      authCfg.SessionIdleTTL,
 		config.KeySessionAbsoluteTTL:  authCfg.SessionAbsoluteTTL,
 		config.KeyInviteTTL:           authCfg.InviteTTL,
@@ -115,7 +117,7 @@ func TestSettingsDefaults(t *testing.T) {
 		assert.Equal(t, want, spec(t, key).Default, key)
 	}
 
-	assert.Len(t, registry(t).Specs(), 63, "every setting has a default checked above")
+	assert.Len(t, registry(t).Specs(), 65, "every setting has a default checked above")
 
 	for _, key := range []string{
 		config.KeyTelegramToken, config.KeyBuilderAPIKey, config.KeyBuilderSecret, config.KeyBuilderPassphrase, config.KeyPolygonRPC,
@@ -255,27 +257,33 @@ func TestTakesKeys(t *testing.T) {
 	}
 }
 
-func TestVerifyEmailNeedsMail(t *testing.T) {
+// Verifying sign-ups and requests to join both go by mail, so neither turns on without it
+// (D173, D394).
+func TestMailNeeded(t *testing.T) {
 	t.Parallel()
 
 	r := registry(t)
-	require.Len(t, r.Rules(), 1)
-	rule := r.Rules()[0]
-	assert.Equal(t, config.KeyVerifyEmail, rule.Key)
+	rules := r.Rules()
+	require.Len(t, rules, 2)
 
 	mail := map[string]any{config.KeyMailHost: "mail.example.com", config.KeyMailFrom: "p@example.com"}
 
-	require.NoError(t, rule.Check(r.Snapshot(nil)), "off")
-	require.NoError(t, rule.Check(r.Snapshot(mail)), "off, mail set up")
+	for i, key := range []string{config.KeyRequests, config.KeyVerifyEmail} {
+		rule := rules[i]
+		assert.Equal(t, key, rule.Key)
 
-	on := map[string]any{config.KeyVerifyEmail: true}
-	require.ErrorContains(t, rule.Check(r.Snapshot(on)), "needs mail set up first")
+		require.NoError(t, rule.Check(r.Snapshot(nil)), "off")
+		require.NoError(t, rule.Check(r.Snapshot(mail)), "off, mail set up")
 
-	on[config.KeyMailHost] = "mail.example.com"
-	require.Error(t, rule.Check(r.Snapshot(on)), "no From address")
+		on := map[string]any{key: true}
+		require.ErrorContains(t, rule.Check(r.Snapshot(on)), "needs mail set up first")
 
-	on[config.KeyMailFrom] = "p@example.com"
-	require.NoError(t, rule.Check(r.Snapshot(on)))
+		on[config.KeyMailHost] = "mail.example.com"
+		require.Error(t, rule.Check(r.Snapshot(on)), "no From address")
+
+		on[config.KeyMailFrom] = "p@example.com"
+		require.NoError(t, rule.Check(r.Snapshot(on)), key)
+	}
 }
 
 func TestAgentDollarsCap(t *testing.T) {

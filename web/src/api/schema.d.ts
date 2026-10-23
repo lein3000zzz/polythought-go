@@ -381,6 +381,57 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/admin/requests": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List requests to join */
+        get: operations["listJoinRequests"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/requests/{id}/approve": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Approve a request to join */
+        post: operations["approveJoin"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/requests/{id}/deny": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Deny a request to join */
+        post: operations["denyJoin"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/admin/restart": {
         parameters: {
             query?: never;
@@ -615,6 +666,40 @@ export interface paths {
         put?: never;
         /** Create an account */
         post: operations["register"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/auth/requests": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Ask to join */
+        post: operations["requestToJoin"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/auth/requests/confirm": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Confirm a request to join */
+        post: operations["confirmJoin"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1872,6 +1957,8 @@ export interface components {
             passwordReset: boolean;
             /** @enum {string} */
             registration: "open" | "invite" | "closed";
+            /** @description Requests says people without an invite can ask for one (D394). */
+            requests: boolean;
         };
         BrokenWorkflow: {
             id: string;
@@ -1919,6 +2006,10 @@ export interface components {
              *     exports the others.
              */
             files: components["schemas"]["CodeFile"][];
+        };
+        ConfirmJoinRequest: {
+            /** @description Token is the one in the mailed link. */
+            token: string;
         };
         Connection: {
             from: string;
@@ -2323,6 +2414,31 @@ export interface components {
             json?: {
                 [key: string]: unknown;
             };
+        };
+        JoinRequest: {
+            /** Format: date-time */
+            confirmedAt: string;
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: date-time */
+            decidedAt?: string;
+            decidedBy?: string;
+            email: string;
+            id: string;
+            /** @description InviteID is the invite an approval mailed. */
+            inviteId?: string;
+            /** @description Note is the requester's, plain text. */
+            note?: string;
+            /**
+             * @description Status is pending until an admin approves or denies it.
+             * @enum {string}
+             */
+            status: "pending" | "approved" | "denied";
+        };
+        JoinRequestList: {
+            /** @description Pending is how many wait for an admin, for the Invites tab's count. */
+            pending: number;
+            requests: components["schemas"]["JoinRequest"][];
         };
         KillSwitch: {
             /**
@@ -2827,6 +2943,11 @@ export interface components {
             /** @description Sent says the link was mailed; when it was not, it can be sent again. */
             sent: boolean;
             user: components["schemas"]["User"];
+        };
+        RequestToJoinRequest: {
+            email: string;
+            /** @description Note says who they are and why they would like in: at most 500 characters. */
+            note?: string;
         };
         ResendVerificationRequest: {
             email: string;
@@ -4604,6 +4725,151 @@ export interface operations {
             };
         };
     };
+    listJoinRequests: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["JoinRequestList"];
+                };
+            };
+            /** @description unauthenticated */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    approveJoin: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Request ID */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Invite"];
+                };
+            };
+            /** @description unauthenticated */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description not_found: no request waiting */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description email_taken: the address has an account already */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    denyJoin: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Request ID */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No Content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description unauthenticated */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description not_found: no request waiting */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
     restartServer: {
         parameters: {
             query?: never;
@@ -5391,6 +5657,97 @@ export interface operations {
             };
             /** @description email_taken */
             409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description rate_limited */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    requestToJoin: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description The address and a note */
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RequestToJoinRequest"];
+            };
+        };
+        responses: {
+            /** @description Accepted */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description invalid_email, or invalid_input */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description requests_off */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description rate_limited */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    confirmJoin: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description The link's token */
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ConfirmJoinRequest"];
+            };
+        };
+        responses: {
+            /** @description No Content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description invalid_link: used, too old, or none */
+            400: {
                 headers: {
                     [name: string]: unknown;
                 };

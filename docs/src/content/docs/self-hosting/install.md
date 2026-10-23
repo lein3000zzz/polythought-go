@@ -201,6 +201,26 @@ revoked. **Revoke** ends an open invite, and the accounts made with it stay. Cod
 sealed with the server's keys, as its other secrets are; an invite made before Polythought
 kept codes shows none.
 
+### Requests to join
+
+With **Requests to join** on, under Accounts on the Config page, people without an invite can
+ask for one: **Ask for one**, under the sign-up form's invite code, takes their address and an
+optional note of up to 500 characters. It needs mail set up, under Mail, and registration by
+invite.
+
+The address gets a link to confirm the request, working once for 24 hours; until it is
+opened, the admins see nothing. Once it is, the request waits on **Admin → Invites**, under
+**Requests to join**, counted on the tab, and each admin is told, as **Someone asks to join**
+says on their Notifications page. **Approve** mails the address an invite of its own, one use,
+as **Invite by email** does; **Deny** closes the request, and mails the address so while
+**Tell denied requests**, under Accounts, is on. Decided requests stay listed for 30 days.
+
+The form answers the same whatever comes of it, so it tells nobody which addresses have an
+account or a request. An address with an account, one already waiting, or one denied in the
+last 30 days gets no mail; a request not confirmed gets a new link at most once a minute and
+five times in all, and is removed a day after its link stops working. At most 200 requests
+are open at once.
+
 ## More admins
 
 Admins can promote users on **Admin → Users**. To create one from the command line, with the

@@ -122,6 +122,132 @@ func (_c *MockAccountMail_SendInvite_Call) RunAndReturn(run func(ctx context.Con
 	return _c
 }
 
+// SendJoinConfirm provides a mock function for the type MockAccountMail
+func (_mock *MockAccountMail) SendJoinConfirm(ctx context.Context, to string, token string, lasts time.Duration) error {
+	ret := _mock.Called(ctx, to, token, lasts)
+
+	if len(ret) == 0 {
+		panic("no return value specified for SendJoinConfirm")
+	}
+
+	var r0 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context, string, string, time.Duration) error); ok {
+		r0 = returnFunc(ctx, to, token, lasts)
+	} else {
+		r0 = ret.Error(0)
+	}
+	return r0
+}
+
+// MockAccountMail_SendJoinConfirm_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'SendJoinConfirm'
+type MockAccountMail_SendJoinConfirm_Call struct {
+	*mock.Call
+}
+
+// SendJoinConfirm is a helper method to define mock.On call
+//   - ctx context.Context
+//   - to string
+//   - token string
+//   - lasts time.Duration
+func (_e *MockAccountMail_Expecter) SendJoinConfirm(ctx any, to any, token any, lasts any) *MockAccountMail_SendJoinConfirm_Call {
+	return &MockAccountMail_SendJoinConfirm_Call{Call: _e.mock.On("SendJoinConfirm", ctx, to, token, lasts)}
+}
+
+func (_c *MockAccountMail_SendJoinConfirm_Call) Run(run func(ctx context.Context, to string, token string, lasts time.Duration)) *MockAccountMail_SendJoinConfirm_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		var arg1 string
+		if args[1] != nil {
+			arg1 = args[1].(string)
+		}
+		var arg2 string
+		if args[2] != nil {
+			arg2 = args[2].(string)
+		}
+		var arg3 time.Duration
+		if args[3] != nil {
+			arg3 = args[3].(time.Duration)
+		}
+		run(
+			arg0,
+			arg1,
+			arg2,
+			arg3,
+		)
+	})
+	return _c
+}
+
+func (_c *MockAccountMail_SendJoinConfirm_Call) Return(err error) *MockAccountMail_SendJoinConfirm_Call {
+	_c.Call.Return(err)
+	return _c
+}
+
+func (_c *MockAccountMail_SendJoinConfirm_Call) RunAndReturn(run func(ctx context.Context, to string, token string, lasts time.Duration) error) *MockAccountMail_SendJoinConfirm_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// SendJoinDenied provides a mock function for the type MockAccountMail
+func (_mock *MockAccountMail) SendJoinDenied(ctx context.Context, to string) error {
+	ret := _mock.Called(ctx, to)
+
+	if len(ret) == 0 {
+		panic("no return value specified for SendJoinDenied")
+	}
+
+	var r0 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context, string) error); ok {
+		r0 = returnFunc(ctx, to)
+	} else {
+		r0 = ret.Error(0)
+	}
+	return r0
+}
+
+// MockAccountMail_SendJoinDenied_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'SendJoinDenied'
+type MockAccountMail_SendJoinDenied_Call struct {
+	*mock.Call
+}
+
+// SendJoinDenied is a helper method to define mock.On call
+//   - ctx context.Context
+//   - to string
+func (_e *MockAccountMail_Expecter) SendJoinDenied(ctx any, to any) *MockAccountMail_SendJoinDenied_Call {
+	return &MockAccountMail_SendJoinDenied_Call{Call: _e.mock.On("SendJoinDenied", ctx, to)}
+}
+
+func (_c *MockAccountMail_SendJoinDenied_Call) Run(run func(ctx context.Context, to string)) *MockAccountMail_SendJoinDenied_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		var arg1 string
+		if args[1] != nil {
+			arg1 = args[1].(string)
+		}
+		run(
+			arg0,
+			arg1,
+		)
+	})
+	return _c
+}
+
+func (_c *MockAccountMail_SendJoinDenied_Call) Return(err error) *MockAccountMail_SendJoinDenied_Call {
+	_c.Call.Return(err)
+	return _c
+}
+
+func (_c *MockAccountMail_SendJoinDenied_Call) RunAndReturn(run func(ctx context.Context, to string) error) *MockAccountMail_SendJoinDenied_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // SendPasswordChanged provides a mock function for the type MockAccountMail
 func (_mock *MockAccountMail) SendPasswordChanged(ctx context.Context, to string, at time.Time) error {
 	ret := _mock.Called(ctx, to, at)

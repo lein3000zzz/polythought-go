@@ -106,6 +106,35 @@ type InviteRepository interface {
 	Revoke(ctx context.Context, id domain.InviteID, by domain.UserID, at time.Time) error
 }
 
+// JoinRequestRepository keeps requests to join (D394). An address has one open request
+// at most: unconfirmed, or pending an admin.
+type JoinRequestRepository interface {
+	// Create keeps a request, its confirmation link's hash with it.
+	Create(ctx context.Context, r domain.JoinRequest, tokenHash []byte) error
+	// Open is the address's open request; domain.ErrNotFound when it has none.
+	Open(ctx context.Context, emailNormalized string) (domain.JoinRequest, error)
+	// DeniedSince says whether a request of the address was denied at since or after.
+	DeniedSince(ctx context.Context, emailNormalized string, since time.Time) (bool, error)
+	// Remail gives an unconfirmed request a new link, until expires, mailed at at.
+	Remail(ctx context.Context, id domain.JoinRequestID, tokenHash []byte, expires, at time.Time) error
+	// Confirm confirms the unconfirmed request of a link working at at, once, and gives
+	// it; domain.ErrInvalidLink when there is none.
+	Confirm(ctx context.Context, tokenHash []byte, at time.Time) (domain.JoinRequest, error)
+	// CountOpen is how many requests are open, unconfirmed or pending.
+	CountOpen(ctx context.Context) (int, error)
+	// List is the confirmed requests, pending first, then those decided at since or
+	// after, each newest first.
+	List(ctx context.Context, since time.Time) ([]domain.JoinRequest, error)
+	// Decide closes a pending request as approved or not, by an admin, at at, with the
+	// invite an approval mailed; domain.ErrNotFound when it is not pending.
+	Decide(ctx context.Context, id domain.JoinRequestID, approved bool, by domain.UserID, at time.Time, invite domain.InviteID) error
+	// Get is a request; domain.ErrNotFound when there is none.
+	Get(ctx context.Context, id domain.JoinRequestID) (domain.JoinRequest, error)
+	// PruneUnconfirmed removes the unconfirmed requests whose link stopped working before
+	// before.
+	PruneUnconfirmed(ctx context.Context, before time.Time) (int64, error)
+}
+
 // RateLimiter answers whether one more attempt under key is allowed right now.
 type RateLimiter interface {
 	Allow(key string) bool

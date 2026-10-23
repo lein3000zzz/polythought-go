@@ -220,8 +220,8 @@ func (s *Service) replaceUnverified(ctx context.Context, email string) error {
 	return nil
 }
 
-// PruneUnverified removes the accounts that did not verify within 7 days, and expired
-// links; run it periodically.
+// PruneUnverified removes the accounts that did not verify within 7 days, expired links,
+// and requests to join never confirmed (D394); run it periodically.
 func (s *Service) PruneUnverified(ctx context.Context) (int64, error) {
 	now := s.now()
 
@@ -232,6 +232,12 @@ func (s *Service) PruneUnverified(ctx context.Context) (int64, error) {
 
 	if _, err := s.repos.EmailTokens.DeleteExpired(ctx, now); err != nil {
 		return n, err
+	}
+
+	if s.repos.JoinRequests != nil {
+		if _, err := s.repos.JoinRequests.PruneUnconfirmed(ctx, now); err != nil {
+			return n, err
+		}
 	}
 
 	return n, nil

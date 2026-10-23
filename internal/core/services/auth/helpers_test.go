@@ -29,6 +29,7 @@ type deps struct {
 	sessions *portsmocks.MockSessionRepository
 	tokens   *portsmocks.MockAPITokenRepository
 	invites  *portsmocks.MockInviteRepository
+	joins    *portsmocks.MockJoinRequestRepository
 	links    *portsmocks.MockEmailTokenRepository
 	mail     *portsmocks.MockAccountMail
 	tx       *portsmocks.MockTransactor
@@ -47,6 +48,7 @@ func newDeps(t *testing.T) deps {
 		sessions: portsmocks.NewMockSessionRepository(t),
 		tokens:   portsmocks.NewMockAPITokenRepository(t),
 		invites:  portsmocks.NewMockInviteRepository(t),
+		joins:    portsmocks.NewMockJoinRequestRepository(t),
 		links:    portsmocks.NewMockEmailTokenRepository(t),
 		mail:     portsmocks.NewMockAccountMail(t),
 		tx:       portsmocks.NewMockTransactor(t),
@@ -76,6 +78,7 @@ func newService(t *testing.T, d deps, cfg auth.Config, extra ...auth.Option) *au
 
 	s, err := auth.New(cfg, auth.Repositories{
 		Users: d.users, Sessions: d.sessions, Tokens: d.tokens, Invites: d.invites, EmailTokens: d.links, Tx: d.tx,
+		JoinRequests: d.joins,
 	}, d.hasher, d.limiter, logging.Noop(), append([]auth.Option{
 		auth.WithClock(func() time.Time { return now }),
 		auth.WithLater(func(f func()) { f() }), // what comes after an answer, at once

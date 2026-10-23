@@ -174,6 +174,30 @@ func (s *Service) SendInvite(ctx context.Context, to, inviter, code string, unti
 	})
 }
 
+// SendJoinConfirm mails the link confirming a request to join (D394): admins see the
+// request once it is opened.
+func (s *Service) SendJoinConfirm(ctx context.Context, to, token string, lasts time.Duration) error {
+	return s.send(ctx, to, Message{
+		Subject: "Confirm your request to join Polythought",
+		Paragraphs: []string{
+			"Someone, hopefully you, asked to join Polythought with this address. Open the link to confirm it: " +
+				"the admins then see your request, and mail you an invite here if they approve it.",
+			"It works for " + forPeople(lasts) + ". Did not ask? Ignore this mail: nothing is sent to the admins.",
+		},
+		Link: &Link{Text: "Confirm my request", URL: s.publicURL + "/request-access?token=" + url.QueryEscape(token)},
+	})
+}
+
+// SendJoinDenied tells a requester the admins did not approve their request (D394).
+func (s *Service) SendJoinDenied(ctx context.Context, to string) error {
+	return s.send(ctx, to, Message{
+		Subject: "Your request to join Polythought",
+		Paragraphs: []string{
+			"The admins of Polythought did not approve your request to join this time. You may ask again in 30 days.",
+		},
+	})
+}
+
 // forPeople says how long d is, roughly: 24 hours, 30 minutes.
 func forPeople(d time.Duration) string {
 	if d >= time.Hour && d%time.Hour == 0 {

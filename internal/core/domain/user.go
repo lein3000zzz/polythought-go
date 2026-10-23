@@ -87,7 +87,10 @@ var (
 	// ErrInviteEmailOff means invites cannot be mailed here: it is switched off, or mail
 	// is not set up (D180).
 	ErrInviteEmailOff = errors.New("invites cannot be mailed here: inviting by email is off, or mail is not set up")
-	ErrCodeOff        = errors.New("an admin has turned code off for you")
+	// ErrRequestsOff means nobody can ask to join here: requests are off, or registration is
+	// not by invite, or mail is not set up (D394).
+	ErrRequestsOff = errors.New("requests to join are off here")
+	ErrCodeOff     = errors.New("an admin has turned code off for you")
 )
 
 // User is an account. The password hash never leaves the auth service and its repository.
@@ -188,6 +191,51 @@ type InviteUse struct {
 	UserID UserID // empty once the account is gone
 	Email  string
 	At     time.Time
+}
+
+type JoinRequestID string
+
+// JoinRequest is someone asking for an invite (D380, D394). They confirm their address by
+// a mailed link; only then do admins see it, and approve it, mailing an invite there, or
+// deny it.
+type JoinRequest struct {
+	ID          JoinRequestID
+	Email       string
+	Note        string // theirs, plain text, at most 500 characters
+	CreatedAt   time.Time
+	ConfirmedAt time.Time // zero until the link was opened
+	DecidedAt   time.Time
+	DecidedBy   UserID
+	Approved    bool
+	InviteID    InviteID // the invite an approval mailed
+
+	// The confirmation link: when it stops working, how many were mailed, the last when.
+	LinkExpiresAt time.Time
+	Mails         int
+	MailedAt      time.Time
+}
+
+// JoinRequestStatus is where a request is.
+type JoinRequestStatus string
+
+const (
+	JoinUnconfirmed JoinRequestStatus = "unconfirmed"
+	JoinPending     JoinRequestStatus = "pending"
+	JoinApproved    JoinRequestStatus = "approved"
+	JoinDenied      JoinRequestStatus = "denied"
+)
+
+func (r JoinRequest) Status() JoinRequestStatus {
+	switch {
+	case r.DecidedAt.IsZero() && r.ConfirmedAt.IsZero():
+		return JoinUnconfirmed
+	case r.DecidedAt.IsZero():
+		return JoinPending
+	case r.Approved:
+		return JoinApproved
+	}
+
+	return JoinDenied
 }
 
 // InviteStatus is whether an invite still admits sign-ups, and why not.

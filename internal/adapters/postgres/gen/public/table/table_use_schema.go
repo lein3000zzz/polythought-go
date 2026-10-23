@@ -20,6 +20,7 @@ func UseSchema(schema string) {
 	Holdings = Holdings.FromSchema(schema)
 	InviteUses = InviteUses.FromSchema(schema)
 	Invites = Invites.FromSchema(schema)
+	JoinRequests = JoinRequests.FromSchema(schema)
 	NodeMemory = NodeMemory.FromSchema(schema)
 	NotificationPrefs = NotificationPrefs.FromSchema(schema)
 	OrderFills = OrderFills.FromSchema(schema)

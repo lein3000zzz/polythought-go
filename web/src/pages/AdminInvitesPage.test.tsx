@@ -207,4 +207,75 @@ describe('admin invites page (D371)', () => {
     await waitFor(() => expect(revoked).toBe('i-1'))
     expect(await screen.findByText('Invite revoked')).toBeInTheDocument()
   })
+
+  it('shows the requests to join waiting, approves one by mailing an invite, and denies one (D394)', async () => {
+    let decided = ''
+    const request = (id: string, email: string, extra: Partial<Schemas['JoinRequest']> = {}) => ({
+      id,
+      email,
+      createdAt: '2026-10-20T09:00:00Z',
+      confirmedAt: '2026-10-20T09:05:00Z',
+      status: 'pending' as const,
+      ...extra,
+    })
+    invites([])
+    server.use(
+      registration('invite', 12, true),
+      http.get('/api/v1/admin/requests', () =>
+        HttpResponse.json({
+          requests: [
+            request('r-1', 'new@example.com', { note: 'I trade weather markets.' }),
+            request('r-2', 'spam@example.com'),
+            request('r-3', 'old@example.com', {
+              status: 'denied',
+              decidedAt: '2026-10-19T09:00:00Z',
+            }),
+          ],
+          pending: 2,
+        }),
+      ),
+      http.post('/api/v1/admin/requests/:id/approve', ({ params }) => {
+        decided = `approved ${params.id as string}`
+        return HttpResponse.json(
+          invite('i-9', { email: 'new@example.com', code: 'inv_new', sent: true }),
+          { status: 201 },
+        )
+      }),
+      http.post('/api/v1/admin/requests/:id/deny', ({ params }) => {
+        decided = `denied ${params.id as string}`
+        return new HttpResponse(null, { status: 204 })
+      }),
+    )
+    const { user } = renderApp('/admin/invites')
+
+    // Counted on the tab, so they are seen from any admin page.
+    const tabs = within(await screen.findByRole('navigation', { name: 'Admin pages' }))
+    expect(
+      await tabs.findByRole('link', { name: 'Invites, 2 requests waiting' }),
+    ).toBeInTheDocument()
+
+    const requests = within(await screen.findByRole('list', { name: 'Requests to join' }))
+    expect(requests.getByText('I trade weather markets.')).toBeInTheDocument()
+    expect(requests.getByText('Denied')).toBeInTheDocument()
+    expect(
+      requests.queryByRole('button', { name: 'Approve old@example.com' }),
+    ).not.toBeInTheDocument()
+
+    await user.click(requests.getByRole('button', { name: 'Approve new@example.com' }))
+    expect(await screen.findByText('Mailed to new@example.com')).toBeInTheDocument()
+    expect(decided).toBe('approved r-1')
+
+    await user.click(requests.getByRole('button', { name: 'Deny spam@example.com' }))
+    const asked = await screen.findByRole('alertdialog', { name: 'Deny this request?' })
+    await user.click(within(asked).getByRole('button', { name: 'Deny' }))
+    await waitFor(() => expect(decided).toBe('denied r-2'))
+  })
+
+  it('says requests are off, with none made, by hiding them', async () => {
+    invites([])
+    renderApp('/admin/invites')
+
+    expect(await screen.findByText('No invites yet.')).toBeInTheDocument()
+    expect(screen.queryByText('Requests to join')).not.toBeInTheDocument()
+  })
 })

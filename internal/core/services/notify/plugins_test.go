@@ -50,4 +50,12 @@ func TestPluginNotices(t *testing.T) {
 		assert.Contains(t, d.messenger.sent[1].HTML, "The plugin weather is stopped: it crashed 5 times in 10 minutes: exit status 3.")
 		assert.Equal(t, "https://poly.example/admin/plugins", d.messenger.sent[2].Buttons[0][0].URL)
 	})
+
+	t.Run("every admin hears of a request to join, its note as plain text (D394)", func(t *testing.T) {
+		s.JoinRequested("new@example.com", "I trade <b>weather</b> markets.")
+		settle(t, d, 5)
+
+		assert.Equal(t, "🙋 new@example.com asks to join. They say: “I trade &lt;b&gt;weather&lt;/b&gt; markets.”", d.messenger.sent[3].HTML)
+		assert.Equal(t, "https://poly.example/admin/invites", d.messenger.sent[4].Buttons[0][0].URL)
+	})
 }

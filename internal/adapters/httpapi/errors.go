@@ -113,6 +113,7 @@ var errorMapping = []struct {
 	{domain.ErrPasswordResetOff, http.StatusForbidden, "password_reset_off"},
 	{domain.ErrInviteEmailOff, http.StatusForbidden, "invite_email_off"},
 	{domain.ErrInviteCodeTaken, http.StatusConflict, "invite_code_taken"},
+	{domain.ErrRequestsOff, http.StatusForbidden, "requests_off"},
 	{domain.ErrRegistrationClosed, http.StatusForbidden, "registration_closed"},
 	{domain.ErrForbidden, http.StatusForbidden, "forbidden"},
 	{domain.ErrNotFound, http.StatusNotFound, "not_found"},

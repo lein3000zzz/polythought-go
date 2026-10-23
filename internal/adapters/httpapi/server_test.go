@@ -103,9 +103,70 @@ func TestRoutes(t *testing.T) {
 				svc.EXPECT().RegistrationMode().Return(domain.RegistrationInvite)
 				svc.EXPECT().MinPasswordLength().Return(14)
 				svc.EXPECT().PasswordReset().Return(true)
+				svc.EXPECT().RequestsOpen().Return(true)
 			},
 			wantStatus: http.StatusOK,
-			wantBody:   []string{`{"registration":"invite","minPasswordLength":14,"passwordReset":true}`},
+			wantBody:   []string{`{"registration":"invite","minPasswordLength":14,"passwordReset":true,"requests":true}`},
+		},
+		{
+			name: "ask to join, answered the same whatever comes of it",
+			req:  request{method: "POST", path: "/api/v1/auth/requests", body: `{"email":"new@example.com","note":"Hello"}`},
+			setup: func(svc *httpapimocks.MockAuthService) {
+				svc.EXPECT().RequestToJoin(mock.Anything, "new@example.com", "Hello", mock.Anything).Return(nil)
+			},
+			wantStatus: http.StatusAccepted,
+		},
+		{
+			name: "asking while requests are off",
+			req:  request{method: "POST", path: "/api/v1/auth/requests", body: `{"email":"new@example.com"}`},
+			setup: func(svc *httpapimocks.MockAuthService) {
+				svc.EXPECT().RequestToJoin(mock.Anything, "new@example.com", "", mock.Anything).Return(domain.ErrRequestsOff)
+			},
+			wantStatus: http.StatusForbidden,
+			wantBody:   []string{`"code":"requests_off"`},
+		},
+		{
+			name: "confirm a request by its link",
+			req:  request{method: "POST", path: "/api/v1/auth/requests/confirm", body: `{"token":"tok"}`},
+			setup: func(svc *httpapimocks.MockAuthService) {
+				svc.EXPECT().ConfirmJoin(mock.Anything, "tok", mock.Anything).Return(domain.ErrInvalidLink)
+			},
+			wantStatus: http.StatusBadRequest,
+			wantBody:   []string{`"code":"invalid_link"`},
+		},
+		{
+			name: "the requests, with how many wait",
+			req:  request{method: "GET", path: "/api/v1/admin/requests", headers: cookie},
+			setup: func(svc *httpapimocks.MockAuthService) {
+				withSession(svc, root)
+				at := time.Date(2026, 10, 20, 9, 0, 0, 0, time.UTC)
+				svc.EXPECT().ListJoinRequests(mock.Anything, mock.Anything).Return([]domain.JoinRequest{
+					{ID: "r-1", Email: "new@example.com", Note: "Hello", CreatedAt: at, ConfirmedAt: at},
+					{ID: "r-2", Email: "old@example.com", CreatedAt: at, ConfirmedAt: at, DecidedAt: at, DecidedBy: root.ID},
+				}, nil)
+			},
+			wantStatus: http.StatusOK,
+			wantBody:   []string{`"pending":1`, `"status":"pending"`, `"status":"denied"`, `"note":"Hello"`},
+		},
+		{
+			name: "approve a request, mailing an invite",
+			req:  request{method: "POST", path: "/api/v1/admin/requests/r-1/approve", headers: cookie},
+			setup: func(svc *httpapimocks.MockAuthService) {
+				withSession(svc, root)
+				svc.EXPECT().ApproveJoin(mock.Anything, mock.Anything, domain.JoinRequestID("r-1")).
+					Return(domain.Invite{ID: "i-1", Email: "new@example.com", MaxUses: 1}, true, nil)
+			},
+			wantStatus: http.StatusCreated,
+			wantBody:   []string{`"email":"new@example.com"`, `"sent":true`},
+		},
+		{
+			name: "deny a request",
+			req:  request{method: "POST", path: "/api/v1/admin/requests/r-1/deny", headers: cookie},
+			setup: func(svc *httpapimocks.MockAuthService) {
+				withSession(svc, root)
+				svc.EXPECT().DenyJoin(mock.Anything, mock.Anything, domain.JoinRequestID("r-1")).Return(nil)
+			},
+			wantStatus: http.StatusNoContent,
 		},
 		{
 			name: "ask for a reset link",

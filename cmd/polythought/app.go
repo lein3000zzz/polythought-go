@@ -277,12 +277,13 @@ func (a *app) init(ctx context.Context) error {
 	a.telegram.UseAnswers(a.waits)
 
 	a.auth, err = auth.New(authConfig(a.settings.Current()), auth.Repositories{
-		Users:       postgres.NewUsers(a.db),
-		Sessions:    postgres.NewSessions(a.db),
-		Tokens:      postgres.NewAPITokens(a.db),
-		Invites:     postgres.NewInvites(a.db),
-		EmailTokens: postgres.NewEmailTokens(a.db),
-		Tx:          a.db,
+		Users:        postgres.NewUsers(a.db),
+		Sessions:     postgres.NewSessions(a.db),
+		Tokens:       postgres.NewAPITokens(a.db),
+		Invites:      postgres.NewInvites(a.db),
+		EmailTokens:  postgres.NewEmailTokens(a.db),
+		JoinRequests: postgres.NewJoinRequests(a.db),
+		Tx:           a.db,
 	},
 		crypto.NewArgon2id(crypto.DefaultArgon2Params),
 		ratelimit.NewMemory(30*time.Second, 10), // 10 attempts, then one every 30 s per key
@@ -293,6 +294,7 @@ func (a *app) init(ctx context.Context) error {
 		auth.WithLiveConfig(func() auth.Config { return authConfig(a.settings.Current()) }),
 		auth.WithAccountMail(a.mail),
 		auth.WithInviteBox(a.box), // codes kept to copy again (D393)
+		auth.WithJoinNotifier(a.notify),
 	)
 
 	return err
@@ -361,6 +363,8 @@ func authConfig(s *settings.Snapshot) auth.Config {
 	cfg.VerifyEmail = s.Bool(config.KeyVerifyEmail)
 	cfg.PasswordReset = s.Bool(config.KeyPasswordReset)
 	cfg.InviteEmail = s.Bool(config.KeyInviteEmail)
+	cfg.Requests = s.Bool(config.KeyRequests)
+	cfg.RequestDeniedMail = s.Bool(config.KeyRequestDeniedMail)
 
 	return cfg
 }

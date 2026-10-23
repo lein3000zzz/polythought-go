@@ -42,6 +42,9 @@ type AuthService interface {
 	InviteEmail() bool
 	InviteByEmail(ctx context.Context, actor auth.Principal, email string) (domain.Invite, bool, error)
 	InviteFor(ctx context.Context, code, ip string) (domain.Invite, error)
+	RequestsOpen() bool
+	RequestToJoin(ctx context.Context, email, note, ip string) error
+	ConfirmJoin(ctx context.Context, token, ip string) error
 	Login(ctx context.Context, in auth.LoginInput) (auth.LoginResult, error)
 	Logout(ctx context.Context, id domain.SessionID) error
 	AuthenticateSession(ctx context.Context, token string) (auth.Principal, error)
@@ -59,6 +62,9 @@ type AuthService interface {
 	CheckInviteCode(ctx context.Context, actor auth.Principal, code string) (string, error)
 	RevokeInvite(ctx context.Context, actor auth.Principal, id domain.InviteID) error
 	ListInvites(ctx context.Context, actor auth.Principal) ([]domain.Invite, error)
+	ListJoinRequests(ctx context.Context, actor auth.Principal) ([]domain.JoinRequest, error)
+	ApproveJoin(ctx context.Context, actor auth.Principal, id domain.JoinRequestID) (domain.Invite, bool, error)
+	DenyJoin(ctx context.Context, actor auth.Principal, id domain.JoinRequestID) error
 }
 
 // WalletService is what the handlers need from the wallet service.
@@ -327,6 +333,8 @@ func (s *Server) routes() {
 	v1.POST("/auth/password-reset", s.requestPasswordReset)
 	v1.POST("/auth/password-reset/confirm", s.resetPassword)
 	v1.POST("/auth/invite", s.inviteFor)
+	v1.POST("/auth/requests", s.requestToJoin)
+	v1.POST("/auth/requests/confirm", s.confirmJoin)
 	v1.POST("/auth/logout", s.requireAuth, s.logout)
 
 	v1.GET("/me", s.requireAuth, s.me)
@@ -437,6 +445,9 @@ func (s *Server) routes() {
 	admin.POST("/invites", s.createInvite)
 	admin.POST("/invites/check", s.checkInviteCode)
 	admin.POST("/invites/:id/revoke", s.revokeInvite)
+	admin.GET("/requests", s.listJoinRequests)
+	admin.POST("/requests/:id/approve", s.approveJoin)
+	admin.POST("/requests/:id/deny", s.denyJoin)
 	admin.GET("/settings", s.listSettings)
 	admin.PATCH("/settings", s.updateSettings)
 	admin.GET("/settings/history", s.listSettingChanges)

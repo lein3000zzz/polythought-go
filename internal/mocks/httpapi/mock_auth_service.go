@@ -50,6 +50,84 @@ func (_m *MockAuthService) EXPECT() *MockAuthService_Expecter {
 	return &MockAuthService_Expecter{mock: &_m.Mock}
 }
 
+// ApproveJoin provides a mock function for the type MockAuthService
+func (_mock *MockAuthService) ApproveJoin(ctx context.Context, actor auth.Principal, id domain.JoinRequestID) (domain.Invite, bool, error) {
+	ret := _mock.Called(ctx, actor, id)
+
+	if len(ret) == 0 {
+		panic("no return value specified for ApproveJoin")
+	}
+
+	var r0 domain.Invite
+	var r1 bool
+	var r2 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context, auth.Principal, domain.JoinRequestID) (domain.Invite, bool, error)); ok {
+		return returnFunc(ctx, actor, id)
+	}
+	if returnFunc, ok := ret.Get(0).(func(context.Context, auth.Principal, domain.JoinRequestID) domain.Invite); ok {
+		r0 = returnFunc(ctx, actor, id)
+	} else {
+		r0 = ret.Get(0).(domain.Invite)
+	}
+	if returnFunc, ok := ret.Get(1).(func(context.Context, auth.Principal, domain.JoinRequestID) bool); ok {
+		r1 = returnFunc(ctx, actor, id)
+	} else {
+		r1 = ret.Get(1).(bool)
+	}
+	if returnFunc, ok := ret.Get(2).(func(context.Context, auth.Principal, domain.JoinRequestID) error); ok {
+		r2 = returnFunc(ctx, actor, id)
+	} else {
+		r2 = ret.Error(2)
+	}
+	return r0, r1, r2
+}
+
+// MockAuthService_ApproveJoin_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'ApproveJoin'
+type MockAuthService_ApproveJoin_Call struct {
+	*mock.Call
+}
+
+// ApproveJoin is a helper method to define mock.On call
+//   - ctx context.Context
+//   - actor auth.Principal
+//   - id domain.JoinRequestID
+func (_e *MockAuthService_Expecter) ApproveJoin(ctx any, actor any, id any) *MockAuthService_ApproveJoin_Call {
+	return &MockAuthService_ApproveJoin_Call{Call: _e.mock.On("ApproveJoin", ctx, actor, id)}
+}
+
+func (_c *MockAuthService_ApproveJoin_Call) Run(run func(ctx context.Context, actor auth.Principal, id domain.JoinRequestID)) *MockAuthService_ApproveJoin_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		var arg1 auth.Principal
+		if args[1] != nil {
+			arg1 = args[1].(auth.Principal)
+		}
+		var arg2 domain.JoinRequestID
+		if args[2] != nil {
+			arg2 = args[2].(domain.JoinRequestID)
+		}
+		run(
+			arg0,
+			arg1,
+			arg2,
+		)
+	})
+	return _c
+}
+
+func (_c *MockAuthService_ApproveJoin_Call) Return(invite domain.Invite, b bool, err error) *MockAuthService_ApproveJoin_Call {
+	_c.Call.Return(invite, b, err)
+	return _c
+}
+
+func (_c *MockAuthService_ApproveJoin_Call) RunAndReturn(run func(ctx context.Context, actor auth.Principal, id domain.JoinRequestID) (domain.Invite, bool, error)) *MockAuthService_ApproveJoin_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // AuthenticateSession provides a mock function for the type MockAuthService
 func (_mock *MockAuthService) AuthenticateSession(ctx context.Context, token string) (auth.Principal, error) {
 	ret := _mock.Called(ctx, token)
@@ -367,6 +445,69 @@ func (_c *MockAuthService_CodeAccess_Call) RunAndReturn(run func() domain.CodeAc
 	return _c
 }
 
+// ConfirmJoin provides a mock function for the type MockAuthService
+func (_mock *MockAuthService) ConfirmJoin(ctx context.Context, token string, ip string) error {
+	ret := _mock.Called(ctx, token, ip)
+
+	if len(ret) == 0 {
+		panic("no return value specified for ConfirmJoin")
+	}
+
+	var r0 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context, string, string) error); ok {
+		r0 = returnFunc(ctx, token, ip)
+	} else {
+		r0 = ret.Error(0)
+	}
+	return r0
+}
+
+// MockAuthService_ConfirmJoin_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'ConfirmJoin'
+type MockAuthService_ConfirmJoin_Call struct {
+	*mock.Call
+}
+
+// ConfirmJoin is a helper method to define mock.On call
+//   - ctx context.Context
+//   - token string
+//   - ip string
+func (_e *MockAuthService_Expecter) ConfirmJoin(ctx any, token any, ip any) *MockAuthService_ConfirmJoin_Call {
+	return &MockAuthService_ConfirmJoin_Call{Call: _e.mock.On("ConfirmJoin", ctx, token, ip)}
+}
+
+func (_c *MockAuthService_ConfirmJoin_Call) Run(run func(ctx context.Context, token string, ip string)) *MockAuthService_ConfirmJoin_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		var arg1 string
+		if args[1] != nil {
+			arg1 = args[1].(string)
+		}
+		var arg2 string
+		if args[2] != nil {
+			arg2 = args[2].(string)
+		}
+		run(
+			arg0,
+			arg1,
+			arg2,
+		)
+	})
+	return _c
+}
+
+func (_c *MockAuthService_ConfirmJoin_Call) Return(err error) *MockAuthService_ConfirmJoin_Call {
+	_c.Call.Return(err)
+	return _c
+}
+
+func (_c *MockAuthService_ConfirmJoin_Call) RunAndReturn(run func(ctx context.Context, token string, ip string) error) *MockAuthService_ConfirmJoin_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // CreateAPIToken provides a mock function for the type MockAuthService
 func (_mock *MockAuthService) CreateAPIToken(ctx context.Context, p auth.Principal, name string, expiresAt time.Time) (string, domain.APIToken, error) {
 	ret := _mock.Called(ctx, p, name, expiresAt)
@@ -603,6 +744,69 @@ func (_c *MockAuthService_CreateUser_Call) Return(user domain.User, err error) *
 }
 
 func (_c *MockAuthService_CreateUser_Call) RunAndReturn(run func(ctx context.Context, actor auth.Principal, email string, password string, role domain.Role) (domain.User, error)) *MockAuthService_CreateUser_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// DenyJoin provides a mock function for the type MockAuthService
+func (_mock *MockAuthService) DenyJoin(ctx context.Context, actor auth.Principal, id domain.JoinRequestID) error {
+	ret := _mock.Called(ctx, actor, id)
+
+	if len(ret) == 0 {
+		panic("no return value specified for DenyJoin")
+	}
+
+	var r0 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context, auth.Principal, domain.JoinRequestID) error); ok {
+		r0 = returnFunc(ctx, actor, id)
+	} else {
+		r0 = ret.Error(0)
+	}
+	return r0
+}
+
+// MockAuthService_DenyJoin_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'DenyJoin'
+type MockAuthService_DenyJoin_Call struct {
+	*mock.Call
+}
+
+// DenyJoin is a helper method to define mock.On call
+//   - ctx context.Context
+//   - actor auth.Principal
+//   - id domain.JoinRequestID
+func (_e *MockAuthService_Expecter) DenyJoin(ctx any, actor any, id any) *MockAuthService_DenyJoin_Call {
+	return &MockAuthService_DenyJoin_Call{Call: _e.mock.On("DenyJoin", ctx, actor, id)}
+}
+
+func (_c *MockAuthService_DenyJoin_Call) Run(run func(ctx context.Context, actor auth.Principal, id domain.JoinRequestID)) *MockAuthService_DenyJoin_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		var arg1 auth.Principal
+		if args[1] != nil {
+			arg1 = args[1].(auth.Principal)
+		}
+		var arg2 domain.JoinRequestID
+		if args[2] != nil {
+			arg2 = args[2].(domain.JoinRequestID)
+		}
+		run(
+			arg0,
+			arg1,
+			arg2,
+		)
+	})
+	return _c
+}
+
+func (_c *MockAuthService_DenyJoin_Call) Return(err error) *MockAuthService_DenyJoin_Call {
+	_c.Call.Return(err)
+	return _c
+}
+
+func (_c *MockAuthService_DenyJoin_Call) RunAndReturn(run func(ctx context.Context, actor auth.Principal, id domain.JoinRequestID) error) *MockAuthService_DenyJoin_Call {
 	_c.Call.Return(run)
 	return _c
 }
@@ -933,6 +1137,74 @@ func (_c *MockAuthService_ListInvites_Call) Return(invites []domain.Invite, err 
 }
 
 func (_c *MockAuthService_ListInvites_Call) RunAndReturn(run func(ctx context.Context, actor auth.Principal) ([]domain.Invite, error)) *MockAuthService_ListInvites_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// ListJoinRequests provides a mock function for the type MockAuthService
+func (_mock *MockAuthService) ListJoinRequests(ctx context.Context, actor auth.Principal) ([]domain.JoinRequest, error) {
+	ret := _mock.Called(ctx, actor)
+
+	if len(ret) == 0 {
+		panic("no return value specified for ListJoinRequests")
+	}
+
+	var r0 []domain.JoinRequest
+	var r1 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context, auth.Principal) ([]domain.JoinRequest, error)); ok {
+		return returnFunc(ctx, actor)
+	}
+	if returnFunc, ok := ret.Get(0).(func(context.Context, auth.Principal) []domain.JoinRequest); ok {
+		r0 = returnFunc(ctx, actor)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).([]domain.JoinRequest)
+		}
+	}
+	if returnFunc, ok := ret.Get(1).(func(context.Context, auth.Principal) error); ok {
+		r1 = returnFunc(ctx, actor)
+	} else {
+		r1 = ret.Error(1)
+	}
+	return r0, r1
+}
+
+// MockAuthService_ListJoinRequests_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'ListJoinRequests'
+type MockAuthService_ListJoinRequests_Call struct {
+	*mock.Call
+}
+
+// ListJoinRequests is a helper method to define mock.On call
+//   - ctx context.Context
+//   - actor auth.Principal
+func (_e *MockAuthService_Expecter) ListJoinRequests(ctx any, actor any) *MockAuthService_ListJoinRequests_Call {
+	return &MockAuthService_ListJoinRequests_Call{Call: _e.mock.On("ListJoinRequests", ctx, actor)}
+}
+
+func (_c *MockAuthService_ListJoinRequests_Call) Run(run func(ctx context.Context, actor auth.Principal)) *MockAuthService_ListJoinRequests_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		var arg1 auth.Principal
+		if args[1] != nil {
+			arg1 = args[1].(auth.Principal)
+		}
+		run(
+			arg0,
+			arg1,
+		)
+	})
+	return _c
+}
+
+func (_c *MockAuthService_ListJoinRequests_Call) Return(joinRequests []domain.JoinRequest, err error) *MockAuthService_ListJoinRequests_Call {
+	_c.Call.Return(joinRequests, err)
+	return _c
+}
+
+func (_c *MockAuthService_ListJoinRequests_Call) RunAndReturn(run func(ctx context.Context, actor auth.Principal) ([]domain.JoinRequest, error)) *MockAuthService_ListJoinRequests_Call {
 	_c.Call.Return(run)
 	return _c
 }
@@ -1389,6 +1661,119 @@ func (_c *MockAuthService_RequestPasswordReset_Call) Return(err error) *MockAuth
 }
 
 func (_c *MockAuthService_RequestPasswordReset_Call) RunAndReturn(run func(ctx context.Context, email string, ip string) error) *MockAuthService_RequestPasswordReset_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// RequestToJoin provides a mock function for the type MockAuthService
+func (_mock *MockAuthService) RequestToJoin(ctx context.Context, email string, note string, ip string) error {
+	ret := _mock.Called(ctx, email, note, ip)
+
+	if len(ret) == 0 {
+		panic("no return value specified for RequestToJoin")
+	}
+
+	var r0 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context, string, string, string) error); ok {
+		r0 = returnFunc(ctx, email, note, ip)
+	} else {
+		r0 = ret.Error(0)
+	}
+	return r0
+}
+
+// MockAuthService_RequestToJoin_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'RequestToJoin'
+type MockAuthService_RequestToJoin_Call struct {
+	*mock.Call
+}
+
+// RequestToJoin is a helper method to define mock.On call
+//   - ctx context.Context
+//   - email string
+//   - note string
+//   - ip string
+func (_e *MockAuthService_Expecter) RequestToJoin(ctx any, email any, note any, ip any) *MockAuthService_RequestToJoin_Call {
+	return &MockAuthService_RequestToJoin_Call{Call: _e.mock.On("RequestToJoin", ctx, email, note, ip)}
+}
+
+func (_c *MockAuthService_RequestToJoin_Call) Run(run func(ctx context.Context, email string, note string, ip string)) *MockAuthService_RequestToJoin_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		var arg1 string
+		if args[1] != nil {
+			arg1 = args[1].(string)
+		}
+		var arg2 string
+		if args[2] != nil {
+			arg2 = args[2].(string)
+		}
+		var arg3 string
+		if args[3] != nil {
+			arg3 = args[3].(string)
+		}
+		run(
+			arg0,
+			arg1,
+			arg2,
+			arg3,
+		)
+	})
+	return _c
+}
+
+func (_c *MockAuthService_RequestToJoin_Call) Return(err error) *MockAuthService_RequestToJoin_Call {
+	_c.Call.Return(err)
+	return _c
+}
+
+func (_c *MockAuthService_RequestToJoin_Call) RunAndReturn(run func(ctx context.Context, email string, note string, ip string) error) *MockAuthService_RequestToJoin_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// RequestsOpen provides a mock function for the type MockAuthService
+func (_mock *MockAuthService) RequestsOpen() bool {
+	ret := _mock.Called()
+
+	if len(ret) == 0 {
+		panic("no return value specified for RequestsOpen")
+	}
+
+	var r0 bool
+	if returnFunc, ok := ret.Get(0).(func() bool); ok {
+		r0 = returnFunc()
+	} else {
+		r0 = ret.Get(0).(bool)
+	}
+	return r0
+}
+
+// MockAuthService_RequestsOpen_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'RequestsOpen'
+type MockAuthService_RequestsOpen_Call struct {
+	*mock.Call
+}
+
+// RequestsOpen is a helper method to define mock.On call
+func (_e *MockAuthService_Expecter) RequestsOpen() *MockAuthService_RequestsOpen_Call {
+	return &MockAuthService_RequestsOpen_Call{Call: _e.mock.On("RequestsOpen")}
+}
+
+func (_c *MockAuthService_RequestsOpen_Call) Run(run func()) *MockAuthService_RequestsOpen_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run()
+	})
+	return _c
+}
+
+func (_c *MockAuthService_RequestsOpen_Call) Return(b bool) *MockAuthService_RequestsOpen_Call {
+	_c.Call.Return(b)
+	return _c
+}
+
+func (_c *MockAuthService_RequestsOpen_Call) RunAndReturn(run func() bool) *MockAuthService_RequestsOpen_Call {
 	_c.Call.Return(run)
 	return _c
 }

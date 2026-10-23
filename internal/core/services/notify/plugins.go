@@ -30,6 +30,14 @@ var PluginCrashed = Kind{
 	Default: true, EmailDefault: true, Admins: true,
 }
 
+var JoinRequested = Kind{
+	Key: "join_requested", Group: groupAdmin,
+	Label: "Someone asks to join",
+	Description: "Someone confirmed a request to join, with their address and why they would like in. " +
+		"Approve or deny it on the Invites page.",
+	Default: true, EmailDefault: true, Admins: true,
+}
+
 // AdminLister lists the instance's admins.
 type AdminLister interface {
 	Admins(ctx context.Context) ([]domain.User, error)
@@ -51,6 +59,11 @@ type crashedPlugin struct {
 	why    string
 }
 
+type joinRequest struct {
+	email string
+	note  string
+}
+
 // WorkflowPaused queues telling a workflow's owner why it was paused (D319). It never
 // blocks: when the queue is full, it goes untold.
 func (s *Service) WorkflowPaused(owner domain.UserID, w domain.Workflow, why string) {
@@ -67,6 +80,16 @@ func (s *Service) PluginCrashed(plugin, why string) {
 	case s.crashed <- crashedPlugin{plugin: plugin, why: why}:
 	default:
 		s.log.Warn(context.Background(), "Crashed plugin notification dropped: too many at once", "plugin", plugin)
+	}
+}
+
+// JoinRequested queues telling the admins someone asks to join (D394). It never blocks:
+// when the queue is full, it goes untold, the request listed all the same.
+func (s *Service) JoinRequested(email, note string) {
+	select {
+	case s.requested <- joinRequest{email: email, note: note}:
+	default:
+		s.log.Warn(context.Background(), "Join request notification dropped: too many at once")
 	}
 }
 
@@ -121,5 +144,26 @@ func (s *Service) tell(ctx context.Context, user domain.UserID, k Kind, title, s
 	err = s.messenger.MessageUser(ctx, user, ports.UserMessage{HTML: icon + html.EscapeString(said), Buttons: buttons})
 	if err != nil && !mailed && !errors.Is(err, domain.ErrTelegramNotLinked) && !errors.Is(err, domain.ErrTelegramUnavailable) {
 		s.log.Warn(ctx, "Notification not sent", "user_id", user, "kind", k.Key, logging.Err(err))
+	}
+}
+
+func (s *Service) joinRequested(ctx context.Context, r joinRequest) {
+	if s.admins == nil {
+		return
+	}
+
+	admins, err := s.admins.Admins(ctx)
+	if err != nil {
+		s.log.Warn(ctx, "Join request notification skipped", logging.Err(err))
+		return
+	}
+
+	said := r.email + " asks to join."
+	if r.note != "" {
+		said += " They say: “" + r.note + "”"
+	}
+
+	for _, a := range admins {
+		s.tell(ctx, a.ID, JoinRequested, r.email+" asks to join", said, "Open Invites", s.publicURL+"/admin/invites", "🙋 ")
 	}
 }

@@ -87,3 +87,37 @@ export function useRevokeInvite() {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: keys.invites }),
   })
 }
+
+/** The requests to join admins see (D394): pending ones first, and how many wait. */
+export function useJoinRequests(enabled = true) {
+  return useQuery({
+    queryKey: keys.joinRequests,
+    queryFn: () => call(api.GET('/admin/requests')),
+    enabled,
+  })
+}
+
+/** Approves a request, mailing its address an invite: the invites change too. */
+export function useApproveJoin() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: (id: string) =>
+      call(api.POST('/admin/requests/{id}/approve', { params: { path: { id } } })),
+    onSuccess: () =>
+      Promise.all([
+        queryClient.invalidateQueries({ queryKey: keys.joinRequests }),
+        queryClient.invalidateQueries({ queryKey: keys.invites }),
+      ]),
+  })
+}
+
+export function useDenyJoin() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: (id: string) =>
+      call(api.POST('/admin/requests/{id}/deny', { params: { path: { id } } })),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: keys.joinRequests }),
+  })
+}

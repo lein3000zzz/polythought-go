@@ -83,12 +83,36 @@ How long an invite works. Applies to invites created from now.
 
 ### Invites by email
 
-Admins can type an address on the Users page, and the invite is mailed, naming them; only that address signs up with it, verified. Invite links can still be copied. Works while mail is set up, under Mail.
+Admins can type an address on the Invites page, and the invite is mailed, naming them; only that address signs up with it, once, verified. Invites can still be shared as links. Works while mail is set up, under Mail.
 
 | | |
 |---|---|
 | Key | `auth.invite_email` |
 | Environment variable | `POLYTHOUGHT_AUTH_INVITE_EMAIL` |
+| Kind | `true` or `false` |
+| Default | `true` |
+| Applies | at once |
+
+### Requests to join
+
+While registration is by invite, the sign-up page lets people without one ask for it, with a note. They confirm their address by a mailed link first; admins then approve on the Invites page, which mails an invite there, or deny. Needs mail set up, under Mail.
+
+| | |
+|---|---|
+| Key | `auth.requests` |
+| Environment variable | `POLYTHOUGHT_AUTH_REQUESTS` |
+| Kind | `true` or `false` |
+| Default | `false` |
+| Applies | at once |
+
+### Tell denied requests
+
+Mail someone whose request to join an admin denied, saying they may ask again in 30 days. Off, a denied request just closes.
+
+| | |
+|---|---|
+| Key | `auth.request_denied_mail` |
+| Environment variable | `POLYTHOUGHT_AUTH_REQUEST_DENIED_MAIL` |
 | Kind | `true` or `false` |
 | Default | `true` |
 | Applies | at once |

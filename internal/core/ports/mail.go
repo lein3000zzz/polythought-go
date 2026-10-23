@@ -35,6 +35,11 @@ type AccountMail interface {
 	SendPasswordChanged(ctx context.Context, to string, at time.Time) error
 	// SendInvite mails to an invite from inviter, carrying code, working until until.
 	SendInvite(ctx context.Context, to, inviter, code string, until time.Time) error
+	// SendJoinConfirm mails to the link confirming its request to join, carrying token,
+	// which works for lasts (D394).
+	SendJoinConfirm(ctx context.Context, to, token string, lasts time.Duration) error
+	// SendJoinDenied tells to that its request to join was not approved.
+	SendJoinDenied(ctx context.Context, to string) error
 }
 
 // UserMail is a notification as mail: a subject, paragraphs, and a link to act on.

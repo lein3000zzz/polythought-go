@@ -378,12 +378,17 @@
                             "closed"
                         ],
                         "type": "string"
+                    },
+                    "requests": {
+                        "description": "Requests says people without an invite can ask for one (D394).",
+                        "type": "boolean"
                     }
                 },
                 "required": [
                     "minPasswordLength",
                     "passwordReset",
-                    "registration"
+                    "registration",
+                    "requests"
                 ],
                 "type": "object"
             },
@@ -525,6 +530,18 @@
                 },
                 "required": [
                     "files"
+                ],
+                "type": "object"
+            },
+            "ConfirmJoinRequest": {
+                "properties": {
+                    "token": {
+                        "description": "Token is the one in the mailed link.",
+                        "type": "string"
+                    }
+                },
+                "required": [
+                    "token"
                 ],
                 "type": "object"
             },
@@ -1641,6 +1658,76 @@
                         "type": "object"
                     }
                 },
+                "type": "object"
+            },
+            "JoinRequest": {
+                "properties": {
+                    "confirmedAt": {
+                        "format": "date-time",
+                        "type": "string"
+                    },
+                    "createdAt": {
+                        "format": "date-time",
+                        "type": "string"
+                    },
+                    "decidedAt": {
+                        "format": "date-time",
+                        "type": "string"
+                    },
+                    "decidedBy": {
+                        "type": "string"
+                    },
+                    "email": {
+                        "type": "string"
+                    },
+                    "id": {
+                        "type": "string"
+                    },
+                    "inviteId": {
+                        "description": "InviteID is the invite an approval mailed.",
+                        "type": "string"
+                    },
+                    "note": {
+                        "description": "Note is the requester's, plain text.",
+                        "type": "string"
+                    },
+                    "status": {
+                        "description": "Status is pending until an admin approves or denies it.",
+                        "enum": [
+                            "pending",
+                            "approved",
+                            "denied"
+                        ],
+                        "type": "string"
+                    }
+                },
+                "required": [
+                    "confirmedAt",
+                    "createdAt",
+                    "email",
+                    "id",
+                    "status"
+                ],
+                "type": "object"
+            },
+            "JoinRequestList": {
+                "properties": {
+                    "pending": {
+                        "description": "Pending is how many wait for an admin, for the Invites tab's count.",
+                        "type": "integer"
+                    },
+                    "requests": {
+                        "items": {
+                            "$ref": "#/components/schemas/JoinRequest"
+                        },
+                        "type": "array",
+                        "uniqueItems": false
+                    }
+                },
+                "required": [
+                    "pending",
+                    "requests"
+                ],
                 "type": "object"
             },
             "KillSwitch": {
@@ -3005,6 +3092,21 @@
                     "mustVerify",
                     "sent",
                     "user"
+                ],
+                "type": "object"
+            },
+            "RequestToJoinRequest": {
+                "properties": {
+                    "email": {
+                        "type": "string"
+                    },
+                    "note": {
+                        "description": "Note says who they are and why they would like in: at most 500 characters.",
+                        "type": "string"
+                    }
+                },
+                "required": [
+                    "email"
                 ],
                 "type": "object"
             },
@@ -6040,6 +6142,198 @@
                 ]
             }
         },
+        "/admin/requests": {
+            "get": {
+                "operationId": "listJoinRequests",
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/JoinRequestList"
+                                }
+                            }
+                        },
+                        "description": "OK"
+                    },
+                    "401": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "unauthenticated"
+                    },
+                    "403": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "forbidden"
+                    }
+                },
+                "security": [
+                    {
+                        "SessionCookie": []
+                    },
+                    {
+                        "APIToken": []
+                    }
+                ],
+                "summary": "List requests to join",
+                "tags": [
+                    "admin"
+                ]
+            }
+        },
+        "/admin/requests/{id}/approve": {
+            "post": {
+                "operationId": "approveJoin",
+                "parameters": [
+                    {
+                        "description": "Request ID",
+                        "in": "path",
+                        "name": "id",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Invite"
+                                }
+                            }
+                        },
+                        "description": "Created"
+                    },
+                    "401": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "unauthenticated"
+                    },
+                    "403": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "forbidden"
+                    },
+                    "404": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "not_found: no request waiting"
+                    },
+                    "409": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "email_taken: the address has an account already"
+                    }
+                },
+                "security": [
+                    {
+                        "SessionCookie": []
+                    },
+                    {
+                        "APIToken": []
+                    }
+                ],
+                "summary": "Approve a request to join",
+                "tags": [
+                    "admin"
+                ]
+            }
+        },
+        "/admin/requests/{id}/deny": {
+            "post": {
+                "operationId": "denyJoin",
+                "parameters": [
+                    {
+                        "description": "Request ID",
+                        "in": "path",
+                        "name": "id",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "No Content"
+                    },
+                    "401": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "unauthenticated"
+                    },
+                    "403": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "forbidden"
+                    },
+                    "404": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "not_found: no request waiting"
+                    }
+                },
+                "security": [
+                    {
+                        "SessionCookie": []
+                    },
+                    {
+                        "APIToken": []
+                    }
+                ],
+                "summary": "Deny a request to join",
+                "tags": [
+                    "admin"
+                ]
+            }
+        },
         "/admin/restart": {
             "post": {
                 "operationId": "restartServer",
@@ -7082,6 +7376,110 @@
                     }
                 },
                 "summary": "Create an account",
+                "tags": [
+                    "auth"
+                ]
+            }
+        },
+        "/auth/requests": {
+            "post": {
+                "operationId": "requestToJoin",
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/RequestToJoinRequest",
+                                "summary": "body",
+                                "description": "The address and a note"
+                            }
+                        }
+                    },
+                    "description": "The address and a note",
+                    "required": true
+                },
+                "responses": {
+                    "202": {
+                        "description": "Accepted"
+                    },
+                    "400": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "invalid_email, or invalid_input"
+                    },
+                    "403": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "requests_off"
+                    },
+                    "429": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "rate_limited"
+                    }
+                },
+                "summary": "Ask to join",
+                "tags": [
+                    "auth"
+                ]
+            }
+        },
+        "/auth/requests/confirm": {
+            "post": {
+                "operationId": "confirmJoin",
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/ConfirmJoinRequest",
+                                "summary": "body",
+                                "description": "The link's token"
+                            }
+                        }
+                    },
+                    "description": "The link's token",
+                    "required": true
+                },
+                "responses": {
+                    "204": {
+                        "description": "No Content"
+                    },
+                    "400": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "invalid_link: used, too old, or none"
+                    },
+                    "429": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "rate_limited"
+                    }
+                },
+                "summary": "Confirm a request to join",
                 "tags": [
                     "auth"
                 ]
