@@ -76,7 +76,7 @@ type Deps struct {
 // Confirmer holds a token's or an agent's live action for its user to confirm (D406): nil to
 // go ahead.
 type Confirmer interface {
-	Hold(ctx context.Context, p auth.Principal, kind domain.ConfirmKind, wf domain.WorkflowID, what string, payload any) error
+	Hold(ctx context.Context, p auth.Principal, a domain.Ask) error
 }
 
 // hold keeps a token's or an agent's live action for its user (D406).
@@ -85,7 +85,7 @@ func (s *Service) hold(ctx context.Context, p auth.Principal, kind domain.Confir
 		return nil
 	}
 
-	return s.d.Confirm.Hold(ctx, p, kind, wf, what, payload)
+	return s.d.Confirm.Hold(ctx, p, domain.Ask{Kind: kind, WorkflowID: wf, What: what, Payload: payload})
 }
 
 type Service struct {

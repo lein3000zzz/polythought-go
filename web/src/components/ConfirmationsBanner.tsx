@@ -24,6 +24,7 @@ export function ConfirmationsBanner() {
       <ShieldAlert className="size-4 shrink-0" />
       <span>
         <span className="font-medium">{first.asker} asks you to confirm:</span> {first.what}
+        {first.about && ` (${first.about})`}
         {pending.length > 1 && `, and ${pending.length - 1} more`}.
       </span>
       <Button variant="outline" size="sm" className="ml-auto" asChild>

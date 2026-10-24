@@ -36,7 +36,7 @@ func (r *Confirmations) Create(ctx context.Context, c domain.Confirmation) error
 
 	m := model.Confirmations{
 		ID: id, OwnerID: owner, Kind: string(c.Kind), GrantID: string(c.GrantID), TokenID: string(c.TokenID), Agent: c.Agent,
-		Scopes: scopesArray(c.Scopes), What: c.What, Payload: string(c.Payload), Status: string(c.Status), Result: c.Result,
+		Scopes: scopesArray(c.Scopes), What: c.What, About: c.About, Payload: string(c.Payload), Status: string(c.Status), Result: c.Result,
 		CreatedAt: c.CreatedAt, ExpiresAt: c.ExpiresAt, DecidedAt: timePtr(c.DecidedAt), TelegramMessage: int64(c.Message),
 		DecidedVia: string(c.DecidedVia),
 	}
@@ -199,7 +199,7 @@ func confirmationOf(m model.Confirmations) domain.Confirmation {
 	c := domain.Confirmation{
 		ID: domain.ConfirmationID(m.ID.String()), OwnerID: domain.UserID(m.OwnerID.String()), Kind: domain.ConfirmKind(m.Kind),
 		GrantID: domain.GrantID(m.GrantID), TokenID: domain.APITokenID(m.TokenID), Agent: m.Agent, Scopes: toScopes(m.Scopes),
-		What: m.What, Payload: []byte(m.Payload), Status: domain.ConfirmStatus(m.Status), Result: m.Result,
+		What: m.What, About: m.About, Payload: []byte(m.Payload), Status: domain.ConfirmStatus(m.Status), Result: m.Result,
 		CreatedAt: m.CreatedAt.UTC(), ExpiresAt: m.ExpiresAt.UTC(), Message: int(m.TelegramMessage),
 		DecidedVia: domain.ConfirmVia(m.DecidedVia),
 	}

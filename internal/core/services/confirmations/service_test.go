@@ -195,27 +195,27 @@ func TestHold(t *testing.T) {
 	clock := at
 	svc, _ := newService(t, &clock)
 
-	c := held(t, svc.Hold(ctx, agent, domain.ConfirmRun, "wf-1", `Run "Spread watch" by hand, which trades live`, map[string]string{"trigger": "manual"}))
+	c := held(t, svc.Hold(ctx, agent, domain.Ask{Kind: domain.ConfirmRun, WorkflowID: "wf-1", What: `Run "Spread watch" by hand, which trades live`, Payload: map[string]string{"trigger": "manual"}}))
 	assert.Equal(t, domain.ConfirmPending, c.Status)
 	assert.Equal(t, at.Add(time.Hour), c.ExpiresAt)
 	assert.Equal(t, "Claude Code", c.Asker())
 	assert.JSONEq(t, `{"trigger": "manual"}`, string(c.Payload))
 	assert.Equal(t, []domain.Scope{domain.ScopeBuild, domain.ScopeLive}, c.Scopes, "as the agent had them")
 
-	require.NoError(t, svc.Hold(ctx, atDesk, domain.ConfirmRun, "wf-1", "x", nil), "the user's own")
+	require.NoError(t, svc.Hold(ctx, atDesk, domain.Ask{Kind: domain.ConfirmRun, WorkflowID: "wf-1", What: "x", Payload: nil}), "the user's own")
 
 	confirmed := agent
 	confirmed.Confirmed = true
-	require.NoError(t, svc.Hold(ctx, confirmed, domain.ConfirmRun, "wf-1", "x", nil), "one the user confirmed")
+	require.NoError(t, svc.Hold(ctx, confirmed, domain.Ask{Kind: domain.ConfirmRun, WorkflowID: "wf-1", What: "x", Payload: nil}), "one the user confirmed")
 
 	deploy := auth.Principal{User: alice, TokenID: "t-1", TokenName: "deploy", Scopes: []domain.Scope{domain.ScopeLive}}
-	byToken := held(t, svc.Hold(ctx, deploy, domain.ConfirmKillOff, "", "Turn your kill switch off", nil))
+	byToken := held(t, svc.Hold(ctx, deploy, domain.Ask{Kind: domain.ConfirmKillOff, WorkflowID: "", What: "Turn your kill switch off", Payload: nil}))
 	assert.Equal(t, "the API token “deploy”", byToken.Asker(), "a token by its name")
 
 	lets := agent
 	lets.User.Unconfirmed.Run = true
-	require.NoError(t, svc.Hold(ctx, lets, domain.ConfirmSwitchOn, "wf-1", "x", nil), "switching on goes with running")
-	held(t, svc.Hold(ctx, lets, domain.ConfirmGoLive, "wf-1", "x", nil))
+	require.NoError(t, svc.Hold(ctx, lets, domain.Ask{Kind: domain.ConfirmSwitchOn, WorkflowID: "wf-1", What: "x", Payload: nil}), "switching on goes with running")
+	held(t, svc.Hold(ctx, lets, domain.Ask{Kind: domain.ConfirmGoLive, WorkflowID: "wf-1", What: "x", Payload: nil}))
 }
 
 func TestConfirm(t *testing.T) {
@@ -246,7 +246,7 @@ func TestConfirm(t *testing.T) {
 	})
 
 	t.Run("carried out as the agent asked", func(t *testing.T) {
-		c := held(t, svc.Hold(ctx, agent, domain.ConfirmRun, "wf-1", "Run it", map[string]string{"trigger": "manual"}))
+		c := held(t, svc.Hold(ctx, agent, domain.Ask{Kind: domain.ConfirmRun, WorkflowID: "wf-1", What: "Run it", Payload: map[string]string{"trigger": "manual"}}))
 
 		_, err := svc.Confirm(ctx, agent, c.ID)
 		require.ErrorIs(t, err, domain.ErrForbidden, "never by the agent itself")
@@ -271,7 +271,7 @@ func TestConfirm(t *testing.T) {
 	})
 
 	t.Run("failing, saying why", func(t *testing.T) {
-		c := held(t, svc.Hold(ctx, agent, domain.ConfirmKillOff, "", "Turn your kill switch off", nil))
+		c := held(t, svc.Hold(ctx, agent, domain.Ask{Kind: domain.ConfirmKillOff, WorkflowID: "", What: "Turn your kill switch off", Payload: nil}))
 
 		_, err := svc.Confirm(ctx, atDesk, c.ID)
 		require.NoError(t, err)
@@ -284,7 +284,7 @@ func TestConfirm(t *testing.T) {
 	})
 
 	t.Run("refused", func(t *testing.T) {
-		c := held(t, svc.Hold(ctx, agent, domain.ConfirmRun, "wf-1", "Run it", nil))
+		c := held(t, svc.Hold(ctx, agent, domain.Ask{Kind: domain.ConfirmRun, WorkflowID: "wf-1", What: "Run it", Payload: nil}))
 
 		refused, err := svc.Refuse(ctx, atDesk, c.ID)
 		require.NoError(t, err)
@@ -295,7 +295,7 @@ func TestConfirm(t *testing.T) {
 	})
 
 	t.Run("expired", func(t *testing.T) {
-		c := held(t, svc.Hold(ctx, agent, domain.ConfirmRun, "wf-1", "Run it", nil))
+		c := held(t, svc.Hold(ctx, agent, domain.Ask{Kind: domain.ConfirmRun, WorkflowID: "wf-1", What: "Run it", Payload: nil}))
 
 		clock = at.Add(2 * time.Hour)
 		defer func() { clock = at }()
@@ -314,7 +314,7 @@ func TestConfirm(t *testing.T) {
 	})
 
 	t.Run("someone else's", func(t *testing.T) {
-		c := held(t, svc.Hold(ctx, agent, domain.ConfirmRun, "wf-1", "Run it", nil))
+		c := held(t, svc.Hold(ctx, agent, domain.Ask{Kind: domain.ConfirmRun, WorkflowID: "wf-1", What: "Run it", Payload: nil}))
 
 		_, err := svc.Confirm(ctx, auth.Principal{User: domain.User{ID: "u-2"}, SessionID: "s-2"}, c.ID)
 		require.ErrorIs(t, err, domain.ErrNotFound)
@@ -326,10 +326,10 @@ func TestConfirm(t *testing.T) {
 		repo.mu.Unlock()
 
 		for range 20 {
-			held(t, svc.Hold(ctx, agent, domain.ConfirmRun, "wf-1", "Run it", nil))
+			held(t, svc.Hold(ctx, agent, domain.Ask{Kind: domain.ConfirmRun, WorkflowID: "wf-1", What: "Run it", Payload: nil}))
 		}
 
-		require.ErrorIs(t, svc.Hold(ctx, agent, domain.ConfirmRun, "wf-1", "Run it", nil), domain.ErrRateLimited)
+		require.ErrorIs(t, svc.Hold(ctx, agent, domain.Ask{Kind: domain.ConfirmRun, WorkflowID: "wf-1", What: "Run it", Payload: nil}), domain.ErrRateLimited)
 	})
 }
 
@@ -360,7 +360,7 @@ func TestTold(t *testing.T) {
 
 	inTelegram := auth.Principal{User: alice}
 
-	run := held(t, svc.Hold(ctx, agent, domain.ConfirmRun, "wf-1", "Run it", nil))
+	run := held(t, svc.Hold(ctx, agent, domain.Ask{Kind: domain.ConfirmRun, WorkflowID: "wf-1", What: "Run it", Payload: nil}))
 	assert.Equal(t, 42, run.Message)
 
 	kept, err := svc.Get(ctx, atDesk, run.ID)
@@ -371,11 +371,11 @@ func TestTold(t *testing.T) {
 	require.NoError(t, err)
 	require.NoError(t, svc.Wait(ctx))
 
-	refused := held(t, svc.Hold(ctx, agent, domain.ConfirmRun, "wf-1", "Run it", nil))
+	refused := held(t, svc.Hold(ctx, agent, domain.Ask{Kind: domain.ConfirmRun, WorkflowID: "wf-1", What: "Run it", Payload: nil}))
 	_, err = svc.Refuse(ctx, inTelegram, refused.ID)
 	require.NoError(t, err)
 
-	late := held(t, svc.Hold(ctx, agent, domain.ConfirmRun, "wf-1", "Run it", nil))
+	late := held(t, svc.Hold(ctx, agent, domain.Ask{Kind: domain.ConfirmRun, WorkflowID: "wf-1", What: "Run it", Payload: nil}))
 	clock = at.Add(2 * time.Hour)
 	_, err = svc.Confirm(ctx, inTelegram, late.ID)
 	require.ErrorIs(t, err, domain.ErrConflict)
@@ -415,7 +415,7 @@ func TestInWindow(t *testing.T) {
 
 	t.Run("only where the user lets it, and only its own", func(t *testing.T) {
 		svc, _ := setup(t)
-		c := held(t, svc.Hold(ctx, agent, domain.ConfirmRun, "wf-1", "Run it", nil))
+		c := held(t, svc.Hold(ctx, agent, domain.Ask{Kind: domain.ConfirmRun, WorkflowID: "wf-1", What: "Run it", Payload: nil}))
 
 		_, err := svc.ConfirmInWindow(ctx, agent, c.ID)
 		require.ErrorIs(t, err, domain.ErrForbidden)
@@ -428,7 +428,7 @@ func TestInWindow(t *testing.T) {
 
 	t.Run("confirmed there, the call carries it out", func(t *testing.T) {
 		svc, ran := setup(t)
-		c := held(t, svc.Hold(ctx, asks, domain.ConfirmRun, "wf-1", "Run it", nil))
+		c := held(t, svc.Hold(ctx, asks, domain.Ask{Kind: domain.ConfirmRun, WorkflowID: "wf-1", What: "Run it", Payload: nil}))
 
 		decided, err := svc.ConfirmInWindow(ctx, asks, c.ID)
 		require.NoError(t, err)
@@ -445,7 +445,7 @@ func TestInWindow(t *testing.T) {
 
 	t.Run("refused there", func(t *testing.T) {
 		svc, _ := setup(t)
-		c := held(t, svc.Hold(ctx, asks, domain.ConfirmRun, "wf-1", "Run it", nil))
+		c := held(t, svc.Hold(ctx, asks, domain.Ask{Kind: domain.ConfirmRun, WorkflowID: "wf-1", What: "Run it", Payload: nil}))
 
 		refused, err := svc.RefuseInWindow(ctx, asks, c.ID)
 		require.NoError(t, err)
@@ -454,7 +454,7 @@ func TestInWindow(t *testing.T) {
 
 	t.Run("confirmed in Polythought while the call awaits it", func(t *testing.T) {
 		svc, ran := setup(t)
-		c := held(t, svc.Hold(ctx, asks, domain.ConfirmRun, "wf-1", "Run it", nil))
+		c := held(t, svc.Hold(ctx, asks, domain.Ask{Kind: domain.ConfirmRun, WorkflowID: "wf-1", What: "Run it", Payload: nil}))
 
 		type answer struct {
 			c     domain.Confirmation
@@ -485,7 +485,7 @@ func TestInWindow(t *testing.T) {
 
 	t.Run("refused in Polythought while the call awaits it", func(t *testing.T) {
 		svc, _ := setup(t)
-		c := held(t, svc.Hold(ctx, asks, domain.ConfirmRun, "wf-1", "Run it", nil))
+		c := held(t, svc.Hold(ctx, asks, domain.Ask{Kind: domain.ConfirmRun, WorkflowID: "wf-1", What: "Run it", Payload: nil}))
 
 		errs := make(chan error, 1)
 
@@ -504,7 +504,7 @@ func TestInWindow(t *testing.T) {
 
 	t.Run("the call gone, the service carries it out", func(t *testing.T) {
 		svc, ran := setup(t)
-		c := held(t, svc.Hold(ctx, asks, domain.ConfirmRun, "wf-1", "Run it", nil))
+		c := held(t, svc.Hold(ctx, asks, domain.Ask{Kind: domain.ConfirmRun, WorkflowID: "wf-1", What: "Run it", Payload: nil}))
 
 		short, cancel := context.WithTimeout(ctx, 10*time.Millisecond)
 		defer cancel()

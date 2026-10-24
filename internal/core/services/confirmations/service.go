@@ -101,11 +101,12 @@ func (s *Service) Handle(kind domain.ConfirmKind, do Do) {
 	s.do[kind] = do
 }
 
-// Hold is nil when p's action of kind goes ahead: the user's own, one the user confirmed,
-// or one the user lets go unconfirmed. Otherwise it keeps the action waiting for the user,
-// what says what it does and payload what carrying it out needs, and says so with a
-// *domain.AwaitingError.
-func (s *Service) Hold(ctx context.Context, p auth.Principal, kind domain.ConfirmKind, wf domain.WorkflowID, what string, payload any) error {
+// Hold is nil when p's action goes ahead: the user's own, one the user confirmed, or one
+// the user lets go unconfirmed. Otherwise it keeps the action waiting for the user, as a
+// says, and says so with a *domain.AwaitingError.
+func (s *Service) Hold(ctx context.Context, p auth.Principal, a domain.Ask) error {
+	kind, wf, what := a.Kind, a.WorkflowID, a.What
+
 	if p.Itself() || p.Confirmed || !p.User.Unconfirmed.Waits(kind) {
 		return nil
 	}
@@ -122,14 +123,14 @@ func (s *Service) Hold(ctx context.Context, p auth.Principal, kind domain.Confir
 			domain.ErrRateLimited, n)
 	}
 
-	data, err := json.Marshal(payload)
+	data, err := json.Marshal(a.Payload)
 	if err != nil {
 		return err
 	}
 
 	c := domain.Confirmation{
 		ID: domain.ConfirmationID(uuid.Must(uuid.NewV7()).String()), OwnerID: p.User.ID, Kind: kind, WorkflowID: wf,
-		GrantID: p.GrantID, TokenID: p.TokenID, Agent: p.Actor("").Name, Scopes: p.Scopes, What: what, Payload: data,
+		GrantID: p.GrantID, TokenID: p.TokenID, Agent: p.Actor("").Name, Scopes: p.Scopes, What: what, About: a.About, Payload: data,
 		Status: domain.ConfirmPending, CreatedAt: now, ExpiresAt: now.Add(s.expiry()),
 	}
 

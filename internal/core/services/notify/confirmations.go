@@ -43,7 +43,7 @@ func (s *Service) ConfirmationAsked(ctx context.Context, c domain.Confirmation) 
 		_ = s.mailUser(ctx, c.OwnerID, ConfirmationAsked, ports.UserMail{
 			Subject: c.Asker() + " asks you to confirm a live action",
 			Paragraphs: []string{
-				c.Asker() + " asks you to confirm: " + c.What + ".",
+				c.Asker() + " asks you to confirm: " + c.What + aboutWhom(c) + ".",
 				"It waits for you until " + c.ExpiresAt.UTC().Format("15:04, 2 January 2006") + " (UTC), then expires.",
 			},
 			LinkText: "Review it", LinkURL: review,
@@ -89,7 +89,16 @@ func (s *Service) ConfirmationClosed(ctx context.Context, c domain.Confirmation)
 	}
 }
 
+// aboutWhom names whom a confirmation is about, for the user: never the agent's (D410).
+func aboutWhom(c domain.Confirmation) string {
+	if c.About == "" {
+		return ""
+	}
+
+	return " (" + c.About + ")"
+}
+
 func confirmText(c domain.Confirmation) string {
-	return "🔐 <b>" + html.EscapeString(c.Asker()) + "</b> asks you to confirm:\n" + html.EscapeString(c.What) + ".\n\n" +
+	return "🔐 <b>" + html.EscapeString(c.Asker()) + "</b> asks you to confirm:\n" + html.EscapeString(c.What+aboutWhom(c)) + ".\n\n" +
 		"It waits until " + c.ExpiresAt.UTC().Format("15:04 on 2 January") + " (UTC)."
 }

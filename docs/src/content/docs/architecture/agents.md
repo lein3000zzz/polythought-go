@@ -142,6 +142,12 @@ agent gets what came of it as if it had gone ahead, and unanswered, the request 
 Polythought. Each confirmation keeps where it was decided: in the app, on Telegram, or in
 the agent's window.
 
+An admin's agents and tokens with the admin scope wait for the admin the same way where
+their work touches other users: making one an admin or no longer, disabling or enabling
+one, raising or removing their own caps, letting them write code; a switch each, on to
+start with. Lowering a cap goes ahead. The request names the user by ID for the agent, and
+by email for the admin, in the app and on Telegram, as agents see no user's email.
+
 Who acted is kept, named as they were then: an execution an agent or a token ran by hand
 names it, and so does every run of a workflow it switched on, or changed while on, until the
 workflow is switched on or off again; confirmed by the user, it says so. History shows it,

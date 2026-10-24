@@ -20,8 +20,8 @@ type holder struct {
 	payloads []any
 }
 
-func (h *holder) Hold(_ context.Context, _ auth.Principal, kind domain.ConfirmKind, _ domain.WorkflowID, what string, payload any) error {
-	h.kinds, h.whats, h.payloads = append(h.kinds, kind), append(h.whats, what), append(h.payloads, payload)
+func (h *holder) Hold(_ context.Context, _ auth.Principal, a domain.Ask) error {
+	h.kinds, h.whats, h.payloads = append(h.kinds, a.Kind), append(h.whats, a.What), append(h.payloads, a.Payload)
 	return &domain.AwaitingError{Confirmation: domain.Confirmation{ID: "c-1"}}
 }
 

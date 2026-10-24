@@ -31,4 +31,5 @@ type Confirmations struct {
 	DecidedAt       *time.Time
 	TelegramMessage int64
 	DecidedVia      string
+	About           string
 }

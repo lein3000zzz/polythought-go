@@ -23,7 +23,24 @@ const (
 	ConfirmRun      ConfirmKind = "run"       // running one by hand
 	ConfirmChange   ConfirmKind = "change"    // a new graph for one that is on
 	ConfirmKillOff  ConfirmKind = "kill_off"  // turning the kill switch off
+
+	// An admin's work on another user (D410).
+	ConfirmRole    ConfirmKind = "admin_role"    // making a user an admin, or one no longer
+	ConfirmDisable ConfirmKind = "admin_disable" // disabling a user, or enabling one again
+	ConfirmCaps    ConfirmKind = "admin_caps"    // raising, or removing, a user's own caps
+	ConfirmCode    ConfirmKind = "admin_code"    // letting a user write code
 )
+
+// Ask is a live action, or an admin's, to hold for its user: what it is, what it does said
+// for them, and what carrying it out needs. About is whom it is about, such as a user's
+// email, shown to the user and never to the agent (D410).
+type Ask struct {
+	Kind       ConfirmKind
+	WorkflowID WorkflowID
+	What       string
+	About      string
+	Payload    any
+}
 
 type ConfirmStatus string
 
@@ -51,6 +68,7 @@ type Confirmation struct {
 	Scopes  []Scope
 
 	What    string          // what it does, said for the user
+	About   string          // whom it is about, for the user only: never the agent's to see
 	Payload json.RawMessage // what carrying it out needs, by kind
 
 	Status ConfirmStatus
@@ -105,6 +123,12 @@ type Unconfirmed struct {
 	Run     bool // switching on, or running, a workflow that trades live
 	Change  bool // a new graph for a workflow that trades live and is on
 	KillOff bool // turning the kill switch off
+
+	// An admin's work on other users (D410).
+	Role    bool
+	Disable bool
+	Caps    bool
+	Code    bool
 }
 
 // Waits says whether an action of kind waits for the user.
@@ -118,6 +142,14 @@ func (u Unconfirmed) Waits(kind ConfirmKind) bool {
 		return !u.Change
 	case ConfirmKillOff:
 		return !u.KillOff
+	case ConfirmRole:
+		return !u.Role
+	case ConfirmDisable:
+		return !u.Disable
+	case ConfirmCaps:
+		return !u.Caps
+	case ConfirmCode:
+		return !u.Code
 	}
 
 	return true

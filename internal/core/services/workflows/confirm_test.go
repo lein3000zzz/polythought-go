@@ -24,8 +24,8 @@ type holder struct {
 	whats []string
 }
 
-func (h *holder) Hold(_ context.Context, _ auth.Principal, kind domain.ConfirmKind, _ domain.WorkflowID, what string, _ any) error {
-	h.kinds, h.whats = append(h.kinds, kind), append(h.whats, what)
+func (h *holder) Hold(_ context.Context, _ auth.Principal, a domain.Ask) error {
+	h.kinds, h.whats = append(h.kinds, a.Kind), append(h.whats, a.What)
 	return &domain.AwaitingError{Confirmation: domain.Confirmation{ID: "c-1"}}
 }
 

@@ -281,7 +281,7 @@ func (s *Service) allowed(ctx context.Context, p auth.Principal, w domain.Workfl
 // Confirmer holds a token's or an agent's live action for its user to confirm (D406): nil to
 // go ahead.
 type Confirmer interface {
-	Hold(ctx context.Context, p auth.Principal, kind domain.ConfirmKind, wf domain.WorkflowID, what string, payload any) error
+	Hold(ctx context.Context, p auth.Principal, a domain.Ask) error
 }
 
 // WithConfirmations has tokens' and agents' live actions wait for their users where the
@@ -315,7 +315,7 @@ func (s *Service) hold(ctx context.Context, p auth.Principal, kind domain.Confir
 		return err
 	}
 
-	return s.confirm.Hold(ctx, p, kind, w.ID, fmt.Sprintf(what, w.Name), payload)
+	return s.confirm.Hold(ctx, p, domain.Ask{Kind: kind, WorkflowID: w.ID, What: fmt.Sprintf(what, w.Name), Payload: payload})
 }
 
 // mayTrade is nil when the principal may have the workflow place its orders.

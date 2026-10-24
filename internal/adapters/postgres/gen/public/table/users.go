@@ -45,6 +45,10 @@ type usersTable struct {
 	UnconfirmedChange    postgres.ColumnBool
 	UnconfirmedKillOff   postgres.ColumnBool
 	AskInAgent           postgres.ColumnBool
+	UnconfirmedRole      postgres.ColumnBool
+	UnconfirmedDisable   postgres.ColumnBool
+	UnconfirmedCaps      postgres.ColumnBool
+	UnconfirmedCode      postgres.ColumnBool
 
 	AllColumns     postgres.ColumnList
 	MutableColumns postgres.ColumnList
@@ -114,9 +118,13 @@ func newUsersTableImpl(schemaName, tableName, alias string) usersTable {
 		UnconfirmedChangeColumn    = postgres.BoolColumn("unconfirmed_change")
 		UnconfirmedKillOffColumn   = postgres.BoolColumn("unconfirmed_kill_off")
 		AskInAgentColumn           = postgres.BoolColumn("ask_in_agent")
-		allColumns                 = postgres.ColumnList{IDColumn, EmailColumn, EmailNormalizedColumn, PasswordHashColumn, RoleColumn, EmailVerifiedAtColumn, DisabledAtColumn, CreatedAtColumn, UpdatedAtColumn, CodeChosenColumn, LiveStoppedAtColumn, MaxLiveOrderColumn, MaxLiveDayColumn, MaxAgentDollarsColumn, MaxAgentInputColumn, MaxAgentOutputColumn, MaxAgentTotalColumn, KillStopsAgentsColumn, AgentsSeePersonalColumn, AgentsMayDeleteColumn, AgentsMayShareColumn, AgentsUseCredentialsColumn, AgentsMayAnswerColumn, UnconfirmedGoLiveColumn, UnconfirmedRunColumn, UnconfirmedChangeColumn, UnconfirmedKillOffColumn, AskInAgentColumn}
-		mutableColumns             = postgres.ColumnList{EmailColumn, EmailNormalizedColumn, PasswordHashColumn, RoleColumn, EmailVerifiedAtColumn, DisabledAtColumn, CreatedAtColumn, UpdatedAtColumn, CodeChosenColumn, LiveStoppedAtColumn, MaxLiveOrderColumn, MaxLiveDayColumn, MaxAgentDollarsColumn, MaxAgentInputColumn, MaxAgentOutputColumn, MaxAgentTotalColumn, KillStopsAgentsColumn, AgentsSeePersonalColumn, AgentsMayDeleteColumn, AgentsMayShareColumn, AgentsUseCredentialsColumn, AgentsMayAnswerColumn, UnconfirmedGoLiveColumn, UnconfirmedRunColumn, UnconfirmedChangeColumn, UnconfirmedKillOffColumn, AskInAgentColumn}
-		defaultColumns             = postgres.ColumnList{CodeChosenColumn, KillStopsAgentsColumn, AgentsSeePersonalColumn, AgentsMayDeleteColumn, AgentsMayShareColumn, AgentsUseCredentialsColumn, AgentsMayAnswerColumn, UnconfirmedGoLiveColumn, UnconfirmedRunColumn, UnconfirmedChangeColumn, UnconfirmedKillOffColumn, AskInAgentColumn}
+		UnconfirmedRoleColumn      = postgres.BoolColumn("unconfirmed_role")
+		UnconfirmedDisableColumn   = postgres.BoolColumn("unconfirmed_disable")
+		UnconfirmedCapsColumn      = postgres.BoolColumn("unconfirmed_caps")
+		UnconfirmedCodeColumn      = postgres.BoolColumn("unconfirmed_code")
+		allColumns                 = postgres.ColumnList{IDColumn, EmailColumn, EmailNormalizedColumn, PasswordHashColumn, RoleColumn, EmailVerifiedAtColumn, DisabledAtColumn, CreatedAtColumn, UpdatedAtColumn, CodeChosenColumn, LiveStoppedAtColumn, MaxLiveOrderColumn, MaxLiveDayColumn, MaxAgentDollarsColumn, MaxAgentInputColumn, MaxAgentOutputColumn, MaxAgentTotalColumn, KillStopsAgentsColumn, AgentsSeePersonalColumn, AgentsMayDeleteColumn, AgentsMayShareColumn, AgentsUseCredentialsColumn, AgentsMayAnswerColumn, UnconfirmedGoLiveColumn, UnconfirmedRunColumn, UnconfirmedChangeColumn, UnconfirmedKillOffColumn, AskInAgentColumn, UnconfirmedRoleColumn, UnconfirmedDisableColumn, UnconfirmedCapsColumn, UnconfirmedCodeColumn}
+		mutableColumns             = postgres.ColumnList{EmailColumn, EmailNormalizedColumn, PasswordHashColumn, RoleColumn, EmailVerifiedAtColumn, DisabledAtColumn, CreatedAtColumn, UpdatedAtColumn, CodeChosenColumn, LiveStoppedAtColumn, MaxLiveOrderColumn, MaxLiveDayColumn, MaxAgentDollarsColumn, MaxAgentInputColumn, MaxAgentOutputColumn, MaxAgentTotalColumn, KillStopsAgentsColumn, AgentsSeePersonalColumn, AgentsMayDeleteColumn, AgentsMayShareColumn, AgentsUseCredentialsColumn, AgentsMayAnswerColumn, UnconfirmedGoLiveColumn, UnconfirmedRunColumn, UnconfirmedChangeColumn, UnconfirmedKillOffColumn, AskInAgentColumn, UnconfirmedRoleColumn, UnconfirmedDisableColumn, UnconfirmedCapsColumn, UnconfirmedCodeColumn}
+		defaultColumns             = postgres.ColumnList{CodeChosenColumn, KillStopsAgentsColumn, AgentsSeePersonalColumn, AgentsMayDeleteColumn, AgentsMayShareColumn, AgentsUseCredentialsColumn, AgentsMayAnswerColumn, UnconfirmedGoLiveColumn, UnconfirmedRunColumn, UnconfirmedChangeColumn, UnconfirmedKillOffColumn, AskInAgentColumn, UnconfirmedRoleColumn, UnconfirmedDisableColumn, UnconfirmedCapsColumn, UnconfirmedCodeColumn}
 	)
 
 	return usersTable{
@@ -151,6 +159,10 @@ func newUsersTableImpl(schemaName, tableName, alias string) usersTable {
 		UnconfirmedChange:    UnconfirmedChangeColumn,
 		UnconfirmedKillOff:   UnconfirmedKillOffColumn,
 		AskInAgent:           AskInAgentColumn,
+		UnconfirmedRole:      UnconfirmedRoleColumn,
+		UnconfirmedDisable:   UnconfirmedDisableColumn,
+		UnconfirmedCaps:      UnconfirmedCapsColumn,
+		UnconfirmedCode:      UnconfirmedCodeColumn,
 
 		AllColumns:     allColumns,
 		MutableColumns: mutableColumns,

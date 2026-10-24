@@ -2293,6 +2293,8 @@ export interface components {
             token: string;
         };
         Confirmation: {
+            /** @description About is whom it is about, such as a user's email: yours to see, never the agent's. */
+            about?: string;
             /** @description Asker is who asked: the agent by name, or "an API token". */
             asker: string;
             /** Format: date-time */
@@ -2309,7 +2311,7 @@ export interface components {
             expiresAt: string;
             id: string;
             /** @enum {string} */
-            kind: "go_live" | "switch_on" | "run" | "change" | "kill_off";
+            kind: "go_live" | "switch_on" | "run" | "change" | "kill_off" | "admin_role" | "admin_disable" | "admin_caps" | "admin_code";
             /** @description Result is what came of it: an execution, or why it failed. */
             result?: string;
             /** @enum {string} */
@@ -2784,8 +2786,11 @@ export interface components {
             perOrder?: number;
         };
         LiveConfirm: {
+            caps: boolean;
             /** @description Change is saving a new graph for a workflow that trades live and is on. */
             change: boolean;
+            code: boolean;
+            disable: boolean;
             /** @description GoLive is setting a workflow to trade live, or changing its live wallet. */
             goLive: boolean;
             /**
@@ -2795,14 +2800,23 @@ export interface components {
             inAgent: boolean;
             /** @description KillOff is turning the kill switch off. */
             killOff: boolean;
+            /**
+             * @description An admin's agents' work on other users (D410): making one an admin or no longer,
+             *     disabling or enabling one, raising their caps, letting them write code.
+             */
+            role: boolean;
             /** @description Run is switching on, or running by hand, a workflow that trades live. */
             run: boolean;
         };
         LiveConfirmRequest: {
+            caps?: boolean;
             change?: boolean;
+            code?: boolean;
+            disable?: boolean;
             goLive?: boolean;
             inAgent?: boolean;
             killOff?: boolean;
+            role?: boolean;
             run?: boolean;
         };
         LoggedOrder: {

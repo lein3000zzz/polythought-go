@@ -69,7 +69,8 @@ user's workflows ask, often how the user approves a trade, unless the user lets 
 question then says who answered. What reaches real money, going live, switching on, running
 or changing a workflow that trades live, and turning the kill switch off, waits for the user
 to confirm it at a browser, where they have it wait, as they do to start with; neither an
-agent nor a token can confirm its own, or loosen those switches.
+agent nor a token can confirm its own, or loosen those switches. An admin's agent's or
+token's work on another user's role, account, caps or code access waits the same way.
 Text others wrote comes marked as such.
 
 Every admin action checks the role in the service, not only in the page, and the last admin

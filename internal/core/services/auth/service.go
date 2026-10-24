@@ -93,6 +93,9 @@ type Service struct {
 	mail      ports.AccountMail // optional; without it, nothing is mailed
 	inviteBox ports.SecretBox   // optional; without it, an invite's code shows only as made
 	joins     JoinNotifier      // optional; without it, admins are told of no request to join
+	confirm   Confirmer         // optional; without it, an admin's agents' work on users goes ahead at once
+
+	instanceCaps func() (domain.LiveCaps, domain.AgentCaps) // optional; without it, any cap left to the instance's is a raise
 
 	// dummyHash is verified against when an email is unknown, so a miss takes as long
 	// as a wrong password and response times do not reveal which emails exist.

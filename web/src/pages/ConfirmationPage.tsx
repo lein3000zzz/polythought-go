@@ -49,7 +49,8 @@ export function ConfirmationPage() {
       {c && (
         <section aria-label="The request" className="flex flex-col gap-4 rounded-lg border p-4">
           <p>
-            <span className="font-medium">{c.asker}</span> asks you to confirm: {c.what}.
+            <span className="font-medium">{c.asker}</span> asks you to confirm: {c.what}
+            {c.about && ` (${c.about})`}.
           </p>
           <p className="text-xs text-muted-foreground">
             Asked {formatDateTime(c.createdAt)}; waits until {formatDateTime(c.expiresAt)}.

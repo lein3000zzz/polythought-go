@@ -610,6 +610,52 @@ describe('settings page', () => {
     await waitFor(() => expect(confirmed).toBe('c-1'))
   })
 
+  it("shows an admin the switches for their agents' work on users, and whom a request is about (D410)", async () => {
+    const sent: unknown[] = []
+    server.use(
+      http.get('/api/v1/me', () => HttpResponse.json({ ...alice, role: 'admin' })),
+      http.put('/api/v1/me/live-confirm', async ({ request }) => {
+        sent.push(await request.json())
+        return new HttpResponse(null, { status: 204 })
+      }),
+      http.get('/api/v1/me/confirmations', () =>
+        HttpResponse.json({
+          confirmations: [
+            {
+              id: 'c-1',
+              kind: 'admin_role',
+              asker: 'Claude Code',
+              what: 'Change the user u-2: make them an admin',
+              about: 'bob@example.com',
+              status: 'pending',
+              createdAt: '2026-10-24T12:00:00Z',
+              expiresAt: '2026-10-24T13:00:00Z',
+            },
+          ],
+        }),
+      ),
+    )
+    const { user } = renderApp('/settings/connected')
+
+    const role = await screen.findByRole('switch', { name: 'Changing a role' })
+    expect(role).toBeChecked()
+    await user.click(role)
+    await waitFor(() => expect(sent).toEqual([{ role: false }]))
+
+    const waiting = within(await screen.findByRole('list', { name: 'Waiting for you' }))
+    expect(
+      waiting.getByText(/Change the user u-2: make them an admin \(bob@example.com\)/),
+    ).toBeInTheDocument()
+  })
+
+  it('shows no admin switches to others (D410)', async () => {
+    server.use(signedIn)
+    renderApp('/settings/connected')
+
+    await screen.findByRole('switch', { name: 'Going live' })
+    expect(screen.queryByRole('switch', { name: 'Changing a role' })).not.toBeInTheDocument()
+  })
+
   it('has Credentials as a page, where its old address goes (D392)', async () => {
     server.use(signedIn)
     const { router } = renderApp('/credentials')

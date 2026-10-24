@@ -640,6 +640,10 @@
             },
             "Confirmation": {
                 "properties": {
+                    "about": {
+                        "description": "About is whom it is about, such as a user's email: yours to see, never the agent's.",
+                        "type": "string"
+                    },
                     "asker": {
                         "description": "Asker is who asked: the agent by name, or \"an API token\".",
                         "type": "string"
@@ -674,7 +678,11 @@
                             "switch_on",
                             "run",
                             "change",
-                            "kill_off"
+                            "kill_off",
+                            "admin_role",
+                            "admin_disable",
+                            "admin_caps",
+                            "admin_code"
                         ],
                         "type": "string"
                     },
@@ -2020,8 +2028,17 @@
             },
             "LiveConfirm": {
                 "properties": {
+                    "caps": {
+                        "type": "boolean"
+                    },
                     "change": {
                         "description": "Change is saving a new graph for a workflow that trades live and is on.",
+                        "type": "boolean"
+                    },
+                    "code": {
+                        "type": "boolean"
+                    },
+                    "disable": {
                         "type": "boolean"
                     },
                     "goLive": {
@@ -2036,23 +2053,40 @@
                         "description": "KillOff is turning the kill switch off.",
                         "type": "boolean"
                     },
+                    "role": {
+                        "description": "An admin's agents' work on other users (D410): making one an admin or no longer,\ndisabling or enabling one, raising their caps, letting them write code.",
+                        "type": "boolean"
+                    },
                     "run": {
                         "description": "Run is switching on, or running by hand, a workflow that trades live.",
                         "type": "boolean"
                     }
                 },
                 "required": [
+                    "caps",
                     "change",
+                    "code",
+                    "disable",
                     "goLive",
                     "inAgent",
                     "killOff",
+                    "role",
                     "run"
                 ],
                 "type": "object"
             },
             "LiveConfirmRequest": {
                 "properties": {
+                    "caps": {
+                        "type": "boolean"
+                    },
                     "change": {
+                        "type": "boolean"
+                    },
+                    "code": {
+                        "type": "boolean"
+                    },
+                    "disable": {
                         "type": "boolean"
                     },
                     "goLive": {
@@ -2062,6 +2096,9 @@
                         "type": "boolean"
                     },
                     "killOff": {
+                        "type": "boolean"
+                    },
+                    "role": {
                         "type": "boolean"
                     },
                     "run": {

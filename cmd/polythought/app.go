@@ -320,8 +320,46 @@ func (a *app) init(ctx context.Context) error {
 		auth.WithAccountMail(a.mail),
 		auth.WithInviteBox(a.box), // codes kept to copy again (D393)
 		auth.WithJoinNotifier(a.notify),
+		// An admin's agents' work on users waits for the admin where they say so (D410).
+		auth.WithConfirmations(a.confirmations),
+		auth.WithInstanceCaps(func() (domain.LiveCaps, domain.AgentCaps) { return a.liveCaps(), a.agentCaps() }),
 	)
-	return err
+	if err != nil {
+		return err
+	}
+
+	// Each kind of an admin's work on users, carried out as asked once confirmed.
+	for _, kind := range []domain.ConfirmKind{domain.ConfirmRole, domain.ConfirmDisable, domain.ConfirmCaps, domain.ConfirmCode} {
+		a.confirmations.Handle(kind, func(ctx context.Context, p auth.Principal, c domain.Confirmation) (string, error) {
+			var in auth.UserAsked
+			if err := json.Unmarshal(c.Payload, &in); err != nil {
+				return "", err
+			}
+
+			_, err := a.auth.UpdateUser(ctx, p, in.User, in.Update)
+
+			return "changed", err
+		})
+	}
+
+	return nil
+}
+
+// liveCaps are the instance's caps on each user's live buys (D224).
+func (a *app) liveCaps() domain.LiveCaps {
+	s := a.settings.Current()
+	perOrder, perDay := s.Int(config.KeyMaxLiveOrder), s.Int(config.KeyMaxLiveDay)
+
+	return domain.LiveCaps{PerOrder: &perOrder, PerDay: &perDay}
+}
+
+// agentCaps are the instance's caps on each user's agents' spend a month (D271).
+func (a *app) agentCaps() domain.AgentCaps {
+	s := a.settings.Current()
+	dollars, _ := decimal.NewFromString(s.String(config.KeyAgentDollars))
+	in, out, total := int64(s.Int(config.KeyAgentInput)), int64(s.Int(config.KeyAgentOutput)), int64(s.Int(config.KeyAgentTotal))
+
+	return domain.AgentCaps{Dollars: &dollars, InputTokens: &in, OutputTokens: &out, TotalTokens: &total}
 }
 
 // newMCP is agents' endpoint (D398), for their OAuth tokens and for API tokens, each
@@ -851,13 +889,7 @@ func (a *app) initEngine(ctx context.Context, pmc polymarket) error {
 	a.models = models.New(models.Deps{Credentials: a.credentials, LLM: llmClient})
 	a.spend = spend.New(spend.Deps{
 		Usage: postgres.NewAgentUsage(a.db), Users: postgres.NewUsers(a.db), Notices: a.notify, Logger: a.util.Logger,
-		Caps: func() domain.AgentCaps {
-			s := a.settings.Current()
-			dollars, _ := decimal.NewFromString(s.String(config.KeyAgentDollars))
-			in, out, total := int64(s.Int(config.KeyAgentInput)), int64(s.Int(config.KeyAgentOutput)), int64(s.Int(config.KeyAgentTotal))
-
-			return domain.AgentCaps{Dollars: &dollars, InputTokens: &in, OutputTokens: &out, TotalTokens: &total}
-		},
+		Caps: a.agentCaps,
 	})
 
 	// Orders: on paper, simulated against the live book with a paper account per workflow
@@ -885,12 +917,7 @@ func (a *app) initEngine(ctx context.Context, pmc polymarket) error {
 		BuilderCode: func() string { return a.settings.Current().String(config.KeyBuilderCode) },
 		Users:       postgres.NewUsers(a.db),
 		Notices:     a.notify,
-		Caps: func() domain.LiveCaps {
-			s := a.settings.Current()
-			perOrder, perDay := s.Int(config.KeyMaxLiveOrder), s.Int(config.KeyMaxLiveDay)
-
-			return domain.LiveCaps{PerOrder: &perOrder, PerDay: &perDay}
-		},
+		Caps:        a.liveCaps,
 	})
 
 	err = nodes.Register(a.registry, nodes.Deps{

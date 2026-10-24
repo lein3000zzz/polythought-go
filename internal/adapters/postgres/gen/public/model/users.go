@@ -42,4 +42,8 @@ type Users struct {
 	UnconfirmedChange    bool
 	UnconfirmedKillOff   bool
 	AskInAgent           bool
+	UnconfirmedRole      bool
+	UnconfirmedDisable   bool
+	UnconfirmedCaps      bool
+	UnconfirmedCode      bool
 }

@@ -68,6 +68,10 @@ func (r *Users) Create(ctx context.Context, u domain.User, passwordHash string) 
 		UnconfirmedChange:    u.Unconfirmed.Change,
 		UnconfirmedKillOff:   u.Unconfirmed.KillOff,
 		AskInAgent:           u.AskInAgent,
+		UnconfirmedRole:      u.Unconfirmed.Role,
+		UnconfirmedDisable:   u.Unconfirmed.Disable,
+		UnconfirmedCaps:      u.Unconfirmed.Caps,
+		UnconfirmedCode:      u.Unconfirmed.Code,
 	}
 
 	_, err = table.Users.INSERT(table.Users.AllColumns).MODEL(m).ExecContext(ctx, r.db.conn(ctx))
@@ -180,8 +184,14 @@ func (r *Users) SetUnconfirmed(ctx context.Context, id domain.UserID, u domain.U
 
 	t := table.Users
 
-	return affectedOne(t.UPDATE(t.UnconfirmedGoLive, t.UnconfirmedRun, t.UnconfirmedChange, t.UnconfirmedKillOff).
-		MODEL(model.Users{UnconfirmedGoLive: u.GoLive, UnconfirmedRun: u.Run, UnconfirmedChange: u.Change, UnconfirmedKillOff: u.KillOff}).
+	return affectedOne(t.UPDATE(
+		t.UnconfirmedGoLive, t.UnconfirmedRun, t.UnconfirmedChange, t.UnconfirmedKillOff,
+		t.UnconfirmedRole, t.UnconfirmedDisable, t.UnconfirmedCaps, t.UnconfirmedCode,
+	).
+		MODEL(model.Users{
+			UnconfirmedGoLive: u.GoLive, UnconfirmedRun: u.Run, UnconfirmedChange: u.Change, UnconfirmedKillOff: u.KillOff,
+			UnconfirmedRole: u.Role, UnconfirmedDisable: u.Disable, UnconfirmedCaps: u.Caps, UnconfirmedCode: u.Code,
+		}).
 		WHERE(t.ID.EQ(jet.UUID(uid))).
 		ExecContext(ctx, r.db.conn(ctx)))
 }
@@ -379,6 +389,7 @@ func toUser(m model.Users) domain.User {
 		},
 		Unconfirmed: domain.Unconfirmed{
 			GoLive: m.UnconfirmedGoLive, Run: m.UnconfirmedRun, Change: m.UnconfirmedChange, KillOff: m.UnconfirmedKillOff,
+			Role: m.UnconfirmedRole, Disable: m.UnconfirmedDisable, Caps: m.UnconfirmedCaps, Code: m.UnconfirmedCode,
 		},
 		AskInAgent: m.AskInAgent,
 		CreatedAt:  m.CreatedAt.UTC(),

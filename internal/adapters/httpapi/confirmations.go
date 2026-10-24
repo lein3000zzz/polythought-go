@@ -23,12 +23,14 @@ type ConfirmationService interface {
 // confirmationDTO is a token's or an agent's live action waiting for you, or how it ended.
 type confirmationDTO struct {
 	ID         string `json:"id"`
-	Kind       string `json:"kind" enums:"go_live,switch_on,run,change,kill_off"`
+	Kind       string `json:"kind" enums:"go_live,switch_on,run,change,kill_off,admin_role,admin_disable,admin_caps,admin_code"`
 	WorkflowID string `json:"workflowId,omitempty" validate:"optional"`
 	// Asker is who asked: the agent by name, or "an API token".
 	Asker string `json:"asker"`
 	// What says what it does, such as Run "Spread watch" by hand, which trades live.
-	What   string `json:"what"`
+	What string `json:"what"`
+	// About is whom it is about, such as a user's email: yours to see, never the agent's.
+	About  string `json:"about,omitempty" validate:"optional"`
 	Status string `json:"status" enums:"pending,confirmed,done,failed,refused,expired"`
 	// Result is what came of it: an execution, or why it failed.
 	Result    string     `json:"result,omitempty" validate:"optional"`
@@ -46,7 +48,7 @@ type confirmationList struct {
 
 func toConfirmationDTO(c domain.Confirmation) confirmationDTO {
 	return confirmationDTO{
-		ID: string(c.ID), Kind: string(c.Kind), WorkflowID: string(c.WorkflowID), Asker: c.Asker(), What: c.What,
+		ID: string(c.ID), Kind: string(c.Kind), WorkflowID: string(c.WorkflowID), Asker: c.Asker(), What: c.What, About: c.About,
 		Status: string(c.Status), Result: c.Result, CreatedAt: c.CreatedAt, ExpiresAt: c.ExpiresAt, DecidedAt: optionalTime(c.DecidedAt),
 		DecidedVia: string(c.DecidedVia),
 	}
@@ -145,11 +147,21 @@ type liveConfirmDTO struct {
 	// InAgent has them also asked in the agent's own window, where its client can ask
 	// (D409): off to start with.
 	InAgent bool `json:"inAgent"`
+	// An admin's agents' work on other users (D410): making one an admin or no longer,
+	// disabling or enabling one, raising their caps, letting them write code.
+	Role    bool `json:"role"`
+	Disable bool `json:"disable"`
+	Caps    bool `json:"caps"`
+	Code    bool `json:"code"`
 } // @name LiveConfirm
 
 func toLiveConfirmDTO(u domain.User) liveConfirmDTO {
 	n := u.Unconfirmed
-	return liveConfirmDTO{GoLive: !n.GoLive, Run: !n.Run, Change: !n.Change, KillOff: !n.KillOff, InAgent: u.AskInAgent}
+
+	return liveConfirmDTO{
+		GoLive: !n.GoLive, Run: !n.Run, Change: !n.Change, KillOff: !n.KillOff, InAgent: u.AskInAgent,
+		Role: !n.Role, Disable: !n.Disable, Caps: !n.Caps, Code: !n.Code,
+	}
 }
 
 // liveConfirmRequest changes the switches it names, and leaves the others as they are.
@@ -159,6 +171,10 @@ type liveConfirmRequest struct {
 	Change  *bool `json:"change,omitempty" validate:"optional"`
 	KillOff *bool `json:"killOff,omitempty" validate:"optional"`
 	InAgent *bool `json:"inAgent,omitempty" validate:"optional"`
+	Role    *bool `json:"role,omitempty" validate:"optional"`
+	Disable *bool `json:"disable,omitempty" validate:"optional"`
+	Caps    *bool `json:"caps,omitempty" validate:"optional"`
+	Code    *bool `json:"code,omitempty" validate:"optional"`
 } // @name LiveConfirmRequest
 
 // setLiveConfirm sets which of your tokens' and agents' live actions wait for you to
@@ -188,7 +204,10 @@ func (s *Server) setLiveConfirm(ctx context.Context, c *app.RequestContext) {
 	for _, sw := range []struct {
 		to   *bool
 		into *bool
-	}{{req.GoLive, &u.GoLive}, {req.Run, &u.Run}, {req.Change, &u.Change}, {req.KillOff, &u.KillOff}} {
+	}{
+		{req.GoLive, &u.GoLive}, {req.Run, &u.Run}, {req.Change, &u.Change}, {req.KillOff, &u.KillOff},
+		{req.Role, &u.Role}, {req.Disable, &u.Disable}, {req.Caps, &u.Caps}, {req.Code, &u.Code},
+	} {
 		if sw.to != nil {
 			*sw.into = !*sw.to
 		}

@@ -160,6 +160,19 @@ func (s *Service) UpdateUser(ctx context.Context, actor Principal, id domain.Use
 		return domain.User{}, err
 	}
 
+	// A token's or an agent's change waits for the admin where they say so (D410), checked
+	// as any change is first.
+	if s.confirm != nil && !actor.Itself() && !actor.Confirmed {
+		user, err := s.repos.Users.ByID(ctx, id)
+		if err != nil {
+			return domain.User{}, err
+		}
+
+		if err := s.holdUserUpdate(ctx, actor, user, upd); err != nil {
+			return domain.User{}, err
+		}
+	}
+
 	var updated domain.User
 
 	err := s.repos.Tx.WithinTx(ctx, func(ctx context.Context) error {

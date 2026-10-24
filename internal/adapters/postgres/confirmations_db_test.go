@@ -28,8 +28,9 @@ func TestConfirmations(t *testing.T) {
 	ask := func(kind domain.ConfirmKind, wf domain.WorkflowID, created time.Time) domain.Confirmation {
 		c := domain.Confirmation{
 			ID: domain.ConfirmationID(newID()), OwnerID: alice.ID, Kind: kind, WorkflowID: wf, GrantID: "g-1", Agent: "Claude Code",
-			Scopes: []domain.Scope{domain.ScopeBuild, domain.ScopeLive}, What: "Run it", Payload: json.RawMessage(`{"trigger":"manual"}`),
-			Status: domain.ConfirmPending, CreatedAt: created, ExpiresAt: created.Add(time.Hour),
+			Scopes: []domain.Scope{domain.ScopeBuild, domain.ScopeLive}, What: "Run it", About: "bob@example.com",
+			Payload: json.RawMessage(`{"trigger":"manual"}`),
+			Status:  domain.ConfirmPending, CreatedAt: created, ExpiresAt: created.Add(time.Hour),
 		}
 		require.NoError(t, repo.Create(ctx, c))
 
@@ -104,7 +105,7 @@ func TestUnconfirmed(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, domain.Unconfirmed{}, got.Unconfirmed, "every live action waits to start with")
 
-	lets := domain.Unconfirmed{Run: true, KillOff: true}
+	lets := domain.Unconfirmed{Run: true, KillOff: true, Role: true, Code: true}
 	require.NoError(t, users.SetUnconfirmed(ctx, u.ID, lets))
 	require.NoError(t, users.SetAskInAgent(ctx, u.ID, true))
 	require.NoError(t, users.Update(ctx, got), "an update with the user as it was")

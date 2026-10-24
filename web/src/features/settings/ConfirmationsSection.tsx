@@ -20,9 +20,10 @@ import { formatDateTime } from '@/lib/format'
 import { jumpId } from './pages'
 
 type LiveConfirm = Schemas['LiveConfirm']
+type ConfirmSwitchSpec = { key: keyof LiveConfirm; id: string; label: string; hint: string }
 
 /** The live actions of your agents and tokens that wait for you, and those waiting (D406). */
-const switches: { key: keyof LiveConfirm; id: string; label: string; hint: string }[] = [
+const switches: ConfirmSwitchSpec[] = [
   {
     key: 'goLive',
     id: 'confirm-go-live',
@@ -46,6 +47,34 @@ const switches: { key: keyof LiveConfirm; id: string; label: string; hint: strin
     id: 'confirm-kill-off',
     label: 'Turning the kill switch off',
     hint: 'Which lets your workflows trade live again.',
+  },
+]
+
+/** An admin's agents' and tokens' work on other users that waits for them (D410). */
+const adminSwitches: ConfirmSwitchSpec[] = [
+  {
+    key: 'role',
+    id: 'confirm-role',
+    label: 'Changing a role',
+    hint: 'Making a user an admin, or one no longer.',
+  },
+  {
+    key: 'disable',
+    id: 'confirm-disable',
+    label: 'Disabling or enabling a user',
+    hint: 'Disabling signs them out, stops their workflows and turns their kill switch on.',
+  },
+  {
+    key: 'caps',
+    id: 'confirm-caps',
+    label: "Raising a user's caps",
+    hint: 'Their own caps on live buys and on their agents’ spend, raised or removed; lowering them goes ahead.',
+  },
+  {
+    key: 'code',
+    id: 'confirm-code',
+    label: 'Letting a user write code',
+    hint: 'Where code is for chosen users.',
   },
 ]
 
@@ -80,33 +109,17 @@ export function ConfirmationsSection() {
       </div>
 
       {switches.map((s) => (
-        <div key={s.key} id={jumpId(s.id)} className="flex items-start justify-between gap-4">
-          <div className="flex flex-col gap-0.5">
-            <Label htmlFor={s.id}>{s.label}</Label>
-            <p id={`${s.id}-hint`} className="text-xs text-muted-foreground">
-              {s.hint}
-            </p>
-          </div>
-          <Switch
-            id={s.id}
-            aria-describedby={`${s.id}-hint`}
-            checked={me.data?.liveConfirm[s.key] ?? true}
-            disabled={set.isPending || !me.data}
-            onCheckedChange={(on) =>
-              set.mutate(
-                { [s.key]: on },
-                {
-                  onSuccess: () =>
-                    toast.success(
-                      on ? `${s.label} waits for you` : `${s.label} no longer waits for you`,
-                    ),
-                  onError: (error) => toast.error(errorMessage(error)),
-                },
-              )
-            }
-          />
-        </div>
+        <ConfirmSwitch key={s.key} spec={s} />
       ))}
+
+      {me.data?.role === 'admin' && (
+        <>
+          <h4 className="text-sm font-medium">An admin&apos;s work on other users</h4>
+          {adminSwitches.map((s) => (
+            <ConfirmSwitch key={s.key} spec={s} />
+          ))}
+        </>
+      )}
 
       <div id={jumpId('confirm-in-agent')} className="flex items-start justify-between gap-4">
         <div className="flex flex-col gap-0.5">
@@ -152,6 +165,7 @@ export function ConfirmationsSection() {
               <div className="flex min-w-0 flex-1 flex-col gap-0.5">
                 <span>
                   <span className="font-medium">{c.asker}</span> asks: {c.what}
+                  {c.about && ` (${c.about})`}
                 </span>
                 <span className="text-xs text-muted-foreground">
                   Asked {formatDateTime(c.createdAt)}; waits until {formatDateTime(c.expiresAt)}
@@ -196,6 +210,7 @@ export function ConfirmationsSection() {
               </Badge>
               <span>
                 {c.asker}: {c.what}
+                {c.about && ` (${c.about})`}
                 {c.result && ` (${c.result})`}
               </span>
               <span className="text-xs">{formatDateTime(c.createdAt)}</span>
@@ -204,5 +219,39 @@ export function ConfirmationsSection() {
         </ul>
       )}
     </section>
+  )
+}
+
+function ConfirmSwitch({ spec: s }: { spec: ConfirmSwitchSpec }) {
+  const me = useMe()
+  const set = useSetLiveConfirm()
+
+  return (
+    <div id={jumpId(s.id)} className="flex items-start justify-between gap-4">
+      <div className="flex flex-col gap-0.5">
+        <Label htmlFor={s.id}>{s.label}</Label>
+        <p id={`${s.id}-hint`} className="text-xs text-muted-foreground">
+          {s.hint}
+        </p>
+      </div>
+      <Switch
+        id={s.id}
+        aria-describedby={`${s.id}-hint`}
+        checked={me.data?.liveConfirm[s.key] ?? true}
+        disabled={set.isPending || !me.data}
+        onCheckedChange={(on) =>
+          set.mutate(
+            { [s.key]: on },
+            {
+              onSuccess: () =>
+                toast.success(
+                  on ? `${s.label} waits for you` : `${s.label} no longer waits for you`,
+                ),
+              onError: (error) => toast.error(errorMessage(error)),
+            },
+          )
+        }
+      />
+    </div>
   )
 }
