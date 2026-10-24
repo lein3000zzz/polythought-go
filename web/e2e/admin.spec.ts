@@ -69,7 +69,9 @@ test('an invited user, disabled and enabled again, comes back to stopped workflo
   await expect(row.getByText('Active')).toBeVisible()
 
   await signIn(them, person)
-  const listed = them.getByRole('row', { name: /hourly/ })
+  const listed = them
+    .getByRole('listitem')
+    .filter({ has: them.getByRole('link', { name: /hourly/ }) })
   await expect(listed.getByText('Inactive')).toBeVisible()
 
   // Their live trading stays stopped until they resume it, after a question.

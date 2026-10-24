@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	jet "github.com/go-jet/jet/v2/postgres"
@@ -135,30 +136,51 @@ func (r *Workflows) Get(ctx context.Context, owner domain.UserID, id domain.Work
 	return toWorkflow(m)
 }
 
-func (r *Workflows) List(ctx context.Context, owner domain.UserID, f ports.PageFilter) (ports.Page[domain.Workflow], error) {
+func (r *Workflows) List(ctx context.Context, owner domain.UserID, f ports.WorkflowFilter) (ports.Page[domain.Workflow], error) {
 	uid, err := parseID(owner)
 	if err != nil {
 		return ports.Page[domain.Workflow]{}, err
 	}
 
+	t := table.Workflows
 	limit := pageLimit(f.Limit)
-	where := table.Workflows.OwnerID.EQ(jet.UUID(uid))
+	where := t.OwnerID.EQ(jet.UUID(uid))
 
-	if f.Cursor != "" {
-		after, err := uuid.Parse(f.Cursor)
+	if q := strings.TrimSpace(f.Query); q != "" {
+		like := jet.String("%" + likeEscaper.Replace(strings.ToLower(q)) + "%")
+		where = where.AND(jet.LOWER(t.Name).LIKE(like).OR(jet.LOWER(t.Description).LIKE(like)))
+	}
+
+	if f.Active != nil {
+		where = where.AND(t.Active.EQ(jet.Bool(*f.Active)))
+	}
+
+	// The pinned in their order, all of them; the rest the newest first, a page at a time.
+	order := t.ID.DESC()
+
+	switch {
+	case f.Pinned == nil:
+	case *f.Pinned:
+		where, order, limit = where.AND(t.Pin.IS_NOT_NULL()), t.Pin.ASC(), maxPageSize
+	default:
+		where = where.AND(t.Pin.IS_NULL())
+	}
+
+	if f.Cursor != "" && (f.Pinned == nil || !*f.Pinned) {
+		before, err := uuid.Parse(f.Cursor)
 		if err != nil {
 			return ports.Page[domain.Workflow]{}, domain.ErrInvalidInput
 		}
 
-		where = where.AND(table.Workflows.ID.GT(jet.UUID(after)))
+		where = where.AND(t.ID.LT(jet.UUID(before)))
 	}
 
 	var rows []model.Workflows
 
-	err = jet.SELECT(table.Workflows.AllColumns).
-		FROM(table.Workflows).
+	err = jet.SELECT(t.AllColumns).
+		FROM(t).
 		WHERE(where).
-		ORDER_BY(table.Workflows.ID.ASC()).
+		ORDER_BY(order).
 		LIMIT(int64(limit)).
 		QueryContext(ctx, r.db.conn(ctx), &rows)
 	if err != nil {
@@ -173,11 +195,121 @@ func (r *Workflows) List(ctx context.Context, owner domain.UserID, f ports.PageF
 		}
 	}
 
-	if len(rows) == limit {
+	if len(rows) == limit && (f.Pinned == nil || !*f.Pinned) {
 		page.NextCursor = rows[len(rows)-1].ID.String()
 	}
 
 	return page, nil
+}
+
+// likeEscaper escapes what LIKE reads as a pattern, so a search finds it as typed.
+var likeEscaper = strings.NewReplacer(`\`, `\\`, `%`, `\%`, `_`, `\_`)
+
+// SetPin pins a workflow after the owner's others, or unpins it, closing the gap it
+// leaves. Neither changes its version.
+func (r *Workflows) SetPin(ctx context.Context, owner domain.UserID, id domain.WorkflowID, pinned bool) error {
+	where, err := ownedWorkflow(owner, id)
+	if err != nil {
+		return err
+	}
+
+	uid, _ := parseID(owner)
+
+	return r.db.WithinTx(ctx, func(ctx context.Context) error {
+		t := table.Workflows
+		owned := t.OwnerID.EQ(jet.UUID(uid))
+
+		// The owner's workflows held while the pins move, so two pins never take one place.
+		var all []model.Workflows
+
+		err := jet.SELECT(t.ID, t.Pin).FROM(t).WHERE(owned).FOR(jet.UPDATE()).QueryContext(ctx, r.db.conn(ctx), &all)
+		if err != nil {
+			return err
+		}
+
+		var (
+			this  *model.Workflows
+			after int32
+		)
+
+		for i, m := range all {
+			if m.ID.String() == string(id) {
+				this = &all[i]
+			}
+
+			if m.Pin != nil && *m.Pin > after {
+				after = *m.Pin
+			}
+		}
+
+		if this == nil {
+			return domain.ErrNotFound
+		}
+
+		switch {
+		case pinned && this.Pin == nil:
+			_, err = t.UPDATE(t.Pin).SET(jet.Int32(after+1)).WHERE(where).ExecContext(ctx, r.db.conn(ctx))
+		case !pinned && this.Pin != nil:
+			m := this
+			if _, err = t.UPDATE(t.Pin).SET(jet.NULL).WHERE(where).ExecContext(ctx, r.db.conn(ctx)); err == nil {
+				_, err = t.UPDATE(t.Pin).SET(t.Pin.SUB(jet.Int(1))).
+					WHERE(owned.AND(t.Pin.GT(jet.Int32(*m.Pin)))).ExecContext(ctx, r.db.conn(ctx))
+			}
+		}
+
+		return err
+	})
+}
+
+// SetPinOrder puts the owner's pinned workflows in the order of ids, which must be every
+// one of them, else domain.ErrConflict: they changed meanwhile.
+func (r *Workflows) SetPinOrder(ctx context.Context, owner domain.UserID, ids []domain.WorkflowID) error {
+	uid, err := parseID(owner)
+	if err != nil {
+		return err
+	}
+
+	return r.db.WithinTx(ctx, func(ctx context.Context) error {
+		t := table.Workflows
+
+		var rows []model.Workflows
+
+		err := jet.SELECT(t.ID).FROM(t).WHERE(t.OwnerID.EQ(jet.UUID(uid)).AND(t.Pin.IS_NOT_NULL())).
+			FOR(jet.UPDATE()).QueryContext(ctx, r.db.conn(ctx), &rows)
+		if err != nil {
+			return err
+		}
+
+		pinned := map[string]bool{}
+		for _, m := range rows {
+			pinned[m.ID.String()] = true
+		}
+
+		if len(ids) != len(pinned) {
+			return domain.ErrConflict
+		}
+
+		for i, id := range ids {
+			if !pinned[string(id)] {
+				return domain.ErrConflict
+			}
+
+			delete(pinned, string(id)) // each once
+
+			wid, err := uuid.Parse(string(id))
+			if err != nil {
+				return domain.ErrInvalidInput
+			}
+
+			_, err = t.UPDATE(t.Pin).SET(jet.Int32(int32(i+1))).
+				WHERE(t.OwnerID.EQ(jet.UUID(uid)).AND(t.ID.EQ(jet.UUID(wid)))).ExecContext(ctx, r.db.conn(ctx))
+			if err != nil {
+				return err
+			}
+		}
+
+		return nil
+	})
 }
 
 // Update is a compare-and-swap on the version column.
@@ -196,8 +328,8 @@ func (r *Workflows) Update(ctx context.Context, w domain.Workflow, expectedVersi
 
 	a := w.ActedBy
 
-	res, err := t.UPDATE(t.Name, t.Definition, t.Version, t.UpdatedAt, t.ActedHow, t.ActedGrant, t.ActedToken, t.ActedName, t.ActedConfirmed).
-		SET(w.Name, def, w.Version, w.UpdatedAt, string(a.How), string(a.GrantID), string(a.TokenID), a.Name, a.Confirmed).
+	res, err := t.UPDATE(t.Name, t.Description, t.Definition, t.Version, t.UpdatedAt, t.ActedHow, t.ActedGrant, t.ActedToken, t.ActedName, t.ActedConfirmed).
+		SET(w.Name, w.Description, def, w.Version, w.UpdatedAt, string(a.How), string(a.GrantID), string(a.TokenID), a.Name, a.Confirmed).
 		WHERE(where.AND(t.Version.EQ(jet.Int(int64(expectedVersion))))).
 		ExecContext(ctx, r.db.conn(ctx))
 
@@ -344,14 +476,16 @@ func toWorkflowModel(w domain.Workflow) (model.Workflows, error) {
 	}
 
 	return model.Workflows{
-		ID:         id,
-		OwnerID:    owner,
-		Name:       w.Name,
-		Active:     w.Active,
-		Definition: def,
-		Version:    int32(w.Version),
-		CreatedAt:  w.CreatedAt,
-		UpdatedAt:  w.UpdatedAt,
+		ID:          id,
+		OwnerID:     owner,
+		Name:        w.Name,
+		Description: w.Description,
+		Active:      w.Active,
+		Definition:  def,
+		Pin:         pinOf(w.Pin),
+		Version:     int32(w.Version),
+		CreatedAt:   w.CreatedAt,
+		UpdatedAt:   w.UpdatedAt,
 
 		ActedHow: string(w.ActedBy.How), ActedGrant: string(w.ActedBy.GrantID), ActedToken: string(w.ActedBy.TokenID),
 		ActedName: w.ActedBy.Name, ActedConfirmed: w.ActedBy.Confirmed,
@@ -364,10 +498,17 @@ func toWorkflow(m model.Workflows) (domain.Workflow, error) {
 		return domain.Workflow{}, err
 	}
 
+	pin := 0
+	if m.Pin != nil {
+		pin = int(*m.Pin)
+	}
+
 	return domain.Workflow{
 		ID:          domain.WorkflowID(m.ID.String()),
 		OwnerID:     domain.UserID(m.OwnerID.String()),
 		Name:        m.Name,
+		Description: m.Description,
+		Pin:         pin,
 		Active:      m.Active,
 		Nodes:       nodes,
 		Connections: conns,
@@ -379,6 +520,17 @@ func toWorkflow(m model.Workflows) (domain.Workflow, error) {
 			How: domain.ActorHow(m.ActedHow), Confirmed: m.ActedConfirmed,
 		},
 	}, nil
+}
+
+// pinOf is a pin as kept: none for 0.
+func pinOf(pin int) *int32 {
+	if pin <= 0 {
+		return nil
+	}
+
+	p := int32(pin)
+
+	return &p
 }
 
 func pageLimit(limit int) int {

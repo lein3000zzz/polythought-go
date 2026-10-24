@@ -135,9 +135,11 @@ export function toDefinition(
   name: string,
   nodes: readonly FlowNode[],
   edges: readonly FlowEdge[],
+  description = '',
 ): Definition {
   return {
     name,
+    description,
     nodes: nodes.map((n) => ({
       ...specOf(n.data.spec),
       position: { x: Math.round(n.position.x), y: Math.round(n.position.y) },
@@ -261,6 +263,7 @@ function unique(ports: string[]): string[] {
 function canonical(def: Definition): string {
   const normalised: Definition = {
     name: def.name,
+    description: def.description ?? '',
     nodes: def.nodes.map((n) => ({ ...specOf(n), position: n.position ?? { x: 0, y: 0 } })),
     connections: def.connections,
   }

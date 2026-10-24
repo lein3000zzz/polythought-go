@@ -44,7 +44,7 @@ var flow = domain.Workflow{
 
 type workflows struct{}
 
-func (workflows) List(context.Context, auth.Principal, ports.PageFilter) (ports.Page[domain.Workflow], error) {
+func (workflows) Find(context.Context, auth.Principal, ports.WorkflowFilter) (ports.Page[domain.Workflow], error) {
 	return ports.Page[domain.Workflow]{Items: []domain.Workflow{flow}, NextCursor: "c-2"}, nil
 }
 

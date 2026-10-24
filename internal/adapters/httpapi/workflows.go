@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"time"
 
@@ -11,6 +12,7 @@ import (
 
 	"github.com/lein3000zzz/polythought-go/internal/core/domain"
 	"github.com/lein3000zzz/polythought-go/internal/core/engine"
+	"github.com/lein3000zzz/polythought-go/internal/core/ports"
 	"github.com/lein3000zzz/polythought-go/internal/core/services/auth"
 	"github.com/lein3000zzz/polythought-go/internal/core/services/workflows"
 )
@@ -54,8 +56,12 @@ type connectionDTO struct {
 } // @name Connection
 
 type workflowDTO struct {
-	ID          string          `json:"id"`
-	Name        string          `json:"name"`
+	ID   string `json:"id"`
+	Name string `json:"name"`
+	// Description is what it does, in your words; searched with its name.
+	Description string `json:"description"`
+	// Pin is its place among your pinned workflows, from 1; absent when it is not pinned.
+	Pin         int             `json:"pin,omitempty" validate:"optional"`
 	Active      bool            `json:"active"`
 	Version     int             `json:"version"`
 	Nodes       []nodeDTO       `json:"nodes"`
@@ -95,7 +101,7 @@ func toActorDTO(a domain.Actor) *actorDTO {
 
 func toWorkflowDTO(w domain.Workflow) workflowDTO {
 	out := workflowDTO{
-		ID: string(w.ID), Name: w.Name, Active: w.Active, Version: w.Version,
+		ID: string(w.ID), Name: w.Name, Description: w.Description, Pin: w.Pin, Active: w.Active, Version: w.Version,
 		Nodes:       make([]nodeDTO, len(w.Nodes)),
 		Connections: make([]connectionDTO, len(w.Connections)),
 		CreatedAt:   w.CreatedAt, UpdatedAt: w.UpdatedAt, ActedBy: toActorDTO(w.ActedBy),
@@ -120,7 +126,9 @@ type workflowPage struct {
 
 // definitionRequest is the editable part of a workflow in create and update bodies.
 type definitionRequest struct {
-	Name        string          `json:"name"`
+	Name string `json:"name"`
+	// Description is what it does, up to 1,000 characters; left out keeps the one it has.
+	Description *string         `json:"description,omitempty" validate:"optional"`
 	Nodes       []nodeDTO       `json:"nodes"`
 	Connections []connectionDTO `json:"connections"`
 } // @name WorkflowDefinition
@@ -128,6 +136,7 @@ type definitionRequest struct {
 func (r definitionRequest) definition() workflows.Definition {
 	def := workflows.Definition{
 		Name:        r.Name,
+		Description: r.Description,
 		Nodes:       make([]domain.NodeSpec, len(r.Nodes)),
 		Connections: make([]domain.Connection, len(r.Connections)),
 	}
@@ -463,6 +472,9 @@ func nonNil(s []string) []string {
 //	@Tags		workflows
 //	@Param		limit	query		int		false	"Page size"	minimum(1)
 //	@Param		cursor	query		string	false	"nextCursor of the previous page"
+//	@Param		q		query		string	false	"Only those whose name or description holds this"
+//	@Param		pinned	query		bool	false	"true: the pinned, in their order, all of them; false: the rest"
+//	@Param		active	query		bool	false	"true: those switched on; false: those off"
 //	@Success	200		{object}	workflowPage
 //	@Failure	400		{object}	errorBody	"invalid_input"
 //	@Failure	401		{object}	errorBody	"unauthenticated"
@@ -470,15 +482,30 @@ func nonNil(s []string) []string {
 //	@Security	APIToken
 //	@Router		/workflows [get]
 func (s *Server) listWorkflows(ctx context.Context, c *app.RequestContext) {
-	f, err := pageFilter(c)
+	page0, err := pageFilter(c)
 	if err != nil {
 		s.fail(ctx, c, err)
 		return
 	}
 
+	f := ports.WorkflowFilter{PageFilter: page0, Query: c.Query("q")}
+
+	for name, into := range map[string]**bool{"pinned": &f.Pinned, "active": &f.Active} {
+		switch c.Query(name) {
+		case "":
+		case "true":
+			*into = new(true)
+		case "false":
+			*into = new(false)
+		default:
+			s.fail(ctx, c, fmt.Errorf("%w: %s is true or false", domain.ErrInvalidInput, name))
+			return
+		}
+	}
+
 	p, _ := principal(c)
 
-	page, err := s.workflows.List(ctx, p, f)
+	page, err := s.workflows.Find(ctx, p, f)
 	if err != nil {
 		s.fail(ctx, c, err)
 		return
@@ -816,4 +843,77 @@ func (s *Server) getExecution(ctx context.Context, c *app.RequestContext) {
 	}
 
 	c.JSON(http.StatusOK, toExecutionDTO(e, true))
+}
+
+type pinRequest struct {
+	Pinned bool `json:"pinned"`
+} // @name PinRequest
+
+type pinOrderRequest struct {
+	// IDs are every pinned workflow of yours, in the order to show them.
+	IDs []string `json:"ids"`
+} // @name PinOrderRequest
+
+// pinWorkflow pins a workflow after your others, or unpins it; its version stays.
+//
+//	@Summary	Pin or unpin a workflow
+//	@ID			pinWorkflow
+//	@Tags		workflows
+//	@Param		id		path	string		true	"Workflow ID"
+//	@Param		body	body	pinRequest	true	"Pinned or not"
+//	@Success	204
+//	@Failure	401	{object}	errorBody	"unauthenticated"
+//	@Failure	404	{object}	errorBody	"not_found"
+//	@Security	SessionCookie
+//	@Security	APIToken
+//	@Router		/workflows/{id}/pin [put]
+func (s *Server) pinWorkflow(ctx context.Context, c *app.RequestContext) {
+	var req pinRequest
+	if err := decodeJSON(c, &req); err != nil {
+		s.fail(ctx, c, err)
+		return
+	}
+
+	p, _ := principal(c)
+
+	if err := s.workflows.Pin(ctx, p, domain.WorkflowID(c.Param("id")), req.Pinned); err != nil {
+		s.fail(ctx, c, err)
+		return
+	}
+
+	c.Status(http.StatusNoContent)
+}
+
+// orderPins puts your pinned workflows in the order given, every one of them.
+//
+//	@Summary	Order the pinned workflows
+//	@ID			orderPins
+//	@Tags		workflows
+//	@Param		body	body	pinOrderRequest	true	"The pinned, in order"
+//	@Success	204
+//	@Failure	401	{object}	errorBody	"unauthenticated"
+//	@Failure	409	{object}	errorBody	"conflict: the pinned workflows changed; read them again"
+//	@Security	SessionCookie
+//	@Security	APIToken
+//	@Router		/workflows/pins [put]
+func (s *Server) orderPins(ctx context.Context, c *app.RequestContext) {
+	var req pinOrderRequest
+	if err := decodeJSON(c, &req); err != nil {
+		s.fail(ctx, c, err)
+		return
+	}
+
+	ids := make([]domain.WorkflowID, len(req.IDs))
+	for i, id := range req.IDs {
+		ids[i] = domain.WorkflowID(id)
+	}
+
+	p, _ := principal(c)
+
+	if err := s.workflows.SetPinOrder(ctx, p, ids); err != nil {
+		s.fail(ctx, c, err)
+		return
+	}
+
+	c.Status(http.StatusNoContent)
 }

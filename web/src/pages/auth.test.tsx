@@ -487,7 +487,11 @@ describe('workflow page', () => {
   it('links from the list to the workflow', async () => {
     server.use(
       signedIn,
-      http.get('/api/v1/workflows', () => HttpResponse.json({ workflows: [workflow()] })),
+      http.get('/api/v1/workflows', ({ request }) =>
+        HttpResponse.json({
+          workflows: new URL(request.url).searchParams.get('pinned') === 'true' ? [] : [workflow()],
+        }),
+      ),
     )
 
     renderApp('/')

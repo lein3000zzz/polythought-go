@@ -12,11 +12,25 @@ type PageFilter struct {
 	Cursor string
 }
 
+// WorkflowFilter narrows the owner's workflows: to those whose name or description holds
+// Query, to those on or off, and to the pinned, in their order, or the rest, the newest
+// first.
+type WorkflowFilter struct {
+	PageFilter
+	Query  string
+	Pinned *bool // nil: every one
+	Active *bool // nil: on and off
+}
+
 // WorkflowRepository scopes lookups to the owner: someone else's workflow is not found.
 type WorkflowRepository interface {
 	Create(ctx context.Context, w domain.Workflow) error
 	Get(ctx context.Context, owner domain.UserID, id domain.WorkflowID) (domain.Workflow, error)
-	List(ctx context.Context, owner domain.UserID, f PageFilter) (Page[domain.Workflow], error)
+	List(ctx context.Context, owner domain.UserID, f WorkflowFilter) (Page[domain.Workflow], error)
+	// SetPin pins a workflow after its owner's others, or unpins it; SetPinOrder puts the
+	// pinned in the order of ids, every one of them, else domain.ErrConflict.
+	SetPin(ctx context.Context, owner domain.UserID, id domain.WorkflowID, pinned bool) error
+	SetPinOrder(ctx context.Context, owner domain.UserID, ids []domain.WorkflowID) error
 	// Update saves w if the stored version is still expectedVersion, else returns
 	// domain.ErrConflict. The stored version becomes w.Version.
 	Update(ctx context.Context, w domain.Workflow, expectedVersion int) error

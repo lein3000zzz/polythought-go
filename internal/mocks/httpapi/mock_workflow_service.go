@@ -637,6 +637,78 @@ func (_c *MockWorkflowService_Executions_Call) RunAndReturn(run func(ctx context
 	return _c
 }
 
+// Find provides a mock function for the type MockWorkflowService
+func (_mock *MockWorkflowService) Find(ctx context.Context, p auth.Principal, f ports.WorkflowFilter) (ports.Page[domain.Workflow], error) {
+	ret := _mock.Called(ctx, p, f)
+
+	if len(ret) == 0 {
+		panic("no return value specified for Find")
+	}
+
+	var r0 ports.Page[domain.Workflow]
+	var r1 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context, auth.Principal, ports.WorkflowFilter) (ports.Page[domain.Workflow], error)); ok {
+		return returnFunc(ctx, p, f)
+	}
+	if returnFunc, ok := ret.Get(0).(func(context.Context, auth.Principal, ports.WorkflowFilter) ports.Page[domain.Workflow]); ok {
+		r0 = returnFunc(ctx, p, f)
+	} else {
+		r0 = ret.Get(0).(ports.Page[domain.Workflow])
+	}
+	if returnFunc, ok := ret.Get(1).(func(context.Context, auth.Principal, ports.WorkflowFilter) error); ok {
+		r1 = returnFunc(ctx, p, f)
+	} else {
+		r1 = ret.Error(1)
+	}
+	return r0, r1
+}
+
+// MockWorkflowService_Find_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'Find'
+type MockWorkflowService_Find_Call struct {
+	*mock.Call
+}
+
+// Find is a helper method to define mock.On call
+//   - ctx context.Context
+//   - p auth.Principal
+//   - f ports.WorkflowFilter
+func (_e *MockWorkflowService_Expecter) Find(ctx any, p any, f any) *MockWorkflowService_Find_Call {
+	return &MockWorkflowService_Find_Call{Call: _e.mock.On("Find", ctx, p, f)}
+}
+
+func (_c *MockWorkflowService_Find_Call) Run(run func(ctx context.Context, p auth.Principal, f ports.WorkflowFilter)) *MockWorkflowService_Find_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		var arg1 auth.Principal
+		if args[1] != nil {
+			arg1 = args[1].(auth.Principal)
+		}
+		var arg2 ports.WorkflowFilter
+		if args[2] != nil {
+			arg2 = args[2].(ports.WorkflowFilter)
+		}
+		run(
+			arg0,
+			arg1,
+			arg2,
+		)
+	})
+	return _c
+}
+
+func (_c *MockWorkflowService_Find_Call) Return(page ports.Page[domain.Workflow], err error) *MockWorkflowService_Find_Call {
+	_c.Call.Return(page, err)
+	return _c
+}
+
+func (_c *MockWorkflowService_Find_Call) RunAndReturn(run func(ctx context.Context, p auth.Principal, f ports.WorkflowFilter) (ports.Page[domain.Workflow], error)) *MockWorkflowService_Find_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // Get provides a mock function for the type MockWorkflowService
 func (_mock *MockWorkflowService) Get(ctx context.Context, p auth.Principal, id domain.WorkflowID) (domain.Workflow, error) {
 	ret := _mock.Called(ctx, p, id)
@@ -781,6 +853,75 @@ func (_c *MockWorkflowService_List_Call) RunAndReturn(run func(ctx context.Conte
 	return _c
 }
 
+// Pin provides a mock function for the type MockWorkflowService
+func (_mock *MockWorkflowService) Pin(ctx context.Context, p auth.Principal, id domain.WorkflowID, pinned bool) error {
+	ret := _mock.Called(ctx, p, id, pinned)
+
+	if len(ret) == 0 {
+		panic("no return value specified for Pin")
+	}
+
+	var r0 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context, auth.Principal, domain.WorkflowID, bool) error); ok {
+		r0 = returnFunc(ctx, p, id, pinned)
+	} else {
+		r0 = ret.Error(0)
+	}
+	return r0
+}
+
+// MockWorkflowService_Pin_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'Pin'
+type MockWorkflowService_Pin_Call struct {
+	*mock.Call
+}
+
+// Pin is a helper method to define mock.On call
+//   - ctx context.Context
+//   - p auth.Principal
+//   - id domain.WorkflowID
+//   - pinned bool
+func (_e *MockWorkflowService_Expecter) Pin(ctx any, p any, id any, pinned any) *MockWorkflowService_Pin_Call {
+	return &MockWorkflowService_Pin_Call{Call: _e.mock.On("Pin", ctx, p, id, pinned)}
+}
+
+func (_c *MockWorkflowService_Pin_Call) Run(run func(ctx context.Context, p auth.Principal, id domain.WorkflowID, pinned bool)) *MockWorkflowService_Pin_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		var arg1 auth.Principal
+		if args[1] != nil {
+			arg1 = args[1].(auth.Principal)
+		}
+		var arg2 domain.WorkflowID
+		if args[2] != nil {
+			arg2 = args[2].(domain.WorkflowID)
+		}
+		var arg3 bool
+		if args[3] != nil {
+			arg3 = args[3].(bool)
+		}
+		run(
+			arg0,
+			arg1,
+			arg2,
+			arg3,
+		)
+	})
+	return _c
+}
+
+func (_c *MockWorkflowService_Pin_Call) Return(err error) *MockWorkflowService_Pin_Call {
+	_c.Call.Return(err)
+	return _c
+}
+
+func (_c *MockWorkflowService_Pin_Call) RunAndReturn(run func(ctx context.Context, p auth.Principal, id domain.WorkflowID, pinned bool) error) *MockWorkflowService_Pin_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // Run provides a mock function for the type MockWorkflowService
 func (_mock *MockWorkflowService) Run(ctx context.Context, p auth.Principal, id domain.WorkflowID, trigger domain.NodeID) (domain.Execution, error) {
 	ret := _mock.Called(ctx, p, id, trigger)
@@ -855,6 +996,69 @@ func (_c *MockWorkflowService_Run_Call) Return(execution domain.Execution, err e
 }
 
 func (_c *MockWorkflowService_Run_Call) RunAndReturn(run func(ctx context.Context, p auth.Principal, id domain.WorkflowID, trigger domain.NodeID) (domain.Execution, error)) *MockWorkflowService_Run_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// SetPinOrder provides a mock function for the type MockWorkflowService
+func (_mock *MockWorkflowService) SetPinOrder(ctx context.Context, p auth.Principal, ids []domain.WorkflowID) error {
+	ret := _mock.Called(ctx, p, ids)
+
+	if len(ret) == 0 {
+		panic("no return value specified for SetPinOrder")
+	}
+
+	var r0 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context, auth.Principal, []domain.WorkflowID) error); ok {
+		r0 = returnFunc(ctx, p, ids)
+	} else {
+		r0 = ret.Error(0)
+	}
+	return r0
+}
+
+// MockWorkflowService_SetPinOrder_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'SetPinOrder'
+type MockWorkflowService_SetPinOrder_Call struct {
+	*mock.Call
+}
+
+// SetPinOrder is a helper method to define mock.On call
+//   - ctx context.Context
+//   - p auth.Principal
+//   - ids []domain.WorkflowID
+func (_e *MockWorkflowService_Expecter) SetPinOrder(ctx any, p any, ids any) *MockWorkflowService_SetPinOrder_Call {
+	return &MockWorkflowService_SetPinOrder_Call{Call: _e.mock.On("SetPinOrder", ctx, p, ids)}
+}
+
+func (_c *MockWorkflowService_SetPinOrder_Call) Run(run func(ctx context.Context, p auth.Principal, ids []domain.WorkflowID)) *MockWorkflowService_SetPinOrder_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		var arg1 auth.Principal
+		if args[1] != nil {
+			arg1 = args[1].(auth.Principal)
+		}
+		var arg2 []domain.WorkflowID
+		if args[2] != nil {
+			arg2 = args[2].([]domain.WorkflowID)
+		}
+		run(
+			arg0,
+			arg1,
+			arg2,
+		)
+	})
+	return _c
+}
+
+func (_c *MockWorkflowService_SetPinOrder_Call) Return(err error) *MockWorkflowService_SetPinOrder_Call {
+	_c.Call.Return(err)
+	return _c
+}
+
+func (_c *MockWorkflowService_SetPinOrder_Call) RunAndReturn(run func(ctx context.Context, p auth.Principal, ids []domain.WorkflowID) error) *MockWorkflowService_SetPinOrder_Call {
 	_c.Call.Return(run)
 	return _c
 }

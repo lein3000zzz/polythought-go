@@ -30,6 +30,8 @@ type workflowsTable struct {
 	ActedToken     postgres.ColumnString
 	ActedName      postgres.ColumnString
 	ActedConfirmed postgres.ColumnBool
+	Description    postgres.ColumnString
+	Pin            postgres.ColumnInteger
 
 	AllColumns     postgres.ColumnList
 	MutableColumns postgres.ColumnList
@@ -84,9 +86,11 @@ func newWorkflowsTableImpl(schemaName, tableName, alias string) workflowsTable {
 		ActedTokenColumn     = postgres.StringColumn("acted_token")
 		ActedNameColumn      = postgres.StringColumn("acted_name")
 		ActedConfirmedColumn = postgres.BoolColumn("acted_confirmed")
-		allColumns           = postgres.ColumnList{IDColumn, OwnerIDColumn, NameColumn, ActiveColumn, DefinitionColumn, VersionColumn, CreatedAtColumn, UpdatedAtColumn, ActedHowColumn, ActedGrantColumn, ActedTokenColumn, ActedNameColumn, ActedConfirmedColumn}
-		mutableColumns       = postgres.ColumnList{OwnerIDColumn, NameColumn, ActiveColumn, DefinitionColumn, VersionColumn, CreatedAtColumn, UpdatedAtColumn, ActedHowColumn, ActedGrantColumn, ActedTokenColumn, ActedNameColumn, ActedConfirmedColumn}
-		defaultColumns       = postgres.ColumnList{ActiveColumn, ActedHowColumn, ActedGrantColumn, ActedTokenColumn, ActedNameColumn, ActedConfirmedColumn}
+		DescriptionColumn    = postgres.StringColumn("description")
+		PinColumn            = postgres.IntegerColumn("pin")
+		allColumns           = postgres.ColumnList{IDColumn, OwnerIDColumn, NameColumn, ActiveColumn, DefinitionColumn, VersionColumn, CreatedAtColumn, UpdatedAtColumn, ActedHowColumn, ActedGrantColumn, ActedTokenColumn, ActedNameColumn, ActedConfirmedColumn, DescriptionColumn, PinColumn}
+		mutableColumns       = postgres.ColumnList{OwnerIDColumn, NameColumn, ActiveColumn, DefinitionColumn, VersionColumn, CreatedAtColumn, UpdatedAtColumn, ActedHowColumn, ActedGrantColumn, ActedTokenColumn, ActedNameColumn, ActedConfirmedColumn, DescriptionColumn, PinColumn}
+		defaultColumns       = postgres.ColumnList{ActiveColumn, ActedHowColumn, ActedGrantColumn, ActedTokenColumn, ActedNameColumn, ActedConfirmedColumn, DescriptionColumn}
 	)
 
 	return workflowsTable{
@@ -106,6 +110,8 @@ func newWorkflowsTableImpl(schemaName, tableName, alias string) workflowsTable {
 		ActedToken:     ActedTokenColumn,
 		ActedName:      ActedNameColumn,
 		ActedConfirmed: ActedConfirmedColumn,
+		Description:    DescriptionColumn,
+		Pin:            PinColumn,
 
 		AllColumns:     allColumns,
 		MutableColumns: mutableColumns,

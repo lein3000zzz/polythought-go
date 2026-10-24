@@ -5,13 +5,93 @@ import { keys } from './keys'
 
 const pageSize = 50
 
-export function useWorkflows() {
+/** What the workflows list narrows to: a search of names and descriptions, on or off. */
+export type WorkflowFilter = { q?: string; active?: boolean }
+
+/**
+ * Your workflows, the newest first, a page at a time; with pinned false, those not
+ * pinned, as the Workflows page lists them below the pinned.
+ */
+export function useWorkflows(filter: WorkflowFilter = {}, pinned?: false) {
   return useInfiniteQuery({
-    queryKey: keys.workflowList,
+    queryKey: [...keys.workflowList, filter, pinned ?? 'all'],
     queryFn: ({ pageParam }) =>
-      call(api.GET('/workflows', { params: { query: { limit: pageSize, cursor: pageParam } } })),
+      call(
+        api.GET('/workflows', {
+          params: {
+            query: {
+              limit: pageSize,
+              cursor: pageParam,
+              q: filter.q || undefined,
+              active: filter.active,
+              pinned,
+            },
+          },
+        }),
+      ),
     initialPageParam: undefined as string | undefined,
     getNextPageParam: (page) => page.nextCursor,
+  })
+}
+
+/** Your pinned workflows, in their order, all of them. */
+export function usePinnedWorkflows(filter: WorkflowFilter = {}) {
+  return useQuery({
+    queryKey: [...keys.workflowPins, filter],
+    queryFn: async () =>
+      (
+        await call(
+          api.GET('/workflows', {
+            params: { query: { pinned: true, q: filter.q || undefined, active: filter.active } },
+          }),
+        )
+      ).workflows,
+  })
+}
+
+/** Pins a workflow after your others, or unpins it; its version stays. */
+export function usePinWorkflow() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: ({ id, pinned }: { id: string; pinned: boolean }) =>
+      call(api.PUT('/workflows/{id}/pin', { params: { path: { id } }, body: { pinned } })),
+    onSettled: () => queryClient.invalidateQueries({ queryKey: keys.workflowList }),
+  })
+}
+
+/**
+ * Puts your pinned workflows in a new order, shown at once; put back as they were when
+ * the server refuses it.
+ */
+export function useOrderPins() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: (ordered: Workflow[]) =>
+      call(api.PUT('/workflows/pins', { body: { ids: ordered.map((w) => w.id) } })),
+    onMutate: async (ordered) => {
+      await queryClient.cancelQueries({ queryKey: keys.workflowPins })
+      const before = queryClient.getQueriesData<Workflow[]>({ queryKey: keys.workflowPins })
+
+      // The unfiltered list takes the new order; a filtered one keeps its own, in it.
+      for (const [key, list] of before) {
+        if (!list) continue
+        const shown = new Set(list.map((w) => w.id))
+        queryClient.setQueryData(
+          key,
+          ordered.filter((w) => shown.has(w.id)),
+        )
+      }
+
+      return { before }
+    },
+    onError: (_error, _ordered, context) => {
+      for (const [key, list] of context?.before ?? []) {
+        queryClient.setQueryData(key, list)
+      }
+    },
+    onSettled: () => queryClient.invalidateQueries({ queryKey: keys.workflowPins }),
   })
 }
 

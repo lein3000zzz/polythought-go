@@ -1777,6 +1777,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/workflows/pins": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Order the pinned workflows */
+        put: operations["orderPins"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/workflows/{id}": {
         parameters: {
             query?: never;
@@ -2029,6 +2046,23 @@ export interface paths {
         put?: never;
         /** Reset the paper account */
         post: operations["resetPaperAccount"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/workflows/{id}/pin": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Pin or unpin a workflow */
+        put: operations["pinWorkflow"];
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -3409,6 +3443,13 @@ export interface components {
         PasswordResetRequest: {
             email: string;
         };
+        PinOrderRequest: {
+            /** @description IDs are every pinned workflow of yours, in the order to show them. */
+            ids: string[];
+        };
+        PinRequest: {
+            pinned: boolean;
+        };
         Plugin: {
             caps: components["schemas"]["PluginCaps"];
             /**
@@ -3914,6 +3955,8 @@ export interface components {
         };
         UpdateWorkflowRequest: {
             connections: components["schemas"]["Connection"][];
+            /** @description Description is what it does, up to 1,000 characters; left out keeps the one it has. */
+            description?: string;
             name: string;
             nodes: components["schemas"]["Node"][];
             /** @description Version is the version the edit started from; a newer one on the server is a conflict. */
@@ -4033,9 +4076,13 @@ export interface components {
             connections: components["schemas"]["Connection"][];
             /** Format: date-time */
             createdAt: string;
+            /** @description Description is what it does, in your words; searched with its name. */
+            description: string;
             id: string;
             name: string;
             nodes: components["schemas"]["Node"][];
+            /** @description Pin is its place among your pinned workflows, from 1; absent when it is not pinned. */
+            pin?: number;
             /** Format: date-time */
             updatedAt: string;
             version: number;
@@ -4056,6 +4103,8 @@ export interface components {
         };
         WorkflowDefinition: {
             connections: components["schemas"]["Connection"][];
+            /** @description Description is what it does, up to 1,000 characters; left out keeps the one it has. */
+            description?: string;
             name: string;
             nodes: components["schemas"]["Node"][];
         };
@@ -9818,6 +9867,12 @@ export interface operations {
                 limit?: number;
                 /** @description nextCursor of the previous page */
                 cursor?: string;
+                /** @description Only those whose name or description holds this */
+                q?: string;
+                /** @description true: the pinned, in their order, all of them; false: the rest */
+                pinned?: boolean;
+                /** @description true: those switched on; false: those off */
+                active?: boolean;
             };
             header?: never;
             path?: never;
@@ -9888,6 +9943,47 @@ export interface operations {
             };
             /** @description unauthenticated */
             401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    orderPins: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description The pinned, in order */
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PinOrderRequest"];
+            };
+        };
+        responses: {
+            /** @description No Content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description unauthenticated */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description conflict: the pinned workflows changed; read them again */
+            409: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -10753,6 +10849,50 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["PaperAccount"];
                 };
+            };
+            /** @description unauthenticated */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description not_found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    pinWorkflow: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Workflow ID */
+                id: string;
+            };
+            cookie?: never;
+        };
+        /** @description Pinned or not */
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PinRequest"];
+            };
+        };
+        responses: {
+            /** @description No Content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             /** @description unauthenticated */
             401: {

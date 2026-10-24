@@ -18,6 +18,7 @@ type Workflow struct {
 	ID          WorkflowID
 	OwnerID     UserID
 	Name        string
+	Description string // what it does, in its owner's words; searched with its name
 	Active      bool
 	Nodes       []NodeSpec
 	Connections []Connection
@@ -31,6 +32,10 @@ type Workflow struct {
 	// ActedBy is the agent or token that switched it on, or changed it while it was on,
 	// named on its runs until it is switched on or off again (D407); zero for the user.
 	ActedBy Actor
+
+	// Pin is its place among its owner's pinned workflows, from 1; 0 when it is not
+	// pinned. Pinning is how the list shows it, not a change to it: its version stays.
+	Pin int
 }
 
 // CanvasPosition is where a node sits on the editor canvas. It never affects execution.

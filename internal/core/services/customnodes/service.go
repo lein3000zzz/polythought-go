@@ -307,7 +307,7 @@ func (s *Service) breaks(ctx context.Context, n domain.CustomNode, edited *domai
 	var broken []domain.BrokenWorkflow
 
 	for cursor := ""; ; {
-		page, err := s.workflows.List(ctx, n.OwnerID, ports.PageFilter{Limit: 200, Cursor: cursor})
+		page, err := s.workflows.List(ctx, n.OwnerID, ports.WorkflowFilter{PageFilter: ports.PageFilter{Limit: 200, Cursor: cursor}})
 		if err != nil {
 			return err
 		}

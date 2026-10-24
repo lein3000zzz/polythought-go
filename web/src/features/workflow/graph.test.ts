@@ -133,6 +133,7 @@ describe('toDefinition', () => {
 
     expect(toDefinition(saved.name, nodes, edges)).toEqual({
       name: saved.name,
+      description: '',
       nodes: saved.nodes,
       connections: saved.connections,
     })

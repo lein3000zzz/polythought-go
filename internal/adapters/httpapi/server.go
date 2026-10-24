@@ -101,6 +101,9 @@ type WorkflowService interface {
 	Get(ctx context.Context, p auth.Principal, id domain.WorkflowID) (domain.Workflow, error)
 	Check(ctx context.Context, p auth.Principal, id domain.WorkflowID) ([]domain.Problem, error)
 	List(ctx context.Context, p auth.Principal, f ports.PageFilter) (ports.Page[domain.Workflow], error)
+	Find(ctx context.Context, p auth.Principal, f ports.WorkflowFilter) (ports.Page[domain.Workflow], error)
+	Pin(ctx context.Context, p auth.Principal, id domain.WorkflowID, pinned bool) error
+	SetPinOrder(ctx context.Context, p auth.Principal, ids []domain.WorkflowID) error
 	Update(ctx context.Context, p auth.Principal, id domain.WorkflowID, version int, def workflows.Definition) (domain.Workflow, error)
 	Delete(ctx context.Context, p auth.Principal, id domain.WorkflowID) error
 	Activate(ctx context.Context, p auth.Principal, id domain.WorkflowID) (domain.Workflow, error)
@@ -463,6 +466,8 @@ func (s *Server) routes() {
 
 	wf := v1.Group("/workflows", s.requireAuth)
 	wf.GET("", s.listWorkflows)
+	wf.PUT("/pins", s.orderPins)
+	wf.PUT("/:id/pin", s.pinWorkflow)
 	wf.POST("", s.createWorkflow)
 	wf.GET("/:id", s.getWorkflow)
 	wf.GET("/:id/problems", s.checkWorkflow)

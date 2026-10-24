@@ -8,6 +8,24 @@ list on the left, the canvas in the middle and the selected node's settings on t
 **Code**, at the top, shows the whole workflow as TypeScript to edit instead; see
 [Workflows as code](/docs/guides/workflow-code/).
 
+## Your workflows
+
+**Workflows** shows each of yours as a card: its name, its description, whether it is
+active, how many nodes it has and when it last changed. The search finds them by name and by
+description, `/` jumps to it, and **All**, **Active** and **Inactive** narrow the
+cards to those switched on or off.
+
+The pin on a card puts it at the top, after the others pinned. Drag a pinned card to
+another place among them, by its handle on a touch screen, and let go: **Escape** while
+dragging puts it back. Or focus the handle and move the card with the arrow keys. The
+order is yours, on every browser. While a search or a filter hides some of them, the
+order stays as it is. Pinning changes nothing in the workflow, its version included.
+
+A workflow's **Description** is in its settings with no node selected, saved with it. Using
+one of Polythought's library entries, or one of your own, gives the new workflow the
+entry's summary as its description; another user's words are not passed on as yours.
+Sharing a workflow starts from its description.
+
 The node list and the settings fold to a narrow rail with the button at their top, and
 drag wider or narrower by their inner edge: from 200 to 400 pixels for the list, 280 to
 640 for the settings. Focused, an edge also moves with the arrow keys, Home and End, and a

@@ -159,10 +159,14 @@ function Editor({ workflow, types, onReload }: Props) {
     const name = workflow?.name ?? 'Untitled workflow'
     const flow = workflow ? toFlow(workflow, types) : starter(types)
 
-    return { ...flow, definition: toDefinition(name, flow.nodes, flow.edges) }
+    return {
+      ...flow,
+      definition: toDefinition(name, flow.nodes, flow.edges, workflow?.description),
+    }
   })
 
   const [name, setName] = useState(initial.definition.name)
+  const [description, setDescription] = useState(initial.definition.description ?? '')
   const [nodes, setNodes, onNodesChange] = useNodesState<FlowNode>(initial.nodes)
   const [edges, setEdges, onEdgesChange] = useEdgesState<FlowEdge>(initial.edges)
   // What the server has, to tell unsaved changes. Opening a workflow counts as saved even
@@ -277,7 +281,10 @@ function Editor({ workflow, types, onReload }: Props) {
     workflow !== undefined && nodes.some((n) => n.data.spec.type.startsWith('trading.'))
   const codeOff = me?.mayWriteCode === false
 
-  const definition = useMemo(() => toDefinition(name, nodes, edges), [name, nodes, edges])
+  const definition = useMemo(
+    () => toDefinition(name, nodes, edges, description),
+    [name, nodes, edges, description],
+  )
   // What the items look like where each node receives them, for its field settings.
   const shapes = useMemo(() => receivedPorts(nodes, edges), [nodes, edges])
   const dirty = !sameDefinition(definition, saved ?? initial.definition)
@@ -311,8 +318,9 @@ function Editor({ workflow, types, onReload }: Props) {
         ? await update.mutateAsync({ ...sent, version: version ?? workflow.version })
         : await create.mutateAsync(sent)
 
-      setSaved({ ...sent, name: w.name })
+      setSaved({ ...sent, name: w.name, description: w.description })
       setName((current) => (current === sent.name ? w.name : current)) // the server trims it
+      setDescription((current) => (current === sent.description ? w.description : current))
       setVersion(w.version)
       setProblems([])
 
@@ -361,7 +369,7 @@ function Editor({ workflow, types, onReload }: Props) {
       setApplyFailure(undefined)
       setCode((c) => ({ ...c, base: text }))
 
-      return toDefinition(built.name, flow.nodes, flow.edges)
+      return toDefinition(built.name, flow.nodes, flow.edges, description) // code carries none
     } catch (error) {
       setApplyFailure({
         message: error instanceof ApiError ? error.message : errorMessage(error),
@@ -845,7 +853,11 @@ function Editor({ workflow, types, onReload }: Props) {
                         onDelete={() => void deleteElements({ nodes: [{ id: selectedNode.id }] })}
                       />
                     ) : (
-                      <WorkflowPanel problems={problems} />
+                      <WorkflowPanel
+                        problems={problems}
+                        description={description}
+                        onDescription={setDescription}
+                      />
                     )}
                   </div>
                 </div>

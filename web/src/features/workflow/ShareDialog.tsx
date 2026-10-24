@@ -63,7 +63,8 @@ function ShareForm({ workflow, dirty, existing, onClose }: FormProps) {
   const share = useShareWorkflow(workflow.id)
   const remove = useDeleteTemplate()
   const [summary, setSummary] = useState(existing?.summary ?? '')
-  const [description, setDescription] = useState(existing?.description ?? '')
+  // A first share starts from the workflow's own description.
+  const [description, setDescription] = useState(existing?.description ?? workflow.description)
   const types = useNodeTypes().data ?? []
   // The custom nodes it uses go with it, code included (D62).
   const custom = [...new Set(workflow.nodes.map((n) => n.type))]

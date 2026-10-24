@@ -388,7 +388,7 @@ func (_c *MockWorkflowRepository_Get_Call) RunAndReturn(run func(ctx context.Con
 }
 
 // List provides a mock function for the type MockWorkflowRepository
-func (_mock *MockWorkflowRepository) List(ctx context.Context, owner domain.UserID, f ports.PageFilter) (ports.Page[domain.Workflow], error) {
+func (_mock *MockWorkflowRepository) List(ctx context.Context, owner domain.UserID, f ports.WorkflowFilter) (ports.Page[domain.Workflow], error) {
 	ret := _mock.Called(ctx, owner, f)
 
 	if len(ret) == 0 {
@@ -397,15 +397,15 @@ func (_mock *MockWorkflowRepository) List(ctx context.Context, owner domain.User
 
 	var r0 ports.Page[domain.Workflow]
 	var r1 error
-	if returnFunc, ok := ret.Get(0).(func(context.Context, domain.UserID, ports.PageFilter) (ports.Page[domain.Workflow], error)); ok {
+	if returnFunc, ok := ret.Get(0).(func(context.Context, domain.UserID, ports.WorkflowFilter) (ports.Page[domain.Workflow], error)); ok {
 		return returnFunc(ctx, owner, f)
 	}
-	if returnFunc, ok := ret.Get(0).(func(context.Context, domain.UserID, ports.PageFilter) ports.Page[domain.Workflow]); ok {
+	if returnFunc, ok := ret.Get(0).(func(context.Context, domain.UserID, ports.WorkflowFilter) ports.Page[domain.Workflow]); ok {
 		r0 = returnFunc(ctx, owner, f)
 	} else {
 		r0 = ret.Get(0).(ports.Page[domain.Workflow])
 	}
-	if returnFunc, ok := ret.Get(1).(func(context.Context, domain.UserID, ports.PageFilter) error); ok {
+	if returnFunc, ok := ret.Get(1).(func(context.Context, domain.UserID, ports.WorkflowFilter) error); ok {
 		r1 = returnFunc(ctx, owner, f)
 	} else {
 		r1 = ret.Error(1)
@@ -421,12 +421,12 @@ type MockWorkflowRepository_List_Call struct {
 // List is a helper method to define mock.On call
 //   - ctx context.Context
 //   - owner domain.UserID
-//   - f ports.PageFilter
+//   - f ports.WorkflowFilter
 func (_e *MockWorkflowRepository_Expecter) List(ctx any, owner any, f any) *MockWorkflowRepository_List_Call {
 	return &MockWorkflowRepository_List_Call{Call: _e.mock.On("List", ctx, owner, f)}
 }
 
-func (_c *MockWorkflowRepository_List_Call) Run(run func(ctx context.Context, owner domain.UserID, f ports.PageFilter)) *MockWorkflowRepository_List_Call {
+func (_c *MockWorkflowRepository_List_Call) Run(run func(ctx context.Context, owner domain.UserID, f ports.WorkflowFilter)) *MockWorkflowRepository_List_Call {
 	_c.Call.Run(func(args mock.Arguments) {
 		var arg0 context.Context
 		if args[0] != nil {
@@ -436,9 +436,9 @@ func (_c *MockWorkflowRepository_List_Call) Run(run func(ctx context.Context, ow
 		if args[1] != nil {
 			arg1 = args[1].(domain.UserID)
 		}
-		var arg2 ports.PageFilter
+		var arg2 ports.WorkflowFilter
 		if args[2] != nil {
-			arg2 = args[2].(ports.PageFilter)
+			arg2 = args[2].(ports.WorkflowFilter)
 		}
 		run(
 			arg0,
@@ -454,7 +454,7 @@ func (_c *MockWorkflowRepository_List_Call) Return(page ports.Page[domain.Workfl
 	return _c
 }
 
-func (_c *MockWorkflowRepository_List_Call) RunAndReturn(run func(ctx context.Context, owner domain.UserID, f ports.PageFilter) (ports.Page[domain.Workflow], error)) *MockWorkflowRepository_List_Call {
+func (_c *MockWorkflowRepository_List_Call) RunAndReturn(run func(ctx context.Context, owner domain.UserID, f ports.WorkflowFilter) (ports.Page[domain.Workflow], error)) *MockWorkflowRepository_List_Call {
 	_c.Call.Return(run)
 	return _c
 }
@@ -598,6 +598,138 @@ func (_c *MockWorkflowRepository_SetActive_Call) Return(err error) *MockWorkflow
 }
 
 func (_c *MockWorkflowRepository_SetActive_Call) RunAndReturn(run func(ctx context.Context, owner domain.UserID, id domain.WorkflowID, active bool, at time.Time, by domain.Actor) error) *MockWorkflowRepository_SetActive_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// SetPin provides a mock function for the type MockWorkflowRepository
+func (_mock *MockWorkflowRepository) SetPin(ctx context.Context, owner domain.UserID, id domain.WorkflowID, pinned bool) error {
+	ret := _mock.Called(ctx, owner, id, pinned)
+
+	if len(ret) == 0 {
+		panic("no return value specified for SetPin")
+	}
+
+	var r0 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context, domain.UserID, domain.WorkflowID, bool) error); ok {
+		r0 = returnFunc(ctx, owner, id, pinned)
+	} else {
+		r0 = ret.Error(0)
+	}
+	return r0
+}
+
+// MockWorkflowRepository_SetPin_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'SetPin'
+type MockWorkflowRepository_SetPin_Call struct {
+	*mock.Call
+}
+
+// SetPin is a helper method to define mock.On call
+//   - ctx context.Context
+//   - owner domain.UserID
+//   - id domain.WorkflowID
+//   - pinned bool
+func (_e *MockWorkflowRepository_Expecter) SetPin(ctx any, owner any, id any, pinned any) *MockWorkflowRepository_SetPin_Call {
+	return &MockWorkflowRepository_SetPin_Call{Call: _e.mock.On("SetPin", ctx, owner, id, pinned)}
+}
+
+func (_c *MockWorkflowRepository_SetPin_Call) Run(run func(ctx context.Context, owner domain.UserID, id domain.WorkflowID, pinned bool)) *MockWorkflowRepository_SetPin_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		var arg1 domain.UserID
+		if args[1] != nil {
+			arg1 = args[1].(domain.UserID)
+		}
+		var arg2 domain.WorkflowID
+		if args[2] != nil {
+			arg2 = args[2].(domain.WorkflowID)
+		}
+		var arg3 bool
+		if args[3] != nil {
+			arg3 = args[3].(bool)
+		}
+		run(
+			arg0,
+			arg1,
+			arg2,
+			arg3,
+		)
+	})
+	return _c
+}
+
+func (_c *MockWorkflowRepository_SetPin_Call) Return(err error) *MockWorkflowRepository_SetPin_Call {
+	_c.Call.Return(err)
+	return _c
+}
+
+func (_c *MockWorkflowRepository_SetPin_Call) RunAndReturn(run func(ctx context.Context, owner domain.UserID, id domain.WorkflowID, pinned bool) error) *MockWorkflowRepository_SetPin_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// SetPinOrder provides a mock function for the type MockWorkflowRepository
+func (_mock *MockWorkflowRepository) SetPinOrder(ctx context.Context, owner domain.UserID, ids []domain.WorkflowID) error {
+	ret := _mock.Called(ctx, owner, ids)
+
+	if len(ret) == 0 {
+		panic("no return value specified for SetPinOrder")
+	}
+
+	var r0 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context, domain.UserID, []domain.WorkflowID) error); ok {
+		r0 = returnFunc(ctx, owner, ids)
+	} else {
+		r0 = ret.Error(0)
+	}
+	return r0
+}
+
+// MockWorkflowRepository_SetPinOrder_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'SetPinOrder'
+type MockWorkflowRepository_SetPinOrder_Call struct {
+	*mock.Call
+}
+
+// SetPinOrder is a helper method to define mock.On call
+//   - ctx context.Context
+//   - owner domain.UserID
+//   - ids []domain.WorkflowID
+func (_e *MockWorkflowRepository_Expecter) SetPinOrder(ctx any, owner any, ids any) *MockWorkflowRepository_SetPinOrder_Call {
+	return &MockWorkflowRepository_SetPinOrder_Call{Call: _e.mock.On("SetPinOrder", ctx, owner, ids)}
+}
+
+func (_c *MockWorkflowRepository_SetPinOrder_Call) Run(run func(ctx context.Context, owner domain.UserID, ids []domain.WorkflowID)) *MockWorkflowRepository_SetPinOrder_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		var arg1 domain.UserID
+		if args[1] != nil {
+			arg1 = args[1].(domain.UserID)
+		}
+		var arg2 []domain.WorkflowID
+		if args[2] != nil {
+			arg2 = args[2].([]domain.WorkflowID)
+		}
+		run(
+			arg0,
+			arg1,
+			arg2,
+		)
+	})
+	return _c
+}
+
+func (_c *MockWorkflowRepository_SetPinOrder_Call) Return(err error) *MockWorkflowRepository_SetPinOrder_Call {
+	_c.Call.Return(err)
+	return _c
+}
+
+func (_c *MockWorkflowRepository_SetPinOrder_Call) RunAndReturn(run func(ctx context.Context, owner domain.UserID, ids []domain.WorkflowID) error) *MockWorkflowRepository_SetPinOrder_Call {
 	_c.Call.Return(run)
 	return _c
 }

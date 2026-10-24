@@ -174,14 +174,34 @@ export function NodePanel({
 
 type WorkflowPanelProps = {
   problems: readonly Problem[]
+  description: string
+  onDescription: (description: string) => void
 }
 
-/** Shown when no single node is selected: how to edit, and problems not about a node. */
-export function WorkflowPanel({ problems }: WorkflowPanelProps) {
+/**
+ * Shown when no single node is selected: the workflow's description, how to edit, and
+ * problems not about a node.
+ */
+export function WorkflowPanel({ problems, description, onDescription }: WorkflowPanelProps) {
   const general = problems.filter((p) => !p.nodeId)
 
   return (
     <div className="flex flex-col gap-4 p-4 text-sm text-muted-foreground">
+      <div className="flex flex-col gap-1.5 text-foreground">
+        <Label htmlFor="workflow-description">Description</Label>
+        <Textarea
+          id="workflow-description"
+          aria-describedby="workflow-description-hint"
+          rows={3}
+          maxLength={1000}
+          placeholder="What it does, like Logs markets whose spread is tight."
+          value={description}
+          onChange={(e) => onDescription(e.target.value)}
+        />
+        <p id="workflow-description-hint" className="text-xs text-muted-foreground">
+          Shown on its card in Workflows, and searched with its name.
+        </p>
+      </div>
       {general.length > 0 && (
         <Alert variant="destructive">
           <CircleAlert />

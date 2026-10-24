@@ -26,4 +26,6 @@ type Workflows struct {
 	ActedToken     string
 	ActedName      string
 	ActedConfirmed bool
+	Description    string
+	Pin            *int32
 }

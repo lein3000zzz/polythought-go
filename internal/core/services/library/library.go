@@ -222,7 +222,14 @@ func (s *Service) Use(ctx context.Context, p auth.Principal, id domain.TemplateI
 		}
 	}
 
-	w, err := s.workflows.Create(ctx, p, workflows.Definition{Name: name, Nodes: nodes, Connections: t.Connections})
+	// Its summary describes it, where the words are Polythought's or the user's own: another
+	// user's are theirs, and a description is read as the user's.
+	var description *string
+	if t.BuiltIn() || t.AuthorID == p.User.ID {
+		description = &t.Summary
+	}
+
+	w, err := s.workflows.Create(ctx, p, workflows.Definition{Name: name, Description: description, Nodes: nodes, Connections: t.Connections})
 	if err != nil {
 		s.removeCopies(ctx, p, made)
 		return domain.Workflow{}, err

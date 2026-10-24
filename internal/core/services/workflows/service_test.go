@@ -3,6 +3,7 @@ package workflows_test
 import (
 	"context"
 	"errors"
+	"strings"
 	"testing"
 	"time"
 
@@ -865,4 +866,44 @@ func TestPause(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, 1, n, "only the one that cannot run")
 	assert.Equal(t, map[domain.WorkflowID]string{"wf-1": "the plugin weather is disabled"}, told.told, "its owner told why (D319)")
+}
+
+// A workflow's description is its owner's words, trimmed and at most 1,000 characters; an
+// update that names none keeps the one it has.
+func TestDescription(t *testing.T) {
+	ctx := context.Background()
+	described := func(text string) workflows.Definition {
+		d := def
+		d.Description = &text
+
+		return d
+	}
+
+	t.Run("trimmed, and kept", func(t *testing.T) {
+		svc, d := newService(t, workflows.DefaultLimits())
+		d.repo.EXPECT().Count(mock.Anything, mock.Anything).Return(0, 0, nil)
+		d.validator.EXPECT().Validate(mock.Anything, mock.Anything).Return(nil)
+		d.repo.EXPECT().Create(mock.Anything, mock.MatchedBy(func(w domain.Workflow) bool { return w.Description == "Logs tight books" })).Return(nil)
+
+		_, err := svc.Create(ctx, alice, described("  Logs tight books\n"))
+		require.NoError(t, err)
+
+		svc, d = newService(t, workflows.DefaultLimits())
+		had := stored
+		had.Description = "Logs tight books"
+		d.repo.EXPECT().Get(mock.Anything, domain.UserID("u-1"), domain.WorkflowID("wf-1")).Return(had, nil)
+		d.validator.EXPECT().Validate(mock.Anything, mock.Anything).Return(nil)
+		d.repo.EXPECT().Update(mock.Anything, mock.MatchedBy(func(w domain.Workflow) bool { return w.Description == "Logs tight books" }), 3).Return(nil)
+
+		_, err = svc.Update(ctx, alice, "wf-1", 3, def)
+		require.NoError(t, err, "none named: the one it had")
+	})
+
+	t.Run("at most 1,000 characters", func(t *testing.T) {
+		svc, d := newService(t, workflows.DefaultLimits())
+		d.repo.EXPECT().Count(mock.Anything, mock.Anything).Return(0, 0, nil)
+
+		_, err := svc.Create(ctx, alice, described(strings.Repeat("é", 1001)))
+		require.ErrorIs(t, err, domain.ErrInvalidInput)
+	})
 }

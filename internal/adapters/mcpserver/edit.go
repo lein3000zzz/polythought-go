@@ -38,9 +38,11 @@ type WorkflowCode interface {
 }
 
 type writeIn struct {
-	Name     string   `json:"name,omitempty" jsonschema:"its name; for code, the name workflow() gives unless said"`
-	Code     string   `json:"code,omitempty" jsonschema:"workflow code in TypeScript, as get_workflow gives it; or give workflow"`
-	Workflow *graphIn `json:"workflow,omitempty" jsonschema:"its nodes and connections as JSON, as get_workflow gives them; or give code"`
+	Name string `json:"name,omitempty" jsonschema:"its name; for code, the name workflow() gives unless said"`
+	// Description is what it does; left out, it keeps the one it has.
+	Description *string  `json:"description,omitempty" jsonschema:"what it does, a line or two the user's list shows and searches; left out, it keeps the one it has"`
+	Code        string   `json:"code,omitempty" jsonschema:"workflow code in TypeScript, as get_workflow gives it; or give workflow"`
+	Workflow    *graphIn `json:"workflow,omitempty" jsonschema:"its nodes and connections as JSON, as get_workflow gives them; or give code"`
 }
 
 // graphIn is a graph as an agent gives it, where a lone trigger has no connections.
@@ -157,10 +159,10 @@ func (s *Server) definitionOf(ctx context.Context, p auth.Principal, in writeIn,
 			return workflows.Definition{}, err
 		}
 
-		return workflows.Definition{Name: firstOf(in.Name, w.Name, name), Nodes: w.Nodes, Connections: w.Connections}, nil
+		return workflows.Definition{Name: firstOf(in.Name, w.Name, name), Description: in.Description, Nodes: w.Nodes, Connections: w.Connections}, nil
 	}
 
-	def := workflows.Definition{Name: firstOf(in.Name, name)}
+	def := workflows.Definition{Name: firstOf(in.Name, name), Description: in.Description}
 
 	for _, n := range in.Workflow.Nodes {
 		def.Nodes = append(def.Nodes, domain.NodeSpec{

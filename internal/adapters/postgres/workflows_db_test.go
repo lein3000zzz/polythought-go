@@ -5,6 +5,7 @@ package postgres_test
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"testing"
 	"time"
 
@@ -147,15 +148,92 @@ func TestWorkflows(t *testing.T) {
 				require.NoError(t, repo.Create(ctx, newWorkflow(owner.ID, n)))
 			}
 
-			first, err := repo.List(ctx, owner.ID, ports.PageFilter{Limit: 2})
+			first, err := repo.List(ctx, owner.ID, ports.WorkflowFilter{PageFilter: ports.PageFilter{Limit: 2}})
 			require.NoError(t, err)
 			require.Len(t, first.Items, 2)
+			assert.Equal(t, "c", first.Items[0].Name, "the newest first")
 
-			second, err := repo.List(ctx, owner.ID, ports.PageFilter{Limit: 2, Cursor: first.NextCursor})
+			second, err := repo.List(ctx, owner.ID, ports.WorkflowFilter{PageFilter: ports.PageFilter{Limit: 2, Cursor: first.NextCursor}})
 			require.NoError(t, err)
 			require.Len(t, second.Items, 1)
-			assert.Equal(t, "c", second.Items[0].Name)
+			assert.Equal(t, "a", second.Items[0].Name)
 			assert.Empty(t, second.NextCursor)
+		}},
+		{"searched by name and description, as typed", func(t *testing.T, _ *postgres.DB, repo *postgres.Workflows, owner domain.User) {
+			for _, w := range []struct{ name, description string }{
+				{"Spread watch", "Logs tight books"},
+				{"Copy whales", "Follows the 100% club"},
+				{"Weather_bets", ""},
+			} {
+				wf := newWorkflow(owner.ID, w.name)
+				wf.Description = w.description
+				require.NoError(t, repo.Create(ctx, wf))
+			}
+
+			names := func(q string) []string {
+				page, err := repo.List(ctx, owner.ID, ports.WorkflowFilter{Query: q})
+				require.NoError(t, err)
+
+				out := []string{}
+				for _, w := range page.Items {
+					out = append(out, w.Name)
+				}
+
+				return out
+			}
+
+			assert.Equal(t, []string{"Spread watch"}, names("TIGHT"), "the description, any case")
+			assert.Equal(t, []string{"Copy whales"}, names("100%"), "a % as it is")
+			assert.Equal(t, []string{"Weather_bets"}, names("r_b"), "an _ as it is")
+			assert.Empty(t, names("100_"))
+			assert.Len(t, names(" "), 3, "nothing to look for")
+
+			page, err := repo.List(ctx, owner.ID, ports.WorkflowFilter{Active: new(true)})
+			require.NoError(t, err)
+			assert.Empty(t, page.Items, "none switched on")
+		}},
+		{"pinned in their order, apart from the rest", func(t *testing.T, _ *postgres.DB, repo *postgres.Workflows, owner domain.User) {
+			ids := map[string]domain.WorkflowID{}
+			for _, n := range []string{"a", "b", "c", "d"} {
+				w := newWorkflow(owner.ID, n)
+				require.NoError(t, repo.Create(ctx, w))
+				ids[n] = w.ID
+			}
+
+			names := func(pinned bool) []string {
+				page, err := repo.List(ctx, owner.ID, ports.WorkflowFilter{Pinned: &pinned})
+				require.NoError(t, err)
+
+				out := []string{}
+				for _, w := range page.Items {
+					out = append(out, fmt.Sprintf("%s%d", w.Name, w.Pin))
+				}
+
+				return out
+			}
+
+			for _, n := range []string{"c", "a", "d"} {
+				require.NoError(t, repo.SetPin(ctx, owner.ID, ids[n], true))
+			}
+
+			require.NoError(t, repo.SetPin(ctx, owner.ID, ids["a"], true), "pinned already: it stays where it is")
+			assert.Equal(t, []string{"c1", "a2", "d3"}, names(true), "each after the others")
+			assert.Equal(t, []string{"b0"}, names(false))
+
+			require.NoError(t, repo.SetPin(ctx, owner.ID, ids["c"], false))
+			assert.Equal(t, []string{"a1", "d2"}, names(true), "the gap closed")
+
+			require.ErrorIs(t, repo.SetPinOrder(ctx, owner.ID, []domain.WorkflowID{ids["d"]}), domain.ErrConflict, "every one of them")
+			require.ErrorIs(t, repo.SetPinOrder(ctx, owner.ID, []domain.WorkflowID{ids["d"], ids["b"]}), domain.ErrConflict, "b is not pinned")
+			require.ErrorIs(t, repo.SetPinOrder(ctx, owner.ID, []domain.WorkflowID{ids["d"], ids["d"]}), domain.ErrConflict, "each once")
+			require.NoError(t, repo.SetPinOrder(ctx, owner.ID, []domain.WorkflowID{ids["d"], ids["a"]}))
+			assert.Equal(t, []string{"d1", "a2"}, names(true))
+
+			got, err := repo.Get(ctx, owner.ID, ids["d"])
+			require.NoError(t, err)
+			assert.Equal(t, 1, got.Version, "a pin is no change to it")
+
+			require.ErrorIs(t, repo.SetPin(ctx, owner.ID, domain.WorkflowID(newID()), true), domain.ErrNotFound)
 		}},
 	}
 

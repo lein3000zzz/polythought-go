@@ -9,6 +9,7 @@ import (
 	"maps"
 	"strings"
 	"time"
+	"unicode/utf8"
 
 	"github.com/google/uuid"
 	"github.com/lein3000zzz/the-watchers/pkg/observability/logging"
@@ -20,7 +21,10 @@ import (
 	"github.com/lein3000zzz/polythought-go/internal/core/services/auth"
 )
 
-const maxName = 128
+const (
+	maxName        = 128
+	maxDescription = 1000 // characters
+)
 
 // Limits keep one user from exhausting a shared instance.
 type Limits struct {
@@ -376,7 +380,10 @@ func New(
 
 // Definition is the editable part of a workflow.
 type Definition struct {
-	Name        string
+	Name string
+	// Description is what it does, in the owner's words; nil keeps the one it has, as for
+	// an agent's code, which carries none.
+	Description *string
 	Nodes       []domain.NodeSpec
 	Connections []domain.Connection
 }
@@ -428,6 +435,12 @@ func (s *Service) Get(ctx context.Context, p auth.Principal, id domain.WorkflowI
 }
 
 func (s *Service) List(ctx context.Context, p auth.Principal, f ports.PageFilter) (ports.Page[domain.Workflow], error) {
+	return s.Find(ctx, p, ports.WorkflowFilter{PageFilter: f})
+}
+
+// Find is List narrowed: to the workflows whose name or description holds a query, and
+// to the pinned, in their order, or the rest.
+func (s *Service) Find(ctx context.Context, p auth.Principal, f ports.WorkflowFilter) (ports.Page[domain.Workflow], error) {
 	page, err := s.repo.List(ctx, p.User.ID, f)
 
 	for i, w := range page.Items {
@@ -435,6 +448,18 @@ func (s *Service) List(ctx context.Context, p auth.Principal, f ports.PageFilter
 	}
 
 	return page, err
+}
+
+// Pin pins one of the user's workflows after their others, or unpins it. It changes how
+// their list shows it, not the workflow: its version stays.
+func (s *Service) Pin(ctx context.Context, p auth.Principal, id domain.WorkflowID, pinned bool) error {
+	return s.repo.SetPin(ctx, p.User.ID, id, pinned)
+}
+
+// SetPinOrder puts the user's pinned workflows in the order of ids, every one of them;
+// domain.ErrConflict when they changed meanwhile.
+func (s *Service) SetPinOrder(ctx context.Context, p auth.Principal, ids []domain.WorkflowID) error {
+	return s.repo.SetPinOrder(ctx, p.User.ID, ids)
 }
 
 // Update replaces the definition if version is still current. An active workflow is
@@ -997,6 +1022,15 @@ func (s *Service) apply(ctx context.Context, w *domain.Workflow, def Definition)
 	candidate.Name = name
 	candidate.Nodes = def.Nodes
 	candidate.Connections = def.Connections
+
+	if def.Description != nil {
+		description := strings.TrimSpace(*def.Description)
+		if utf8.RuneCountInString(description) > maxDescription {
+			return fmt.Errorf("%w: description must be at most %d characters", domain.ErrInvalidInput, maxDescription)
+		}
+
+		candidate.Description = description
+	}
 
 	if err := s.check(ctx, candidate); err != nil {
 		return err

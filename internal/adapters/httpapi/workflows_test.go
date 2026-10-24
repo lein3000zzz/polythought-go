@@ -173,10 +173,45 @@ func TestWorkflowRoutes(t *testing.T) {
 			name: "list",
 			req:  request{method: "GET", path: "/api/v1/workflows?limit=10", headers: cookie},
 			setup: func(w *httpapimocks.MockWorkflowService, _ *httpapimocks.MockNodeTypes) {
-				w.EXPECT().List(mock.Anything, mock.Anything, ports.PageFilter{Limit: 10}).Return(ports.Page[domain.Workflow]{Items: []domain.Workflow{flow}}, nil)
+				w.EXPECT().Find(mock.Anything, mock.Anything, ports.WorkflowFilter{PageFilter: ports.PageFilter{Limit: 10}}).
+					Return(ports.Page[domain.Workflow]{Items: []domain.Workflow{flow}}, nil)
 			},
 			wantStatus: http.StatusOK,
 			wantBody:   []string{`"workflows":[{"id":"wf-1"`},
+		},
+		{
+			name: "list searched, the pinned alone",
+			req:  request{method: "GET", path: "/api/v1/workflows?q=spread&pinned=true&active=false", headers: cookie},
+			setup: func(w *httpapimocks.MockWorkflowService, _ *httpapimocks.MockNodeTypes) {
+				pinned := flow
+				pinned.Pin, pinned.Description = 2, "Watches spreads"
+				w.EXPECT().Find(mock.Anything, mock.Anything, ports.WorkflowFilter{Query: "spread", Pinned: new(true), Active: new(false)}).
+					Return(ports.Page[domain.Workflow]{Items: []domain.Workflow{pinned}}, nil)
+			},
+			wantStatus: http.StatusOK,
+			wantBody:   []string{`"description":"Watches spreads"`, `"pin":2`},
+		},
+		{
+			name:       "list with pinned neither true nor false",
+			req:        request{method: "GET", path: "/api/v1/workflows?pinned=yes", headers: cookie},
+			setup:      func(*httpapimocks.MockWorkflowService, *httpapimocks.MockNodeTypes) {},
+			wantStatus: http.StatusBadRequest,
+		},
+		{
+			name: "pin",
+			req:  request{method: "PUT", path: "/api/v1/workflows/wf-1/pin", body: `{"pinned": true}`, headers: cookie},
+			setup: func(w *httpapimocks.MockWorkflowService, _ *httpapimocks.MockNodeTypes) {
+				w.EXPECT().Pin(mock.Anything, mock.Anything, domain.WorkflowID("wf-1"), true).Return(nil)
+			},
+			wantStatus: http.StatusNoContent,
+		},
+		{
+			name: "order the pinned, changed meanwhile",
+			req:  request{method: "PUT", path: "/api/v1/workflows/pins", body: `{"ids": ["wf-2", "wf-1"]}`, headers: cookie},
+			setup: func(w *httpapimocks.MockWorkflowService, _ *httpapimocks.MockNodeTypes) {
+				w.EXPECT().SetPinOrder(mock.Anything, mock.Anything, []domain.WorkflowID{"wf-2", "wf-1"}).Return(domain.ErrConflict)
+			},
+			wantStatus: http.StatusConflict,
 		},
 		{
 			name: "get someone else's workflow",

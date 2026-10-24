@@ -21,7 +21,7 @@ import (
 
 // Workflows reads the user's workflows and their executions: the workflows service.
 type Workflows interface {
-	List(ctx context.Context, p auth.Principal, f ports.PageFilter) (ports.Page[domain.Workflow], error)
+	Find(ctx context.Context, p auth.Principal, f ports.WorkflowFilter) (ports.Page[domain.Workflow], error)
 	Get(ctx context.Context, p auth.Principal, id domain.WorkflowID) (domain.Workflow, error)
 	Check(ctx context.Context, p auth.Principal, id domain.WorkflowID) ([]domain.Problem, error)
 	Executions(ctx context.Context, p auth.Principal, id domain.WorkflowID, f ports.PageFilter) (ports.Page[domain.Execution], error)

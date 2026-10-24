@@ -51,6 +51,20 @@ async function selectNode(id: string) {
 }
 
 describe('workflow editor', () => {
+  it('saves its description with it', async () => {
+    const saves = editing(branching())
+    const { user } = renderApp('/workflows/wf-1')
+
+    const description = await screen.findByRole('textbox', { name: 'Description' })
+    await user.type(description, 'Logs tight markets')
+
+    expect(screen.getByText(/Unsaved changes/)).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Save' }))
+
+    await waitFor(() => expect(saves).toHaveLength(1))
+    expect(saves[0].description).toBe('Logs tight markets')
+  })
+
   it('edits a param and saves a new version', async () => {
     const saves = editing(branching())
     const { user } = renderApp('/workflows/wf-1')

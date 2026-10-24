@@ -10,6 +10,7 @@ import (
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 
 	"github.com/lein3000zzz/polythought-go/internal/core/domain"
+	"github.com/lein3000zzz/polythought-go/internal/core/ports"
 	"github.com/lein3000zzz/polythought-go/internal/core/services/auth"
 	"github.com/lein3000zzz/polythought-go/internal/core/workflowcode"
 )
@@ -19,13 +20,14 @@ import (
 const itemsBudget = maxResult - 4<<10
 
 type workflowSummary struct {
-	ID        string    `json:"id"`
-	Name      string    `json:"name"`
-	Active    bool      `json:"active" jsonschema:"switched on: its triggers run"`
-	Version   int       `json:"version"`
-	Nodes     int       `json:"nodes"`
-	Trading   string    `json:"trading" jsonschema:"none, paper or live: how its orders go"`
-	UpdatedAt time.Time `json:"updatedAt"`
+	ID          string    `json:"id"`
+	Name        string    `json:"name"`
+	Description string    `json:"description,omitempty" jsonschema:"what it does, in the user's words"`
+	Active      bool      `json:"active" jsonschema:"switched on: its triggers run"`
+	Version     int       `json:"version"`
+	Nodes       int       `json:"nodes"`
+	Trading     string    `json:"trading" jsonschema:"none, paper or live: how its orders go"`
+	UpdatedAt   time.Time `json:"updatedAt"`
 }
 
 type workflowList struct {
@@ -164,10 +166,11 @@ type itemsOut struct {
 }
 
 func (s *Server) addWorkflowTools(srv *mcp.Server) {
-	add(s, srv, Tool[page, workflowList]{
+	add(s, srv, Tool[listWorkflowsIn, workflowList]{
 		Name: "list_workflows", Title: "List workflows", Scope: domain.ScopeRead, ReadOnly: true,
-		Description: "The user's workflows, newest first, a page at a time: whether each is on, how it trades, its version.",
-		Handle:      s.listWorkflows,
+		Description: "The user's workflows, newest first, a page at a time: what each does, whether it is on, how it trades, " +
+			"its version. query finds those whose name or description holds it.",
+		Handle: s.listWorkflows,
 	})
 
 	add(s, srv, Tool[workflowIn, workflowOut]{
@@ -206,8 +209,14 @@ func (s *Server) addWorkflowTools(srv *mcp.Server) {
 	})
 }
 
-func (s *Server) listWorkflows(ctx context.Context, p auth.Principal, in page) (workflowList, error) {
-	got, err := s.workflows.List(ctx, p, in.filter())
+type listWorkflowsIn struct {
+	page
+
+	Query string `json:"query,omitempty" jsonschema:"only those whose name or description holds this"`
+}
+
+func (s *Server) listWorkflows(ctx context.Context, p auth.Principal, in listWorkflowsIn) (workflowList, error) {
+	got, err := s.workflows.Find(ctx, p, ports.WorkflowFilter{PageFilter: in.filter(), Query: in.Query})
 	if err != nil {
 		return workflowList{}, err
 	}
@@ -236,7 +245,7 @@ func (s *Server) summaryOf(ctx context.Context, w domain.Workflow) (workflowSumm
 	}
 
 	return workflowSummary{
-		ID: string(w.ID), Name: w.Name, Active: w.Active, Version: w.Version, Nodes: len(w.Nodes), Trading: trading,
+		ID: string(w.ID), Name: w.Name, Description: w.Description, Active: w.Active, Version: w.Version, Nodes: len(w.Nodes), Trading: trading,
 		UpdatedAt: w.UpdatedAt,
 	}, nil
 }

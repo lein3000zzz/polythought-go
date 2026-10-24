@@ -93,6 +93,8 @@ var routeScopes = map[string]access{
 	"DELETE /api/v1/custom-nodes/:id":                   need(domain.ScopeBuild),
 	"POST /api/v1/workflows":                            need(domain.ScopeBuild),
 	"PUT /api/v1/workflows/:id":                         need(domain.ScopeBuild),
+	"PUT /api/v1/workflows/:id/pin":                     need(domain.ScopeBuild),
+	"PUT /api/v1/workflows/pins":                        need(domain.ScopeBuild),
 	"DELETE /api/v1/workflows/:id":                      need(domain.ScopeBuild),
 	"POST /api/v1/workflows/:id/activate":               need(domain.ScopeBuild),
 	"POST /api/v1/workflows/:id/deactivate":             need(domain.ScopeBuild),

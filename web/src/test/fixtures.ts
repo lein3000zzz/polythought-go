@@ -41,6 +41,7 @@ export function workflow(overrides: Partial<Schemas['Workflow']> = {}): Schemas[
   return {
     id: 'wf-1',
     name: 'Spread watch',
+    description: '',
     active: false,
     version: 1,
     nodes: [

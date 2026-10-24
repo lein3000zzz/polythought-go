@@ -3438,6 +3438,33 @@
                 ],
                 "type": "object"
             },
+            "PinOrderRequest": {
+                "properties": {
+                    "ids": {
+                        "description": "IDs are every pinned workflow of yours, in the order to show them.",
+                        "items": {
+                            "type": "string"
+                        },
+                        "type": "array",
+                        "uniqueItems": false
+                    }
+                },
+                "required": [
+                    "ids"
+                ],
+                "type": "object"
+            },
+            "PinRequest": {
+                "properties": {
+                    "pinned": {
+                        "type": "boolean"
+                    }
+                },
+                "required": [
+                    "pinned"
+                ],
+                "type": "object"
+            },
             "Plugin": {
                 "properties": {
                     "caps": {
@@ -4808,6 +4835,10 @@
                         "type": "array",
                         "uniqueItems": false
                     },
+                    "description": {
+                        "description": "Description is what it does, up to 1,000 characters; left out keeps the one it has.",
+                        "type": "string"
+                    },
                     "name": {
                         "type": "string"
                     },
@@ -5088,6 +5119,10 @@
                         "format": "date-time",
                         "type": "string"
                     },
+                    "description": {
+                        "description": "Description is what it does, in your words; searched with its name.",
+                        "type": "string"
+                    },
                     "id": {
                         "type": "string"
                     },
@@ -5101,6 +5136,10 @@
                         "type": "array",
                         "uniqueItems": false
                     },
+                    "pin": {
+                        "description": "Pin is its place among your pinned workflows, from 1; absent when it is not pinned.",
+                        "type": "integer"
+                    },
                     "updatedAt": {
                         "format": "date-time",
                         "type": "string"
@@ -5113,6 +5152,7 @@
                     "active",
                     "connections",
                     "createdAt",
+                    "description",
                     "id",
                     "name",
                     "nodes",
@@ -5153,6 +5193,10 @@
                         },
                         "type": "array",
                         "uniqueItems": false
+                    },
+                    "description": {
+                        "description": "Description is what it does, up to 1,000 characters; left out keeps the one it has.",
+                        "type": "string"
                     },
                     "name": {
                         "type": "string"
@@ -13096,6 +13140,30 @@
                         "schema": {
                             "type": "string"
                         }
+                    },
+                    {
+                        "description": "Only those whose name or description holds this",
+                        "in": "query",
+                        "name": "q",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "description": "true: the pinned, in their order, all of them; false: the rest",
+                        "in": "query",
+                        "name": "pinned",
+                        "schema": {
+                            "type": "boolean"
+                        }
+                    },
+                    {
+                        "description": "true: those switched on; false: those off",
+                        "in": "query",
+                        "name": "active",
+                        "schema": {
+                            "type": "boolean"
+                        }
                     }
                 ],
                 "responses": {
@@ -13199,6 +13267,61 @@
                     }
                 ],
                 "summary": "Create a workflow",
+                "tags": [
+                    "workflows"
+                ]
+            }
+        },
+        "/workflows/pins": {
+            "put": {
+                "operationId": "orderPins",
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/PinOrderRequest",
+                                "summary": "body",
+                                "description": "The pinned, in order"
+                            }
+                        }
+                    },
+                    "description": "The pinned, in order",
+                    "required": true
+                },
+                "responses": {
+                    "204": {
+                        "description": "No Content"
+                    },
+                    "401": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "unauthenticated"
+                    },
+                    "409": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "conflict: the pinned workflows changed; read them again"
+                    }
+                },
+                "security": [
+                    {
+                        "SessionCookie": []
+                    },
+                    {
+                        "APIToken": []
+                    }
+                ],
+                "summary": "Order the pinned workflows",
                 "tags": [
                     "workflows"
                 ]
@@ -14501,6 +14624,72 @@
                 "summary": "Reset the paper account",
                 "tags": [
                     "trading"
+                ]
+            }
+        },
+        "/workflows/{id}/pin": {
+            "put": {
+                "operationId": "pinWorkflow",
+                "parameters": [
+                    {
+                        "description": "Workflow ID",
+                        "in": "path",
+                        "name": "id",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/PinRequest",
+                                "summary": "body",
+                                "description": "Pinned or not"
+                            }
+                        }
+                    },
+                    "description": "Pinned or not",
+                    "required": true
+                },
+                "responses": {
+                    "204": {
+                        "description": "No Content"
+                    },
+                    "401": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "unauthenticated"
+                    },
+                    "404": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "not_found"
+                    }
+                },
+                "security": [
+                    {
+                        "SessionCookie": []
+                    },
+                    {
+                        "APIToken": []
+                    }
+                ],
+                "summary": "Pin or unpin a workflow",
+                "tags": [
+                    "workflows"
                 ]
             }
         },
