@@ -148,6 +148,10 @@ type Services struct {
 	OAuth OAuthService
 	// Confirmations hold tokens' and agents' live actions for their users (D406).
 	Confirmations ConfirmationService
+	// Tasks are the tasks of Local agent nodes, and TaskAgents the agents taking them
+	// (D413); nil where there are none.
+	Tasks      TaskService
+	TaskAgents TaskAgents
 	// MCP serves /mcp, agents' endpoint (D398): the SDK's server, checking its own tokens.
 	MCP http.Handler
 	// Spend is what users' agents spend, and the caps on it; nil when there is no agent.
@@ -198,6 +202,8 @@ type Server struct {
 	meta          MetaService
 	oauth         OAuthService
 	confirmations ConfirmationService
+	tasks         TaskService
+	taskAgents    TaskAgents
 	mcp           http.Handler
 	spend         SpendService
 	plugins       PluginService
@@ -279,6 +285,8 @@ func New(cfg Config, util *observability.Utility, services Services) (*Server, e
 		meta:          services.Meta,
 		oauth:         services.OAuth,
 		confirmations: services.Confirmations,
+		tasks:         services.Tasks,
+		taskAgents:    services.TaskAgents,
 		mcp:           services.MCP,
 		spend:         services.Spend,
 		plugins:       services.Plugins,
@@ -454,6 +462,9 @@ func (s *Server) routes() {
 	wf.GET("/:id/executions", s.listExecutions)
 	wf.GET("/:id/executions/:eid", s.getExecution)
 	wf.POST("/:id/executions/:eid/cancel", s.cancelExecution)
+	wf.GET("/:id/executions/:eid/task", s.getExecutionTask)
+	wf.POST("/:id/executions/:eid/task/hand-back", s.handBackTask)
+	wf.POST("/:id/executions/:eid/task/answer", s.answerTask)
 	wf.GET("/:id/paper-account", s.getPaperAccount)
 	wf.POST("/:id/paper-account/reset", s.resetPaperAccount)
 	wf.GET("/:id/trading", s.getTradingSummary)

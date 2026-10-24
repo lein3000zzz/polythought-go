@@ -14,6 +14,7 @@ const token: Schemas['APIToken'] = {
   name: 'backtest',
   prefix: 'pt_abc',
   createdAt: '2026-10-01T10:00:00Z',
+  takingTasks: false,
 }
 
 const noTelegram = http.get('/api/v1/telegram', () => HttpResponse.json({ available: false }))
@@ -443,6 +444,7 @@ describe('settings page', () => {
       scopes: ['read', 'paper'],
       createdAt: '2026-10-08T12:00:00Z',
       lastUsedAt: '2026-10-08T13:00:00Z',
+      takingTasks: true,
     }
     const old: Schemas['OAuthGrant'] = {
       id: 'g-0',
@@ -450,6 +452,7 @@ describe('settings page', () => {
       scopes: ['read'],
       createdAt: '2026-10-01T12:00:00Z',
       revokedAt: '2026-10-02T12:00:00Z',
+      takingTasks: false,
     }
     let grants = [grant, old]
     let revoked = ''
@@ -477,7 +480,9 @@ describe('settings page', () => {
     expect(row).toHaveTextContent('Unverified')
     expect(row).toHaveTextContent('claude.ai')
     expect(row).toHaveTextContent('Read, Trade on paper')
+    expect(row).toHaveTextContent('Taking tasks') // D413
     expect(screen.getByText('Old Agent').closest('tr')).toHaveTextContent(/Revoked/)
+    expect(screen.getByText('Old Agent').closest('tr')).not.toHaveTextContent('Taking tasks')
 
     await user.click(within(row).getByRole('button', { name: 'Revoke' }))
     const dialog = within(await screen.findByRole('alertdialog'))

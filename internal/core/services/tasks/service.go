@@ -78,6 +78,24 @@ func (p *Presence) Around(owner domain.UserID) bool {
 	return false
 }
 
+// Taking is which of owner's grants and tokens take tasks now, by holder ("grant:<id>",
+// "token:<id>"), for Settings to mark them (D413).
+func (p *Presence) Taking(owner domain.UserID) map[string]bool {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+
+	since := p.now().Add(-p.window())
+	out := map[string]bool{}
+
+	for holder, at := range p.seen[owner] {
+		if at.After(since) {
+			out[holder] = true
+		}
+	}
+
+	return out
+}
+
 // Wake tells owner's waiting agents a task came.
 func (p *Presence) Wake(owner domain.UserID) {
 	p.mu.Lock()
@@ -163,10 +181,11 @@ func (a announcing) Add(ctx context.Context, w ports.WaitRecord) error {
 	return nil
 }
 
-// Answerer carries on a task's execution with its answer, once it is taken from holder:
-// the waits service.
+// Answerer carries on a task's execution with its answer, once it is taken: from holder,
+// or with its key, as the user answers it: the waits service.
 type Answerer interface {
 	AnswerTask(ctx context.Context, owner domain.UserID, id domain.ExecutionID, holder string, payload map[string]any) error
+	Answer(ctx context.Context, owner domain.UserID, id domain.ExecutionID, key string, payload map[string]any) error
 }
 
 // Config is how long a waiting agent's call is held open, within its client's timeout, and
@@ -245,7 +264,7 @@ func (s *Service) Wait(ctx context.Context, p auth.Principal) (Task, bool, error
 		woken := s.presence.signal(owner)
 		now := s.now()
 
-		rec, err := s.repo.LeaseTask(ctx, owner, holder, now, now.Add(cfg.Lease))
+		rec, err := s.repo.LeaseTask(ctx, owner, ports.TaskLease{Holder: holder, Name: nameOf(p), Until: now.Add(cfg.Lease)}, now)
 		switch {
 		case err == nil:
 			return taskOf(rec), true, nil
@@ -292,37 +311,46 @@ func (s *Service) Answer(ctx context.Context, p auth.Principal, id domain.Execut
 		return err
 	}
 
-	payload := map[string]any{engine.AnsweredBy: nameOf(p)}
-
-	if t.Call == ai.CallTogether {
-		checked, err := ai.CheckAnswer(t, answer)
-		if err != nil {
-			return fmt.Errorf("%w: answer: %v", domain.ErrInvalidInput, err)
-		}
-
-		payload[ai.TaskAnswer] = checked
-	} else {
-		if len(answers) != len(t.Items) {
-			return fmt.Errorf("%w: answers: one for each of the %d items, in order; %d given", domain.ErrInvalidInput, len(t.Items), len(answers))
-		}
-
-		problems := domain.ValidationError{Base: domain.ErrInvalidInput}
-		checked := make([]any, len(answers))
-
-		for i, a := range answers {
-			if checked[i], err = ai.CheckAnswer(t, a); err != nil {
-				problems.Add(domain.Problem{Param: fmt.Sprintf("answers[%d]", i), Message: err.Error()})
-			}
-		}
-
-		if err := problems.Err(); err != nil {
-			return err
-		}
-
-		payload[ai.TaskAnswers] = checked
+	payload, err := checked(t, answer, answers)
+	if err != nil {
+		return err
 	}
 
+	payload[engine.AnsweredBy] = nameOf(p)
+
 	return s.carryOn(ctx, p, holder, id, payload)
+}
+
+// checked is an answer held to its task's shape, as the node takes it.
+func checked(t ports.WaitTask, answer any, answers []any) (map[string]any, error) {
+	if t.Call == ai.CallTogether {
+		got, err := ai.CheckAnswer(t, answer)
+		if err != nil {
+			return nil, fmt.Errorf("%w: answer: %v", domain.ErrInvalidInput, err)
+		}
+
+		return map[string]any{ai.TaskAnswer: got}, nil
+	}
+
+	if len(answers) != len(t.Items) {
+		return nil, fmt.Errorf("%w: answers: one for each of the %d items, in order; %d given", domain.ErrInvalidInput, len(t.Items), len(answers))
+	}
+
+	problems := domain.ValidationError{Base: domain.ErrInvalidInput}
+	got := make([]any, len(answers))
+
+	for i, a := range answers {
+		var err error
+		if got[i], err = ai.CheckAnswer(t, a); err != nil {
+			problems.Add(domain.Problem{Param: fmt.Sprintf("answers[%d]", i), Message: err.Error()})
+		}
+	}
+
+	if err := problems.Err(); err != nil {
+		return nil, err
+	}
+
+	return map[string]any{ai.TaskAnswers: got}, nil
 }
 
 // Fail says the agent cannot do a task it has, and why: its items fail with that.
@@ -344,6 +372,97 @@ func (s *Service) Fail(ctx context.Context, p auth.Principal, id domain.Executio
 	}
 
 	return s.carryOn(ctx, p, holder, id, map[string]any{engine.AnsweredBy: nameOf(p), ai.TaskFailed: reason})
+}
+
+// Status is a run's task as the app shows it (D413): what it asks, whether an agent has
+// it and until when, and when the run stops waiting.
+type Status struct {
+	Task
+	HeldBy string // the agent or token that has it, by its name; empty while none does
+}
+
+// Status is the task a run of the user's waits on; domain.ErrNotFound for a run waiting on
+// none, or not waiting.
+func (s *Service) Status(ctx context.Context, p auth.Principal, workflow domain.WorkflowID, id domain.ExecutionID) (Status, error) {
+	rec, err := s.task(ctx, p, workflow, id)
+	if err != nil {
+		return Status{}, err
+	}
+
+	st := Status{Task: taskOf(rec)}
+
+	if rec.Lease != nil && rec.Lease.Until.After(s.now()) {
+		st.HeldBy = rec.Lease.Name
+	} else {
+		st.LeaseUntil = time.Time{} // ran out: any may take it
+	}
+
+	return st, nil
+}
+
+// HandBack takes a task from the agent that has it, for another of the user's agents to
+// take at once (D413). The user's, at a browser.
+func (s *Service) HandBack(ctx context.Context, p auth.Principal, workflow domain.WorkflowID, id domain.ExecutionID) error {
+	if !p.Itself() {
+		return fmt.Errorf("%w: handing a task back is the user's, at a browser", domain.ErrForbidden)
+	}
+
+	if _, err := s.task(ctx, p, workflow, id); err != nil {
+		return err
+	}
+
+	if err := s.repo.ReleaseTask(ctx, p.User.ID, id); err != nil {
+		return err
+	}
+
+	s.presence.Wake(p.User.ID)
+
+	return nil
+}
+
+// AnswerYourself answers a task as the user, at a browser, held to its shape as an
+// agent's answer is (D413), whichever agent has it.
+func (s *Service) AnswerYourself(ctx context.Context, p auth.Principal, workflow domain.WorkflowID, id domain.ExecutionID, answer any, answers []any) error {
+	if !p.Itself() {
+		return fmt.Errorf("%w: a task is your agents' to answer with answer_task; at a browser, you can answer it yourself", domain.ErrForbidden)
+	}
+
+	rec, err := s.task(ctx, p, workflow, id)
+	if err != nil {
+		return err
+	}
+
+	payload, err := checked(*rec.Task, answer, answers)
+	if err != nil {
+		return err
+	}
+
+	payload[engine.AnsweredBy] = ByYou
+
+	if err := s.answerer.Answer(ctx, p.User.ID, id, rec.Key, payload); errors.Is(err, domain.ErrNotFound) {
+		return ErrNoTask
+	} else if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+// ByYou is who answered a task the user answered themself.
+const ByYou = "you"
+
+// task is the task a run of the user's, of workflow, waits on.
+func (s *Service) task(ctx context.Context, p auth.Principal, workflow domain.WorkflowID, id domain.ExecutionID) (ports.WaitRecord, error) {
+	rec, err := s.repo.Get(ctx, p.User.ID, id)
+
+	switch {
+	case err != nil:
+		return ports.WaitRecord{}, err
+	case rec.WorkflowID != workflow || rec.Task == nil:
+		return ports.WaitRecord{}, fmt.Errorf("%w: the run waits on no task", domain.ErrNotFound)
+	}
+
+	return rec, nil
 }
 
 // held is a task the agent has.

@@ -127,3 +127,51 @@ items stop the run unless **Continue on failure** is on.
 **Effort**, low, medium or high, says how hard the model thinks before it answers, for
 the models that take it; empty leaves the model's own. **Temperature** is left to the
 model when empty; the newest Claude models take none.
+
+## Your own agents
+
+The **Local agent** node hands a task to one of your own agents instead, such as Claude
+Code or Codex, and waits for its answer. Polythought runs no agent and holds no login of
+yours: your agent connects to Polythought over MCP, works for you alone, and calls nothing
+it would not call anyway. No key is needed, and nothing is billed to Polythought.
+
+1. Connect the agent at the server's address followed by `/mcp`, and tick **Take tasks**
+   on the consent page, unticked to start with. An API token with that scope works too.
+2. Have it wait for tasks: ask it to call `wait_for_task` again and again, and work each
+   task it gets. While it waits, **Settings → Connected agents** marks it **Taking tasks**.
+3. Add a **Local agent** node and write the **Task**, which takes
+   [expressions](/docs/guides/expressions/) as the AI agent's prompt does.
+
+**Ask** works as the AI agent's **Call**: `each` hands one task with a prompt for each item,
+answered item by item, and `together` one prompt for all of them, with the items when
+**Include the items** is on. **Answer as** is text, the **Fields** you list, or a **JSON
+schema**, and the answer goes under the **Answer field**, `answer` unless you name another:
+
+| Field | What it holds |
+|---|---|
+| `answer.text` | The answer as written, answering as text. |
+| `answer.json` | The answer as JSON, answering in fields or to a schema. |
+| `answer.by` | Who answered: your agent by its name, or `you`. |
+| `answer.answeredAt` | When it answered. |
+
+A task goes to one of your agents waiting for one, the oldest task first, and it is that
+agent's alone. It answers with `answer_task`: an answer that does not fit the shape is
+refused, saying why, and the task stays with it to answer again. If it cannot do the task,
+`fail_task` says why, and the items fail with that. One that neither answers nor waits
+again for 10 minutes loses the task to your other agents.
+
+While the run waits, its bar says which agent has the task and until when, or that it
+waits for one to take it. **Hand back** takes it from that agent, for another of yours to
+take at once, and **Answer it** lets you answer it yourself, held to the same shape.
+
+The node fails at once when none of your agents is waiting for tasks, or waited in the last
+minute, rather than wait for no one; and it fails at its **Timeout**, 10 minutes unless you
+set one. As with other nodes, failed items stop the run unless **Continue on failure** is
+on. A task is at most 24 KiB, what an agent takes in one call: send fewer items, or fewer
+fields of each, for more.
+
+Your agent may have a shell and your files. A task's text comes from the workflow: its
+prompt, perhaps from another user's library entry, and its items, which hold market
+questions and other people's words. The agent gets all of it marked as such, a request
+from your workflow, never from you, to answer and nothing more. Run it in a permission
+mode that asks before it does anything else.

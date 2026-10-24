@@ -121,7 +121,7 @@ func (m *memWaits) TakeForWorkflow(context.Context, domain.UserID, domain.Workfl
 	return nil, nil
 }
 
-func (m *memWaits) LeaseTask(_ context.Context, o domain.UserID, holder string, now, until time.Time) (ports.WaitRecord, error) {
+func (m *memWaits) LeaseTask(_ context.Context, o domain.UserID, lease ports.TaskLease, now time.Time) (ports.WaitRecord, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
@@ -138,10 +138,25 @@ func (m *memWaits) LeaseTask(_ context.Context, o domain.UserID, holder string, 
 		return ports.WaitRecord{}, domain.ErrNotFound
 	}
 
-	oldest.Lease = &ports.TaskLease{Holder: holder, Until: until}
+	oldest.Lease = &lease
 	m.recs[oldest.ExecutionID] = *oldest
 
 	return *oldest, nil
+}
+
+func (m *memWaits) ReleaseTask(_ context.Context, o domain.UserID, id domain.ExecutionID) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	w, ok := m.recs[id]
+	if !ok || w.OwnerID != o || w.Task == nil {
+		return domain.ErrNotFound
+	}
+
+	w.Lease = nil
+	m.recs[id] = w
+
+	return nil
 }
 
 func (m *memWaits) RenewLeases(_ context.Context, o domain.UserID, holder string, until time.Time) error {
@@ -150,7 +165,7 @@ func (m *memWaits) RenewLeases(_ context.Context, o domain.UserID, holder string
 
 	for id, w := range m.recs {
 		if w.OwnerID == o && w.Lease != nil && w.Lease.Holder == holder {
-			w.Lease = &ports.TaskLease{Holder: holder, Until: until}
+			w.Lease = &ports.TaskLease{Holder: holder, Name: w.Lease.Name, Until: until}
 			m.recs[id] = w
 		}
 	}
@@ -339,7 +354,7 @@ func TestTaskFlow(t *testing.T) {
 		require.Eventually(t, func() bool { return len(f.captured.items()) == 2 }, time.Second, time.Millisecond)
 		answer := f.captured.items()[1].JSON["answer"].(map[string]any)
 		assert.Equal(t, "Unlikely", answer["text"])
-		assert.Equal(t, "Claude Code", answer["agent"])
+		assert.Equal(t, "Claude Code", answer["by"])
 		assert.Equal(t, "Snow?", f.captured.items()[1].JSON["question"], "the item kept")
 
 		require.ErrorIs(t, f.tasks.Answer(ctx, claude, task.ID, nil, []any{"a", "b"}), tasks.ErrNoTask, "once")
@@ -399,7 +414,7 @@ func TestTaskFlow(t *testing.T) {
 		require.NoError(t, f.tasks.Answer(ctx, codex, task.ID, nil, []any{"No"}))
 
 		require.Eventually(t, func() bool { return len(f.captured.items()) == 1 }, time.Second, time.Millisecond)
-		assert.Equal(t, "Codex", f.captured.items()[0].JSON["answer"].(map[string]any)["agent"])
+		assert.Equal(t, "Codex", f.captured.items()[0].JSON["answer"].(map[string]any)["by"])
 	})
 
 	t.Run("one it cannot do fails, saying why", func(t *testing.T) {
@@ -448,6 +463,50 @@ func TestTaskFlow(t *testing.T) {
 
 		f.clock.pass(2 * time.Minute)
 		assert.False(t, f.presence.Around(owner))
+	})
+
+	t.Run("the app's: who has it, handed back, answered by the user (D413)", func(t *testing.T) {
+		f := newFixture(t)
+		user := auth.Principal{User: domain.User{ID: owner}, SessionID: "s-1"}
+		got := f.waiting(claude)
+		f.around(t)
+
+		res := f.run(t, map[string]any{"prompt": "Look into it"}, map[string]any{"question": "Rain?"})
+		<-got
+
+		st, err := f.tasks.Status(ctx, user, "wf-1", res.Execution.ID)
+		require.NoError(t, err)
+		assert.Equal(t, "Claude Code", st.HeldBy)
+		assert.Equal(t, start.Add(10*time.Minute), st.LeaseUntil)
+		assert.Equal(t, map[string]bool{"grant:g-1": true}, f.presence.Taking(owner))
+
+		_, err = f.tasks.Status(ctx, user, "wf-other", res.Execution.ID)
+		require.ErrorIs(t, err, domain.ErrNotFound, "another workflow's")
+
+		require.ErrorIs(t, f.tasks.HandBack(ctx, claude, "wf-1", res.Execution.ID), domain.ErrForbidden)
+
+		again := f.waiting(codex)
+		f.around(t)
+		require.NoError(t, f.tasks.HandBack(ctx, user, "wf-1", res.Execution.ID))
+
+		select {
+		case task := <-again:
+			assert.Equal(t, res.Execution.ID, task.ID, "Codex has it at once")
+		case <-time.After(time.Second):
+			t.Fatal("not handed to Codex")
+		}
+
+		st, err = f.tasks.Status(ctx, user, "wf-1", res.Execution.ID)
+		require.NoError(t, err)
+		assert.Equal(t, "Codex", st.HeldBy)
+
+		require.ErrorIs(t, f.tasks.AnswerYourself(ctx, claude, "wf-1", res.Execution.ID, nil, []any{"Yes"}), domain.ErrForbidden)
+		require.ErrorIs(t, f.tasks.AnswerYourself(ctx, user, "wf-1", res.Execution.ID, nil, []any{}), domain.ErrInvalidInput)
+		require.NoError(t, f.tasks.AnswerYourself(ctx, user, "wf-1", res.Execution.ID, nil, []any{"Yes, I looked"}))
+
+		require.Eventually(t, func() bool { return len(f.captured.items()) == 1 }, time.Second, time.Millisecond)
+		assert.Equal(t, tasks.ByYou, f.captured.items()[0].JSON["answer"].(map[string]any)["by"])
+		require.ErrorIs(t, f.tasks.Answer(ctx, codex, res.Execution.ID, nil, []any{"No"}), tasks.ErrNoTask, "answered already")
 	})
 
 	t.Run("the tasks scope, and agents and tokens only", func(t *testing.T) {

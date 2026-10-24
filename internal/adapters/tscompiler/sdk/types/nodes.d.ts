@@ -106,6 +106,57 @@ export interface AiAgentSettings {
     toolResults?: "full" | "inputs" | Expression;
 }
 
+/** The settings of Local agent (ai.localAgent). */
+export interface AiLocalAgentSettings {
+    /**
+     * each: an answer per item, added to it. together: one answer for all of them, and one item out, the answer alone.
+     * @default "each"
+     */
+    call?: "each" | "together" | Expression;
+    /** What to do, like Read up on {{ question }} and say whether it is worth watching. Taking them together, {{ items }} are all of them. Your agent reads it as a request from this workflow. */
+    prompt: string;
+    /**
+     * Taking them together: the items go with the task, as JSON. Each item always goes with its own.
+     * @default true
+     */
+    include?: boolean | Expression;
+    /**
+     * text as it is written; fields, the Fields below; schema, the JSON schema below.
+     * @default "text"
+     */
+    answerAs?: "text" | "fields" | "schema" | Expression;
+    /** Answering in fields: a row each, like watch, true or false. A table: a row each. */
+    fields?: {
+        /** Like watch or reason: letters, digits and _. */
+        name: string;
+        /**
+         * @default "text"
+         */
+        type?: "text" | "number" | "whole number" | "true or false" | "list of text";
+        /** What it is, for the model: it reads this. */
+        description?: string;
+        /** For text: the answers allowed, separated by commas, like buy, sell, wait. */
+        oneOf?: string;
+        /**
+         * The model may leave it out, as null.
+         * @default false
+         */
+        optional?: boolean;
+    }[] | Expression;
+    /** Answering to a schema: the answer's, for nested shapes. */
+    schema?: string;
+    /**
+     * Where the answer goes on the item.
+     * @default "answer"
+     */
+    field?: string;
+    /**
+     * How long to wait for the answer before the items fail, e.g. 10m or 2h. At most the instance's longest wait, 7 days unless an admin changed it.
+     * @default "10m"
+     */
+    timeout?: DurationText | Expression;
+}
+
 /** The settings of Code: aggregate (code.aggregate). */
 export interface CodeAggregateSettings {
     /**
@@ -1113,6 +1164,13 @@ export interface TriggerWalletActivityItem {
 export interface NodeTypes {
     "ai.agent": {
         settings: AiAgentSettings;
+        items: "received";
+        trigger: false;
+        inputs: "main";
+        outputs: "main";
+    };
+    "ai.localAgent": {
+        settings: AiLocalAgentSettings;
         items: "received";
         trigger: false;
         inputs: "main";

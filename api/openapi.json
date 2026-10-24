@@ -41,6 +41,10 @@
                         "type": "array",
                         "uniqueItems": false
                     },
+                    "takingTasks": {
+                        "description": "TakingTasks says the token waits for the tasks of your Local agent nodes now, or did\na moment ago (D413).",
+                        "type": "boolean"
+                    },
                     "token": {
                         "description": "Token is the secret, present only in the response that creates it.",
                         "type": "string"
@@ -50,7 +54,8 @@
                     "createdAt",
                     "id",
                     "name",
-                    "prefix"
+                    "prefix",
+                    "takingTasks"
                 ],
                 "type": "object"
             },
@@ -294,6 +299,17 @@
                     "resets",
                     "totalTokens"
                 ],
+                "type": "object"
+            },
+            "AnswerTaskRequest": {
+                "properties": {
+                    "answer": {},
+                    "answers": {
+                        "items": {},
+                        "type": "array",
+                        "uniqueItems": false
+                    }
+                },
                 "type": "object"
             },
             "Approval": {
@@ -1401,6 +1417,62 @@
                 },
                 "required": [
                     "executions"
+                ],
+                "type": "object"
+            },
+            "ExecutionTask": {
+                "properties": {
+                    "answerAs": {
+                        "enum": [
+                            "text",
+                            "fields",
+                            "schema"
+                        ],
+                        "type": "string"
+                    },
+                    "call": {
+                        "description": "Call is each, an answer for each item, or together, one for all of them.",
+                        "enum": [
+                            "each",
+                            "together"
+                        ],
+                        "type": "string"
+                    },
+                    "heldBy": {
+                        "description": "HeldBy is the agent or token that has it, by its name, until heldUntil; absent while\nit waits for one to take it.",
+                        "type": "string"
+                    },
+                    "heldUntil": {
+                        "format": "date-time",
+                        "type": "string"
+                    },
+                    "items": {
+                        "items": {
+                            "$ref": "#/components/schemas/TaskItem"
+                        },
+                        "type": "array",
+                        "uniqueItems": false
+                    },
+                    "prompt": {
+                        "description": "Prompt is what it asks, together; each item has its own.",
+                        "type": "string"
+                    },
+                    "schema": {
+                        "additionalProperties": {},
+                        "description": "Schema is the JSON schema an answer keeps to, answering in fields or to a schema.",
+                        "type": "object"
+                    },
+                    "until": {
+                        "description": "Until is when the run stops waiting, and its items fail.",
+                        "format": "date-time",
+                        "type": "string"
+                    }
+                },
+                "required": [
+                    "answerAs",
+                    "call",
+                    "items",
+                    "until"
                 ],
                 "type": "object"
             },
@@ -2806,13 +2878,18 @@
                         },
                         "type": "array",
                         "uniqueItems": false
+                    },
+                    "takingTasks": {
+                        "description": "TakingTasks says the agent waits for the tasks of your Local agent nodes now, or did\na moment ago (D413).",
+                        "type": "boolean"
                     }
                 },
                 "required": [
                     "client",
                     "createdAt",
                     "id",
-                    "scopes"
+                    "scopes",
+                    "takingTasks"
                 ],
                 "type": "object"
             },
@@ -4109,6 +4186,21 @@
                 },
                 "required": [
                     "owner"
+                ],
+                "type": "object"
+            },
+            "TaskItem": {
+                "properties": {
+                    "item": {
+                        "additionalProperties": {},
+                        "type": "object"
+                    },
+                    "prompt": {
+                        "type": "string"
+                    }
+                },
+                "required": [
+                    "item"
                 ],
                 "type": "object"
             },
@@ -13517,6 +13609,236 @@
                     }
                 ],
                 "summary": "Cancel a waiting execution",
+                "tags": [
+                    "executions"
+                ]
+            }
+        },
+        "/workflows/{id}/executions/{eid}/task": {
+            "get": {
+                "operationId": "getExecutionTask",
+                "parameters": [
+                    {
+                        "description": "Workflow ID",
+                        "in": "path",
+                        "name": "id",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "description": "Execution ID",
+                        "in": "path",
+                        "name": "eid",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ExecutionTask"
+                                }
+                            }
+                        },
+                        "description": "OK"
+                    },
+                    "401": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "unauthenticated"
+                    },
+                    "404": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "not_found: it waits on no task"
+                    }
+                },
+                "security": [
+                    {
+                        "SessionCookie": []
+                    },
+                    {
+                        "APIToken": []
+                    }
+                ],
+                "summary": "The task a run waits on",
+                "tags": [
+                    "executions"
+                ]
+            }
+        },
+        "/workflows/{id}/executions/{eid}/task/answer": {
+            "post": {
+                "operationId": "answerTask",
+                "parameters": [
+                    {
+                        "description": "Workflow ID",
+                        "in": "path",
+                        "name": "id",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "description": "Execution ID",
+                        "in": "path",
+                        "name": "eid",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/AnswerTaskRequest",
+                                "summary": "body",
+                                "description": "The answer"
+                            }
+                        }
+                    },
+                    "description": "The answer",
+                    "required": true
+                },
+                "responses": {
+                    "204": {
+                        "description": "No Content"
+                    },
+                    "400": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "invalid_input: it does not keep to the task's shape"
+                    },
+                    "401": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "unauthenticated"
+                    },
+                    "403": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "forbidden: not from a browser session"
+                    },
+                    "404": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "not_found: it waits on no task"
+                    }
+                },
+                "security": [
+                    {
+                        "SessionCookie": []
+                    }
+                ],
+                "summary": "Answer a task yourself",
+                "tags": [
+                    "executions"
+                ]
+            }
+        },
+        "/workflows/{id}/executions/{eid}/task/hand-back": {
+            "post": {
+                "operationId": "handBackTask",
+                "parameters": [
+                    {
+                        "description": "Workflow ID",
+                        "in": "path",
+                        "name": "id",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "description": "Execution ID",
+                        "in": "path",
+                        "name": "eid",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "No Content"
+                    },
+                    "401": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "unauthenticated"
+                    },
+                    "403": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "forbidden: not from a browser session"
+                    },
+                    "404": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "not_found: it waits on no task"
+                    }
+                },
+                "security": [
+                    {
+                        "SessionCookie": []
+                    }
+                ],
+                "summary": "Hand a task back",
                 "tags": [
                     "executions"
                 ]

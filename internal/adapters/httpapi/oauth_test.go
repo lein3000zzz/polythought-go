@@ -388,7 +388,7 @@ func TestGrantRoutes(t *testing.T) {
 		require.Equal(t, http.StatusOK, w.Code, w.Body.String())
 		assert.JSONEq(t, `{"grants": [{
 			"id": "g-1", "client": {"id": "pc_1", "name": "Agent", "verified": false, "site": "agent.example"},
-			"scopes": ["read"], "createdAt": "2026-10-08T12:00:00Z", "lastUsedAt": "2026-10-08T13:00:00Z"
+			"scopes": ["read"], "createdAt": "2026-10-08T12:00:00Z", "lastUsedAt": "2026-10-08T13:00:00Z", "takingTasks": false
 		}]}`, w.Body.String())
 	})
 

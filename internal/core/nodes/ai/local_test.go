@@ -91,7 +91,7 @@ func TestLocalAgent(t *testing.T) {
 		require.NoError(t, err)
 		require.Len(t, out[engine.DefaultPort], 1)
 		assert.Equal(t, map[string]any{"watch": true}, out[engine.DefaultPort][0].JSON["answer"].(map[string]any)["json"])
-		assert.Equal(t, "Codex", out[engine.DefaultPort][0].JSON["answer"].(map[string]any)["agent"])
+		assert.Equal(t, "Codex", out[engine.DefaultPort][0].JSON["answer"].(map[string]any)["by"])
 		require.Len(t, out[engine.ErrorPort], 1)
 		assert.Equal(t, 2, out[engine.ErrorPort][0].JSON["q"])
 

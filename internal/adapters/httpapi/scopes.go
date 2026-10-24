@@ -98,10 +98,14 @@ var routeScopes = map[string]access{
 	"POST /api/v1/workflows/:id/deactivate":             need(domain.ScopeBuild),
 	"POST /api/v1/workflows/:id/run":                    need(domain.ScopeBuild),
 	"POST /api/v1/workflows/:id/executions/:eid/cancel": need(domain.ScopeBuild),
-	"DELETE /api/v1/workflows/:id/nodes/:node/memory":   need(domain.ScopeBuild),
-	"PUT /api/v1/workflows/:id/share":                   need(domain.ScopeBuild),
-	"POST /api/v1/library/:id/use":                      need(domain.ScopeBuild),
-	"DELETE /api/v1/library/:id":                        need(domain.ScopeBuild),
+	// A run's task is the user's to hand back or answer at a browser; agents answer theirs
+	// over MCP (D413).
+	"POST /api/v1/workflows/:id/executions/:eid/task/hand-back": browserOnly,
+	"POST /api/v1/workflows/:id/executions/:eid/task/answer":    browserOnly,
+	"DELETE /api/v1/workflows/:id/nodes/:node/memory":           need(domain.ScopeBuild),
+	"PUT /api/v1/workflows/:id/share":                           need(domain.ScopeBuild),
+	"POST /api/v1/library/:id/use":                              need(domain.ScopeBuild),
+	"DELETE /api/v1/library/:id":                                need(domain.ScopeBuild),
 
 	// Trading: paper or live, which the trading service tells apart.
 	"POST /api/v1/workflows/:id/paper-account/reset":  need(domain.ScopePaper),

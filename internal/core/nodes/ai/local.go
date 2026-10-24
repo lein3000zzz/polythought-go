@@ -104,7 +104,7 @@ func (*LocalAgent) Type() engine.NodeType {
 var localAnswerField = engine.Field{Name: "answer", Kind: engine.FieldObject, Description: "What your agent answered.", Fields: []engine.Field{
 	shape.Optional(shape.Text("text", "The answer as the agent wrote it, answering as text.")),
 	{Name: "json", Kind: engine.FieldAny, Optional: true, Description: "The answer as JSON, answering in fields or to a schema."},
-	shape.Text("agent", "The agent that answered, by its name."),
+	shape.Text("by", "Who answered: your agent by its name, or you, answering in the app."),
 	shape.Time("answeredAt", "When it answered."),
 }}
 
@@ -364,7 +364,7 @@ func failAll(items []engine.Item, call string, err error) engine.Ports {
 }
 
 func answerOf(st localState, answer any, r engine.Resumption, at string) map[string]any {
-	out := map[string]any{"agent": agentName(r), "answeredAt": at}
+	out := map[string]any{"by": agentName(r), "answeredAt": at}
 
 	if st.AnswerAs == AnswerText {
 		out["text"] = answer

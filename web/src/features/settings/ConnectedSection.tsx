@@ -130,6 +130,14 @@ export function ConnectedSection() {
                   <div className="flex flex-wrap items-center gap-1.5 font-medium">
                     {g.client.name}
                     {!g.client.verified && <Badge variant="outline">Unverified</Badge>}
+                    {g.takingTasks && !g.revokedAt && (
+                      <Badge
+                        variant="secondary"
+                        title="It waits for your Local agent nodes' tasks now, or did a moment ago"
+                      >
+                        Taking tasks
+                      </Badge>
+                    )}
                   </div>
                   {g.client.site && (
                     <div className="text-xs text-muted-foreground">{g.client.site}</div>

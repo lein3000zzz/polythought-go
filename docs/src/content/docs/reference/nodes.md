@@ -91,3 +91,4 @@ Each node has a page with its settings. In the editor, the node list on the left
 | Node | Type | What it does |
 |---|---|---|
 | [AI agent](/docs/reference/nodes/ai/agent/) | `ai.agent` | Asks a language model, with your own key, for each item or once for all of them: a prompt with expressions, the answer as text or as JSON in the shape you give, added to the item with the tokens it took. |
+| [Local agent](/docs/reference/nodes/ai/local-agent/) | `ai.localAgent` | Hands a task to one of your own agents, such as Claude Code or Codex connected with the tasks scope, and waits for its answer: for each item or once for all of them, as text or as JSON in the shape you give. |

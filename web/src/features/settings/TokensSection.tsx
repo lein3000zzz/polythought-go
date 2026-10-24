@@ -9,6 +9,7 @@ import { errorMessage, type Schemas } from '@/api/client'
 import { ConfirmDialog } from '@/components/ConfirmDialog'
 import { ErrorAlert } from '@/components/ErrorAlert'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
+import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Input } from '@/components/ui/input'
@@ -176,7 +177,19 @@ export function TokensSection() {
           <TableBody>
             {tokens.data.map((t) => (
               <TableRow key={t.id} id={jumpId(`token-${t.id}`)}>
-                <TableCell className="font-medium">{t.name}</TableCell>
+                <TableCell className="font-medium">
+                  <div className="flex flex-wrap items-center gap-1.5">
+                    {t.name}
+                    {t.takingTasks && (
+                      <Badge
+                        variant="secondary"
+                        title="It waits for your Local agent nodes' tasks now, or did a moment ago"
+                      >
+                        Taking tasks
+                      </Badge>
+                    )}
+                  </div>
+                </TableCell>
                 <TableCell className="font-mono text-xs">{t.prefix}…</TableCell>
                 <TableCell>{t.scopes ? t.scopes.map(scopeTitle).join(', ') : 'All'}</TableCell>
                 <TableCell>{formatDateTime(t.createdAt)}</TableCell>

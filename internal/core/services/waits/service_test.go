@@ -257,8 +257,12 @@ func TestAnswersAndCancels(t *testing.T) {
 }
 
 // No tasks here.
-func (*repo) LeaseTask(context.Context, domain.UserID, string, time.Time, time.Time) (ports.WaitRecord, error) {
+func (*repo) LeaseTask(context.Context, domain.UserID, ports.TaskLease, time.Time) (ports.WaitRecord, error) {
 	return ports.WaitRecord{}, domain.ErrNotFound
+}
+
+func (*repo) ReleaseTask(context.Context, domain.UserID, domain.ExecutionID) error {
+	return domain.ErrNotFound
 }
 
 func (*repo) RenewLeases(context.Context, domain.UserID, string, time.Time) error { return nil }

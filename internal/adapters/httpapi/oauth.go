@@ -452,6 +452,9 @@ type grantDTO struct {
 	CreatedAt  time.Time      `json:"createdAt" format:"date-time"`
 	LastUsedAt *time.Time     `json:"lastUsedAt,omitempty" validate:"optional" format:"date-time"`
 	RevokedAt  *time.Time     `json:"revokedAt,omitempty" validate:"optional" format:"date-time"`
+	// TakingTasks says the agent waits for the tasks of your Local agent nodes now, or did
+	// a moment ago (D413).
+	TakingTasks bool `json:"takingTasks"`
 } // @name OAuthGrant
 
 type grantList struct {
@@ -477,7 +480,9 @@ func (s *Server) listGrants(ctx context.Context, c *app.RequestContext) {
 		return
 	}
 
+	taking := s.takingTasks(p.User.ID)
 	out := grantList{Grants: make([]grantDTO, len(grants))}
+
 	for i, g := range grants {
 		scopes := make([]string, len(g.Scopes))
 		for j, sc := range g.Scopes {
@@ -487,6 +492,7 @@ func (s *Server) listGrants(ctx context.Context, c *app.RequestContext) {
 		out.Grants[i] = grantDTO{
 			ID: string(g.ID), Client: toOAuthClientDTO(g.Client), Scopes: scopes, CreatedAt: g.CreatedAt,
 			LastUsedAt: optionalTime(g.LastUsedAt), RevokedAt: optionalTime(g.RevokedAt),
+			TakingTasks: taking("grant:" + string(g.ID)),
 		}
 	}
 

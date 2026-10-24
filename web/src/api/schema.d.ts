@@ -1847,6 +1847,57 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/workflows/{id}/executions/{eid}/task": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The task a run waits on */
+        get: operations["getExecutionTask"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/workflows/{id}/executions/{eid}/task/answer": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Answer a task yourself */
+        post: operations["answerTask"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/workflows/{id}/executions/{eid}/task/hand-back": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Hand a task back */
+        post: operations["handBackTask"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/workflows/{id}/holdings": {
         parameters: {
             query?: never;
@@ -2056,6 +2107,11 @@ export interface components {
              *     every scope its user's role allows.
              */
             scopes?: ("read" | "build" | "tasks" | "settings" | "paper" | "live" | "admin")[];
+            /**
+             * @description TakingTasks says the token waits for the tasks of your Local agent nodes now, or did
+             *     a moment ago (D413).
+             */
+            takingTasks: boolean;
             /** @description Token is the secret, present only in the response that creates it. */
             token?: string;
         };
@@ -2166,6 +2222,10 @@ export interface components {
             /** Format: date-time */
             resets: string;
             totalTokens: number;
+        };
+        AnswerTaskRequest: {
+            answer?: unknown;
+            answers?: unknown[];
         };
         Approval: {
             /** @description Name is what it is for people, like "pUSD to the CTF Exchange". */
@@ -2554,6 +2614,34 @@ export interface components {
             executions: components["schemas"]["Execution"][];
             /** @description NextCursor is absent on the last page. */
             nextCursor?: string;
+        };
+        ExecutionTask: {
+            /** @enum {string} */
+            answerAs: "text" | "fields" | "schema";
+            /**
+             * @description Call is each, an answer for each item, or together, one for all of them.
+             * @enum {string}
+             */
+            call: "each" | "together";
+            /**
+             * @description HeldBy is the agent or token that has it, by its name, until heldUntil; absent while
+             *     it waits for one to take it.
+             */
+            heldBy?: string;
+            /** Format: date-time */
+            heldUntil?: string;
+            items: components["schemas"]["TaskItem"][];
+            /** @description Prompt is what it asks, together; each item has its own. */
+            prompt?: string;
+            /** @description Schema is the JSON schema an answer keeps to, answering in fields or to a schema. */
+            schema?: {
+                [key: string]: unknown;
+            };
+            /**
+             * Format: date-time
+             * @description Until is when the run stops waiting, and its items fail.
+             */
+            until: string;
         };
         FetchPluginRequest: {
             /** @description https */
@@ -3088,6 +3176,11 @@ export interface components {
             /** Format: date-time */
             revokedAt?: string;
             scopes: string[];
+            /**
+             * @description TakingTasks says the agent waits for the tasks of your Local agent nodes now, or did
+             *     a moment ago (D413).
+             */
+            takingTasks: boolean;
         };
         OAuthGrantList: {
             grants: components["schemas"]["OAuthGrant"][];
@@ -3546,6 +3639,12 @@ export interface components {
         StartSessionKeyRequest: {
             /** @description Owner is the browser wallet's account, which must control the Deposit Wallet. */
             owner: string;
+        };
+        TaskItem: {
+            item: {
+                [key: string]: unknown;
+            };
+            prompt?: string;
         };
         TelegramLink: {
             firstName?: string;
@@ -10061,6 +10160,163 @@ export interface operations {
             };
             /** @description not_waiting */
             409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    getExecutionTask: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Workflow ID */
+                id: string;
+                /** @description Execution ID */
+                eid: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ExecutionTask"];
+                };
+            };
+            /** @description unauthenticated */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description not_found: it waits on no task */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    answerTask: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Workflow ID */
+                id: string;
+                /** @description Execution ID */
+                eid: string;
+            };
+            cookie?: never;
+        };
+        /** @description The answer */
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AnswerTaskRequest"];
+            };
+        };
+        responses: {
+            /** @description No Content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description invalid_input: it does not keep to the task's shape */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description unauthenticated */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description forbidden: not from a browser session */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description not_found: it waits on no task */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    handBackTask: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Workflow ID */
+                id: string;
+                /** @description Execution ID */
+                eid: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No Content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description unauthenticated */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description forbidden: not from a browser session */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description not_found: it waits on no task */
+            404: {
                 headers: {
                     [name: string]: unknown;
                 };

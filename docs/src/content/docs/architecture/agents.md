@@ -186,7 +186,9 @@ minute, the node fails at once rather than wait for no one, and it fails at its 
 All of a task's text, the prompt as the workflow filled it in and the items, comes under
 `untrusted`, as a request from the user's workflow rather than from the user: a prompt can
 come from another user's library entry, and expressions fill it with market text, and the
-agent may have a shell.
+agent may have a shell. The run's bar says which agent has the task and until when; the user
+can hand it back, for another agent to take at once, or answer it in the app, at a browser,
+held to the same shape. Settings, Connected agents marks the agents and tokens taking tasks.
 
 The trading tools set how a workflow trades, on paper or live from one of the user's
 wallets, turn the kill switch on or off, reset a paper account, and cancel an order resting

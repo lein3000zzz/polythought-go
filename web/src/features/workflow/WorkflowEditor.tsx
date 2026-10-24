@@ -108,6 +108,7 @@ import { nodeTypeMime, Palette } from './Palette'
 import { canvasMin, clamp, fitWidths, panels, rail } from './panels'
 import { ProblemsContext } from './problems'
 import { RunOutput } from './RunOutput'
+import { localAgentType, TaskStatus } from './TaskStatus'
 import { RunsContext } from './runs'
 import { receivedPorts } from './shapes'
 import { ShareDialog } from './ShareDialog'
@@ -601,6 +602,10 @@ function Editor({ workflow, types, onReload }: Props) {
               workflowId={workflow.id}
               execution={inspected.data}
               version={version}
+              onTask={
+                nodes.find((n) => n.id === inspected.data.waitingOn)?.data.spec.type ===
+                localAgentType
+              }
               onClose={() => {
                 setFollow(false)
                 setInspectedId(undefined)
@@ -820,6 +825,13 @@ function Editor({ workflow, types, onReload }: Props) {
                         key={selectedNode.id}
                         run={runs.get(selectedNode.id)}
                         kept={kept}
+                        task={
+                          workflow &&
+                          inspected.data &&
+                          selectedNode.data.spec.type === localAgentType
+                            ? { workflowId: workflow.id, executionId: inspected.data.id }
+                            : undefined
+                        }
                       />
                     ) : selectedNode ? (
                       <NodePanel
@@ -1103,10 +1115,11 @@ type InspectBarProps = {
   workflowId: string
   execution: Schemas['Execution']
   version?: number // of the workflow being edited
+  onTask: boolean // it waits at a Local agent node (D413)
   onClose: () => void
 }
 
-function InspectBar({ workflowId, execution: e, version, onClose }: InspectBarProps) {
+function InspectBar({ workflowId, execution: e, version, onTask, onClose }: InspectBarProps) {
   const cancel = useCancelExecution(workflowId)
 
   return (
@@ -1118,10 +1131,14 @@ function InspectBar({ workflowId, execution: e, version, onClose }: InspectBarPr
       </span>
       {e.status === 'waiting' && (
         <>
-          <span className="text-muted-foreground">
-            Waiting at {e.waitingOn}
-            {e.waitingUntil && ` until ${formatDateTime(e.waitingUntil)}`}
-          </span>
+          {onTask ? (
+            <TaskStatus workflowId={workflowId} executionId={e.id} />
+          ) : (
+            <span className="text-muted-foreground">
+              Waiting at {e.waitingOn}
+              {e.waitingUntil && ` until ${formatDateTime(e.waitingUntil)}`}
+            </span>
+          )}
           <Button
             variant="outline"
             size="sm"

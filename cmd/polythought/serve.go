@@ -64,9 +64,9 @@ func serve(ctx context.Context) error {
 		Trading:  a.trading,
 		Memory:   a.memory,
 		Telegram: a.telegram, TelegramWebhook: a.telegramBot, Notifications: a.notify, Mail: a.mail,
-		Geoblock: a.geoblock,
-		Meta:     a.meta,
-		OAuth:    a.oauth, Confirmations: a.confirmations,
+		Geoblock: a.geoblock, Tasks: a.tasks, TaskAgents: a.taskAgents,
+		Meta:  a.meta,
+		OAuth: a.oauth, Confirmations: a.confirmations,
 		MCP:     mcp,
 		Plugins: a.plugins,
 

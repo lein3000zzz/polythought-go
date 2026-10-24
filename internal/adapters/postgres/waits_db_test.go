@@ -243,24 +243,24 @@ func TestWaitTasks(t *testing.T) {
 	plain := seedAsked(t, db, alice, at.Add(time.Hour), "k-plain")
 	seedTask(t, db, bob, task, at.Add(-time.Hour))
 
-	got, err := repo.LeaseTask(ctx, alice.ID, "grant:g-1", at, at.Add(10*time.Minute))
+	got, err := repo.LeaseTask(ctx, alice.ID, ports.TaskLease{Holder: "grant:g-1", Name: "grant:g-1", Until: at.Add(10 * time.Minute)}, at)
 	require.NoError(t, err)
 	assert.Equal(t, older.ExecutionID, got.ExecutionID, "the oldest first, the owner's own")
 	assert.JSONEq(t, string(task.Schema), string(got.Task.Schema))
 	got.Task.Schema = task.Schema
 	assert.Equal(t, task, got.Task, "kept as it was")
-	assert.Equal(t, &ports.TaskLease{Holder: "grant:g-1", Until: at.Add(10 * time.Minute)}, got.Lease)
+	assert.Equal(t, &ports.TaskLease{Holder: "grant:g-1", Name: "grant:g-1", Until: at.Add(10 * time.Minute)}, got.Lease)
 
-	got, err = repo.LeaseTask(ctx, alice.ID, "grant:g-2", at, at.Add(10*time.Minute))
+	got, err = repo.LeaseTask(ctx, alice.ID, ports.TaskLease{Holder: "grant:g-2", Name: "grant:g-2", Until: at.Add(10 * time.Minute)}, at)
 	require.NoError(t, err)
 	assert.Equal(t, newer.ExecutionID, got.ExecutionID, "one held is another's")
 
-	_, err = repo.LeaseTask(ctx, alice.ID, "grant:g-3", at, at.Add(10*time.Minute))
+	_, err = repo.LeaseTask(ctx, alice.ID, ports.TaskLease{Holder: "grant:g-3", Name: "grant:g-3", Until: at.Add(10 * time.Minute)}, at)
 	require.ErrorIs(t, err, domain.ErrNotFound, "every task held; a question is no task")
 
 	require.NoError(t, repo.RenewLeases(ctx, alice.ID, "grant:g-1", at.Add(20*time.Minute)))
 
-	_, err = repo.LeaseTask(ctx, alice.ID, "grant:g-3", at.Add(15*time.Minute), at.Add(25*time.Minute))
+	_, err = repo.LeaseTask(ctx, alice.ID, ports.TaskLease{Holder: "grant:g-3", Name: "grant:g-3", Until: at.Add(25 * time.Minute)}, at.Add(15*time.Minute))
 	require.NoError(t, err, "g-2's ran out")
 
 	held, err := repo.Get(ctx, alice.ID, older.ExecutionID)
@@ -269,6 +269,19 @@ func TestWaitTasks(t *testing.T) {
 
 	_, err = repo.TakeTask(ctx, alice.ID, newer.ExecutionID, "grant:g-2")
 	require.ErrorIs(t, err, domain.ErrNotFound, "g-3 has it now")
+
+	require.NoError(t, repo.ReleaseTask(ctx, alice.ID, newer.ExecutionID), "handed back (D413)")
+	require.ErrorIs(t, repo.ReleaseTask(ctx, bob.ID, newer.ExecutionID), domain.ErrNotFound, "alice's")
+	require.ErrorIs(t, repo.ReleaseTask(ctx, alice.ID, plain.ExecutionID), domain.ErrNotFound, "no task")
+
+	free, err := repo.Get(ctx, alice.ID, newer.ExecutionID)
+	require.NoError(t, err)
+	assert.Nil(t, free.Lease)
+
+	got, err = repo.LeaseTask(ctx, alice.ID, ports.TaskLease{Holder: "token:t-1", Name: "the API token “laptop”", Until: at.Add(30 * time.Minute)}, at.Add(16*time.Minute))
+	require.NoError(t, err)
+	assert.Equal(t, newer.ExecutionID, got.ExecutionID, "for any to take")
+	assert.Equal(t, "the API token “laptop”", got.Lease.Name)
 
 	_, err = repo.TakeTask(ctx, alice.ID, plain.ExecutionID, "grant:g-1")
 	require.ErrorIs(t, err, domain.ErrNotFound, "a question is no task")

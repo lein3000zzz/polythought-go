@@ -140,6 +140,9 @@ type tokenDTO struct {
 	Scopes []string `json:"scopes,omitempty" validate:"optional" enums:"read,build,tasks,settings,paper,live,admin"`
 	// Token is the secret, present only in the response that creates it.
 	Token string `json:"token,omitempty" validate:"optional"`
+	// TakingTasks says the token waits for the tasks of your Local agent nodes now, or did
+	// a moment ago (D413).
+	TakingTasks bool `json:"takingTasks"`
 } // @name APIToken
 
 func toTokenDTO(t domain.APIToken) tokenDTO {
@@ -586,9 +589,12 @@ func (s *Server) listTokens(ctx context.Context, c *app.RequestContext) {
 		return
 	}
 
+	taking := s.takingTasks(p.User.ID)
 	out := tokenList{Tokens: make([]tokenDTO, len(tokens))}
+
 	for i, t := range tokens {
 		out.Tokens[i] = toTokenDTO(t)
+		out.Tokens[i].TakingTasks = taking("token:" + string(t.ID))
 	}
 
 	c.JSON(http.StatusOK, out)

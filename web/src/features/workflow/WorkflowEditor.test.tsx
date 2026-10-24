@@ -6,7 +6,7 @@ import { describe, expect, it } from 'vitest'
 
 import type { Schemas } from '@/api/client'
 import { FakeEventSource } from '@/test/eventSource'
-import { alice, apiError, branching, nodeTypes, signedIn } from '@/test/fixtures'
+import { alice, apiError, branching, nodeTypes, signedIn, workflow } from '@/test/fixtures'
 import { renderApp } from '@/test/render'
 import { server } from '@/test/server'
 
@@ -1089,6 +1089,98 @@ describe('waiting executions', () => {
     expect(
       within(canvasNode('tight')).getByLabelText('Cancelled while it waited'),
     ).toBeInTheDocument()
+  })
+})
+
+describe('a run waiting on a Local agent node (D413)', () => {
+  const onTask: Schemas['Execution'] = {
+    id: 'ex-7',
+    workflowVersion: 1,
+    triggeredBy: 'manual',
+    status: 'waiting',
+    startedAt: '2026-10-09T12:00:00Z',
+    durationMs: 0,
+    waitingOn: 'ask',
+    waitingUntil: '2026-10-09T13:00:00Z',
+    runs: [{ nodeId: 'ask', status: 'waiting', startedAt: '2026-10-09T12:00:00Z' }],
+  }
+
+  const held: Schemas['ExecutionTask'] = {
+    call: 'each',
+    answerAs: 'fields',
+    schema: {
+      type: 'object',
+      additionalProperties: false,
+      properties: {
+        watch: { type: 'boolean' },
+        why: { anyOf: [{ type: 'string' }, { type: 'null' }] },
+      },
+      required: ['watch', 'why'],
+    },
+    items: [{ prompt: 'Look into Rain?', item: { question: 'Rain?' } }],
+    until: '2026-10-09T13:00:00Z',
+    heldBy: 'Claude Code',
+    heldUntil: '2026-10-09T12:10:00Z',
+  }
+
+  it('says who has its task, hands it back, and answers it', async () => {
+    let task = held
+    let answered: unknown
+
+    editing(
+      workflow({
+        nodes: [
+          { id: 'manual', type: 'trigger.manual', position: { x: 0, y: 0 } },
+          {
+            id: 'ask',
+            type: 'ai.localAgent',
+            params: { prompt: 'Look into it' },
+            position: { x: 300, y: 0 },
+          },
+        ],
+        connections: [{ from: 'manual', fromPort: 'main', to: 'ask', toPort: 'main' }],
+      }),
+    )
+    server.use(
+      http.get('/api/v1/workflows/wf-1/executions', () =>
+        HttpResponse.json({ executions: [onTask] }),
+      ),
+      http.get('/api/v1/workflows/wf-1/executions/ex-7', () => HttpResponse.json(onTask)),
+      http.get('/api/v1/workflows/wf-1/executions/ex-7/task', () => HttpResponse.json(task)),
+      http.post('/api/v1/workflows/wf-1/executions/ex-7/task/hand-back', () => {
+        task = { ...held, heldBy: undefined, heldUntil: undefined }
+        return new HttpResponse(null, { status: 204 })
+      }),
+      http.post('/api/v1/workflows/wf-1/executions/ex-7/task/answer', async ({ request }) => {
+        answered = await request.json()
+        return new HttpResponse(null, { status: 204 })
+      }),
+    )
+    const { user } = renderApp('/workflows/wf-1')
+
+    await user.click(await screen.findByRole('button', { name: 'Executions' }))
+    const list = within(await screen.findByRole('region', { name: 'Executions' }))
+    await user.click((await list.findAllByRole('button'))[1])
+
+    expect(await screen.findByText(/Claude Code has the task until/)).toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: 'Hand back' }))
+    expect(
+      await screen.findByText(/Waiting for one of your agents to take the task/),
+    ).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Hand back' })).not.toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: 'Answer it' }))
+    const dialog = within(await screen.findByRole('dialog'))
+    expect(dialog.getByText('Look into Rain?')).toBeInTheDocument()
+    await user.click(dialog.getByRole('checkbox', { name: 'watch' }))
+    await user.type(dialog.getByLabelText('why (optional)'), 'Rain is likely')
+    await user.click(dialog.getByRole('button', { name: 'Send answer' }))
+
+    await waitFor(() =>
+      expect(answered).toEqual({ answers: [{ watch: true, why: 'Rain is likely' }] }),
+    )
+    expect(await screen.findByText('Answered: the run carries on')).toBeInTheDocument()
   })
 })
 

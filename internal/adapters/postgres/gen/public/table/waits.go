@@ -29,6 +29,7 @@ type waitsTable struct {
 	Task        postgres.ColumnString
 	LeaseHolder postgres.ColumnString
 	LeaseUntil  postgres.ColumnTimestampz
+	LeaseName   postgres.ColumnString
 
 	AllColumns     postgres.ColumnList
 	MutableColumns postgres.ColumnList
@@ -82,8 +83,9 @@ func newWaitsTableImpl(schemaName, tableName, alias string) waitsTable {
 		TaskColumn        = postgres.StringColumn("task")
 		LeaseHolderColumn = postgres.StringColumn("lease_holder")
 		LeaseUntilColumn  = postgres.TimestampzColumn("lease_until")
-		allColumns        = postgres.ColumnList{ExecutionIDColumn, WorkflowIDColumn, OwnerIDColumn, NodeIDColumn, UntilColumn, StateColumn, CreatedAtColumn, KeyColumn, QuestionColumn, TaskColumn, LeaseHolderColumn, LeaseUntilColumn}
-		mutableColumns    = postgres.ColumnList{WorkflowIDColumn, OwnerIDColumn, NodeIDColumn, UntilColumn, StateColumn, CreatedAtColumn, KeyColumn, QuestionColumn, TaskColumn, LeaseHolderColumn, LeaseUntilColumn}
+		LeaseNameColumn   = postgres.StringColumn("lease_name")
+		allColumns        = postgres.ColumnList{ExecutionIDColumn, WorkflowIDColumn, OwnerIDColumn, NodeIDColumn, UntilColumn, StateColumn, CreatedAtColumn, KeyColumn, QuestionColumn, TaskColumn, LeaseHolderColumn, LeaseUntilColumn, LeaseNameColumn}
+		mutableColumns    = postgres.ColumnList{WorkflowIDColumn, OwnerIDColumn, NodeIDColumn, UntilColumn, StateColumn, CreatedAtColumn, KeyColumn, QuestionColumn, TaskColumn, LeaseHolderColumn, LeaseUntilColumn, LeaseNameColumn}
 		defaultColumns    = postgres.ColumnList{KeyColumn}
 	)
 
@@ -103,6 +105,7 @@ func newWaitsTableImpl(schemaName, tableName, alias string) waitsTable {
 		Task:        TaskColumn,
 		LeaseHolder: LeaseHolderColumn,
 		LeaseUntil:  LeaseUntilColumn,
+		LeaseName:   LeaseNameColumn,
 
 		AllColumns:     allColumns,
 		MutableColumns: mutableColumns,

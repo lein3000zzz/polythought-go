@@ -6,14 +6,17 @@ import { formatDuration, formatTime } from '@/lib/format'
 
 import { errorPort } from './graph'
 import type { NodeRun } from './runs'
+import { TaskStatus } from './TaskStatus'
 
 type Props = {
   run?: NodeRun // undefined: the node did not exist when the execution ran
   kept: boolean // whether the execution kept item samples at all
+  // task is the run's, for a Local agent node: while it waits, who has its task (D413).
+  task?: { workflowId: string; executionId: string }
 }
 
 /** What one node did in the inspected execution: its status, counts and sample items. */
-export function RunOutput({ run, kept }: Props) {
+export function RunOutput({ run, kept, task }: Props) {
   if (!run) {
     return (
       <p className="p-4 text-sm text-muted-foreground">
@@ -27,6 +30,12 @@ export function RunOutput({ run, kept }: Props) {
   return (
     <div className="flex flex-col gap-4 p-4 text-sm">
       <p className="text-muted-foreground">{runSummary(run)}</p>
+
+      {task && run.status === 'waiting' && (
+        <div className="flex flex-wrap items-center gap-2">
+          <TaskStatus workflowId={task.workflowId} executionId={task.executionId} />
+        </div>
+      )}
 
       {run.error && (
         <Alert variant="destructive">

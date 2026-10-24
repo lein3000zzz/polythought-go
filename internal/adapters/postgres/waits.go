@@ -162,7 +162,7 @@ func (r *Waits) TakeDue(ctx context.Context, now time.Time, limit int) ([]ports.
 	return r.take(ctx, w.ExecutionID.IN(due))
 }
 
-func (r *Waits) LeaseTask(ctx context.Context, owner domain.UserID, holder string, now, until time.Time) (ports.WaitRecord, error) {
+func (r *Waits) LeaseTask(ctx context.Context, owner domain.UserID, lease ports.TaskLease, now time.Time) (ports.WaitRecord, error) {
 	oid, err := parseID(owner)
 	if err != nil {
 		return ports.WaitRecord{}, err
@@ -183,8 +183,8 @@ func (r *Waits) LeaseTask(ctx context.Context, owner domain.UserID, holder strin
 
 	var rows []model.Waits
 
-	err = w.UPDATE(w.LeaseHolder, w.LeaseUntil).
-		SET(jet.String(holder), jet.TimestampzT(until)).
+	err = w.UPDATE(w.LeaseHolder, w.LeaseName, w.LeaseUntil).
+		SET(jet.String(lease.Holder), jet.String(lease.Name), jet.TimestampzT(lease.Until)).
 		WHERE(w.ExecutionID.IN(free)).
 		RETURNING(w.AllColumns).
 		QueryContext(ctx, r.db.conn(ctx), &rows)
@@ -213,6 +213,37 @@ func (r *Waits) RenewLeases(ctx context.Context, owner domain.UserID, holder str
 		ExecContext(ctx, r.db.conn(ctx))
 
 	return err
+}
+
+func (r *Waits) ReleaseTask(ctx context.Context, owner domain.UserID, id domain.ExecutionID) error {
+	oid, err := parseID(owner)
+	if err != nil {
+		return err
+	}
+
+	eid, err := parseID(id)
+	if err != nil {
+		return err
+	}
+
+	w := table.Waits
+
+	var rows []model.Waits
+
+	err = w.UPDATE(w.LeaseHolder, w.LeaseName, w.LeaseUntil).
+		SET(jet.NULL, jet.NULL, jet.NULL).
+		WHERE(w.ExecutionID.EQ(jet.UUID(eid)).AND(w.OwnerID.EQ(jet.UUID(oid))).AND(w.Task.IS_NOT_NULL())).
+		RETURNING(w.ExecutionID).
+		QueryContext(ctx, r.db.conn(ctx), &rows)
+	if err != nil {
+		return err
+	}
+
+	if len(rows) == 0 {
+		return domain.ErrNotFound
+	}
+
+	return nil
 }
 
 func (r *Waits) TakeTask(ctx context.Context, owner domain.UserID, id domain.ExecutionID, holder string) (ports.WaitRecord, error) {
@@ -282,6 +313,9 @@ func waitOf(m model.Waits) (ports.WaitRecord, error) {
 
 	if m.LeaseHolder != nil && m.LeaseUntil != nil {
 		w.Lease = &ports.TaskLease{Holder: *m.LeaseHolder, Until: m.LeaseUntil.UTC()}
+		if m.LeaseName != nil {
+			w.Lease.Name = *m.LeaseName
+		}
 	}
 
 	return w, nil

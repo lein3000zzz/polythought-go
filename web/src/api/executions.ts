@@ -58,6 +58,62 @@ export function useCancelExecution(workflowId: string) {
   })
 }
 
+export type ExecutionTask = Schemas['ExecutionTask']
+
+/**
+ * The task a run waits on at a Local agent node, and which of your agents has it (D413),
+ * looked at again every few seconds, as an agent takes it or lets it go.
+ */
+export function useExecutionTask(workflowId: string, executionId: string, enabled = true) {
+  return useQuery({
+    queryKey: keys.executionTask(workflowId, executionId),
+    queryFn: () =>
+      call(
+        api.GET('/workflows/{id}/executions/{eid}/task', {
+          params: { path: { id: workflowId, eid: executionId } },
+        }),
+      ),
+    enabled,
+    refetchInterval: 5000,
+    retry: false,
+  })
+}
+
+/** Takes a run's task from the agent that has it, for another of yours to take at once. */
+export function useHandBackTask(workflowId: string, executionId: string) {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: () =>
+      call(
+        api.POST('/workflows/{id}/executions/{eid}/task/hand-back', {
+          params: { path: { id: workflowId, eid: executionId } },
+        }),
+      ),
+    onSuccess: () =>
+      queryClient.invalidateQueries({ queryKey: keys.executionTask(workflowId, executionId) }),
+  })
+}
+
+/** Answers a run's task yourself: answers, one per item asking each; answer, together. */
+export function useAnswerTask(workflowId: string, executionId: string) {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: (body: Schemas['AnswerTaskRequest']) =>
+      call(
+        api.POST('/workflows/{id}/executions/{eid}/task/answer', {
+          params: { path: { id: workflowId, eid: executionId } },
+          body,
+        }),
+      ),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: keys.execution(workflowId, executionId) })
+      void queryClient.invalidateQueries({ queryKey: keys.executions(workflowId) })
+    },
+  })
+}
+
 /** Runs the saved workflow from its manual trigger and waits for the result. */
 export function useRunWorkflow(workflowId: string) {
   const queryClient = useQueryClient()

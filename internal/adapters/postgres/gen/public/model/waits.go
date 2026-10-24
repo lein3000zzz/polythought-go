@@ -25,4 +25,5 @@ type Waits struct {
 	Task        *string
 	LeaseHolder *string
 	LeaseUntil  *time.Time
+	LeaseName   *string
 }

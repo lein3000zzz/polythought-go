@@ -51,6 +51,13 @@ export const keys = {
   workflowProblems: (id: string) => ['workflows', 'problems', id],
   executions: (workflowId: string) => ['workflows', 'executions', workflowId],
   execution: (workflowId: string, id: string) => ['workflows', 'execution', workflowId, id],
+  executionTask: (workflowId: string, id: string) => [
+    'workflows',
+    'execution',
+    workflowId,
+    id,
+    'task',
+  ],
   trading: (workflowId: string) => ['workflows', 'trading', workflowId],
   tradingSummary: (workflowId: string, mode?: string) => [
     'workflows',

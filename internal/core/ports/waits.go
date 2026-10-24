@@ -46,6 +46,7 @@ type TaskItem struct {
 // waits for another again or answers.
 type TaskLease struct {
 	Holder string // the grant or the API token: "grant:<id>" or "token:<id>"
+	Name   string // the agent or token, by its name then (D413)
 	Until  time.Time
 }
 
@@ -75,8 +76,11 @@ type WaitRepository interface {
 	TakeForWorkflow(ctx context.Context, owner domain.UserID, id domain.WorkflowID) ([]WaitRecord, error)
 
 	// LeaseTask hands the owner's oldest task no agent holds, or whose lease ran out, to
-	// holder until until (D412); domain.ErrNotFound when there is none.
-	LeaseTask(ctx context.Context, owner domain.UserID, holder string, now, until time.Time) (WaitRecord, error)
+	// lease until its Until (D412); domain.ErrNotFound when there is none.
+	LeaseTask(ctx context.Context, owner domain.UserID, lease TaskLease, now time.Time) (WaitRecord, error)
+	// ReleaseTask takes a task from the agent that has it, for any to take (D413);
+	// domain.ErrNotFound for no task of the owner's.
+	ReleaseTask(ctx context.Context, owner domain.UserID, id domain.ExecutionID) error
 	// RenewLeases holds the tasks holder has until until.
 	RenewLeases(ctx context.Context, owner domain.UserID, holder string, until time.Time) error
 	// TakeTask is Take for a task holder has: domain.ErrNotFound for one another holds,
