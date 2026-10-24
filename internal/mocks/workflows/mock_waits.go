@@ -8,6 +8,7 @@ import (
 	"context"
 
 	"github.com/lein3000zzz/polythought-go/internal/core/domain"
+	"github.com/lein3000zzz/polythought-go/internal/core/ports"
 	mock "github.com/stretchr/testify/mock"
 )
 
@@ -45,6 +46,81 @@ type MockWaits_Expecter struct {
 
 func (_m *MockWaits) EXPECT() *MockWaits_Expecter {
 	return &MockWaits_Expecter{mock: &_m.Mock}
+}
+
+// Answer provides a mock function for the type MockWaits
+func (_mock *MockWaits) Answer(ctx context.Context, owner domain.UserID, id domain.ExecutionID, key string, payload map[string]any) error {
+	ret := _mock.Called(ctx, owner, id, key, payload)
+
+	if len(ret) == 0 {
+		panic("no return value specified for Answer")
+	}
+
+	var r0 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context, domain.UserID, domain.ExecutionID, string, map[string]any) error); ok {
+		r0 = returnFunc(ctx, owner, id, key, payload)
+	} else {
+		r0 = ret.Error(0)
+	}
+	return r0
+}
+
+// MockWaits_Answer_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'Answer'
+type MockWaits_Answer_Call struct {
+	*mock.Call
+}
+
+// Answer is a helper method to define mock.On call
+//   - ctx context.Context
+//   - owner domain.UserID
+//   - id domain.ExecutionID
+//   - key string
+//   - payload map[string]any
+func (_e *MockWaits_Expecter) Answer(ctx any, owner any, id any, key any, payload any) *MockWaits_Answer_Call {
+	return &MockWaits_Answer_Call{Call: _e.mock.On("Answer", ctx, owner, id, key, payload)}
+}
+
+func (_c *MockWaits_Answer_Call) Run(run func(ctx context.Context, owner domain.UserID, id domain.ExecutionID, key string, payload map[string]any)) *MockWaits_Answer_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		var arg1 domain.UserID
+		if args[1] != nil {
+			arg1 = args[1].(domain.UserID)
+		}
+		var arg2 domain.ExecutionID
+		if args[2] != nil {
+			arg2 = args[2].(domain.ExecutionID)
+		}
+		var arg3 string
+		if args[3] != nil {
+			arg3 = args[3].(string)
+		}
+		var arg4 map[string]any
+		if args[4] != nil {
+			arg4 = args[4].(map[string]any)
+		}
+		run(
+			arg0,
+			arg1,
+			arg2,
+			arg3,
+			arg4,
+		)
+	})
+	return _c
+}
+
+func (_c *MockWaits_Answer_Call) Return(err error) *MockWaits_Answer_Call {
+	_c.Call.Return(err)
+	return _c
+}
+
+func (_c *MockWaits_Answer_Call) RunAndReturn(run func(ctx context.Context, owner domain.UserID, id domain.ExecutionID, key string, payload map[string]any) error) *MockWaits_Answer_Call {
+	_c.Call.Return(run)
+	return _c
 }
 
 // Cancel provides a mock function for the type MockWaits
@@ -190,6 +266,78 @@ func (_c *MockWaits_CancelWorkflow_Call) Return(err error) *MockWaits_CancelWork
 }
 
 func (_c *MockWaits_CancelWorkflow_Call) RunAndReturn(run func(ctx context.Context, owner domain.UserID, workflowID domain.WorkflowID, reason string) error) *MockWaits_CancelWorkflow_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// Waiting provides a mock function for the type MockWaits
+func (_mock *MockWaits) Waiting(ctx context.Context, owner domain.UserID, id domain.ExecutionID) (ports.WaitRecord, error) {
+	ret := _mock.Called(ctx, owner, id)
+
+	if len(ret) == 0 {
+		panic("no return value specified for Waiting")
+	}
+
+	var r0 ports.WaitRecord
+	var r1 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context, domain.UserID, domain.ExecutionID) (ports.WaitRecord, error)); ok {
+		return returnFunc(ctx, owner, id)
+	}
+	if returnFunc, ok := ret.Get(0).(func(context.Context, domain.UserID, domain.ExecutionID) ports.WaitRecord); ok {
+		r0 = returnFunc(ctx, owner, id)
+	} else {
+		r0 = ret.Get(0).(ports.WaitRecord)
+	}
+	if returnFunc, ok := ret.Get(1).(func(context.Context, domain.UserID, domain.ExecutionID) error); ok {
+		r1 = returnFunc(ctx, owner, id)
+	} else {
+		r1 = ret.Error(1)
+	}
+	return r0, r1
+}
+
+// MockWaits_Waiting_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'Waiting'
+type MockWaits_Waiting_Call struct {
+	*mock.Call
+}
+
+// Waiting is a helper method to define mock.On call
+//   - ctx context.Context
+//   - owner domain.UserID
+//   - id domain.ExecutionID
+func (_e *MockWaits_Expecter) Waiting(ctx any, owner any, id any) *MockWaits_Waiting_Call {
+	return &MockWaits_Waiting_Call{Call: _e.mock.On("Waiting", ctx, owner, id)}
+}
+
+func (_c *MockWaits_Waiting_Call) Run(run func(ctx context.Context, owner domain.UserID, id domain.ExecutionID)) *MockWaits_Waiting_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		var arg1 domain.UserID
+		if args[1] != nil {
+			arg1 = args[1].(domain.UserID)
+		}
+		var arg2 domain.ExecutionID
+		if args[2] != nil {
+			arg2 = args[2].(domain.ExecutionID)
+		}
+		run(
+			arg0,
+			arg1,
+			arg2,
+		)
+	})
+	return _c
+}
+
+func (_c *MockWaits_Waiting_Call) Return(waitRecord ports.WaitRecord, err error) *MockWaits_Waiting_Call {
+	_c.Call.Return(waitRecord, err)
+	return _c
+}
+
+func (_c *MockWaits_Waiting_Call) RunAndReturn(run func(ctx context.Context, owner domain.UserID, id domain.ExecutionID) (ports.WaitRecord, error)) *MockWaits_Waiting_Call {
 	_c.Call.Return(run)
 	return _c
 }

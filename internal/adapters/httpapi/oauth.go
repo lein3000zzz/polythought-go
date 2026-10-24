@@ -505,6 +505,8 @@ type agentAccessRequest struct {
 	// UseCredentials lets them save and run workflows that use credentials, test
 	// credentials and change where they go (D404).
 	UseCredentials *bool `json:"useCredentials,omitempty" validate:"optional"`
+	// Answer lets them answer the questions the user's workflows ask (D405).
+	Answer *bool `json:"answer,omitempty" validate:"optional"`
 } // @name AgentAccessRequest
 
 // setAgentAccess sets what the user's agents and API tokens may see (D401, D402) and do
@@ -535,7 +537,7 @@ func (s *Server) setAgentAccess(ctx context.Context, c *app.RequestContext) {
 		into *bool
 	}{
 		{req.SeePersonal, &access.SeePersonal}, {req.Delete, &access.Delete}, {req.Share, &access.Share},
-		{req.UseCredentials, &access.UseCredentials},
+		{req.UseCredentials, &access.UseCredentials}, {req.Answer, &access.Answer},
 	} {
 		if sw.to != nil {
 			*sw.into = *sw.to

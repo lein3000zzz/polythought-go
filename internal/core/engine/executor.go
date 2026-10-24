@@ -384,7 +384,7 @@ func (e *Executor) park(ctx context.Context, x *execution, p *pause) error {
 
 	return e.waits.Add(ctx, ports.WaitRecord{
 		ExecutionID: x.exec.ID, WorkflowID: x.workflow.ID, OwnerID: x.workflow.OwnerID,
-		NodeID: p.node, Until: p.wait.Until, Key: p.wait.Key, State: state, CreatedAt: e.now(),
+		NodeID: p.node, Until: p.wait.Until, Key: p.wait.Key, Question: p.wait.Question, State: state, CreatedAt: e.now(),
 	})
 }
 

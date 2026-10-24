@@ -42,6 +42,10 @@ func seedAsked(t *testing.T, db *postgres.DB, owner domain.User, until time.Time
 		ExecutionID: e.ID, WorkflowID: w.ID, OwnerID: owner.ID, NodeID: "pause",
 		Until: until, Key: key, State: json.RawMessage(`{"pending":{"x":0.0200}}`), CreatedAt: at,
 	}
+	if key != "" {
+		rec.Question = &ports.WaitQuestion{HTML: "Buy <b>YES</b>?", Options: []string{"Buy", "Skip"}}
+	}
+
 	require.NoError(t, postgres.NewWaits(db).Add(ctx, rec))
 
 	return rec
@@ -97,6 +101,31 @@ func TestWaits(t *testing.T) {
 		n, err = repo.CountForOwner(ctx, alice.ID)
 		require.NoError(t, err)
 		assert.Zero(t, n)
+	})
+
+	t.Run("looked at, left as it was, with what it asks (D405)", func(t *testing.T) {
+		db := fresh(t)
+		repo := postgres.NewWaits(db)
+		alice := seedUser(t, db, "alice@example.com", domain.RoleUser)
+		bob := seedUser(t, db, "bob@example.com", domain.RoleUser)
+		asked := seedAsked(t, db, alice, at.Add(time.Hour), "k1")
+		timer := seedWaiting(t, db, alice, at.Add(time.Hour))
+
+		_, err := repo.Get(ctx, bob.ID, asked.ExecutionID)
+		require.ErrorIs(t, err, domain.ErrNotFound)
+
+		got, err := repo.Get(ctx, alice.ID, asked.ExecutionID)
+		require.NoError(t, err)
+		assert.Equal(t, "k1", got.Key)
+		assert.Equal(t, asked.Question, got.Question)
+
+		quiet, err := repo.Get(ctx, alice.ID, timer.ExecutionID)
+		require.NoError(t, err)
+		assert.Nil(t, quiet.Question, "a wait for its time asks nothing")
+
+		taken, err := repo.TakeWithKey(ctx, alice.ID, asked.ExecutionID, "k1")
+		require.NoError(t, err, "still there to take")
+		assert.Equal(t, asked.Question, taken.Question)
 	})
 
 	t.Run("answered only with its key", func(t *testing.T) {

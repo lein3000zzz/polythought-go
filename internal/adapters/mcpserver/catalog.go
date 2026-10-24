@@ -141,6 +141,14 @@ type templateText struct {
 	Description string `json:"description,omitempty"`
 	Workflow    *graph `json:"workflow,omitempty"`
 	Code        string `json:"code,omitempty"`
+	// CustomNodes are the custom nodes it brings, code and all (D62, D405).
+	CustomNodes []templateNodeOut `json:"customNodes,omitempty" jsonschema:"the custom nodes using it copies to the user's, their code included"`
+}
+
+type templateNodeOut struct {
+	Type   string `json:"type"`
+	Label  string `json:"label"`
+	Source string `json:"source" jsonschema:"its TypeScript, which runs as the user's"`
 }
 
 type templateOut struct {
@@ -329,18 +337,24 @@ func (s *Server) listTemplates(ctx context.Context, p auth.Principal, in page) (
 	out := templateList{Templates: make([]templateSummary, len(got.Items)), Next: got.NextCursor}
 
 	for i, e := range got.Items {
-		sum := templateSummary{ID: string(e.ID), BuiltIn: e.BuiltIn(), Mine: e.Mine, Nodes: len(e.Nodes)}
-
-		if others(e) {
-			sum.Untrusted, out.Notice = Untrusted{"name": e.Name, "summary": e.Summary}, Notice
-		} else {
-			sum.Name, sum.Summary = e.Name, e.Summary
+		if out.Templates[i] = templateSummaryOf(e); others(e) {
+			out.Notice = Notice
 		}
-
-		out.Templates[i] = sum
 	}
 
 	return out, nil
+}
+
+func templateSummaryOf(e library.Entry) templateSummary {
+	sum := templateSummary{ID: string(e.ID), BuiltIn: e.BuiltIn(), Mine: e.Mine, Nodes: len(e.Nodes)}
+
+	if others(e) {
+		sum.Untrusted = Untrusted{"name": e.Name, "summary": e.Summary}
+	} else {
+		sum.Name, sum.Summary = e.Name, e.Summary
+	}
+
+	return sum
 }
 
 func (s *Server) getTemplate(ctx context.Context, p auth.Principal, in templateIn) (templateOut, error) {
@@ -355,6 +369,10 @@ func (s *Server) getTemplate(ctx context.Context, p auth.Principal, in templateI
 	}
 
 	text := &templateText{Name: e.Name, Summary: e.Summary, Description: e.Description}
+
+	for _, n := range e.CustomNodes {
+		text.CustomNodes = append(text.CustomNodes, templateNodeOut{Type: engine.CustomTypePrefix + n.Name, Label: n.Label, Source: n.Source})
+	}
 
 	if format == formatTypeScript {
 		types, err := s.types(ctx, p)

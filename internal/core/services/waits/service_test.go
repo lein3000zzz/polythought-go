@@ -54,6 +54,19 @@ func (r *repo) takeWhere(keep func(ports.WaitRecord) bool) []ports.WaitRecord {
 	return taken
 }
 
+func (r *repo) Get(_ context.Context, owner domain.UserID, id domain.ExecutionID) (ports.WaitRecord, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	for _, w := range r.recs {
+		if w.ExecutionID == id && w.OwnerID == owner {
+			return w, nil
+		}
+	}
+
+	return ports.WaitRecord{}, domain.ErrNotFound
+}
+
 func (r *repo) Take(_ context.Context, owner domain.UserID, id domain.ExecutionID) (ports.WaitRecord, error) {
 	got := r.takeWhere(func(w ports.WaitRecord) bool { return w.ExecutionID == id && w.OwnerID == owner })
 	if len(got) == 0 {

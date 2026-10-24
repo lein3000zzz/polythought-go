@@ -109,4 +109,13 @@ secret sealed and never given back. As a workflow can send a credential wherever
 call, a third switch, off to start with, decides whether agents and tokens may make
 credentials work: save, switch on or run a workflow that uses one, test one, or change where
 one goes. Deleting custom nodes and credentials takes the delete switch, as workflows do.
-Tools that trade are coming; this page will describe them as they do.
+
+An agent sees what a waiting execution asks, the Telegram question as it was sent, under
+`untrusted` as its items' fields are others' words, and its buttons; each wait that can be
+answered keeps that beside its key. It presses a button only where the user lets agents and
+tokens answer, a switch of its own, off to start with, as a question is often how the user
+approves a step; the question then says which agent answered. Agents use library entries,
+any of them, the workflow made switched off; for another user's entry the answer names the
+code it brings, which `get_template` gives in full, for the user to read before it runs. They
+share the user's workflows and take the user's entries down where the share switch lets
+them. Tools that trade are coming; this page will describe them as they do.

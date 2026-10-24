@@ -251,6 +251,10 @@ func (p Principal) NeedDelete() error {
 // workflows that use them, test them, change where they go. As SeesPersonal has it.
 func (p Principal) MayUseCredentials() bool { return p.Itself() || p.User.Agents.UseCredentials }
 
+// MayAnswer says the principal may answer the questions the user's workflows ask them
+// (D405), as SeesPersonal has it.
+func (p Principal) MayAnswer() bool { return p.Itself() || p.User.Agents.Answer }
+
 // MayShare says the principal may share workflows to the library (D403), as SeesPersonal
 // has it.
 func (p Principal) MayShare() bool { return p.Itself() || p.User.Agents.Share }

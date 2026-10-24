@@ -434,6 +434,22 @@ func TestListAndDelete(t *testing.T) {
 			wantErr: domain.ErrForbidden,
 		},
 		{name: "built-ins stay", who: root, id: "first-workflow", setup: func(deps) {}, wantErr: domain.ErrForbidden},
+		{
+			name: "the author's agent, where they let it share (D405)", id: shared.ID,
+			who: auth.Principal{User: withShare(alice.User), GrantID: "g-1", Scopes: []domain.Scope{domain.ScopeBuild}},
+			setup: func(d deps) {
+				d.repo.EXPECT().Get(ctx, shared.ID).Return(shared, nil)
+				d.repo.EXPECT().Delete(ctx, shared.ID).Return(nil)
+			},
+		},
+		{
+			name: "an admin's agent, another's only with the admin scope", id: shared.ID,
+			who: auth.Principal{User: withShare(root.User), GrantID: "g-2", Scopes: []domain.Scope{domain.ScopeBuild}},
+			setup: func(d deps) {
+				d.repo.EXPECT().Get(ctx, shared.ID).Return(shared, nil)
+			},
+			wantErr: domain.ErrForbidden,
+		},
 	}
 
 	for _, tt := range tests {
@@ -455,4 +471,13 @@ func TestShareNeedsTheSwitch(t *testing.T) {
 	_, err := s.Share(context.Background(), token, "wf-1", library.ShareInput{})
 	require.ErrorIs(t, err, domain.ErrForbidden)
 	assert.Contains(t, err.Error(), "Connected agents")
+
+	err = s.Delete(context.Background(), token, "t-1")
+	require.ErrorIs(t, err, domain.ErrForbidden, "taking one down too (D405)")
+	assert.Contains(t, err.Error(), "or take entries down")
+}
+
+func withShare(u domain.User) domain.User {
+	u.Agents.Share = true
+	return u
 }

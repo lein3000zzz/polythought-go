@@ -4,6 +4,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"slices"
+	"strconv"
 	"strings"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
@@ -27,6 +29,7 @@ type Editing interface {
 	SwitchOff(ctx context.Context, p auth.Principal, id domain.WorkflowID, cancelOrders bool) (domain.Workflow, error)
 	Run(ctx context.Context, p auth.Principal, id domain.WorkflowID, trigger domain.NodeID) (domain.Execution, error)
 	CancelExecution(ctx context.Context, p auth.Principal, id domain.WorkflowID, execID domain.ExecutionID) (domain.Execution, error)
+	Answer(ctx context.Context, p auth.Principal, id domain.WorkflowID, execID domain.ExecutionID, option int) error
 }
 
 // WorkflowCode runs workflow code into the graph it builds, for a user who may write code.
@@ -77,6 +80,17 @@ type deletedOut struct {
 	Deleted string `json:"deleted"`
 }
 
+type answerIn struct {
+	Workflow  string `json:"workflow" jsonschema:"the workflow's ID"`
+	Execution string `json:"execution" jsonschema:"the execution's ID"`
+	Answer    string `json:"answer" jsonschema:"the button to press, as get_execution's question has it"`
+}
+
+type answeredOut struct {
+	Answered string `json:"answered"`
+	Note     string `json:"note"`
+}
+
 func (s *Server) addEditTools(srv *mcp.Server) {
 	add(s, srv, Tool[createIn, savedOut]{
 		Name: "create_workflow", Title: "Create a workflow", Scope: domain.ScopeBuild,
@@ -118,6 +132,15 @@ func (s *Server) addEditTools(srv *mcp.Server) {
 		Name: "cancel_execution", Title: "Cancel an execution", Scope: domain.ScopeBuild,
 		Description: "Cancel an execution that waits, such as at a Wait node or for an answer.",
 		Handle:      s.cancelExecution,
+	})
+
+	add(s, srv, Tool[answerIn, answeredOut]{
+		Name: "answer_question", Title: "Answer a question", Scope: domain.ScopeBuild,
+		Description: "Answer what an execution asks the user, such as a Telegram question, by pressing one of its buttons for " +
+			"them: the items go on through that button's port. Questions are often how the user approves a step, such as a " +
+			"trade, so answer only as the user told you to. It works only where the user lets agents answer; the question " +
+			"then says you answered it.",
+		Handle: s.answerQuestion,
 	})
 }
 
@@ -253,6 +276,45 @@ func (s *Server) runWorkflow(ctx context.Context, p auth.Principal, in runIn) (e
 	}
 
 	return executionOf(e), nil
+}
+
+func (s *Server) answerQuestion(ctx context.Context, p auth.Principal, in answerIn) (answeredOut, error) {
+	id, execID := domain.WorkflowID(in.Workflow), domain.ExecutionID(in.Execution)
+
+	q, err := s.workflows.Question(ctx, p, id, execID)
+	if err != nil {
+		return answeredOut{}, err
+	}
+
+	if q == nil {
+		return answeredOut{}, fmt.Errorf("%w: it asks nothing to answer here; get_execution says what it waits for", domain.ErrNotWaiting)
+	}
+
+	option := slices.Index(q.Options, in.Answer)
+	if option < 0 {
+		option = slices.IndexFunc(q.Options, func(o string) bool { return strings.EqualFold(o, strings.TrimSpace(in.Answer)) })
+	}
+
+	if option < 0 {
+		return answeredOut{}, invalid(fmt.Sprintf("its buttons are %s", strings.Join(quoted(q.Options), ", ")))
+	}
+
+	if err := s.edit.Answer(ctx, p, id, execID, option); err != nil {
+		return answeredOut{}, err
+	}
+
+	return answeredOut{
+		Answered: q.Options[option], Note: "It carries on through that button's port; get_execution shows how it went.",
+	}, nil
+}
+
+func quoted(s []string) []string {
+	out := make([]string, len(s))
+	for i, v := range s {
+		out[i] = strconv.Quote(v)
+	}
+
+	return out
 }
 
 func (s *Server) cancelExecution(ctx context.Context, p auth.Principal, in executionIn) (executionSummary, error) {

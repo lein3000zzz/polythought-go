@@ -21,4 +21,5 @@ type Waits struct {
 	State       string
 	CreatedAt   time.Time
 	Key         string
+	Question    *string
 }

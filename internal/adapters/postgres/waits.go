@@ -39,12 +39,46 @@ func (r *Waits) Add(ctx context.Context, w ports.WaitRecord) error {
 		return err
 	}
 
+	var question *string
+
+	if w.Question != nil {
+		data, err := json.Marshal(w.Question)
+		if err != nil {
+			return err
+		}
+
+		question = new(string(data))
+	}
+
 	_, err = table.Waits.INSERT(table.Waits.AllColumns).MODEL(model.Waits{
 		ExecutionID: eid, WorkflowID: wid, OwnerID: oid, NodeID: string(w.NodeID),
-		Until: w.Until, Key: w.Key, State: string(w.State), CreatedAt: w.CreatedAt,
+		Until: w.Until, Key: w.Key, Question: question, State: string(w.State), CreatedAt: w.CreatedAt,
 	}).ExecContext(ctx, r.db.conn(ctx))
 
 	return err
+}
+
+func (r *Waits) Get(ctx context.Context, owner domain.UserID, id domain.ExecutionID) (ports.WaitRecord, error) {
+	oid, err := parseID(owner)
+	if err != nil {
+		return ports.WaitRecord{}, err
+	}
+
+	eid, err := parseID(id)
+	if err != nil {
+		return ports.WaitRecord{}, err
+	}
+
+	var m model.Waits
+
+	err = table.Waits.SELECT(table.Waits.AllColumns).
+		WHERE(table.Waits.ExecutionID.EQ(jet.UUID(eid)).AND(table.Waits.OwnerID.EQ(jet.UUID(oid)))).
+		QueryContext(ctx, r.db.conn(ctx), &m)
+	if err != nil {
+		return ports.WaitRecord{}, notFound(err)
+	}
+
+	return waitOf(m)
 }
 
 func (r *Waits) CountForOwner(ctx context.Context, owner domain.UserID) (int, error) {
@@ -145,12 +179,27 @@ func (r *Waits) take(ctx context.Context, where jet.BoolExpression) ([]ports.Wai
 
 	out := make([]ports.WaitRecord, len(rows))
 	for i, m := range rows {
-		out[i] = ports.WaitRecord{
-			ExecutionID: domain.ExecutionID(m.ExecutionID.String()), WorkflowID: domain.WorkflowID(m.WorkflowID.String()),
-			OwnerID: domain.UserID(m.OwnerID.String()), NodeID: domain.NodeID(m.NodeID),
-			Until: m.Until.UTC(), Key: m.Key, State: json.RawMessage(m.State), CreatedAt: m.CreatedAt.UTC(),
+		if out[i], err = waitOf(m); err != nil {
+			return nil, err
 		}
 	}
 
 	return out, nil
+}
+
+func waitOf(m model.Waits) (ports.WaitRecord, error) {
+	w := ports.WaitRecord{
+		ExecutionID: domain.ExecutionID(m.ExecutionID.String()), WorkflowID: domain.WorkflowID(m.WorkflowID.String()),
+		OwnerID: domain.UserID(m.OwnerID.String()), NodeID: domain.NodeID(m.NodeID),
+		Until: m.Until.UTC(), Key: m.Key, State: json.RawMessage(m.State), CreatedAt: m.CreatedAt.UTC(),
+	}
+
+	if m.Question != nil {
+		w.Question = &ports.WaitQuestion{}
+		if err := json.Unmarshal([]byte(*m.Question), w.Question); err != nil {
+			return ports.WaitRecord{}, err
+		}
+	}
+
+	return w, nil
 }

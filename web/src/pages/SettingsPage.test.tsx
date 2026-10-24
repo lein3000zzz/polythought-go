@@ -508,7 +508,7 @@ describe('settings page', () => {
     await waitFor(() => expect(sent).toEqual({ seePersonal: true }))
   })
 
-  it('lets agents delete, share and use credentials, each off to start with (D403, D404)', async () => {
+  it('lets agents delete, share, use credentials and answer, each off to start with (D403 to D405)', async () => {
     const sent: unknown[] = []
     server.use(
       signedIn,
@@ -524,7 +524,10 @@ describe('settings page', () => {
     const use = screen.getByRole('switch', {
       name: 'Agents and tokens may use my credentials in workflows',
     })
-    for (const s of [remove, share, use]) expect(s).not.toBeChecked()
+    const answer = screen.getByRole('switch', {
+      name: "Agents and tokens may answer my workflows' questions",
+    })
+    for (const s of [remove, share, use, answer]) expect(s).not.toBeChecked()
 
     await user.click(remove)
     await waitFor(() => expect(sent).toEqual([{ delete: true }]))
@@ -534,6 +537,9 @@ describe('settings page', () => {
     await waitFor(() =>
       expect(sent).toEqual([{ delete: true }, { share: true }, { useCredentials: true }]),
     )
+    await user.click(answer)
+    await waitFor(() => expect(sent).toHaveLength(4))
+    expect(sent[3]).toEqual({ answer: true })
   })
 
   it('has Credentials as a page, where its old address goes (D392)', async () => {

@@ -175,6 +175,11 @@ func (s *Service) Answer(ctx context.Context, owner domain.UserID, id domain.Exe
 	return nil
 }
 
+// Waiting is one of owner's waits, left as it is: what it waits for, and what it asks.
+func (s *Service) Waiting(ctx context.Context, owner domain.UserID, id domain.ExecutionID) (ports.WaitRecord, error) {
+	return s.repo.Get(ctx, owner, id)
+}
+
 // Cancel ends one of owner's waiting executions as cancelled, for reason.
 func (s *Service) Cancel(ctx context.Context, owner domain.UserID, id domain.ExecutionID, reason string) (domain.Execution, error) {
 	rec, err := s.repo.Take(ctx, owner, id)

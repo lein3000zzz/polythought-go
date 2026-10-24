@@ -264,7 +264,12 @@ func waitOn(q question, state []byte) (*engine.Wait, error) {
 		return nil, fmt.Errorf("its state is larger than the %d bytes a wait may keep", maxState)
 	}
 
-	return &engine.Wait{Until: q.until(), Key: q.Key, State: waiting{Question: q, State: string(state)}.encode()}, nil
+	return &engine.Wait{Until: q.until(), Key: q.Key, Question: q.asked(), State: waiting{Question: q, State: string(state)}.encode()}, nil
+}
+
+// asked is the question as an answer elsewhere sees it (D405).
+func (q question) asked() *ports.WaitQuestion {
+	return &ports.WaitQuestion{HTML: q.HTML, Options: slices.Clone(q.Options)}
 }
 
 // closeQuestion takes a question's buttons away, saying how it ended: a question left

@@ -39,6 +39,7 @@ type usersTable struct {
 	AgentsMayDelete      postgres.ColumnBool
 	AgentsMayShare       postgres.ColumnBool
 	AgentsUseCredentials postgres.ColumnBool
+	AgentsMayAnswer      postgres.ColumnBool
 
 	AllColumns     postgres.ColumnList
 	MutableColumns postgres.ColumnList
@@ -102,9 +103,10 @@ func newUsersTableImpl(schemaName, tableName, alias string) usersTable {
 		AgentsMayDeleteColumn      = postgres.BoolColumn("agents_may_delete")
 		AgentsMayShareColumn       = postgres.BoolColumn("agents_may_share")
 		AgentsUseCredentialsColumn = postgres.BoolColumn("agents_use_credentials")
-		allColumns                 = postgres.ColumnList{IDColumn, EmailColumn, EmailNormalizedColumn, PasswordHashColumn, RoleColumn, EmailVerifiedAtColumn, DisabledAtColumn, CreatedAtColumn, UpdatedAtColumn, CodeChosenColumn, LiveStoppedAtColumn, MaxLiveOrderColumn, MaxLiveDayColumn, MaxAgentDollarsColumn, MaxAgentInputColumn, MaxAgentOutputColumn, MaxAgentTotalColumn, KillStopsAgentsColumn, AgentsSeePersonalColumn, AgentsMayDeleteColumn, AgentsMayShareColumn, AgentsUseCredentialsColumn}
-		mutableColumns             = postgres.ColumnList{EmailColumn, EmailNormalizedColumn, PasswordHashColumn, RoleColumn, EmailVerifiedAtColumn, DisabledAtColumn, CreatedAtColumn, UpdatedAtColumn, CodeChosenColumn, LiveStoppedAtColumn, MaxLiveOrderColumn, MaxLiveDayColumn, MaxAgentDollarsColumn, MaxAgentInputColumn, MaxAgentOutputColumn, MaxAgentTotalColumn, KillStopsAgentsColumn, AgentsSeePersonalColumn, AgentsMayDeleteColumn, AgentsMayShareColumn, AgentsUseCredentialsColumn}
-		defaultColumns             = postgres.ColumnList{CodeChosenColumn, KillStopsAgentsColumn, AgentsSeePersonalColumn, AgentsMayDeleteColumn, AgentsMayShareColumn, AgentsUseCredentialsColumn}
+		AgentsMayAnswerColumn      = postgres.BoolColumn("agents_may_answer")
+		allColumns                 = postgres.ColumnList{IDColumn, EmailColumn, EmailNormalizedColumn, PasswordHashColumn, RoleColumn, EmailVerifiedAtColumn, DisabledAtColumn, CreatedAtColumn, UpdatedAtColumn, CodeChosenColumn, LiveStoppedAtColumn, MaxLiveOrderColumn, MaxLiveDayColumn, MaxAgentDollarsColumn, MaxAgentInputColumn, MaxAgentOutputColumn, MaxAgentTotalColumn, KillStopsAgentsColumn, AgentsSeePersonalColumn, AgentsMayDeleteColumn, AgentsMayShareColumn, AgentsUseCredentialsColumn, AgentsMayAnswerColumn}
+		mutableColumns             = postgres.ColumnList{EmailColumn, EmailNormalizedColumn, PasswordHashColumn, RoleColumn, EmailVerifiedAtColumn, DisabledAtColumn, CreatedAtColumn, UpdatedAtColumn, CodeChosenColumn, LiveStoppedAtColumn, MaxLiveOrderColumn, MaxLiveDayColumn, MaxAgentDollarsColumn, MaxAgentInputColumn, MaxAgentOutputColumn, MaxAgentTotalColumn, KillStopsAgentsColumn, AgentsSeePersonalColumn, AgentsMayDeleteColumn, AgentsMayShareColumn, AgentsUseCredentialsColumn, AgentsMayAnswerColumn}
+		defaultColumns             = postgres.ColumnList{CodeChosenColumn, KillStopsAgentsColumn, AgentsSeePersonalColumn, AgentsMayDeleteColumn, AgentsMayShareColumn, AgentsUseCredentialsColumn, AgentsMayAnswerColumn}
 	)
 
 	return usersTable{
@@ -133,6 +135,7 @@ func newUsersTableImpl(schemaName, tableName, alias string) usersTable {
 		AgentsMayDelete:      AgentsMayDeleteColumn,
 		AgentsMayShare:       AgentsMayShareColumn,
 		AgentsUseCredentials: AgentsUseCredentialsColumn,
+		AgentsMayAnswer:      AgentsMayAnswerColumn,
 
 		AllColumns:     allColumns,
 		MutableColumns: mutableColumns,

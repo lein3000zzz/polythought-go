@@ -61,7 +61,7 @@ func (n *proxyNode) Resume(ctx context.Context, rc engine.RunContext, in engine.
 
 		q.Remind = false
 
-		return nil, &engine.Wait{Until: q.Deadline, Key: q.Key, State: waiting{Question: q, State: w.State}.encode()}
+		return nil, &engine.Wait{Until: q.Deadline, Key: q.Key, Question: q.asked(), State: waiting{Question: q, State: w.State}.encode()}
 	}
 
 	resume := &pluginv1.Resume{TimedOut: r.TimedOut, State: []byte(w.State)}
@@ -75,6 +75,9 @@ func (n *proxyNode) Resume(ctx context.Context, rc engine.RunContext, in engine.
 
 		resume.Option, resume.Label = int32(i), q.Options[i] //nolint:gosec // one of 10
 		closing = "✅ <b>" + html.EscapeString(q.Options[i]) + "</b>"
+		if by := r.By(); by != "" {
+			closing += ", <i>answered by " + html.EscapeString(by) + "</i>"
+		}
 	}
 
 	api.closeQuestion(ctx, rc.OwnerID, q, closing)

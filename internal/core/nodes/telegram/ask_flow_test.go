@@ -55,6 +55,18 @@ func (m *memWaits) take(id domain.ExecutionID, ok func(ports.WaitRecord) bool) (
 	return w, nil
 }
 
+func (m *memWaits) Get(_ context.Context, owner domain.UserID, id domain.ExecutionID) (ports.WaitRecord, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	w, ok := m.recs[id]
+	if !ok || w.OwnerID != owner {
+		return ports.WaitRecord{}, domain.ErrNotFound
+	}
+
+	return w, nil
+}
+
 func (m *memWaits) Take(_ context.Context, owner domain.UserID, id domain.ExecutionID) (ports.WaitRecord, error) {
 	return m.take(id, func(w ports.WaitRecord) bool { return w.OwnerID == owner })
 }

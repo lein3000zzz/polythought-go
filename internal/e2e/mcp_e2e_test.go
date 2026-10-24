@@ -348,6 +348,25 @@ export default workflow("Agent builds me", (w) => {
 	tool(ctx, t, agent, "delete_workflow", map[string]any{"id": hooked["id"]})
 	tool(ctx, t, agent, "delete_credential", map[string]any{"id": kept["id"]})
 
+	// The library (D405): a built-in entry used, nothing of another's in it; the workflow
+	// shared, and taken down, once the user lets agents share.
+	used := tool(ctx, t, agent, "use_template", map[string]any{"id": "first-workflow", "name": "Agent's first"})
+	assert.Equal(t, "Agent's first", used["name"])
+	assert.NotContains(t, used, "brings")
+
+	refused, err = agent.CallTool(ctx, &mcp.CallToolParams{Name: "share_workflow", Arguments: map[string]any{"workflow": used["id"]}})
+	require.NoError(t, err)
+	require.True(t, refused.IsError)
+	assert.Contains(t, refused.Content[0].(*mcp.TextContent).Text, "has not let agents and tokens share")
+
+	b.call(http.MethodPut, "/api/v1/me/agent-access", map[string]any{"share": true}, http.StatusNoContent, nil)
+	defer b.call(http.MethodPut, "/api/v1/me/agent-access", map[string]any{"share": false}, http.StatusNoContent, nil)
+
+	entry := tool(ctx, t, agent, "share_workflow", map[string]any{"workflow": used["id"], "summary": "Shared by an agent."})
+	assert.Equal(t, true, entry["mine"])
+	assert.Equal(t, map[string]any{"deleted": entry["id"]}, tool(ctx, t, agent, "unshare_template", map[string]any{"id": entry["id"]}))
+	tool(ctx, t, agent, "delete_workflow", map[string]any{"id": used["id"]})
+
 	// An API token with the read scope alone works there too, with that scope.
 	var token struct{ Token string }
 	b.call(http.MethodPost, "/api/v1/tokens", map[string]any{"name": "mcp e2e", "scopes": []string{"read"}}, http.StatusCreated, &token)

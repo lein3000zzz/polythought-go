@@ -131,6 +131,10 @@
             },
             "AgentAccessRequest": {
                 "properties": {
+                    "answer": {
+                        "description": "Answer lets them answer the questions the user's workflows ask (D405).",
+                        "type": "boolean"
+                    },
                     "delete": {
                         "description": "Delete lets them delete workflows, custom nodes and credentials; Share, share\nworkflows to the library (D403, D404).",
                         "type": "boolean"
@@ -4358,6 +4362,9 @@
                         "$ref": "#/components/schemas/AgentCaps",
                         "description": "AgentCaps are an admin's caps on their agents' spend a month; those left out are\nthe instance's (D271)."
                     },
+                    "agentsMayAnswer": {
+                        "type": "boolean"
+                    },
                     "agentsMayDelete": {
                         "type": "boolean"
                     },
@@ -4368,7 +4375,7 @@
                         "type": "boolean"
                     },
                     "agentsSeePersonal": {
-                        "description": "AgentsSeePersonal is their choice that agents and API tokens see their workflows'\npersonal settings (D401, D402); AgentsMayDelete and AgentsMayShare, that they may\ndelete workflows, custom nodes and credentials and share workflows to the library\n(D403, D404); AgentsMayUseCredentials, that they may use credentials in workflows\n(D404).",
+                        "description": "AgentsSeePersonal is their choice that agents and API tokens see their workflows'\npersonal settings (D401, D402); AgentsMayDelete and AgentsMayShare, that they may\ndelete workflows, custom nodes and credentials and share workflows to the library\n(D403, D404); AgentsMayUseCredentials, that they may use credentials in workflows\n(D404); AgentsMayAnswer, that they may answer their workflows' questions (D405).",
                         "type": "boolean"
                     },
                     "codeChosen": {
@@ -4421,6 +4428,7 @@
                 },
                 "required": [
                     "agentCaps",
+                    "agentsMayAnswer",
                     "agentsMayDelete",
                     "agentsMayShare",
                     "agentsMayUseCredentials",

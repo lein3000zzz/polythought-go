@@ -36,4 +36,5 @@ type Users struct {
 	AgentsMayDelete      bool
 	AgentsMayShare       bool
 	AgentsUseCredentials bool
+	AgentsMayAnswer      bool
 }

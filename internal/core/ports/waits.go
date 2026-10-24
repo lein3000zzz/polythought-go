@@ -15,10 +15,18 @@ type WaitRecord struct {
 	WorkflowID  domain.WorkflowID
 	OwnerID     domain.UserID
 	NodeID      domain.NodeID
-	Until       time.Time // resumed then at the latest
-	Key         string    // what an answer must bring; empty when it cannot be answered
+	Until       time.Time     // resumed then at the latest
+	Key         string        // what an answer must bring; empty when it cannot be answered
+	Question    *WaitQuestion // what it asks, for answering it elsewhere; nil when it asks nothing
 	State       json.RawMessage
 	CreatedAt   time.Time
+}
+
+// WaitQuestion is what a wait that can be answered asks (D405): its text as it was sent,
+// HTML, and the options an answer picks one of, by index.
+type WaitQuestion struct {
+	HTML    string   `json:"html"`
+	Options []string `json:"options"`
 }
 
 // WaitRepository keeps paused executions. Taking a wait removes it, so each resumes
@@ -26,6 +34,8 @@ type WaitRecord struct {
 type WaitRepository interface {
 	Add(ctx context.Context, w WaitRecord) error
 	CountForOwner(ctx context.Context, owner domain.UserID) (int, error)
+	// Get returns the owner's wait of an execution, leaving it; domain.ErrNotFound as Take.
+	Get(ctx context.Context, owner domain.UserID, id domain.ExecutionID) (WaitRecord, error)
 	// Take removes and returns the owner's wait of an execution; domain.ErrNotFound if
 	// there is none, it is someone else's, or it was taken already.
 	Take(ctx context.Context, owner domain.UserID, id domain.ExecutionID) (WaitRecord, error)

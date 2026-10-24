@@ -362,9 +362,9 @@ func TestAgentAccessRoute(t *testing.T) {
 	srv, authSvc, svc := oauthServer(t)
 	withSession(authSvc, alice)
 	// A switch named changes; the others stay as they were.
-	svc.EXPECT().SetAgentAccess(mock.Anything, mock.Anything, domain.AgentAccess{Delete: true, UseCredentials: true}).Return(nil)
+	svc.EXPECT().SetAgentAccess(mock.Anything, mock.Anything, domain.AgentAccess{Delete: true, UseCredentials: true, Answer: true}).Return(nil)
 
-	w := request{method: http.MethodPut, path: "/api/v1/me/agent-access", body: `{"delete": true, "useCredentials": true}`, headers: cookie}.do(t, srv)
+	w := request{method: http.MethodPut, path: "/api/v1/me/agent-access", body: `{"delete": true, "useCredentials": true, "answer": true}`, headers: cookie}.do(t, srv)
 	assert.Equal(t, http.StatusNoContent, w.Code, w.Body.String())
 
 	srv, authSvc, _ = oauthServer(t)

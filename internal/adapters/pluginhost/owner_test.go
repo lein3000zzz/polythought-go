@@ -214,6 +214,18 @@ func (m *memWaits) Add(_ context.Context, w ports.WaitRecord) error {
 
 func (m *memWaits) CountForOwner(context.Context, domain.UserID) (int, error) { return 0, nil }
 
+func (m *memWaits) Get(_ context.Context, owner domain.UserID, id domain.ExecutionID) (ports.WaitRecord, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	w, ok := m.recs[id]
+	if !ok || w.OwnerID != owner {
+		return ports.WaitRecord{}, domain.ErrNotFound
+	}
+
+	return w, nil
+}
+
 func (m *memWaits) Take(context.Context, domain.UserID, domain.ExecutionID) (ports.WaitRecord, error) {
 	return ports.WaitRecord{}, domain.ErrNotFound
 }

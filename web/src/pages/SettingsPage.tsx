@@ -115,6 +115,12 @@ export function SettingsPage() {
       label: 'Agents and tokens may use my credentials in workflows',
       words: 'agents api tokens mcp credentials keys secrets use test',
     },
+    {
+      slug: 'connected',
+      key: 'agents-may-answer',
+      label: "Agents and tokens may answer my workflows' questions",
+      words: 'agents api tokens mcp answer questions telegram approve wait',
+    },
     ...(grants.data ?? [])
       .filter((g) => !g.revokedAt)
       .map((g) => ({

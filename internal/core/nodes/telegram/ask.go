@@ -130,7 +130,7 @@ func (n *Ask) Run(ctx context.Context, rc engine.RunContext, in engine.Ports) (e
 		until = asked.Add(timeout * 3 / 4)
 	}
 
-	return nil, &engine.Wait{Until: until, Key: key, State: st.encode()}
+	return nil, &engine.Wait{Until: until, Key: key, Question: st.asked(), State: st.encode()}
 }
 
 // Resume reminds once a quarter of the time is left, then sends the items on through the
@@ -147,7 +147,7 @@ func (n *Ask) Resume(ctx context.Context, rc engine.RunContext, in engine.Ports,
 
 		st.Remind = false
 
-		return nil, &engine.Wait{Until: st.Deadline, Key: st.Key, State: st.encode()}
+		return nil, &engine.Wait{Until: st.Deadline, Key: st.Key, Question: st.asked(), State: st.encode()}
 	}
 
 	port, closing := TimeoutPort, "⌛ <i>No answer in time.</i>"
@@ -158,7 +158,7 @@ func (n *Ask) Resume(ctx context.Context, rc engine.RunContext, in engine.Ports,
 			return nil, fmt.Errorf("an answer for button %v, of %d", r.Payload["option"], len(st.Options))
 		}
 
-		port, closing = st.Options[i], "✅ <b>"+html.EscapeString(st.Options[i])+"</b>"
+		port, closing = st.Options[i], "✅ <b>"+html.EscapeString(st.Options[i])+"</b>"+answeredBy(r)
 	}
 
 	// Like the reminder, a question left open does not change the answer.
@@ -172,6 +172,15 @@ func (n *Ask) Resume(ctx context.Context, rc engine.RunContext, in engine.Ports,
 	return out, nil
 }
 
+// answeredBy says who answered for the owner, when someone did.
+func answeredBy(r engine.Resumption) string {
+	if by := r.By(); by != "" {
+		return ", <i>answered by " + html.EscapeString(by) + "</i>"
+	}
+
+	return ""
+}
+
 // askState is what a question keeps while it waits.
 type askState struct {
 	Message  int
@@ -180,6 +189,11 @@ type askState struct {
 	Key      string
 	Deadline time.Time
 	Remind   bool // the reminder is still to come
+}
+
+// asked is the question as an answer elsewhere sees it.
+func (s askState) asked() *ports.WaitQuestion {
+	return &ports.WaitQuestion{HTML: s.Question, Options: s.Options}
 }
 
 func (s askState) encode() map[string]any {

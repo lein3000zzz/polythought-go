@@ -314,8 +314,14 @@ func (s *Service) SharedCopy(ctx context.Context, p auth.Principal, workflowID d
 }
 
 // Delete removes a shared copy: its author may, and so may admins, to keep the library
-// clean. Built-in scenarios cannot be deleted.
+// clean. Built-in scenarios cannot be deleted. A token or an agent takes one down where
+// its user lets it share (D405), another's only with the admin scope too.
 func (s *Service) Delete(ctx context.Context, p auth.Principal, id domain.TemplateID) error {
+	if !p.MayShare() {
+		return fmt.Errorf("%w: the user has not let agents and tokens share to the library, or take entries down: Settings, Connected agents",
+			domain.ErrForbidden)
+	}
+
 	if _, ok := s.byID[id]; ok {
 		return fmt.Errorf("%w: built-in scenarios cannot be deleted", domain.ErrForbidden)
 	}
@@ -325,7 +331,7 @@ func (s *Service) Delete(ctx context.Context, p auth.Principal, id domain.Templa
 		return err
 	}
 
-	if t.AuthorID != p.User.ID && !p.User.IsAdmin() {
+	if t.AuthorID != p.User.ID && (!p.User.IsAdmin() || !p.Can(domain.ScopeAdmin)) {
 		return domain.ErrForbidden
 	}
 

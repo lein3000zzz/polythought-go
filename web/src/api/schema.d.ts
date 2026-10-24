@@ -2010,6 +2010,8 @@ export interface components {
             worth: string;
         };
         AgentAccessRequest: {
+            /** @description Answer lets them answer the questions the user's workflows ask (D405). */
+            answer?: boolean;
             /**
              * @description Delete lets them delete workflows, custom nodes and credentials; Share, share
              *     workflows to the library (D403, D404).
@@ -3574,6 +3576,7 @@ export interface components {
              *     the instance's (D271).
              */
             agentCaps: components["schemas"]["AgentCaps"];
+            agentsMayAnswer: boolean;
             agentsMayDelete: boolean;
             agentsMayShare: boolean;
             agentsMayUseCredentials: boolean;
@@ -3582,7 +3585,7 @@ export interface components {
              *     personal settings (D401, D402); AgentsMayDelete and AgentsMayShare, that they may
              *     delete workflows, custom nodes and credentials and share workflows to the library
              *     (D403, D404); AgentsMayUseCredentials, that they may use credentials in workflows
-             *     (D404).
+             *     (D404); AgentsMayAnswer, that they may answer their workflows' questions (D405).
              */
             agentsSeePersonal: boolean;
             /**

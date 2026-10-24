@@ -62,6 +62,7 @@ func (r *Users) Create(ctx context.Context, u domain.User, passwordHash string) 
 		AgentsMayDelete:      u.Agents.Delete,
 		AgentsMayShare:       u.Agents.Share,
 		AgentsUseCredentials: u.Agents.UseCredentials,
+		AgentsMayAnswer:      u.Agents.Answer,
 	}
 
 	_, err = table.Users.INSERT(table.Users.AllColumns).MODEL(m).ExecContext(ctx, r.db.conn(ctx))
@@ -173,9 +174,10 @@ func (r *Users) SetAgentAccess(ctx context.Context, id domain.UserID, a domain.A
 
 	t := table.Users
 
-	return affectedOne(t.UPDATE(t.AgentsSeePersonal, t.AgentsMayDelete, t.AgentsMayShare, t.AgentsUseCredentials).
+	return affectedOne(t.UPDATE(t.AgentsSeePersonal, t.AgentsMayDelete, t.AgentsMayShare, t.AgentsUseCredentials, t.AgentsMayAnswer).
 		MODEL(model.Users{
 			AgentsSeePersonal: a.SeePersonal, AgentsMayDelete: a.Delete, AgentsMayShare: a.Share, AgentsUseCredentials: a.UseCredentials,
+			AgentsMayAnswer: a.Answer,
 		}).
 		WHERE(t.ID.EQ(jet.UUID(uid))).
 		ExecContext(ctx, r.db.conn(ctx)))
@@ -336,6 +338,7 @@ func toUser(m model.Users) domain.User {
 		KillStopsAgents: m.KillStopsAgents,
 		Agents: domain.AgentAccess{
 			SeePersonal: m.AgentsSeePersonal, Delete: m.AgentsMayDelete, Share: m.AgentsMayShare, UseCredentials: m.AgentsUseCredentials,
+			Answer: m.AgentsMayAnswer,
 		},
 		CreatedAt: m.CreatedAt.UTC(),
 		UpdatedAt: m.UpdatedAt.UTC(),

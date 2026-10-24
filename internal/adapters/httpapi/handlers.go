@@ -45,11 +45,12 @@ type userDTO struct {
 	// personal settings (D401, D402); AgentsMayDelete and AgentsMayShare, that they may
 	// delete workflows, custom nodes and credentials and share workflows to the library
 	// (D403, D404); AgentsMayUseCredentials, that they may use credentials in workflows
-	// (D404).
+	// (D404); AgentsMayAnswer, that they may answer their workflows' questions (D405).
 	AgentsSeePersonal       bool      `json:"agentsSeePersonal"`
 	AgentsMayDelete         bool      `json:"agentsMayDelete"`
 	AgentsMayShare          bool      `json:"agentsMayShare"`
 	AgentsMayUseCredentials bool      `json:"agentsMayUseCredentials"`
+	AgentsMayAnswer         bool      `json:"agentsMayAnswer"`
 	CreatedAt               time.Time `json:"createdAt" format:"date-time"`
 } // @name User
 
@@ -113,6 +114,7 @@ func (s *Server) userDTO(u domain.User) userDTO {
 		AgentsMayDelete:         u.Agents.Delete,
 		AgentsMayShare:          u.Agents.Share,
 		AgentsMayUseCredentials: u.Agents.UseCredentials,
+		AgentsMayAnswer:         u.Agents.Answer,
 		CreatedAt:               u.CreatedAt,
 	}
 }

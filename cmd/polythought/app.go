@@ -331,6 +331,7 @@ func (a *app) newMCP() (*mcpserver.Server, error) {
 		Code:        workflowCode{code: a.code, gate: a.codeGate},
 		CustomNodes: a.customNodes,
 		Credentials: a.credentials,
+		Sharing:     a.library,
 		NodeTypes:   nodeTypes{types: a.customNodes, plugins: a.plugins},
 		CodeTypes:   codeTypes{types: a.customNodes},
 		Library:     a.library,

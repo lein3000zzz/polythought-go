@@ -50,3 +50,11 @@ outputs and code, which everyone can read.
 The library keeps a copy as it was when you shared it: later changes to your workflow, or
 to its custom nodes, do not reach it until you share again, which replaces the copy. You can share up to 20
 workflows, and remove one from the library on its page.
+
+## Agents
+
+An agent over MCP with the build scope can use any entry for you: the workflow is made
+switched off, and for another user's entry it is told which code the entry brings, to show
+you before it runs. It shares your workflows, and takes your entries down, only where you
+let it: **Agents and tokens may share to the library** on **Settings → Connected agents**,
+off to start with.

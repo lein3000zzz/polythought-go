@@ -73,6 +73,8 @@ type Deps struct {
 	// offered.
 	CustomNodes CustomNodes
 	Credentials Credentials
+	// What the library tools change (D405); without it, using and sharing are not offered.
+	Sharing Sharing
 
 	// What the market tools read (D402); without a reader they are not offered.
 	Markets Markets
@@ -97,6 +99,7 @@ type Server struct {
 
 	customNodes CustomNodes
 	credentials Credentials
+	sharing     Sharing
 
 	markets      ai.Sources
 	marketReader ports.MarketReader
@@ -122,6 +125,7 @@ func New(cfg Config, d Deps) (*Server, error) {
 		agents: d.Agents, tokens: d.Tokens, limiter: d.Limiter, log: log, kit: kit,
 		workflows: d.Workflows, nodeTypes: d.NodeTypes, codeTypes: d.CodeTypes, library: d.Library, trading: d.Trading,
 		edit: d.Edit, code: d.Code, customNodes: d.CustomNodes, credentials: d.Credentials,
+		sharing: d.Sharing,
 		markets: d.Markets.Sources, marketReader: d.Markets.Reader, wallets: d.Wallets, trades: d.Trades,
 		scope: tracing.Scope{Manager: d.Util.TracerManager, TracerName: tracerName},
 	}
@@ -159,6 +163,10 @@ func New(cfg Config, d Deps) (*Server, error) {
 
 	if s.nodeTypes != nil && s.codeTypes != nil && s.library != nil {
 		s.addCatalogTools(srv)
+	}
+
+	if s.library != nil && s.sharing != nil && s.nodeTypes != nil {
+		s.addLibraryTools(srv)
 	}
 
 	if s.marketReader != nil {

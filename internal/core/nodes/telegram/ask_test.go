@@ -180,6 +180,7 @@ func TestAsk(t *testing.T) {
 		assert.Equal(t, []domain.WorkflowID{"wf-1"}, at.reminder.workflows, "the mail names it (D185)")
 		assert.Equal(t, askedAt.Add(time.Hour), again.Until)
 		assert.Equal(t, w.Key, again.Key)
+		assert.Equal(t, w.Question, again.Question, "still asked, for answering elsewhere (D405)")
 		assert.Equal(t, false, again.State["remind"])
 		assert.Empty(t, at.asker.closed)
 	})
@@ -194,6 +195,18 @@ func TestAsk(t *testing.T) {
 		assert.Equal(t, []string{"Skip"}, usedPorts(out))
 		assert.Equal(t, []engine.ItemRef{{Port: engine.DefaultPort, Index: 1}}, out["Skip"][1].Source)
 		assert.Equal(t, map[int]string{12: "A?\nB?\n\n✅ <b>Skip</b>"}, at.asker.closed)
+		assert.Equal(t, &ports.WaitQuestion{HTML: "A?\nB?", Options: []string{"Buy", "Skip"}}, w.Question, "what it asks, kept with the wait (D405)")
+	})
+
+	t.Run("an agent's answer says whose", func(t *testing.T) {
+		at := newAsk(map[string]any{"message": "{{question}}?", "buttons": []any{"Buy", "Skip"}}, true)
+		w := at.wait(t, items("A"))
+
+		_, err := at.node.Resume(ctx, at.rc, items("A"), engine.Resumption{
+			Payload: map[string]any{"option": 0, engine.AnsweredBy: "Claude <Code>"}, State: w.State,
+		})
+		require.NoError(t, err)
+		assert.Equal(t, map[int]string{12: "A?\n\n✅ <b>Buy</b>, <i>answered by Claude &lt;Code&gt;</i>"}, at.asker.closed)
 	})
 
 	t.Run("no answer in time", func(t *testing.T) {

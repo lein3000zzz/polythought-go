@@ -119,8 +119,11 @@ through `timeout` instead.
   each gets a line, and your one answer goes for them all.
 - Once answered, the message shows your answer in place of the buttons; when time runs out,
   it says so.
-- Only you can answer, from your linked chat. A button of a question that was answered,
-  ran out of time or was cancelled says so and goes away.
+- Only you can answer, from your linked chat, unless you let your agents answer for you:
+  **Agents and tokens may answer my workflows' questions** on **Settings → Connected
+  agents**, off to start with. An agent over MCP sees what a run asks either way, and the
+  message then says which agent answered. A button of a question that was answered, ran
+  out of time or was cancelled says so and goes away.
 - A question waits at most as long as any wait may, 7 days unless an admin
   [changed it](/docs/reference/settings/#executions).
 

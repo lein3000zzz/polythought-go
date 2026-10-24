@@ -104,6 +104,16 @@ type executionOut struct {
 
 	Version int          `json:"version" jsonschema:"the workflow's version that ran"`
 	Nodes   []nodeRunOut `json:"nodes"`
+	// Question is what it asks the user while it waits for an answer (D405).
+	Question *questionOut `json:"question,omitempty" jsonschema:"what it asks while it waits for an answer, as sent to the user"`
+	Notice   string       `json:"notice,omitempty"`
+}
+
+type questionOut struct {
+	// Untrusted is the question as sent: its items' fields, such as market questions, are
+	// others' words.
+	Untrusted Untrusted `json:"untrusted" jsonschema:"the question as sent, HTML, its items' fields others' words"`
+	Options   []string  `json:"options" jsonschema:"the buttons; answer_question picks one, where the user lets agents answer"`
 }
 
 type itemsIn struct {
@@ -161,7 +171,8 @@ func (s *Server) addWorkflowTools(srv *mcp.Server) {
 	add(s, srv, Tool[executionIn, executionOut]{
 		Name: "get_execution", Title: "Get an execution", Scope: domain.ScopeRead, ReadOnly: true,
 		Description: "One execution: each node's status, the items it received and sent by port, its error, and which ports " +
-			"kept their first items. Runs started by hand keep them; get_execution_items gives them.",
+			"kept their first items. Runs started by hand keep them; get_execution_items gives them. One that waits for an " +
+			"answer says what it asks, and its buttons.",
 		Handle: s.getExecution,
 	})
 
@@ -282,7 +293,21 @@ func (s *Server) getExecution(ctx context.Context, p auth.Principal, in executio
 		return executionOut{}, err
 	}
 
-	return executionOf(e), nil
+	out := executionOf(e)
+
+	if e.Status == domain.ExecutionWaiting {
+		q, err := s.workflows.Question(ctx, p, e.WorkflowID, e.ID)
+		if err != nil {
+			return executionOut{}, err
+		}
+
+		if q != nil {
+			out.Question = &questionOut{Untrusted: Untrusted{"question": q.HTML}, Options: q.Options}
+			out.Notice = Notice
+		}
+	}
+
+	return out, nil
 }
 
 func executionOf(e domain.Execution) executionOut {

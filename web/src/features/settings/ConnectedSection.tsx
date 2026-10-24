@@ -88,6 +88,18 @@ export function ConnectedSection() {
             : 'Your agents and tokens may no longer use your credentials'
         }
       />
+      <AccessSwitch
+        id="agents-may-answer"
+        label="Agents and tokens may answer my workflows' questions"
+        hint="Questions such as a Telegram question, which can be how you approve a trade. Off, they see what a run asks and may cancel it, but never answer; on, the question says which agent answered."
+        checked={me.data?.agentsMayAnswer}
+        change={(on) => ({ answer: on })}
+        said={(on) =>
+          on
+            ? 'Your agents and tokens may answer your questions'
+            : 'Your agents and tokens may no longer answer your questions'
+        }
+      />
 
       {grants.isPending && <Skeleton className="h-24" />}
       {grants.isError && <ErrorAlert error={grants.error} onRetry={() => void grants.refetch()} />}

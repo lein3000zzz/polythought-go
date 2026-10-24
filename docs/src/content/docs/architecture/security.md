@@ -64,7 +64,9 @@ custom nodes or credentials, or share workflows to the library, unless the user 
 a browser, each switch on its own. A credential's secret never comes back to them, but a
 workflow they build could send it wherever its nodes call: they save, switch on or run a
 workflow that uses one, test one, or change where one goes, only where the user lets them
-use credentials, a switch of its own, off to start with.
+use credentials, a switch of its own, off to start with. Nor do they answer the questions the
+user's workflows ask, often how the user approves a trade, unless the user lets them, and the
+question then says who answered.
 Text others wrote comes marked as such.
 
 Every admin action checks the role in the service, not only in the page, and the last admin

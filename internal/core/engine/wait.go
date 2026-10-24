@@ -42,6 +42,10 @@ type Wait struct {
 	// for each question, so an answer to an earlier one cannot answer this.
 	Key string
 
+	// Question is what a wait with a key asks, so it can be answered elsewhere than where
+	// it was asked (D405): by the user's agents, where the user lets them.
+	Question *ports.WaitQuestion
+
 	// State is kept for the node's Resume. It goes through JSON.
 	State map[string]any
 }
@@ -62,6 +66,16 @@ type Resumption struct {
 	TimedOut bool           // its time ran out; otherwise something answered it
 	Payload  map[string]any // the answer, when there was one
 	State    map[string]any // what the node kept when it waited
+}
+
+// AnsweredBy is the answer's key naming who answered for the user, such as an agent
+// (D405); absent when the user did.
+const AnsweredBy = "by"
+
+// By is who answered for the user, or empty.
+func (r Resumption) By() string {
+	by, _ := r.Payload[AnsweredBy].(string)
+	return by
 }
 
 // WaitLimits keep waiting executions in check. Zero means no limit.

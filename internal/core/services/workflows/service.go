@@ -57,10 +57,12 @@ type Supervisor interface {
 	Stop(id domain.WorkflowID)
 }
 
-// Waits cancels executions that wait.
+// Waits cancels and answers executions that wait.
 type Waits interface {
 	Cancel(ctx context.Context, owner domain.UserID, id domain.ExecutionID, reason string) (domain.Execution, error)
 	CancelWorkflow(ctx context.Context, owner domain.UserID, workflowID domain.WorkflowID, reason string) error
+	Waiting(ctx context.Context, owner domain.UserID, id domain.ExecutionID) (ports.WaitRecord, error)
+	Answer(ctx context.Context, owner domain.UserID, id domain.ExecutionID, key string, payload map[string]any) error
 }
 
 type Service struct {
@@ -727,6 +729,92 @@ func (s *Service) CancelExecution(ctx context.Context, p auth.Principal, id doma
 	}
 
 	return cancelled, err
+}
+
+// Question is what one of the workflow's executions asks while it waits for an answer
+// (D405): nil when it waits for none, or was asked before questions were kept.
+func (s *Service) Question(ctx context.Context, p auth.Principal, id domain.WorkflowID, execID domain.ExecutionID) (*ports.WaitQuestion, error) {
+	rec, err := s.waiting(ctx, p, id, execID)
+	if errors.Is(err, domain.ErrNotWaiting) {
+		return nil, nil
+	}
+
+	if err != nil || rec.Key == "" {
+		return nil, err
+	}
+
+	return rec.Question, nil
+}
+
+// Answer answers one of the workflow's executions that waits for an answer, picking the
+// option at index option, as pressing its button does. A token or an agent answers only
+// where its user lets it, and the question then says who answered (D405).
+func (s *Service) Answer(ctx context.Context, p auth.Principal, id domain.WorkflowID, execID domain.ExecutionID, option int) error {
+	if !p.MayAnswer() {
+		return fmt.Errorf("%w: the user has not let agents and tokens answer their workflows' questions: Settings, Connected agents",
+			domain.ErrForbidden)
+	}
+
+	rec, err := s.waiting(ctx, p, id, execID)
+	if err != nil {
+		return err
+	}
+
+	switch {
+	case rec.Key == "":
+		return fmt.Errorf("%w: it waits for its time, not for an answer", domain.ErrNotWaiting)
+	case rec.Question == nil:
+		return fmt.Errorf("%w: it was asked before questions could be answered here; answer it where it was asked", domain.ErrInvalidInput)
+	case option < 0 || option >= len(rec.Question.Options):
+		return fmt.Errorf("%w: it has %d options, not one at %d", domain.ErrInvalidInput, len(rec.Question.Options), option)
+	}
+
+	payload := map[string]any{"option": option}
+	if !p.Itself() {
+		payload[engine.AnsweredBy] = answerer(p)
+	}
+
+	err = s.waits.Answer(ctx, p.User.ID, execID, rec.Key, payload)
+	if errors.Is(err, domain.ErrNotFound) {
+		return fmt.Errorf("%w: it carried on meanwhile", domain.ErrNotWaiting)
+	}
+
+	if err == nil {
+		s.log.Info(ctx, "Question answered", "user_id", p.User.ID, "workflow_id", id, "execution_id", execID, "by", answerer(p))
+	}
+
+	return err
+}
+
+// waiting is the wait of one of the workflow's executions that waits.
+func (s *Service) waiting(ctx context.Context, p auth.Principal, id domain.WorkflowID, execID domain.ExecutionID) (ports.WaitRecord, error) {
+	exec, err := s.Execution(ctx, p, id, execID)
+	if err != nil {
+		return ports.WaitRecord{}, err
+	}
+
+	if exec.Status != domain.ExecutionWaiting || s.waits == nil {
+		return ports.WaitRecord{}, fmt.Errorf("%w: it is %s", domain.ErrNotWaiting, exec.Status)
+	}
+
+	rec, err := s.waits.Waiting(ctx, p.User.ID, execID)
+	if errors.Is(err, domain.ErrNotFound) {
+		return ports.WaitRecord{}, fmt.Errorf("%w: it carried on meanwhile", domain.ErrNotWaiting)
+	}
+
+	return rec, err
+}
+
+// answerer is who answers for the user: an agent by its name, or a token.
+func answerer(p auth.Principal) string {
+	switch {
+	case p.Itself():
+		return "the user"
+	case p.Agent != "":
+		return p.Agent
+	}
+
+	return "an API token"
 }
 
 // StartActive starts every active workflow; call it once on boot. One that no longer

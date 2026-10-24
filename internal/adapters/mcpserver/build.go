@@ -26,6 +26,7 @@ type Workflows interface {
 	Check(ctx context.Context, p auth.Principal, id domain.WorkflowID) ([]domain.Problem, error)
 	Executions(ctx context.Context, p auth.Principal, id domain.WorkflowID, f ports.PageFilter) (ports.Page[domain.Execution], error)
 	Execution(ctx context.Context, p auth.Principal, id domain.WorkflowID, execID domain.ExecutionID) (domain.Execution, error)
+	Question(ctx context.Context, p auth.Principal, id domain.WorkflowID, execID domain.ExecutionID) (*ports.WaitQuestion, error)
 }
 
 // NodeTypes are the node types the user may place: the built-in ones, their own, and
