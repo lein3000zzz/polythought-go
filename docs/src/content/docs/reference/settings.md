@@ -719,6 +719,18 @@ How long an agent's tool call waits for the user's answer in the agent's own win
 | Default | `2m` |
 | Applies | at once |
 
+### Agents create accounts with passwords
+
+Let an admin's agents and API tokens create accounts with a password they give, as the Users page does. Off, they invite people instead, by mail where mail is set up, else with a link; a password then never passes through an agent. Applies at once.
+
+| | |
+|---|---|
+| Key | `mcp.agent_passwords` |
+| Environment variable | `POLYTHOUGHT_MCP_AGENT_PASSWORDS` |
+| Kind | `true` or `false` |
+| Default | `false` |
+| Applies | at once |
+
 ## Network
 
 ### Trusted proxies

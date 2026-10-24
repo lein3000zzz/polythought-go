@@ -122,3 +122,61 @@ func TestAdminWorkWaits(t *testing.T) {
 		assert.Empty(t, h.asks, "the admin confirmed it")
 	})
 }
+
+// An admin's agent invites rather than sets passwords, unless the instance lets it, and
+// makes no one an admin at once; it finds an account by the email it names (D410).
+func TestAgentsOnAccounts(t *testing.T) {
+	ctx := context.Background()
+	admin := user("admin", domain.RoleAdmin)
+	agent := auth.Principal{User: admin, GrantID: "g-1", Agent: "Claude Code", Scopes: []domain.Scope{domain.ScopeAdmin}}
+
+	passwords := func(on bool) auth.Config {
+		cfg := config(domain.RegistrationClosed)
+		cfg.AgentPasswords = on
+
+		return cfg
+	}
+
+	t.Run("no passwords where the instance has them off", func(t *testing.T) {
+		svc := newService(t, newDeps(t), passwords(false))
+
+		_, err := svc.CreateUser(ctx, agent, "new@example.com", goodPass, domain.RoleUser)
+		require.ErrorIs(t, err, domain.ErrForbidden)
+		assert.Contains(t, err.Error(), "agents and tokens invite people here")
+
+		_, err = svc.CreateUser(ctx, tokenPrincipal(admin), "new@example.com", goodPass, domain.RoleUser)
+		require.ErrorIs(t, err, domain.ErrForbidden, "nor a token")
+	})
+
+	t.Run("a user where it has them on, never an admin", func(t *testing.T) {
+		d := newDeps(t)
+		d.hasher.EXPECT().Hash(goodPass).Return(userHash, nil)
+		d.users.EXPECT().Create(mock.Anything, mock.Anything, userHash).Return(nil)
+		svc := newService(t, d, passwords(true))
+
+		got, err := svc.CreateUser(ctx, agent, "new@example.com", goodPass, domain.RoleUser)
+		require.NoError(t, err)
+		assert.Equal(t, domain.RoleUser, got.Role)
+
+		_, err = svc.CreateUser(ctx, agent, "boss@example.com", goodPass, domain.RoleAdmin)
+		require.ErrorIs(t, err, domain.ErrInvalidInput)
+		assert.Contains(t, err.Error(), "create them as a user, then make them an admin")
+	})
+
+	t.Run("an account by its email, for admins", func(t *testing.T) {
+		d := newDeps(t)
+		bob := user("bob", domain.RoleUser)
+		d.users.EXPECT().ByEmail(mock.Anything, "Bob@Example.com").Return(bob, "", nil) // the repository folds its case
+		svc := newService(t, d, passwords(false))
+
+		got, err := svc.FindUser(ctx, agent, " Bob@Example.com ")
+		require.NoError(t, err)
+		assert.Equal(t, bob.ID, got.ID)
+
+		_, err = svc.FindUser(ctx, agent, "not an email")
+		require.ErrorIs(t, err, domain.ErrInvalidEmail)
+
+		_, err = svc.FindUser(ctx, sessionPrincipal(user("u", domain.RoleUser)), "bob@example.com")
+		require.ErrorIs(t, err, domain.ErrForbidden)
+	})
+}

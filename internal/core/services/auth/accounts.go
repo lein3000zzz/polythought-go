@@ -100,7 +100,36 @@ func (s *Service) CreateUser(ctx context.Context, actor Principal, email, passwo
 		return domain.User{}, domain.ErrForbidden
 	}
 
+	// A token or an agent invites, unless the instance lets it set passwords (D410); it
+	// makes admins of no one at once, the role change its own, to confirm.
+	if !actor.Itself() {
+		switch {
+		case !s.config().AgentPasswords:
+			return domain.User{}, fmt.Errorf("%w: agents and tokens invite people here, rather than set their passwords: "+
+				"an admin can let them on the Config page, Agents over MCP", domain.ErrForbidden)
+		case role == domain.RoleAdmin:
+			return domain.User{}, fmt.Errorf("%w: create them as a user, then make them an admin", domain.ErrInvalidInput)
+		}
+	}
+
 	return s.createUser(ctx, email, password, role)
+}
+
+// FindUser is the account of an email, for an admin's agent, which sees no list of them
+// (D410).
+func (s *Service) FindUser(ctx context.Context, actor Principal, email string) (domain.User, error) {
+	if !actor.User.IsAdmin() {
+		return domain.User{}, domain.ErrForbidden
+	}
+
+	email, err := validateEmail(email)
+	if err != nil {
+		return domain.User{}, err
+	}
+
+	u, _, err := s.repos.Users.ByEmail(ctx, email)
+
+	return u, err
 }
 
 // BootstrapAdmin creates an admin without an acting user. It is for operators: the

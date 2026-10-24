@@ -2311,7 +2311,7 @@ export interface components {
             expiresAt: string;
             id: string;
             /** @enum {string} */
-            kind: "go_live" | "switch_on" | "run" | "change" | "kill_off" | "admin_role" | "admin_disable" | "admin_caps" | "admin_code";
+            kind: "go_live" | "switch_on" | "run" | "change" | "kill_off" | "admin_role" | "admin_disable" | "admin_caps" | "admin_code" | "admin_config" | "admin_restart" | "admin_plugin_approve" | "admin_plugin";
             /** @description Result is what came of it: an execution, or why it failed. */
             result?: string;
             /** @enum {string} */
@@ -2790,6 +2790,11 @@ export interface components {
             /** @description Change is saving a new graph for a workflow that trades live and is on. */
             change: boolean;
             code: boolean;
+            /**
+             * @description And on the instance (D411): changing Config, restarting the server, approving a
+             *     plugin version, and every other change to plugins.
+             */
+            config: boolean;
             disable: boolean;
             /** @description GoLive is setting a workflow to trade live, or changing its live wallet. */
             goLive: boolean;
@@ -2800,6 +2805,9 @@ export interface components {
             inAgent: boolean;
             /** @description KillOff is turning the kill switch off. */
             killOff: boolean;
+            pluginApprove: boolean;
+            pluginChange: boolean;
+            restart: boolean;
             /**
              * @description An admin's agents' work on other users (D410): making one an admin or no longer,
              *     disabling or enabling one, raising their caps, letting them write code.
@@ -2812,10 +2820,14 @@ export interface components {
             caps?: boolean;
             change?: boolean;
             code?: boolean;
+            config?: boolean;
             disable?: boolean;
             goLive?: boolean;
             inAgent?: boolean;
             killOff?: boolean;
+            pluginApprove?: boolean;
+            pluginChange?: boolean;
+            restart?: boolean;
             role?: boolean;
             run?: boolean;
         };

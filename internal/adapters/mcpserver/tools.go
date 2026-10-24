@@ -176,6 +176,9 @@ var expectedErrors = []error{
 	domain.ErrNotOpen, domain.ErrWalletTradesLive, domain.ErrNotWaiting, domain.ErrExecutionFinished,
 	domain.ErrCustomNodeTaken, domain.ErrBreaksWorkflows, domain.ErrCredentialExists, domain.ErrNoBuilderKey,
 	domain.ErrAwaitsConfirmation, domain.ErrConfirmRefused,
+	domain.ErrEmailTaken, domain.ErrInvalidEmail, domain.ErrWeakPassword, domain.ErrLastAdmin, domain.ErrInvalidInvite,
+	domain.ErrInviteCodeTaken, domain.ErrInviteEmailOff, domain.ErrRequestsOff, domain.ErrMailNotSetUp, domain.ErrMailFailed,
+	domain.ErrPluginInstalled,
 }
 
 func expected(err error) bool {

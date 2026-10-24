@@ -147,6 +147,8 @@ agents allowed, to revoke. An API token works there too, with the scopes it was 
 Agents read workflows, executions, the node catalog, the library, the markets and the user's
 wallets and orders, build workflows, and trade, what reaches real money waiting for the
 user to confirm it where they say so; `whoami` says who an agent acts for and what it may do.
+An admin's agent with the admin scope also manages users, invites, Config and plugins, its
+changes waiting for the admin where they say so.
 
 Under **Agents over MCP** on the Config page:
 
@@ -166,6 +168,9 @@ Under **Agents over MCP** on the Config page:
   action waits for its user to confirm it before it expires.
 - **Agent window waits**, 2 minutes to start with, is how long an agent's call waits for its
   user's answer in the agent's own window, where the user has it ask there.
+- **Agents create accounts with passwords**, off to start with, lets an admin's agents and
+  tokens create accounts with a password they give. Off, they invite people, by mail where
+  mail is set up, else with a link, and no password passes through an agent.
 
 A proxy of your own in front of the API must pass `/mcp` and `/.well-known/oauth-*` on as
 Caddy does, and must not buffer `/mcp`'s answers, which stream.

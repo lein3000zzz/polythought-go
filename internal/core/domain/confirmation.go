@@ -29,6 +29,12 @@ const (
 	ConfirmDisable ConfirmKind = "admin_disable" // disabling a user, or enabling one again
 	ConfirmCaps    ConfirmKind = "admin_caps"    // raising, or removing, a user's own caps
 	ConfirmCode    ConfirmKind = "admin_code"    // letting a user write code
+
+	// An admin's work on the instance (D411).
+	ConfirmConfig        ConfirmKind = "admin_config"         // changing the Config settings
+	ConfirmRestart       ConfirmKind = "admin_restart"        // restarting the server
+	ConfirmPluginApprove ConfirmKind = "admin_plugin_approve" // letting a plugin's version run
+	ConfirmPluginChange  ConfirmKind = "admin_plugin"         // enabling, its users, settings, caps, removing
 )
 
 // Ask is a live action, or an admin's, to hold for its user: what it is, what it does said
@@ -129,6 +135,12 @@ type Unconfirmed struct {
 	Disable bool
 	Caps    bool
 	Code    bool
+
+	// An admin's work on the instance (D411).
+	Config        bool
+	Restart       bool
+	PluginApprove bool
+	PluginChange  bool
 }
 
 // Waits says whether an action of kind waits for the user.
@@ -150,6 +162,14 @@ func (u Unconfirmed) Waits(kind ConfirmKind) bool {
 		return !u.Caps
 	case ConfirmCode:
 		return !u.Code
+	case ConfirmConfig:
+		return !u.Config
+	case ConfirmRestart:
+		return !u.Restart
+	case ConfirmPluginApprove:
+		return !u.PluginApprove
+	case ConfirmPluginChange:
+		return !u.PluginChange
 	}
 
 	return true

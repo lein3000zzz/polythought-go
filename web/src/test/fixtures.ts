@@ -29,6 +29,10 @@ export const alice: Schemas['User'] = {
     disable: true,
     caps: true,
     code: true,
+    config: true,
+    restart: true,
+    pluginApprove: true,
+    pluginChange: true,
   },
   createdAt: '2026-10-01T10:00:00Z',
 }

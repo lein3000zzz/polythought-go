@@ -84,6 +84,14 @@ type Deps struct {
 	Window     Window
 	WindowWait func() time.Duration
 
+	// An admin's: users, invites and requests to join, and the instance's Config (D410,
+	// D411); without them, their tools are not offered.
+	Admin    Admin
+	Settings Settings
+	Mail     Mail
+	Geoblock Geoblock
+	Plugins  Plugins
+
 	// What the market tools read (D402); without a reader they are not offered.
 	Markets Markets
 	// What the money tools read (D402).
@@ -114,6 +122,12 @@ type Server struct {
 	windowWait  func() time.Duration
 	publicURL   string
 
+	admin    Admin
+	config   Settings
+	mail     Mail
+	geoblock Geoblock
+	plugins  Plugins
+
 	markets      ai.Sources
 	marketReader ports.MarketReader
 	wallets      Wallets
@@ -140,6 +154,7 @@ func New(cfg Config, d Deps) (*Server, error) {
 		edit: d.Edit, code: d.Code, customNodes: d.CustomNodes, credentials: d.Credentials,
 		sharing: d.Sharing, confirms: d.Confirmations, trader: d.Trader,
 		window: d.Window, windowWait: d.WindowWait, publicURL: strings.TrimRight(cfg.PublicURL, "/"),
+		admin: d.Admin, config: d.Settings, mail: d.Mail, geoblock: d.Geoblock, plugins: d.Plugins,
 		markets: d.Markets.Sources, marketReader: d.Markets.Reader, wallets: d.Wallets, trades: d.Trades,
 		scope: tracing.Scope{Manager: d.Util.TracerManager, TracerName: tracerName},
 	}
@@ -189,6 +204,18 @@ func New(cfg Config, d Deps) (*Server, error) {
 
 	if s.trader != nil && s.trades != nil {
 		s.addTradeTools(srv)
+	}
+
+	if s.admin != nil {
+		s.addAdminTools(srv)
+	}
+
+	if s.config != nil {
+		s.addConfigTools(srv)
+	}
+
+	if s.plugins != nil {
+		s.addPluginTools(srv)
 	}
 
 	if s.marketReader != nil {

@@ -78,6 +78,34 @@ const adminSwitches: ConfirmSwitchSpec[] = [
   },
 ]
 
+/** An admin's agents' and tokens' work on the instance that waits for them (D411). */
+const instanceSwitches: ConfirmSwitchSpec[] = [
+  {
+    key: 'config',
+    id: 'confirm-config',
+    label: 'Changing Config',
+    hint: 'Any setting on the Config page. Agents never set secret ones: you set those there.',
+  },
+  {
+    key: 'restart',
+    id: 'confirm-restart',
+    label: 'Restarting the server',
+    hint: "Which stops everyone's work for a moment.",
+  },
+  {
+    key: 'pluginApprove',
+    id: 'confirm-plugin-approve',
+    label: 'Approving a plugin',
+    hint: 'A version and its permissions, so its code runs on the server.',
+  },
+  {
+    key: 'pluginChange',
+    id: 'confirm-plugin-change',
+    label: 'Other changes to plugins',
+    hint: 'Switching one on or off, who may use it, its settings and caps, starting it, removing it or its data. Installing waits for nothing: nothing installed runs until approved.',
+  },
+]
+
 const statusLabel: Record<Confirmation['status'], string> = {
   pending: 'Waiting for you',
   confirmed: 'Confirmed, being carried out',
@@ -116,6 +144,10 @@ export function ConfirmationsSection() {
         <>
           <h4 className="text-sm font-medium">An admin&apos;s work on other users</h4>
           {adminSwitches.map((s) => (
+            <ConfirmSwitch key={s.key} spec={s} />
+          ))}
+          <h4 className="text-sm font-medium">An admin&apos;s work on the instance</h4>
+          {instanceSwitches.map((s) => (
             <ConfirmSwitch key={s.key} spec={s} />
           ))}
         </>

@@ -28,6 +28,7 @@ type Service struct {
 	box      ports.SecretBox
 	now      func() time.Time
 	restart  func(by domain.User)
+	confirm  Confirmer // optional: without it, an admin's agents' changes go ahead at once
 
 	defaults map[string]any
 	file     map[string]any // the config file's, read once like the environment
@@ -311,6 +312,10 @@ func (s *Service) Update(ctx context.Context, p auth.Principal, changes map[stri
 		return domain.ErrForbidden
 	}
 
+	if err := s.agentsMay(p, slices.Collect(maps.Keys(changes))); err != nil {
+		return err
+	}
+
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -349,6 +354,11 @@ func (s *Service) Update(ctx context.Context, p auth.Principal, changes map[stri
 	}
 
 	if err := problems.Err(); err != nil {
+		return err
+	}
+
+	// Checked as any change is, it waits for the admin where they say so (D411).
+	if err := s.holdChanges(ctx, p, batch, changes); err != nil {
 		return err
 	}
 
@@ -451,13 +461,19 @@ func (s *Service) History(ctx context.Context, p auth.Principal, f ports.PageFil
 }
 
 // Restart asks the server to restart, which applies the changes waiting for one.
-func (s *Service) Restart(_ context.Context, p auth.Principal) error {
+func (s *Service) Restart(ctx context.Context, p auth.Principal) error {
 	if !p.User.IsAdmin() {
 		return domain.ErrForbidden
 	}
 
 	if s.restart == nil {
 		return errors.New("settings: this server cannot restart itself")
+	}
+
+	if s.confirm != nil && !p.Itself() && !p.Confirmed {
+		if err := s.confirm.Hold(ctx, p, domain.Ask{Kind: domain.ConfirmRestart, What: "Restart the server", Payload: RestartAsked{}}); err != nil {
+			return err
+		}
 	}
 
 	s.restart(p.User)

@@ -90,6 +90,15 @@ func TestConfirmationRoutes(t *testing.T) {
 		assert.Equal(t, http.StatusNoContent, w.Code, w.Body.String())
 	})
 
+	t.Run("the instance's, for an admin (D411)", func(t *testing.T) {
+		srv, authSvc, svc := confirmationServer(t)
+		withSession(authSvc, alice)
+		svc.EXPECT().SetUnconfirmed(mock.Anything, mock.Anything, domain.Unconfirmed{Config: true, PluginApprove: true}).Return(nil)
+
+		w := request{method: http.MethodPut, path: "/api/v1/me/live-confirm", body: `{"config": false, "pluginApprove": false, "restart": true}`, headers: cookie}.do(t, srv)
+		assert.Equal(t, http.StatusNoContent, w.Code, w.Body.String())
+	})
+
 	t.Run("asking in the agent's window too (D409)", func(t *testing.T) {
 		srv, authSvc, svc := confirmationServer(t)
 		withSession(authSvc, alice)

@@ -45,6 +45,9 @@ type Config struct {
 	// RequestDeniedMail tells those denied.
 	Requests          bool
 	RequestDeniedMail bool
+	// AgentPasswords lets an admin's agents and tokens create accounts with a password they
+	// give (D410); otherwise they invite.
+	AgentPasswords bool
 }
 
 func DefaultConfig() Config {

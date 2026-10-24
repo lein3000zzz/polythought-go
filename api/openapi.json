@@ -682,7 +682,11 @@
                             "admin_role",
                             "admin_disable",
                             "admin_caps",
-                            "admin_code"
+                            "admin_code",
+                            "admin_config",
+                            "admin_restart",
+                            "admin_plugin_approve",
+                            "admin_plugin"
                         ],
                         "type": "string"
                     },
@@ -2038,6 +2042,10 @@
                     "code": {
                         "type": "boolean"
                     },
+                    "config": {
+                        "description": "And on the instance (D411): changing Config, restarting the server, approving a\nplugin version, and every other change to plugins.",
+                        "type": "boolean"
+                    },
                     "disable": {
                         "type": "boolean"
                     },
@@ -2053,6 +2061,15 @@
                         "description": "KillOff is turning the kill switch off.",
                         "type": "boolean"
                     },
+                    "pluginApprove": {
+                        "type": "boolean"
+                    },
+                    "pluginChange": {
+                        "type": "boolean"
+                    },
+                    "restart": {
+                        "type": "boolean"
+                    },
                     "role": {
                         "description": "An admin's agents' work on other users (D410): making one an admin or no longer,\ndisabling or enabling one, raising their caps, letting them write code.",
                         "type": "boolean"
@@ -2066,10 +2083,14 @@
                     "caps",
                     "change",
                     "code",
+                    "config",
                     "disable",
                     "goLive",
                     "inAgent",
                     "killOff",
+                    "pluginApprove",
+                    "pluginChange",
+                    "restart",
                     "role",
                     "run"
                 ],
@@ -2086,6 +2107,9 @@
                     "code": {
                         "type": "boolean"
                     },
+                    "config": {
+                        "type": "boolean"
+                    },
                     "disable": {
                         "type": "boolean"
                     },
@@ -2096,6 +2120,15 @@
                         "type": "boolean"
                     },
                     "killOff": {
+                        "type": "boolean"
+                    },
+                    "pluginApprove": {
+                        "type": "boolean"
+                    },
+                    "pluginChange": {
+                        "type": "boolean"
+                    },
+                    "restart": {
                         "type": "boolean"
                     },
                     "role": {

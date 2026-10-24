@@ -17,38 +17,42 @@ type usersTable struct {
 	postgres.Table
 
 	// Columns
-	ID                   postgres.ColumnString
-	Email                postgres.ColumnString
-	EmailNormalized      postgres.ColumnString
-	PasswordHash         postgres.ColumnString
-	Role                 postgres.ColumnString
-	EmailVerifiedAt      postgres.ColumnTimestampz
-	DisabledAt           postgres.ColumnTimestampz
-	CreatedAt            postgres.ColumnTimestampz
-	UpdatedAt            postgres.ColumnTimestampz
-	CodeChosen           postgres.ColumnBool
-	LiveStoppedAt        postgres.ColumnTimestampz
-	MaxLiveOrder         postgres.ColumnInteger
-	MaxLiveDay           postgres.ColumnInteger
-	MaxAgentDollars      postgres.ColumnFloat
-	MaxAgentInput        postgres.ColumnInteger
-	MaxAgentOutput       postgres.ColumnInteger
-	MaxAgentTotal        postgres.ColumnInteger
-	KillStopsAgents      postgres.ColumnBool
-	AgentsSeePersonal    postgres.ColumnBool
-	AgentsMayDelete      postgres.ColumnBool
-	AgentsMayShare       postgres.ColumnBool
-	AgentsUseCredentials postgres.ColumnBool
-	AgentsMayAnswer      postgres.ColumnBool
-	UnconfirmedGoLive    postgres.ColumnBool
-	UnconfirmedRun       postgres.ColumnBool
-	UnconfirmedChange    postgres.ColumnBool
-	UnconfirmedKillOff   postgres.ColumnBool
-	AskInAgent           postgres.ColumnBool
-	UnconfirmedRole      postgres.ColumnBool
-	UnconfirmedDisable   postgres.ColumnBool
-	UnconfirmedCaps      postgres.ColumnBool
-	UnconfirmedCode      postgres.ColumnBool
+	ID                       postgres.ColumnString
+	Email                    postgres.ColumnString
+	EmailNormalized          postgres.ColumnString
+	PasswordHash             postgres.ColumnString
+	Role                     postgres.ColumnString
+	EmailVerifiedAt          postgres.ColumnTimestampz
+	DisabledAt               postgres.ColumnTimestampz
+	CreatedAt                postgres.ColumnTimestampz
+	UpdatedAt                postgres.ColumnTimestampz
+	CodeChosen               postgres.ColumnBool
+	LiveStoppedAt            postgres.ColumnTimestampz
+	MaxLiveOrder             postgres.ColumnInteger
+	MaxLiveDay               postgres.ColumnInteger
+	MaxAgentDollars          postgres.ColumnFloat
+	MaxAgentInput            postgres.ColumnInteger
+	MaxAgentOutput           postgres.ColumnInteger
+	MaxAgentTotal            postgres.ColumnInteger
+	KillStopsAgents          postgres.ColumnBool
+	AgentsSeePersonal        postgres.ColumnBool
+	AgentsMayDelete          postgres.ColumnBool
+	AgentsMayShare           postgres.ColumnBool
+	AgentsUseCredentials     postgres.ColumnBool
+	AgentsMayAnswer          postgres.ColumnBool
+	UnconfirmedGoLive        postgres.ColumnBool
+	UnconfirmedRun           postgres.ColumnBool
+	UnconfirmedChange        postgres.ColumnBool
+	UnconfirmedKillOff       postgres.ColumnBool
+	AskInAgent               postgres.ColumnBool
+	UnconfirmedRole          postgres.ColumnBool
+	UnconfirmedDisable       postgres.ColumnBool
+	UnconfirmedCaps          postgres.ColumnBool
+	UnconfirmedCode          postgres.ColumnBool
+	UnconfirmedConfig        postgres.ColumnBool
+	UnconfirmedRestart       postgres.ColumnBool
+	UnconfirmedPluginApprove postgres.ColumnBool
+	UnconfirmedPluginChange  postgres.ColumnBool
 
 	AllColumns     postgres.ColumnList
 	MutableColumns postgres.ColumnList
@@ -90,79 +94,87 @@ func newUsersTable(schemaName, tableName, alias string) *UsersTable {
 
 func newUsersTableImpl(schemaName, tableName, alias string) usersTable {
 	var (
-		IDColumn                   = postgres.StringColumn("id")
-		EmailColumn                = postgres.StringColumn("email")
-		EmailNormalizedColumn      = postgres.StringColumn("email_normalized")
-		PasswordHashColumn         = postgres.StringColumn("password_hash")
-		RoleColumn                 = postgres.StringColumn("role")
-		EmailVerifiedAtColumn      = postgres.TimestampzColumn("email_verified_at")
-		DisabledAtColumn           = postgres.TimestampzColumn("disabled_at")
-		CreatedAtColumn            = postgres.TimestampzColumn("created_at")
-		UpdatedAtColumn            = postgres.TimestampzColumn("updated_at")
-		CodeChosenColumn           = postgres.BoolColumn("code_chosen")
-		LiveStoppedAtColumn        = postgres.TimestampzColumn("live_stopped_at")
-		MaxLiveOrderColumn         = postgres.IntegerColumn("max_live_order")
-		MaxLiveDayColumn           = postgres.IntegerColumn("max_live_day")
-		MaxAgentDollarsColumn      = postgres.FloatColumn("max_agent_dollars")
-		MaxAgentInputColumn        = postgres.IntegerColumn("max_agent_input")
-		MaxAgentOutputColumn       = postgres.IntegerColumn("max_agent_output")
-		MaxAgentTotalColumn        = postgres.IntegerColumn("max_agent_total")
-		KillStopsAgentsColumn      = postgres.BoolColumn("kill_stops_agents")
-		AgentsSeePersonalColumn    = postgres.BoolColumn("agents_see_personal")
-		AgentsMayDeleteColumn      = postgres.BoolColumn("agents_may_delete")
-		AgentsMayShareColumn       = postgres.BoolColumn("agents_may_share")
-		AgentsUseCredentialsColumn = postgres.BoolColumn("agents_use_credentials")
-		AgentsMayAnswerColumn      = postgres.BoolColumn("agents_may_answer")
-		UnconfirmedGoLiveColumn    = postgres.BoolColumn("unconfirmed_go_live")
-		UnconfirmedRunColumn       = postgres.BoolColumn("unconfirmed_run")
-		UnconfirmedChangeColumn    = postgres.BoolColumn("unconfirmed_change")
-		UnconfirmedKillOffColumn   = postgres.BoolColumn("unconfirmed_kill_off")
-		AskInAgentColumn           = postgres.BoolColumn("ask_in_agent")
-		UnconfirmedRoleColumn      = postgres.BoolColumn("unconfirmed_role")
-		UnconfirmedDisableColumn   = postgres.BoolColumn("unconfirmed_disable")
-		UnconfirmedCapsColumn      = postgres.BoolColumn("unconfirmed_caps")
-		UnconfirmedCodeColumn      = postgres.BoolColumn("unconfirmed_code")
-		allColumns                 = postgres.ColumnList{IDColumn, EmailColumn, EmailNormalizedColumn, PasswordHashColumn, RoleColumn, EmailVerifiedAtColumn, DisabledAtColumn, CreatedAtColumn, UpdatedAtColumn, CodeChosenColumn, LiveStoppedAtColumn, MaxLiveOrderColumn, MaxLiveDayColumn, MaxAgentDollarsColumn, MaxAgentInputColumn, MaxAgentOutputColumn, MaxAgentTotalColumn, KillStopsAgentsColumn, AgentsSeePersonalColumn, AgentsMayDeleteColumn, AgentsMayShareColumn, AgentsUseCredentialsColumn, AgentsMayAnswerColumn, UnconfirmedGoLiveColumn, UnconfirmedRunColumn, UnconfirmedChangeColumn, UnconfirmedKillOffColumn, AskInAgentColumn, UnconfirmedRoleColumn, UnconfirmedDisableColumn, UnconfirmedCapsColumn, UnconfirmedCodeColumn}
-		mutableColumns             = postgres.ColumnList{EmailColumn, EmailNormalizedColumn, PasswordHashColumn, RoleColumn, EmailVerifiedAtColumn, DisabledAtColumn, CreatedAtColumn, UpdatedAtColumn, CodeChosenColumn, LiveStoppedAtColumn, MaxLiveOrderColumn, MaxLiveDayColumn, MaxAgentDollarsColumn, MaxAgentInputColumn, MaxAgentOutputColumn, MaxAgentTotalColumn, KillStopsAgentsColumn, AgentsSeePersonalColumn, AgentsMayDeleteColumn, AgentsMayShareColumn, AgentsUseCredentialsColumn, AgentsMayAnswerColumn, UnconfirmedGoLiveColumn, UnconfirmedRunColumn, UnconfirmedChangeColumn, UnconfirmedKillOffColumn, AskInAgentColumn, UnconfirmedRoleColumn, UnconfirmedDisableColumn, UnconfirmedCapsColumn, UnconfirmedCodeColumn}
-		defaultColumns             = postgres.ColumnList{CodeChosenColumn, KillStopsAgentsColumn, AgentsSeePersonalColumn, AgentsMayDeleteColumn, AgentsMayShareColumn, AgentsUseCredentialsColumn, AgentsMayAnswerColumn, UnconfirmedGoLiveColumn, UnconfirmedRunColumn, UnconfirmedChangeColumn, UnconfirmedKillOffColumn, AskInAgentColumn, UnconfirmedRoleColumn, UnconfirmedDisableColumn, UnconfirmedCapsColumn, UnconfirmedCodeColumn}
+		IDColumn                       = postgres.StringColumn("id")
+		EmailColumn                    = postgres.StringColumn("email")
+		EmailNormalizedColumn          = postgres.StringColumn("email_normalized")
+		PasswordHashColumn             = postgres.StringColumn("password_hash")
+		RoleColumn                     = postgres.StringColumn("role")
+		EmailVerifiedAtColumn          = postgres.TimestampzColumn("email_verified_at")
+		DisabledAtColumn               = postgres.TimestampzColumn("disabled_at")
+		CreatedAtColumn                = postgres.TimestampzColumn("created_at")
+		UpdatedAtColumn                = postgres.TimestampzColumn("updated_at")
+		CodeChosenColumn               = postgres.BoolColumn("code_chosen")
+		LiveStoppedAtColumn            = postgres.TimestampzColumn("live_stopped_at")
+		MaxLiveOrderColumn             = postgres.IntegerColumn("max_live_order")
+		MaxLiveDayColumn               = postgres.IntegerColumn("max_live_day")
+		MaxAgentDollarsColumn          = postgres.FloatColumn("max_agent_dollars")
+		MaxAgentInputColumn            = postgres.IntegerColumn("max_agent_input")
+		MaxAgentOutputColumn           = postgres.IntegerColumn("max_agent_output")
+		MaxAgentTotalColumn            = postgres.IntegerColumn("max_agent_total")
+		KillStopsAgentsColumn          = postgres.BoolColumn("kill_stops_agents")
+		AgentsSeePersonalColumn        = postgres.BoolColumn("agents_see_personal")
+		AgentsMayDeleteColumn          = postgres.BoolColumn("agents_may_delete")
+		AgentsMayShareColumn           = postgres.BoolColumn("agents_may_share")
+		AgentsUseCredentialsColumn     = postgres.BoolColumn("agents_use_credentials")
+		AgentsMayAnswerColumn          = postgres.BoolColumn("agents_may_answer")
+		UnconfirmedGoLiveColumn        = postgres.BoolColumn("unconfirmed_go_live")
+		UnconfirmedRunColumn           = postgres.BoolColumn("unconfirmed_run")
+		UnconfirmedChangeColumn        = postgres.BoolColumn("unconfirmed_change")
+		UnconfirmedKillOffColumn       = postgres.BoolColumn("unconfirmed_kill_off")
+		AskInAgentColumn               = postgres.BoolColumn("ask_in_agent")
+		UnconfirmedRoleColumn          = postgres.BoolColumn("unconfirmed_role")
+		UnconfirmedDisableColumn       = postgres.BoolColumn("unconfirmed_disable")
+		UnconfirmedCapsColumn          = postgres.BoolColumn("unconfirmed_caps")
+		UnconfirmedCodeColumn          = postgres.BoolColumn("unconfirmed_code")
+		UnconfirmedConfigColumn        = postgres.BoolColumn("unconfirmed_config")
+		UnconfirmedRestartColumn       = postgres.BoolColumn("unconfirmed_restart")
+		UnconfirmedPluginApproveColumn = postgres.BoolColumn("unconfirmed_plugin_approve")
+		UnconfirmedPluginChangeColumn  = postgres.BoolColumn("unconfirmed_plugin_change")
+		allColumns                     = postgres.ColumnList{IDColumn, EmailColumn, EmailNormalizedColumn, PasswordHashColumn, RoleColumn, EmailVerifiedAtColumn, DisabledAtColumn, CreatedAtColumn, UpdatedAtColumn, CodeChosenColumn, LiveStoppedAtColumn, MaxLiveOrderColumn, MaxLiveDayColumn, MaxAgentDollarsColumn, MaxAgentInputColumn, MaxAgentOutputColumn, MaxAgentTotalColumn, KillStopsAgentsColumn, AgentsSeePersonalColumn, AgentsMayDeleteColumn, AgentsMayShareColumn, AgentsUseCredentialsColumn, AgentsMayAnswerColumn, UnconfirmedGoLiveColumn, UnconfirmedRunColumn, UnconfirmedChangeColumn, UnconfirmedKillOffColumn, AskInAgentColumn, UnconfirmedRoleColumn, UnconfirmedDisableColumn, UnconfirmedCapsColumn, UnconfirmedCodeColumn, UnconfirmedConfigColumn, UnconfirmedRestartColumn, UnconfirmedPluginApproveColumn, UnconfirmedPluginChangeColumn}
+		mutableColumns                 = postgres.ColumnList{EmailColumn, EmailNormalizedColumn, PasswordHashColumn, RoleColumn, EmailVerifiedAtColumn, DisabledAtColumn, CreatedAtColumn, UpdatedAtColumn, CodeChosenColumn, LiveStoppedAtColumn, MaxLiveOrderColumn, MaxLiveDayColumn, MaxAgentDollarsColumn, MaxAgentInputColumn, MaxAgentOutputColumn, MaxAgentTotalColumn, KillStopsAgentsColumn, AgentsSeePersonalColumn, AgentsMayDeleteColumn, AgentsMayShareColumn, AgentsUseCredentialsColumn, AgentsMayAnswerColumn, UnconfirmedGoLiveColumn, UnconfirmedRunColumn, UnconfirmedChangeColumn, UnconfirmedKillOffColumn, AskInAgentColumn, UnconfirmedRoleColumn, UnconfirmedDisableColumn, UnconfirmedCapsColumn, UnconfirmedCodeColumn, UnconfirmedConfigColumn, UnconfirmedRestartColumn, UnconfirmedPluginApproveColumn, UnconfirmedPluginChangeColumn}
+		defaultColumns                 = postgres.ColumnList{CodeChosenColumn, KillStopsAgentsColumn, AgentsSeePersonalColumn, AgentsMayDeleteColumn, AgentsMayShareColumn, AgentsUseCredentialsColumn, AgentsMayAnswerColumn, UnconfirmedGoLiveColumn, UnconfirmedRunColumn, UnconfirmedChangeColumn, UnconfirmedKillOffColumn, AskInAgentColumn, UnconfirmedRoleColumn, UnconfirmedDisableColumn, UnconfirmedCapsColumn, UnconfirmedCodeColumn, UnconfirmedConfigColumn, UnconfirmedRestartColumn, UnconfirmedPluginApproveColumn, UnconfirmedPluginChangeColumn}
 	)
 
 	return usersTable{
 		Table: postgres.NewTable(schemaName, tableName, alias, allColumns...),
 
 		//Columns
-		ID:                   IDColumn,
-		Email:                EmailColumn,
-		EmailNormalized:      EmailNormalizedColumn,
-		PasswordHash:         PasswordHashColumn,
-		Role:                 RoleColumn,
-		EmailVerifiedAt:      EmailVerifiedAtColumn,
-		DisabledAt:           DisabledAtColumn,
-		CreatedAt:            CreatedAtColumn,
-		UpdatedAt:            UpdatedAtColumn,
-		CodeChosen:           CodeChosenColumn,
-		LiveStoppedAt:        LiveStoppedAtColumn,
-		MaxLiveOrder:         MaxLiveOrderColumn,
-		MaxLiveDay:           MaxLiveDayColumn,
-		MaxAgentDollars:      MaxAgentDollarsColumn,
-		MaxAgentInput:        MaxAgentInputColumn,
-		MaxAgentOutput:       MaxAgentOutputColumn,
-		MaxAgentTotal:        MaxAgentTotalColumn,
-		KillStopsAgents:      KillStopsAgentsColumn,
-		AgentsSeePersonal:    AgentsSeePersonalColumn,
-		AgentsMayDelete:      AgentsMayDeleteColumn,
-		AgentsMayShare:       AgentsMayShareColumn,
-		AgentsUseCredentials: AgentsUseCredentialsColumn,
-		AgentsMayAnswer:      AgentsMayAnswerColumn,
-		UnconfirmedGoLive:    UnconfirmedGoLiveColumn,
-		UnconfirmedRun:       UnconfirmedRunColumn,
-		UnconfirmedChange:    UnconfirmedChangeColumn,
-		UnconfirmedKillOff:   UnconfirmedKillOffColumn,
-		AskInAgent:           AskInAgentColumn,
-		UnconfirmedRole:      UnconfirmedRoleColumn,
-		UnconfirmedDisable:   UnconfirmedDisableColumn,
-		UnconfirmedCaps:      UnconfirmedCapsColumn,
-		UnconfirmedCode:      UnconfirmedCodeColumn,
+		ID:                       IDColumn,
+		Email:                    EmailColumn,
+		EmailNormalized:          EmailNormalizedColumn,
+		PasswordHash:             PasswordHashColumn,
+		Role:                     RoleColumn,
+		EmailVerifiedAt:          EmailVerifiedAtColumn,
+		DisabledAt:               DisabledAtColumn,
+		CreatedAt:                CreatedAtColumn,
+		UpdatedAt:                UpdatedAtColumn,
+		CodeChosen:               CodeChosenColumn,
+		LiveStoppedAt:            LiveStoppedAtColumn,
+		MaxLiveOrder:             MaxLiveOrderColumn,
+		MaxLiveDay:               MaxLiveDayColumn,
+		MaxAgentDollars:          MaxAgentDollarsColumn,
+		MaxAgentInput:            MaxAgentInputColumn,
+		MaxAgentOutput:           MaxAgentOutputColumn,
+		MaxAgentTotal:            MaxAgentTotalColumn,
+		KillStopsAgents:          KillStopsAgentsColumn,
+		AgentsSeePersonal:        AgentsSeePersonalColumn,
+		AgentsMayDelete:          AgentsMayDeleteColumn,
+		AgentsMayShare:           AgentsMayShareColumn,
+		AgentsUseCredentials:     AgentsUseCredentialsColumn,
+		AgentsMayAnswer:          AgentsMayAnswerColumn,
+		UnconfirmedGoLive:        UnconfirmedGoLiveColumn,
+		UnconfirmedRun:           UnconfirmedRunColumn,
+		UnconfirmedChange:        UnconfirmedChangeColumn,
+		UnconfirmedKillOff:       UnconfirmedKillOffColumn,
+		AskInAgent:               AskInAgentColumn,
+		UnconfirmedRole:          UnconfirmedRoleColumn,
+		UnconfirmedDisable:       UnconfirmedDisableColumn,
+		UnconfirmedCaps:          UnconfirmedCapsColumn,
+		UnconfirmedCode:          UnconfirmedCodeColumn,
+		UnconfirmedConfig:        UnconfirmedConfigColumn,
+		UnconfirmedRestart:       UnconfirmedRestartColumn,
+		UnconfirmedPluginApprove: UnconfirmedPluginApproveColumn,
+		UnconfirmedPluginChange:  UnconfirmedPluginChangeColumn,
 
 		AllColumns:     allColumns,
 		MutableColumns: mutableColumns,

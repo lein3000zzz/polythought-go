@@ -610,7 +610,7 @@ describe('settings page', () => {
     await waitFor(() => expect(confirmed).toBe('c-1'))
   })
 
-  it("shows an admin the switches for their agents' work on users, and whom a request is about (D410)", async () => {
+  it("shows an admin the switches for their agents' work on users and the instance, and whom a request is about (D410, D411)", async () => {
     const sent: unknown[] = []
     server.use(
       http.get('/api/v1/me', () => HttpResponse.json({ ...alice, role: 'admin' })),
@@ -642,6 +642,14 @@ describe('settings page', () => {
     await user.click(role)
     await waitFor(() => expect(sent).toEqual([{ role: false }]))
 
+    const approving = screen.getByRole('switch', { name: 'Approving a plugin' })
+    expect(approving).toBeChecked()
+    await user.click(approving)
+    await waitFor(() => expect(sent).toEqual([{ role: false }, { pluginApprove: false }]))
+    for (const name of ['Changing Config', 'Restarting the server', 'Other changes to plugins']) {
+      expect(screen.getByRole('switch', { name })).toBeChecked()
+    }
+
     const waiting = within(await screen.findByRole('list', { name: 'Waiting for you' }))
     expect(
       waiting.getByText(/Change the user u-2: make them an admin \(bob@example.com\)/),
@@ -654,6 +662,7 @@ describe('settings page', () => {
 
     await screen.findByRole('switch', { name: 'Going live' })
     expect(screen.queryByRole('switch', { name: 'Changing a role' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('switch', { name: 'Changing Config' })).not.toBeInTheDocument()
   })
 
   it('has Credentials as a page, where its old address goes (D392)', async () => {

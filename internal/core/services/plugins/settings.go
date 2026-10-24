@@ -256,6 +256,12 @@ func (s *Service) SetSettings(ctx context.Context, p auth.Principal, id string, 
 			continue
 		}
 
+		// A secret is the browser's alone (D411).
+		if spec.Secret && !p.Itself() {
+			problems.Add(domain.Problem{Param: key, Message: fmt.Sprintf("%s is secret: an admin sets it at a browser, on the Plugins page", spec.Label)})
+			continue
+		}
+
 		change, said, err := s.change(ctx, ip.ID, spec, changes[key], before[key])
 		if err != nil {
 			problems.Add(domain.Problem{Param: key, Message: fmt.Sprintf("%s: %v", spec.Label, err)})
@@ -271,6 +277,11 @@ func (s *Service) SetSettings(ctx context.Context, p auth.Principal, id string, 
 
 	if len(out) == 0 {
 		return nil
+	}
+
+	if err := s.hold(ctx, p, Asked{Op: OpSettings, ID: ip.ID, Settings: changes},
+		"Change the plugin "+ip.ID+"'s settings: "+strings.Join(detail, "; ")); err != nil {
+		return err
 	}
 
 	err = s.settings.SetSettings(ctx, ip.ID, out, domain.PluginAudit{

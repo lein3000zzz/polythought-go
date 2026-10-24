@@ -70,7 +70,10 @@ question then says who answered. What reaches real money, going live, switching 
 or changing a workflow that trades live, and turning the kill switch off, waits for the user
 to confirm it at a browser, where they have it wait, as they do to start with; neither an
 agent nor a token can confirm its own, or loosen those switches. An admin's agent's or
-token's work on another user's role, account, caps or code access waits the same way.
+token's work on another user's role, account, caps or code access waits the same way, and so
+does its changing Config, restarting the server, approving a plugin and changing plugins. It
+never sees a user's email, never sets a secret setting, and creates no account with a
+password unless an admin lets it; it invites instead.
 Text others wrote comes marked as such.
 
 Every admin action checks the role in the service, not only in the page, and the last admin

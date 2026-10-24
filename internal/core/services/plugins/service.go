@@ -55,6 +55,7 @@ type Service struct {
 	limits    func() Limits
 	settings  ports.PluginSettings // optional: without it, plugins have no settings of their own
 	box       ports.SecretBox
+	confirm   Confirmer // optional: without it, an admin's agents' work on plugins goes ahead at once
 
 	mu          sync.RWMutex
 	runSettings map[string]map[string]any         // what each plugin's runs get of its settings
@@ -423,6 +424,11 @@ func (s *Service) Approve(ctx context.Context, p auth.Principal, id, version str
 		return fmt.Errorf("%w: it asks for %s: approve those, and only those", domain.ErrInvalidInput, listOf(asked))
 	}
 
+	if err := s.hold(ctx, p, Asked{Op: OpApprove, ID: id, Version: version, Permissions: permissions},
+		approveSays(id, version, permissions)); err != nil {
+		return err
+	}
+
 	err = s.repo.Approve(ctx, domain.PluginAudit{
 		PluginID: id, Version: version, Action: domain.PluginApproved, Detail: listOf(asked) + "; digest " + f.Digest,
 		By: p.User.ID, At: s.now(),
@@ -452,6 +458,10 @@ func (s *Service) RemoveVersion(ctx context.Context, p auth.Principal, id, versi
 		return fmt.Errorf("%w: %s is the version that runs: uninstall the plugin instead", domain.ErrInvalidInput, version)
 	}
 
+	if err := s.hold(ctx, p, Asked{Op: OpRemoveVersion, ID: id, Version: version}, fmt.Sprintf("Remove the plugin %s's version %s", id, version)); err != nil {
+		return err
+	}
+
 	if err := s.repo.RemoveVersion(ctx, domain.PluginAudit{PluginID: id, Version: version, Action: domain.PluginRemoved, By: p.User.ID, At: s.now()}); err != nil {
 		return err
 	}
@@ -467,6 +477,15 @@ func (s *Service) RemoveVersion(ctx context.Context, p auth.Principal, id, versi
 func (s *Service) SetEnabled(ctx context.Context, p auth.Principal, id string, enabled bool) error {
 	if !p.User.IsAdmin() {
 		return domain.ErrForbidden
+	}
+
+	says := "Disable the plugin " + id
+	if enabled {
+		says = "Enable the plugin " + id
+	}
+
+	if err := s.hold(ctx, p, Asked{Op: OpEnable, ID: id, Enabled: enabled}, says); err != nil {
+		return err
 	}
 
 	action := domain.PluginDisabled
@@ -491,6 +510,15 @@ func (s *Service) SetEnabled(ctx context.Context, p auth.Principal, id string, e
 func (s *Service) Uninstall(ctx context.Context, p auth.Principal, id string, removeData bool) error {
 	if !p.User.IsAdmin() {
 		return domain.ErrForbidden
+	}
+
+	says := "Uninstall the plugin " + id
+	if removeData {
+		says += ", its data too"
+	}
+
+	if err := s.hold(ctx, p, Asked{Op: OpUninstall, ID: id, RemoveData: removeData}, says); err != nil {
+		return err
 	}
 
 	ip, err := s.repo.Get(ctx, id)
@@ -545,6 +573,10 @@ func (s *Service) SetCaps(ctx context.Context, p auth.Principal, id string, caps
 	}
 
 	if err := problems.Err(); err != nil {
+		return err
+	}
+
+	if err := s.hold(ctx, p, Asked{Op: OpCaps, ID: id, Caps: caps}, "Set the plugin "+id+"'s caps: "+capsDetail(caps)); err != nil {
 		return err
 	}
 
@@ -664,6 +696,10 @@ func (s *Service) RemoveLeftBehind(ctx context.Context, p auth.Principal, id str
 		return fmt.Errorf("%w: %q is no plugin's ID", domain.ErrInvalidInput, id)
 	}
 
+	if err := s.hold(ctx, p, Asked{Op: OpRemoveLeft, ID: id}, "Remove the data the plugin "+id+" left behind"); err != nil {
+		return err
+	}
+
 	switch _, err := s.repo.Get(ctx, id); {
 	case err == nil:
 		return fmt.Errorf("%w: %s is installed: uninstall it, removing its data", domain.ErrInvalidInput, id)
@@ -697,6 +733,10 @@ func (s *Service) SetUsers(ctx context.Context, p auth.Principal, id string, eve
 		detail = fmt.Sprintf("%d chosen users", len(users))
 	}
 
+	if err := s.hold(ctx, p, Asked{Op: OpUsers, ID: id, Everyone: everyone, Users: users}, usersSay(id, everyone, len(users))); err != nil {
+		return err
+	}
+
 	if err := s.repo.SetUsers(ctx, everyone, users, domain.PluginAudit{PluginID: id, Action: domain.PluginUsers, Detail: detail, By: p.User.ID, At: s.now()}); err != nil {
 		return err
 	}
@@ -717,6 +757,10 @@ func (s *Service) SetUsers(ctx context.Context, p auth.Principal, id string, eve
 func (s *Service) Start(ctx context.Context, p auth.Principal, id string) error {
 	if !p.User.IsAdmin() {
 		return domain.ErrForbidden
+	}
+
+	if err := s.hold(ctx, p, Asked{Op: OpStart, ID: id}, "Start the plugin "+id+" again"); err != nil {
+		return err
 	}
 
 	if err := s.runtime.Start(id); err != nil {
@@ -1082,6 +1126,20 @@ func pluginsOf(w domain.Workflow) []string {
 }
 
 // permissionsOf are the permissions a version's manifest asks for.
+// usersSay says who a change lets use a plugin, for the admin to confirm.
+func usersSay(id string, everyone bool, n int) string {
+	switch {
+	case everyone:
+		return "Let everyone use the plugin " + id
+	case n == 0:
+		return "Let nobody use the plugin " + id
+	case n == 1:
+		return "Let only 1 chosen user use the plugin " + id
+	}
+
+	return fmt.Sprintf("Let only %d chosen users use the plugin %s", n, id)
+}
+
 func permissionsOf(v domain.PluginVersion) ([]string, error) {
 	var m struct {
 		Permissions []string `json:"permissions"`

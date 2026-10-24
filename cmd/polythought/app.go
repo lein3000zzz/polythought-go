@@ -385,8 +385,13 @@ func (a *app) newMCP() (*mcpserver.Server, error) {
 		Markets: mcpserver.Markets{Reader: a.markets, Sources: ai.Sources{
 			Events: a.markets, Books: a.markets, History: a.markets, Trades: a.markets, Positions: a.markets,
 		}},
-		Wallets: a.wallets,
-		Trades:  a.trading,
+		Wallets:  a.wallets,
+		Trades:   a.trading,
+		Admin:    a.auth,
+		Settings: a.settings,
+		Mail:     a.mail,
+		Geoblock: a.geoblock,
+		Plugins:  a.plugins,
 		Trading: func(ctx context.Context, w domain.Workflow) (string, error) {
 			if !nodes.PlacesOrders(a.registry, w) {
 				return "none", nil
@@ -464,6 +469,7 @@ func authConfig(s *settings.Snapshot) auth.Config {
 	cfg.InviteEmail = s.Bool(config.KeyInviteEmail)
 	cfg.Requests = s.Bool(config.KeyRequests)
 	cfg.RequestDeniedMail = s.Bool(config.KeyRequestDeniedMail)
+	cfg.AgentPasswords = s.Bool(config.KeyMCPAgentPasswords)
 
 	return cfg
 }
@@ -686,6 +692,60 @@ func (a *app) handleConfirmed() {
 		_, err := a.trading.SetKillSwitch(ctx, p, false)
 		return "kill switch off", err
 	})
+
+	// An admin's work on the instance (D411).
+	a.settings.UseConfirmations(a.confirmations)
+	a.plugins.UseConfirmations(a.confirmations)
+
+	a.confirmations.Handle(domain.ConfirmConfig, func(ctx context.Context, p auth.Principal, c domain.Confirmation) (string, error) {
+		var changes map[string]json.RawMessage
+		if err := json.Unmarshal(c.Payload, &changes); err != nil {
+			return "", err
+		}
+
+		return "changed", a.settings.Update(ctx, p, changes)
+	})
+
+	a.confirmations.Handle(domain.ConfirmRestart, func(ctx context.Context, p auth.Principal, _ domain.Confirmation) (string, error) {
+		return "restarting", a.settings.Restart(ctx, p)
+	})
+
+	for _, kind := range []domain.ConfirmKind{domain.ConfirmPluginApprove, domain.ConfirmPluginChange} {
+		a.confirmations.Handle(kind, func(ctx context.Context, p auth.Principal, c domain.Confirmation) (string, error) {
+			var in plugins.Asked
+			if err := json.Unmarshal(c.Payload, &in); err != nil {
+				return "", err
+			}
+
+			return "done", a.pluginAsked(ctx, p, in)
+		})
+	}
+}
+
+// pluginAsked carries out a held plugin action, as it was asked.
+func (a *app) pluginAsked(ctx context.Context, p auth.Principal, in plugins.Asked) error {
+	switch in.Op {
+	case plugins.OpApprove:
+		return a.plugins.Approve(ctx, p, in.ID, in.Version, in.Permissions)
+	case plugins.OpRemoveVersion:
+		return a.plugins.RemoveVersion(ctx, p, in.ID, in.Version)
+	case plugins.OpEnable:
+		return a.plugins.SetEnabled(ctx, p, in.ID, in.Enabled)
+	case plugins.OpUsers:
+		return a.plugins.SetUsers(ctx, p, in.ID, in.Everyone, in.Users)
+	case plugins.OpStart:
+		return a.plugins.Start(ctx, p, in.ID)
+	case plugins.OpUninstall:
+		return a.plugins.Uninstall(ctx, p, in.ID, in.RemoveData)
+	case plugins.OpCaps:
+		return a.plugins.SetCaps(ctx, p, in.ID, in.Caps)
+	case plugins.OpSettings:
+		return a.plugins.SetSettings(ctx, p, in.ID, in.Settings)
+	case plugins.OpRemoveLeft:
+		return a.plugins.RemoveLeftBehind(ctx, p, in.ID)
+	}
+
+	return fmt.Errorf("no plugin action %q", in.Op)
 }
 
 // paramsWhere names a node type's settings that match.

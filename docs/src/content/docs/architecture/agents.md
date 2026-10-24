@@ -146,7 +146,24 @@ An admin's agents and tokens with the admin scope wait for the admin the same wa
 their work touches other users: making one an admin or no longer, disabling or enabling
 one, raising or removing their own caps, letting them write code; a switch each, on to
 start with. Lowering a cap goes ahead. The request names the user by ID for the agent, and
-by email for the admin, in the app and on Telegram, as agents see no user's email.
+by email for the admin, in the app and on Telegram, as agents see no user's email. So does
+their work on the instance: changing Config, restarting the server, approving a plugin
+version, which runs its author's code on the server, and every other change to plugins, a
+switch each too.
+
+With the admin scope an agent does what the admin pages do. It lists users by ID, never
+their emails, and finds one by an address the admin gives it; changes their role, account,
+caps and code access; invites people, by mail where mail is set up, else with a link to pass
+on; and lists, approves and denies requests to join, each request's note under `untrusted`.
+It creates an account with a password only where an admin turns on **Agents create accounts
+with passwords**, off to start with, and then as a user, never an admin at once. It reads
+and changes Config, all of a change or none, checked as the Config page checks it, reads its
+history, and restarts the server; secret settings show only as set, and an agent never sets
+one, nor a plugin's secret setting. It installs plugins from an https URL or from the
+archive sent in the call, base64, at most about 700 KB as a call is at most 1 MiB; installing
+waits for nothing, as nothing installed runs until it is approved. A plugin's name,
+description and log are its author's words, under `untrusted`. Removing a plugin version,
+uninstalling a plugin and removing its data left behind are marked destructive.
 
 Who acted is kept, named as they were then: an execution an agent or a token ran by hand
 names it, and so does every run of a workflow it switched on, or changed while on, until the

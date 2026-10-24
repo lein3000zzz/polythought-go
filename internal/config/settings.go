@@ -83,6 +83,7 @@ const (
 	KeyMCPRefreshTTL       = "mcp.refresh_ttl"
 	KeyMCPConfirmFor       = "mcp.confirm_for"
 	KeyMCPWindowWait       = "mcp.window_wait"
+	KeyMCPAgentPasswords   = "mcp.agent_passwords"
 
 	KeyTrustedProxies      = "http.trusted_proxies"
 	KeyWebhookAllowPrivate = "webhook.allow_private"
@@ -465,6 +466,13 @@ func Settings() (*settings.Registry, error) {
 				"user has it ask there, before it says the action waits in Polythought. Some clients give up on a call sooner. " +
 				"Applies at once.",
 			Kind: settings.KindDuration, Default: 2 * time.Minute, Check: within(10*time.Second, 30*time.Minute),
+		},
+		settings.Spec{
+			Key: KeyMCPAgentPasswords, Group: groupMCP, Label: "Agents create accounts with passwords",
+			Description: "Let an admin's agents and API tokens create accounts with a password they give, as the Users page " +
+				"does. Off, they invite people instead, by mail where mail is set up, else with a link; a password then " +
+				"never passes through an agent. Applies at once.",
+			Kind: settings.KindBool, Default: false,
 		},
 		settings.Spec{
 			Key: KeyTrustedProxies, Group: groupNetwork, Label: "Trusted proxies",

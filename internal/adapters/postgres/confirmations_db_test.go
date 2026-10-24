@@ -68,6 +68,19 @@ func TestConfirmations(t *testing.T) {
 		assert.Equal(t, 1, n, "the first expired")
 	})
 
+	t.Run("every kind, the instance's too (D411)", func(t *testing.T) {
+		for _, kind := range []domain.ConfirmKind{
+			domain.ConfirmRole, domain.ConfirmCode, domain.ConfirmConfig, domain.ConfirmRestart,
+			domain.ConfirmPluginApprove, domain.ConfirmPluginChange,
+		} {
+			c := ask(kind, "", at.Add(-time.Hour))
+
+			got, err := repo.Get(ctx, alice.ID, c.ID)
+			require.NoError(t, err, kind)
+			assert.Equal(t, kind, got.Kind)
+		}
+	})
+
 	t.Run("decided once, in time, by its owner", func(t *testing.T) {
 		_, err := repo.Decide(ctx, bob.ID, run.ID, domain.ConfirmConfirmed, at, domain.ConfirmViaApp)
 		require.ErrorIs(t, err, domain.ErrNotFound)
@@ -105,7 +118,7 @@ func TestUnconfirmed(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, domain.Unconfirmed{}, got.Unconfirmed, "every live action waits to start with")
 
-	lets := domain.Unconfirmed{Run: true, KillOff: true, Role: true, Code: true}
+	lets := domain.Unconfirmed{Run: true, KillOff: true, Role: true, Code: true, Config: true, PluginChange: true}
 	require.NoError(t, users.SetUnconfirmed(ctx, u.ID, lets))
 	require.NoError(t, users.SetAskInAgent(ctx, u.ID, true))
 	require.NoError(t, users.Update(ctx, got), "an update with the user as it was")

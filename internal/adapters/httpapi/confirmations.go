@@ -23,7 +23,7 @@ type ConfirmationService interface {
 // confirmationDTO is a token's or an agent's live action waiting for you, or how it ended.
 type confirmationDTO struct {
 	ID         string `json:"id"`
-	Kind       string `json:"kind" enums:"go_live,switch_on,run,change,kill_off,admin_role,admin_disable,admin_caps,admin_code"`
+	Kind       string `json:"kind" enums:"go_live,switch_on,run,change,kill_off,admin_role,admin_disable,admin_caps,admin_code,admin_config,admin_restart,admin_plugin_approve,admin_plugin"`
 	WorkflowID string `json:"workflowId,omitempty" validate:"optional"`
 	// Asker is who asked: the agent by name, or "an API token".
 	Asker string `json:"asker"`
@@ -153,6 +153,12 @@ type liveConfirmDTO struct {
 	Disable bool `json:"disable"`
 	Caps    bool `json:"caps"`
 	Code    bool `json:"code"`
+	// And on the instance (D411): changing Config, restarting the server, approving a
+	// plugin version, and every other change to plugins.
+	Config        bool `json:"config"`
+	Restart       bool `json:"restart"`
+	PluginApprove bool `json:"pluginApprove"`
+	PluginChange  bool `json:"pluginChange"`
 } // @name LiveConfirm
 
 func toLiveConfirmDTO(u domain.User) liveConfirmDTO {
@@ -161,6 +167,7 @@ func toLiveConfirmDTO(u domain.User) liveConfirmDTO {
 	return liveConfirmDTO{
 		GoLive: !n.GoLive, Run: !n.Run, Change: !n.Change, KillOff: !n.KillOff, InAgent: u.AskInAgent,
 		Role: !n.Role, Disable: !n.Disable, Caps: !n.Caps, Code: !n.Code,
+		Config: !n.Config, Restart: !n.Restart, PluginApprove: !n.PluginApprove, PluginChange: !n.PluginChange,
 	}
 }
 
@@ -175,6 +182,11 @@ type liveConfirmRequest struct {
 	Disable *bool `json:"disable,omitempty" validate:"optional"`
 	Caps    *bool `json:"caps,omitempty" validate:"optional"`
 	Code    *bool `json:"code,omitempty" validate:"optional"`
+
+	Config        *bool `json:"config,omitempty" validate:"optional"`
+	Restart       *bool `json:"restart,omitempty" validate:"optional"`
+	PluginApprove *bool `json:"pluginApprove,omitempty" validate:"optional"`
+	PluginChange  *bool `json:"pluginChange,omitempty" validate:"optional"`
 } // @name LiveConfirmRequest
 
 // setLiveConfirm sets which of your tokens' and agents' live actions wait for you to
@@ -207,6 +219,7 @@ func (s *Server) setLiveConfirm(ctx context.Context, c *app.RequestContext) {
 	}{
 		{req.GoLive, &u.GoLive}, {req.Run, &u.Run}, {req.Change, &u.Change}, {req.KillOff, &u.KillOff},
 		{req.Role, &u.Role}, {req.Disable, &u.Disable}, {req.Caps, &u.Caps}, {req.Code, &u.Code},
+		{req.Config, &u.Config}, {req.Restart, &u.Restart}, {req.PluginApprove, &u.PluginApprove}, {req.PluginChange, &u.PluginChange},
 	} {
 		if sw.to != nil {
 			*sw.into = !*sw.to
