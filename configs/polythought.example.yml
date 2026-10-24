@@ -400,6 +400,25 @@ mcp:
   # Environment: POLYTHOUGHT_MCP_AGENT_PASSWORDS.
   # agent_passwords: false
 
+  # How long an agent's call waiting for a task from a local agent node is held open
+  # before it says none came, and the agent calls again. Keep it under what agents'
+  # clients wait for a call: Codex gives up after a minute unless told otherwise.
+  # Applies at once.
+  # Environment: POLYTHOUGHT_MCP_TASK_WAIT.
+  # task_wait: "50s"
+
+  # How long a task stays with the agent it was handed to, while it neither answers it
+  # nor waits for another, before it goes back to the user's other agents. Applies at
+  # once.
+  # Environment: POLYTHOUGHT_MCP_TASK_LEASE.
+  # task_lease: "10m"
+
+  # How long after an agent last waited for a task it still counts as there, so a local
+  # agent node hands it one rather than failing at once, as when it is between two
+  # calls. Applies at once.
+  # Environment: POLYTHOUGHT_MCP_TASK_SEEN.
+  # task_seen: "1m"
+
 webhook:
 
   # Let workflows reach addresses inside the server's network, such as a service on the

@@ -18,8 +18,35 @@ type WaitRecord struct {
 	Until       time.Time     // resumed then at the latest
 	Key         string        // what an answer must bring; empty when it cannot be answered
 	Question    *WaitQuestion // what it asks, for answering it elsewhere; nil when it asks nothing
+	Task        *WaitTask     // the task it hands the owner's agents; nil when it hands none
 	State       json.RawMessage
 	CreatedAt   time.Time
+
+	// Lease is the agent a task is handed to, and until when, while it is (D412).
+	Lease *TaskLease
+}
+
+// WaitTask is the task a local agent node hands its owner's agents (D386): the prompt as
+// rendered, for all the items together or for each, and the shape an answer keeps to.
+type WaitTask struct {
+	Call     string          `json:"call"`             // each: an answer per item; together: one for all
+	AnswerAs string          `json:"answerAs"`         // text, fields or schema
+	Schema   json.RawMessage `json:"schema,omitempty"` // what a JSON answer keeps to, answering in fields or to a schema
+	Prompt   string          `json:"prompt,omitempty"` // together: the one prompt
+	Items    []TaskItem      `json:"items,omitempty"`  // each: one per item; together: the items, where included
+}
+
+// TaskItem is one item of a task: its prompt, answering each, and the item itself.
+type TaskItem struct {
+	Prompt string         `json:"prompt,omitempty"`
+	Item   map[string]any `json:"item,omitempty"`
+}
+
+// TaskLease is a task handed to one agent (D412): who has it, and until when, unless it
+// waits for another again or answers.
+type TaskLease struct {
+	Holder string // the grant or the API token: "grant:<id>" or "token:<id>"
+	Until  time.Time
 }
 
 // WaitQuestion is what a wait that can be answered asks (D405): its text as it was sent,
@@ -46,4 +73,19 @@ type WaitRepository interface {
 	TakeDue(ctx context.Context, now time.Time, limit int) ([]WaitRecord, error)
 	// TakeForWorkflow removes and returns every wait of a workflow; owner scopes it.
 	TakeForWorkflow(ctx context.Context, owner domain.UserID, id domain.WorkflowID) ([]WaitRecord, error)
+
+	// LeaseTask hands the owner's oldest task no agent holds, or whose lease ran out, to
+	// holder until until (D412); domain.ErrNotFound when there is none.
+	LeaseTask(ctx context.Context, owner domain.UserID, holder string, now, until time.Time) (WaitRecord, error)
+	// RenewLeases holds the tasks holder has until until.
+	RenewLeases(ctx context.Context, owner domain.UserID, holder string, until time.Time) error
+	// TakeTask is Take for a task holder has: domain.ErrNotFound for one another holds,
+	// none does, or that is no task.
+	TakeTask(ctx context.Context, owner domain.UserID, id domain.ExecutionID, holder string) (WaitRecord, error)
+}
+
+// TaskAgents says whether any of an owner's agents takes tasks now (D386): one waiting
+// for one, or that waited a moment ago.
+type TaskAgents interface {
+	Around(owner domain.UserID) bool
 }

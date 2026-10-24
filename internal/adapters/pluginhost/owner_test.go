@@ -321,3 +321,14 @@ func TestQuestionFlow(t *testing.T) {
 	assert.Equal(t, "Yes", answered.items()[0].JSON["label"])
 	assert.Contains(t, tg.closed[101], "✅ <b>Yes</b>")
 }
+
+// No tasks here.
+func (*memWaits) LeaseTask(context.Context, domain.UserID, string, time.Time, time.Time) (ports.WaitRecord, error) {
+	return ports.WaitRecord{}, domain.ErrNotFound
+}
+
+func (*memWaits) RenewLeases(context.Context, domain.UserID, string, time.Time) error { return nil }
+
+func (*memWaits) TakeTask(context.Context, domain.UserID, domain.ExecutionID, string) (ports.WaitRecord, error) {
+	return ports.WaitRecord{}, domain.ErrNotFound
+}

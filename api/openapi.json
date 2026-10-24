@@ -30,6 +30,7 @@
                             "enum": [
                                 "read",
                                 "build",
+                                "tasks",
                                 "settings",
                                 "paper",
                                 "live",
@@ -822,6 +823,7 @@
                             "enum": [
                                 "read",
                                 "build",
+                                "tasks",
                                 "settings",
                                 "paper",
                                 "live",
@@ -2835,6 +2837,7 @@
                         "enum": [
                             "read",
                             "build",
+                            "tasks",
                             "settings",
                             "paper",
                             "live",

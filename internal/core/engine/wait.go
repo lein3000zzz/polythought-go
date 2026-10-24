@@ -46,6 +46,9 @@ type Wait struct {
 	// it was asked (D405): by the user's agents, where the user lets them.
 	Question *ports.WaitQuestion
 
+	// Task is what a wait hands the owner's agents to do (D386), which one of them answers.
+	Task *ports.WaitTask
+
 	// State is kept for the node's Resume. It goes through JSON.
 	State map[string]any
 }

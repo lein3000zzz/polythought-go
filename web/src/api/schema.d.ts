@@ -2055,7 +2055,7 @@ export interface components {
              * @description Scopes are what it may do (D398); absent, for a token made before scopes, it has
              *     every scope its user's role allows.
              */
-            scopes?: ("read" | "build" | "settings" | "paper" | "live" | "admin")[];
+            scopes?: ("read" | "build" | "tasks" | "settings" | "paper" | "live" | "admin")[];
             /** @description Token is the secret, present only in the response that creates it. */
             token?: string;
         };
@@ -2361,7 +2361,7 @@ export interface components {
             expiresAt?: string;
             name: string;
             /** @description Scopes are what it may do (D398): at least one; admin for an admin's token only. */
-            scopes: ("read" | "build" | "settings" | "paper" | "live" | "admin")[];
+            scopes: ("read" | "build" | "tasks" | "settings" | "paper" | "live" | "admin")[];
         };
         CreateUserRequest: {
             email: string;
@@ -3094,7 +3094,7 @@ export interface components {
         };
         OAuthOffer: {
             /** @enum {string} */
-            scope: "read" | "build" | "settings" | "paper" | "live" | "admin";
+            scope: "read" | "build" | "tasks" | "settings" | "paper" | "live" | "admin";
             ticked: boolean;
         };
         OAuthProblem: {

@@ -150,8 +150,8 @@ func TestWhoami(t *testing.T) {
 		// Every scope brings read (D399).
 		"pt_scoped": {"email": "alice@example.com", "role": "user", "via": "token", "scopes": []any{"read", "paper"}},
 		// A token made before scopes has every scope its user's role allows.
-		"pt_before": {"email": "alice@example.com", "role": "user", "via": "token", "scopes": []any{"read", "build", "settings", "paper", "live"}},
-		"pt_admin":  {"email": "root@example.com", "role": "admin", "via": "token", "scopes": []any{"read", "build", "settings", "paper", "live", "admin"}},
+		"pt_before": {"email": "alice@example.com", "role": "user", "via": "token", "scopes": []any{"read", "build", "tasks", "settings", "paper", "live"}},
+		"pt_admin":  {"email": "root@example.com", "role": "admin", "via": "token", "scopes": []any{"read", "build", "tasks", "settings", "paper", "live", "admin"}},
 	} {
 		assert.Equal(t, want, whoami(t, url, token), token)
 	}

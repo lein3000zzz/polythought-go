@@ -97,13 +97,15 @@ describe('settings page', () => {
     expect(screen.getByRole('checkbox', { name: 'Read' })).toBeChecked()
     expect(screen.getByRole('checkbox', { name: 'Trade live' })).not.toBeChecked()
     expect(screen.getByRole('checkbox', { name: 'Change settings' })).not.toBeChecked() // D399
+    expect(screen.getByRole('checkbox', { name: 'Take tasks' })).not.toBeChecked() // D412
     expect(screen.queryByRole('checkbox', { name: 'Admin' })).not.toBeInTheDocument()
     await user.click(screen.getByRole('checkbox', { name: 'Build' }))
     await user.click(screen.getByRole('checkbox', { name: 'Trade live' }))
+    await user.click(screen.getByRole('checkbox', { name: 'Take tasks' }))
     await user.click(screen.getByRole('button', { name: 'Create token' }))
 
     expect(await screen.findByText('pt_abc_the_whole_secret')).toBeInTheDocument()
-    expect(created).toEqual({ name: 'backtest', scopes: ['read', 'paper', 'live'] })
+    expect(created).toEqual({ name: 'backtest', scopes: ['read', 'tasks', 'paper', 'live'] })
     expect(await screen.findByText('pt_abc…')).toBeInTheDocument()
     expect(screen.getByText('pt_abc…').closest('tr')).toHaveTextContent('All') // made before scopes
     expect(screen.getByRole('checkbox', { name: 'Build' })).toBeChecked() // as it starts again

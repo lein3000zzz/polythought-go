@@ -255,3 +255,14 @@ func TestAnswersAndCancels(t *testing.T) {
 		require.ErrorIs(t, err, domain.ErrNotFound)
 	})
 }
+
+// No tasks here.
+func (*repo) LeaseTask(context.Context, domain.UserID, string, time.Time, time.Time) (ports.WaitRecord, error) {
+	return ports.WaitRecord{}, domain.ErrNotFound
+}
+
+func (*repo) RenewLeases(context.Context, domain.UserID, string, time.Time) error { return nil }
+
+func (*repo) TakeTask(context.Context, domain.UserID, domain.ExecutionID, string) (ports.WaitRecord, error) {
+	return ports.WaitRecord{}, domain.ErrNotFound
+}

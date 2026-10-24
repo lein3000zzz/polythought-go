@@ -13,6 +13,11 @@ export const scopeInfo: Record<string, { title: string; detail: string; risky?: 
     detail:
       'Create, edit, check and run workflows, code and custom nodes, add credentials, use and share library entries, and switch workflows on and off; answer what runs ask you, where you let agents. Where you let agents use your credentials, a workflow it builds can send them wherever its nodes call.',
   },
+  tasks: {
+    title: 'Take tasks',
+    detail:
+      "Take and answer the tasks your workflows' Local agent nodes ask of your agents. A task's text comes from the workflow and its items, which can hold others' words.",
+  },
   settings: {
     title: 'Change settings',
     detail:

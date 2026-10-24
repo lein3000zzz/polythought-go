@@ -44,6 +44,9 @@ type Scope string
 const (
 	ScopeRead  Scope = "read"
 	ScopeBuild Scope = "build"
+	// ScopeTasks is taking the tasks the user's workflows hand their agents, and
+	// answering them (D386, D412).
+	ScopeTasks Scope = "tasks"
 	// ScopeSettings is the account's own settings: notifications, Telegram, connected
 	// agents (D399).
 	ScopeSettings Scope = "settings"
@@ -53,7 +56,7 @@ const (
 )
 
 // Scopes are every scope, in the order the consent page lists them.
-var Scopes = []Scope{ScopeRead, ScopeBuild, ScopeSettings, ScopePaper, ScopeLive, ScopeAdmin}
+var Scopes = []Scope{ScopeRead, ScopeBuild, ScopeTasks, ScopeSettings, ScopePaper, ScopeLive, ScopeAdmin}
 
 func (s Scope) Valid() bool { return slices.Contains(Scopes, s) }
 

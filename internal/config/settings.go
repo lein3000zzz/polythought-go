@@ -84,6 +84,9 @@ const (
 	KeyMCPConfirmFor       = "mcp.confirm_for"
 	KeyMCPWindowWait       = "mcp.window_wait"
 	KeyMCPAgentPasswords   = "mcp.agent_passwords"
+	KeyMCPTaskWait         = "mcp.task_wait"
+	KeyMCPTaskLease        = "mcp.task_lease"
+	KeyMCPTaskSeen         = "mcp.task_seen"
 
 	KeyTrustedProxies      = "http.trusted_proxies"
 	KeyWebhookAllowPrivate = "webhook.allow_private"
@@ -473,6 +476,25 @@ func Settings() (*settings.Registry, error) {
 				"does. Off, they invite people instead, by mail where mail is set up, else with a link; a password then " +
 				"never passes through an agent. Applies at once.",
 			Kind: settings.KindBool, Default: false,
+		},
+		settings.Spec{
+			Key: KeyMCPTaskWait, Group: groupMCP, Label: "Agents wait for tasks",
+			Description: "How long an agent's call waiting for a task from a local agent node is held open before it says " +
+				"none came, and the agent calls again. Keep it under what agents' clients wait for a call: Codex gives up " +
+				"after a minute unless told otherwise. Applies at once.",
+			Kind: settings.KindDuration, Default: 50 * time.Second, Check: within(5*time.Second, 30*time.Minute),
+		},
+		settings.Spec{
+			Key: KeyMCPTaskLease, Group: groupMCP, Label: "A task is an agent's for",
+			Description: "How long a task stays with the agent it was handed to, while it neither answers it nor waits for " +
+				"another, before it goes back to the user's other agents. Applies at once.",
+			Kind: settings.KindDuration, Default: 10 * time.Minute, Check: within(time.Minute, 24*time.Hour),
+		},
+		settings.Spec{
+			Key: KeyMCPTaskSeen, Group: groupMCP, Label: "Agents count as around for",
+			Description: "How long after an agent last waited for a task it still counts as there, so a local agent node " +
+				"hands it one rather than failing at once, as when it is between two calls. Applies at once.",
+			Kind: settings.KindDuration, Default: time.Minute, Check: within(5*time.Second, time.Hour),
 		},
 		settings.Spec{
 			Key: KeyTrustedProxies, Group: groupNetwork, Label: "Trusted proxies",

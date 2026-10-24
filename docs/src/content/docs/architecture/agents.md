@@ -172,6 +172,22 @@ and the API and `get_execution` give it. Each order keeps who was behind its run
 placed, so it outlives the execution: Live orders, the workflow's orders and the order
 notifications name them, and Live orders, its API and `list_live_orders` filter by them.
 
+A workflow hands work to its owner's own agents with the Local agent node: a task for each
+item, or one for all of them, and the shape of the answer, text, fields or a JSON schema, as
+the AI agent node's. Polythought runs no agent and holds no login of the user's: an agent the
+user connected with the tasks scope, its own on the consent page and API tokens, unticked to
+start with, calls `wait_for_task`, which holds the call open 50 seconds unless an admin
+changes it and hands it the owner's oldest task. The task is that agent's alone for 10
+minutes, renewed each time it waits again, and goes back to the user's other agents if it
+neither answers nor waits by then. `answer_task` answers it, held to its shape, a wrong
+answer refused saying why, and the run carries on; `fail_task` says why it cannot, and the
+items fail with that. With no agent of the owner's waiting, or that waited in the last
+minute, the node fails at once rather than wait for no one, and it fails at its timeout too.
+All of a task's text, the prompt as the workflow filled it in and the items, comes under
+`untrusted`, as a request from the user's workflow rather than from the user: a prompt can
+come from another user's library entry, and expressions fill it with market text, and the
+agent may have a shell.
+
 The trading tools set how a workflow trades, on paper or live from one of the user's
 wallets, turn the kill switch on or off, reset a paper account, and cancel an order resting
 on the book, each held to its mode's scope. Going live where the user lets it go

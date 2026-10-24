@@ -282,7 +282,7 @@ func toOAuthClientDTO(c domain.OAuthClient) oauthClientDTO {
 }
 
 type offerDTO struct {
-	Scope  string `json:"scope" enums:"read,build,settings,paper,live,admin"`
+	Scope  string `json:"scope" enums:"read,build,tasks,settings,paper,live,admin"`
 	Ticked bool   `json:"ticked"`
 } // @name OAuthOffer
 

@@ -55,6 +55,10 @@ type Deps struct {
 	LLM   ports.LLM
 	Spend ports.AgentMeter
 
+	// TaskAgents says whether the owner has an agent taking tasks, for the local agent
+	// node (D386); optional: without it, the node is not available.
+	TaskAgents ports.TaskAgents
+
 	// Orders places orders, on paper or live; optional: without it, the ledger (Books)
 	// and how workflows trade (Accounts), the trading nodes are not available.
 	// TradingRules and Portfolios are for Copy sizing.
@@ -103,6 +107,11 @@ func Register(r *engine.Registry, d Deps) error {
 		}
 
 		agent = r.RegisterNode(node)
+	}
+
+	var local error
+	if d.TaskAgents != nil {
+		local = r.RegisterNode(ai.NewLocalAgent(d.TaskAgents, time.Now))
 	}
 
 	var market, wallet, dedupe, throttle, consensus error
@@ -179,6 +188,7 @@ func Register(r *engine.Registry, d Deps) error {
 		telegramTrigger,
 		telegramAsk,
 		agent,
+		local,
 		r.RegisterTrigger(triggers.Manual{}),
 		r.RegisterTrigger(triggers.NewSchedule(minInterval)),
 		r.RegisterNode(markets2.NewMarkets(d.Markets)),

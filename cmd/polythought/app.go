@@ -54,6 +54,7 @@ import (
 	"github.com/lein3000zzz/polythought-go/internal/core/services/plugins"
 	"github.com/lein3000zzz/polythought-go/internal/core/services/settings"
 	"github.com/lein3000zzz/polythought-go/internal/core/services/spend"
+	"github.com/lein3000zzz/polythought-go/internal/core/services/tasks"
 	"github.com/lein3000zzz/polythought-go/internal/core/services/telegram"
 	"github.com/lein3000zzz/polythought-go/internal/core/services/traders"
 	"github.com/lein3000zzz/polythought-go/internal/core/services/trading"
@@ -144,6 +145,8 @@ type app struct {
 	oauth           *oauth.Service
 	markets         *pmadapter.Reader
 	waits           *waits.Service
+	taskAgents      *tasks.Presence // which owners have an agent taking tasks (D386)
+	tasks           *tasks.Service
 	code            *code.Service
 	codeRunners     func() ports.CodeRunners
 	launcher        *sandbox.Launcher // nil where there is no sandbox, noSandbox saying why
@@ -392,6 +395,7 @@ func (a *app) newMCP() (*mcpserver.Server, error) {
 		Mail:     a.mail,
 		Geoblock: a.geoblock,
 		Plugins:  a.plugins,
+		Tasks:    a.tasks,
 		Trading: func(ctx context.Context, w domain.Workflow) (string, error) {
 			if !nodes.PlacesOrders(a.registry, w) {
 				return "none", nil
@@ -980,6 +984,8 @@ func (a *app) initEngine(ctx context.Context, pmc polymarket) error {
 		Caps:        a.liveCaps,
 	})
 
+	a.taskAgents = tasks.NewPresence(func() time.Duration { return a.settings.Current().Duration(config.KeyMCPTaskSeen) }, time.Now)
+
 	err = nodes.Register(a.registry, nodes.Deps{
 		Markets:       pmc.reader,
 		Events:        pmc.reader,
@@ -998,6 +1004,7 @@ func (a *app) initEngine(ctx context.Context, pmc polymarket) error {
 		Code:          a.code,
 		LLM:           llmClient,
 		Spend:         a.spend,
+		TaskAgents:    a.taskAgents,
 		Feed:          a.feed,
 		Traders:       a.traders,
 		Orders:        a.trading,
@@ -1026,7 +1033,8 @@ func (a *app) initEngine(ctx context.Context, pmc polymarket) error {
 		return err
 	}
 
-	waitRecords := postgres.NewWaits(a.db)
+	// A task kept wakes its owner's waiting agents (D386).
+	waitRecords := tasks.Announcing(postgres.NewWaits(a.db), a.taskAgents)
 	codeGate := auth.CodeGate{
 		Users: postgres.NewUsers(a.db),
 		Mode:  func() domain.CodeAccess { return codeAccess(a.settings.Current()) },
@@ -1048,6 +1056,10 @@ func (a *app) initEngine(ctx context.Context, pmc polymarket) error {
 
 	// Executions that wait carry on from here, which serve runs.
 	a.waits = waits.New(waitRecords, executor, a.util.Logger)
+	a.tasks = tasks.New(waitRecords, a.waits, a.taskAgents, func() tasks.Config {
+		cur := a.settings.Current()
+		return tasks.Config{Wait: cur.Duration(config.KeyMCPTaskWait), Lease: cur.Duration(config.KeyMCPTaskLease)}
+	})
 
 	a.supervisor = engine.NewSupervisor(ctx, engine.NewRunner(a.util, a.customNodes, executor), a.util.Logger)
 	a.util.OnShutdown(a.supervisor.Shutdown)

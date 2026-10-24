@@ -147,6 +147,16 @@ func (s *Service) carryOn(ctx context.Context, rec ports.WaitRecord) {
 // One that carried on already, is someone else's, or waits with another key is
 // domain.ErrNotFound.
 func (s *Service) Answer(ctx context.Context, owner domain.UserID, id domain.ExecutionID, key string, payload map[string]any) error {
+	return s.answer(ctx, id, payload, func() (ports.WaitRecord, error) { return s.repo.TakeWithKey(ctx, owner, id, key) })
+}
+
+// AnswerTask is Answer for a task holder has (D412): one another holds, or none does, is
+// domain.ErrNotFound.
+func (s *Service) AnswerTask(ctx context.Context, owner domain.UserID, id domain.ExecutionID, holder string, payload map[string]any) error {
+	return s.answer(ctx, id, payload, func() (ports.WaitRecord, error) { return s.repo.TakeTask(ctx, owner, id, holder) })
+}
+
+func (s *Service) answer(ctx context.Context, id domain.ExecutionID, payload map[string]any, take func() (ports.WaitRecord, error)) error {
 	s.mu.Lock()
 	if s.stopped {
 		s.mu.Unlock()
@@ -157,7 +167,7 @@ func (s *Service) Answer(ctx context.Context, owner domain.UserID, id domain.Exe
 	base := s.base
 	s.mu.Unlock()
 
-	rec, err := s.repo.TakeWithKey(ctx, owner, id, key)
+	rec, err := take()
 	if err != nil {
 		s.wg.Done()
 		return err

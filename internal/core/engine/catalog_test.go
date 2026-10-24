@@ -158,3 +158,14 @@ func TestRunnerTakesTheOwnersTriggers(t *testing.T) {
 		Run(t.Context(), domain.Workflow{OwnerID: "alice"}, false)
 	assert.ErrorContains(t, err, "the node types of the workflow's owner: db down")
 }
+
+// No tasks here.
+func (*memWaits) LeaseTask(context.Context, domain.UserID, string, time.Time, time.Time) (ports.WaitRecord, error) {
+	return ports.WaitRecord{}, domain.ErrNotFound
+}
+
+func (*memWaits) RenewLeases(context.Context, domain.UserID, string, time.Time) error { return nil }
+
+func (*memWaits) TakeTask(context.Context, domain.UserID, domain.ExecutionID, string) (ports.WaitRecord, error) {
+	return ports.WaitRecord{}, domain.ErrNotFound
+}

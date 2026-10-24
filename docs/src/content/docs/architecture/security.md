@@ -73,7 +73,9 @@ agent nor a token can confirm its own, or loosen those switches. An admin's agen
 token's work on another user's role, account, caps or code access waits the same way, and so
 does its changing Config, restarting the server, approving a plugin and changing plugins. It
 never sees a user's email, never sets a secret setting, and creates no account with a
-password unless an admin lets it; it invites instead.
+password unless an admin lets it; it invites instead. An agent takes the tasks of the
+user's Local agent nodes only with the tasks scope, unticked to start with, and every word
+of a task comes marked as the workflow's, not the user's.
 Text others wrote comes marked as such.
 
 Every admin action checks the role in the service, not only in the page, and the last admin

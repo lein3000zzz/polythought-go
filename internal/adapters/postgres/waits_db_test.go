@@ -26,6 +26,19 @@ func seedWaiting(t *testing.T, db *postgres.DB, owner domain.User, until time.Ti
 // seedAsked is seedWaiting for a wait that takes answers with key.
 func seedAsked(t *testing.T, db *postgres.DB, owner domain.User, until time.Time, key string) ports.WaitRecord {
 	t.Helper()
+
+	return seedWait(t, db, owner, until, key, nil, at)
+}
+
+// seedTask is seedWaiting for a wait handing out task, made at created.
+func seedTask(t *testing.T, db *postgres.DB, owner domain.User, task *ports.WaitTask, created time.Time) ports.WaitRecord {
+	t.Helper()
+
+	return seedWait(t, db, owner, at.Add(time.Hour), "k-"+newID(), task, created)
+}
+
+func seedWait(t *testing.T, db *postgres.DB, owner domain.User, until time.Time, key string, task *ports.WaitTask, created time.Time) ports.WaitRecord {
+	t.Helper()
 	ctx := context.Background()
 
 	w := newWorkflow(owner.ID, "waits")
@@ -40,9 +53,9 @@ func seedAsked(t *testing.T, db *postgres.DB, owner domain.User, until time.Time
 
 	rec := ports.WaitRecord{
 		ExecutionID: e.ID, WorkflowID: w.ID, OwnerID: owner.ID, NodeID: "pause",
-		Until: until, Key: key, State: json.RawMessage(`{"pending":{"x":0.0200}}`), CreatedAt: at,
+		Until: until, Key: key, Task: task, State: json.RawMessage(`{"pending":{"x":0.0200}}`), CreatedAt: created,
 	}
-	if key != "" {
+	if key != "" && task == nil {
 		rec.Question = &ports.WaitQuestion{HTML: "Buy <b>YES</b>?", Options: []string{"Buy", "Skip"}}
 	}
 
@@ -209,4 +222,64 @@ func TestWaits(t *testing.T) {
 		require.NoError(t, err)
 		assert.Zero(t, n)
 	})
+}
+
+// A local agent node's task, handed to one agent at a time (D412): the oldest first, each
+// to one, held while it waits again, and back to the others once its lease runs out.
+func TestWaitTasks(t *testing.T) {
+	ctx := context.Background()
+	db := fresh(t)
+	repo := postgres.NewWaits(db)
+	alice := seedUser(t, db, "alice@example.com", domain.RoleUser)
+	bob := seedUser(t, db, "bob@example.com", domain.RoleUser)
+
+	task := &ports.WaitTask{
+		Call: "each", AnswerAs: "schema", Schema: json.RawMessage(`{"type":"object"}`),
+		Items: []ports.TaskItem{{Prompt: "Look", Item: map[string]any{"question": "Rain?"}}},
+	}
+
+	older := seedTask(t, db, alice, task, at)
+	newer := seedTask(t, db, alice, task, at.Add(time.Minute))
+	plain := seedAsked(t, db, alice, at.Add(time.Hour), "k-plain")
+	seedTask(t, db, bob, task, at.Add(-time.Hour))
+
+	got, err := repo.LeaseTask(ctx, alice.ID, "grant:g-1", at, at.Add(10*time.Minute))
+	require.NoError(t, err)
+	assert.Equal(t, older.ExecutionID, got.ExecutionID, "the oldest first, the owner's own")
+	assert.JSONEq(t, string(task.Schema), string(got.Task.Schema))
+	got.Task.Schema = task.Schema
+	assert.Equal(t, task, got.Task, "kept as it was")
+	assert.Equal(t, &ports.TaskLease{Holder: "grant:g-1", Until: at.Add(10 * time.Minute)}, got.Lease)
+
+	got, err = repo.LeaseTask(ctx, alice.ID, "grant:g-2", at, at.Add(10*time.Minute))
+	require.NoError(t, err)
+	assert.Equal(t, newer.ExecutionID, got.ExecutionID, "one held is another's")
+
+	_, err = repo.LeaseTask(ctx, alice.ID, "grant:g-3", at, at.Add(10*time.Minute))
+	require.ErrorIs(t, err, domain.ErrNotFound, "every task held; a question is no task")
+
+	require.NoError(t, repo.RenewLeases(ctx, alice.ID, "grant:g-1", at.Add(20*time.Minute)))
+
+	_, err = repo.LeaseTask(ctx, alice.ID, "grant:g-3", at.Add(15*time.Minute), at.Add(25*time.Minute))
+	require.NoError(t, err, "g-2's ran out")
+
+	held, err := repo.Get(ctx, alice.ID, older.ExecutionID)
+	require.NoError(t, err)
+	assert.Equal(t, at.Add(20*time.Minute), held.Lease.Until, "g-1's renewed")
+
+	_, err = repo.TakeTask(ctx, alice.ID, newer.ExecutionID, "grant:g-2")
+	require.ErrorIs(t, err, domain.ErrNotFound, "g-3 has it now")
+
+	_, err = repo.TakeTask(ctx, alice.ID, plain.ExecutionID, "grant:g-1")
+	require.ErrorIs(t, err, domain.ErrNotFound, "a question is no task")
+
+	_, err = repo.TakeTask(ctx, bob.ID, older.ExecutionID, "grant:g-1")
+	require.ErrorIs(t, err, domain.ErrNotFound, "alice's")
+
+	took, err := repo.TakeTask(ctx, alice.ID, older.ExecutionID, "grant:g-1")
+	require.NoError(t, err)
+	assert.Equal(t, older.ExecutionID, took.ExecutionID)
+
+	_, err = repo.Get(ctx, alice.ID, older.ExecutionID)
+	require.ErrorIs(t, err, domain.ErrNotFound, "taken once")
 }

@@ -195,7 +195,7 @@ func TestResourceMetadata(t *testing.T) {
 
 	assert.Equal(t, resource, m.Resource)
 	assert.Equal(t, []string{issuer}, m.AuthorizationServers)
-	assert.Equal(t, []string{"read", "build", "settings", "paper", "live", "admin"}, m.ScopesSupported)
+	assert.Equal(t, []string{"read", "build", "tasks", "settings", "paper", "live", "admin"}, m.ScopesSupported)
 	assert.Equal(t, []string{"header"}, m.BearerMethodsSupported)
 }
 

@@ -731,6 +731,42 @@ Let an admin's agents and API tokens create accounts with a password they give, 
 | Default | `false` |
 | Applies | at once |
 
+### Agents wait for tasks
+
+How long an agent's call waiting for a task from a local agent node is held open before it says none came, and the agent calls again. Keep it under what agents' clients wait for a call: Codex gives up after a minute unless told otherwise. Applies at once.
+
+| | |
+|---|---|
+| Key | `mcp.task_wait` |
+| Environment variable | `POLYTHOUGHT_MCP_TASK_WAIT` |
+| Kind | duration, e.g. `30s`, `5m`, `168h` |
+| Default | `50s` |
+| Applies | at once |
+
+### A task is an agent's for
+
+How long a task stays with the agent it was handed to, while it neither answers it nor waits for another, before it goes back to the user's other agents. Applies at once.
+
+| | |
+|---|---|
+| Key | `mcp.task_lease` |
+| Environment variable | `POLYTHOUGHT_MCP_TASK_LEASE` |
+| Kind | duration, e.g. `30s`, `5m`, `168h` |
+| Default | `10m` |
+| Applies | at once |
+
+### Agents count as around for
+
+How long after an agent last waited for a task it still counts as there, so a local agent node hands it one rather than failing at once, as when it is between two calls. Applies at once.
+
+| | |
+|---|---|
+| Key | `mcp.task_seen` |
+| Environment variable | `POLYTHOUGHT_MCP_TASK_SEEN` |
+| Kind | duration, e.g. `30s`, `5m`, `168h` |
+| Default | `1m` |
+| Applies | at once |
+
 ## Network
 
 ### Trusted proxies

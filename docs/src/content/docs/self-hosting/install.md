@@ -148,7 +148,8 @@ Agents read workflows, executions, the node catalog, the library, the markets an
 wallets and orders, build workflows, and trade, what reaches real money waiting for the
 user to confirm it where they say so; `whoami` says who an agent acts for and what it may do.
 An admin's agent with the admin scope also manages users, invites, Config and plugins, its
-changes waiting for the admin where they say so.
+changes waiting for the admin where they say so. With the tasks scope, an agent takes the
+tasks a workflow's Local agent node hands it.
 
 Under **Agents over MCP** on the Config page:
 
@@ -168,6 +169,14 @@ Under **Agents over MCP** on the Config page:
   action waits for its user to confirm it before it expires.
 - **Agent window waits**, 2 minutes to start with, is how long an agent's call waits for its
   user's answer in the agent's own window, where the user has it ask there.
+- **Agents wait for tasks**, 50 seconds to start with, is how long an agent's call waiting
+  for a Local agent node's task is held open. Keep it under what the agents' clients wait
+  for a call: Codex gives up after a minute unless told otherwise.
+- **A task is an agent's for**, 10 minutes to start with, is how long a task stays with the
+  agent it was handed to, while it neither answers nor waits again, before it goes back to
+  the user's other agents.
+- **Agents count as around for**, a minute to start with, is how long after an agent last
+  waited it still counts as there, so a Local agent node hands it a task rather than fail.
 - **Agents create accounts with passwords**, off to start with, lets an admin's agents and
   tokens create accounts with a password they give. Off, they invite people, by mail where
   mail is set up, else with a link, and no password passes through an agent.

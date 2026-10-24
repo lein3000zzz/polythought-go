@@ -92,6 +92,10 @@ type Deps struct {
 	Geoblock Geoblock
 	Plugins  Plugins
 
+	// What hands the local agent nodes' tasks to agents (D386); without it, the task tools
+	// are not offered.
+	Tasks Tasks
+
 	// What the market tools read (D402); without a reader they are not offered.
 	Markets Markets
 	// What the money tools read (D402).
@@ -127,6 +131,7 @@ type Server struct {
 	mail     Mail
 	geoblock Geoblock
 	plugins  Plugins
+	tasks    Tasks
 
 	markets      ai.Sources
 	marketReader ports.MarketReader
@@ -154,7 +159,7 @@ func New(cfg Config, d Deps) (*Server, error) {
 		edit: d.Edit, code: d.Code, customNodes: d.CustomNodes, credentials: d.Credentials,
 		sharing: d.Sharing, confirms: d.Confirmations, trader: d.Trader,
 		window: d.Window, windowWait: d.WindowWait, publicURL: strings.TrimRight(cfg.PublicURL, "/"),
-		admin: d.Admin, config: d.Settings, mail: d.Mail, geoblock: d.Geoblock, plugins: d.Plugins,
+		admin: d.Admin, config: d.Settings, mail: d.Mail, geoblock: d.Geoblock, plugins: d.Plugins, tasks: d.Tasks,
 		markets: d.Markets.Sources, marketReader: d.Markets.Reader, wallets: d.Wallets, trades: d.Trades,
 		scope: tracing.Scope{Manager: d.Util.TracerManager, TracerName: tracerName},
 	}
@@ -163,7 +168,8 @@ func New(cfg Config, d Deps) (*Server, error) {
 		Name: "polythought", Title: "Polythought", Version: version(), WebsiteURL: strings.TrimRight(cfg.PublicURL, "/"),
 	}, &mcp.ServerOptions{
 		Instructions: "Polythought builds and runs workflows that trade on Polymarket, on paper or live. " +
-			"You act for the user who allowed you, with the scopes they gave you; whoami says which. " + Notice,
+			"You act for the user who allowed you, with the scopes they gave you; whoami says which. With the tasks scope, " +
+			"wait_for_task hands you what their workflows ask of you. " + Notice,
 	})
 
 	add(s, srv, Tool[struct{}, whoamiResult]{
@@ -216,6 +222,10 @@ func New(cfg Config, d Deps) (*Server, error) {
 
 	if s.plugins != nil {
 		s.addPluginTools(srv)
+	}
+
+	if s.tasks != nil {
+		s.addTaskTools(srv)
 	}
 
 	if s.marketReader != nil {

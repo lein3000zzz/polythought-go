@@ -50,9 +50,20 @@ func (r *Waits) Add(ctx context.Context, w ports.WaitRecord) error {
 		question = new(string(data))
 	}
 
+	var task *string
+
+	if w.Task != nil {
+		data, err := json.Marshal(w.Task)
+		if err != nil {
+			return err
+		}
+
+		task = new(string(data))
+	}
+
 	_, err = table.Waits.INSERT(table.Waits.AllColumns).MODEL(model.Waits{
 		ExecutionID: eid, WorkflowID: wid, OwnerID: oid, NodeID: string(w.NodeID),
-		Until: w.Until, Key: w.Key, Question: question, State: string(w.State), CreatedAt: w.CreatedAt,
+		Until: w.Until, Key: w.Key, Question: question, Task: task, State: string(w.State), CreatedAt: w.CreatedAt,
 	}).ExecContext(ctx, r.db.conn(ctx))
 
 	return err
@@ -151,6 +162,67 @@ func (r *Waits) TakeDue(ctx context.Context, now time.Time, limit int) ([]ports.
 	return r.take(ctx, w.ExecutionID.IN(due))
 }
 
+func (r *Waits) LeaseTask(ctx context.Context, owner domain.UserID, holder string, now, until time.Time) (ports.WaitRecord, error) {
+	oid, err := parseID(owner)
+	if err != nil {
+		return ports.WaitRecord{}, err
+	}
+
+	w := table.Waits
+
+	// The oldest first, and one another taker is handing out is skipped rather than waited
+	// for, as it is about to be held.
+	free := jet.SELECT(w.ExecutionID).
+		FROM(w).
+		WHERE(w.OwnerID.EQ(jet.UUID(oid)).
+			AND(w.Task.IS_NOT_NULL()).
+			AND(w.LeaseHolder.IS_NULL().OR(w.LeaseUntil.LT_EQ(jet.TimestampzT(now))))).
+		ORDER_BY(w.CreatedAt.ASC()).
+		LIMIT(1).
+		FOR(jet.UPDATE().SKIP_LOCKED())
+
+	var rows []model.Waits
+
+	err = w.UPDATE(w.LeaseHolder, w.LeaseUntil).
+		SET(jet.String(holder), jet.TimestampzT(until)).
+		WHERE(w.ExecutionID.IN(free)).
+		RETURNING(w.AllColumns).
+		QueryContext(ctx, r.db.conn(ctx), &rows)
+	if err != nil {
+		return ports.WaitRecord{}, err
+	}
+
+	if len(rows) == 0 {
+		return ports.WaitRecord{}, domain.ErrNotFound
+	}
+
+	return waitOf(rows[0])
+}
+
+func (r *Waits) RenewLeases(ctx context.Context, owner domain.UserID, holder string, until time.Time) error {
+	oid, err := parseID(owner)
+	if err != nil {
+		return err
+	}
+
+	w := table.Waits
+
+	_, err = w.UPDATE(w.LeaseUntil).
+		SET(jet.TimestampzT(until)).
+		WHERE(w.OwnerID.EQ(jet.UUID(oid)).AND(w.LeaseHolder.EQ(jet.String(holder)))).
+		ExecContext(ctx, r.db.conn(ctx))
+
+	return err
+}
+
+func (r *Waits) TakeTask(ctx context.Context, owner domain.UserID, id domain.ExecutionID, holder string) (ports.WaitRecord, error) {
+	if holder == "" {
+		return ports.WaitRecord{}, domain.ErrNotFound
+	}
+
+	return r.takeOne(ctx, owner, id, table.Waits.Task.IS_NOT_NULL().AND(table.Waits.LeaseHolder.EQ(jet.String(holder))))
+}
+
 func (r *Waits) TakeForWorkflow(ctx context.Context, owner domain.UserID, id domain.WorkflowID) ([]ports.WaitRecord, error) {
 	oid, err := parseID(owner)
 	if err != nil {
@@ -199,6 +271,17 @@ func waitOf(m model.Waits) (ports.WaitRecord, error) {
 		if err := json.Unmarshal([]byte(*m.Question), w.Question); err != nil {
 			return ports.WaitRecord{}, err
 		}
+	}
+
+	if m.Task != nil {
+		w.Task = &ports.WaitTask{}
+		if err := json.Unmarshal([]byte(*m.Task), w.Task); err != nil {
+			return ports.WaitRecord{}, err
+		}
+	}
+
+	if m.LeaseHolder != nil && m.LeaseUntil != nil {
+		w.Lease = &ports.TaskLease{Holder: *m.LeaseHolder, Until: m.LeaseUntil.UTC()}
 	}
 
 	return w, nil

@@ -22,4 +22,7 @@ type Waits struct {
 	CreatedAt   time.Time
 	Key         string
 	Question    *string
+	Task        *string
+	LeaseHolder *string
+	LeaseUntil  *time.Time
 }

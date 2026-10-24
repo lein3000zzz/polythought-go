@@ -30,9 +30,9 @@ import { jumpId } from './pages'
 type TokenForm = { name: string; expires: string }
 type Scope = Schemas['CreateTokenRequest']['scopes'][number]
 
-const scopes: Scope[] = ['read', 'build', 'settings', 'paper', 'live', 'admin']
-// What a new token may do to start with (D398, D399): settings, live trading and admin are
-// ticked by hand.
+const scopes: Scope[] = ['read', 'build', 'tasks', 'settings', 'paper', 'live', 'admin']
+// What a new token may do to start with (D398, D399, D412): tasks, settings, live trading
+// and admin are ticked by hand.
 const firstTicked: Scope[] = ['read', 'build', 'paper']
 
 export function TokensSection() {
