@@ -325,13 +325,15 @@ func (a *app) init(ctx context.Context) error {
 func (a *app) newMCP() (*mcpserver.Server, error) {
 	return mcpserver.New(mcpserver.Config{PublicURL: a.cfg.PublicURL}, mcpserver.Deps{
 		Agents: a.oauth, Tokens: a.auth, Util: a.util,
-		Limiter:   ratelimit.NewPerMinute(func() int { return a.settings.Current().Int(config.KeyMCPRate) }),
-		Workflows: a.workflows,
-		Edit:      a.workflows,
-		Code:      workflowCode{code: a.code, gate: a.codeGate},
-		NodeTypes: nodeTypes{types: a.customNodes, plugins: a.plugins},
-		CodeTypes: codeTypes{types: a.customNodes},
-		Library:   a.library,
+		Limiter:     ratelimit.NewPerMinute(func() int { return a.settings.Current().Int(config.KeyMCPRate) }),
+		Workflows:   a.workflows,
+		Edit:        a.workflows,
+		Code:        workflowCode{code: a.code, gate: a.codeGate},
+		CustomNodes: a.customNodes,
+		Credentials: a.credentials,
+		NodeTypes:   nodeTypes{types: a.customNodes, plugins: a.plugins},
+		CodeTypes:   codeTypes{types: a.customNodes},
+		Library:     a.library,
 		Markets: mcpserver.Markets{Reader: a.markets, Sources: ai.Sources{
 			Events: a.markets, Books: a.markets, History: a.markets, Trades: a.markets, Positions: a.markets,
 		}},
@@ -583,6 +585,26 @@ type laterWorkflows struct{ a *app }
 
 func (l laterWorkflows) Get(ctx context.Context, p auth.Principal, id domain.WorkflowID) (domain.Workflow, error) {
 	return l.a.workflows.Get(ctx, p, id)
+}
+
+// paramsWhere names a node type's settings that match.
+func paramsWhere(r *engine.Registry, match func(engine.ParamSpec) bool) func(nodeType string) []string {
+	return func(nodeType string) []string {
+		t, _, ok := r.Type(nodeType)
+		if !ok {
+			return nil
+		}
+
+		var out []string
+
+		for _, p := range t.Params {
+			if match(p) {
+				out = append(out, p.Name)
+			}
+		}
+
+		return out
+	}
 }
 
 // workflowCode runs workflow code for the Code tab's Apply (D74), for those who may write
@@ -884,22 +906,9 @@ func (a *app) initEngine(ctx context.Context, pmc polymarket) error {
 		workflows.WithRestingOrders(a.trading),
 		// Personal settings hidden from tokens and agents but where their user lets them see
 		// (D402): the node types' sensitive ones.
-		workflows.WithPersonal(func(nodeType string) []string {
-			t, _, ok := a.registry.Type(nodeType)
-			if !ok {
-				return nil
-			}
-
-			var out []string
-
-			for _, p := range t.Params {
-				if p.Sensitive {
-					out = append(out, p.Name)
-				}
-			}
-
-			return out
-		}),
+		workflows.WithPersonal(paramsWhere(a.registry, func(p engine.ParamSpec) bool { return p.Sensitive })),
+		// And they use credentials only where their user lets them (D404).
+		workflows.WithCredentials(paramsWhere(a.registry, func(p engine.ParamSpec) bool { return p.Kind == engine.ParamCredential })),
 		// A workflow that places orders needs its mode's scope too (D399).
 		workflows.WithTradeScope(func(ctx context.Context, w domain.Workflow) (domain.Scope, error) {
 			if !nodes.PlacesOrders(a.registry, w) {

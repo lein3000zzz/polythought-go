@@ -40,27 +40,28 @@ func (r *Users) Create(ctx context.Context, u domain.User, passwordHash string) 
 	}
 
 	m := model.Users{
-		ID:                id,
-		Email:             u.Email,
-		EmailNormalized:   normalizedEmail(u.Email),
-		PasswordHash:      passwordHash,
-		Role:              string(u.Role),
-		EmailVerifiedAt:   timePtr(u.EmailVerifiedAt),
-		DisabledAt:        timePtr(u.DisabledAt),
-		CodeChosen:        u.CodeChosen,
-		LiveStoppedAt:     timePtr(u.LiveStoppedAt),
-		MaxLiveOrder:      capOf(u.LiveCaps.PerOrder),
-		MaxLiveDay:        capOf(u.LiveCaps.PerDay),
-		MaxAgentDollars:   u.AgentCaps.Dollars,
-		MaxAgentInput:     u.AgentCaps.InputTokens,
-		MaxAgentOutput:    u.AgentCaps.OutputTokens,
-		MaxAgentTotal:     u.AgentCaps.TotalTokens,
-		KillStopsAgents:   u.KillStopsAgents,
-		CreatedAt:         u.CreatedAt,
-		UpdatedAt:         u.UpdatedAt,
-		AgentsSeePersonal: u.Agents.SeePersonal,
-		AgentsMayDelete:   u.Agents.Delete,
-		AgentsMayShare:    u.Agents.Share,
+		ID:                   id,
+		Email:                u.Email,
+		EmailNormalized:      normalizedEmail(u.Email),
+		PasswordHash:         passwordHash,
+		Role:                 string(u.Role),
+		EmailVerifiedAt:      timePtr(u.EmailVerifiedAt),
+		DisabledAt:           timePtr(u.DisabledAt),
+		CodeChosen:           u.CodeChosen,
+		LiveStoppedAt:        timePtr(u.LiveStoppedAt),
+		MaxLiveOrder:         capOf(u.LiveCaps.PerOrder),
+		MaxLiveDay:           capOf(u.LiveCaps.PerDay),
+		MaxAgentDollars:      u.AgentCaps.Dollars,
+		MaxAgentInput:        u.AgentCaps.InputTokens,
+		MaxAgentOutput:       u.AgentCaps.OutputTokens,
+		MaxAgentTotal:        u.AgentCaps.TotalTokens,
+		KillStopsAgents:      u.KillStopsAgents,
+		CreatedAt:            u.CreatedAt,
+		UpdatedAt:            u.UpdatedAt,
+		AgentsSeePersonal:    u.Agents.SeePersonal,
+		AgentsMayDelete:      u.Agents.Delete,
+		AgentsMayShare:       u.Agents.Share,
+		AgentsUseCredentials: u.Agents.UseCredentials,
 	}
 
 	_, err = table.Users.INSERT(table.Users.AllColumns).MODEL(m).ExecContext(ctx, r.db.conn(ctx))
@@ -172,8 +173,10 @@ func (r *Users) SetAgentAccess(ctx context.Context, id domain.UserID, a domain.A
 
 	t := table.Users
 
-	return affectedOne(t.UPDATE(t.AgentsSeePersonal, t.AgentsMayDelete, t.AgentsMayShare).
-		MODEL(model.Users{AgentsSeePersonal: a.SeePersonal, AgentsMayDelete: a.Delete, AgentsMayShare: a.Share}).
+	return affectedOne(t.UPDATE(t.AgentsSeePersonal, t.AgentsMayDelete, t.AgentsMayShare, t.AgentsUseCredentials).
+		MODEL(model.Users{
+			AgentsSeePersonal: a.SeePersonal, AgentsMayDelete: a.Delete, AgentsMayShare: a.Share, AgentsUseCredentials: a.UseCredentials,
+		}).
 		WHERE(t.ID.EQ(jet.UUID(uid))).
 		ExecContext(ctx, r.db.conn(ctx)))
 }
@@ -331,9 +334,11 @@ func toUser(m model.Users) domain.User {
 			Dollars: m.MaxAgentDollars, InputTokens: m.MaxAgentInput, OutputTokens: m.MaxAgentOutput, TotalTokens: m.MaxAgentTotal,
 		},
 		KillStopsAgents: m.KillStopsAgents,
-		Agents:          domain.AgentAccess{SeePersonal: m.AgentsSeePersonal, Delete: m.AgentsMayDelete, Share: m.AgentsMayShare},
-		CreatedAt:       m.CreatedAt.UTC(),
-		UpdatedAt:       m.UpdatedAt.UTC(),
+		Agents: domain.AgentAccess{
+			SeePersonal: m.AgentsSeePersonal, Delete: m.AgentsMayDelete, Share: m.AgentsMayShare, UseCredentials: m.AgentsUseCredentials,
+		},
+		CreatedAt: m.CreatedAt.UTC(),
+		UpdatedAt: m.UpdatedAt.UTC(),
 	}
 }
 

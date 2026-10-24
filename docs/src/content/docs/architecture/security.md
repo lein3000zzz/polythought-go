@@ -59,8 +59,12 @@ user, so revoking the agent or disabling its user stops it at once, and allowing
 narrows the tokens it has. An admin can switch agents off for the whole instance. What an
 agent or an API token reads of a workflow, over MCP or the API, leaves its personal settings
 out, such as a webhook's URL, which can be a secret, unless its owner lets them see those, at
-a browser; a workflow they save keeps those as they were. Nor do they delete workflows or
-share them to the library unless the user lets them, at a browser, each switch on its own.
+a browser; a workflow they save keeps those as they were. Nor do they delete workflows,
+custom nodes or credentials, or share workflows to the library, unless the user lets them, at
+a browser, each switch on its own. A credential's secret never comes back to them, but a
+workflow they build could send it wherever its nodes call: they save, switch on or run a
+workflow that uses one, test one, or change where one goes, only where the user lets them
+use credentials, a switch of its own, off to start with.
 Text others wrote comes marked as such.
 
 Every admin action checks the role in the service, not only in the page, and the last admin

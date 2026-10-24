@@ -79,6 +79,7 @@ type Service struct {
 	orders     RestingOrders       // optional: without it, live resting orders outlive their workflow
 	tradeScope TradeScope          // optional: without it, a workflow's orders need no scope of their own
 	personal   Personal            // optional: without it, nothing is hidden from tokens and agents
+	creds      Credentials         // optional: without it, tokens and agents use credentials freely
 	limits     func() Limits
 	log        logging.Logger
 	now        func() time.Time
@@ -247,6 +248,33 @@ func WithTradeScope(f TradeScope) Option {
 	return func(s *Service) { s.tradeScope = f }
 }
 
+// Credentials names a node type's settings that pick one of the owner's credentials.
+type Credentials func(nodeType string) []string
+
+// WithCredentials holds tokens and agents to their user's leave to use credentials
+// (D404): saving, switching on or running a workflow that uses one needs it, for a
+// workflow they build can send a credential wherever its nodes call.
+func WithCredentials(f Credentials) Option {
+	return func(s *Service) { s.creds = f }
+}
+
+// allowed is nil when the principal may save, switch on or run the workflow: its
+// credentials need the user's leave (D404), its orders their scope (D399).
+func (s *Service) allowed(ctx context.Context, p auth.Principal, w domain.Workflow) error {
+	if s.creds != nil && !p.MayUseCredentials() {
+		for _, n := range w.Nodes {
+			for _, name := range s.creds(n.Type) {
+				if v, set := n.Params[name]; set && v != nil && v != "" {
+					return fmt.Errorf("%w: node %q uses a credential, and the user has not let agents and tokens use credentials: "+
+						"Settings, Connected agents", domain.ErrForbidden, n.ID)
+				}
+			}
+		}
+	}
+
+	return s.mayTrade(ctx, p, w)
+}
+
 // mayTrade is nil when the principal may have the workflow place its orders.
 func (s *Service) mayTrade(ctx context.Context, p auth.Principal, w domain.Workflow) error {
 	if s.tradeScope == nil {
@@ -334,7 +362,7 @@ func (s *Service) Create(ctx context.Context, p auth.Principal, def Definition) 
 		return domain.Workflow{}, err
 	}
 
-	if err := s.mayTrade(ctx, p, w); err != nil {
+	if err := s.allowed(ctx, p, w); err != nil {
 		return domain.Workflow{}, err
 	}
 
@@ -382,7 +410,7 @@ func (s *Service) Update(ctx context.Context, p auth.Principal, id domain.Workfl
 		return domain.Workflow{}, err
 	}
 
-	if err := s.mayTrade(ctx, p, w); err != nil {
+	if err := s.allowed(ctx, p, w); err != nil {
 		return domain.Workflow{}, err
 	}
 
@@ -416,8 +444,8 @@ func (s *Service) Update(ctx context.Context, p auth.Principal, id domain.Workfl
 
 func (s *Service) Delete(ctx context.Context, p auth.Principal, id domain.WorkflowID) error {
 	// A token or an agent deletes only where its user lets it (D403).
-	if !p.MayDelete() {
-		return fmt.Errorf("%w: the user has not let agents and tokens delete workflows: Settings, Connected agents", domain.ErrForbidden)
+	if err := p.NeedDelete(); err != nil {
+		return err
 	}
 
 	if _, err := s.repo.Get(ctx, p.User.ID, id); err != nil {
@@ -465,7 +493,7 @@ func (s *Service) Activate(ctx context.Context, p auth.Principal, id domain.Work
 		return domain.Workflow{}, err
 	}
 
-	if err := s.mayTrade(ctx, p, w); err != nil {
+	if err := s.allowed(ctx, p, w); err != nil {
 		return domain.Workflow{}, err
 	}
 
@@ -628,7 +656,7 @@ func (s *Service) Run(ctx context.Context, p auth.Principal, id domain.WorkflowI
 		return domain.Execution{}, err
 	}
 
-	if err := s.mayTrade(ctx, p, w); err != nil {
+	if err := s.allowed(ctx, p, w); err != nil {
 		return domain.Execution{}, err
 	}
 

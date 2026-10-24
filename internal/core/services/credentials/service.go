@@ -167,6 +167,17 @@ func (s *Service) Update(ctx context.Context, p auth.Principal, id domain.Creden
 		return domain.Credential{}, err
 	}
 
+	// Where a secret goes, such as a base URL, is the user's to change, or their agents'
+	// where they let them use credentials (D404): a new secret or name is anyone's.
+	if !p.MayUseCredentials() {
+		for _, f := range typ.Fields {
+			if !f.Secret && values[f.Name] != current[f.Name] {
+				return domain.Credential{}, fmt.Errorf("%w: changing %s needs the user to let agents and tokens use credentials: Settings, Connected agents",
+					domain.ErrForbidden, f.Label)
+			}
+		}
+	}
+
 	c := stored.Credential
 	c.Name = name
 	c.UpdatedAt = s.now()
@@ -192,6 +203,11 @@ func (s *Service) Update(ctx context.Context, p auth.Principal, id domain.Creden
 
 // Delete removes a credential. Workflows that use it fail until they get another.
 func (s *Service) Delete(ctx context.Context, p auth.Principal, id domain.CredentialID) error {
+	// A token or an agent deletes only where its user lets it (D404).
+	if err := p.NeedDelete(); err != nil {
+		return err
+	}
+
 	if err := s.repo.Delete(ctx, p.User.ID, id); err != nil {
 		return err
 	}
@@ -204,6 +220,12 @@ func (s *Service) Delete(ctx context.Context, p auth.Principal, id domain.Creden
 // Test tries a credential against its service and records the outcome on it. A failed
 // test is not an error: the credential comes back with TestError set.
 func (s *Service) Test(ctx context.Context, p auth.Principal, id domain.CredentialID) (domain.Credential, error) {
+	// A test sends the secret, to where the credential says (D404).
+	if !p.MayUseCredentials() {
+		return domain.Credential{}, fmt.Errorf("%w: testing a credential needs the user to let agents and tokens use credentials: Settings, Connected agents",
+			domain.ErrForbidden)
+	}
+
 	stored, err := s.repo.Get(ctx, p.User.ID, id)
 	if err != nil {
 		return domain.Credential{}, err

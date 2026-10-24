@@ -43,11 +43,14 @@ type userDTO struct {
 	KillStopsAgents bool `json:"killStopsAgents"`
 	// AgentsSeePersonal is their choice that agents and API tokens see their workflows'
 	// personal settings (D401, D402); AgentsMayDelete and AgentsMayShare, that they may
-	// delete workflows and share them to the library (D403).
-	AgentsSeePersonal bool      `json:"agentsSeePersonal"`
-	AgentsMayDelete   bool      `json:"agentsMayDelete"`
-	AgentsMayShare    bool      `json:"agentsMayShare"`
-	CreatedAt         time.Time `json:"createdAt" format:"date-time"`
+	// delete workflows, custom nodes and credentials and share workflows to the library
+	// (D403, D404); AgentsMayUseCredentials, that they may use credentials in workflows
+	// (D404).
+	AgentsSeePersonal       bool      `json:"agentsSeePersonal"`
+	AgentsMayDelete         bool      `json:"agentsMayDelete"`
+	AgentsMayShare          bool      `json:"agentsMayShare"`
+	AgentsMayUseCredentials bool      `json:"agentsMayUseCredentials"`
+	CreatedAt               time.Time `json:"createdAt" format:"date-time"`
 } // @name User
 
 // liveCapsDTO caps a user's live buys in whole dollars: one order, and 24 hours. Left out,
@@ -94,22 +97,23 @@ func (dto agentCapsDTO) caps() (domain.AgentCaps, error) {
 
 func (s *Server) userDTO(u domain.User) userDTO {
 	return userDTO{
-		ID:                string(u.ID),
-		Email:             u.Email,
-		Role:              string(u.Role),
-		EmailVerified:     !u.EmailVerifiedAt.IsZero(),
-		Disabled:          u.Disabled(),
-		CodeChosen:        u.CodeChosen,
-		MayWriteCode:      s.auth.CodeAccess().Allows(u),
-		LiveStopped:       u.LiveStopped(),
-		LiveStoppedAt:     optionalTime(u.LiveStoppedAt),
-		LiveCaps:          liveCapsDTO{PerOrder: u.LiveCaps.PerOrder, PerDay: u.LiveCaps.PerDay},
-		AgentCaps:         toAgentCapsDTO(u.AgentCaps),
-		KillStopsAgents:   u.KillStopsAgents,
-		AgentsSeePersonal: u.Agents.SeePersonal,
-		AgentsMayDelete:   u.Agents.Delete,
-		AgentsMayShare:    u.Agents.Share,
-		CreatedAt:         u.CreatedAt,
+		ID:                      string(u.ID),
+		Email:                   u.Email,
+		Role:                    string(u.Role),
+		EmailVerified:           !u.EmailVerifiedAt.IsZero(),
+		Disabled:                u.Disabled(),
+		CodeChosen:              u.CodeChosen,
+		MayWriteCode:            s.auth.CodeAccess().Allows(u),
+		LiveStopped:             u.LiveStopped(),
+		LiveStoppedAt:           optionalTime(u.LiveStoppedAt),
+		LiveCaps:                liveCapsDTO{PerOrder: u.LiveCaps.PerOrder, PerDay: u.LiveCaps.PerDay},
+		AgentCaps:               toAgentCapsDTO(u.AgentCaps),
+		KillStopsAgents:         u.KillStopsAgents,
+		AgentsSeePersonal:       u.Agents.SeePersonal,
+		AgentsMayDelete:         u.Agents.Delete,
+		AgentsMayShare:          u.Agents.Share,
+		AgentsMayUseCredentials: u.Agents.UseCredentials,
+		CreatedAt:               u.CreatedAt,
 	}
 }
 

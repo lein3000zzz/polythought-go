@@ -498,9 +498,13 @@ type agentAccessRequest struct {
 	// SeePersonal lets agents and API tokens see the workflows' personal settings, such as
 	// webhook URLs.
 	SeePersonal *bool `json:"seePersonal,omitempty" validate:"optional"`
-	// Delete lets them delete workflows; Share, share them to the library (D403).
+	// Delete lets them delete workflows, custom nodes and credentials; Share, share
+	// workflows to the library (D403, D404).
 	Delete *bool `json:"delete,omitempty" validate:"optional"`
 	Share  *bool `json:"share,omitempty" validate:"optional"`
+	// UseCredentials lets them save and run workflows that use credentials, test
+	// credentials and change where they go (D404).
+	UseCredentials *bool `json:"useCredentials,omitempty" validate:"optional"`
 } // @name AgentAccessRequest
 
 // setAgentAccess sets what the user's agents and API tokens may see (D401, D402) and do
@@ -529,7 +533,10 @@ func (s *Server) setAgentAccess(ctx context.Context, c *app.RequestContext) {
 	for _, sw := range []struct {
 		to   *bool
 		into *bool
-	}{{req.SeePersonal, &access.SeePersonal}, {req.Delete, &access.Delete}, {req.Share, &access.Share}} {
+	}{
+		{req.SeePersonal, &access.SeePersonal}, {req.Delete, &access.Delete}, {req.Share, &access.Share},
+		{req.UseCredentials, &access.UseCredentials},
+	} {
 		if sw.to != nil {
 			*sw.into = *sw.to
 		}

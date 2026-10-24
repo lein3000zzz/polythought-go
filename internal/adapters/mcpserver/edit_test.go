@@ -65,8 +65,8 @@ func (e *editing) Delete(_ context.Context, p auth.Principal, id domain.Workflow
 	e.mu.Lock()
 	defer e.mu.Unlock()
 
-	if !p.MayDelete() {
-		return fmt.Errorf("%w: the user has not let agents and tokens delete workflows", domain.ErrForbidden)
+	if err := p.NeedDelete(); err != nil {
+		return err
 	}
 
 	e.deleted = id
@@ -248,7 +248,7 @@ func TestEditTools(t *testing.T) {
 
 	t.Run("delete, where the user lets agents", func(t *testing.T) {
 		_, err := call(t, agent, "delete_workflow", map[string]any{"id": "wf-1"})
-		assert.Contains(t, err, "the user has not let agents and tokens delete workflows")
+		assert.Contains(t, err, "the user has not let agents and tokens delete")
 
 		may := alice
 		may.Agents.Delete = true

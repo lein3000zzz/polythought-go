@@ -56,14 +56,12 @@ export function ConnectedSection() {
       />
       <AccessSwitch
         id="agents-may-delete"
-        label="Agents and tokens may delete workflows"
-        hint="A deleted workflow takes its executions with it and cannot be had back. Off, they change workflows and switch them off, but never delete one."
+        label="Agents and tokens may delete"
+        hint="Workflows, with their executions; custom nodes, which the workflows using them then lack; and credentials, whose secrets are gone. None can be had back. Off, they change these, but never delete one."
         checked={me.data?.agentsMayDelete}
         change={(on) => ({ delete: on })}
         said={(on) =>
-          on
-            ? 'Your agents and tokens may delete workflows'
-            : 'Your agents and tokens may no longer delete workflows'
+          on ? 'Your agents and tokens may delete' : 'Your agents and tokens may no longer delete'
         }
       />
       <AccessSwitch
@@ -76,6 +74,18 @@ export function ConnectedSection() {
           on
             ? 'Your agents and tokens may share to the library'
             : 'Your agents and tokens may no longer share to the library'
+        }
+      />
+      <AccessSwitch
+        id="agents-use-credentials"
+        label="Agents and tokens may use my credentials in workflows"
+        hint="A workflow they build can send a credential wherever its nodes call, such as a header to any webhook. Off, they list your credentials and add ones you give them, but do not save, switch on or run a workflow that uses one, test one, or change where one goes."
+        checked={me.data?.agentsMayUseCredentials}
+        change={(on) => ({ useCredentials: on })}
+        said={(on) =>
+          on
+            ? 'Your agents and tokens may use your credentials'
+            : 'Your agents and tokens may no longer use your credentials'
         }
       />
 

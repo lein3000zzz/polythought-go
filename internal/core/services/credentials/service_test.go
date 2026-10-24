@@ -396,3 +396,38 @@ func names(list []domain.Credential) []string {
 
 	return out
 }
+
+// An agent or a token deletes a credential, tests one or changes where its secret goes
+// only where its user lets it (D404); naming one or giving it a new secret is theirs.
+func TestAgentsNeedTheSwitches(t *testing.T) {
+	ctx := context.Background()
+	s, _ := newService(t)
+
+	c := create(t, s, alice, "Main", map[string]string{"account": "a", "key": "good-key"})
+
+	agent := auth.Principal{User: domain.User{ID: "alice"}, GrantID: "g-1", Scopes: domain.Scopes}
+
+	require.ErrorIs(t, s.Delete(ctx, agent, c.ID), domain.ErrForbidden)
+
+	_, err := s.Test(ctx, agent, c.ID)
+	require.ErrorIs(t, err, domain.ErrForbidden)
+
+	_, err = s.Update(ctx, agent, c.ID, credentials.Change{Name: "Main", Values: map[string]string{"account": "elsewhere"}})
+	require.ErrorIs(t, err, domain.ErrForbidden)
+	assert.Contains(t, err.Error(), "changing Account needs the user to let agents and tokens use credentials")
+
+	renamed, err := s.Update(ctx, agent, c.ID, credentials.Change{Name: "Renamed", Values: map[string]string{"key": "good-key-2"}})
+	require.NoError(t, err)
+	assert.Equal(t, "Renamed", renamed.Name)
+
+	agent.User.Agents = domain.AgentAccess{Delete: true, UseCredentials: true}
+
+	_, err = s.Update(ctx, agent, c.ID, credentials.Change{Name: "Renamed", Values: map[string]string{"account": "elsewhere"}})
+	require.NoError(t, err)
+
+	tested, err := s.Test(ctx, agent, c.ID)
+	require.NoError(t, err)
+	assert.Equal(t, "the service refused the key", tested.TestError)
+
+	require.NoError(t, s.Delete(ctx, agent, c.ID))
+}

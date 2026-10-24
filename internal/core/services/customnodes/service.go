@@ -197,6 +197,11 @@ func (s *Service) Update(
 // *domain.BreaksError naming them, unless confirm says to go ahead (D50). Anyone may
 // delete their own, code or no code.
 func (s *Service) Delete(ctx context.Context, p auth.Principal, id domain.CustomNodeID, confirm bool) error {
+	// A token or an agent deletes only where its user lets it (D404).
+	if err := p.NeedDelete(); err != nil {
+		return err
+	}
+
 	n, err := s.repo.Get(ctx, p.User.ID, id)
 	if err != nil {
 		return err

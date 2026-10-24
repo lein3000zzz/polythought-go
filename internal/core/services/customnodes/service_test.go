@@ -558,3 +558,18 @@ func TestForLeavesOutWhatNoLongerRegisters(t *testing.T) {
 	_, _, ok = reg.Type("custom.spread-split")
 	assert.True(t, ok)
 }
+
+// An agent or a token deletes a custom node only where its user lets it (D404).
+func TestDeleteNeedsTheSwitch(t *testing.T) {
+	ctx := context.Background()
+
+	f := newService(t, gate{}, customnodes.DefaultLimits())
+	n, err := f.svc.Create(ctx, alice, split())
+	require.NoError(t, err)
+
+	agent := auth.Principal{User: domain.User{ID: "u-1"}, TokenID: "t-1"}
+	require.ErrorIs(t, f.svc.Delete(ctx, agent, n.ID, true), domain.ErrForbidden)
+
+	agent.User.Agents.Delete = true
+	require.NoError(t, f.svc.Delete(ctx, agent, n.ID, true))
+}

@@ -17,27 +17,28 @@ type usersTable struct {
 	postgres.Table
 
 	// Columns
-	ID                postgres.ColumnString
-	Email             postgres.ColumnString
-	EmailNormalized   postgres.ColumnString
-	PasswordHash      postgres.ColumnString
-	Role              postgres.ColumnString
-	EmailVerifiedAt   postgres.ColumnTimestampz
-	DisabledAt        postgres.ColumnTimestampz
-	CreatedAt         postgres.ColumnTimestampz
-	UpdatedAt         postgres.ColumnTimestampz
-	CodeChosen        postgres.ColumnBool
-	LiveStoppedAt     postgres.ColumnTimestampz
-	MaxLiveOrder      postgres.ColumnInteger
-	MaxLiveDay        postgres.ColumnInteger
-	MaxAgentDollars   postgres.ColumnFloat
-	MaxAgentInput     postgres.ColumnInteger
-	MaxAgentOutput    postgres.ColumnInteger
-	MaxAgentTotal     postgres.ColumnInteger
-	KillStopsAgents   postgres.ColumnBool
-	AgentsSeePersonal postgres.ColumnBool
-	AgentsMayDelete   postgres.ColumnBool
-	AgentsMayShare    postgres.ColumnBool
+	ID                   postgres.ColumnString
+	Email                postgres.ColumnString
+	EmailNormalized      postgres.ColumnString
+	PasswordHash         postgres.ColumnString
+	Role                 postgres.ColumnString
+	EmailVerifiedAt      postgres.ColumnTimestampz
+	DisabledAt           postgres.ColumnTimestampz
+	CreatedAt            postgres.ColumnTimestampz
+	UpdatedAt            postgres.ColumnTimestampz
+	CodeChosen           postgres.ColumnBool
+	LiveStoppedAt        postgres.ColumnTimestampz
+	MaxLiveOrder         postgres.ColumnInteger
+	MaxLiveDay           postgres.ColumnInteger
+	MaxAgentDollars      postgres.ColumnFloat
+	MaxAgentInput        postgres.ColumnInteger
+	MaxAgentOutput       postgres.ColumnInteger
+	MaxAgentTotal        postgres.ColumnInteger
+	KillStopsAgents      postgres.ColumnBool
+	AgentsSeePersonal    postgres.ColumnBool
+	AgentsMayDelete      postgres.ColumnBool
+	AgentsMayShare       postgres.ColumnBool
+	AgentsUseCredentials postgres.ColumnBool
 
 	AllColumns     postgres.ColumnList
 	MutableColumns postgres.ColumnList
@@ -79,57 +80,59 @@ func newUsersTable(schemaName, tableName, alias string) *UsersTable {
 
 func newUsersTableImpl(schemaName, tableName, alias string) usersTable {
 	var (
-		IDColumn                = postgres.StringColumn("id")
-		EmailColumn             = postgres.StringColumn("email")
-		EmailNormalizedColumn   = postgres.StringColumn("email_normalized")
-		PasswordHashColumn      = postgres.StringColumn("password_hash")
-		RoleColumn              = postgres.StringColumn("role")
-		EmailVerifiedAtColumn   = postgres.TimestampzColumn("email_verified_at")
-		DisabledAtColumn        = postgres.TimestampzColumn("disabled_at")
-		CreatedAtColumn         = postgres.TimestampzColumn("created_at")
-		UpdatedAtColumn         = postgres.TimestampzColumn("updated_at")
-		CodeChosenColumn        = postgres.BoolColumn("code_chosen")
-		LiveStoppedAtColumn     = postgres.TimestampzColumn("live_stopped_at")
-		MaxLiveOrderColumn      = postgres.IntegerColumn("max_live_order")
-		MaxLiveDayColumn        = postgres.IntegerColumn("max_live_day")
-		MaxAgentDollarsColumn   = postgres.FloatColumn("max_agent_dollars")
-		MaxAgentInputColumn     = postgres.IntegerColumn("max_agent_input")
-		MaxAgentOutputColumn    = postgres.IntegerColumn("max_agent_output")
-		MaxAgentTotalColumn     = postgres.IntegerColumn("max_agent_total")
-		KillStopsAgentsColumn   = postgres.BoolColumn("kill_stops_agents")
-		AgentsSeePersonalColumn = postgres.BoolColumn("agents_see_personal")
-		AgentsMayDeleteColumn   = postgres.BoolColumn("agents_may_delete")
-		AgentsMayShareColumn    = postgres.BoolColumn("agents_may_share")
-		allColumns              = postgres.ColumnList{IDColumn, EmailColumn, EmailNormalizedColumn, PasswordHashColumn, RoleColumn, EmailVerifiedAtColumn, DisabledAtColumn, CreatedAtColumn, UpdatedAtColumn, CodeChosenColumn, LiveStoppedAtColumn, MaxLiveOrderColumn, MaxLiveDayColumn, MaxAgentDollarsColumn, MaxAgentInputColumn, MaxAgentOutputColumn, MaxAgentTotalColumn, KillStopsAgentsColumn, AgentsSeePersonalColumn, AgentsMayDeleteColumn, AgentsMayShareColumn}
-		mutableColumns          = postgres.ColumnList{EmailColumn, EmailNormalizedColumn, PasswordHashColumn, RoleColumn, EmailVerifiedAtColumn, DisabledAtColumn, CreatedAtColumn, UpdatedAtColumn, CodeChosenColumn, LiveStoppedAtColumn, MaxLiveOrderColumn, MaxLiveDayColumn, MaxAgentDollarsColumn, MaxAgentInputColumn, MaxAgentOutputColumn, MaxAgentTotalColumn, KillStopsAgentsColumn, AgentsSeePersonalColumn, AgentsMayDeleteColumn, AgentsMayShareColumn}
-		defaultColumns          = postgres.ColumnList{CodeChosenColumn, KillStopsAgentsColumn, AgentsSeePersonalColumn, AgentsMayDeleteColumn, AgentsMayShareColumn}
+		IDColumn                   = postgres.StringColumn("id")
+		EmailColumn                = postgres.StringColumn("email")
+		EmailNormalizedColumn      = postgres.StringColumn("email_normalized")
+		PasswordHashColumn         = postgres.StringColumn("password_hash")
+		RoleColumn                 = postgres.StringColumn("role")
+		EmailVerifiedAtColumn      = postgres.TimestampzColumn("email_verified_at")
+		DisabledAtColumn           = postgres.TimestampzColumn("disabled_at")
+		CreatedAtColumn            = postgres.TimestampzColumn("created_at")
+		UpdatedAtColumn            = postgres.TimestampzColumn("updated_at")
+		CodeChosenColumn           = postgres.BoolColumn("code_chosen")
+		LiveStoppedAtColumn        = postgres.TimestampzColumn("live_stopped_at")
+		MaxLiveOrderColumn         = postgres.IntegerColumn("max_live_order")
+		MaxLiveDayColumn           = postgres.IntegerColumn("max_live_day")
+		MaxAgentDollarsColumn      = postgres.FloatColumn("max_agent_dollars")
+		MaxAgentInputColumn        = postgres.IntegerColumn("max_agent_input")
+		MaxAgentOutputColumn       = postgres.IntegerColumn("max_agent_output")
+		MaxAgentTotalColumn        = postgres.IntegerColumn("max_agent_total")
+		KillStopsAgentsColumn      = postgres.BoolColumn("kill_stops_agents")
+		AgentsSeePersonalColumn    = postgres.BoolColumn("agents_see_personal")
+		AgentsMayDeleteColumn      = postgres.BoolColumn("agents_may_delete")
+		AgentsMayShareColumn       = postgres.BoolColumn("agents_may_share")
+		AgentsUseCredentialsColumn = postgres.BoolColumn("agents_use_credentials")
+		allColumns                 = postgres.ColumnList{IDColumn, EmailColumn, EmailNormalizedColumn, PasswordHashColumn, RoleColumn, EmailVerifiedAtColumn, DisabledAtColumn, CreatedAtColumn, UpdatedAtColumn, CodeChosenColumn, LiveStoppedAtColumn, MaxLiveOrderColumn, MaxLiveDayColumn, MaxAgentDollarsColumn, MaxAgentInputColumn, MaxAgentOutputColumn, MaxAgentTotalColumn, KillStopsAgentsColumn, AgentsSeePersonalColumn, AgentsMayDeleteColumn, AgentsMayShareColumn, AgentsUseCredentialsColumn}
+		mutableColumns             = postgres.ColumnList{EmailColumn, EmailNormalizedColumn, PasswordHashColumn, RoleColumn, EmailVerifiedAtColumn, DisabledAtColumn, CreatedAtColumn, UpdatedAtColumn, CodeChosenColumn, LiveStoppedAtColumn, MaxLiveOrderColumn, MaxLiveDayColumn, MaxAgentDollarsColumn, MaxAgentInputColumn, MaxAgentOutputColumn, MaxAgentTotalColumn, KillStopsAgentsColumn, AgentsSeePersonalColumn, AgentsMayDeleteColumn, AgentsMayShareColumn, AgentsUseCredentialsColumn}
+		defaultColumns             = postgres.ColumnList{CodeChosenColumn, KillStopsAgentsColumn, AgentsSeePersonalColumn, AgentsMayDeleteColumn, AgentsMayShareColumn, AgentsUseCredentialsColumn}
 	)
 
 	return usersTable{
 		Table: postgres.NewTable(schemaName, tableName, alias, allColumns...),
 
 		//Columns
-		ID:                IDColumn,
-		Email:             EmailColumn,
-		EmailNormalized:   EmailNormalizedColumn,
-		PasswordHash:      PasswordHashColumn,
-		Role:              RoleColumn,
-		EmailVerifiedAt:   EmailVerifiedAtColumn,
-		DisabledAt:        DisabledAtColumn,
-		CreatedAt:         CreatedAtColumn,
-		UpdatedAt:         UpdatedAtColumn,
-		CodeChosen:        CodeChosenColumn,
-		LiveStoppedAt:     LiveStoppedAtColumn,
-		MaxLiveOrder:      MaxLiveOrderColumn,
-		MaxLiveDay:        MaxLiveDayColumn,
-		MaxAgentDollars:   MaxAgentDollarsColumn,
-		MaxAgentInput:     MaxAgentInputColumn,
-		MaxAgentOutput:    MaxAgentOutputColumn,
-		MaxAgentTotal:     MaxAgentTotalColumn,
-		KillStopsAgents:   KillStopsAgentsColumn,
-		AgentsSeePersonal: AgentsSeePersonalColumn,
-		AgentsMayDelete:   AgentsMayDeleteColumn,
-		AgentsMayShare:    AgentsMayShareColumn,
+		ID:                   IDColumn,
+		Email:                EmailColumn,
+		EmailNormalized:      EmailNormalizedColumn,
+		PasswordHash:         PasswordHashColumn,
+		Role:                 RoleColumn,
+		EmailVerifiedAt:      EmailVerifiedAtColumn,
+		DisabledAt:           DisabledAtColumn,
+		CreatedAt:            CreatedAtColumn,
+		UpdatedAt:            UpdatedAtColumn,
+		CodeChosen:           CodeChosenColumn,
+		LiveStoppedAt:        LiveStoppedAtColumn,
+		MaxLiveOrder:         MaxLiveOrderColumn,
+		MaxLiveDay:           MaxLiveDayColumn,
+		MaxAgentDollars:      MaxAgentDollarsColumn,
+		MaxAgentInput:        MaxAgentInputColumn,
+		MaxAgentOutput:       MaxAgentOutputColumn,
+		MaxAgentTotal:        MaxAgentTotalColumn,
+		KillStopsAgents:      KillStopsAgentsColumn,
+		AgentsSeePersonal:    AgentsSeePersonalColumn,
+		AgentsMayDelete:      AgentsMayDeleteColumn,
+		AgentsMayShare:       AgentsMayShareColumn,
+		AgentsUseCredentials: AgentsUseCredentialsColumn,
 
 		AllColumns:     allColumns,
 		MutableColumns: mutableColumns,

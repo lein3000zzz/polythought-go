@@ -132,7 +132,7 @@
             "AgentAccessRequest": {
                 "properties": {
                     "delete": {
-                        "description": "Delete lets them delete workflows; Share, share them to the library (D403).",
+                        "description": "Delete lets them delete workflows, custom nodes and credentials; Share, share\nworkflows to the library (D403, D404).",
                         "type": "boolean"
                     },
                     "seePersonal": {
@@ -140,6 +140,10 @@
                         "type": "boolean"
                     },
                     "share": {
+                        "type": "boolean"
+                    },
+                    "useCredentials": {
+                        "description": "UseCredentials lets them save and run workflows that use credentials, test\ncredentials and change where they go (D404).",
                         "type": "boolean"
                     }
                 },
@@ -4360,8 +4364,11 @@
                     "agentsMayShare": {
                         "type": "boolean"
                     },
+                    "agentsMayUseCredentials": {
+                        "type": "boolean"
+                    },
                     "agentsSeePersonal": {
-                        "description": "AgentsSeePersonal is their choice that agents and API tokens see their workflows'\npersonal settings (D401, D402); AgentsMayDelete and AgentsMayShare, that they may\ndelete workflows and share them to the library (D403).",
+                        "description": "AgentsSeePersonal is their choice that agents and API tokens see their workflows'\npersonal settings (D401, D402); AgentsMayDelete and AgentsMayShare, that they may\ndelete workflows, custom nodes and credentials and share workflows to the library\n(D403, D404); AgentsMayUseCredentials, that they may use credentials in workflows\n(D404).",
                         "type": "boolean"
                     },
                     "codeChosen": {
@@ -4416,6 +4423,7 @@
                     "agentCaps",
                     "agentsMayDelete",
                     "agentsMayShare",
+                    "agentsMayUseCredentials",
                     "agentsSeePersonal",
                     "codeChosen",
                     "createdAt",

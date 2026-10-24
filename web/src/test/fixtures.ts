@@ -17,6 +17,7 @@ export const alice: Schemas['User'] = {
   agentsSeePersonal: false,
   agentsMayDelete: false,
   agentsMayShare: false,
+  agentsMayUseCredentials: false,
   createdAt: '2026-10-01T10:00:00Z',
 }
 

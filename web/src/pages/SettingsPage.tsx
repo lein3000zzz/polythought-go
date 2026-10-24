@@ -100,14 +100,20 @@ export function SettingsPage() {
     {
       slug: 'connected',
       key: 'agents-may-delete',
-      label: 'Agents and tokens may delete workflows',
-      words: 'agents api tokens mcp delete remove workflows',
+      label: 'Agents and tokens may delete',
+      words: 'agents api tokens mcp delete remove workflows custom nodes credentials',
     },
     {
       slug: 'connected',
       key: 'agents-may-share',
       label: 'Agents and tokens may share to the library',
       words: 'agents api tokens mcp share library publish',
+    },
+    {
+      slug: 'connected',
+      key: 'agents-use-credentials',
+      label: 'Agents and tokens may use my credentials in workflows',
+      words: 'agents api tokens mcp credentials keys secrets use test',
     },
     ...(grants.data ?? [])
       .filter((g) => !g.revokedAt)

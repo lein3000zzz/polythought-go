@@ -69,6 +69,10 @@ type Deps struct {
 	// What the build tools change (D403); without them they are not offered.
 	Edit Editing
 	Code WorkflowCode
+	// The user's custom nodes and credentials (D404); without them, their tools are not
+	// offered.
+	CustomNodes CustomNodes
+	Credentials Credentials
 
 	// What the market tools read (D402); without a reader they are not offered.
 	Markets Markets
@@ -90,6 +94,9 @@ type Server struct {
 	trading   Trading
 	edit      Editing
 	code      WorkflowCode
+
+	customNodes CustomNodes
+	credentials Credentials
 
 	markets      ai.Sources
 	marketReader ports.MarketReader
@@ -114,7 +121,7 @@ func New(cfg Config, d Deps) (*Server, error) {
 	s := &Server{
 		agents: d.Agents, tokens: d.Tokens, limiter: d.Limiter, log: log, kit: kit,
 		workflows: d.Workflows, nodeTypes: d.NodeTypes, codeTypes: d.CodeTypes, library: d.Library, trading: d.Trading,
-		edit: d.Edit, code: d.Code,
+		edit: d.Edit, code: d.Code, customNodes: d.CustomNodes, credentials: d.Credentials,
 		markets: d.Markets.Sources, marketReader: d.Markets.Reader, wallets: d.Wallets, trades: d.Trades,
 		scope: tracing.Scope{Manager: d.Util.TracerManager, TracerName: tracerName},
 	}
@@ -140,6 +147,14 @@ func New(cfg Config, d Deps) (*Server, error) {
 
 	if s.workflows != nil && s.edit != nil && s.code != nil {
 		s.addEditTools(srv)
+	}
+
+	if s.customNodes != nil {
+		s.addCustomNodeTools(srv)
+	}
+
+	if s.credentials != nil {
+		s.addCredentialTools(srv)
 	}
 
 	if s.nodeTypes != nil && s.codeTypes != nil && s.library != nil {

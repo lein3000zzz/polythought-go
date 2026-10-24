@@ -99,5 +99,14 @@ beside the one feeding it, as the editor places them, the server's placing held 
 by shared tests. A refused save tells the agent each problem, and code that does not compile,
 each line and column. Deleting a workflow, which the tool marks as destructive, and sharing
 one to the library work only where the user lets agents and tokens do them, two switches on
-Settings, off to start with. Tools that trade are coming; this page will describe them as
-they do.
+Settings, off to start with.
+
+They make the user's custom nodes too, the form and the TypeScript, and change them on the
+version read; a change that would break workflows using one is refused, saying which and
+how, and made once the agent calls again with confirm, as a user presses Save anyway. They
+list credentials by name and kind, to pick in nodes, and keep ones the user gives them, the
+secret sealed and never given back. As a workflow can send a credential wherever its nodes
+call, a third switch, off to start with, decides whether agents and tokens may make
+credentials work: save, switch on or run a workflow that uses one, test one, or change where
+one goes. Deleting custom nodes and credentials takes the delete switch, as workflows do.
+Tools that trade are coming; this page will describe them as they do.

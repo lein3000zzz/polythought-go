@@ -300,13 +300,53 @@ export default workflow("Agent builds me", (w) => {
 	refused, err := agent.CallTool(ctx, &mcp.CallToolParams{Name: "delete_workflow", Arguments: map[string]any{"id": id}})
 	require.NoError(t, err)
 	require.True(t, refused.IsError)
-	assert.Contains(t, refused.Content[0].(*mcp.TextContent).Text, "has not let agents and tokens delete workflows")
+	assert.Contains(t, refused.Content[0].(*mcp.TextContent).Text, "has not let agents and tokens delete")
 
 	b.call(http.MethodPut, "/api/v1/me/agent-access", map[string]any{"delete": true}, http.StatusNoContent, nil)
 	defer b.call(http.MethodPut, "/api/v1/me/agent-access", map[string]any{"delete": false}, http.StatusNoContent, nil)
 
 	assert.Equal(t, map[string]any{"deleted": id}, tool(ctx, t, agent, "delete_workflow", map[string]any{"id": id}))
 	b.call(http.MethodGet, "/api/v1/workflows/"+id, nil, http.StatusNotFound, nil)
+
+	// Its custom nodes and credentials (D404): a node made from its form and code; a
+	// credential kept with the secret the user gave, which never comes back, used in a
+	// workflow once the user lets agents use credentials.
+	node := tool(ctx, t, agent, "create_custom_node", map[string]any{
+		"name": "e2e-pass", "label": "E2E pass", "outputs": []any{"main"}, "items": map[string]any{"passed": true},
+		"source": "export function run(items: unknown[]) { return items }",
+	})
+	assert.Equal(t, "custom.e2e-pass", node["type"])
+	assert.Equal(t, map[string]any{"deleted": node["id"]}, tool(ctx, t, agent, "delete_custom_node", map[string]any{"id": node["id"]}))
+
+	kept := tool(ctx, t, agent, "create_credential", map[string]any{
+		"type": "http.header", "name": "E2E hook", "values": map[string]any{"header": "Authorization", "value": "Bearer e2e-secret"},
+	})
+	assert.Equal(t, []any{"value"}, kept["secrets"])
+
+	listed, err := json.Marshal(tool(ctx, t, agent, "list_credentials", nil))
+	require.NoError(t, err)
+	assert.Contains(t, string(listed), "E2E hook")
+	assert.NotContains(t, string(listed), "e2e-secret")
+
+	uses := map[string]any{"name": "Agent uses a credential", "workflow": map[string]any{
+		"nodes": []any{
+			map[string]any{"id": "manual", "type": "trigger.manual"},
+			map[string]any{"id": "hook", "type": "output.webhook", "params": map[string]any{"url": "https://hooks.example/e2e", "credential": kept["id"]}},
+		},
+		"connections": []any{map[string]any{"from": "manual", "fromPort": "main", "to": "hook", "toPort": "main"}},
+	}}
+
+	refused, err = agent.CallTool(ctx, &mcp.CallToolParams{Name: "create_workflow", Arguments: uses})
+	require.NoError(t, err)
+	require.True(t, refused.IsError)
+	assert.Contains(t, refused.Content[0].(*mcp.TextContent).Text, `node "hook" uses a credential`)
+
+	b.call(http.MethodPut, "/api/v1/me/agent-access", map[string]any{"useCredentials": true}, http.StatusNoContent, nil)
+	defer b.call(http.MethodPut, "/api/v1/me/agent-access", map[string]any{"useCredentials": false}, http.StatusNoContent, nil)
+
+	hooked := tool(ctx, t, agent, "create_workflow", uses)
+	tool(ctx, t, agent, "delete_workflow", map[string]any{"id": hooked["id"]})
+	tool(ctx, t, agent, "delete_credential", map[string]any{"id": kept["id"]})
 
 	// An API token with the read scope alone works there too, with that scope.
 	var token struct{ Token string }

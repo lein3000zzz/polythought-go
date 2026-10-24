@@ -233,8 +233,23 @@ func (p Principal) Itself() bool { return p.TokenID == "" && p.GrantID == "" }
 // D402): the user themself always, a token or an agent when the user lets them.
 func (p Principal) SeesPersonal() bool { return p.Itself() || p.User.Agents.SeePersonal }
 
-// MayDelete says the principal may delete workflows (D403), as SeesPersonal has it.
+// MayDelete says the principal may delete workflows, custom nodes and credentials (D403,
+// D404), as SeesPersonal has it.
 func (p Principal) MayDelete() bool { return p.Itself() || p.User.Agents.Delete }
+
+// NeedDelete is nil when the principal may delete, and says where the user lets them
+// otherwise.
+func (p Principal) NeedDelete() error {
+	if p.MayDelete() {
+		return nil
+	}
+
+	return fmt.Errorf("%w: the user has not let agents and tokens delete: Settings, Connected agents", domain.ErrForbidden)
+}
+
+// MayUseCredentials says the principal may make credentials work (D404): save and run
+// workflows that use them, test them, change where they go. As SeesPersonal has it.
+func (p Principal) MayUseCredentials() bool { return p.Itself() || p.User.Agents.UseCredentials }
 
 // MayShare says the principal may share workflows to the library (D403), as SeesPersonal
 // has it.

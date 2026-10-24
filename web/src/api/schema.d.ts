@@ -2010,7 +2010,10 @@ export interface components {
             worth: string;
         };
         AgentAccessRequest: {
-            /** @description Delete lets them delete workflows; Share, share them to the library (D403). */
+            /**
+             * @description Delete lets them delete workflows, custom nodes and credentials; Share, share
+             *     workflows to the library (D403, D404).
+             */
             delete?: boolean;
             /**
              * @description SeePersonal lets agents and API tokens see the workflows' personal settings, such as
@@ -2018,6 +2021,11 @@ export interface components {
              */
             seePersonal?: boolean;
             share?: boolean;
+            /**
+             * @description UseCredentials lets them save and run workflows that use credentials, test
+             *     credentials and change where they go (D404).
+             */
+            useCredentials?: boolean;
         };
         AgentCaps: {
             /** @example 20.00 */
@@ -3568,10 +3576,13 @@ export interface components {
             agentCaps: components["schemas"]["AgentCaps"];
             agentsMayDelete: boolean;
             agentsMayShare: boolean;
+            agentsMayUseCredentials: boolean;
             /**
              * @description AgentsSeePersonal is their choice that agents and API tokens see their workflows'
              *     personal settings (D401, D402); AgentsMayDelete and AgentsMayShare, that they may
-             *     delete workflows and share them to the library (D403).
+             *     delete workflows, custom nodes and credentials and share workflows to the library
+             *     (D403, D404); AgentsMayUseCredentials, that they may use credentials in workflows
+             *     (D404).
              */
             agentsSeePersonal: boolean;
             /**

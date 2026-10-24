@@ -115,12 +115,13 @@ type User struct {
 
 // AgentAccess is what a user lets their agents and API tokens do beyond their scopes, off
 // to start with and switched at a browser only: see their workflows' personal settings,
-// such as webhook URLs (D401, D402), delete workflows, and share them to the library
-// (D403).
+// such as webhook URLs (D401, D402); delete workflows, custom nodes and credentials, and
+// share workflows to the library (D403, D404); use credentials in workflows (D404).
 type AgentAccess struct {
-	SeePersonal bool
-	Delete      bool
-	Share       bool
+	SeePersonal    bool
+	Delete         bool
+	Share          bool
+	UseCredentials bool
 }
 
 func (u User) IsAdmin() bool     { return u.Role == RoleAdmin }

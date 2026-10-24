@@ -11,7 +11,7 @@ export const scopeInfo: Record<string, { title: string; detail: string; risky?: 
   build: {
     title: 'Build',
     detail:
-      'Create, edit, check and run workflows and code nodes, switch them on and off, and answer runs that wait.',
+      'Create, edit, check and run workflows, code and custom nodes, add credentials, switch workflows on and off, and answer runs that wait. Where you let agents use your credentials, a workflow it builds can send them wherever its nodes call.',
   },
   settings: {
     title: 'Change settings',

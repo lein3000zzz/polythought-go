@@ -13,6 +13,17 @@ that needs it.
   whoever uses the shared copy picks their own.
 - Deleting a credential stops the workflows that use it until you pick another.
 
+## Agents and API tokens
+
+An agent over MCP, or an API token, with the build scope can list your credentials by name
+and kind and pick them in nodes, and keep one you give it: its secret is sealed as yours
+are, and never given back to the agent or anyone. A workflow it builds can send a credential
+wherever its nodes call, such as a header to any webhook, so it uses them only where you
+let it: **Agents and tokens may use my credentials in workflows** on **Settings → Connected
+agents**, off to start with. Off, it does not save, switch on or run a workflow that uses a
+credential, test one, or change where one goes, such as a base URL; it may still rename one
+or give it a new secret. Deleting one takes **Agents and tokens may delete**.
+
 ## Kinds
 
 Each credential has a kind, which says what it holds. Nodes ask for one kind. The kinds

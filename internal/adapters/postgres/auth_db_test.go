@@ -545,7 +545,7 @@ func TestAgentAccess(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, domain.AgentAccess{}, got.Agents, "nothing more to start with")
 
-	access := domain.AgentAccess{SeePersonal: true, Share: true}
+	access := domain.AgentAccess{SeePersonal: true, Share: true, UseCredentials: true}
 	require.NoError(t, users.SetAgentAccess(ctx, u.ID, access))
 	require.NoError(t, users.Update(ctx, got), "an update with the user as it was")
 

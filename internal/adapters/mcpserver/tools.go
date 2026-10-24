@@ -171,11 +171,20 @@ func outcome(err error) string {
 }
 
 func (s *Server) toolError(ctx context.Context, tool string, err error) error {
-	if code := (*domain.CodeError)(nil); errors.As(err, &code) {
-		return codeError(code)
-	}
+	var (
+		code   *domain.CodeError
+		breaks *domain.BreaksError
+		v      *domain.ValidationError
+	)
 
-	if expected(err) {
+	switch {
+	case errors.As(err, &code):
+		return codeError(code)
+	case errors.As(err, &breaks):
+		return breaksError(breaks)
+	case errors.As(err, &v):
+		return validationError(v)
+	case expected(err):
 		return err
 	}
 
@@ -193,6 +202,39 @@ func codeError(e *domain.CodeError) error {
 	lines := make([]string, len(e.Problems))
 	for i, p := range e.Problems {
 		lines[i] = fmt.Sprintf("the code does not compile: line %d, column %d: %s", p.Line, p.Column, p.Message)
+	}
+
+	return errors.New(strings.Join(lines, "\n"))
+}
+
+// validationError says each problem, with the part of the input it is about where the
+// problem does not name it: a custom node's settings.0.default, a credential's values.key.
+// A workflow's name their node.
+func validationError(v *domain.ValidationError) error {
+	base := v.Base
+	if base == nil {
+		base = domain.ErrInvalidWorkflow
+	}
+
+	lines := make([]string, len(v.Problems))
+	for i, p := range v.Problems {
+		lines[i] = base.Error() + ": " + p.Message
+		if p.NodeID == "" && p.Param != "" {
+			lines[i] = base.Error() + ": " + p.Param + ": " + p.Message
+		}
+	}
+
+	return errors.New(strings.Join(lines, "\n"))
+}
+
+// breaksError says what a change to a custom node would break in each workflow using it.
+func breaksError(e *domain.BreaksError) error {
+	lines := []string{e.Unwrap().Error() + "; change them first, or call again with confirm to make the change anyway:"}
+
+	for _, w := range e.Workflows {
+		for _, p := range w.Problems {
+			lines = append(lines, fmt.Sprintf("%q (%s): %s", w.Name, w.ID, p.Message))
+		}
 	}
 
 	return errors.New(strings.Join(lines, "\n"))

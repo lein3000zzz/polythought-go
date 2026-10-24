@@ -93,6 +93,11 @@ first lists them and what breaks. Going ahead, they fail when they run until you
 them; opening one marks what no longer holds. Deleting a node that workflows use asks the
 same way.
 
+An agent over MCP with the build scope can make and change your custom nodes too, held to
+the same rules: a change that breaks workflows is refused, saying which and how, until it
+asks again to go ahead. It deletes one only where you let it, with **Agents and tokens may
+delete** on **Settings → Connected agents**.
+
 ## Sharing it
 
 Sharing a workflow that uses a custom node to the [library](/docs/guides/library/) brings

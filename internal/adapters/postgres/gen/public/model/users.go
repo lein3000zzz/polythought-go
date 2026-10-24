@@ -14,25 +14,26 @@ import (
 )
 
 type Users struct {
-	ID                uuid.UUID `sql:"primary_key"`
-	Email             string
-	EmailNormalized   string
-	PasswordHash      string
-	Role              string
-	EmailVerifiedAt   *time.Time
-	DisabledAt        *time.Time
-	CreatedAt         time.Time
-	UpdatedAt         time.Time
-	CodeChosen        bool
-	LiveStoppedAt     *time.Time
-	MaxLiveOrder      *int32
-	MaxLiveDay        *int32
-	MaxAgentDollars   *decimal.Decimal
-	MaxAgentInput     *int64
-	MaxAgentOutput    *int64
-	MaxAgentTotal     *int64
-	KillStopsAgents   bool
-	AgentsSeePersonal bool
-	AgentsMayDelete   bool
-	AgentsMayShare    bool
+	ID                   uuid.UUID `sql:"primary_key"`
+	Email                string
+	EmailNormalized      string
+	PasswordHash         string
+	Role                 string
+	EmailVerifiedAt      *time.Time
+	DisabledAt           *time.Time
+	CreatedAt            time.Time
+	UpdatedAt            time.Time
+	CodeChosen           bool
+	LiveStoppedAt        *time.Time
+	MaxLiveOrder         *int32
+	MaxLiveDay           *int32
+	MaxAgentDollars      *decimal.Decimal
+	MaxAgentInput        *int64
+	MaxAgentOutput       *int64
+	MaxAgentTotal        *int64
+	KillStopsAgents      bool
+	AgentsSeePersonal    bool
+	AgentsMayDelete      bool
+	AgentsMayShare       bool
+	AgentsUseCredentials bool
 }
