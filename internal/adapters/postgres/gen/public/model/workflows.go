@@ -13,12 +13,17 @@ import (
 )
 
 type Workflows struct {
-	ID         uuid.UUID `sql:"primary_key"`
-	OwnerID    uuid.UUID
-	Name       string
-	Active     bool
-	Definition string
-	Version    int32
-	CreatedAt  time.Time
-	UpdatedAt  time.Time
+	ID             uuid.UUID `sql:"primary_key"`
+	OwnerID        uuid.UUID
+	Name           string
+	Active         bool
+	Definition     string
+	Version        int32
+	CreatedAt      time.Time
+	UpdatedAt      time.Time
+	ActedHow       string
+	ActedGrant     string
+	ActedToken     string
+	ActedName      string
+	ActedConfirmed bool
 }

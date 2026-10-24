@@ -552,6 +552,7 @@ describe('running and inspecting', () => {
       triggeredBy: 'every',
       workflowVersion: 2,
       runs: ran.runs.map((run) => ({ ...run, samples: undefined })),
+      by: { kind: 'agent', name: 'Claude Code', how: 'switched_on', confirmed: true },
     }
 
     editing(branching())
@@ -565,6 +566,10 @@ describe('running and inspecting', () => {
 
     await user.click(await screen.findByRole('button', { name: 'Executions' }))
     const list = within(await screen.findByRole('region', { name: 'Executions' }))
+    // Its workflow was switched on by an agent, so the agent is behind its runs (D407).
+    expect(
+      await list.findByText('switched on by Claude Code, confirmed by you'),
+    ).toBeInTheDocument()
     await user.click(await list.findByText('every'))
 
     expect(await screen.findByText(/Ran version 2/)).toBeInTheDocument()

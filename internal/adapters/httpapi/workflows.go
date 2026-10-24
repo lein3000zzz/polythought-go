@@ -62,14 +62,41 @@ type workflowDTO struct {
 	Connections []connectionDTO `json:"connections"`
 	CreatedAt   time.Time       `json:"createdAt" format:"date-time"`
 	UpdatedAt   time.Time       `json:"updatedAt" format:"date-time"`
+	// ActedBy is the agent or token that switched it on, or changed it while on, named on
+	// its runs until it is switched again (D407); absent for you.
+	ActedBy *actorDTO `json:"actedBy,omitempty" validate:"optional"`
 } // @name Workflow
+
+// actorDTO is an agent or an API token that acted for you (D407), named as it was then.
+type actorDTO struct {
+	Kind string `json:"kind" enums:"agent,token"`
+	Name string `json:"name"`
+	// How: it ran this by hand (run), switched its workflow on (switched_on), or changed it
+	// while on (changed).
+	How string `json:"how" enums:"run,switched_on,changed"`
+	// Confirmed says you confirmed it first, as it waited for you (D406).
+	Confirmed bool `json:"confirmed,omitempty" validate:"optional"`
+} // @name Actor
+
+func toActorDTO(a domain.Actor) *actorDTO {
+	if a.IsUser() {
+		return nil
+	}
+
+	kind := "agent"
+	if a.GrantID == "" {
+		kind = "token"
+	}
+
+	return &actorDTO{Kind: kind, Name: a.Name, How: string(a.How), Confirmed: a.Confirmed}
+}
 
 func toWorkflowDTO(w domain.Workflow) workflowDTO {
 	out := workflowDTO{
 		ID: string(w.ID), Name: w.Name, Active: w.Active, Version: w.Version,
 		Nodes:       make([]nodeDTO, len(w.Nodes)),
 		Connections: make([]connectionDTO, len(w.Connections)),
-		CreatedAt:   w.CreatedAt, UpdatedAt: w.UpdatedAt,
+		CreatedAt:   w.CreatedAt, UpdatedAt: w.UpdatedAt, ActedBy: toActorDTO(w.ActedBy),
 	}
 
 	for i, n := range w.Nodes {
@@ -159,6 +186,8 @@ type executionDTO struct {
 	// ends at the latest.
 	WaitingOn    string     `json:"waitingOn,omitempty" validate:"optional"`
 	WaitingUntil *time.Time `json:"waitingUntil,omitempty" validate:"optional" format:"date-time"`
+	// By is the agent or token behind it (D407): absent for you.
+	By *actorDTO `json:"by,omitempty" validate:"optional"`
 } // @name Execution
 
 // toExecutionDTO describes e, with the runs' item samples when withSamples is set.
@@ -167,7 +196,7 @@ func toExecutionDTO(e domain.Execution, withSamples bool) executionDTO {
 		ID: string(e.ID), WorkflowVersion: e.WorkflowVersion, TriggeredBy: string(e.TriggeredBy), Status: string(e.Status),
 		StartedAt: e.StartedAt, FinishedAt: optionalTime(e.FinishedAt), DurationMs: e.Duration().Milliseconds(),
 		Error: e.Error, Runs: make([]nodeRunDTO, len(e.Runs)),
-		WaitingOn: string(e.WaitingOn), WaitingUntil: optionalTime(e.WaitingUntil),
+		WaitingOn: string(e.WaitingOn), WaitingUntil: optionalTime(e.WaitingUntil), By: toActorDTO(e.By),
 	}
 
 	for i, r := range e.Runs {

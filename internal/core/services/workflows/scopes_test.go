@@ -85,7 +85,7 @@ func TestTradeScope(t *testing.T) {
 			d.repo.EXPECT().Count(mock.Anything, mock.Anything).Return(0, 0, nil)
 			d.repo.EXPECT().Create(mock.Anything, mock.Anything).Return(nil)
 			d.repo.EXPECT().Get(mock.Anything, domain.UserID("u-1"), domain.WorkflowID("wf-1")).Return(trades, nil)
-			d.repo.EXPECT().SetActive(mock.Anything, domain.UserID("u-1"), domain.WorkflowID("wf-1"), true, now).Return(nil)
+			d.repo.EXPECT().SetActive(mock.Anything, domain.UserID("u-1"), domain.WorkflowID("wf-1"), true, now, mock.Anything).Return(nil)
 			d.supervisor.EXPECT().Start(mock.Anything)
 			d.executor.EXPECT().Execute(mock.Anything, mock.Anything, domain.NodeID("manual"), mock.Anything, mock.Anything).
 				Return(engine.Result{}, nil)

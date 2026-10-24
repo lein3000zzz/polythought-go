@@ -56,7 +56,7 @@ func TestLiveActionWaitsForTheUser(t *testing.T) {
 	require.NotEmpty(t, list.Confirmations)
 
 	waiting := list.Confirmations[0]
-	assert.Equal(t, confirmation{ID: waiting.ID, Kind: "kill_off", Asker: "an API token", Status: "pending"}, waiting)
+	assert.Equal(t, confirmation{ID: waiting.ID, Kind: "kill_off", Asker: "the API token “e2e live”", Status: "pending"}, waiting, "by its name (D408)")
 
 	var me struct{ LiveStopped bool }
 	b.call(http.MethodGet, "/api/v1/me", nil, http.StatusOK, &me)

@@ -24,4 +24,9 @@ type Executions struct {
 	Runs            string
 	WaitingOn       string
 	WaitingUntil    *time.Time
+	ByHow           string
+	ByGrant         string
+	ByToken         string
+	ByName          string
+	ByConfirmed     bool
 }

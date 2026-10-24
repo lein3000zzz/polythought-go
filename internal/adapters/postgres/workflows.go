@@ -194,8 +194,10 @@ func (r *Workflows) Update(ctx context.Context, w domain.Workflow, expectedVersi
 
 	t := table.Workflows
 
-	res, err := t.UPDATE(t.Name, t.Definition, t.Version, t.UpdatedAt).
-		SET(w.Name, def, w.Version, w.UpdatedAt).
+	a := w.ActedBy
+
+	res, err := t.UPDATE(t.Name, t.Definition, t.Version, t.UpdatedAt, t.ActedHow, t.ActedGrant, t.ActedToken, t.ActedName, t.ActedConfirmed).
+		SET(w.Name, def, w.Version, w.UpdatedAt, string(a.How), string(a.GrantID), string(a.TokenID), a.Name, a.Confirmed).
 		WHERE(where.AND(t.Version.EQ(jet.Int(int64(expectedVersion))))).
 		ExecContext(ctx, r.db.conn(ctx))
 
@@ -211,15 +213,17 @@ func (r *Workflows) Update(ctx context.Context, w domain.Workflow, expectedVersi
 	return domain.ErrNotFound
 }
 
-func (r *Workflows) SetActive(ctx context.Context, owner domain.UserID, id domain.WorkflowID, active bool, at time.Time) error {
+func (r *Workflows) SetActive(ctx context.Context, owner domain.UserID, id domain.WorkflowID, active bool, at time.Time, by domain.Actor) error {
 	where, err := ownedWorkflow(owner, id)
 	if err != nil {
 		return err
 	}
 
-	return affectedOne(table.Workflows.
-		UPDATE(table.Workflows.Active, table.Workflows.UpdatedAt).
-		SET(active, at).
+	t := table.Workflows
+
+	return affectedOne(t.
+		UPDATE(t.Active, t.UpdatedAt, t.ActedHow, t.ActedGrant, t.ActedToken, t.ActedName, t.ActedConfirmed).
+		SET(active, at, string(by.How), string(by.GrantID), string(by.TokenID), by.Name, by.Confirmed).
 		WHERE(where).
 		ExecContext(ctx, r.db.conn(ctx)))
 }
@@ -263,9 +267,12 @@ func (r *Workflows) DeactivateAll(ctx context.Context, owner domain.UserID, at t
 
 	var rows []model.Workflows
 
-	err = table.Workflows.
-		UPDATE(table.Workflows.Active, table.Workflows.UpdatedAt).
-		SET(false, at).
+	t := table.Workflows
+
+	// Off, no one is behind its runs any more (D407).
+	err = t.
+		UPDATE(t.Active, t.UpdatedAt, t.ActedHow, t.ActedGrant, t.ActedToken, t.ActedName, t.ActedConfirmed).
+		SET(false, at, "", "", "", "", false).
 		WHERE(table.Workflows.OwnerID.EQ(jet.UUID(uid)).AND(table.Workflows.Active.IS_TRUE())).
 		RETURNING(table.Workflows.ID).
 		QueryContext(ctx, r.db.conn(ctx), &rows)
@@ -345,6 +352,9 @@ func toWorkflowModel(w domain.Workflow) (model.Workflows, error) {
 		Version:    int32(w.Version),
 		CreatedAt:  w.CreatedAt,
 		UpdatedAt:  w.UpdatedAt,
+
+		ActedHow: string(w.ActedBy.How), ActedGrant: string(w.ActedBy.GrantID), ActedToken: string(w.ActedBy.TokenID),
+		ActedName: w.ActedBy.Name, ActedConfirmed: w.ActedBy.Confirmed,
 	}, nil
 }
 
@@ -364,6 +374,10 @@ func toWorkflow(m model.Workflows) (domain.Workflow, error) {
 		Version:     int(m.Version),
 		CreatedAt:   m.CreatedAt.UTC(),
 		UpdatedAt:   m.UpdatedAt.UTC(),
+		ActedBy: domain.Actor{
+			GrantID: domain.GrantID(m.ActedGrant), TokenID: domain.APITokenID(m.ActedToken), Name: m.ActedName,
+			How: domain.ActorHow(m.ActedHow), Confirmed: m.ActedConfirmed,
+		},
 	}, nil
 }
 
@@ -440,6 +454,11 @@ func (r *Executions) Save(ctx context.Context, e domain.Execution) error {
 		Runs:            string(raw),
 		WaitingOn:       string(e.WaitingOn),
 		WaitingUntil:    timePtr(e.WaitingUntil),
+		ByHow:           string(e.By.How),
+		ByGrant:         string(e.By.GrantID),
+		ByToken:         string(e.By.TokenID),
+		ByName:          e.By.Name,
+		ByConfirmed:     e.By.Confirmed,
 	}).
 		ON_CONFLICT(ex.ID).
 		DO_UPDATE(jet.SET(
@@ -554,6 +573,10 @@ func toExecution(m model.Executions) (domain.Execution, error) {
 		Runs:            make([]domain.NodeRun, len(runs)),
 		WaitingOn:       domain.NodeID(m.WaitingOn),
 		WaitingUntil:    timeOf(m.WaitingUntil),
+		By: domain.Actor{
+			GrantID: domain.GrantID(m.ByGrant), TokenID: domain.APITokenID(m.ByToken), Name: m.ByName,
+			How: domain.ActorHow(m.ByHow), Confirmed: m.ByConfirmed,
+		},
 	}
 
 	for i, r := range runs {

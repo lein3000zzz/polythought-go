@@ -20,7 +20,9 @@ type WorkflowRepository interface {
 	// Update saves w if the stored version is still expectedVersion, else returns
 	// domain.ErrConflict. The stored version becomes w.Version.
 	Update(ctx context.Context, w domain.Workflow, expectedVersion int) error
-	SetActive(ctx context.Context, owner domain.UserID, id domain.WorkflowID, active bool, at time.Time) error
+	// SetActive switches it on or off, by naming who is behind its runs from now (D407):
+	// the zero Actor for the user, and when off.
+	SetActive(ctx context.Context, owner domain.UserID, id domain.WorkflowID, active bool, at time.Time, by domain.Actor) error
 	Delete(ctx context.Context, owner domain.UserID, id domain.WorkflowID) error
 	Count(ctx context.Context, owner domain.UserID) (total, active int, err error)
 	// DeactivateAll turns off every active workflow of owner and returns their IDs.

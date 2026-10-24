@@ -133,6 +133,11 @@ waiting as they chose, a notification of its own: on Telegram, on to start with,
 with a button to confirm and one to refuse, which then says how it was decided, wherever it
 was; by mail if they turn it on.
 
+Who acted is kept, named as they were then: an execution an agent or a token ran by hand
+names it, and so does every run of a workflow it switched on, or changed while on, until the
+workflow is switched on or off again; confirmed by the user, it says so. History shows it,
+and the API and `get_execution` give it.
+
 The trading tools set how a workflow trades, on paper or live from one of the user's
 wallets, turn the kill switch on or off, reset a paper account, and cancel an order resting
 on the book, each held to its mode's scope. Going live where the user lets it go

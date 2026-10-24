@@ -28,6 +28,11 @@ type executionsTable struct {
 	Runs            postgres.ColumnString
 	WaitingOn       postgres.ColumnString
 	WaitingUntil    postgres.ColumnTimestampz
+	ByHow           postgres.ColumnString
+	ByGrant         postgres.ColumnString
+	ByToken         postgres.ColumnString
+	ByName          postgres.ColumnString
+	ByConfirmed     postgres.ColumnBool
 
 	AllColumns     postgres.ColumnList
 	MutableColumns postgres.ColumnList
@@ -80,9 +85,14 @@ func newExecutionsTableImpl(schemaName, tableName, alias string) executionsTable
 		RunsColumn            = postgres.StringColumn("runs")
 		WaitingOnColumn       = postgres.StringColumn("waiting_on")
 		WaitingUntilColumn    = postgres.TimestampzColumn("waiting_until")
-		allColumns            = postgres.ColumnList{IDColumn, WorkflowIDColumn, WorkflowVersionColumn, TriggeredByColumn, StatusColumn, StartedAtColumn, FinishedAtColumn, ErrorColumn, RunsColumn, WaitingOnColumn, WaitingUntilColumn}
-		mutableColumns        = postgres.ColumnList{WorkflowIDColumn, WorkflowVersionColumn, TriggeredByColumn, StatusColumn, StartedAtColumn, FinishedAtColumn, ErrorColumn, RunsColumn, WaitingOnColumn, WaitingUntilColumn}
-		defaultColumns        = postgres.ColumnList{ErrorColumn, WaitingOnColumn}
+		ByHowColumn           = postgres.StringColumn("by_how")
+		ByGrantColumn         = postgres.StringColumn("by_grant")
+		ByTokenColumn         = postgres.StringColumn("by_token")
+		ByNameColumn          = postgres.StringColumn("by_name")
+		ByConfirmedColumn     = postgres.BoolColumn("by_confirmed")
+		allColumns            = postgres.ColumnList{IDColumn, WorkflowIDColumn, WorkflowVersionColumn, TriggeredByColumn, StatusColumn, StartedAtColumn, FinishedAtColumn, ErrorColumn, RunsColumn, WaitingOnColumn, WaitingUntilColumn, ByHowColumn, ByGrantColumn, ByTokenColumn, ByNameColumn, ByConfirmedColumn}
+		mutableColumns        = postgres.ColumnList{WorkflowIDColumn, WorkflowVersionColumn, TriggeredByColumn, StatusColumn, StartedAtColumn, FinishedAtColumn, ErrorColumn, RunsColumn, WaitingOnColumn, WaitingUntilColumn, ByHowColumn, ByGrantColumn, ByTokenColumn, ByNameColumn, ByConfirmedColumn}
+		defaultColumns        = postgres.ColumnList{ErrorColumn, WaitingOnColumn, ByHowColumn, ByGrantColumn, ByTokenColumn, ByNameColumn, ByConfirmedColumn}
 	)
 
 	return executionsTable{
@@ -100,6 +110,11 @@ func newExecutionsTableImpl(schemaName, tableName, alias string) executionsTable
 		Runs:            RunsColumn,
 		WaitingOn:       WaitingOnColumn,
 		WaitingUntil:    WaitingUntilColumn,
+		ByHow:           ByHowColumn,
+		ByGrant:         ByGrantColumn,
+		ByToken:         ByTokenColumn,
+		ByName:          ByNameColumn,
+		ByConfirmed:     ByConfirmedColumn,
 
 		AllColumns:     allColumns,
 		MutableColumns: mutableColumns,

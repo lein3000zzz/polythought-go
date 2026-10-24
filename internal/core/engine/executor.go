@@ -167,6 +167,11 @@ func (e *Executor) Execute(
 	exec := domain.NewExecution(e.newExecID(), w.ID, trigger, e.now())
 	exec.WorkflowVersion = w.Version
 
+	exec.By = w.ActedBy
+	if o.by != nil {
+		exec.By = *o.by
+	}
+
 	x := e.newExecution(w, &exec, o.samples, reg)
 
 	return e.drive(ctx, x, func(ctx context.Context) error {

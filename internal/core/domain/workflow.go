@@ -27,6 +27,10 @@ type Workflow struct {
 	Version   int
 	CreatedAt time.Time
 	UpdatedAt time.Time
+
+	// ActedBy is the agent or token that switched it on, or changed it while it was on,
+	// named on its runs until it is switched on or off again (D407); zero for the user.
+	ActedBy Actor
 }
 
 // CanvasPosition is where a node sits on the editor canvas. It never affects execution.

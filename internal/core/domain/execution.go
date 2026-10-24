@@ -52,6 +52,10 @@ type Execution struct {
 	// wait ends at the latest. Both are empty unless the status is waiting.
 	WaitingOn    NodeID
 	WaitingUntil time.Time
+
+	// By is the agent or token behind it (D407): one that ran it by hand, or switched its
+	// workflow on, or changed it while on; zero for the user.
+	By Actor
 }
 
 // NodeRun records one node's part in an execution, with item counts per port.

@@ -201,7 +201,7 @@ func (s *Service) AuthenticateToken(ctx context.Context, token string) (Principa
 		s.logIgnored(ctx, "Token touch failed", s.repos.Tokens.TouchLastUsed(ctx, t.ID, now), "token_id", t.ID)
 	}
 
-	return Principal{User: user, TokenID: t.ID, Scopes: t.Scopes}, nil
+	return Principal{User: user, TokenID: t.ID, TokenName: t.Name, Scopes: t.Scopes}, nil
 }
 
 // activeUser loads a user for authentication; a missing or disabled user is just

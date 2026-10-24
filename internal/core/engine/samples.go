@@ -21,6 +21,13 @@ type ExecuteOption func(*executeOptions)
 
 type executeOptions struct {
 	samples bool
+	by      *domain.Actor
+}
+
+// By names who is behind this run (D407), the user's zero Actor included; without it, the
+// run is its workflow's, named as the workflow names who switched it on or changed it.
+func By(a domain.Actor) ExecuteOption {
+	return func(o *executeOptions) { o.by = &a }
 }
 
 // KeepSamples keeps the first items each node emits, for inspecting the execution later.

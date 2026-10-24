@@ -129,6 +129,39 @@
                 ],
                 "type": "object"
             },
+            "Actor": {
+                "properties": {
+                    "confirmed": {
+                        "description": "Confirmed says you confirmed it first, as it waited for you (D406).",
+                        "type": "boolean"
+                    },
+                    "how": {
+                        "description": "How: it ran this by hand (run), switched its workflow on (switched_on), or changed it\nwhile on (changed).",
+                        "enum": [
+                            "run",
+                            "switched_on",
+                            "changed"
+                        ],
+                        "type": "string"
+                    },
+                    "kind": {
+                        "enum": [
+                            "agent",
+                            "token"
+                        ],
+                        "type": "string"
+                    },
+                    "name": {
+                        "type": "string"
+                    }
+                },
+                "required": [
+                    "how",
+                    "kind",
+                    "name"
+                ],
+                "type": "object"
+            },
             "AgentAccessRequest": {
                 "properties": {
                     "answer": {
@@ -1230,6 +1263,10 @@
             },
             "Execution": {
                 "properties": {
+                    "by": {
+                        "$ref": "#/components/schemas/Actor",
+                        "description": "By is the agent or token behind it (D407): absent for you."
+                    },
                     "durationMs": {
                         "type": "integer"
                     },
@@ -4702,6 +4739,10 @@
             },
             "Workflow": {
                 "properties": {
+                    "actedBy": {
+                        "$ref": "#/components/schemas/Actor",
+                        "description": "ActedBy is the agent or token that switched it on, or changed it while on, named on\nits runs until it is switched again (D407); absent for you."
+                    },
                     "active": {
                         "type": "boolean"
                     },

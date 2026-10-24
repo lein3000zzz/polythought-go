@@ -417,3 +417,26 @@ func TestExecuteNotifies(t *testing.T) {
 
 	assert.Equal(t, []string{"recorded", "notified", "notified again"}, order, "listeners can load what they hear about")
 }
+
+// A run names the agent or token behind it (D407): its workflow's, unless it says another,
+// the user's zero one included.
+func TestExecuteBy(t *testing.T) {
+	ctx := context.Background()
+	ex := newExecutor(t, observability.NoopUtility())
+
+	switchedOn := domain.Actor{GrantID: "g-1", Name: "Claude Code", How: domain.ActorSwitchedOn}
+	w := domain.Workflow{ID: "wf", Nodes: []domain.NodeSpec{trigger()}, ActedBy: switchedOn}
+
+	res, err := ex.Execute(ctx, w, "trigger", fired(item("n", 1)))
+	require.NoError(t, err)
+	assert.Equal(t, switchedOn, res.Execution.By, "its trigger's run, the workflow's")
+
+	ran := domain.Actor{TokenID: "t-1", Name: "deploy", How: domain.ActorRan}
+	res, err = ex.Execute(ctx, w, "trigger", fired(item("n", 1)), engine.By(ran))
+	require.NoError(t, err)
+	assert.Equal(t, ran, res.Execution.By)
+
+	res, err = ex.Execute(ctx, w, "trigger", fired(item("n", 1)), engine.By(domain.Actor{}))
+	require.NoError(t, err)
+	assert.True(t, res.Execution.By.IsUser(), "run by the user by hand")
+}

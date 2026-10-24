@@ -199,9 +199,11 @@ type Principal struct {
 	User      domain.User
 	SessionID domain.SessionID
 	TokenID   domain.APITokenID
-	// GrantID is set for an agent signed in with OAuth (D397), Agent to its name.
-	GrantID domain.GrantID
-	Agent   string
+	// GrantID is set for an agent signed in with OAuth (D397), Agent to its name; TokenName
+	// is a token's.
+	GrantID   domain.GrantID
+	Agent     string
+	TokenName string
 	// Scopes are what a token or an agent may do (D398).
 	Scopes []domain.Scope
 	// Confirmed says the user confirmed this live action of a token's or an agent's
@@ -248,6 +250,20 @@ func (p Principal) NeedDelete() error {
 	}
 
 	return fmt.Errorf("%w: the user has not let agents and tokens delete: Settings, Connected agents", domain.ErrForbidden)
+}
+
+// Actor is who the principal is behind what it does, how (D407): zero for the user.
+func (p Principal) Actor(how domain.ActorHow) domain.Actor {
+	if p.Itself() {
+		return domain.Actor{}
+	}
+
+	name := p.Agent
+	if p.GrantID == "" {
+		name = p.TokenName
+	}
+
+	return domain.Actor{GrantID: p.GrantID, TokenID: p.TokenID, Name: name, How: how, Confirmed: p.Confirmed}
 }
 
 // MayUseCredentials says the principal may make credentials work (D404): save and run

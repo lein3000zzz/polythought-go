@@ -311,6 +311,17 @@ export default workflow("Agent builds me", (w) => {
 	assert.Equal(t, "succeeded", ran["status"])
 	assert.Len(t, ran["nodes"], 3)
 
+	// The user sees the agent behind that run (D407).
+	var runs struct {
+		Executions []struct {
+			By *struct{ Kind, Name, How string }
+		}
+	}
+	b.call(http.MethodGet, "/api/v1/workflows/"+id+"/executions", nil, http.StatusOK, &runs)
+	require.NotEmpty(t, runs.Executions)
+	require.NotNil(t, runs.Executions[0].By)
+	assert.Equal(t, struct{ Kind, Name, How string }{"agent", "Go SDK e2e", "run"}, *runs.Executions[0].By)
+
 	refused, err := agent.CallTool(ctx, &mcp.CallToolParams{Name: "delete_workflow", Arguments: map[string]any{"id": id}})
 	require.NoError(t, err)
 	require.True(t, refused.IsError)

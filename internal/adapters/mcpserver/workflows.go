@@ -76,6 +76,27 @@ type executionSummary struct {
 	Error        string     `json:"error,omitempty"`
 	WaitingOn    string     `json:"waitingOn,omitempty" jsonschema:"the node it waits at, while it waits"`
 	WaitingUntil *time.Time `json:"waitingUntil,omitempty"`
+	By           *actorOut  `json:"by,omitempty" jsonschema:"the agent or API token behind it; absent for the user"`
+}
+
+type actorOut struct {
+	Kind      string `json:"kind" jsonschema:"agent or token"`
+	Name      string `json:"name"`
+	How       string `json:"how" jsonschema:"run: it ran this by hand; switched_on: it switched the workflow on; changed: it changed the workflow while on"`
+	Confirmed bool   `json:"confirmed,omitempty" jsonschema:"the user confirmed it first"`
+}
+
+func actorOf(a domain.Actor) *actorOut {
+	if a.IsUser() {
+		return nil
+	}
+
+	kind := "agent"
+	if a.GrantID == "" {
+		kind = "token"
+	}
+
+	return &actorOut{Kind: kind, Name: a.Name, How: string(a.How), Confirmed: a.Confirmed}
 }
 
 type executionList struct {
@@ -284,6 +305,7 @@ func executionSummaryOf(e domain.Execution) executionSummary {
 	return executionSummary{
 		ID: string(e.ID), Status: string(e.Status), TriggeredBy: string(e.TriggeredBy), StartedAt: e.StartedAt,
 		FinishedAt: optionalTime(e.FinishedAt), Error: e.Error, WaitingOn: string(e.WaitingOn), WaitingUntil: optionalTime(e.WaitingUntil),
+		By: actorOf(e.By),
 	}
 }
 

@@ -251,7 +251,7 @@ func TestLifecycle(t *testing.T) {
 				d.repo.EXPECT().Get(mock.Anything, mock.Anything, domain.WorkflowID("wf-1")).Return(stored, nil)
 				d.repo.EXPECT().Count(mock.Anything, mock.Anything).Return(3, 1, nil)
 				d.validator.EXPECT().Validate(mock.Anything, stored).Return(nil)
-				d.repo.EXPECT().SetActive(mock.Anything, domain.UserID("u-1"), domain.WorkflowID("wf-1"), true, now).Return(nil)
+				d.repo.EXPECT().SetActive(mock.Anything, domain.UserID("u-1"), domain.WorkflowID("wf-1"), true, now, mock.Anything).Return(nil)
 				d.supervisor.EXPECT().Start(active(stored)).Once()
 			},
 			call: func(s *workflows.Service) error {
@@ -276,7 +276,7 @@ func TestLifecycle(t *testing.T) {
 			setup: func(d deps) {
 				d.repo.EXPECT().Get(mock.Anything, mock.Anything, mock.Anything).Return(active(stored), nil)
 				d.validator.EXPECT().Validate(mock.Anything, mock.Anything).Return(nil)
-				d.repo.EXPECT().SetActive(mock.Anything, mock.Anything, mock.Anything, true, now).Return(nil)
+				d.repo.EXPECT().SetActive(mock.Anything, mock.Anything, mock.Anything, true, now, mock.Anything).Return(nil)
 				d.supervisor.EXPECT().Start(mock.Anything).Once()
 			},
 			call: func(s *workflows.Service) error {
@@ -288,7 +288,7 @@ func TestLifecycle(t *testing.T) {
 			name: "deactivate persists and stops",
 			setup: func(d deps) {
 				d.repo.EXPECT().Get(mock.Anything, mock.Anything, mock.Anything).Return(active(stored), nil)
-				d.repo.EXPECT().SetActive(mock.Anything, domain.UserID("u-1"), domain.WorkflowID("wf-1"), false, now).Return(nil)
+				d.repo.EXPECT().SetActive(mock.Anything, domain.UserID("u-1"), domain.WorkflowID("wf-1"), false, now, domain.Actor{}).Return(nil)
 				d.supervisor.EXPECT().Stop(domain.WorkflowID("wf-1")).Once()
 			},
 			call: func(s *workflows.Service) error {
@@ -502,7 +502,7 @@ func TestWaitingExecutions(t *testing.T) {
 	t.Run("switching off cancels what waits", func(t *testing.T) {
 		s, d, w := withWaits(t)
 		d.repo.EXPECT().Get(mock.Anything, domain.UserID("u-1"), domain.WorkflowID("wf-1")).Return(active(stored), nil)
-		d.repo.EXPECT().SetActive(mock.Anything, domain.UserID("u-1"), domain.WorkflowID("wf-1"), false, now).Return(nil)
+		d.repo.EXPECT().SetActive(mock.Anything, domain.UserID("u-1"), domain.WorkflowID("wf-1"), false, now, domain.Actor{}).Return(nil)
 		d.supervisor.EXPECT().Stop(domain.WorkflowID("wf-1")).Once()
 		w.EXPECT().CancelWorkflow(mock.Anything, domain.UserID("u-1"), domain.WorkflowID("wf-1"), "cancelled: the workflow was switched off").Return(nil).Once()
 
@@ -698,7 +698,7 @@ func TestFieldChecks(t *testing.T) {
 		d.repo.EXPECT().Get(mock.Anything, domain.UserID("u-1"), domain.WorkflowID("wf-1")).Return(stored, nil)
 		d.repo.EXPECT().Count(mock.Anything, domain.UserID("u-1")).Return(1, 0, nil)
 		d.validator.EXPECT().Validate(mock.Anything, mock.Anything).Return(nil)
-		d.repo.EXPECT().SetActive(mock.Anything, domain.UserID("u-1"), domain.WorkflowID("wf-1"), true, now).Return(nil)
+		d.repo.EXPECT().SetActive(mock.Anything, domain.UserID("u-1"), domain.WorkflowID("wf-1"), true, now, mock.Anything).Return(nil)
 		d.supervisor.EXPECT().Start(mock.Anything).Once()
 
 		_, err := s.Activate(ctx, alice, "wf-1")
@@ -794,7 +794,7 @@ func TestRestingOrders(t *testing.T) {
 
 	off := func(d deps) {
 		d.repo.EXPECT().Get(mock.Anything, domain.UserID("u-1"), domain.WorkflowID("wf-1")).Return(active(stored), nil)
-		d.repo.EXPECT().SetActive(mock.Anything, domain.UserID("u-1"), domain.WorkflowID("wf-1"), false, now).Return(nil)
+		d.repo.EXPECT().SetActive(mock.Anything, domain.UserID("u-1"), domain.WorkflowID("wf-1"), false, now, domain.Actor{}).Return(nil)
 		d.supervisor.EXPECT().Stop(domain.WorkflowID("wf-1")).Once()
 	}
 
@@ -852,7 +852,7 @@ func TestPause(t *testing.T) {
 	fine := active(domain.Workflow{ID: "wf-2", OwnerID: alice.User.ID})
 
 	d.repo.EXPECT().ListActive(mock.Anything).Return([]domain.Workflow{gone, fine}, nil)
-	d.repo.EXPECT().SetActive(mock.Anything, alice.User.ID, domain.WorkflowID("wf-1"), false, now).Return(nil).Once()
+	d.repo.EXPECT().SetActive(mock.Anything, alice.User.ID, domain.WorkflowID("wf-1"), false, now, domain.Actor{}).Return(nil).Once()
 	d.supervisor.EXPECT().Stop(domain.WorkflowID("wf-1")).Once()
 
 	n, err := svc.Pause(context.Background(), func(w domain.Workflow) string {

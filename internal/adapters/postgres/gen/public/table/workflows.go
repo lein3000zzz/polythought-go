@@ -17,14 +17,19 @@ type workflowsTable struct {
 	postgres.Table
 
 	// Columns
-	ID         postgres.ColumnString
-	OwnerID    postgres.ColumnString
-	Name       postgres.ColumnString
-	Active     postgres.ColumnBool
-	Definition postgres.ColumnString
-	Version    postgres.ColumnInteger
-	CreatedAt  postgres.ColumnTimestampz
-	UpdatedAt  postgres.ColumnTimestampz
+	ID             postgres.ColumnString
+	OwnerID        postgres.ColumnString
+	Name           postgres.ColumnString
+	Active         postgres.ColumnBool
+	Definition     postgres.ColumnString
+	Version        postgres.ColumnInteger
+	CreatedAt      postgres.ColumnTimestampz
+	UpdatedAt      postgres.ColumnTimestampz
+	ActedHow       postgres.ColumnString
+	ActedGrant     postgres.ColumnString
+	ActedToken     postgres.ColumnString
+	ActedName      postgres.ColumnString
+	ActedConfirmed postgres.ColumnBool
 
 	AllColumns     postgres.ColumnList
 	MutableColumns postgres.ColumnList
@@ -66,31 +71,41 @@ func newWorkflowsTable(schemaName, tableName, alias string) *WorkflowsTable {
 
 func newWorkflowsTableImpl(schemaName, tableName, alias string) workflowsTable {
 	var (
-		IDColumn         = postgres.StringColumn("id")
-		OwnerIDColumn    = postgres.StringColumn("owner_id")
-		NameColumn       = postgres.StringColumn("name")
-		ActiveColumn     = postgres.BoolColumn("active")
-		DefinitionColumn = postgres.StringColumn("definition")
-		VersionColumn    = postgres.IntegerColumn("version")
-		CreatedAtColumn  = postgres.TimestampzColumn("created_at")
-		UpdatedAtColumn  = postgres.TimestampzColumn("updated_at")
-		allColumns       = postgres.ColumnList{IDColumn, OwnerIDColumn, NameColumn, ActiveColumn, DefinitionColumn, VersionColumn, CreatedAtColumn, UpdatedAtColumn}
-		mutableColumns   = postgres.ColumnList{OwnerIDColumn, NameColumn, ActiveColumn, DefinitionColumn, VersionColumn, CreatedAtColumn, UpdatedAtColumn}
-		defaultColumns   = postgres.ColumnList{ActiveColumn}
+		IDColumn             = postgres.StringColumn("id")
+		OwnerIDColumn        = postgres.StringColumn("owner_id")
+		NameColumn           = postgres.StringColumn("name")
+		ActiveColumn         = postgres.BoolColumn("active")
+		DefinitionColumn     = postgres.StringColumn("definition")
+		VersionColumn        = postgres.IntegerColumn("version")
+		CreatedAtColumn      = postgres.TimestampzColumn("created_at")
+		UpdatedAtColumn      = postgres.TimestampzColumn("updated_at")
+		ActedHowColumn       = postgres.StringColumn("acted_how")
+		ActedGrantColumn     = postgres.StringColumn("acted_grant")
+		ActedTokenColumn     = postgres.StringColumn("acted_token")
+		ActedNameColumn      = postgres.StringColumn("acted_name")
+		ActedConfirmedColumn = postgres.BoolColumn("acted_confirmed")
+		allColumns           = postgres.ColumnList{IDColumn, OwnerIDColumn, NameColumn, ActiveColumn, DefinitionColumn, VersionColumn, CreatedAtColumn, UpdatedAtColumn, ActedHowColumn, ActedGrantColumn, ActedTokenColumn, ActedNameColumn, ActedConfirmedColumn}
+		mutableColumns       = postgres.ColumnList{OwnerIDColumn, NameColumn, ActiveColumn, DefinitionColumn, VersionColumn, CreatedAtColumn, UpdatedAtColumn, ActedHowColumn, ActedGrantColumn, ActedTokenColumn, ActedNameColumn, ActedConfirmedColumn}
+		defaultColumns       = postgres.ColumnList{ActiveColumn, ActedHowColumn, ActedGrantColumn, ActedTokenColumn, ActedNameColumn, ActedConfirmedColumn}
 	)
 
 	return workflowsTable{
 		Table: postgres.NewTable(schemaName, tableName, alias, allColumns...),
 
 		//Columns
-		ID:         IDColumn,
-		OwnerID:    OwnerIDColumn,
-		Name:       NameColumn,
-		Active:     ActiveColumn,
-		Definition: DefinitionColumn,
-		Version:    VersionColumn,
-		CreatedAt:  CreatedAtColumn,
-		UpdatedAt:  UpdatedAtColumn,
+		ID:             IDColumn,
+		OwnerID:        OwnerIDColumn,
+		Name:           NameColumn,
+		Active:         ActiveColumn,
+		Definition:     DefinitionColumn,
+		Version:        VersionColumn,
+		CreatedAt:      CreatedAtColumn,
+		UpdatedAt:      UpdatedAtColumn,
+		ActedHow:       ActedHowColumn,
+		ActedGrant:     ActedGrantColumn,
+		ActedToken:     ActedTokenColumn,
+		ActedName:      ActedNameColumn,
+		ActedConfirmed: ActedConfirmedColumn,
 
 		AllColumns:     allColumns,
 		MutableColumns: mutableColumns,

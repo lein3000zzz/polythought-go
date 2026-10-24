@@ -12,7 +12,7 @@ import (
 )
 
 var held = domain.Confirmation{
-	ID: "c-1", OwnerID: "u-1", Kind: domain.ConfirmRun, WorkflowID: "wf-1", Agent: "Claude Code",
+	ID: "c-1", OwnerID: "u-1", Kind: domain.ConfirmRun, WorkflowID: "wf-1", GrantID: "g-1", Agent: "Claude Code",
 	What: `Run "Spread watch" by hand, which trades live`, Status: domain.ConfirmPending, CreatedAt: at, ExpiresAt: at.Add(time.Hour),
 }
 

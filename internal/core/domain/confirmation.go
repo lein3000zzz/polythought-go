@@ -44,10 +44,10 @@ type Confirmation struct {
 	// WorkflowID is the workflow it is about; empty for the kill switch.
 	WorkflowID WorkflowID
 
-	// Who asked: an agent's grant, by its name, or an API token, with their scopes then.
+	// Who asked: an agent's grant or an API token, by its name then, with its scopes then.
 	GrantID GrantID
 	TokenID APITokenID
-	Agent   string
+	Agent   string // the agent's name, or the token's
 	Scopes  []Scope
 
 	What    string          // what it does, said for the user
@@ -74,10 +74,13 @@ func (c Confirmation) StatusAt(now time.Time) ConfirmStatus {
 	return c.Status
 }
 
-// Asker is who asked, for the user: the agent by name, or a token.
+// Asker is who asked, for the user: the agent by its name, or the token by its.
 func (c Confirmation) Asker() string {
-	if c.Agent != "" {
+	switch {
+	case c.GrantID != "" && c.Agent != "":
 		return c.Agent
+	case c.GrantID == "" && c.Agent != "":
+		return "the API token “" + c.Agent + "”"
 	}
 
 	return "an API token"

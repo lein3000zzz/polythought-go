@@ -56,7 +56,7 @@ func TestWorkflows(t *testing.T) {
 			_, err := repo.Get(ctx, stranger.ID, w.ID)
 			assert.ErrorIs(t, err, domain.ErrNotFound)
 			assert.ErrorIs(t, repo.Delete(ctx, stranger.ID, w.ID), domain.ErrNotFound)
-			assert.ErrorIs(t, repo.SetActive(ctx, stranger.ID, w.ID, true, at), domain.ErrNotFound)
+			assert.ErrorIs(t, repo.SetActive(ctx, stranger.ID, w.ID, true, at, domain.Actor{}), domain.ErrNotFound)
 
 			w.OwnerID = stranger.ID
 			w.Version = 2
@@ -82,7 +82,7 @@ func TestWorkflows(t *testing.T) {
 			a, b := newWorkflow(owner.ID, "a"), newWorkflow(owner.ID, "b")
 			require.NoError(t, repo.Create(ctx, a))
 			require.NoError(t, repo.Create(ctx, b))
-			require.NoError(t, repo.SetActive(ctx, owner.ID, b.ID, true, at))
+			require.NoError(t, repo.SetActive(ctx, owner.ID, b.ID, true, at, domain.Actor{}))
 
 			other := newWorkflow(seedUser(t, db, "eve@x.io", domain.RoleUser).ID, "c")
 			other.Active = true

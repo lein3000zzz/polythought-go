@@ -466,6 +466,12 @@ func (s *Service) Update(ctx context.Context, p auth.Principal, id domain.Workfl
 	w.Version = version + 1
 	w.UpdatedAt = s.now()
 
+	// A token's or an agent's change to one that is on names it on its runs, until it is
+	// switched again (D407); the user's leaves it as it was.
+	if w.Active && !p.Itself() {
+		w.ActedBy = p.Actor(domain.ActorChanged)
+	}
+
 	if err := s.repo.Update(ctx, w, version); err != nil {
 		return domain.Workflow{}, err
 	}
@@ -552,7 +558,13 @@ func (s *Service) Activate(ctx context.Context, p auth.Principal, id domain.Work
 		}
 	}
 
-	if err := s.repo.SetActive(ctx, p.User.ID, id, true, s.now()); err != nil {
+	// Switching it on names who did, on its runs, until it is switched again (D407); one
+	// on already stays as it was.
+	if !w.Active {
+		w.ActedBy = p.Actor(domain.ActorSwitchedOn)
+	}
+
+	if err := s.repo.SetActive(ctx, p.User.ID, id, true, s.now(), w.ActedBy); err != nil {
 		return domain.Workflow{}, err
 	}
 
@@ -568,12 +580,12 @@ func (s *Service) Deactivate(ctx context.Context, p auth.Principal, id domain.Wo
 		return domain.Workflow{}, err
 	}
 
-	if err := s.repo.SetActive(ctx, p.User.ID, id, false, s.now()); err != nil {
+	if err := s.repo.SetActive(ctx, p.User.ID, id, false, s.now(), domain.Actor{}); err != nil {
 		return domain.Workflow{}, err
 	}
 
 	s.supervisor.Stop(id)
-	w.Active = false
+	w.Active, w.ActedBy = false, domain.Actor{}
 
 	// Switched off is off: executions that wait would carry on otherwise.
 	if s.waits != nil {
@@ -652,7 +664,7 @@ func (s *Service) Pause(ctx context.Context, why func(w domain.Workflow) string)
 			continue
 		}
 
-		if err := s.repo.SetActive(ctx, w.OwnerID, w.ID, false, s.now()); err != nil {
+		if err := s.repo.SetActive(ctx, w.OwnerID, w.ID, false, s.now(), domain.Actor{}); err != nil {
 			return paused, err
 		}
 
@@ -719,7 +731,7 @@ func (s *Service) Run(ctx context.Context, p auth.Principal, id domain.WorkflowI
 		return domain.Execution{}, err
 	}
 
-	res, err := s.executor.Execute(ctx, w, trigger, output, engine.KeepSamples())
+	res, err := s.executor.Execute(ctx, w, trigger, output, engine.KeepSamples(), engine.By(p.Actor(domain.ActorRan)))
 	if err != nil {
 		return domain.Execution{}, err
 	}

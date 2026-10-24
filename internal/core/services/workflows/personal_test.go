@@ -151,7 +151,7 @@ func TestPersonalKept(t *testing.T) {
 		svc, d := withPersonal(t)
 		d.repo.EXPECT().Get(mock.Anything, domain.UserID("u-1"), domain.WorkflowID("wf-1")).Return(hooked(), nil)
 		d.repo.EXPECT().Count(mock.Anything, mock.Anything).Return(0, 0, nil)
-		d.repo.EXPECT().SetActive(mock.Anything, domain.UserID("u-1"), domain.WorkflowID("wf-1"), true, now).Return(nil)
+		d.repo.EXPECT().SetActive(mock.Anything, domain.UserID("u-1"), domain.WorkflowID("wf-1"), true, now, mock.Anything).Return(nil)
 
 		var started domain.Workflow
 		d.supervisor.EXPECT().Start(mock.Anything).Run(func(w domain.Workflow) { started = w })

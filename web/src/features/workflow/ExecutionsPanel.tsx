@@ -6,6 +6,7 @@ import { ErrorAlert } from '@/components/ErrorAlert'
 import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
 import { Switch } from '@/components/ui/switch'
+import { actorSays } from '@/lib/actors'
 import { formatDuration, formatTime } from '@/lib/format'
 
 import { ExecutionStatus } from './ExecutionStatus'
@@ -86,6 +87,9 @@ export function ExecutionsPanel({
                 </span>
                 <span className="w-28 truncate text-muted-foreground">{e.triggeredBy}</span>
                 <span className="w-20 text-muted-foreground">v{e.workflowVersion}</span>
+                {e.by && (
+                  <span className="max-w-64 truncate text-muted-foreground">{actorSays(e.by)}</span>
+                )}
                 {e.error && (
                   <span className="min-w-0 flex-1 truncate text-destructive">{e.error}</span>
                 )}

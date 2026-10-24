@@ -522,16 +522,16 @@ func (_c *MockWorkflowRepository_ListActive_Call) RunAndReturn(run func(ctx cont
 }
 
 // SetActive provides a mock function for the type MockWorkflowRepository
-func (_mock *MockWorkflowRepository) SetActive(ctx context.Context, owner domain.UserID, id domain.WorkflowID, active bool, at time.Time) error {
-	ret := _mock.Called(ctx, owner, id, active, at)
+func (_mock *MockWorkflowRepository) SetActive(ctx context.Context, owner domain.UserID, id domain.WorkflowID, active bool, at time.Time, by domain.Actor) error {
+	ret := _mock.Called(ctx, owner, id, active, at, by)
 
 	if len(ret) == 0 {
 		panic("no return value specified for SetActive")
 	}
 
 	var r0 error
-	if returnFunc, ok := ret.Get(0).(func(context.Context, domain.UserID, domain.WorkflowID, bool, time.Time) error); ok {
-		r0 = returnFunc(ctx, owner, id, active, at)
+	if returnFunc, ok := ret.Get(0).(func(context.Context, domain.UserID, domain.WorkflowID, bool, time.Time, domain.Actor) error); ok {
+		r0 = returnFunc(ctx, owner, id, active, at, by)
 	} else {
 		r0 = ret.Error(0)
 	}
@@ -549,11 +549,12 @@ type MockWorkflowRepository_SetActive_Call struct {
 //   - id domain.WorkflowID
 //   - active bool
 //   - at time.Time
-func (_e *MockWorkflowRepository_Expecter) SetActive(ctx any, owner any, id any, active any, at any) *MockWorkflowRepository_SetActive_Call {
-	return &MockWorkflowRepository_SetActive_Call{Call: _e.mock.On("SetActive", ctx, owner, id, active, at)}
+//   - by domain.Actor
+func (_e *MockWorkflowRepository_Expecter) SetActive(ctx any, owner any, id any, active any, at any, by any) *MockWorkflowRepository_SetActive_Call {
+	return &MockWorkflowRepository_SetActive_Call{Call: _e.mock.On("SetActive", ctx, owner, id, active, at, by)}
 }
 
-func (_c *MockWorkflowRepository_SetActive_Call) Run(run func(ctx context.Context, owner domain.UserID, id domain.WorkflowID, active bool, at time.Time)) *MockWorkflowRepository_SetActive_Call {
+func (_c *MockWorkflowRepository_SetActive_Call) Run(run func(ctx context.Context, owner domain.UserID, id domain.WorkflowID, active bool, at time.Time, by domain.Actor)) *MockWorkflowRepository_SetActive_Call {
 	_c.Call.Run(func(args mock.Arguments) {
 		var arg0 context.Context
 		if args[0] != nil {
@@ -575,12 +576,17 @@ func (_c *MockWorkflowRepository_SetActive_Call) Run(run func(ctx context.Contex
 		if args[4] != nil {
 			arg4 = args[4].(time.Time)
 		}
+		var arg5 domain.Actor
+		if args[5] != nil {
+			arg5 = args[5].(domain.Actor)
+		}
 		run(
 			arg0,
 			arg1,
 			arg2,
 			arg3,
 			arg4,
+			arg5,
 		)
 	})
 	return _c
@@ -591,7 +597,7 @@ func (_c *MockWorkflowRepository_SetActive_Call) Return(err error) *MockWorkflow
 	return _c
 }
 
-func (_c *MockWorkflowRepository_SetActive_Call) RunAndReturn(run func(ctx context.Context, owner domain.UserID, id domain.WorkflowID, active bool, at time.Time) error) *MockWorkflowRepository_SetActive_Call {
+func (_c *MockWorkflowRepository_SetActive_Call) RunAndReturn(run func(ctx context.Context, owner domain.UserID, id domain.WorkflowID, active bool, at time.Time, by domain.Actor) error) *MockWorkflowRepository_SetActive_Call {
 	_c.Call.Return(run)
 	return _c
 }

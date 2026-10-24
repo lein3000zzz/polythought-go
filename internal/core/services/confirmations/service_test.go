@@ -200,6 +200,10 @@ func TestHold(t *testing.T) {
 	confirmed.Confirmed = true
 	require.NoError(t, svc.Hold(ctx, confirmed, domain.ConfirmRun, "wf-1", "x", nil), "one the user confirmed")
 
+	deploy := auth.Principal{User: alice, TokenID: "t-1", TokenName: "deploy", Scopes: []domain.Scope{domain.ScopeLive}}
+	byToken := held(t, svc.Hold(ctx, deploy, domain.ConfirmKillOff, "", "Turn your kill switch off", nil))
+	assert.Equal(t, "the API token “deploy”", byToken.Asker(), "a token by its name")
+
 	lets := agent
 	lets.User.Unconfirmed.Run = true
 	require.NoError(t, svc.Hold(ctx, lets, domain.ConfirmSwitchOn, "wf-1", "x", nil), "switching on goes with running")

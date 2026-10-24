@@ -79,6 +79,12 @@ they finish** to watch an active workflow. Select a run to see it on the canvas:
 shows what it did in that run, and a note says when the run used an older version of the
 workflow.
 
+A run an [agent](/docs/architecture/agents/#agents-over-mcp) or an API token is behind says
+which: run by it by hand; or started by its trigger while the workflow is on, the agent
+having switched it on or changed it while on, until it is switched on or off again by
+anyone. Tokens go by their names; **confirmed by you** says the agent's asking waited for
+your yes.
+
 ## More actions
 
 The **⋮** menu shares the workflow to the [library](/docs/guides/library/) or deletes it.

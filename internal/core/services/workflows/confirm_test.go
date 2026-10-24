@@ -98,7 +98,7 @@ func TestLiveActionsWait(t *testing.T) {
 		svc, d, h := withConfirmations(t, false)
 		d.repo.EXPECT().Get(mock.Anything, domain.UserID("u-1"), domain.WorkflowID("wf-1")).Return(manualFlow(), nil)
 		d.repo.EXPECT().Count(mock.Anything, domain.UserID("u-1")).Return(1, 0, nil)
-		d.repo.EXPECT().SetActive(mock.Anything, domain.UserID("u-1"), domain.WorkflowID("wf-1"), true, now).Return(nil)
+		d.repo.EXPECT().SetActive(mock.Anything, domain.UserID("u-1"), domain.WorkflowID("wf-1"), true, now, mock.Anything).Return(nil)
 		d.supervisor.EXPECT().Start(mock.Anything)
 
 		_, err := svc.Activate(ctx, agentOn, "wf-1")
@@ -108,7 +108,7 @@ func TestLiveActionsWait(t *testing.T) {
 		live, d, h := withConfirmations(t, true)
 		d.repo.EXPECT().Get(mock.Anything, domain.UserID("u-1"), domain.WorkflowID("wf-1")).Return(manualFlow(), nil)
 		d.repo.EXPECT().Count(mock.Anything, domain.UserID("u-1")).Return(1, 0, nil)
-		d.repo.EXPECT().SetActive(mock.Anything, domain.UserID("u-1"), domain.WorkflowID("wf-1"), true, now).Return(nil)
+		d.repo.EXPECT().SetActive(mock.Anything, domain.UserID("u-1"), domain.WorkflowID("wf-1"), true, now, mock.Anything).Return(nil)
 		d.supervisor.EXPECT().Start(mock.Anything)
 
 		confirmed := agentOn

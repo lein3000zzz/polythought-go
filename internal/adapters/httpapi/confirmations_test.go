@@ -17,7 +17,7 @@ import (
 )
 
 var waiting = domain.Confirmation{
-	ID: "c-1", OwnerID: "u-1", Kind: domain.ConfirmRun, WorkflowID: "wf-1", Agent: "Claude Code",
+	ID: "c-1", OwnerID: "u-1", Kind: domain.ConfirmRun, WorkflowID: "wf-1", GrantID: "g-1", Agent: "Claude Code",
 	What: `Run "Spread watch" by hand, which trades live`, Status: domain.ConfirmPending,
 	CreatedAt: time.Date(2026, 10, 24, 12, 0, 0, 0, time.UTC), ExpiresAt: time.Date(2026, 10, 24, 13, 0, 0, 0, time.UTC),
 }

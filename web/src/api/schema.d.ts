@@ -2077,6 +2077,19 @@ export interface components {
              */
             worth: string;
         };
+        Actor: {
+            /** @description Confirmed says you confirmed it first, as it waited for you (D406). */
+            confirmed?: boolean;
+            /**
+             * @description How: it ran this by hand (run), switched its workflow on (switched_on), or changed it
+             *     while on (changed).
+             * @enum {string}
+             */
+            how: "run" | "switched_on" | "changed";
+            /** @enum {string} */
+            kind: "agent" | "token";
+            name: string;
+        };
         AgentAccessRequest: {
             /** @description Answer lets them answer the questions the user's workflows ask (D405). */
             answer?: boolean;
@@ -2481,6 +2494,8 @@ export interface components {
             workflows?: components["schemas"]["BrokenWorkflow"][];
         };
         Execution: {
+            /** @description By is the agent or token behind it (D407): absent for you. */
+            by?: components["schemas"]["Actor"];
             durationMs: number;
             error?: string;
             /** Format: date-time */
@@ -3772,6 +3787,11 @@ export interface components {
             wallets: components["schemas"]["Wallet"][];
         };
         Workflow: {
+            /**
+             * @description ActedBy is the agent or token that switched it on, or changed it while on, named on
+             *     its runs until it is switched again (D407); absent for you.
+             */
+            actedBy?: components["schemas"]["Actor"];
             active: boolean;
             connections: components["schemas"]["Connection"][];
             /** Format: date-time */

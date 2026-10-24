@@ -42,7 +42,7 @@ func (a *asker) CloseQuestion(_ context.Context, _ domain.UserID, id int, html s
 }
 
 var asking = domain.Confirmation{
-	ID: "c-1", OwnerID: "alice", Kind: domain.ConfirmRun, Agent: "Claude <Code>", What: `Run "Spread watch" by hand, which trades live`,
+	ID: "c-1", OwnerID: "alice", Kind: domain.ConfirmRun, GrantID: "g-1", Agent: "Claude <Code>", What: `Run "Spread watch" by hand, which trades live`,
 	Status: domain.ConfirmPending, ExpiresAt: time.Date(2026, 10, 14, 13, 0, 0, 0, time.UTC),
 }
 

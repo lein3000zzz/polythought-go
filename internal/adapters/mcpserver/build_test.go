@@ -90,7 +90,8 @@ var (
 		},
 	}
 	triggered = domain.Execution{ID: "ex-2", WorkflowID: "wf-1", Status: domain.ExecutionFailed, StartedAt: at, Error: "node \"log\" failed",
-		Runs: []domain.NodeRun{{NodeID: "log", Status: domain.NodeRunFailed, StartedAt: at, Error: "boom"}}}
+		Runs: []domain.NodeRun{{NodeID: "log", Status: domain.NodeRunFailed, StartedAt: at, Error: "boom"}},
+		By:   domain.Actor{GrantID: "g-1", Name: "Claude Code", How: domain.ActorSwitchedOn, Confirmed: true}}
 )
 
 func (workflows) Executions(context.Context, auth.Principal, domain.WorkflowID, ports.PageFilter) (ports.Page[domain.Execution], error) {
@@ -325,6 +326,11 @@ func TestBuildTools(t *testing.T) {
 		second, _ := call(t, agent, "get_execution_items", map[string]any{"workflow": "wf-1", "execution": "ex-1", "cursor": first["next"]})
 		assert.Nil(t, second["next"])
 		assert.Equal(t, 3, len(first["nodes"].([]any))+len(second["nodes"].([]any)))
+
+		// Its workflow switched on by an agent: the agent is behind it (D407).
+		failed, _ := call(t, agent, "get_execution", map[string]any{"workflow": "wf-1", "execution": "ex-2"})
+		assert.Equal(t, map[string]any{"kind": "agent", "name": "Claude Code", "how": "switched_on", "confirmed": true}, failed["by"])
+		assert.NotContains(t, ex, "by", "the user's own")
 
 		none, _ := call(t, agent, "get_execution_items", map[string]any{"workflow": "wf-1", "execution": "ex-2"})
 		assert.Contains(t, none["note"], "runs started by hand keep")
