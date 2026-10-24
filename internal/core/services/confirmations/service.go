@@ -33,6 +33,14 @@ const (
 // it, said for the user, such as an execution's ID.
 type Do func(ctx context.Context, p auth.Principal, c domain.Confirmation) (string, error)
 
+// Notifier tells the user of what waits for them, each way they chose, and says there how
+// it was decided: the notify service.
+type Notifier interface {
+	// ConfirmationAsked gives the Telegram message's ID, 0 when none went.
+	ConfirmationAsked(ctx context.Context, c domain.Confirmation) (int, error)
+	ConfirmationClosed(ctx context.Context, c domain.Confirmation)
+}
+
 // Users records which actions a user lets go unconfirmed.
 type Users interface {
 	SetUnconfirmed(ctx context.Context, id domain.UserID, u domain.Unconfirmed) error
@@ -44,6 +52,7 @@ type Service struct {
 	log    logging.Logger
 	now    func() time.Time
 	expiry func() time.Duration
+	notify Notifier
 
 	mu sync.Mutex
 	do map[domain.ConfirmKind]Do
@@ -54,6 +63,11 @@ type Option func(*Service)
 
 func WithClock(now func() time.Time) Option {
 	return func(s *Service) { s.now = now }
+}
+
+// WithNotifier tells users of what waits for them, on Telegram with buttons.
+func WithNotifier(n Notifier) Option {
+	return func(s *Service) { s.notify = n }
 }
 
 // WithExpiry is how long one waits for its user, read as each is made: an hour without it.
@@ -120,10 +134,40 @@ func (s *Service) Hold(ctx context.Context, p auth.Principal, kind domain.Confir
 		return err
 	}
 
+	s.tell(ctx, &c)
+
 	s.log.Info(ctx, "Live action waits for its user", "user_id", p.User.ID, "confirmation_id", c.ID, "kind", kind,
 		"workflow_id", wf, "grant_id", p.GrantID, "token_id", p.TokenID)
 
 	return &domain.AwaitingError{Confirmation: c}
+}
+
+// tell tells the user, the action waiting whatever comes of it, and keeps the message.
+func (s *Service) tell(ctx context.Context, c *domain.Confirmation) {
+	if s.notify == nil {
+		return
+	}
+
+	msg, err := s.notify.ConfirmationAsked(ctx, *c)
+	if err != nil {
+		s.log.Warn(ctx, "User not told of a live action waiting", "confirmation_id", c.ID, logging.Err(err))
+	}
+
+	if msg == 0 {
+		return
+	}
+
+	c.Message = msg
+	if err := s.repo.SetMessage(ctx, c.ID, msg); err != nil {
+		s.log.Warn(ctx, "Confirmation's message not kept", "confirmation_id", c.ID, logging.Err(err))
+	}
+}
+
+// closed says, where the user was told, how one was decided or ended.
+func (s *Service) closed(ctx context.Context, c domain.Confirmation) {
+	if s.notify != nil {
+		s.notify.ConfirmationClosed(ctx, c)
+	}
 }
 
 // Recent are the user's, the newest first, each with its status now.
@@ -161,6 +205,8 @@ func (s *Service) Confirm(ctx context.Context, p auth.Principal, id domain.Confi
 		return domain.Confirmation{}, err
 	}
 
+	s.closed(ctx, c)
+
 	s.mu.Lock()
 	do := s.do[c.Kind]
 	s.mu.Unlock()
@@ -190,6 +236,10 @@ func (s *Service) Confirm(ctx context.Context, p auth.Principal, id domain.Confi
 			s.log.Error(ctx, "Confirmed action's end not kept", "confirmation_id", c.ID, logging.Err(err))
 		}
 
+		ended := c
+		ended.Status, ended.Result = status, result
+		s.closed(ctx, ended)
+
 		s.log.Info(ctx, "Confirmed action carried out", "user_id", c.OwnerID, "confirmation_id", c.ID, "kind", c.Kind, "status", status)
 	}()
 
@@ -201,14 +251,16 @@ func (s *Service) Refuse(ctx context.Context, p auth.Principal, id domain.Confir
 	c, err := s.decide(ctx, p, id, domain.ConfirmRefused)
 	if err == nil {
 		s.log.Info(ctx, "Live action refused", "user_id", c.OwnerID, "confirmation_id", c.ID, "kind", c.Kind)
+		s.closed(ctx, c)
 	}
 
 	return c, err
 }
 
 func (s *Service) decide(ctx context.Context, p auth.Principal, id domain.ConfirmationID, status domain.ConfirmStatus) (domain.Confirmation, error) {
-	if !p.ViaSession() {
-		return domain.Confirmation{}, fmt.Errorf("%w: only the user, at a browser, confirms or refuses", domain.ErrForbidden)
+	// The user at a browser, or in their own Telegram chat; never a token or an agent.
+	if !p.Itself() {
+		return domain.Confirmation{}, fmt.Errorf("%w: only the user confirms or refuses, at a browser or on Telegram", domain.ErrForbidden)
 	}
 
 	c, err := s.repo.Decide(ctx, p.User.ID, id, status, s.now())
@@ -219,6 +271,11 @@ func (s *Service) decide(ctx context.Context, p auth.Principal, id domain.Confir
 	now, err := s.Get(ctx, p, id)
 	if err != nil {
 		return domain.Confirmation{}, err
+	}
+
+	// Its buttons, pressed too late, say how it ended.
+	if now.Status == domain.ConfirmExpired {
+		s.closed(ctx, now)
 	}
 
 	return domain.Confirmation{}, fmt.Errorf("%w: it is %s already", domain.ErrConflict, now.Status)

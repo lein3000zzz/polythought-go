@@ -37,7 +37,7 @@ func (r *Confirmations) Create(ctx context.Context, c domain.Confirmation) error
 	m := model.Confirmations{
 		ID: id, OwnerID: owner, Kind: string(c.Kind), GrantID: string(c.GrantID), TokenID: string(c.TokenID), Agent: c.Agent,
 		Scopes: scopesArray(c.Scopes), What: c.What, Payload: string(c.Payload), Status: string(c.Status), Result: c.Result,
-		CreatedAt: c.CreatedAt, ExpiresAt: c.ExpiresAt, DecidedAt: timePtr(c.DecidedAt),
+		CreatedAt: c.CreatedAt, ExpiresAt: c.ExpiresAt, DecidedAt: timePtr(c.DecidedAt), TelegramMessage: int64(c.Message),
 	}
 
 	if c.WorkflowID != "" {
@@ -166,6 +166,20 @@ func (r *Confirmations) Finish(ctx context.Context, id domain.ConfirmationID, st
 		ExecContext(ctx, r.db.conn(ctx)))
 }
 
+func (r *Confirmations) SetMessage(ctx context.Context, id domain.ConfirmationID, message int) error {
+	cid, err := parseID(id)
+	if err != nil {
+		return err
+	}
+
+	c := table.Confirmations
+
+	return affectedOne(c.UPDATE(c.TelegramMessage).
+		SET(jet.Int64(int64(message))).
+		WHERE(c.ID.EQ(jet.UUID(cid))).
+		ExecContext(ctx, r.db.conn(ctx)))
+}
+
 func ofOwner(owner domain.UserID, id domain.ConfirmationID) (jet.BoolExpression, error) {
 	oid, err := parseID(owner)
 	if err != nil {
@@ -185,7 +199,7 @@ func confirmationOf(m model.Confirmations) domain.Confirmation {
 		ID: domain.ConfirmationID(m.ID.String()), OwnerID: domain.UserID(m.OwnerID.String()), Kind: domain.ConfirmKind(m.Kind),
 		GrantID: domain.GrantID(m.GrantID), TokenID: domain.APITokenID(m.TokenID), Agent: m.Agent, Scopes: toScopes(m.Scopes),
 		What: m.What, Payload: []byte(m.Payload), Status: domain.ConfirmStatus(m.Status), Result: m.Result,
-		CreatedAt: m.CreatedAt.UTC(), ExpiresAt: m.ExpiresAt.UTC(),
+		CreatedAt: m.CreatedAt.UTC(), ExpiresAt: m.ExpiresAt.UTC(), Message: int(m.TelegramMessage),
 	}
 
 	if m.WorkflowID != nil {

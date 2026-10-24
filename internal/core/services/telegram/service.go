@@ -65,7 +65,8 @@ type Service struct {
 	log   logging.Logger
 	now   func() time.Time
 
-	answers Answers // nil until UseAnswers
+	answers  Answers  // nil until UseAnswers
+	confirms Confirms // nil until UseConfirmations
 
 	mu      sync.Mutex
 	relinks map[int64]relink // by Telegram user: a link to another account, waiting for a yes (R10)
@@ -440,6 +441,11 @@ func (s *Service) callback(ctx context.Context, cb ports.TelegramCallback) {
 
 	if strings.HasPrefix(cb.Data, dataAsk) {
 		s.answerQuestion(ctx, cb, user)
+		return
+	}
+
+	if strings.HasPrefix(cb.Data, dataConfirm) {
+		s.confirmPress(ctx, cb, user)
 		return
 	}
 

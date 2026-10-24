@@ -56,6 +56,11 @@ Under **Settings → Notifications**, choose what Polythought tells you about:
 - **A question waits for your answer**: a [question](#questions) is still unanswered with a
   quarter of its time left. The bot replies to it once, saying how long it stays open.
   Only for questions open 10 minutes or more.
+- **An agent asks you to confirm a live action**: an agent over MCP, or an API token, asks to
+  go live, switch on or run a workflow that trades live, change one that is on, or turn your
+  kill switch off, where you have that wait for you (Settings → Connected agents). The
+  message has a **Confirm** and a **Refuse** button; pressed, or decided in the app, it says
+  how it went. On to start with; by mail only if you turn that on.
 - **A session key is about to expire**: a wallet's [session key](/docs/guides/concepts/#wallets)
   expires in 14 days or less, or has expired. Once per key, with the day it expires.
 - **A live trade fails**: a [live order](/docs/guides/copy-traders/#trading-live) matched on

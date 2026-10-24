@@ -83,11 +83,13 @@ func TestConfirmations(t *testing.T) {
 		require.ErrorIs(t, err, domain.ErrConflict, "expired")
 
 		require.NoError(t, repo.Finish(ctx, run.ID, domain.ConfirmDone, "execution ex-1, succeeded"))
+		require.NoError(t, repo.SetMessage(ctx, run.ID, 12))
 
 		done, err := repo.Get(ctx, alice.ID, run.ID)
 		require.NoError(t, err)
 		assert.Equal(t, domain.ConfirmDone, done.Status)
 		assert.Equal(t, "execution ex-1, succeeded", done.Result)
+		assert.Equal(t, 12, done.Message, "its Telegram message, to say there how it went")
 	})
 }
 

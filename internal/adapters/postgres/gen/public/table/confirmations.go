@@ -17,21 +17,22 @@ type confirmationsTable struct {
 	postgres.Table
 
 	// Columns
-	ID         postgres.ColumnString
-	OwnerID    postgres.ColumnString
-	Kind       postgres.ColumnString
-	WorkflowID postgres.ColumnString
-	GrantID    postgres.ColumnString
-	TokenID    postgres.ColumnString
-	Agent      postgres.ColumnString
-	Scopes     postgres.ColumnStringArray
-	What       postgres.ColumnString
-	Payload    postgres.ColumnString
-	Status     postgres.ColumnString
-	Result     postgres.ColumnString
-	CreatedAt  postgres.ColumnTimestampz
-	ExpiresAt  postgres.ColumnTimestampz
-	DecidedAt  postgres.ColumnTimestampz
+	ID              postgres.ColumnString
+	OwnerID         postgres.ColumnString
+	Kind            postgres.ColumnString
+	WorkflowID      postgres.ColumnString
+	GrantID         postgres.ColumnString
+	TokenID         postgres.ColumnString
+	Agent           postgres.ColumnString
+	Scopes          postgres.ColumnStringArray
+	What            postgres.ColumnString
+	Payload         postgres.ColumnString
+	Status          postgres.ColumnString
+	Result          postgres.ColumnString
+	CreatedAt       postgres.ColumnTimestampz
+	ExpiresAt       postgres.ColumnTimestampz
+	DecidedAt       postgres.ColumnTimestampz
+	TelegramMessage postgres.ColumnInteger
 
 	AllColumns     postgres.ColumnList
 	MutableColumns postgres.ColumnList
@@ -73,45 +74,47 @@ func newConfirmationsTable(schemaName, tableName, alias string) *ConfirmationsTa
 
 func newConfirmationsTableImpl(schemaName, tableName, alias string) confirmationsTable {
 	var (
-		IDColumn         = postgres.StringColumn("id")
-		OwnerIDColumn    = postgres.StringColumn("owner_id")
-		KindColumn       = postgres.StringColumn("kind")
-		WorkflowIDColumn = postgres.StringColumn("workflow_id")
-		GrantIDColumn    = postgres.StringColumn("grant_id")
-		TokenIDColumn    = postgres.StringColumn("token_id")
-		AgentColumn      = postgres.StringColumn("agent")
-		ScopesColumn     = postgres.StringArrayColumn("scopes")
-		WhatColumn       = postgres.StringColumn("what")
-		PayloadColumn    = postgres.StringColumn("payload")
-		StatusColumn     = postgres.StringColumn("status")
-		ResultColumn     = postgres.StringColumn("result")
-		CreatedAtColumn  = postgres.TimestampzColumn("created_at")
-		ExpiresAtColumn  = postgres.TimestampzColumn("expires_at")
-		DecidedAtColumn  = postgres.TimestampzColumn("decided_at")
-		allColumns       = postgres.ColumnList{IDColumn, OwnerIDColumn, KindColumn, WorkflowIDColumn, GrantIDColumn, TokenIDColumn, AgentColumn, ScopesColumn, WhatColumn, PayloadColumn, StatusColumn, ResultColumn, CreatedAtColumn, ExpiresAtColumn, DecidedAtColumn}
-		mutableColumns   = postgres.ColumnList{OwnerIDColumn, KindColumn, WorkflowIDColumn, GrantIDColumn, TokenIDColumn, AgentColumn, ScopesColumn, WhatColumn, PayloadColumn, StatusColumn, ResultColumn, CreatedAtColumn, ExpiresAtColumn, DecidedAtColumn}
-		defaultColumns   = postgres.ColumnList{GrantIDColumn, TokenIDColumn, AgentColumn, ResultColumn}
+		IDColumn              = postgres.StringColumn("id")
+		OwnerIDColumn         = postgres.StringColumn("owner_id")
+		KindColumn            = postgres.StringColumn("kind")
+		WorkflowIDColumn      = postgres.StringColumn("workflow_id")
+		GrantIDColumn         = postgres.StringColumn("grant_id")
+		TokenIDColumn         = postgres.StringColumn("token_id")
+		AgentColumn           = postgres.StringColumn("agent")
+		ScopesColumn          = postgres.StringArrayColumn("scopes")
+		WhatColumn            = postgres.StringColumn("what")
+		PayloadColumn         = postgres.StringColumn("payload")
+		StatusColumn          = postgres.StringColumn("status")
+		ResultColumn          = postgres.StringColumn("result")
+		CreatedAtColumn       = postgres.TimestampzColumn("created_at")
+		ExpiresAtColumn       = postgres.TimestampzColumn("expires_at")
+		DecidedAtColumn       = postgres.TimestampzColumn("decided_at")
+		TelegramMessageColumn = postgres.IntegerColumn("telegram_message")
+		allColumns            = postgres.ColumnList{IDColumn, OwnerIDColumn, KindColumn, WorkflowIDColumn, GrantIDColumn, TokenIDColumn, AgentColumn, ScopesColumn, WhatColumn, PayloadColumn, StatusColumn, ResultColumn, CreatedAtColumn, ExpiresAtColumn, DecidedAtColumn, TelegramMessageColumn}
+		mutableColumns        = postgres.ColumnList{OwnerIDColumn, KindColumn, WorkflowIDColumn, GrantIDColumn, TokenIDColumn, AgentColumn, ScopesColumn, WhatColumn, PayloadColumn, StatusColumn, ResultColumn, CreatedAtColumn, ExpiresAtColumn, DecidedAtColumn, TelegramMessageColumn}
+		defaultColumns        = postgres.ColumnList{GrantIDColumn, TokenIDColumn, AgentColumn, ResultColumn, TelegramMessageColumn}
 	)
 
 	return confirmationsTable{
 		Table: postgres.NewTable(schemaName, tableName, alias, allColumns...),
 
 		//Columns
-		ID:         IDColumn,
-		OwnerID:    OwnerIDColumn,
-		Kind:       KindColumn,
-		WorkflowID: WorkflowIDColumn,
-		GrantID:    GrantIDColumn,
-		TokenID:    TokenIDColumn,
-		Agent:      AgentColumn,
-		Scopes:     ScopesColumn,
-		What:       WhatColumn,
-		Payload:    PayloadColumn,
-		Status:     StatusColumn,
-		Result:     ResultColumn,
-		CreatedAt:  CreatedAtColumn,
-		ExpiresAt:  ExpiresAtColumn,
-		DecidedAt:  DecidedAtColumn,
+		ID:              IDColumn,
+		OwnerID:         OwnerIDColumn,
+		Kind:            KindColumn,
+		WorkflowID:      WorkflowIDColumn,
+		GrantID:         GrantIDColumn,
+		TokenID:         TokenIDColumn,
+		Agent:           AgentColumn,
+		Scopes:          ScopesColumn,
+		What:            WhatColumn,
+		Payload:         PayloadColumn,
+		Status:          StatusColumn,
+		Result:          ResultColumn,
+		CreatedAt:       CreatedAtColumn,
+		ExpiresAt:       ExpiresAtColumn,
+		DecidedAt:       DecidedAtColumn,
+		TelegramMessage: TelegramMessageColumn,
 
 		AllColumns:     allColumns,
 		MutableColumns: mutableColumns,

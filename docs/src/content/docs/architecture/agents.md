@@ -128,5 +128,13 @@ what it does in a sentence, and what carrying it out needs; the agent hears that
 and `get_confirmation` says how it went. The user confirms or refuses it at a browser,
 from a bar on every page, before it expires, an hour unless an admin changes it; confirmed,
 it is carried out as the agent asked, with its scopes then, and how it ended is kept. The
-user's own actions never wait, nor does turning the kill switch on. Tools that trade are
-coming; this page will describe them as they do.
+user's own actions never wait, nor does turning the kill switch on. The user hears of one
+waiting as they chose, a notification of its own: on Telegram, on to start with, a message
+with a button to confirm and one to refuse, which then says how it was decided, wherever it
+was; by mail if they turn it on.
+
+The trading tools set how a workflow trades, on paper or live from one of the user's
+wallets, turn the kill switch on or off, reset a paper account, and cancel an order resting
+on the book, each held to its mode's scope. Going live where the user lets it go
+unconfirmed still needs the agent to say the user agreed to real money, as the app's dialog
+asks the user.

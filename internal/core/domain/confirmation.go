@@ -56,6 +56,10 @@ type Confirmation struct {
 	Status ConfirmStatus
 	Result string // what came of it: an execution's ID, or why it failed
 
+	// Message is the Telegram message that asked the user, to say there how it was
+	// decided; 0 when none went.
+	Message int
+
 	CreatedAt time.Time
 	ExpiresAt time.Time
 	DecidedAt time.Time // zero while pending

@@ -251,7 +251,8 @@ func (a *app) init(ctx context.Context) error {
 		mail.WithNotifications(postgres.NewUsers(a.db), func() bool { return a.settings.Current().Bool(config.KeyMailNotifications) }))
 
 	a.notify = notify.New(a.telegram, postgres.NewNotificationPrefs(a.db), postgres.NewWorkflows(a.db), a.cfg.PublicURL, a.util.Logger,
-		notify.WithMail(a.mail), notify.WithMarkets(pmc.reader), notify.WithAdmins(postgres.NewUsers(a.db)))
+		notify.WithMail(a.mail), notify.WithMarkets(pmc.reader), notify.WithAdmins(postgres.NewUsers(a.db)),
+		notify.WithConfirmAsker(a.telegram))
 
 	// Whether Polymarket takes orders from here (D186); serve checks it every 6 hours.
 	a.geoblock = geoblock.New(pmc.geoblock, a.util.Logger)
@@ -298,6 +299,7 @@ func (a *app) init(ctx context.Context) error {
 		Live: a.trading,
 	})
 	a.telegram.UseAnswers(a.waits)
+	a.telegram.UseConfirmations(a.confirmations)
 
 	a.auth, err = auth.New(authConfig(a.settings.Current()), auth.Repositories{
 		Users:        postgres.NewUsers(a.db),
@@ -336,6 +338,7 @@ func (a *app) newMCP() (*mcpserver.Server, error) {
 		Credentials:   a.credentials,
 		Sharing:       a.library,
 		Confirmations: a.confirmations,
+		Trader:        a.trading,
 		NodeTypes:     nodeTypes{types: a.customNodes, plugins: a.plugins},
 		CodeTypes:     codeTypes{types: a.customNodes},
 		Library:       a.library,
@@ -867,7 +870,8 @@ func (a *app) initEngine(ctx context.Context, pmc polymarket) error {
 
 	// Tokens' and agents' live actions wait for their users where they say so (D406).
 	a.confirmations = confirmations.New(postgres.NewConfirmations(a.db), postgres.NewUsers(a.db), a.util.Logger,
-		confirmations.WithExpiry(func() time.Duration { return a.settings.Current().Duration(config.KeyMCPConfirmFor) }))
+		confirmations.WithExpiry(func() time.Duration { return a.settings.Current().Duration(config.KeyMCPConfirmFor) }),
+		confirmations.WithNotifier(a.notify))
 	a.util.OnShutdown(a.confirmations.Wait)
 
 	a.trading = trading.New(trading.Deps{

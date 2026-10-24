@@ -73,9 +73,9 @@ export function ConfirmationsSection() {
       <div>
         <h3 className="font-medium">Confirm my agents' live actions</h3>
         <p className="text-sm text-muted-foreground">
-          While a switch is on, what an agent or an API token asks for waits here, and on every
-          page, until you confirm it; then it is carried out as it asked. Your own actions never
-          wait.
+          While a switch is on, what an agent or an API token asks for waits here, with a bar on
+          every page and a message on Telegram with its buttons, until you confirm it; then it is
+          carried out as it asked. Your own actions never wait. Notifications says how you are told.
         </p>
       </div>
 

@@ -14,19 +14,20 @@ import (
 )
 
 type Confirmations struct {
-	ID         uuid.UUID `sql:"primary_key"`
-	OwnerID    uuid.UUID
-	Kind       string
-	WorkflowID *uuid.UUID
-	GrantID    string
-	TokenID    string
-	Agent      string
-	Scopes     pq.StringArray
-	What       string
-	Payload    string
-	Status     string
-	Result     string
-	CreatedAt  time.Time
-	ExpiresAt  time.Time
-	DecidedAt  *time.Time
+	ID              uuid.UUID `sql:"primary_key"`
+	OwnerID         uuid.UUID
+	Kind            string
+	WorkflowID      *uuid.UUID
+	GrantID         string
+	TokenID         string
+	Agent           string
+	Scopes          pq.StringArray
+	What            string
+	Payload         string
+	Status          string
+	Result          string
+	CreatedAt       time.Time
+	ExpiresAt       time.Time
+	DecidedAt       *time.Time
+	TelegramMessage int64
 }

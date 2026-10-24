@@ -145,8 +145,8 @@ Users can connect agents such as Claude Code and Codex at the server's address f
 browser, where they choose what it may do, and **Settings → Connected agents** lists the
 agents allowed, to revoke. An API token works there too, with the scopes it was made with.
 Agents read workflows, executions, the node catalog, the library, the markets and the user's
-wallets and orders, and build workflows; `whoami` says who an agent acts for and what it may
-do. Tools that trade are being built.
+wallets and orders, build workflows, and trade, what reaches real money waiting for the
+user to confirm it where they say so; `whoami` says who an agent acts for and what it may do.
 
 Under **Agents over MCP** on the Config page:
 

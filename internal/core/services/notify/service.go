@@ -43,6 +43,7 @@ const (
 	groupLive      = "Live orders"
 	groupPaper     = "Paper orders"
 	groupAgents    = "AI agents"
+	groupConnected = "Connected agents"
 	groupAdmin     = "Admin"
 )
 
@@ -99,7 +100,7 @@ var Kinds = []Kind{
 	WorkflowFailed, ApprovalWaiting, SessionKeyExpiring, LiveTradeFailed,
 	LiveOrderFilled, LiveOrderRefused, LiveOrderUnfilled, LiveOrderRests, LiveOrderEnded,
 	PaperOrderFilled, PaperOrderRefused, PaperOrderUnfilled, PaperOrderRests, PaperOrderEnded,
-	AgentSpendWarned, AgentSpendCapped, WorkflowPaused, PluginCrashed, JoinRequested,
+	AgentSpendWarned, AgentSpendCapped, ConfirmationAsked, WorkflowPaused, PluginCrashed, JoinRequested,
 }
 
 const (
@@ -119,11 +120,13 @@ var (
 type Service struct {
 	messenger ports.UserMessenger
 	mail      ports.NotificationMail // optional: without it, nothing goes by mail
-	prefs     ports.NotificationPrefRepository
-	workflows ports.WorkflowRepository
-	publicURL string
-	log       logging.Logger
-	now       func() time.Time
+	// confirmAsker asks with buttons on Telegram (D406); optional.
+	confirmAsker ports.ConfirmAsker
+	prefs        ports.NotificationPrefRepository
+	workflows    ports.WorkflowRepository
+	publicURL    string
+	log          logging.Logger
+	now          func() time.Time
 
 	queue chan failure
 

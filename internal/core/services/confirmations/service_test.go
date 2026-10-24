@@ -106,6 +106,44 @@ func (m *memRepo) Finish(_ context.Context, id domain.ConfirmationID, status dom
 	return nil
 }
 
+func (m *memRepo) SetMessage(_ context.Context, id domain.ConfirmationID, message int) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	c := m.rows[id]
+	c.Message = message
+	m.rows[id] = c
+
+	return nil
+}
+
+// told is the notify service: Telegram's message is 42, and how each ended is kept.
+type told struct {
+	mu     sync.Mutex
+	asked  []domain.ConfirmationID
+	closed []domain.ConfirmStatus
+}
+
+func (t *told) ConfirmationAsked(_ context.Context, c domain.Confirmation) (int, error) {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+
+	t.asked = append(t.asked, c.ID)
+
+	return 42, nil
+}
+
+func (t *told) ConfirmationClosed(_ context.Context, c domain.Confirmation) {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+
+	if c.Message != 42 {
+		panic("closed without its message")
+	}
+
+	t.closed = append(t.closed, c.Status)
+}
+
 type users struct {
 	set domain.Unconfirmed
 }
@@ -293,4 +331,48 @@ func TestSetUnconfirmed(t *testing.T) {
 	require.ErrorIs(t, svc.SetUnconfirmed(ctx, agent, domain.Unconfirmed{Run: true}), domain.ErrForbidden, "an agent never loosens its own")
 	require.NoError(t, svc.SetUnconfirmed(ctx, atDesk, domain.Unconfirmed{Run: true}))
 	assert.Equal(t, domain.Unconfirmed{Run: true}, u.set)
+}
+
+// The user is told of what waits, and the message says how it was decided; in their own
+// Telegram chat they decide as at a browser (D406).
+func TestTold(t *testing.T) {
+	ctx := context.Background()
+	clock := at
+	repo := &memRepo{rows: map[domain.ConfirmationID]domain.Confirmation{}}
+	n := &told{}
+	svc := confirmations.New(repo, &users{}, logging.Noop(), confirmations.WithNotifier(n),
+		confirmations.WithClock(func() time.Time { return clock }))
+	svc.Handle(domain.ConfirmRun, func(context.Context, auth.Principal, domain.Confirmation) (string, error) {
+		return "execution ex-1, succeeded", nil
+	})
+
+	inTelegram := auth.Principal{User: alice}
+
+	run := held(t, svc.Hold(ctx, agent, domain.ConfirmRun, "wf-1", "Run it", nil))
+	assert.Equal(t, 42, run.Message)
+
+	kept, err := svc.Get(ctx, atDesk, run.ID)
+	require.NoError(t, err)
+	assert.Equal(t, 42, kept.Message, "the message kept, to close later")
+
+	_, err = svc.Confirm(ctx, inTelegram, run.ID)
+	require.NoError(t, err)
+	require.NoError(t, svc.Wait(ctx))
+
+	refused := held(t, svc.Hold(ctx, agent, domain.ConfirmRun, "wf-1", "Run it", nil))
+	_, err = svc.Refuse(ctx, inTelegram, refused.ID)
+	require.NoError(t, err)
+
+	late := held(t, svc.Hold(ctx, agent, domain.ConfirmRun, "wf-1", "Run it", nil))
+	clock = at.Add(2 * time.Hour)
+	_, err = svc.Confirm(ctx, inTelegram, late.ID)
+	require.ErrorIs(t, err, domain.ErrConflict)
+
+	n.mu.Lock()
+	defer n.mu.Unlock()
+
+	assert.Len(t, n.asked, 3)
+	assert.Equal(t, []domain.ConfirmStatus{
+		domain.ConfirmConfirmed, domain.ConfirmDone, domain.ConfirmRefused, domain.ConfirmExpired,
+	}, n.closed)
 }

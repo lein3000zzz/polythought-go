@@ -273,7 +273,8 @@ give you caps of your own on the Users page.
 An agent over MCP, or an API token, with the live scope does what you would here only once
 you confirm it: going live, switching on or running a workflow that trades live, changing
 one that is on, and turning the kill switch off each wait for you, a bar on every page
-saying so, and you confirm or refuse them under **Settings → Connected agents**. Each of the
+saying so and a Telegram message with buttons, and you confirm or refuse them there or
+under **Settings → Connected agents**. Each of the
 four has a switch there, on to start with; what you do yourself never waits. Turning the
 kill switch on never waits, whoever does it.
 

@@ -242,6 +242,20 @@ func TestAgentSignsInOverMCP(t *testing.T) {
 	wallets := tool(ctx, t, agent, "list_wallets", nil)
 	assert.NotNil(t, wallets["wallets"])
 
+	// And trades (D406): on paper at once, the paper account reset; the kill switch on with
+	// any scope, but off only with live.
+	assert.Equal(t, "paper", tool(ctx, t, agent, "set_trading", map[string]any{"workflow": made.ID, "mode": "paper"})["mode"])
+	assert.Equal(t, "1000", tool(ctx, t, agent, "reset_paper_account", map[string]any{"workflow": made.ID})["cash"])
+
+	assert.Equal(t, true, tool(ctx, t, agent, "set_kill_switch", map[string]any{"on": true})["on"])
+
+	off, err := agent.CallTool(ctx, &mcp.CallToolParams{Name: "set_kill_switch", Arguments: map[string]any{"on": false}})
+	require.NoError(t, err)
+	require.True(t, off.IsError)
+	assert.Contains(t, off.Content[0].(*mcp.TextContent).Text, "it needs the live scope")
+
+	b.call(http.MethodPut, "/api/v1/me/kill-switch", map[string]any{"on": false}, http.StatusOK, nil)
+
 	// It builds (D403): a workflow from code, then changed on the version it read with a
 	// node more, which goes beside the one feeding it; run by hand; deleted once the user
 	// lets agents delete.

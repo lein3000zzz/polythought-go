@@ -21,4 +21,6 @@ type ConfirmationRepository interface {
 	Decide(ctx context.Context, owner domain.UserID, id domain.ConfirmationID, status domain.ConfirmStatus, now time.Time) (domain.Confirmation, error)
 	// Finish records how a confirmed one ended.
 	Finish(ctx context.Context, id domain.ConfirmationID, status domain.ConfirmStatus, result string) error
+	// SetMessage records the Telegram message that asked the user.
+	SetMessage(ctx context.Context, id domain.ConfirmationID, message int) error
 }

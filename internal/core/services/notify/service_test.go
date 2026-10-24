@@ -257,7 +257,7 @@ func TestPrefs(t *testing.T) {
 
 	assert.Equal(t, map[string]bool{
 		"workflow_failed": true, "approval_waiting": true, "session_key_expiring": true, "live_trade_failed": true,
-		"agent_spend_80": true, "agent_spend_cap": true,
+		"agent_spend_80": true, "agent_spend_cap": true, "confirmation_asked": true, // D406
 		"live_order_filled": true, "live_order_refused": true, // D230
 		"live_order_unfilled": false, "live_order_rests": false, "live_order_ended": false,
 		"paper_order_filled": false, "paper_order_refused": false, "paper_order_unfilled": false, // D232

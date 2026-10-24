@@ -110,6 +110,15 @@ type UserMessenger interface {
 	MessageUser(ctx context.Context, user domain.UserID, m UserMessage) error
 }
 
+// ConfirmAsker asks a user on Telegram to confirm or refuse a live action of one of their
+// tokens or agents, with a button each (D406), and says there how it was decided.
+type ConfirmAsker interface {
+	// AskConfirmation sends html with the two buttons; the message's ID comes back.
+	AskConfirmation(ctx context.Context, user domain.UserID, id domain.ConfirmationID, html string) (int, error)
+	// CloseQuestion replaces a message's text, its buttons gone.
+	CloseQuestion(ctx context.Context, user domain.UserID, messageID int, html string) error
+}
+
 // Question asks a user to pick one of its options, to answer a waiting execution.
 type Question struct {
 	HTML    string // Telegram's subset of HTML; escape everything that is not markup

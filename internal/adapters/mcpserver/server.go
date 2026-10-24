@@ -77,6 +77,8 @@ type Deps struct {
 	Sharing Sharing
 	// The live actions waiting for their users (D406).
 	Confirmations Confirmations
+	// What the trading tools change (D406); without it, they are not offered.
+	Trader Trader
 
 	// What the market tools read (D402); without a reader they are not offered.
 	Markets Markets
@@ -103,6 +105,7 @@ type Server struct {
 	credentials Credentials
 	sharing     Sharing
 	confirms    Confirmations
+	trader      Trader
 
 	markets      ai.Sources
 	marketReader ports.MarketReader
@@ -128,7 +131,7 @@ func New(cfg Config, d Deps) (*Server, error) {
 		agents: d.Agents, tokens: d.Tokens, limiter: d.Limiter, log: log, kit: kit,
 		workflows: d.Workflows, nodeTypes: d.NodeTypes, codeTypes: d.CodeTypes, library: d.Library, trading: d.Trading,
 		edit: d.Edit, code: d.Code, customNodes: d.CustomNodes, credentials: d.Credentials,
-		sharing: d.Sharing, confirms: d.Confirmations,
+		sharing: d.Sharing, confirms: d.Confirmations, trader: d.Trader,
 		markets: d.Markets.Sources, marketReader: d.Markets.Reader, wallets: d.Wallets, trades: d.Trades,
 		scope: tracing.Scope{Manager: d.Util.TracerManager, TracerName: tracerName},
 	}
@@ -174,6 +177,10 @@ func New(cfg Config, d Deps) (*Server, error) {
 
 	if s.confirms != nil {
 		s.addConfirmationTools(srv)
+	}
+
+	if s.trader != nil && s.trades != nil {
+		s.addTradeTools(srv)
 	}
 
 	if s.marketReader != nil {
