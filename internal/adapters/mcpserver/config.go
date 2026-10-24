@@ -54,6 +54,7 @@ type settingOut struct {
 	Applies     string   `json:"applies,omitempty" jsonschema:"live, at once; restart, once the server restarts"`
 	Pending     bool     `json:"pending,omitempty" jsonschema:"changed, waiting for a restart"`
 	Secret      bool     `json:"secret,omitempty" jsonschema:"secret: set at a browser only, never by an agent"`
+	AtBrowser   bool     `json:"atBrowser,omitempty" jsonschema:"no secret, but it says where one goes: set at a browser only, never by an agent"`
 	IsSet       bool     `json:"isSet,omitempty" jsonschema:"a secret has a value"`
 }
 
@@ -107,8 +108,8 @@ func (s *Server) addConfigTools(srv *mcp.Server) {
 
 	add(s, srv, Tool[updateSettingsIn, settingsOut]{
 		Name: "update_settings", Title: "Change Config", Scope: domain.ScopeAdmin,
-		Description: "Change settings, by key, all or none: each checked as the Config page does. Secret settings are the " +
-			"admin's to set at a browser. It may wait for the admin to confirm, as get_confirmation then says. Some apply only " +
+		Description: "Change settings, by key, all or none: each checked as the Config page does. Secret settings, and those " +
+			"marked atBrowser, are the admin's to set at a browser. It may wait for the admin to confirm, as get_confirmation then says. Some apply only " +
 			"once the server restarts.",
 		Handle: s.updateSettings,
 	})
@@ -159,6 +160,7 @@ func (s *Server) listSettings(ctx context.Context, p auth.Principal, in settings
 		st := settingOut{
 			Key: e.Key, Group: e.Group, Label: e.Label, Description: e.Description, Kind: string(e.Kind), Options: e.Options,
 			Source: string(e.Source), Applies: string(e.Apply), Pending: e.Pending, Secret: e.Secret, IsSet: e.IsSet,
+			AtBrowser: e.AtBrowser,
 		}
 
 		if !e.Secret {

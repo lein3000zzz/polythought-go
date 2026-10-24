@@ -37,7 +37,8 @@ You see users by ID, role and state, never their email addresses.
 - `list_settings`: every setting, its value, default, where it is set and whether it applies
   at once or on a restart. Secrets show only whether they are set.
 - `update_settings`: changes by key, all or none, checked as the Config page checks them. It
-  may wait. Secret settings are the admin's to set at a browser; never ask for one.
+  may wait. Secret settings, and those marked `atBrowser` such as the mail server, are the
+  admin's to set at a browser; never ask for one.
 - `setting_history`: who changed what. `restart_server` applies the changes that wait for a
   restart, stops everyone's work for a moment, and drops this connection; it may wait.
 - `send_test_mail` to an address the admin gave you; `geoblock`: whether Polymarket takes

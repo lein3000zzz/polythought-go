@@ -27,15 +27,23 @@ func (s *Service) UseConfirmations(c Confirmer) {
 // RestartAsked is what a held restart carries out: nothing more.
 type RestartAsked struct{}
 
-// agentsMay refuses a token's or an agent's change to a secret setting.
+// agentsMay refuses a token's or an agent's change to a secret setting, or to one that says
+// where a secret goes (A7).
 func (s *Service) agentsMay(p auth.Principal, keys []string) error {
 	if p.Itself() {
 		return nil
 	}
 
 	for _, key := range keys {
-		if spec, ok := s.registry.Spec(key); ok && spec.Secret {
+		spec, ok := s.registry.Spec(key)
+
+		switch {
+		case !ok:
+		case spec.Secret:
 			return fmt.Errorf("%w: %s is secret: an admin sets it at a browser, on the Config page", domain.ErrForbidden, spec.Label)
+		case spec.AtBrowser:
+			return fmt.Errorf("%w: %s says where a secret goes: an admin sets it at a browser, on the Config page",
+				domain.ErrForbidden, spec.Label)
 		}
 	}
 

@@ -13,6 +13,7 @@ import (
 	"github.com/shopspring/decimal"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/trace"
+	"golang.org/x/time/rate"
 )
 
 var _ ClobClient = (*DefaultClobClient)(nil)
@@ -30,7 +31,10 @@ const (
 // DefaultClobClient uses the POST batch endpoints; the documented GET variants return 400.
 // Unknown token IDs are dropped from batch responses, so results can be shorter than the input.
 type DefaultClobClient struct {
-	core  *httpCore
+	core *httpCore
+	// trade sends orders, cancels and heartbeats on a budget of their own, so that reads,
+	// any user's, cannot hold up another's live order behind them (A11).
+	trade *httpCore
 	kit   *redkit.Kit
 	scope tracing.Scope
 	log   logging.Logger
@@ -56,8 +60,16 @@ func NewClobClient(util *observability.Utility, cfg HTTPConfig) (*DefaultClobCli
 		return nil, fmt.Errorf("polymarket: register clob metrics: %w", err)
 	}
 
+	core := newHTTPCore(log, cfg.withDefaults(DefaultClobURL, defaultClobRPS))
+
+	trade := cfg.TradeRPS
+	if trade <= 0 {
+		trade = defaultTradeRPS
+	}
+
 	return &DefaultClobClient{
-		core:  newHTTPCore(log, cfg.withDefaults(DefaultClobURL, defaultClobRPS)),
+		core:  core,
+		trade: core.withLimiter(rate.NewLimiter(rate.Limit(trade), max(1, int(trade)))),
 		kit:   kit,
 		scope: tracing.Scope{Manager: util.TracerManager, TracerName: tracerName},
 		log:   log,

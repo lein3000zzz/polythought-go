@@ -193,6 +193,10 @@ func TestOAuthRegisterRoute(t *testing.T) {
 		"rate limited": {err: domain.ErrRateLimited, status: http.StatusTooManyRequests, want: `{"error": "slow_down", "error_description": "too many attempts"}`},
 		"broken":       {err: errors.New("database down"), status: http.StatusInternalServerError, want: `{"error": "server_error"}`},
 		"not JSON":     {body: "{", status: http.StatusBadRequest, want: `{"error": "invalid_client_metadata", "error_description": "the body is not a client's metadata"}`},
+		"too large (A13)": {
+			body:   `{"client_uri": "https://a.example/` + strings.Repeat("a", 70_000) + `"}`,
+			status: http.StatusBadRequest, want: `{"error": "invalid_client_metadata", "error_description": "the metadata is larger than a client's needs"}`,
+		},
 	} {
 		t.Run(name, func(t *testing.T) {
 			srv, _, svc := oauthServer(t)
@@ -284,11 +288,27 @@ func TestOAuthConsentRoute(t *testing.T) {
 
 		require.Equal(t, http.StatusOK, w.Code, w.Body.String())
 		assert.JSONEq(t, `{
-			"client": {"id": "https://agent.example/client.json", "name": "Doc Agent", "verified": true, "site": "agent.example"},
+			"client": {"id": "https://agent.example/client.json", "name": "Doc Agent", "published": true, "site": "agent.example"},
 			"redirectHost": "http://127.0.0.1:4000",
 			"offered": [{"scope": "read", "ticked": true}, {"scope": "live", "ticked": false}],
 			"allowed": true, "granted": ["read"]
 		}`, w.Body.String())
+	})
+
+	t.Run("a lookalike host as ASCII, a redirect elsewhere warned of (A2)", func(t *testing.T) {
+		srv, authSvc, svc := oauthServer(t)
+		withSession(authSvc, alice)
+		svc.EXPECT().Prepare(mock.Anything, mock.Anything, authRequest).Return(oauth.Consent{
+			Client:      domain.OAuthClient{ID: "https://clаude.ai/c.json", Kind: domain.ClientDocument, Name: "Claude Code"}, // a Cyrillic а
+			RedirectURI: "https://evil.example:8443/cb",
+		}, nil)
+
+		w := request{method: http.MethodPost, path: "/api/v1/oauth/authorization", body: authRequestJSON, headers: cookie}.do(t, srv)
+
+		require.Equal(t, http.StatusOK, w.Code, w.Body.String())
+		assert.Contains(t, w.Body.String(), `"site":"xn--clude-5ve.ai"`)
+		assert.Contains(t, w.Body.String(), `"redirectHost":"https://evil.example:8443"`)
+		assert.Contains(t, w.Body.String(), `"redirectAway":true`)
 	})
 
 	t.Run("a problem", func(t *testing.T) {
@@ -387,7 +407,7 @@ func TestGrantRoutes(t *testing.T) {
 
 		require.Equal(t, http.StatusOK, w.Code, w.Body.String())
 		assert.JSONEq(t, `{"grants": [{
-			"id": "g-1", "client": {"id": "pc_1", "name": "Agent", "verified": false, "site": "agent.example"},
+			"id": "g-1", "client": {"id": "pc_1", "name": "Agent", "published": false, "site": "agent.example"},
 			"scopes": ["read"], "createdAt": "2026-10-08T12:00:00Z", "lastUsedAt": "2026-10-08T13:00:00Z", "takingTasks": false
 		}]}`, w.Body.String())
 	})

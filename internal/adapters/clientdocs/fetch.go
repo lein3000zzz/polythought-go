@@ -43,6 +43,10 @@ func New(allowPrivate func() bool, tlsConfig *tls.Config) *Fetcher {
 			DialContext:         dialer.DialContext,
 			TLSClientConfig:     tlsConfig.Clone(),
 			TLSHandshakeTimeout: fetchFor,
+			// A document is fetched about once a day: no connection is kept for the next,
+			// where a host that never closes one would keep it, and its memory, for good (A12).
+			DisableKeepAlives:      true,
+			MaxResponseHeaderBytes: maxBody,
 		},
 		CheckRedirect: func(*http.Request, []*http.Request) error {
 			return errors.New("a client's document is at its ID: it redirects")

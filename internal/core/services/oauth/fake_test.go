@@ -78,7 +78,9 @@ func (r *fakeRepo) PruneClients(_ context.Context, before time.Time) (int64, err
 			used = used || g.Client.ID == id
 		}
 
-		if c.Kind == domain.ClientRegistered && c.CreatedAt.Before(before) && !used {
+		old := (c.Kind == domain.ClientRegistered && c.CreatedAt.Before(before)) ||
+			(c.Kind == domain.ClientDocument && c.FetchedAt.Before(before))
+		if old && !used {
 			delete(r.clients, id)
 			n++
 		}

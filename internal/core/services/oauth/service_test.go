@@ -199,6 +199,10 @@ func TestRegister(t *testing.T) {
 		assert.Equal(t, "An unnamed agent", c.Name)
 		assert.Empty(t, c.ClientURI, "a homepage only over https")
 
+		c, err = f.s.Register(ctx, Registration{RedirectURIs: []string{callback}, ClientURI: "https://agent.example/" + strings.Repeat("a", 1<<20)}, "ip")
+		require.NoError(t, err)
+		assert.Empty(t, c.ClientURI, "nor one too long to be one (A13)")
+
 		c, err = f.s.Register(ctx, Registration{ClientName: strings.Repeat("é", 150), RedirectURIs: []string{callback}}, "ip")
 		require.NoError(t, err)
 		assert.Equal(t, strings.Repeat("é", 100), c.Name)
@@ -327,6 +331,29 @@ func TestClientDocument(t *testing.T) {
 
 		_, err := f.s.Prepare(ctx, p, request(docURL))
 		require.ErrorIs(t, err, errDown)
+	})
+
+	t.Run("fetched only so often, per user and per host, and not again soon after failing (A12)", func(t *testing.T) {
+		f := newFixture(t)
+		p := f.user("u1", domain.RoleUser)
+		f.docs.EXPECT().Fetch(mock.Anything, docURL).Return(nil, errDown).Once()
+
+		_, err := f.s.Prepare(ctx, p, request(docURL))
+		require.Error(t, err)
+		assert.Equal(t, []string{"oauth-fetch:user:u1", "oauth-fetch:host:agent.example"}, f.limiter.keys)
+
+		_, err = f.s.Prepare(ctx, p, request(docURL))
+		require.ErrorContains(t, err, "could not be fetched a moment ago", "not fetched again")
+
+		f.pass(6 * time.Minute)
+		f.docs.EXPECT().Fetch(mock.Anything, docURL).Return([]byte(doc), nil).Once()
+
+		_, err = f.s.Prepare(ctx, p, request(docURL))
+		require.NoError(t, err, "tried again a while after")
+
+		f.limiter.refuse = true
+		_, err = f.s.Prepare(ctx, p, request("https://other.example/client.json"))
+		require.ErrorIs(t, err, domain.ErrRateLimited)
 	})
 }
 

@@ -26,7 +26,7 @@ const request = {
 
 function consent(overrides: Partial<Schemas['OAuthConsent']> = {}): Schemas['OAuthConsent'] {
   return {
-    client: { id: 'pc_1', name: 'Claude Code', verified: false },
+    client: { id: 'pc_1', name: 'Claude Code', published: false },
     redirectHost: 'http://127.0.0.1:4000',
     offered: [
       { scope: 'read', ticked: true },
@@ -91,21 +91,47 @@ describe('the consent page (D384)', () => {
     expect(await screen.findByText('Back to Claude Code')).toBeInTheDocument()
   })
 
-  it('says a verified agent is who it says', async () => {
+  it('says where a published agent describes itself, never that it is verified (A2)', async () => {
     serve(
       consent({
         client: {
           id: 'https://claude.ai/oauth/claude-code-client-metadata',
           name: 'Claude Code',
-          verified: true,
+          published: true,
           site: 'claude.ai',
         },
       }),
     )
     renderApp(path)
 
-    expect(await screen.findByText('Verified')).toBeInTheDocument()
-    expect(screen.getByText(/It describes itself at claude.ai/)).toBeInTheDocument()
+    expect(await screen.findByText('Published at claude.ai')).toBeInTheDocument()
+    expect(
+      screen.getByText(/whoever controls claude.ai wrote that, name and all/),
+    ).toBeInTheDocument()
+    expect(screen.queryByText('Verified')).not.toBeInTheDocument()
+    expect(screen.queryByText(/sends you back to/)).not.toBeInTheDocument()
+  })
+
+  it('warns when a published agent sends you elsewhere than its own host (A2)', async () => {
+    serve(
+      consent({
+        client: {
+          id: 'https://raw.githubusercontent.com/someone/x/main/cc.json',
+          name: 'Claude Code',
+          published: true,
+          site: 'raw.githubusercontent.com',
+        },
+        redirectHost: 'https://evil.example',
+        redirectAway: true,
+      }),
+    )
+    renderApp(path)
+
+    expect(
+      await screen.findByText(
+        /It sends you back to https:\/\/evil.example, not to raw.githubusercontent.com/,
+      ),
+    ).toBeInTheDocument()
   })
 
   it('allows nothing with nothing ticked', async () => {

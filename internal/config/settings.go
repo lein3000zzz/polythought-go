@@ -8,6 +8,7 @@ import (
 	"net"
 	"net/mail"
 	"net/url"
+	"regexp"
 	"slices"
 	"strings"
 	"time"
@@ -80,6 +81,7 @@ const (
 	KeyMCPPrivateDocuments = "mcp.private_documents"
 	KeyMCPSkipConsent      = "mcp.skip_consent"
 	KeyMCPRate             = "mcp.rate"
+	KeyMCPUserRate         = "mcp.user_rate"
 	KeyMCPAccessTTL        = "mcp.access_ttl"
 	KeyMCPRefreshTTL       = "mcp.refresh_ttl"
 	KeyMCPConfirmFor       = "mcp.confirm_for"
@@ -91,6 +93,9 @@ const (
 	KeyMCPClients          = "mcp.clients"
 	KeyMCPAddress          = "mcp.address"
 	KeyMCPSessionIdle      = "mcp.session_idle"
+	KeyMCPSessionsPerAgent = "mcp.sessions_per_agent"
+	KeyMCPSessionsPerUser  = "mcp.sessions_per_user"
+	KeyMCPNewSessions      = "mcp.new_sessions"
 
 	KeyTrustedProxies      = "http.trusted_proxies"
 	KeyWebhookAllowPrivate = "webhook.allow_private"
@@ -450,6 +455,13 @@ func Settings() (*settings.Registry, error) {
 			Kind: settings.KindInt, Default: 120, Check: between(1, 100_000),
 		},
 		settings.Spec{
+			Key: KeyMCPUserRate, Group: groupMCP, Label: "Tool calls a minute per user",
+			Description: "How many tool calls all of a user's agents and API tokens may make in a minute together, " +
+				"however many of them there are; past it, a call is refused until the minute allows another. " +
+				"A change applies at once.",
+			Kind: settings.KindInt, Default: 600, Check: between(1, 1_000_000),
+		},
+		settings.Spec{
 			Key: KeyMCPAccessTTL, Group: groupMCP, Label: "Access token lifetime",
 			Description: "How long an agent's access token works before it refreshes it. Revoking an agent stops it at once " +
 				"whatever this is. Applies to tokens given from now.",
@@ -521,6 +533,24 @@ func Settings() (*settings.Registry, error) {
 			Kind: settings.KindDuration, Default: time.Hour, Check: within(5*time.Minute, 24*time.Hour), Apply: settings.ApplyRestart,
 		},
 		settings.Spec{
+			Key: KeyMCPSessionsPerAgent, Group: groupMCP, Label: "Sessions per agent",
+			Description: "How many MCP sessions one agent, or one API token, keeps open at once. Past it, its oldest " +
+				"closes, and that client opens another when it calls again. Applies at once.",
+			Kind: settings.KindInt, Default: 10, Check: between(1, 1000),
+		},
+		settings.Spec{
+			Key: KeyMCPSessionsPerUser, Group: groupMCP, Label: "Sessions per user",
+			Description: "How many MCP sessions all of a user's agents and API tokens keep open at once. Past it, " +
+				"their oldest closes. Each lasts until it goes idle and costs the server memory. Applies at once.",
+			Kind: settings.KindInt, Default: 30, Check: between(1, 10_000),
+		},
+		settings.Spec{
+			Key: KeyMCPNewSessions, Group: groupMCP, Label: "New sessions a minute",
+			Description: "How many MCP sessions a user's agents and API tokens may open in a minute, all of them " +
+				"together; past it, opening one is refused until the minute allows another. Applies at once.",
+			Kind: settings.KindInt, Default: 30, Check: between(1, 10_000),
+		},
+		settings.Spec{
 			Key: KeyTrustedProxies, Group: groupNetwork, Label: "Trusted proxies",
 			Description: "Address ranges (CIDR, e.g. 10.0.0.0/8) of reverse proxies allowed to report the client's address in X-Forwarded-For. Leave empty without a proxy: anyone could then pick their own address and dodge rate limits.",
 			Kind:        settings.KindList, Default: []string{}, Check: cidrs,
@@ -573,21 +603,25 @@ func Settings() (*settings.Registry, error) {
 			Key: KeyMailHost, Group: groupMail, Label: "Mail server",
 			Description: "The SMTP server Polythought sends mail through, like mail.example.com, with no port: that is below. Mail is set up once this and the From address are in.",
 			Kind:        settings.KindString, Default: "", Check: mailHost,
+			AtBrowser: true, // where the mail password goes, and every reset link (A7)
 		},
 		settings.Spec{
 			Key: KeyMailPort, Group: groupMail, Label: "Port",
 			Description: "587 for STARTTLS, 465 for TLS from the start, 25 for a plain connection.",
 			Kind:        settings.KindInt, Default: 587, Check: between(1, 65535),
+			AtBrowser: true,
 		},
 		settings.Spec{
 			Key: KeyMailSecurity, Group: groupMail, Label: "Security",
 			Description: "starttls upgrades the connection to TLS, tls uses TLS from the start, none stays plain, for a server on the same host or network. The server's certificate is always checked; a password is never sent over a plain connection, except to this host.",
 			Kind:        settings.KindEnum, Default: MailSTARTTLS, Options: []string{MailSTARTTLS, MailTLS, MailPlain},
+			AtBrowser: true,
 		},
 		settings.Spec{
 			Key: KeyMailUsername, Group: groupMail, Label: "Username",
 			Description: "The account Polythought signs in to the mail server with. Leave empty for a server that takes mail without signing in.",
 			Kind:        settings.KindString, Default: "",
+			AtBrowser: true,
 		},
 		settings.Spec{
 			Key: KeyMailPassword, Group: groupMail, Label: "Password",
@@ -664,6 +698,13 @@ func mcpClients(v any) error {
 	return nil
 }
 
+// plainHost and plainPath are what an MCP address may have: the app puts it in commands
+// users copy and run, so nothing a shell or a config file reads as more (A8).
+var (
+	plainHost = regexp.MustCompile(`^[A-Za-z0-9.:-]+$`)
+	plainPath = regexp.MustCompile(`^[A-Za-z0-9/._~-]*$`)
+)
+
 func mcpAddress(v any) error {
 	addr := v.(string)
 	if addr == "" {
@@ -671,8 +712,11 @@ func mcpAddress(v any) error {
 	}
 
 	u, err := url.Parse(addr)
-	if err != nil || (u.Scheme != "https" && u.Scheme != "http") || u.Host == "" {
-		return errors.New("an http or https address, like https://polythought.example.com/mcp")
+	if err != nil || (u.Scheme != "https" && u.Scheme != "http") || u.Host == "" || u.User != nil ||
+		u.RawQuery != "" || u.ForceQuery || u.Fragment != "" || u.RawPath != "" || u.String() != addr ||
+		!plainHost.MatchString(u.Hostname()) || !plainPath.MatchString(u.Path) {
+		return errors.New("an http or https address with a plain path, like https://polythought.example.com/mcp: " +
+			"no query, fragment, sign-in or spaces")
 	}
 
 	return nil

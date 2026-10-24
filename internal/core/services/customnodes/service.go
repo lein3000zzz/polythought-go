@@ -50,6 +50,8 @@ type Service struct {
 	limits    func() Limits
 	log       logging.Logger
 	now       func() time.Time
+	confirm   Confirmer  // optional: holds a token's or an agent's change a live workflow uses (A5)
+	live      TradesLive // with confirm
 
 	mu    sync.Mutex
 	cache map[domain.UserID]*engine.Registry // each owner's types, until one of theirs changes
@@ -183,6 +185,10 @@ func (s *Service) Update(
 		}
 	}
 
+	if err := s.hold(ctx, p, n, &edited, NodeAsked{ID: n.ID, Version: version, Definition: &def, Confirm: confirm}); err != nil {
+		return domain.CustomNode{}, err
+	}
+
 	if err := s.repo.Update(ctx, edited, version); err != nil {
 		return domain.CustomNode{}, err
 	}
@@ -211,6 +217,14 @@ func (s *Service) Delete(ctx context.Context, p auth.Principal, id domain.Custom
 		if err := s.breaks(ctx, n, nil); err != nil {
 			return err
 		}
+	}
+
+	if err := asAsked(p, n); err != nil {
+		return err
+	}
+
+	if err := s.hold(ctx, p, n, nil, NodeAsked{ID: n.ID, Version: n.Version, Confirm: confirm}); err != nil {
+		return err
 	}
 
 	if err := s.repo.Delete(ctx, p.User.ID, id); err != nil {

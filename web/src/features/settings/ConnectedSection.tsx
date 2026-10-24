@@ -133,7 +133,7 @@ export function ConnectedSection() {
                 <TableCell>
                   <div className="flex flex-wrap items-center gap-1.5 font-medium">
                     {g.client.name}
-                    {!g.client.verified && <Badge variant="outline">Unverified</Badge>}
+                    {!g.client.published && <Badge variant="outline">Unverified</Badge>}
                     {g.takingTasks && !g.revokedAt && (
                       <Badge
                         variant="secondary"

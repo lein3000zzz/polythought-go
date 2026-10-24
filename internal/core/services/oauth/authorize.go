@@ -53,7 +53,7 @@ func (s *Service) Prepare(ctx context.Context, p auth.Principal, req AuthRequest
 		return Consent{}, domain.ErrAgentsOff
 	}
 
-	client, scopes, err := s.check(ctx, req)
+	client, scopes, err := s.check(ctx, p, req)
 	if err != nil {
 		return Consent{}, err
 	}
@@ -156,20 +156,20 @@ func (s *Service) Deny(ctx context.Context, p auth.Principal, req AuthRequest) (
 		return "", domain.ErrAgentsOff
 	}
 
-	if _, _, err := s.check(ctx, req); err != nil {
+	if _, _, err := s.check(ctx, p, req); err != nil {
 		return "", err
 	}
 
 	return s.redirect(req, url.Values{"error": {"access_denied"}, "error_description": {"the user did not allow it"}}), nil
 }
 
-// check checks a request, and gives its client and the scopes it asks for.
-func (s *Service) check(ctx context.Context, req AuthRequest) (domain.OAuthClient, []domain.Scope, error) {
+// check checks p's request, and gives its client and the scopes it asks for.
+func (s *Service) check(ctx context.Context, p auth.Principal, req AuthRequest) (domain.OAuthClient, []domain.Scope, error) {
 	if req.ClientID == "" {
 		return domain.OAuthClient{}, nil, oauthErr("invalid_request", "no client_id")
 	}
 
-	client, err := s.client(ctx, req.ClientID)
+	client, err := s.client(ctx, p.User.ID, req.ClientID)
 	if err != nil {
 		return domain.OAuthClient{}, nil, err
 	}

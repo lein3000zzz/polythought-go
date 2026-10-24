@@ -372,6 +372,7 @@ func (a *app) newMCP() (*mcpserver.Server, error) {
 	return mcpserver.New(mcpserver.Config{PublicURL: a.cfg.PublicURL}, mcpserver.Deps{
 		Agents: a.oauth, Tokens: a.auth, Util: a.util,
 		Limiter:       ratelimit.NewPerMinute(func() int { return a.settings.Current().Int(config.KeyMCPRate) }),
+		UserLimiter:   ratelimit.NewPerMinute(func() int { return a.settings.Current().Int(config.KeyMCPUserRate) }),
 		Workflows:     a.workflows,
 		Edit:          a.workflows,
 		Code:          workflowCode{code: a.code, gate: a.codeGate},
@@ -398,6 +399,11 @@ func (a *app) newMCP() (*mcpserver.Server, error) {
 		Tasks:       a.tasks,
 		Sessions:    postgres.NewMCPSessions(a.db),
 		SessionIdle: a.settings.Current().Duration(config.KeyMCPSessionIdle),
+		SessionLimits: func() mcpserver.SessionLimits {
+			cur := a.settings.Current()
+			return mcpserver.SessionLimits{PerHolder: cur.Int(config.KeyMCPSessionsPerAgent), PerUser: cur.Int(config.KeyMCPSessionsPerUser)}
+		},
+		NewSessions: ratelimit.NewPerMinute(func() int { return a.settings.Current().Int(config.KeyMCPNewSessions) }),
 		Trading: func(ctx context.Context, w domain.Workflow) (string, error) {
 			if !nodes.PlacesOrders(a.registry, w) {
 				return "none", nil
@@ -681,6 +687,24 @@ func (a *app) handleConfirmed() {
 		}
 
 		return fmt.Sprintf("version %d saved", w.Version), nil
+	})
+
+	a.confirmations.Handle(domain.ConfirmNodeChange, func(ctx context.Context, p auth.Principal, c domain.Confirmation) (string, error) {
+		var in customnodes.NodeAsked
+		if err := json.Unmarshal(c.Payload, &in); err != nil {
+			return "", err
+		}
+
+		if in.Definition == nil {
+			return "deleted", a.customNodes.Delete(ctx, p, in.ID, in.Confirm)
+		}
+
+		n, err := a.customNodes.Update(ctx, p, in.ID, in.Version, *in.Definition, in.Confirm)
+		if err != nil {
+			return "", err
+		}
+
+		return fmt.Sprintf("version %d saved", n.Version), nil
 	})
 
 	a.confirmations.Handle(domain.ConfirmGoLive, func(ctx context.Context, p auth.Principal, c domain.Confirmation) (string, error) {
@@ -1068,6 +1092,16 @@ func (a *app) initEngine(ctx context.Context, pmc polymarket) error {
 
 	checks := workflowChecks{types: a.customNodes, compiler: compiler, gate: codeGate, plugins: a.plugins}
 
+	tradeScope := func(ctx context.Context, w domain.Workflow) (domain.Scope, error) {
+		if !nodes.PlacesOrders(a.registry, w) {
+			return "", nil
+		}
+
+		mode, err := a.trading.Mode(ctx, w.ID)
+
+		return mode.Scope(), err
+	}
+
 	a.workflows = workflows.New(postgres.NewWorkflows(a.db), executions, checks, executor, a.supervisor, a.util.Logger,
 		workflows.WithLiveLimits(func() workflows.Limits { return workflowLimits(a.settings.Current()) }),
 		workflows.WithWaits(a.waits), workflows.WithFieldChecks(checks),
@@ -1080,16 +1114,14 @@ func (a *app) initEngine(ctx context.Context, pmc polymarket) error {
 		// And they use credentials only where their user lets them (D404).
 		workflows.WithCredentials(paramsWhere(a.registry, func(p engine.ParamSpec) bool { return p.Kind == engine.ParamCredential })),
 		// A workflow that places orders needs its mode's scope too (D399).
-		workflows.WithTradeScope(func(ctx context.Context, w domain.Workflow) (domain.Scope, error) {
-			if !nodes.PlacesOrders(a.registry, w) {
-				return "", nil
-			}
-
-			mode, err := a.trading.Mode(ctx, w.ID)
-
-			return mode.Scope(), err
-		}),
+		workflows.WithTradeScope(tradeScope),
 		workflows.WithConfirmations(a.confirmations))
+	// A change to a custom node a live workflow that is on uses waits like one to the
+	// workflow (A5).
+	a.customNodes.UseConfirmations(a.confirmations, func(ctx context.Context, w domain.Workflow) (bool, error) {
+		sc, err := tradeScope(ctx, w)
+		return sc == domain.ScopeLive, err
+	})
 	a.memory = memory.New(a.nodeMemory, a.workflows, a.util.Logger)
 	a.handleConfirmed()
 

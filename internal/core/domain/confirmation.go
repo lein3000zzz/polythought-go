@@ -24,6 +24,10 @@ const (
 	ConfirmChange   ConfirmKind = "change"    // a new graph for one that is on
 	ConfirmKillOff  ConfirmKind = "kill_off"  // turning the kill switch off
 
+	// Changing or deleting a custom node that a workflow trading live and on uses (A5): its
+	// next run runs the new code. The Change switch says whether it waits.
+	ConfirmNodeChange ConfirmKind = "custom_node"
+
 	// An admin's work on another user (D410).
 	ConfirmRole    ConfirmKind = "admin_role"    // making a user an admin, or one no longer
 	ConfirmDisable ConfirmKind = "admin_disable" // disabling a user, or enabling one again
@@ -45,7 +49,10 @@ type Ask struct {
 	WorkflowID WorkflowID
 	What       string
 	About      string
-	Payload    any
+	// Detail is what it changes, line by line, for the user to read before they confirm
+	// (A3): a workflow's new graph against the one it has.
+	Detail  string
+	Payload any
 }
 
 type ConfirmStatus string
@@ -75,6 +82,7 @@ type Confirmation struct {
 
 	What    string          // what it does, said for the user
 	About   string          // whom it is about, for the user only: never the agent's to see
+	Detail  string          // what it changes, line by line, for the user (A3)
 	Payload json.RawMessage // what carrying it out needs, by kind
 
 	Status ConfirmStatus
@@ -127,7 +135,7 @@ func (c Confirmation) Asker() string {
 type Unconfirmed struct {
 	GoLive  bool // trading a workflow live, or from another wallet
 	Run     bool // switching on, or running, a workflow that trades live
-	Change  bool // a new graph for a workflow that trades live and is on
+	Change  bool // a new graph for a workflow that trades live and is on, or a custom node it uses
 	KillOff bool // turning the kill switch off
 
 	// An admin's work on other users (D410).
@@ -150,7 +158,7 @@ func (u Unconfirmed) Waits(kind ConfirmKind) bool {
 		return !u.GoLive
 	case ConfirmSwitchOn, ConfirmRun:
 		return !u.Run
-	case ConfirmChange:
+	case ConfirmChange, ConfirmNodeChange:
 		return !u.Change
 	case ConfirmKillOff:
 		return !u.KillOff

@@ -52,6 +52,14 @@ func newHTTPCore(log logging.Logger, cfg HTTPConfig) *httpCore {
 	}
 }
 
+// withLimiter is c on a budget of its own.
+func (c *httpCore) withLimiter(l *rate.Limiter) *httpCore {
+	other := *c
+	other.limiter = l
+
+	return &other
+}
+
 func (c *httpCore) get(ctx context.Context, path string, query url.Values, out any) error {
 	return c.do(ctx, http.MethodGet, path, query, nil, nil, out)
 }

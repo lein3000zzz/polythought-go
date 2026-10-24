@@ -2,9 +2,11 @@ package notify_test
 
 import (
 	"context"
+	"strings"
 	"sync"
 	"testing"
 	"time"
+	"unicode/utf8"
 
 	"github.com/lein3000zzz/the-watchers/pkg/observability/logging"
 	"github.com/stretchr/testify/assert"
@@ -75,6 +77,26 @@ func TestConfirmationAsked(t *testing.T) {
 		assert.Empty(t, d.mail.mails())
 	})
 
+	t.Run("with what it changes, cut to fit Telegram (A3)", func(t *testing.T) {
+		s, _, a := setup(t)
+
+		changing := asking
+		changing.Detail = "~ node gate (if): limit 1 → <2>"
+
+		_, err := s.ConfirmationAsked(ctx, changing)
+		require.NoError(t, err)
+
+		changing.Detail = strings.Repeat("+ node n (if)\n", 400)
+
+		_, err = s.ConfirmationAsked(ctx, changing)
+		require.NoError(t, err)
+
+		require.Len(t, a.asked, 2)
+		assert.Contains(t, a.asked[0], ".\n\nWhat it changes:\n<pre>~ node gate (if): limit 1 → &lt;2&gt;</pre>\n\nIt waits until")
+		assert.Less(t, utf8.RuneCountInString(a.asked[1]), 4096)
+		assert.Contains(t, a.asked[1], "…</pre>\nSee all of it in the app.\n\nIt waits until")
+	})
+
 	t.Run("by mail too, where the user chose it", func(t *testing.T) {
 		s, d, _ := setup(t)
 		_, err := s.SetEmailPref(ctx, alice, "confirmation_asked", true)
@@ -87,6 +109,16 @@ func TestConfirmationAsked(t *testing.T) {
 		require.Len(t, mails, 1)
 		assert.Equal(t, "Claude <Code> asks you to confirm a live action", mails[0].Subject)
 		assert.Equal(t, "https://poly.example/settings/connected#confirmations", mails[0].LinkURL)
+
+		changing := asking
+		changing.Detail = "- node gate (if)"
+
+		_, err = s.ConfirmationAsked(ctx, changing)
+		require.NoError(t, err)
+
+		mails = d.mail.mails()
+		require.Len(t, mails, 2)
+		assert.Contains(t, mails[1].Paragraphs, "What it changes:\n- node gate (if)")
 	})
 
 	t.Run("nowhere, switched off", func(t *testing.T) {

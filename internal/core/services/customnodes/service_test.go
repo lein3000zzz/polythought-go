@@ -573,3 +573,104 @@ func TestDeleteNeedsTheSwitch(t *testing.T) {
 	agent.User.Agents.Delete = true
 	require.NoError(t, f.svc.Delete(ctx, agent, n.ID, true))
 }
+
+// holder holds every action it is asked to, as the confirmations service does where the
+// user has them wait.
+type holder struct{ asks []domain.Ask }
+
+func (h *holder) Hold(_ context.Context, _ auth.Principal, a domain.Ask) error {
+	h.asks = append(h.asks, a)
+	return &domain.AwaitingError{Confirmation: domain.Confirmation{ID: "c-1"}}
+}
+
+// A token's or an agent's change to a custom node that a workflow trading live and on uses
+// waits for its user, as a change to the workflow would (A5); the user's own, and one no
+// live workflow uses, goes ahead.
+func TestNodeChangesWait(t *testing.T) {
+	ctx := context.Background()
+	agent := auth.Principal{User: domain.User{ID: "u-1", Agents: domain.AgentAccess{Delete: true}}, GrantID: "g-1"}
+
+	setup := func(t *testing.T, live bool) (fixture, domain.CustomNode, *holder) {
+		t.Helper()
+
+		f := newService(t, gate{}, customnodes.DefaultLimits())
+		n, err := f.svc.Create(ctx, alice, split())
+		require.NoError(t, err)
+
+		h := &holder{}
+		f.svc.UseConfirmations(h, func(context.Context, domain.Workflow) (bool, error) { return live, nil })
+
+		on := using("u-1")
+		on.Active = true
+		off := using("u-1")
+		off.ID, off.Name = "wf-2", "Switched off"
+		f.workflows.EXPECT().List(mock.Anything, mock.Anything, mock.Anything).
+			Return(ports.Page[domain.Workflow]{Items: []domain.Workflow{on, off}}, nil).Maybe()
+
+		return f, n, h
+	}
+
+	edit := func() customnodes.Definition {
+		def := split()
+		def.Label = "Split"
+		def.Source = "export function run(items) { return { wide: [] } }"
+
+		return def
+	}
+
+	t.Run("an agent's change waits, saying what it changes", func(t *testing.T) {
+		f, n, h := setup(t, true)
+
+		_, err := f.svc.Update(ctx, agent, n.ID, 1, edit(), false)
+		require.ErrorIs(t, err, domain.ErrAwaitsConfirmation)
+
+		require.Len(t, h.asks, 1)
+		assert.Equal(t, domain.ConfirmNodeChange, h.asks[0].Kind)
+		assert.Equal(t, `Change the custom node "spread-split", which "Spread watch" uses, trading live and on`, h.asks[0].What)
+		assert.Equal(t, "Label: \"Spread split\" → \"Split\"\nCode, now:\nexport function run(items) { return { wide: [] } }",
+			h.asks[0].Detail)
+		assert.Equal(t, customnodes.NodeAsked{ID: n.ID, Version: 1, Definition: ptr(withName(edit(), "spread-split"))}, h.asks[0].Payload)
+
+		got, err := f.svc.Get(ctx, alice, n.ID)
+		require.NoError(t, err)
+		assert.Equal(t, 1, got.Version, "nothing saved meanwhile")
+
+		require.ErrorIs(t, f.svc.Delete(ctx, agent, n.ID, true), domain.ErrAwaitsConfirmation)
+		assert.Equal(t, `Delete the custom node "spread-split", which "Spread watch" uses, trading live and on`, h.asks[1].What)
+	})
+
+	t.Run("confirmed, it goes ahead at the version asked for", func(t *testing.T) {
+		f, n, h := setup(t, true)
+
+		confirmed := agent
+		confirmed.Confirmed = true
+		confirmed.Confirming = &domain.Confirmation{Kind: domain.ConfirmNodeChange, Payload: []byte(`{"id":"` + string(n.ID) + `","version":2}`)}
+
+		require.ErrorIs(t, f.svc.Delete(ctx, confirmed, n.ID, true), domain.ErrConflict, "version 1 now")
+
+		confirmed.Confirming.Payload = []byte(`{"id":"` + string(n.ID) + `","version":1}`)
+		require.NoError(t, f.svc.Delete(ctx, confirmed, n.ID, true))
+		assert.Empty(t, h.asks)
+	})
+
+	t.Run("the user's own, or on paper, goes ahead", func(t *testing.T) {
+		f, n, h := setup(t, true)
+
+		_, err := f.svc.Update(ctx, alice, n.ID, 1, edit(), false)
+		require.NoError(t, err)
+
+		paper, m, ph := setup(t, false)
+		_, err = paper.svc.Update(ctx, agent, m.ID, 1, edit(), false)
+		require.NoError(t, err)
+
+		assert.Empty(t, h.asks)
+		assert.Empty(t, ph.asks)
+	})
+}
+
+func ptr[T any](v T) *T { return &v }
+
+func withName(def customnodes.Definition, name string) customnodes.Definition {
+	def.Name = name
+	return def
+}

@@ -6,6 +6,7 @@ import { useConfirm, useConfirmations, useRefuse } from '@/api/confirmations'
 import { ErrorAlert } from '@/components/ErrorAlert'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
+import { ConfirmationDetail } from '@/features/settings/ConfirmationDetail'
 import { settingsPath } from '@/features/settings/pages'
 import { formatDateTime } from '@/lib/format'
 
@@ -52,6 +53,7 @@ export function ConfirmationPage() {
             <span className="font-medium">{c.asker}</span> asks you to confirm: {c.what}
             {c.about && ` (${c.about})`}.
           </p>
+          <ConfirmationDetail detail={c.detail} open />
           <p className="text-xs text-muted-foreground">
             Asked {formatDateTime(c.createdAt)}; waits until {formatDateTime(c.expiresAt)}.
           </p>

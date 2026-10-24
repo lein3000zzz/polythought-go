@@ -11,6 +11,7 @@ import (
 	"fmt"
 	"sync"
 	"time"
+	"unicode/utf8"
 
 	"github.com/google/uuid"
 	"github.com/lein3000zzz/the-watchers/pkg/observability/logging"
@@ -130,7 +131,7 @@ func (s *Service) Hold(ctx context.Context, p auth.Principal, a domain.Ask) erro
 
 	c := domain.Confirmation{
 		ID: domain.ConfirmationID(uuid.Must(uuid.NewV7()).String()), OwnerID: p.User.ID, Kind: kind, WorkflowID: wf,
-		GrantID: p.GrantID, TokenID: p.TokenID, Agent: p.Actor("").Name, Scopes: p.Scopes, What: what, About: a.About, Payload: data,
+		GrantID: p.GrantID, TokenID: p.TokenID, Agent: p.Actor("").Name, Scopes: p.Scopes, What: what, About: a.About, Detail: detailOf(a.Detail), Payload: data,
 		Status: domain.ConfirmPending, CreatedAt: now, ExpiresAt: now.Add(s.expiry()),
 	}
 
@@ -221,7 +222,7 @@ func (s *Service) Confirm(ctx context.Context, p auth.Principal, id domain.Confi
 	s.mu.Unlock()
 
 	// As it was asked: the user now, the token's or the agent's name and scopes then.
-	asker := auth.Principal{User: p.User, GrantID: c.GrantID, TokenID: c.TokenID, Scopes: c.Scopes, Confirmed: true}
+	asker := auth.Principal{User: p.User, GrantID: c.GrantID, TokenID: c.TokenID, Scopes: c.Scopes, Confirmed: true, Confirming: &c}
 	if c.GrantID != "" {
 		asker.Agent = c.Agent
 	} else {
@@ -332,6 +333,12 @@ func (s *Service) decideVia(
 func (s *Service) ConfirmInWindow(ctx context.Context, p auth.Principal, id domain.ConfirmationID) (domain.Confirmation, error) {
 	if err := s.mayAsk(ctx, p, id); err != nil {
 		return domain.Confirmation{}, err
+	}
+
+	// A token's client is a program more often than not, and whatever holds the token would
+	// answer its own form (A6): it asks by the link, the user deciding in Polythought.
+	if p.GrantID == "" {
+		return domain.Confirmation{}, fmt.Errorf("%w: an API token's action is confirmed in Polythought, not in its own window", domain.ErrForbidden)
 	}
 
 	c, err := s.decideVia(ctx, p, id, domain.ConfirmConfirmed, domain.ConfirmViaAgent)
@@ -487,4 +494,22 @@ func (s *Service) Wait(ctx context.Context) error {
 	case <-ctx.Done():
 		return ctx.Err()
 	}
+}
+
+// maxDetail is the most of what a held action changes that is kept: past it, the rest is
+// said to be there.
+const maxDetail = 8 << 10
+
+// detailOf is a held action's detail, cut to maxDetail.
+func detailOf(d string) string {
+	if len(d) <= maxDetail {
+		return d
+	}
+
+	cut := d[:maxDetail]
+	for !utf8.ValidString(cut) {
+		cut = cut[:len(cut)-1]
+	}
+
+	return cut + "\n… and more: open the workflow to see all of it"
 }

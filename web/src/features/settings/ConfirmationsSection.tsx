@@ -17,6 +17,7 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { Switch } from '@/components/ui/switch'
 import { formatDateTime } from '@/lib/format'
 
+import { ConfirmationDetail } from './ConfirmationDetail'
 import { jumpId } from './pages'
 
 type LiveConfirm = Schemas['LiveConfirm']
@@ -40,7 +41,7 @@ const switches: ConfirmSwitchSpec[] = [
     key: 'change',
     id: 'confirm-change',
     label: 'Changing a live workflow that is on',
-    hint: 'Saving a new graph for a workflow that trades live and is switched on, which changes what it buys.',
+    hint: 'Saving a new graph for a workflow that trades live and is switched on, or changing or deleting a custom node one uses: either changes what it buys.',
   },
   {
     key: 'killOff',
@@ -158,8 +159,9 @@ export function ConfirmationsSection() {
           <Label htmlFor="confirm-in-agent">Also ask in the agent&apos;s window</Label>
           <p id="confirm-in-agent-hint" className="text-xs text-muted-foreground">
             Where its client can ask: a link to this app, where you decide, or where it shows no
-            links, a Confirm and a Refuse in the agent itself, whose answer counts. Its call waits a
-            little for you, then the request waits here.
+            links, a Confirm and a Refuse in the agent itself. That answer counts, but the
+            agent&apos;s own client gives it: one that is compromised could confirm for you. API
+            tokens get the link only. Its call waits a little for you, then the request waits here.
           </p>
         </div>
         <Switch
@@ -202,6 +204,7 @@ export function ConfirmationsSection() {
                 <span className="text-xs text-muted-foreground">
                   Asked {formatDateTime(c.createdAt)}; waits until {formatDateTime(c.expiresAt)}
                 </span>
+                <ConfirmationDetail detail={c.detail} />
               </div>
               <Button
                 size="sm"

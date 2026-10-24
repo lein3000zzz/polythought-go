@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"net"
 	"net/http"
 	"net/url"
 	"strings"
@@ -12,6 +13,7 @@ import (
 	"github.com/cloudwego/hertz/pkg/app"
 	"github.com/cloudwego/hertz/pkg/common/adaptor"
 	"github.com/lein3000zzz/the-watchers/pkg/observability/logging"
+	"golang.org/x/net/idna"
 
 	"github.com/lein3000zzz/polythought-go/internal/core/domain"
 	"github.com/lein3000zzz/polythought-go/internal/core/services/auth"
@@ -33,6 +35,10 @@ type OAuthService interface {
 	RevokeGrant(ctx context.Context, p auth.Principal, id domain.GrantID) error
 	SetAgentAccess(ctx context.Context, p auth.Principal, a domain.AgentAccess) error
 }
+
+// maxRegistration is the most a client's metadata may be when it registers itself: ten
+// redirect URIs and a home page, a name, with room to spare (A13).
+const maxRegistration = 64 << 10
 
 // oauthEndpoints are called by agents' programs, not the app: they take no cookie and say
 // who they are themselves, so neither the session nor the origin check applies. /mcp
@@ -140,6 +146,12 @@ type oauthRegistrationDTO struct {
 //	@Failure	429		{object}	map[string]string	"slow_down"
 //	@Router		/oauth/register [post]
 func (s *Server) registerOAuthClient(ctx context.Context, c *app.RequestContext) {
+	// A client's metadata is a name and a few addresses: anyone may register one (A13).
+	if len(c.Request.Body()) > maxRegistration {
+		s.oauthFail(ctx, c, &oauth.Error{Code: "invalid_client_metadata", Description: "the metadata is larger than a client's needs"})
+		return
+	}
+
 	var reg oauthRegistrationRequest
 
 	// Metadata the server does not know is ignored, as RFC 7591 says: clients send more.
@@ -259,26 +271,53 @@ func (r authRequestDTO) request() oauth.AuthRequest {
 type oauthClientDTO struct {
 	ID   string `json:"id"`
 	Name string `json:"name"`
-	// Verified says it is a metadata document at its ID, a URL only its owner could
-	// publish at; a registered client's name is its own word.
-	Verified bool `json:"verified"`
-	// Site is the host it is from: its document's, or its homepage's, unchecked.
+	// Published says it describes itself in a metadata document at its ID: whoever
+	// controls that address wrote it, name and all, which is not the same as being who it
+	// says (A2). A registered client's name is its own word.
+	Published bool `json:"published"`
+	// Site is the host it is from, as ASCII so a lookalike shows as one: its document's,
+	// or its homepage's, unchecked.
 	Site string `json:"site,omitempty" validate:"optional"`
 } // @name OAuthClient
 
 func toOAuthClientDTO(c domain.OAuthClient) oauthClientDTO {
-	out := oauthClientDTO{ID: c.ID, Name: c.Name, Verified: c.Kind == domain.ClientDocument}
+	out := oauthClientDTO{ID: c.ID, Name: c.Name, Published: c.Kind == domain.ClientDocument}
 
 	from := c.ClientURI
-	if out.Verified {
+	if out.Published {
 		from = c.ID
 	}
 
 	if u, err := url.Parse(from); err == nil {
-		out.Site = u.Hostname()
+		out.Site = asciiHost(u.Hostname())
 	}
 
 	return out
+}
+
+// asciiHost is a host as the network has it: Unicode turned to punycode, so a lookalike
+// such as a Cyrillic а in clаude.ai shows as xn--clude-5ve.ai (A2).
+func asciiHost(host string) string {
+	if ascii, err := idna.Lookup.ToASCII(host); err == nil {
+		return ascii
+	}
+
+	return host
+}
+
+// awayFrom says a redirect leaves a published client's own host for another, not this
+// machine: the document's author need not own where the code goes (A2).
+func awayFrom(c oauthClientDTO, redirect *url.URL) bool {
+	if !c.Published || redirect == nil {
+		return false
+	}
+
+	host := asciiHost(redirect.Hostname())
+	if host == "localhost" || net.ParseIP(host) != nil && net.ParseIP(host).IsLoopback() {
+		return false
+	}
+
+	return host != c.Site
 }
 
 type offerDTO struct {
@@ -296,8 +335,11 @@ type oauthProblemDTO struct {
 
 type consentDTO struct {
 	Client *oauthClientDTO `json:"client,omitempty" validate:"optional"`
-	// RedirectHost is where the browser goes once the user decides.
-	RedirectHost string     `json:"redirectHost,omitempty" validate:"optional"`
+	// RedirectHost is where the browser goes once the user decides, as ASCII.
+	RedirectHost string `json:"redirectHost,omitempty" validate:"optional"`
+	// RedirectAway says it goes to another host than the published client's own, and not
+	// this machine: one to warn of (A2).
+	RedirectAway bool       `json:"redirectAway,omitempty" validate:"optional"`
 	Offered      []offerDTO `json:"offered,omitempty" validate:"optional"`
 	// Allowed says the user's grant covers what the client asks: the page approves with
 	// Granted, not asking again.
@@ -363,7 +405,12 @@ func (s *Server) oauthConsent(ctx context.Context, c *app.RequestContext) {
 	out := consentDTO{Client: &client, Allowed: consent.Allowed}
 
 	if u, err := url.Parse(consent.RedirectURI); err == nil {
-		out.RedirectHost = u.Scheme + "://" + u.Host
+		out.RedirectHost = u.Scheme + "://" + asciiHost(u.Hostname())
+		if port := u.Port(); port != "" {
+			out.RedirectHost += ":" + port
+		}
+
+		out.RedirectAway = awayFrom(client, u)
 	}
 
 	for _, o := range consent.Offered {

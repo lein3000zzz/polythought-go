@@ -77,8 +77,11 @@ skills on the tools.
 The endpoint, `/mcp`, is the official Go SDK's MCP server, over Streamable HTTP, inside the
 API server. An agent's OAuth token works there, and so does an API token, each with its
 scopes; a request without one is told where to sign in. Each tool asks for a scope, and each
-agent or token may call 120 a minute unless an admin changes it; an answer is kept under
-about 8,000 tokens, and a list comes a page at a time. Each session is kept in the database
+agent or token may call 120 a minute, a user's together 600, unless an admin changes it;
+an answer is kept under about 8,000 tokens, and a list comes a page at a time. Sessions are
+bounded as each costs memory until it goes idle: 10 open per agent or token and 30 per
+user, the oldest closing past that, 30 opened a minute per user, and the request opening
+one at most 64 KiB, all but the last settings. Each session is kept in the database
 as it opens, its last call written each minute, and forgotten as it ends: the SDK keeps no
 session across a restart, so the list of agents connected keeps those open as the server
 stopped until their agents open new ones.
@@ -127,10 +130,12 @@ share the user's workflows and take the user's entries down where the share swit
 them.
 
 What reaches real money waits for the user where they say so: going live, switching on or
-running a workflow that trades live, changing one that is on, and turning the kill switch
-off, a switch each on Settings, on to start with. An agent's or a token's such action is
-checked as any would be, its scopes and all, then kept as a confirmation, with who asked,
-what it does in a sentence, and what carrying it out needs; the agent hears that it waits,
+running a workflow that trades live, changing one that is on or a custom node it uses, and
+turning the kill switch off, a switch each on Settings, on to start with. An agent's or a
+token's such action is checked as any would be, its scopes and all, then kept as a
+confirmation, with who asked, what it does in a sentence, what it changes line by line
+(a workflow's nodes and settings against the graph it has, but for personal ones, or a
+custom node's new code), and what carrying it out needs; the agent hears that it waits,
 and `get_confirmation` says how it went. The user confirms or refuses it at a browser,
 from a bar on every page, before it expires, an hour unless an admin changes it; confirmed,
 it is carried out as the agent asked, with its scopes then, and how it ended is kept. The
@@ -141,8 +146,10 @@ was; by mail if they turn it on.
 
 Where the user turns on **Also ask in the agent's window**, off to start with, the tool call
 that held the action asks in the agent too, by MCP's elicitation, where its client can: a
-link to Polythought's own page for it, where the user decides, or for a client that shows
-no links, a form whose Confirm or Refuse counts. The call waits for the answer two minutes
+link to Polythought's own page for it, where the user decides, or for an agent's client
+that shows no links, a form whose Confirm or Refuse counts. The client gives that answer,
+so a compromised one, or a program with the agent's access token, could confirm for the
+user; an API token, most often a program's, gets the link only. The call waits for the answer two minutes
 unless an admin changes it; confirmed in time, it carries the action out itself, so the
 agent gets what came of it as if it had gone ahead, and unanswered, the request waits in
 Polythought. Each confirmation keeps where it was decided: in the app, on Telegram, or in
@@ -165,7 +172,8 @@ It creates an account with a password only where an admin turns on **Agents crea
 with passwords**, off to start with, and then as a user, never an admin at once. It reads
 and changes Config, all of a change or none, checked as the Config page checks it, reads its
 history, and restarts the server; secret settings show only as set, and an agent never sets
-one, nor a plugin's secret setting. It installs plugins from an https URL or from the
+one, nor a plugin's secret setting, nor the mail server's host, port, security or username,
+which say where the mail password goes. It installs plugins from an https URL or from the
 archive sent in the call, base64, at most about 700 KB as a call is at most 1 MiB; installing
 waits for nothing, as nothing installed runs until it is approved. A plugin's name,
 description and log are its author's words, under `untrusted`. Removing a plugin version,

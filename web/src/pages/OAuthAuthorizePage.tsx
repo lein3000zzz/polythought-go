@@ -1,4 +1,4 @@
-import { CircleAlert, ShieldCheck } from 'lucide-react'
+import { CircleAlert, TriangleAlert } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useSearchParams } from 'react-router'
 
@@ -176,21 +176,28 @@ function ConsentForm({ request, consent, onDecided }: FormProps) {
         <div className="flex flex-col gap-1 rounded-md border p-3">
           <span className="flex flex-wrap items-center gap-1.5 font-medium">
             {name}
-            {client?.verified ? (
-              <Badge variant="secondary">
-                <ShieldCheck />
-                Verified
-              </Badge>
+            {client?.published ? (
+              <Badge variant="secondary">Published at {client.site}</Badge>
             ) : (
               <Badge variant="outline">Unverified</Badge>
             )}
           </span>
           <span className="text-muted-foreground">
-            {client?.verified
-              ? `It describes itself at ${client.site}, where only its owner can publish.`
+            {client?.published
+              ? `It describes itself at ${client.id}: whoever controls ${client.site} wrote that, name and all. Allow it only if you expected this agent from there.`
               : `It registered itself, so its name is its own word${client?.site ? `, and so is ${client.site}` : ''}. Allow it only if you just started it.`}
           </span>
         </div>
+
+        {consent.redirectAway && (
+          <Alert variant="destructive">
+            <TriangleAlert />
+            <AlertDescription>
+              It sends you back to {consent.redirectHost}, not to {client?.site}: whoever runs that
+              address gets what you allow. Allow it only if you know why.
+            </AlertDescription>
+          </Alert>
+        )}
 
         <fieldset className="flex flex-col gap-2">
           <legend className="mb-2 font-medium">It may</legend>

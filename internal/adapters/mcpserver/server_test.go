@@ -224,3 +224,18 @@ func TestToolCallLimit(t *testing.T) {
 	require.Len(t, res.Content, 1)
 	assert.Contains(t, res.Content[0].(*mcp.TextContent).Text, "too many tool calls")
 }
+
+// All of a user's agents and tokens share a limit too, however many they make (A11).
+func TestUserCallLimit(t *testing.T) {
+	limit := &allowing{n: 1}
+	d := deps(alice, &trades{}, []domain.Scope{domain.ScopeRead})
+	d.UserLimiter = limit
+	agent := connect(t, d)
+
+	_, err := call(t, agent, "whoami", nil)
+	require.Empty(t, err)
+
+	_, err = call(t, agent, "whoami", nil)
+	assert.Contains(t, err, "too many tool calls from your agents and tokens together")
+	assert.Equal(t, []string{"mcp-user:" + string(alice.ID), "mcp-user:" + string(alice.ID)}, limit.keys)
+}

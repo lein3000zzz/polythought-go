@@ -32,4 +32,5 @@ type Confirmations struct {
 	TelegramMessage int64
 	DecidedVia      string
 	About           string
+	Detail          string
 }

@@ -16,6 +16,13 @@ export type AgentClient = {
 
 const json = (v: unknown) => JSON.stringify(v, null, 2)
 
+/** A word a shell reads as one, quoted unless it is plain (A8). */
+export const shellWord = (s: string) =>
+  /^[\w@%+=:,./-]+$/.test(s) ? s : `'${s.replaceAll("'", `'\\''`)}'`
+
+/** A TOML basic string: JSON's escapes are TOML's. */
+const tomlString = (s: string) => JSON.stringify(s)
+
 export const agentClients: AgentClient[] = [
   {
     id: 'claude-code',
@@ -23,7 +30,7 @@ export const agentClients: AgentClient[] = [
     steps: (address) => [
       {
         text: 'Add Polythought to Claude Code, for all your projects:',
-        code: `claude mcp add --transport http --scope user polythought ${address}`,
+        code: `claude mcp add --transport http --scope user polythought ${shellWord(address)}`,
       },
       {
         text: 'Sign in: in Claude Code, run /mcp, pick polythought and authenticate; your browser opens here. Outside a session, this does the same:',
@@ -37,7 +44,7 @@ export const agentClients: AgentClient[] = [
     steps: (address) => [
       {
         text: 'Add it to ~/.codex/config.toml. The longer timeout lets it wait for tasks, which takes up to a minute:',
-        code: `[mcp_servers.polythought]\nurl = "${address}"\ntool_timeout_sec = 120`,
+        code: `[mcp_servers.polythought]\nurl = ${tomlString(address)}\ntool_timeout_sec = 120`,
       },
       { text: 'Sign in; your browser opens here:', code: 'codex mcp login polythought' },
     ],
@@ -48,7 +55,7 @@ export const agentClients: AgentClient[] = [
     steps: (address) => [
       {
         text: 'Add Polythought to Gemini CLI, for all your projects:',
-        code: `gemini mcp add --transport http --scope user polythought ${address}`,
+        code: `gemini mcp add --transport http --scope user polythought ${shellWord(address)}`,
       },
       {
         text: 'It signs in the first time it connects, opening your browser here; to sign in again, run this in Gemini CLI:',

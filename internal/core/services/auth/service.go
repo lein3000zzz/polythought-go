@@ -213,8 +213,10 @@ type Principal struct {
 	// Scopes are what a token or an agent may do (D398).
 	Scopes []domain.Scope
 	// Confirmed says the user confirmed this live action of a token's or an agent's
-	// (D406): it goes ahead as it was asked.
-	Confirmed bool
+	// (D406): it goes ahead as it was asked. Confirming is the confirmation, so what is
+	// carried out can be held to what was confirmed (A4).
+	Confirmed  bool
+	Confirming *domain.Confirmation
 }
 
 func (p Principal) ViaSession() bool { return p.SessionID != "" }

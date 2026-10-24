@@ -34,6 +34,9 @@ const (
 	// its client starts another.
 	sessionIdle = time.Hour
 	maxBody     = 1 << 20 // as the API's
+	// maxOpening is the most a request opening a session may send: an initialize, whose
+	// client's name and capabilities the session keeps while it lasts (A10).
+	maxOpening = 64 << 10
 )
 
 // Agents checks agents' OAuth access tokens: the oauth service.
@@ -58,9 +61,11 @@ type Config struct {
 type Deps struct {
 	Agents Agents
 	Tokens Tokens
-	// Limiter counts each agent's or token's tool calls (D400).
-	Limiter ports.RateLimiter
-	Util    *observability.Utility
+	// Limiter counts each agent's or token's tool calls (D400), and UserLimiter all of a
+	// user's together (A11); without it, they are not.
+	Limiter     ports.RateLimiter
+	UserLimiter ports.RateLimiter
+	Util        *observability.Utility
 
 	// What the tools read (D401); a tool whose source is missing is not offered.
 	Workflows Workflows
@@ -103,6 +108,10 @@ type Deps struct {
 	// SessionIdle is how long one lasts with no call, an hour when zero.
 	Sessions    ports.MCPSessionRepository
 	SessionIdle time.Duration
+	// SessionLimits bound the sessions a user's agents and tokens keep open, read on each
+	// new one; NewSessions counts each user's new ones (A10). Without them, nothing does.
+	SessionLimits func() SessionLimits
+	NewSessions   ports.RateLimiter
 
 	// What the market tools read (D402); without a reader they are not offered.
 	Markets Markets
@@ -112,10 +121,11 @@ type Deps struct {
 }
 
 type Server struct {
-	agents  Agents
-	tokens  Tokens
-	limiter ports.RateLimiter
-	log     logging.Logger
+	agents      Agents
+	tokens      Tokens
+	limiter     ports.RateLimiter
+	userLimiter ports.RateLimiter
+	log         logging.Logger
 
 	workflows Workflows
 	nodeTypes NodeTypes
@@ -151,7 +161,9 @@ type Server struct {
 	idle     time.Duration // how long a session lasts with no call
 	closing  atomic.Bool   // the server is stopping: its sessions stay kept
 	mu       sync.Mutex
-	tracked  map[string]time.Time // the sessions seen, and when last written down
+	tracked  map[string]*opened // the sessions seen, by ID
+	limits   func() SessionLimits
+	opening  ports.RateLimiter
 
 	kit     *redkit.Kit
 	scope   tracing.Scope
@@ -169,7 +181,7 @@ func New(cfg Config, d Deps) (*Server, error) {
 	}
 
 	s := &Server{
-		agents: d.Agents, tokens: d.Tokens, limiter: d.Limiter, log: log, kit: kit,
+		agents: d.Agents, tokens: d.Tokens, limiter: d.Limiter, userLimiter: d.UserLimiter, log: log, kit: kit,
 		workflows: d.Workflows, nodeTypes: d.NodeTypes, codeTypes: d.CodeTypes, library: d.Library, trading: d.Trading,
 		edit: d.Edit, code: d.Code, customNodes: d.CustomNodes, credentials: d.Credentials,
 		sharing: d.Sharing, confirms: d.Confirmations, trader: d.Trader,
@@ -177,7 +189,8 @@ func New(cfg Config, d Deps) (*Server, error) {
 		admin: d.Admin, config: d.Settings, mail: d.Mail, geoblock: d.Geoblock, plugins: d.Plugins, tasks: d.Tasks,
 		markets: d.Markets.Sources, marketReader: d.Markets.Reader, wallets: d.Wallets, trades: d.Trades,
 		scope:    tracing.Scope{Manager: d.Util.TracerManager, TracerName: tracerName},
-		sessions: d.Sessions, boot: newBoot(), idle: d.SessionIdle, tracked: map[string]time.Time{},
+		sessions: d.Sessions, boot: newBoot(), idle: d.SessionIdle, tracked: map[string]*opened{},
+		limits: d.SessionLimits, opening: d.NewSessions,
 	}
 
 	if s.idle <= 0 {
@@ -271,7 +284,7 @@ func New(cfg Config, d Deps) (*Server, error) {
 		ResourceMetadataURL: ResourceMetadataURL(cfg.PublicURL),
 		// API tokens may never expire; agents' always do, and are checked as they come.
 		AllowMissingExpiration: true,
-	})(stream)
+	})(s.limitOpening(stream))
 
 	return s, nil
 }

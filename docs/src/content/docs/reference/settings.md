@@ -671,6 +671,18 @@ How many tool calls one agent, or one API token, may make in a minute, all at on
 | Default | `120` |
 | Applies | at once |
 
+### Tool calls a minute per user
+
+How many tool calls all of a user's agents and API tokens may make in a minute together, however many of them there are; past it, a call is refused until the minute allows another. A change applies at once.
+
+| | |
+|---|---|
+| Key | `mcp.user_rate` |
+| Environment variable | `POLYTHOUGHT_MCP_USER_RATE` |
+| Kind | whole number |
+| Default | `600` |
+| Applies | at once |
+
 ### Access token lifetime
 
 How long an agent's access token works before it refreshes it. Revoking an agent stops it at once whatever this is. Applies to tokens given from now.
@@ -802,6 +814,42 @@ How long an agent's MCP session lasts with no call before the server closes it, 
 | Kind | duration, e.g. `30s`, `5m`, `168h` |
 | Default | `1h` |
 | Applies | after a restart |
+
+### Sessions per agent
+
+How many MCP sessions one agent, or one API token, keeps open at once. Past it, its oldest closes, and that client opens another when it calls again. Applies at once.
+
+| | |
+|---|---|
+| Key | `mcp.sessions_per_agent` |
+| Environment variable | `POLYTHOUGHT_MCP_SESSIONS_PER_AGENT` |
+| Kind | whole number |
+| Default | `10` |
+| Applies | at once |
+
+### Sessions per user
+
+How many MCP sessions all of a user's agents and API tokens keep open at once. Past it, their oldest closes. Each lasts until it goes idle and costs the server memory. Applies at once.
+
+| | |
+|---|---|
+| Key | `mcp.sessions_per_user` |
+| Environment variable | `POLYTHOUGHT_MCP_SESSIONS_PER_USER` |
+| Kind | whole number |
+| Default | `30` |
+| Applies | at once |
+
+### New sessions a minute
+
+How many MCP sessions a user's agents and API tokens may open in a minute, all of them together; past it, opening one is refused until the minute allows another. Applies at once.
+
+| | |
+|---|---|
+| Key | `mcp.new_sessions` |
+| Environment variable | `POLYTHOUGHT_MCP_NEW_SESSIONS` |
+| Kind | whole number |
+| Default | `30` |
+| Applies | at once |
 
 ## Network
 

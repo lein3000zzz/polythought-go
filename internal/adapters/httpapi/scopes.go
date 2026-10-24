@@ -63,8 +63,9 @@ var routeScopes = map[string]access{
 	"POST /api/v1/tokens":                       browserOnly,
 	"DELETE /api/v1/tokens/:id":                 browserOnly,
 	"PUT /api/v1/notifications/:key":            need(domain.ScopeSettings),
-	"POST /api/v1/telegram/link":                need(domain.ScopeSettings),
-	"DELETE /api/v1/telegram/link":              need(domain.ScopeSettings),
+	// The linked chat confirms what tokens and agents ask for: linking it is the user's (A1).
+	"POST /api/v1/telegram/link":   browserOnly,
+	"DELETE /api/v1/telegram/link": browserOnly,
 
 	// Wallets are for trading live; their keys and approvals only at a browser.
 	"POST /api/v1/wallets":                                      need(domain.ScopeLive),

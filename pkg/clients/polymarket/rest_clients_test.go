@@ -7,6 +7,7 @@ import (
 	"net/http/httptest"
 	"sync/atomic"
 	"testing"
+	"time"
 
 	"github.com/lein3000zzz/the-watchers/pkg/observability"
 	"github.com/lein3000zzz/the-watchers/pkg/observability/metrics"
@@ -536,4 +537,29 @@ func TestClobEmptyBatchesSkipTheRequest(t *testing.T) {
 			assert.Zero(t, got.hits.Load(), "no request for an empty batch")
 		})
 	}
+}
+
+// The CLOB's orders and cancels go on a budget of their own: reads, however many, never
+// hold one up behind them (A11).
+func TestTradesHaveTheirOwnBudget(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		_, _ = w.Write([]byte(`{"canceled":["0x1"],"not_canceled":{}}`))
+	}))
+	t.Cleanup(srv.Close)
+
+	clob, err := NewClobClient(observability.NoopUtility(), HTTPConfig{BaseURL: srv.URL, RPS: 1, Burst: 1, MaxRetries: -1})
+	require.NoError(t, err)
+
+	require.True(t, clob.core.limiter.Allow(), "the reads' one")
+	require.False(t, clob.core.limiter.Allow(), "spent")
+
+	ctx, cancel := context.WithTimeout(context.Background(), 200*time.Millisecond)
+	defer cancel()
+
+	creds := L2Credentials{Address: "0xSigner", APIKey: "key-1", Secret: "c2VjcmV0", Passphrase: "pass"}
+
+	got, err := clob.CancelOrder(ctx, creds, "0x1")
+	require.NoError(t, err, "not waiting for the reads' budget")
+	assert.Equal(t, []string{"0x1"}, got.Canceled)
+	assert.InDelta(t, float64(defaultTradeRPS), float64(clob.trade.limiter.Limit()), 0)
 }

@@ -63,22 +63,29 @@ func TestOAuthClients(t *testing.T) {
 	unused := oauthClient("pc_unused", domain.ClientRegistered, at)
 	used := oauthClient("pc_used", domain.ClientRegistered, at)
 	recent := oauthClient("pc_recent", domain.ClientRegistered, at.Add(2*time.Hour))
+	stale := oauthClient("https://stale.example/client.json", domain.ClientDocument, at)
+	staleUsed := oauthClient("https://used.example/client.json", domain.ClientDocument, at)
+	stale.FetchedAt, staleUsed.FetchedAt = at, at
 
-	for _, c := range []domain.OAuthClient{unused, used, recent} {
+	for _, c := range []domain.OAuthClient{unused, used, recent, stale, staleUsed} {
 		require.NoError(t, repo.SaveClient(ctx, c))
 	}
 
 	_, err = repo.SaveGrant(ctx, oauthGrant(u.ID, used, at, domain.ScopeRead))
 	require.NoError(t, err)
+	_, err = repo.SaveGrant(ctx, oauthGrant(u.ID, staleUsed, at, domain.ScopeRead))
+	require.NoError(t, err)
 
 	n, err := repo.PruneClients(ctx, at.Add(time.Hour))
 	require.NoError(t, err)
-	assert.Equal(t, int64(1), n)
+	assert.Equal(t, int64(2), n)
 
 	_, err = repo.Client(ctx, unused.ID)
 	require.ErrorIs(t, err, domain.ErrNotFound, "registered long ago, no grant")
+	_, err = repo.Client(ctx, stale.ID)
+	require.ErrorIs(t, err, domain.ErrNotFound, "fetched long ago, no grant (A13)")
 
-	for _, id := range []string{used.ID, recent.ID, doc.ID} {
+	for _, id := range []string{used.ID, recent.ID, doc.ID, staleUsed.ID} {
 		_, err = repo.Client(ctx, id)
 		require.NoError(t, err, id)
 	}

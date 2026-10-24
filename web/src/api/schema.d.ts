@@ -2468,11 +2468,16 @@ export interface components {
              * @enum {string}
              */
             decidedVia?: "app" | "telegram" | "agent";
+            /**
+             * @description Detail is what it changes, a line each, such as a workflow's nodes and settings
+             *     against the graph it has (A3).
+             */
+            detail?: string;
             /** Format: date-time */
             expiresAt: string;
             id: string;
             /** @enum {string} */
-            kind: "go_live" | "switch_on" | "run" | "change" | "kill_off" | "admin_role" | "admin_disable" | "admin_caps" | "admin_code" | "admin_config" | "admin_restart" | "admin_plugin_approve" | "admin_plugin";
+            kind: "go_live" | "switch_on" | "run" | "change" | "custom_node" | "kill_off" | "admin_role" | "admin_disable" | "admin_caps" | "admin_code" | "admin_config" | "admin_restart" | "admin_plugin_approve" | "admin_plugin";
             /** @description Result is what came of it: an execution, or why it failed. */
             result?: string;
             /** @enum {string} */
@@ -3240,13 +3245,17 @@ export interface components {
         OAuthClient: {
             id: string;
             name: string;
-            /** @description Site is the host it is from: its document's, or its homepage's, unchecked. */
-            site?: string;
             /**
-             * @description Verified says it is a metadata document at its ID, a URL only its owner could
-             *     publish at; a registered client's name is its own word.
+             * @description Published says it describes itself in a metadata document at its ID: whoever
+             *     controls that address wrote it, name and all, which is not the same as being who it
+             *     says (A2). A registered client's name is its own word.
              */
-            verified: boolean;
+            published: boolean;
+            /**
+             * @description Site is the host it is from, as ASCII so a lookalike shows as one: its document's,
+             *     or its homepage's, unchecked.
+             */
+            site?: string;
         };
         OAuthConsent: {
             /**
@@ -3259,7 +3268,12 @@ export interface components {
             offered?: components["schemas"]["OAuthOffer"][];
             /** @description Problem is set instead when the request is wrong. */
             problem?: components["schemas"]["OAuthProblem"];
-            /** @description RedirectHost is where the browser goes once the user decides. */
+            /**
+             * @description RedirectAway says it goes to another host than the published client's own, and not
+             *     this machine: one to warn of (A2).
+             */
+            redirectAway?: boolean;
+            /** @description RedirectHost is where the browser goes once the user decides, as ASCII. */
             redirectHost?: string;
         };
         OAuthDecision: {

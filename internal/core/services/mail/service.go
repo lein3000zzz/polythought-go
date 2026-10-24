@@ -237,7 +237,7 @@ func (s *Service) compose(to string, m Message) ports.Mail {
 
 	for _, p := range m.Paragraphs {
 		text.WriteString(p + "\n\n")
-		body.WriteString(`<p style="margin:0 0 16px">` + html.EscapeString(p) + "</p>\n")
+		body.WriteString(`<p style="margin:0 0 16px;white-space:pre-wrap">` + html.EscapeString(p) + "</p>\n")
 	}
 
 	if m.Link != nil {

@@ -509,3 +509,52 @@ func buttonsOf(m ports.TelegramMessage) [][]string {
 
 	return out
 }
+
+// The linked chat confirms what agents and tokens ask for, so linking it is the user's, at
+// a browser, and the chat it replaces hears of the move (A1).
+func TestLinkingIsTheUsers(t *testing.T) {
+	ctx := context.Background()
+	user := auth.Principal{User: alice, SessionID: "s-1"}
+
+	t.Run("not a token's, nor an agent's", func(t *testing.T) {
+		s, d := newService(t)
+
+		for _, p := range []auth.Principal{
+			{User: alice, TokenID: "t-1", Scopes: []domain.Scope{domain.ScopeSettings}},
+			{User: alice, TokenID: "t-0"}, // made before scopes: every one
+			{User: alice, GrantID: "g-1", Agent: "Claude Code", Scopes: []domain.Scope{domain.ScopeSettings}},
+		} {
+			_, err := s.CreateLink(ctx, p)
+			require.ErrorIs(t, err, domain.ErrForbidden)
+			require.ErrorIs(t, s.Unlink(ctx, p), domain.ErrForbidden)
+		}
+
+		assert.Empty(t, d.links.codes)
+	})
+
+	t.Run("the chat it replaces is told", func(t *testing.T) {
+		s, d := newService(t)
+		s.HandleUpdate(ctx, message("/start "+linkCode(t, s, user)))
+
+		mallory := ports.TelegramUser{ID: 9, Username: "mallory", FirstName: "M"}
+		s.HandleUpdate(ctx, ports.TelegramUpdate{Message: &ports.TelegramIncoming{
+			ChatID: 90, Private: true, From: mallory, Text: "/start " + linkCode(t, s, user),
+		}})
+
+		saved, err := d.links.ForUser(ctx, alice.ID)
+		require.NoError(t, err)
+		assert.Equal(t, int64(90), saved.ChatID)
+
+		d.bot.mu.Lock()
+		defer d.bot.mu.Unlock()
+
+		var told bool
+		for _, m := range d.bot.sent {
+			if m.ChatID == 70 && strings.Contains(m.HTML, "is now linked to another Telegram chat") {
+				told = true
+			}
+		}
+
+		assert.True(t, told, "the old chat hears of it")
+	})
+}

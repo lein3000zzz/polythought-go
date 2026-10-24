@@ -4,9 +4,11 @@ package workflows
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"maps"
+	"slices"
 	"strings"
 	"time"
 	"unicode/utf8"
@@ -208,11 +210,22 @@ func (s *Service) forCaller(p auth.Principal, w domain.Workflow) domain.Workflow
 }
 
 // keepHidden puts back the values of personal settings saved hidden (D402): each as the
-// node of the same ID had it before; one that had none has none.
-func keepHidden(def Definition, before []domain.NodeSpec) Definition {
-	had := make(map[domain.NodeID]map[string]any, len(before))
+// node of the same ID had it before; one that had none has none. Only onto a node of the
+// same type that still keeps it personal: one retyped to a type that shows the setting
+// would show its value to whoever could not see it (A9).
+func (s *Service) keepHidden(def Definition, before []domain.NodeSpec) Definition {
+	type was struct {
+		typ    string
+		params map[string]any
+	}
+
+	had := make(map[domain.NodeID]was, len(before))
 	for _, n := range before {
-		had[n.ID] = n.Params
+		had[n.ID] = was{typ: n.Type, params: n.Params}
+	}
+
+	personal := func(typ, k string) bool {
+		return s.personal == nil || slices.Contains(s.personal(typ), k)
 	}
 
 	nodes := make([]domain.NodeSpec, len(def.Nodes))
@@ -229,7 +242,7 @@ func keepHidden(def Definition, before []domain.NodeSpec) Definition {
 				n.Params, copied = maps.Clone(n.Params), true
 			}
 
-			if old, ok := had[n.ID][k]; ok {
+			if old, ok := had[n.ID].params[k]; ok && had[n.ID].typ == n.Type && personal(n.Type, k) {
 				n.Params[k] = old
 			} else {
 				delete(n.Params, k)
@@ -295,9 +308,36 @@ func WithConfirmations(c Confirmer) Option {
 	return func(s *Service) { s.confirm = c }
 }
 
-// RunAsked is what a held run carries out.
+// RunAsked is what a held run carries out: from its trigger, the workflow as it was asked
+// for, at its version (A4).
 type RunAsked struct {
 	Trigger domain.NodeID `json:"trigger,omitempty"`
+	Version int           `json:"version"`
+}
+
+// SwitchOnAsked is what a held switch-on carries out: the workflow at its version (A4).
+type SwitchOnAsked struct {
+	Version int `json:"version"`
+}
+
+// asAsked refuses to carry out a confirmed switch-on or run of a workflow that changed
+// since it was asked for: the user confirmed that version, not one saved since (A4).
+func asAsked(p auth.Principal, w domain.Workflow, kind domain.ConfirmKind) error {
+	c := p.Confirming
+	if !p.Confirmed || c == nil || c.Kind != kind || c.WorkflowID != w.ID {
+		return nil
+	}
+
+	var at struct {
+		Version int `json:"version"`
+	}
+
+	if err := json.Unmarshal(c.Payload, &at); err != nil || at.Version != w.Version {
+		return fmt.Errorf("%w: %q changed since it was asked for, version %d then and %d now: ask again",
+			domain.ErrConflict, w.Name, at.Version, w.Version)
+	}
+
+	return nil
 }
 
 // ChangeAsked is what a held change carries out: the definition as it was given, on the
@@ -308,8 +348,8 @@ type ChangeAsked struct {
 }
 
 // hold keeps a token's or an agent's action on a workflow that trades live for its user
-// (D406).
-func (s *Service) hold(ctx context.Context, p auth.Principal, kind domain.ConfirmKind, w domain.Workflow, what string, payload any) error {
+// (D406), saying what it does with the workflow's name as it is now, and what it changes.
+func (s *Service) hold(ctx context.Context, p auth.Principal, kind domain.ConfirmKind, w domain.Workflow, a domain.Ask) error {
 	if s.confirm == nil || s.tradeScope == nil || p.Itself() || p.Confirmed {
 		return nil
 	}
@@ -319,7 +359,9 @@ func (s *Service) hold(ctx context.Context, p auth.Principal, kind domain.Confir
 		return err
 	}
 
-	return s.confirm.Hold(ctx, p, domain.Ask{Kind: kind, WorkflowID: w.ID, What: fmt.Sprintf(what, w.Name), Payload: payload})
+	a.Kind, a.WorkflowID = kind, w.ID
+
+	return s.confirm.Hold(ctx, p, a)
 }
 
 // mayTrade is nil when the principal may have the workflow place its orders.
@@ -408,7 +450,7 @@ func (s *Service) Create(ctx context.Context, p auth.Principal, def Definition) 
 		UpdatedAt: now,
 	}
 
-	if err := s.apply(ctx, &w, keepHidden(def, nil)); err != nil {
+	if err := s.apply(ctx, &w, s.keepHidden(def, nil)); err != nil {
 		return domain.Workflow{}, err
 	}
 
@@ -474,7 +516,9 @@ func (s *Service) Update(ctx context.Context, p auth.Principal, id domain.Workfl
 		return domain.Workflow{}, domain.ErrConflict
 	}
 
-	if err := s.apply(ctx, &w, keepHidden(def, w.Nodes)); err != nil {
+	stored := w // as it is, before the change: what the user knows it by
+
+	if err := s.apply(ctx, &w, s.keepHidden(def, w.Nodes)); err != nil {
 		return domain.Workflow{}, err
 	}
 
@@ -482,8 +526,15 @@ func (s *Service) Update(ctx context.Context, p auth.Principal, id domain.Workfl
 		return domain.Workflow{}, err
 	}
 
+	// Named as the user knows it, not as the change would rename it, and with what it
+	// changes, for them to read before they confirm it (A3).
 	if w.Active {
-		if err := s.hold(ctx, p, domain.ConfirmChange, w, "Change %q, which trades live and is on", ChangeAsked{Version: version, Definition: def}); err != nil {
+		err := s.hold(ctx, p, domain.ConfirmChange, w, domain.Ask{
+			What:    fmt.Sprintf("Change %q, which trades live and is on", stored.Name),
+			Detail:  s.changes(stored, w),
+			Payload: ChangeAsked{Version: version, Definition: def},
+		})
+		if err != nil {
 			return domain.Workflow{}, err
 		}
 	}
@@ -578,7 +629,14 @@ func (s *Service) Activate(ctx context.Context, p auth.Principal, id domain.Work
 	}
 
 	if !w.Active {
-		if err := s.hold(ctx, p, domain.ConfirmSwitchOn, w, "Switch on %q, which trades live", struct{}{}); err != nil {
+		if err := asAsked(p, w, domain.ConfirmSwitchOn); err != nil {
+			return domain.Workflow{}, err
+		}
+
+		err := s.hold(ctx, p, domain.ConfirmSwitchOn, w, domain.Ask{
+			What: fmt.Sprintf("Switch on %q, which trades live", w.Name), Payload: SwitchOnAsked{Version: w.Version},
+		})
+		if err != nil {
 			return domain.Workflow{}, err
 		}
 	}
@@ -752,7 +810,13 @@ func (s *Service) Run(ctx context.Context, p auth.Principal, id domain.WorkflowI
 		return domain.Execution{}, err
 	}
 
-	if err := s.hold(ctx, p, domain.ConfirmRun, w, "Run %q by hand, which trades live", RunAsked{Trigger: trigger}); err != nil {
+	if err := asAsked(p, w, domain.ConfirmRun); err != nil {
+		return domain.Execution{}, err
+	}
+
+	if err := s.hold(ctx, p, domain.ConfirmRun, w, domain.Ask{
+		What: fmt.Sprintf("Run %q by hand, which trades live", w.Name), Payload: RunAsked{Trigger: trigger, Version: w.Version},
+	}); err != nil {
 		return domain.Execution{}, err
 	}
 

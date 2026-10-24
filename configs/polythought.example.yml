@@ -372,6 +372,12 @@ mcp:
   # Environment: POLYTHOUGHT_MCP_RATE.
   # rate: 120
 
+  # How many tool calls all of a user's agents and API tokens may make in a minute
+  # together, however many of them there are; past it, a call is refused until the
+  # minute allows another. A change applies at once.
+  # Environment: POLYTHOUGHT_MCP_USER_RATE.
+  # user_rate: 600
+
   # How long an agent's access token works before it refreshes it. Revoking an agent
   # stops it at once whatever this is. Applies to tokens given from now.
   # Environment: POLYTHOUGHT_MCP_ACCESS_TTL.
@@ -436,6 +442,23 @@ mcp:
   # it no longer shows as connected; its client opens another when it calls again.
   # Environment: POLYTHOUGHT_MCP_SESSION_IDLE.
   # session_idle: "1h"
+
+  # How many MCP sessions one agent, or one API token, keeps open at once. Past it, its
+  # oldest closes, and that client opens another when it calls again. Applies at once.
+  # Environment: POLYTHOUGHT_MCP_SESSIONS_PER_AGENT.
+  # sessions_per_agent: 10
+
+  # How many MCP sessions all of a user's agents and API tokens keep open at once. Past
+  # it, their oldest closes. Each lasts until it goes idle and costs the server memory.
+  # Applies at once.
+  # Environment: POLYTHOUGHT_MCP_SESSIONS_PER_USER.
+  # sessions_per_user: 30
+
+  # How many MCP sessions a user's agents and API tokens may open in a minute, all of
+  # them together; past it, opening one is refused until the minute allows another.
+  # Applies at once.
+  # Environment: POLYTHOUGHT_MCP_NEW_SESSIONS.
+  # new_sessions: 30
 
 webhook:
 

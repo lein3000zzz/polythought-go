@@ -14,8 +14,9 @@ import (
 
 // The agent's own window (D409): a tool whose live action waits for the user asks there
 // too, where the user lets it and the client can, and waits a little for the answer. A link
-// to Polythought's own page where the client shows links, the user deciding there; else a
-// form, whose answer counts. Confirmed, the call carries the action out itself, so the agent
+// to Polythought's own page where the client shows links, the user deciding there; else,
+// for an agent but never an API token, a form, whose answer counts, though the agent's own
+// client could give it (A6). Confirmed, the call carries the action out itself, so the agent
 // gets what came of it as if it had gone ahead; unanswered, it waits in Polythought.
 
 // Window decides a waiting action from the agent's window: the confirmations service.
@@ -49,6 +50,12 @@ func (s *Server) inWindow(ctx context.Context, session *mcp.ServerSession, p aut
 
 	if caps := init.Capabilities.Elicitation; caps.URL != nil {
 		return s.byLink(ctx, session, p, c)
+	}
+
+	// Whatever holds an API token would answer its own form (A6): a token asks by the link
+	// alone.
+	if p.GrantID == "" {
+		return domain.Confirmation{}, false, nil
 	}
 
 	return s.byForm(ctx, session, p, c)

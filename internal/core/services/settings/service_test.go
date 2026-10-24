@@ -32,6 +32,7 @@ const (
 	keyToken        = "telegram.token"
 	keyProxies      = "http.trusted_proxies"
 	keyRetention    = "executions.retention"
+	keyMailHost     = "mail.host"
 )
 
 func registry(t *testing.T) *settings.Registry {
@@ -51,6 +52,7 @@ func registry(t *testing.T) *settings.Registry {
 		settings.Spec{Key: keyToken, Label: "Bot token", Kind: settings.KindString, Secret: true, Default: ""},
 		settings.Spec{Key: keyProxies, Label: "Trusted proxies", Kind: settings.KindList, Default: []string{}},
 		settings.Spec{Key: keyRetention, Label: "Retention", Kind: settings.KindDuration, Default: 720 * time.Hour},
+		settings.Spec{Key: keyMailHost, Label: "Mail server", Kind: settings.KindString, Default: "", AtBrowser: true},
 	))
 
 	return r
@@ -431,7 +433,7 @@ func TestList(t *testing.T) {
 		keys[i] = e.Key
 	}
 
-	assert.Equal(t, []string{keyRegistration, keyMaxWorkflows, keyLogFormat, keyToken, keyProxies, keyRetention}, keys)
+	assert.Equal(t, []string{keyRegistration, keyMaxWorkflows, keyLogFormat, keyToken, keyProxies, keyRetention, keyMailHost}, keys)
 
 	assert.Equal(t, "open", o.Entries[0].Value)
 	assert.Equal(t, settings.SourceEnvironment, o.Entries[0].Source)

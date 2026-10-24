@@ -67,12 +67,18 @@ workflow that uses one, test one, or change where one goes, only where the user 
 use credentials, a switch of its own, off to start with. Nor do they answer the questions the
 user's workflows ask, often how the user approves a trade, unless the user lets them, and the
 question then says who answered. What reaches real money, going live, switching on, running
-or changing a workflow that trades live, and turning the kill switch off, waits for the user
-to confirm it at a browser, where they have it wait, as they do to start with; neither an
-agent nor a token can confirm its own, or loosen those switches. An admin's agent's or
+or changing a workflow that trades live or a custom node it uses, and turning the kill switch
+off, waits for the user to confirm it at a browser or on Telegram, where they have it wait,
+as they do to start with; neither an agent nor a token can loosen those switches, or confirm
+its own there. With **Also ask in the agent's window** on, off to start with, an agent's
+client that shows no links asks with a form whose answer counts, and that answer comes from
+the agent's own client: one that is compromised, or a program holding the agent's access
+token, could confirm for the user. An API token is asked by a link to Polythought only, the
+user deciding there. An admin's agent's or
 token's work on another user's role, account, caps or code access waits the same way, and so
 does its changing Config, restarting the server, approving a plugin and changing plugins. It
-never sees a user's email, never sets a secret setting, and creates no account with a
+never sees a user's email, never sets a secret setting, nor the mail server settings, which
+say where the mail password and every reset link go, and creates no account with a
 password unless an admin lets it; it invites instead. An agent takes the tasks of the
 user's Local agent nodes only with the tasks scope, unticked to start with, and every word
 of a task comes marked as the workflow's, not the user's.

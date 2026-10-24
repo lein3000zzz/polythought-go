@@ -10,7 +10,9 @@ import (
 	"testing"
 	"time"
 
+	sdkauth "github.com/modelcontextprotocol/go-sdk/auth"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
+	"github.com/modelcontextprotocol/go-sdk/oauthex"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -81,8 +83,9 @@ func TestLiveActionWaitsForTheUser(t *testing.T) {
 	b.call(http.MethodPost, "/api/v1/me/confirmations/"+waiting.ID+"/refuse", nil, http.StatusConflict, nil)
 }
 
-// Asked in the agent's window, where the user lets it (D409): the client's yes there
-// confirms the action, and the call carries it out, answering as if it had gone ahead.
+// Asked in the agent's window, where the user lets it (D409): the agent's client's yes there
+// confirms the action, and the call carries it out, answering as if it had gone ahead. An
+// API token, whose holder would answer its own form, is never asked in one (A6).
 func TestAgentWindowConfirms(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
 	defer cancel()
@@ -96,21 +99,58 @@ func TestAgentWindowConfirms(t *testing.T) {
 	b.call(http.MethodPut, "/api/v1/me/live-confirm", map[string]any{"inAgent": true}, http.StatusNoContent, nil)
 	defer b.call(http.MethodPut, "/api/v1/me/live-confirm", map[string]any{"inAgent": false}, http.StatusNoContent, nil)
 
-	var token struct{ Token string }
-	b.call(http.MethodPost, "/api/v1/tokens", map[string]any{"name": "e2e window", "scopes": []string{"live"}}, http.StatusCreated, &token)
-
 	var asked []string
 
-	client := mcp.NewClient(&mcp.Implementation{Name: "go-sdk-e2e-window", Version: "1"}, &mcp.ClientOptions{
+	answering := &mcp.ClientOptions{
 		ElicitationHandler: func(_ context.Context, req *mcp.ElicitRequest) (*mcp.ElicitResult, error) {
 			asked = append(asked, req.Params.Message)
 			return &mcp.ElicitResult{Action: "accept"}, nil
 		},
-	})
+	}
 
-	agent, err := client.Connect(ctx, &mcp.StreamableClientTransport{
-		Endpoint: base + "/mcp", HTTPClient: &http.Client{Transport: bearer(token.Token)},
-	}, nil)
+	type confirmation struct{ ID, Kind, Status, DecidedVia string }
+
+	latest := func() confirmation {
+		var list struct{ Confirmations []confirmation }
+		b.call(http.MethodGet, "/api/v1/me/confirmations", nil, http.StatusOK, &list)
+		require.NotEmpty(t, list.Confirmations)
+
+		return list.Confirmations[0]
+	}
+
+	// An API token's form-only client is not asked: the action waits in Polythought.
+	var token struct{ Token string }
+	b.call(http.MethodPost, "/api/v1/tokens", map[string]any{"name": "e2e window", "scopes": []string{"live"}}, http.StatusCreated, &token)
+
+	script, err := mcp.NewClient(&mcp.Implementation{Name: "go-sdk-e2e-window", Version: "1"}, answering).Connect(ctx,
+		&mcp.StreamableClientTransport{Endpoint: base + "/mcp", HTTPClient: &http.Client{Transport: bearer(token.Token)}}, nil)
+	require.NoError(t, err)
+
+	defer func() { _ = script.Close() }()
+
+	res, err := script.CallTool(ctx, &mcp.CallToolParams{Name: "set_kill_switch", Arguments: map[string]any{"on": false}})
+	require.NoError(t, err)
+	require.True(t, res.IsError)
+	assert.Contains(t, res.Content[0].(*mcp.TextContent).Text, "it waits for the user to confirm it")
+	assert.Empty(t, asked, "no form for a token")
+
+	waiting := latest()
+	assert.Equal(t, confirmation{ID: waiting.ID, Kind: "kill_off", Status: "pending"}, waiting)
+	b.call(http.MethodPost, "/api/v1/me/confirmations/"+waiting.ID+"/refuse", nil, http.StatusOK, nil)
+
+	// An agent the user let trade live is asked in its form, and its yes counts.
+	handler, err := sdkauth.NewAuthorizationCodeHandler(&sdkauth.AuthorizationCodeHandlerConfig{
+		DynamicClientRegistrationConfig: &sdkauth.DynamicClientRegistrationConfig{Metadata: &oauthex.ClientRegistrationMetadata{
+			ClientName: "Go SDK e2e window", RedirectURIs: []string{callback}, TokenEndpointAuthMethod: "none",
+			GrantTypes: []string{"authorization_code", "refresh_token"}, ResponseTypes: []string{"code"},
+		}},
+		RedirectURL:              callback,
+		AuthorizationCodeFetcher: b.consentTicking("Go SDK e2e window", "live"),
+	})
+	require.NoError(t, err)
+
+	agent, err := mcp.NewClient(&mcp.Implementation{Name: "go-sdk-e2e-window", Version: "1"}, answering).Connect(ctx,
+		&mcp.StreamableClientTransport{Endpoint: base + "/mcp", OAuthHandler: handler}, nil)
 	require.NoError(t, err)
 
 	defer func() { _ = agent.Close() }()
@@ -120,12 +160,8 @@ func TestAgentWindowConfirms(t *testing.T) {
 	require.Len(t, asked, 1)
 	assert.Contains(t, asked[0], "Turn your kill switch off")
 
-	var list struct {
-		Confirmations []struct{ Kind, Status, DecidedVia string }
-	}
-	b.call(http.MethodGet, "/api/v1/me/confirmations", nil, http.StatusOK, &list)
-	require.NotEmpty(t, list.Confirmations)
-	assert.Equal(t, struct{ Kind, Status, DecidedVia string }{"kill_off", "done", "agent"}, list.Confirmations[0])
+	done := latest()
+	assert.Equal(t, confirmation{ID: done.ID, Kind: "kill_off", Status: "done", DecidedVia: "agent"}, done)
 
 	var me struct{ LiveStopped bool }
 	b.call(http.MethodGet, "/api/v1/me", nil, http.StatusOK, &me)

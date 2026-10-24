@@ -35,6 +35,7 @@ type confirmationsTable struct {
 	TelegramMessage postgres.ColumnInteger
 	DecidedVia      postgres.ColumnString
 	About           postgres.ColumnString
+	Detail          postgres.ColumnString
 
 	AllColumns     postgres.ColumnList
 	MutableColumns postgres.ColumnList
@@ -94,9 +95,10 @@ func newConfirmationsTableImpl(schemaName, tableName, alias string) confirmation
 		TelegramMessageColumn = postgres.IntegerColumn("telegram_message")
 		DecidedViaColumn      = postgres.StringColumn("decided_via")
 		AboutColumn           = postgres.StringColumn("about")
-		allColumns            = postgres.ColumnList{IDColumn, OwnerIDColumn, KindColumn, WorkflowIDColumn, GrantIDColumn, TokenIDColumn, AgentColumn, ScopesColumn, WhatColumn, PayloadColumn, StatusColumn, ResultColumn, CreatedAtColumn, ExpiresAtColumn, DecidedAtColumn, TelegramMessageColumn, DecidedViaColumn, AboutColumn}
-		mutableColumns        = postgres.ColumnList{OwnerIDColumn, KindColumn, WorkflowIDColumn, GrantIDColumn, TokenIDColumn, AgentColumn, ScopesColumn, WhatColumn, PayloadColumn, StatusColumn, ResultColumn, CreatedAtColumn, ExpiresAtColumn, DecidedAtColumn, TelegramMessageColumn, DecidedViaColumn, AboutColumn}
-		defaultColumns        = postgres.ColumnList{GrantIDColumn, TokenIDColumn, AgentColumn, ResultColumn, TelegramMessageColumn, DecidedViaColumn, AboutColumn}
+		DetailColumn          = postgres.StringColumn("detail")
+		allColumns            = postgres.ColumnList{IDColumn, OwnerIDColumn, KindColumn, WorkflowIDColumn, GrantIDColumn, TokenIDColumn, AgentColumn, ScopesColumn, WhatColumn, PayloadColumn, StatusColumn, ResultColumn, CreatedAtColumn, ExpiresAtColumn, DecidedAtColumn, TelegramMessageColumn, DecidedViaColumn, AboutColumn, DetailColumn}
+		mutableColumns        = postgres.ColumnList{OwnerIDColumn, KindColumn, WorkflowIDColumn, GrantIDColumn, TokenIDColumn, AgentColumn, ScopesColumn, WhatColumn, PayloadColumn, StatusColumn, ResultColumn, CreatedAtColumn, ExpiresAtColumn, DecidedAtColumn, TelegramMessageColumn, DecidedViaColumn, AboutColumn, DetailColumn}
+		defaultColumns        = postgres.ColumnList{GrantIDColumn, TokenIDColumn, AgentColumn, ResultColumn, TelegramMessageColumn, DecidedViaColumn, AboutColumn, DetailColumn}
 	)
 
 	return confirmationsTable{
@@ -121,6 +123,7 @@ func newConfirmationsTableImpl(schemaName, tableName, alias string) confirmation
 		TelegramMessage: TelegramMessageColumn,
 		DecidedVia:      DecidedViaColumn,
 		About:           AboutColumn,
+		Detail:          DetailColumn,
 
 		AllColumns:     allColumns,
 		MutableColumns: mutableColumns,

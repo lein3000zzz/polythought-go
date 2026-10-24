@@ -36,14 +36,15 @@ works too, sent as `Authorization: Bearer pt_…`, with the scopes it was made w
 | Read | See your workflows and their runs, the node catalog, the library, market data, your wallets' balances and orders. Every scope brings it. |
 | Build | Create, change, check, run and switch workflows; custom nodes and code; credentials you give it; the library. |
 | Take tasks | Take and answer the tasks of your Local agent nodes. |
-| Change settings | Your notifications, Telegram, and your connected agents. |
+| Change settings | Your notifications, and your connected agents. |
 | Trade on paper | Set workflows to trade on paper, and cancel paper orders. |
 | Trade live | Set workflows to trade live from your wallets, and cancel live orders, within your caps and kill switch. |
 | Admin | For admins: users, invites, requests to join, the Config settings and plugins. |
 
 Take tasks, Change settings, Trade live and Admin start unticked. Some things stay yours, at a
 browser, whatever the scopes: your password, your wallets' keys and approvals, creating API
-tokens, the switches below, and confirming what waits for you.
+tokens, linking Telegram, whose chat confirms what your agents ask for, the switches below,
+and confirming what waits for you.
 
 Under the scopes, five switches on Connected agents, all off to start with, decide whether
 agents and tokens may see personal settings such as webhook URLs, delete workflows, custom
@@ -54,12 +55,15 @@ the questions your workflows ask, such as a Telegram question approving a trade.
 
 What reaches real money waits for you to confirm it, a switch each under **Confirm my
 agents' live actions**, on to start with: going live or changing the wallet, switching on or
-running a workflow that trades live, changing one that is on, and turning the kill switch
-off. For admins, so does an agent's work on other users, Config and plugins.
+running a workflow that trades live, changing one that is on or a custom node it uses, and
+turning the kill switch off. For admins, so does an agent's work on other users, Config and plugins.
 
 A waiting action shows in a bar on every page and on Telegram, with buttons to confirm or
 refuse it; with **Also ask in the agent's window** on, the agent's client asks you too,
-where it can. Confirmed, Polythought carries it out as the agent asked. Your own actions
+where it can: a link to Polythought, where you decide, or, where it shows no links, a
+Confirm in the agent itself. That answer comes from the agent's own client, so one that is
+compromised could give it for you; leave the switch off if that worries you. API tokens get
+the link only. Confirmed, Polythought carries it out as the agent asked. Your own actions
 never wait, and neither does turning the kill switch on.
 
 ## Tasks for your agents
@@ -143,7 +147,9 @@ Check your client's own docs before relying on one: these settings change with i
 
 ## Limits
 
-An agent or a token may make 120 tool calls a minute unless an admin changes it. An answer
-is kept under about 8,000 tokens, and a long list comes a page at a time. Your caps on live
+An agent or a token may make 120 tool calls a minute, and all of yours together 600,
+unless an admin changes it. Each agent or token keeps up to 10 sessions open and all of
+yours 30, the oldest closing past that; its client opens another when it calls again. An
+answer is kept under about 8,000 tokens, and a long list comes a page at a time. Your caps on live
 orders and your kill switch hold for agents as for you; turning the kill switch on stops
 their live trading at once.

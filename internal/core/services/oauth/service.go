@@ -17,6 +17,7 @@ import (
 	"regexp"
 	"slices"
 	"strings"
+	"sync"
 	"time"
 	"unicode"
 
@@ -37,6 +38,12 @@ const (
 	maxRedirects  = 10
 	maxClientName = 100
 	maxRedirect   = 2048
+	maxClientURI  = 2048
+
+	// A document not fetched is not tried again for a while, and only so many are kept so
+	// (A12).
+	failedFor  = 5 * time.Minute
+	maxFailing = 1024
 
 	accessPrefix  = "poa_" // an OAuth access token, told apart from an API token's pt_
 	refreshPrefix = "por_"
@@ -74,6 +81,9 @@ type Service struct {
 	log     logging.Logger
 	now     func() time.Time
 	policy  func() Policy
+
+	mu        sync.Mutex
+	unfetched map[string]time.Time // the documents not fetched lately, and when (A12)
 }
 
 type Option func(*Service)
@@ -90,8 +100,9 @@ func New(cfg Config, repo ports.OAuthRepository, docs ports.ClientDocuments, use
 		cfg: cfg, repo: repo, docs: docs, users: users, limiter: limiter,
 		log: log.With("component", "oauth"),
 		// At the database's precision, so what it gives equals what is read back.
-		now:    func() time.Time { return time.Now().UTC().Truncate(time.Microsecond) },
-		policy: DefaultPolicy,
+		now:       func() time.Time { return time.Now().UTC().Truncate(time.Microsecond) },
+		policy:    DefaultPolicy,
+		unfetched: map[string]time.Time{},
 	}
 
 	for _, o := range opts {
@@ -245,8 +256,8 @@ type document struct {
 }
 
 // client is the client of an ID: a registered one, or the document at its URL, fetched
-// when it was not, or long ago.
-func (s *Service) client(ctx context.Context, id string) (domain.OAuthClient, error) {
+// for who asks when it was not, or long ago.
+func (s *Service) client(ctx context.Context, who domain.UserID, id string) (domain.OAuthClient, error) {
 	kept, keptErr := s.repo.Client(ctx, id)
 
 	switch {
@@ -258,9 +269,15 @@ func (s *Service) client(ctx context.Context, id string) (domain.OAuthClient, er
 		return domain.OAuthClient{}, oauthErr("invalid_client", "no such client")
 	}
 
+	if err := s.mayFetch(id, who); err != nil {
+		return domain.OAuthClient{}, err
+	}
+
 	body, err := s.docs.Fetch(ctx, id)
 	if err != nil {
+		s.fetchFailed(id)
 		s.log.Warn(ctx, "OAuth client's document not fetched", "client_id", id, logging.Err(err))
+
 		return domain.OAuthClient{}, oauthErr("invalid_client", "the client's document could not be fetched")
 	}
 
@@ -288,6 +305,50 @@ func (s *Service) client(ctx context.Context, id string) (domain.OAuthClient, er
 	}
 
 	return c, nil
+}
+
+// mayFetch refuses to fetch a document that failed lately, or one more for a user, or from
+// a host, past the limit (A12): each fetch costs the server a connection, and a new
+// client a row.
+func (s *Service) mayFetch(id string, who domain.UserID) error {
+	s.mu.Lock()
+	at, failed := s.unfetched[id]
+	s.mu.Unlock()
+
+	if failed && s.now().Sub(at) < failedFor {
+		return oauthErr("invalid_client", "the client's document could not be fetched a moment ago: try again in a few minutes")
+	}
+
+	host := id
+	if u, err := url.Parse(id); err == nil {
+		host = u.Hostname()
+	}
+
+	if !s.limiter.Allow("oauth-fetch:user:"+string(who)) || !s.limiter.Allow("oauth-fetch:host:"+host) {
+		return fmt.Errorf("%w: too many agents' documents fetched lately; try again in a minute", domain.ErrRateLimited)
+	}
+
+	return nil
+}
+
+// fetchFailed keeps that id's document was not fetched, for a while.
+func (s *Service) fetchFailed(id string) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	now := s.now()
+
+	if len(s.unfetched) >= maxFailing {
+		for k, at := range s.unfetched {
+			if now.Sub(at) >= failedFor {
+				delete(s.unfetched, k)
+			}
+		}
+	}
+
+	if len(s.unfetched) < maxFailing {
+		s.unfetched[id] = now
+	}
 }
 
 // clientOf is a client as it describes itself, checked: a name, kept to plain text, and
@@ -319,7 +380,8 @@ func clientOf(id string, kind domain.OAuthClientKind, name string, redirects []s
 		}
 	}
 
-	if u, err := url.Parse(uri); uri != "" && (err != nil || u.Scheme != "https") {
+	// A home page too long to be one is left out, as one not https is (A13).
+	if u, err := url.Parse(uri); uri != "" && (err != nil || u.Scheme != "https" || len(uri) > maxClientURI) {
 		uri = ""
 	}
 

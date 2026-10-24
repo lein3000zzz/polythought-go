@@ -14,7 +14,8 @@ type OAuthRepository interface {
 	SaveClient(ctx context.Context, c domain.OAuthClient) error
 	// Client is a client; domain.ErrNotFound when there is none.
 	Client(ctx context.Context, id string) (domain.OAuthClient, error)
-	// PruneClients removes registered clients made before before that no grant uses.
+	// PruneClients removes the clients no grant uses: registered ones made before before,
+	// and documents' fetched before it.
 	PruneClients(ctx context.Context, before time.Time) (int64, error)
 
 	// SaveGrant keeps the user's grant to its client, replacing their last one with its

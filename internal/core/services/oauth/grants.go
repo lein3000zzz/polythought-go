@@ -39,8 +39,8 @@ func (s *Service) SetAgentAccess(ctx context.Context, p auth.Principal, a domain
 	return nil
 }
 
-// Prune removes ended codes and tokens, and registered clients no grant came of; run it
-// periodically.
+// Prune removes ended codes and tokens, and the clients no grant came of, registered or
+// fetched a day ago (A13); run it periodically.
 func (s *Service) Prune(ctx context.Context) (int64, error) {
 	now := s.now()
 

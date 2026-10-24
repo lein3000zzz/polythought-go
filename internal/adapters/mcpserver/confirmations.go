@@ -24,7 +24,7 @@ type confirmationIn struct {
 
 type confirmationOut struct {
 	ID        string     `json:"id"`
-	Kind      string     `json:"kind" jsonschema:"go_live, switch_on, run, change or kill_off"`
+	Kind      string     `json:"kind" jsonschema:"go_live, switch_on, run, change, custom_node or kill_off; an admin's start with admin_"`
 	Workflow  string     `json:"workflow,omitempty"`
 	What      string     `json:"what"`
 	Status    string     `json:"status" jsonschema:"pending: the user has not answered; confirmed: being carried out; done, failed, refused or expired"`

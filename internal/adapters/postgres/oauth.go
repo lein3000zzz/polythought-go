@@ -65,10 +65,12 @@ func (r *OAuth) Client(ctx context.Context, id string) (domain.OAuthClient, erro
 func (r *OAuth) PruneClients(ctx context.Context, before time.Time) (int64, error) {
 	c, g := table.OAuthClients, table.OAuthGrants
 
+	// A document's client is fetched again when it comes back (A13).
 	res, err := c.DELETE().
-		WHERE(c.Kind.EQ(jet.String(string(domain.ClientRegistered))).
-			AND(c.CreatedAt.LT(jet.TimestampzT(before))).
-			AND(jet.NOT(jet.EXISTS(jet.SELECT(g.ID).FROM(g).WHERE(g.ClientID.EQ(c.ID)))))).
+		WHERE(jet.OR(
+			c.Kind.EQ(jet.String(string(domain.ClientRegistered))).AND(c.CreatedAt.LT(jet.TimestampzT(before))),
+			c.Kind.EQ(jet.String(string(domain.ClientDocument))).AND(c.FetchedAt.LT(jet.TimestampzT(before))),
+		).AND(jet.NOT(jet.EXISTS(jet.SELECT(g.ID).FROM(g).WHERE(g.ClientID.EQ(c.ID)))))).
 		ExecContext(ctx, r.db.conn(ctx))
 	if err != nil {
 		return 0, err

@@ -52,7 +52,11 @@ type Spec struct {
 
 	Options []string // the allowed values of an enum
 	Secret  bool     // stored encrypted and never shown again
-	Apply   Apply
+	// AtBrowser is a setting no token or agent changes, though it is no secret, as a secret
+	// is set (A7): one that says where a secret goes, such as the mail server the mail
+	// password signs in to.
+	AtBrowser bool
+	Apply     Apply
 
 	// Check validates a parsed value beyond its kind, e.g. a range.
 	Check func(v any) error

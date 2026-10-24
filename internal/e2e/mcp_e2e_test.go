@@ -105,7 +105,19 @@ func (b *browser) call(method, path string, body any, status int, out any) {
 
 // consent is the consent page: it reads the request from the URL the agent opened, shows
 // what is offered, and allows what is ticked, as a user who changes nothing does.
-func (b *browser) consent(_ context.Context, args *sdkauth.AuthorizationArgs) (*sdkauth.AuthorizationResult, error) {
+func (b *browser) consent(ctx context.Context, args *sdkauth.AuthorizationArgs) (*sdkauth.AuthorizationResult, error) {
+	return b.consentTicking("Go SDK e2e")(ctx, args)
+}
+
+// consentTicking is consent for the agent of that name, by a user who ticks extra too, such
+// as live.
+func (b *browser) consentTicking(name string, extra ...string) func(context.Context, *sdkauth.AuthorizationArgs) (*sdkauth.AuthorizationResult, error) {
+	return func(_ context.Context, args *sdkauth.AuthorizationArgs) (*sdkauth.AuthorizationResult, error) {
+		return b.consentAs(args, name, extra)
+	}
+}
+
+func (b *browser) consentAs(args *sdkauth.AuthorizationArgs, name string, extra []string) (*sdkauth.AuthorizationResult, error) {
 	b.t.Helper()
 
 	u, err := url.Parse(args.URL)
@@ -131,7 +143,7 @@ func (b *browser) consent(_ context.Context, args *sdkauth.AuthorizationArgs) (*
 	}
 	b.call(http.MethodPost, "/api/v1/oauth/authorization", request, http.StatusOK, &consent)
 
-	assert.Equal(b.t, "Go SDK e2e", consent.Client.Name)
+	assert.Equal(b.t, name, consent.Client.Name)
 
 	var ticked []string
 
@@ -142,6 +154,8 @@ func (b *browser) consent(_ context.Context, args *sdkauth.AuthorizationArgs) (*
 	}
 
 	assert.Equal(b.t, []string{"read", "build", "paper"}, ticked, "live and admin unticked, though the agent asks for all")
+
+	ticked = append(ticked, extra...)
 
 	var decision struct{ Redirect string }
 	b.call(http.MethodPost, "/api/v1/oauth/authorization/approve", map[string]any{"request": request, "scopes": ticked}, http.StatusOK, &decision)

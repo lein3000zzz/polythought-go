@@ -130,6 +130,26 @@ func TestPersonalKept(t *testing.T) {
 		assert.True(t, domain.IsHiddenPersonal(def.Nodes[1].Params["url"]), "what was sent is left as it was")
 	})
 
+	t.Run("never onto a node retyped, whose type shows the setting (A9)", func(t *testing.T) {
+		svc, d := withPersonal(t)
+		d.repo.EXPECT().Get(mock.Anything, domain.UserID("u-1"), domain.WorkflowID("wf-1")).Return(hooked(), nil)
+
+		var saved domain.Workflow
+		d.repo.EXPECT().Update(mock.Anything, mock.Anything, 3).RunAndReturn(func(_ context.Context, w domain.Workflow, _ int) error {
+			saved = w
+			return nil
+		})
+
+		got, err := svc.Update(ctx, token, "wf-1", 3, workflows.Definition{Name: "Spread watch", Nodes: []domain.NodeSpec{
+			{ID: "manual", Type: "trigger.manual"},
+			{ID: "hook", Type: "custom.leak", Params: map[string]any{"url": domain.HiddenPersonal()}},
+		}})
+		require.NoError(t, err)
+
+		assert.Equal(t, map[string]any{}, saved.Nodes[1].Params, "the webhook's URL is not the custom node's")
+		assert.Nil(t, url(got))
+	})
+
 	t.Run("created", func(t *testing.T) {
 		svc, d := withPersonal(t)
 		d.repo.EXPECT().Count(mock.Anything, mock.Anything).Return(0, 0, nil)

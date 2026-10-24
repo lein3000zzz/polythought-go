@@ -263,6 +263,9 @@ func TestConfirm(t *testing.T) {
 		mu.Lock()
 		defer mu.Unlock()
 
+		require.NotNil(t, got.Confirming, "what it carries out, to hold it to (A4)")
+		assert.Equal(t, domain.ConfirmRun, got.Confirming.Kind)
+		got.Confirming = nil
 		assert.Equal(t, auth.Principal{User: alice, GrantID: "g-1", Agent: "Claude Code", Scopes: agent.Scopes, Confirmed: true}, got)
 
 		_, err = svc.Confirm(ctx, atDesk, c.ID)
@@ -424,6 +427,22 @@ func TestInWindow(t *testing.T) {
 		other.GrantID = "g-2"
 		_, err = svc.ConfirmInWindow(ctx, other, c.ID)
 		require.ErrorIs(t, err, domain.ErrNotFound, "another agent's")
+	})
+
+	t.Run("never a token's: whatever holds it would answer (A6)", func(t *testing.T) {
+		svc, ran := setup(t)
+
+		token := asks
+		token.GrantID, token.TokenID = "", "t-1"
+		c := held(t, svc.Hold(ctx, token, domain.Ask{Kind: domain.ConfirmRun, WorkflowID: "wf-1", What: "Run it", Payload: nil}))
+
+		_, err := svc.ConfirmInWindow(ctx, token, c.ID)
+		require.ErrorIs(t, err, domain.ErrForbidden)
+
+		got, err := svc.Get(ctx, atDesk, c.ID)
+		require.NoError(t, err)
+		assert.Equal(t, domain.ConfirmPending, got.Status, "it waits for the user")
+		assert.Zero(t, *ran)
 	})
 
 	t.Run("confirmed there, the call carries it out", func(t *testing.T) {

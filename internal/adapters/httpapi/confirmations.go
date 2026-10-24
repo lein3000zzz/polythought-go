@@ -23,14 +23,17 @@ type ConfirmationService interface {
 // confirmationDTO is a token's or an agent's live action waiting for you, or how it ended.
 type confirmationDTO struct {
 	ID         string `json:"id"`
-	Kind       string `json:"kind" enums:"go_live,switch_on,run,change,kill_off,admin_role,admin_disable,admin_caps,admin_code,admin_config,admin_restart,admin_plugin_approve,admin_plugin"`
+	Kind       string `json:"kind" enums:"go_live,switch_on,run,change,custom_node,kill_off,admin_role,admin_disable,admin_caps,admin_code,admin_config,admin_restart,admin_plugin_approve,admin_plugin"`
 	WorkflowID string `json:"workflowId,omitempty" validate:"optional"`
 	// Asker is who asked: the agent by name, or "an API token".
 	Asker string `json:"asker"`
 	// What says what it does, such as Run "Spread watch" by hand, which trades live.
 	What string `json:"what"`
 	// About is whom it is about, such as a user's email: yours to see, never the agent's.
-	About  string `json:"about,omitempty" validate:"optional"`
+	About string `json:"about,omitempty" validate:"optional"`
+	// Detail is what it changes, a line each, such as a workflow's nodes and settings
+	// against the graph it has (A3).
+	Detail string `json:"detail,omitempty" validate:"optional"`
 	Status string `json:"status" enums:"pending,confirmed,done,failed,refused,expired"`
 	// Result is what came of it: an execution, or why it failed.
 	Result    string     `json:"result,omitempty" validate:"optional"`
@@ -49,8 +52,8 @@ type confirmationList struct {
 func toConfirmationDTO(c domain.Confirmation) confirmationDTO {
 	return confirmationDTO{
 		ID: string(c.ID), Kind: string(c.Kind), WorkflowID: string(c.WorkflowID), Asker: c.Asker(), What: c.What, About: c.About,
-		Status: string(c.Status), Result: c.Result, CreatedAt: c.CreatedAt, ExpiresAt: c.ExpiresAt, DecidedAt: optionalTime(c.DecidedAt),
-		DecidedVia: string(c.DecidedVia),
+		Detail: c.Detail, Status: string(c.Status), Result: c.Result, CreatedAt: c.CreatedAt, ExpiresAt: c.ExpiresAt,
+		DecidedAt: optionalTime(c.DecidedAt), DecidedVia: string(c.DecidedVia),
 	}
 }
 

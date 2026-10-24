@@ -1,12 +1,18 @@
 package mcpserver
 
 import (
+	"bytes"
 	"context"
 	"crypto/rand"
 	"encoding/hex"
+	"encoding/json"
+	"io"
+	"net/http"
+	"slices"
 	"time"
 
 	"github.com/lein3000zzz/the-watchers/pkg/observability/logging"
+	sdkauth "github.com/modelcontextprotocol/go-sdk/auth"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 
 	"github.com/lein3000zzz/polythought-go/internal/core/domain"
@@ -30,15 +36,70 @@ func newBoot() string {
 	return hex.EncodeToString(b)
 }
 
+// SessionLimits bound the sessions a user's agents and tokens keep open (A10): past one, the
+// oldest closes, and its client opens another when it calls again. Zero is no bound.
+type SessionLimits struct {
+	PerHolder int // open at once for one agent or one API token
+	PerUser   int // open at once for all of a user's
+}
+
+// maxClient is the most of a client's name and version a session keeps (A10).
+const maxClient = 128
+
+// opened is a session seen, whose it is, and when it was last written down.
+type opened struct {
+	session *mcp.ServerSession
+	user    domain.UserID
+	holder  string
+	at      time.Time // when it opened
+	seen    time.Time
+}
+
+// limitOpening takes a small request to open a session, and refuses a user's initialize
+// past their limit a minute (A10): each session lasts, and costs, until it goes idle.
+func (s *Server) limitOpening(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost || r.Header.Get("Mcp-Session-Id") != "" {
+			next.ServeHTTP(w, r)
+			return
+		}
+
+		body, err := io.ReadAll(io.LimitReader(r.Body, maxOpening+1))
+		if err != nil {
+			http.Error(w, "the request could not be read", http.StatusBadRequest)
+			return
+		}
+
+		if len(body) > maxOpening {
+			http.Error(w, "too big a request to open a session with", http.StatusRequestEntityTooLarge)
+			return
+		}
+
+		var msg struct {
+			Method string `json:"method"`
+		}
+
+		info := sdkauth.TokenInfoFromContext(r.Context())
+		if json.Unmarshal(body, &msg) == nil && msg.Method == "initialize" && s.opening != nil && info != nil &&
+			!s.opening.Allow("mcp-open:"+info.UserID) {
+			w.Header().Set("Retry-After", "60")
+			http.Error(w, "too many new sessions in a minute: use the one you have, or wait", http.StatusTooManyRequests)
+
+			return
+		}
+
+		r.Body = io.NopCloser(bytes.NewReader(body))
+		next.ServeHTTP(w, r)
+	})
+}
+
 // track keeps the sessions its requests come in: one first seen is written down, its last
 // call now and then, and its end once the SDK closes it.
 func (s *Server) track(next mcp.MethodHandler) mcp.MethodHandler {
 	return func(ctx context.Context, method string, req mcp.Request) (mcp.Result, error) {
 		res, err := next(ctx, method, req)
 
-		if s.sessions != nil {
-			s.seen(ctx, req)
-		}
+		s.seen(ctx, req)
 
 		return res, err
 	}
@@ -60,16 +121,36 @@ func (s *Server) seen(ctx context.Context, req mcp.Request) {
 		return
 	}
 
-	id, now := ss.ID(), time.Now()
+	id, now, holder := ss.ID(), time.Now(), holderOf(p)
 
 	s.mu.Lock()
-	last, known := s.tracked[id]
-	if known && now.Sub(last) < seenEvery {
+	o, known := s.tracked[id]
+	if known && now.Sub(o.seen) < seenEvery {
 		s.mu.Unlock()
 		return
 	}
-	s.tracked[id] = now
+
+	var over []*mcp.ServerSession
+
+	if known {
+		o.seen = now
+	} else {
+		s.tracked[id] = &opened{session: ss, user: p.User.ID, holder: holder, at: now, seen: now}
+		over = s.overLimits(p.User.ID, holder)
+	}
 	s.mu.Unlock()
+
+	for _, old := range over {
+		go func() { _ = old.Close() }() // its client opens another when it calls again
+	}
+
+	if !known {
+		go s.closed(ss)
+	}
+
+	if s.sessions == nil {
+		return
+	}
 
 	ctx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 5*time.Second)
 	defer cancel()
@@ -82,7 +163,6 @@ func (s *Server) seen(ctx context.Context, req mcp.Request) {
 		return
 	}
 
-	holder := holderOf(p)
 	err := s.sessions.Open(ctx, ports.MCPSession{
 		ID: id, UserID: p.User.ID, Holder: holder, Name: nameOf(p), Client: clientOf(ss), Boot: s.boot,
 		OpenedAt: now, SeenAt: now,
@@ -98,8 +178,62 @@ func (s *Server) seen(ctx context.Context, req mcp.Request) {
 	if err != nil {
 		s.log.Warn(ctx, "MCP session not kept", logging.Err(err))
 	}
+}
 
-	go s.closed(ss)
+// overLimits is the user's sessions to close, the oldest first, so that the holder's and
+// the user's open ones stay inside their limits. s.mu is held.
+func (s *Server) overLimits(user domain.UserID, holder string) []*mcp.ServerSession {
+	if s.limits == nil {
+		return nil
+	}
+
+	limits := s.limits()
+
+	var holders, users []*opened
+
+	for _, o := range s.tracked {
+		if o.user != user {
+			continue
+		}
+
+		users = append(users, o)
+		if o.holder == holder {
+			holders = append(holders, o)
+		}
+	}
+
+	oldest := func(a, b *opened) int { return a.at.Compare(b.at) }
+	slices.SortFunc(holders, oldest)
+	slices.SortFunc(users, oldest)
+
+	closing := map[*opened]bool{}
+
+	if most := limits.PerHolder; most > 0 && len(holders) > most {
+		for _, o := range holders[:len(holders)-most] {
+			closing[o] = true
+		}
+	}
+
+	if most := limits.PerUser; most > 0 {
+		left := len(users) - len(closing)
+		for _, o := range users {
+			if left <= most {
+				break
+			}
+
+			if !closing[o] {
+				closing[o], left = true, left-1
+			}
+		}
+	}
+
+	out := make([]*mcp.ServerSession, 0, len(closing))
+	for o := range closing {
+		delete(s.tracked, o.session.ID())
+		out = append(out, o.session)
+	}
+
+	return out
 }
 
 // closed forgets a session once the SDK closes it: its client ended it, or it went idle.
@@ -111,7 +245,7 @@ func (s *Server) closed(ss *mcp.ServerSession) {
 	delete(s.tracked, ss.ID())
 	s.mu.Unlock()
 
-	if s.closing.Load() {
+	if s.sessions == nil || s.closing.Load() {
 		return
 	}
 
@@ -181,6 +315,10 @@ func clientOf(ss *mcp.ServerSession) string {
 
 	if params.ClientInfo.Version != "" {
 		name += " " + params.ClientInfo.Version
+	}
+
+	if r := []rune(name); len(r) > maxClient {
+		name = string(r[:maxClient-1]) + "…"
 	}
 
 	return name

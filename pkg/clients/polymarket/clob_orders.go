@@ -415,13 +415,13 @@ func (c *DefaultClobClient) send(ctx context.Context, creds L2Credentials, ps []
 	}
 
 	for attempt := 0; ; attempt++ {
-		resp, err := c.core.once(ctx, http.MethodPost, path, nil, payload, creds)
+		resp, err := c.trade.once(ctx, http.MethodPost, path, nil, payload, creds)
 		if err != nil {
 			return nil, err
 		}
 
-		if (resp.status == http.StatusTooEarly || resp.status == http.StatusTooManyRequests) && attempt < c.core.maxRetries {
-			if err := c.core.backOff(ctx, path, resp, attempt); err != nil {
+		if (resp.status == http.StatusTooEarly || resp.status == http.StatusTooManyRequests) && attempt < c.trade.maxRetries {
+			if err := c.trade.backOff(ctx, path, resp, attempt); err != nil {
 				return nil, err
 			}
 
@@ -764,7 +764,7 @@ func (c *DefaultClobClient) cancel(ctx context.Context, creds L2Credentials, op,
 		span.SetAttributes(attribute.String(attrAddress, creds.Address), attribute.Int(attrOrderCount, n))
 
 		var out Cancellation
-		if err := c.core.do(ctx, http.MethodDelete, path, nil, body, creds, &out); err != nil {
+		if err := c.trade.do(ctx, http.MethodDelete, path, nil, body, creds, &out); err != nil {
 			return Cancellation{}, failed(ctx, c.log, op, err)
 		}
 
@@ -800,7 +800,7 @@ func (c *DefaultClobClient) Heartbeat(ctx context.Context, creds L2Credentials, 
 			return "", err
 		}
 
-		resp, err := c.core.once(ctx, http.MethodPost, "/v1/heartbeats", nil, payload, creds)
+		resp, err := c.trade.once(ctx, http.MethodPost, "/v1/heartbeats", nil, payload, creds)
 		if err != nil {
 			return "", failed(ctx, c.log, opHeartbeat, err)
 		}

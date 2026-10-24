@@ -128,7 +128,7 @@ func handle[In, Out any](
 	}
 
 	confirmed := p
-	confirmed.Confirmed = true
+	confirmed.Confirmed, confirmed.Confirming = true, &c
 
 	out, err = h(ctx, confirmed, in)
 	s.window.Finish(ctx, c, "carried out by the call that asked", err)
@@ -140,6 +140,11 @@ func handle[In, Out any](
 func (s *Server) run(ctx context.Context, p auth.Principal, scope domain.Scope, call func(context.Context) (any, error)) (out any, err error) {
 	if !s.limiter.Allow("mcp:" + callerKey(p)) {
 		return nil, fmt.Errorf("%w: too many tool calls; wait a moment", domain.ErrRateLimited)
+	}
+
+	// And all of a user's agents and tokens together, however many they make (A11).
+	if s.userLimiter != nil && !s.userLimiter.Allow("mcp-user:"+string(p.User.ID)) {
+		return nil, fmt.Errorf("%w: too many tool calls from your agents and tokens together; wait a moment", domain.ErrRateLimited)
 	}
 
 	if scope != "" {

@@ -4,6 +4,7 @@ import (
 	"context"
 	"html"
 	"time"
+	"unicode/utf8"
 
 	"github.com/lein3000zzz/the-watchers/pkg/observability/logging"
 
@@ -40,12 +41,15 @@ func (s *Service) ConfirmationAsked(ctx context.Context, c domain.Confirmation) 
 	review := s.publicURL + "/settings/connected#confirmations"
 
 	if mail {
+		said := []string{c.Asker() + " asks you to confirm: " + c.What + aboutWhom(c) + "."}
+		if c.Detail != "" {
+			said = append(said, "What it changes:\n"+c.Detail)
+		}
+
 		_ = s.mailUser(ctx, c.OwnerID, ConfirmationAsked, ports.UserMail{
 			Subject: c.Asker() + " asks you to confirm a live action",
-			Paragraphs: []string{
-				c.Asker() + " asks you to confirm: " + c.What + aboutWhom(c) + ".",
-				"It waits for you until " + c.ExpiresAt.UTC().Format("15:04, 2 January 2006") + " (UTC), then expires.",
-			},
+			Paragraphs: append(said,
+				"It waits for you until "+c.ExpiresAt.UTC().Format("15:04, 2 January 2006")+" (UTC), then expires."),
 			LinkText: "Review it", LinkURL: review,
 		})
 	}
@@ -99,6 +103,16 @@ func aboutWhom(c domain.Confirmation) string {
 }
 
 func confirmText(c domain.Confirmation) string {
-	return "🔐 <b>" + html.EscapeString(c.Asker()) + "</b> asks you to confirm:\n" + html.EscapeString(c.What+aboutWhom(c)) + ".\n\n" +
-		"It waits until " + c.ExpiresAt.UTC().Format("15:04 on 2 January") + " (UTC)."
+	text := "🔐 <b>" + html.EscapeString(c.Asker()) + "</b> asks you to confirm:\n" + html.EscapeString(c.What+aboutWhom(c)) + ".\n\n"
+
+	if c.Detail != "" {
+		text += "What it changes:\n<pre>" + html.EscapeString(truncate(c.Detail, maxDetailText)) + "</pre>\n"
+		if utf8.RuneCountInString(c.Detail) > maxDetailText {
+			text += "See all of it in the app.\n"
+		}
+
+		text += "\n"
+	}
+
+	return text + "It waits until " + c.ExpiresAt.UTC().Format("15:04 on 2 January") + " (UTC)."
 }

@@ -12,6 +12,7 @@ import (
 	"crypto/sha256"
 	"encoding/base64"
 	"errors"
+	"fmt"
 	"html"
 	"strings"
 	"sync"
@@ -144,8 +145,14 @@ type LinkURL struct {
 	ExpiresAt time.Time
 }
 
-// CreateLink makes a single-use link to the bot. A new one replaces the last.
+// CreateLink makes a single-use link to the bot. A new one replaces the last. It is the
+// user's, at a browser: the chat it links confirms the live actions their agents and tokens
+// ask for, and its menu acts as them (A1).
 func (s *Service) CreateLink(ctx context.Context, p auth.Principal) (LinkURL, error) {
+	if !p.Itself() {
+		return LinkURL{}, errAtBrowser
+	}
+
 	bot := s.bot.Status()
 	if !bot.Running || bot.Username == "" {
 		return LinkURL{}, domain.ErrTelegramUnavailable
@@ -161,8 +168,17 @@ func (s *Service) CreateLink(ctx context.Context, p auth.Principal) (LinkURL, er
 	return LinkURL{URL: "https://t.me/" + bot.Username + "?start=" + code, ExpiresAt: expires}, nil
 }
 
-// Unlink forgets the user's Telegram account, and tells its chat.
+// errAtBrowser refuses a token's or an agent's change to the user's Telegram.
+var errAtBrowser = fmt.Errorf("%w: linking Telegram is the user's, at a browser: its chat confirms what agents and tokens ask for",
+	domain.ErrForbidden)
+
+// Unlink forgets the user's Telegram account, and tells its chat. It is the user's, at a
+// browser, as linking is.
 func (s *Service) Unlink(ctx context.Context, p auth.Principal) error {
+	if !p.Itself() {
+		return errAtBrowser
+	}
+
 	link, err := s.links.ForUser(ctx, p.User.ID)
 	if err != nil {
 		return err
@@ -388,7 +404,15 @@ func (s *Service) relinked(ctx context.Context, cb ports.TelegramCallback) {
 
 // save links the Telegram user, in this chat, to user's account.
 func (s *Service) save(ctx context.Context, chatID int64, from ports.TelegramUser, user domain.User) {
-	err := s.links.Save(ctx, domain.TelegramLink{
+	// The chat it replaces hears of it, so a link made elsewhere cannot take the account's
+	// confirmations over unseen (A1).
+	before, err := s.links.ForUser(ctx, user.ID)
+	if err != nil && !errors.Is(err, domain.ErrNotFound) {
+		s.failed(ctx, chatID, err)
+		return
+	}
+
+	err = s.links.Save(ctx, domain.TelegramLink{
 		UserID: user.ID, TelegramUserID: from.ID, ChatID: chatID,
 		Username: from.Username, FirstName: from.FirstName, LinkedAt: s.now(),
 	})
@@ -398,6 +422,17 @@ func (s *Service) save(ctx context.Context, chatID int64, from ports.TelegramUse
 	}
 
 	s.log.Info(ctx, "Telegram linked", "user_id", user.ID)
+
+	if before.ChatID != 0 && before.ChatID != chatID {
+		_, err := s.bot.Send(ctx, ports.TelegramMessage{
+			ChatID: before.ChatID,
+			HTML: "Polythought account <b>" + html.EscapeString(user.Email) + "</b> is now linked to another Telegram chat, " +
+				"which gets its messages and confirms what its agents ask for. If that was not you, sign in, open Settings, " +
+				"Telegram, and link this chat again; then check Settings, API tokens.",
+			RemoveKeyboard: true,
+		})
+		s.ignored(ctx, "Telegram move notice not sent", err)
+	}
 
 	_, err = s.bot.Send(ctx, ports.TelegramMessage{
 		ChatID:   chatID,

@@ -24,6 +24,8 @@ a form of settings, its outputs, the items it sends, and its TypeScript.
   `confirm` makes it anyway, as the user's Save anyway does. Ask the user first.
 - `delete_custom_node`: workflows that use it are named, and it stays unless `confirm`. It
   cannot be undone, and works only where the user lets agents delete.
+- Changing or deleting one that a workflow trading live and switched on uses may wait for
+  the user, as changing that workflow would: its next run runs the new code.
 
 ## Credentials
 

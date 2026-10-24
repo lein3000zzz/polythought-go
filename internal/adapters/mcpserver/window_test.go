@@ -12,6 +12,7 @@ import (
 
 	"github.com/lein3000zzz/polythought-go/internal/core/domain"
 	"github.com/lein3000zzz/polythought-go/internal/core/services/auth"
+	"github.com/lein3000zzz/polythought-go/internal/core/services/oauth"
 )
 
 // window is the confirmations service for the agent's window: what it was told, and an
@@ -73,6 +74,15 @@ func (w *window) Finish(_ context.Context, _ domain.Confirmation, _ string, err 
 func windowed(t *testing.T, w *window, ask bool, links bool, answer func(*mcp.ElicitRequest) string) (*mcp.ClientSession, *[]*mcp.ElicitParams) {
 	t.Helper()
 
+	return windowedAs(t, w, ask, links, answer, nil)
+}
+
+// windowedAs is windowed, the principal as as makes it.
+func windowedAs(
+	t *testing.T, w *window, ask bool, links bool, answer func(*mcp.ElicitRequest) string, as func(*auth.Principal),
+) (*mcp.ClientSession, *[]*mcp.ElicitParams) {
+	t.Helper()
+
 	u := alice
 	u.AskInAgent = ask
 
@@ -80,6 +90,12 @@ func windowed(t *testing.T, w *window, ask bool, links bool, answer func(*mcp.El
 	d := deps(u, &trades{}, []domain.Scope{domain.ScopeBuild, domain.ScopeLive})
 	d.Edit, d.Code, d.Confirmations, d.Window = e, e.editing, confirms{}, w
 	d.WindowWait = func() time.Duration { return 2 * time.Second }
+
+	if as != nil {
+		access := d.Agents.(agents).access["poa_agent"]
+		as(&access.Principal)
+		d.Agents = agents{access: map[string]oauth.Access{"poa_agent": access}}
+	}
 
 	var (
 		mu    sync.Mutex
@@ -143,6 +159,21 @@ func TestAgentWindow(t *testing.T) {
 
 		_, err := call(t, agent, "run_workflow", map[string]any{"id": "wf-1"})
 		assert.Contains(t, err, "it waits for the user to confirm it")
+	})
+
+	t.Run("never a form for an API token, whose holder would answer it (A6)", func(t *testing.T) {
+		w := &window{}
+		token, asked := windowedAs(t, w, true, false, func(*mcp.ElicitRequest) string { return "accept" },
+			func(p *auth.Principal) { p.GrantID, p.TokenID, p.TokenName = "", "t-1", "ci" })
+
+		_, err := call(t, token, "run_workflow", map[string]any{"id": "wf-1"})
+		assert.Contains(t, err, "it waits for the user to confirm it")
+		assert.Empty(t, *asked, "never asked in a form")
+
+		w.mu.Lock()
+		defer w.mu.Unlock()
+
+		assert.Empty(t, w.confirmed)
 	})
 
 	t.Run("not where the user has it off", func(t *testing.T) {

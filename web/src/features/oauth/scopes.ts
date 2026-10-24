@@ -21,7 +21,7 @@ export const scopeInfo: Record<string, { title: string; detail: string; risky?: 
   settings: {
     title: 'Change settings',
     detail:
-      'Your notifications, linking Telegram, whether the kill switch stops your agents, and the agents connected.',
+      'Your notifications, whether the kill switch stops your agents, and the agents connected. Linking Telegram stays yours, at a browser: its chat confirms what your agents ask for.',
   },
   paper: {
     title: 'Trade on paper',

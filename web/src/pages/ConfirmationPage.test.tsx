@@ -45,6 +45,25 @@ describe('the page an agent links to (D409)', () => {
     )
   })
 
+  it('shows what a change changes before you confirm it (A3)', async () => {
+    const changing: Schemas['Confirmation'] = {
+      ...asking,
+      kind: 'change',
+      what: 'Change "Spread watch", which trades live and is on',
+      detail: '~ node gate (if): limit 1 → 2\n+ node buy (place_order): size 50',
+    }
+    server.use(
+      signedIn,
+      http.get('/api/v1/me/confirmations', () => HttpResponse.json({ confirmations: [changing] })),
+    )
+    renderApp('/confirmations/c-1')
+
+    const request = within(await screen.findByRole('region', { name: 'The request' }))
+    expect(request.getByText('What it changes')).toBeVisible()
+    expect(request.getByText(/~ node gate \(if\): limit 1 → 2/)).toBeVisible()
+    expect(request.getByText(/\+ node buy \(place_order\): size 50/)).toBeVisible()
+  })
+
   it('says when there is no such request of yours', async () => {
     server.use(signedIn)
     renderApp('/confirmations/c-9')

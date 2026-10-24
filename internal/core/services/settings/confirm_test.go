@@ -117,6 +117,25 @@ func TestAgentsOnConfig(t *testing.T) {
 		require.NoError(t, s.Update(context.Background(), root, map[string]json.RawMessage{keyToken: json.RawMessage(`"123:abc"`)}))
 	})
 
+	t.Run("nor where a secret goes, such as the mail server (A7)", func(t *testing.T) {
+		t.Parallel()
+
+		s, repo, h, _ := held(t)
+		lets := agent
+		lets.User.Unconfirmed.Config = true
+
+		for _, who := range []auth.Principal{agent, lets} {
+			err := s.Update(context.Background(), who, map[string]json.RawMessage{keyMailHost: json.RawMessage(`"smtp.evil.example"`)})
+			require.ErrorIs(t, err, domain.ErrForbidden)
+			assert.Contains(t, err.Error(), "Mail server says where a secret goes: an admin sets it at a browser")
+		}
+
+		assert.Empty(t, h.asks)
+		assert.Empty(t, repo.applied)
+
+		require.NoError(t, s.Update(context.Background(), root, map[string]json.RawMessage{keyMailHost: json.RawMessage(`"smtp.example"`)}))
+	})
+
 	t.Run("a restart waits", func(t *testing.T) {
 		t.Parallel()
 

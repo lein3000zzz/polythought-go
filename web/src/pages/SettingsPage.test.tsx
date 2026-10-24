@@ -440,7 +440,7 @@ describe('settings page', () => {
   it('lists the agents allowed, and revokes one (D384)', async () => {
     const grant: Schemas['OAuthGrant'] = {
       id: 'g-1',
-      client: { id: 'pc_1', name: 'Claude Code', verified: false, site: 'claude.ai' },
+      client: { id: 'pc_1', name: 'Claude Code', published: false, site: 'claude.ai' },
       scopes: ['read', 'paper'],
       createdAt: '2026-10-08T12:00:00Z',
       lastUsedAt: '2026-10-08T13:00:00Z',
@@ -448,7 +448,7 @@ describe('settings page', () => {
     }
     const old: Schemas['OAuthGrant'] = {
       id: 'g-0',
-      client: { id: 'https://agent.example/client.json', name: 'Old Agent', verified: true },
+      client: { id: 'https://agent.example/client.json', name: 'Old Agent', published: true },
       scopes: ['read'],
       createdAt: '2026-10-01T12:00:00Z',
       revokedAt: '2026-10-02T12:00:00Z',
