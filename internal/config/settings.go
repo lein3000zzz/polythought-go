@@ -82,6 +82,7 @@ const (
 	KeyMCPAccessTTL        = "mcp.access_ttl"
 	KeyMCPRefreshTTL       = "mcp.refresh_ttl"
 	KeyMCPConfirmFor       = "mcp.confirm_for"
+	KeyMCPWindowWait       = "mcp.window_wait"
 
 	KeyTrustedProxies      = "http.trusted_proxies"
 	KeyWebhookAllowPrivate = "webhook.allow_private"
@@ -457,6 +458,13 @@ func Settings() (*settings.Registry, error) {
 			Description: "How long an agent's or an API token's live action waits for its user to confirm it, where the " +
 				"user has it wait, before it expires unconfirmed. Applies to those asked from now.",
 			Kind: settings.KindDuration, Default: time.Hour, Check: within(5*time.Minute, 7*24*time.Hour),
+		},
+		settings.Spec{
+			Key: KeyMCPWindowWait, Group: groupMCP, Label: "Agent window waits",
+			Description: "How long an agent's tool call waits for the user's answer in the agent's own window, where the " +
+				"user has it ask there, before it says the action waits in Polythought. Some clients give up on a call sooner. " +
+				"Applies at once.",
+			Kind: settings.KindDuration, Default: 2 * time.Minute, Check: within(10*time.Second, 30*time.Minute),
 		},
 		settings.Spec{
 			Key: KeyTrustedProxies, Group: groupNetwork, Label: "Trusted proxies",

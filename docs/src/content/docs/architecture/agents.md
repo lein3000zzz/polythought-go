@@ -133,6 +133,15 @@ waiting as they chose, a notification of its own: on Telegram, on to start with,
 with a button to confirm and one to refuse, which then says how it was decided, wherever it
 was; by mail if they turn it on.
 
+Where the user turns on **Also ask in the agent's window**, off to start with, the tool call
+that held the action asks in the agent too, by MCP's elicitation, where its client can: a
+link to Polythought's own page for it, where the user decides, or for a client that shows
+no links, a form whose Confirm or Refuse counts. The call waits for the answer two minutes
+unless an admin changes it; confirmed in time, it carries the action out itself, so the
+agent gets what came of it as if it had gone ahead, and unanswered, the request waits in
+Polythought. Each confirmation keeps where it was decided: in the app, on Telegram, or in
+the agent's window.
+
 Who acted is kept, named as they were then: an execution an agent or a token ran by hand
 names it, and so does every run of a workflow it switched on, or changed while on, until the
 workflow is switched on or off again; confirmed by the user, it says so. History shows it,

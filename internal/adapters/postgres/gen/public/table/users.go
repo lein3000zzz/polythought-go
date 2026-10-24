@@ -44,6 +44,7 @@ type usersTable struct {
 	UnconfirmedRun       postgres.ColumnBool
 	UnconfirmedChange    postgres.ColumnBool
 	UnconfirmedKillOff   postgres.ColumnBool
+	AskInAgent           postgres.ColumnBool
 
 	AllColumns     postgres.ColumnList
 	MutableColumns postgres.ColumnList
@@ -112,9 +113,10 @@ func newUsersTableImpl(schemaName, tableName, alias string) usersTable {
 		UnconfirmedRunColumn       = postgres.BoolColumn("unconfirmed_run")
 		UnconfirmedChangeColumn    = postgres.BoolColumn("unconfirmed_change")
 		UnconfirmedKillOffColumn   = postgres.BoolColumn("unconfirmed_kill_off")
-		allColumns                 = postgres.ColumnList{IDColumn, EmailColumn, EmailNormalizedColumn, PasswordHashColumn, RoleColumn, EmailVerifiedAtColumn, DisabledAtColumn, CreatedAtColumn, UpdatedAtColumn, CodeChosenColumn, LiveStoppedAtColumn, MaxLiveOrderColumn, MaxLiveDayColumn, MaxAgentDollarsColumn, MaxAgentInputColumn, MaxAgentOutputColumn, MaxAgentTotalColumn, KillStopsAgentsColumn, AgentsSeePersonalColumn, AgentsMayDeleteColumn, AgentsMayShareColumn, AgentsUseCredentialsColumn, AgentsMayAnswerColumn, UnconfirmedGoLiveColumn, UnconfirmedRunColumn, UnconfirmedChangeColumn, UnconfirmedKillOffColumn}
-		mutableColumns             = postgres.ColumnList{EmailColumn, EmailNormalizedColumn, PasswordHashColumn, RoleColumn, EmailVerifiedAtColumn, DisabledAtColumn, CreatedAtColumn, UpdatedAtColumn, CodeChosenColumn, LiveStoppedAtColumn, MaxLiveOrderColumn, MaxLiveDayColumn, MaxAgentDollarsColumn, MaxAgentInputColumn, MaxAgentOutputColumn, MaxAgentTotalColumn, KillStopsAgentsColumn, AgentsSeePersonalColumn, AgentsMayDeleteColumn, AgentsMayShareColumn, AgentsUseCredentialsColumn, AgentsMayAnswerColumn, UnconfirmedGoLiveColumn, UnconfirmedRunColumn, UnconfirmedChangeColumn, UnconfirmedKillOffColumn}
-		defaultColumns             = postgres.ColumnList{CodeChosenColumn, KillStopsAgentsColumn, AgentsSeePersonalColumn, AgentsMayDeleteColumn, AgentsMayShareColumn, AgentsUseCredentialsColumn, AgentsMayAnswerColumn, UnconfirmedGoLiveColumn, UnconfirmedRunColumn, UnconfirmedChangeColumn, UnconfirmedKillOffColumn}
+		AskInAgentColumn           = postgres.BoolColumn("ask_in_agent")
+		allColumns                 = postgres.ColumnList{IDColumn, EmailColumn, EmailNormalizedColumn, PasswordHashColumn, RoleColumn, EmailVerifiedAtColumn, DisabledAtColumn, CreatedAtColumn, UpdatedAtColumn, CodeChosenColumn, LiveStoppedAtColumn, MaxLiveOrderColumn, MaxLiveDayColumn, MaxAgentDollarsColumn, MaxAgentInputColumn, MaxAgentOutputColumn, MaxAgentTotalColumn, KillStopsAgentsColumn, AgentsSeePersonalColumn, AgentsMayDeleteColumn, AgentsMayShareColumn, AgentsUseCredentialsColumn, AgentsMayAnswerColumn, UnconfirmedGoLiveColumn, UnconfirmedRunColumn, UnconfirmedChangeColumn, UnconfirmedKillOffColumn, AskInAgentColumn}
+		mutableColumns             = postgres.ColumnList{EmailColumn, EmailNormalizedColumn, PasswordHashColumn, RoleColumn, EmailVerifiedAtColumn, DisabledAtColumn, CreatedAtColumn, UpdatedAtColumn, CodeChosenColumn, LiveStoppedAtColumn, MaxLiveOrderColumn, MaxLiveDayColumn, MaxAgentDollarsColumn, MaxAgentInputColumn, MaxAgentOutputColumn, MaxAgentTotalColumn, KillStopsAgentsColumn, AgentsSeePersonalColumn, AgentsMayDeleteColumn, AgentsMayShareColumn, AgentsUseCredentialsColumn, AgentsMayAnswerColumn, UnconfirmedGoLiveColumn, UnconfirmedRunColumn, UnconfirmedChangeColumn, UnconfirmedKillOffColumn, AskInAgentColumn}
+		defaultColumns             = postgres.ColumnList{CodeChosenColumn, KillStopsAgentsColumn, AgentsSeePersonalColumn, AgentsMayDeleteColumn, AgentsMayShareColumn, AgentsUseCredentialsColumn, AgentsMayAnswerColumn, UnconfirmedGoLiveColumn, UnconfirmedRunColumn, UnconfirmedChangeColumn, UnconfirmedKillOffColumn, AskInAgentColumn}
 	)
 
 	return usersTable{
@@ -148,6 +150,7 @@ func newUsersTableImpl(schemaName, tableName, alias string) usersTable {
 		UnconfirmedRun:       UnconfirmedRunColumn,
 		UnconfirmedChange:    UnconfirmedChangeColumn,
 		UnconfirmedKillOff:   UnconfirmedKillOffColumn,
+		AskInAgent:           AskInAgentColumn,
 
 		AllColumns:     allColumns,
 		MutableColumns: mutableColumns,

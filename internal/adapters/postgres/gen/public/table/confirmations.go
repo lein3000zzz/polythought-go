@@ -33,6 +33,7 @@ type confirmationsTable struct {
 	ExpiresAt       postgres.ColumnTimestampz
 	DecidedAt       postgres.ColumnTimestampz
 	TelegramMessage postgres.ColumnInteger
+	DecidedVia      postgres.ColumnString
 
 	AllColumns     postgres.ColumnList
 	MutableColumns postgres.ColumnList
@@ -90,9 +91,10 @@ func newConfirmationsTableImpl(schemaName, tableName, alias string) confirmation
 		ExpiresAtColumn       = postgres.TimestampzColumn("expires_at")
 		DecidedAtColumn       = postgres.TimestampzColumn("decided_at")
 		TelegramMessageColumn = postgres.IntegerColumn("telegram_message")
-		allColumns            = postgres.ColumnList{IDColumn, OwnerIDColumn, KindColumn, WorkflowIDColumn, GrantIDColumn, TokenIDColumn, AgentColumn, ScopesColumn, WhatColumn, PayloadColumn, StatusColumn, ResultColumn, CreatedAtColumn, ExpiresAtColumn, DecidedAtColumn, TelegramMessageColumn}
-		mutableColumns        = postgres.ColumnList{OwnerIDColumn, KindColumn, WorkflowIDColumn, GrantIDColumn, TokenIDColumn, AgentColumn, ScopesColumn, WhatColumn, PayloadColumn, StatusColumn, ResultColumn, CreatedAtColumn, ExpiresAtColumn, DecidedAtColumn, TelegramMessageColumn}
-		defaultColumns        = postgres.ColumnList{GrantIDColumn, TokenIDColumn, AgentColumn, ResultColumn, TelegramMessageColumn}
+		DecidedViaColumn      = postgres.StringColumn("decided_via")
+		allColumns            = postgres.ColumnList{IDColumn, OwnerIDColumn, KindColumn, WorkflowIDColumn, GrantIDColumn, TokenIDColumn, AgentColumn, ScopesColumn, WhatColumn, PayloadColumn, StatusColumn, ResultColumn, CreatedAtColumn, ExpiresAtColumn, DecidedAtColumn, TelegramMessageColumn, DecidedViaColumn}
+		mutableColumns        = postgres.ColumnList{OwnerIDColumn, KindColumn, WorkflowIDColumn, GrantIDColumn, TokenIDColumn, AgentColumn, ScopesColumn, WhatColumn, PayloadColumn, StatusColumn, ResultColumn, CreatedAtColumn, ExpiresAtColumn, DecidedAtColumn, TelegramMessageColumn, DecidedViaColumn}
+		defaultColumns        = postgres.ColumnList{GrantIDColumn, TokenIDColumn, AgentColumn, ResultColumn, TelegramMessageColumn, DecidedViaColumn}
 	)
 
 	return confirmationsTable{
@@ -115,6 +117,7 @@ func newConfirmationsTableImpl(schemaName, tableName, alias string) confirmation
 		ExpiresAt:       ExpiresAtColumn,
 		DecidedAt:       DecidedAtColumn,
 		TelegramMessage: TelegramMessageColumn,
+		DecidedVia:      DecidedViaColumn,
 
 		AllColumns:     allColumns,
 		MutableColumns: mutableColumns,

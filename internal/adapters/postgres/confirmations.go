@@ -38,6 +38,7 @@ func (r *Confirmations) Create(ctx context.Context, c domain.Confirmation) error
 		ID: id, OwnerID: owner, Kind: string(c.Kind), GrantID: string(c.GrantID), TokenID: string(c.TokenID), Agent: c.Agent,
 		Scopes: scopesArray(c.Scopes), What: c.What, Payload: string(c.Payload), Status: string(c.Status), Result: c.Result,
 		CreatedAt: c.CreatedAt, ExpiresAt: c.ExpiresAt, DecidedAt: timePtr(c.DecidedAt), TelegramMessage: int64(c.Message),
+		DecidedVia: string(c.DecidedVia),
 	}
 
 	if c.WorkflowID != "" {
@@ -120,7 +121,7 @@ func (r *Confirmations) CountPending(ctx context.Context, owner domain.UserID, n
 }
 
 func (r *Confirmations) Decide(
-	ctx context.Context, owner domain.UserID, id domain.ConfirmationID, status domain.ConfirmStatus, now time.Time,
+	ctx context.Context, owner domain.UserID, id domain.ConfirmationID, status domain.ConfirmStatus, now time.Time, via domain.ConfirmVia,
 ) (domain.Confirmation, error) {
 	where, err := ofOwner(owner, id)
 	if err != nil {
@@ -132,8 +133,8 @@ func (r *Confirmations) Decide(
 	var rows []model.Confirmations
 
 	// Pending and in time, in the same statement, so it is decided once.
-	err = c.UPDATE(c.Status, c.DecidedAt).
-		SET(jet.String(string(status)), jet.TimestampzT(now)).
+	err = c.UPDATE(c.Status, c.DecidedAt, c.DecidedVia).
+		SET(jet.String(string(status)), jet.TimestampzT(now), jet.String(string(via))).
 		WHERE(where.AND(c.Status.EQ(jet.String(string(domain.ConfirmPending)))).AND(c.ExpiresAt.GT(jet.TimestampzT(now)))).
 		RETURNING(c.AllColumns).
 		QueryContext(ctx, r.db.conn(ctx), &rows)
@@ -200,6 +201,7 @@ func confirmationOf(m model.Confirmations) domain.Confirmation {
 		GrantID: domain.GrantID(m.GrantID), TokenID: domain.APITokenID(m.TokenID), Agent: m.Agent, Scopes: toScopes(m.Scopes),
 		What: m.What, Payload: []byte(m.Payload), Status: domain.ConfirmStatus(m.Status), Result: m.Result,
 		CreatedAt: m.CreatedAt.UTC(), ExpiresAt: m.ExpiresAt.UTC(), Message: int(m.TelegramMessage),
+		DecidedVia: domain.ConfirmVia(m.DecidedVia),
 	}
 
 	if m.WorkflowID != nil {

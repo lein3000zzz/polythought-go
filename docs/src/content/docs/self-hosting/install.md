@@ -164,6 +164,8 @@ Under **Agents over MCP** on the Config page:
   token, may make in a minute.
 - **Live actions wait**, an hour to start with, is how long an agent's or a token's live
   action waits for its user to confirm it before it expires.
+- **Agent window waits**, 2 minutes to start with, is how long an agent's call waits for its
+  user's answer in the agent's own window, where the user has it ask there.
 
 A proxy of your own in front of the API must pass `/mcp` and `/.well-known/oauth-*` on as
 Caddy does, and must not buffer `/mcp`'s answers, which stream.

@@ -68,18 +68,19 @@ func TestConfirmations(t *testing.T) {
 	})
 
 	t.Run("decided once, in time, by its owner", func(t *testing.T) {
-		_, err := repo.Decide(ctx, bob.ID, run.ID, domain.ConfirmConfirmed, at)
+		_, err := repo.Decide(ctx, bob.ID, run.ID, domain.ConfirmConfirmed, at, domain.ConfirmViaApp)
 		require.ErrorIs(t, err, domain.ErrNotFound)
 
-		decided, err := repo.Decide(ctx, alice.ID, run.ID, domain.ConfirmConfirmed, at.Add(time.Minute))
+		decided, err := repo.Decide(ctx, alice.ID, run.ID, domain.ConfirmConfirmed, at.Add(time.Minute), domain.ConfirmViaAgent)
 		require.NoError(t, err)
 		assert.Equal(t, domain.ConfirmConfirmed, decided.Status)
+		assert.Equal(t, domain.ConfirmViaAgent, decided.DecidedVia)
 		assert.Equal(t, at.Add(time.Minute), decided.DecidedAt)
 
-		_, err = repo.Decide(ctx, alice.ID, run.ID, domain.ConfirmRefused, at.Add(time.Minute))
+		_, err = repo.Decide(ctx, alice.ID, run.ID, domain.ConfirmRefused, at.Add(time.Minute), domain.ConfirmViaApp)
 		require.ErrorIs(t, err, domain.ErrConflict)
 
-		_, err = repo.Decide(ctx, alice.ID, kill.ID, domain.ConfirmConfirmed, at.Add(2*time.Hour))
+		_, err = repo.Decide(ctx, alice.ID, kill.ID, domain.ConfirmConfirmed, at.Add(2*time.Hour), domain.ConfirmViaApp)
 		require.ErrorIs(t, err, domain.ErrConflict, "expired")
 
 		require.NoError(t, repo.Finish(ctx, run.ID, domain.ConfirmDone, "execution ex-1, succeeded"))
@@ -105,9 +106,16 @@ func TestUnconfirmed(t *testing.T) {
 
 	lets := domain.Unconfirmed{Run: true, KillOff: true}
 	require.NoError(t, users.SetUnconfirmed(ctx, u.ID, lets))
+	require.NoError(t, users.SetAskInAgent(ctx, u.ID, true))
 	require.NoError(t, users.Update(ctx, got), "an update with the user as it was")
 
 	got, err = users.ByID(ctx, u.ID)
 	require.NoError(t, err)
 	assert.Equal(t, lets, got.Unconfirmed)
+	assert.True(t, got.AskInAgent, "an update with the user as it was leaves the switches")
+
+	require.NoError(t, users.SetAskInAgent(ctx, u.ID, false))
+	got, err = users.ByID(ctx, u.ID)
+	require.NoError(t, err)
+	assert.False(t, got.AskInAgent)
 }

@@ -41,9 +41,11 @@ type Notifier interface {
 	ConfirmationClosed(ctx context.Context, c domain.Confirmation)
 }
 
-// Users records which actions a user lets go unconfirmed.
+// Users records which actions a user lets go unconfirmed, and whether they are asked in the
+// agent's window too.
 type Users interface {
 	SetUnconfirmed(ctx context.Context, id domain.UserID, u domain.Unconfirmed) error
+	SetAskInAgent(ctx context.Context, id domain.UserID, on bool) error
 }
 
 type Service struct {
@@ -54,9 +56,10 @@ type Service struct {
 	expiry func() time.Duration
 	notify Notifier
 
-	mu sync.Mutex
-	do map[domain.ConfirmKind]Do
-	wg sync.WaitGroup
+	mu      sync.Mutex
+	do      map[domain.ConfirmKind]Do
+	waiting map[domain.ConfirmationID]chan domain.Confirmation // tool calls awaiting the user (D409)
+	wg      sync.WaitGroup
 }
 
 type Option func(*Service)
@@ -197,8 +200,9 @@ func (s *Service) Get(ctx context.Context, p auth.Principal, id domain.Confirmat
 	return c, nil
 }
 
-// Confirm carries out a waiting action as it was asked, at a browser only. It goes on in
-// the background; Get says how it ended.
+// Confirm carries out a waiting action as it was asked, at a browser or in the user's
+// Telegram chat. A tool call waiting for the answer in the agent's window carries it out
+// itself (D409); otherwise it goes on in the background. Get says how it ended.
 func (s *Service) Confirm(ctx context.Context, p auth.Principal, id domain.ConfirmationID) (domain.Confirmation, error) {
 	c, err := s.decide(ctx, p, id, domain.ConfirmConfirmed)
 	if err != nil {
@@ -206,6 +210,10 @@ func (s *Service) Confirm(ctx context.Context, p auth.Principal, id domain.Confi
 	}
 
 	s.closed(ctx, c)
+
+	if s.handOff(c) {
+		return c, nil
+	}
 
 	s.mu.Lock()
 	do := s.do[c.Kind]
@@ -227,39 +235,56 @@ func (s *Service) Confirm(ctx context.Context, p auth.Principal, id domain.Confi
 		ctx, cancel := context.WithTimeout(context.WithoutCancel(ctx), carryFor)
 		defer cancel()
 
-		status, result := domain.ConfirmDone, ""
+		var (
+			out string
+			err error
+		)
 
 		if do == nil {
-			status, result = domain.ConfirmFailed, "it cannot be carried out on this server"
-		} else if out, err := do(ctx, asker, c); err != nil {
-			status, result = domain.ConfirmFailed, err.Error()
+			err = errors.New("it cannot be carried out on this server")
 		} else {
-			result = out
+			out, err = do(ctx, asker, c)
 		}
 
-		if err := s.repo.Finish(ctx, c.ID, status, result); err != nil {
-			s.log.Error(ctx, "Confirmed action's end not kept", "confirmation_id", c.ID, logging.Err(err))
-		}
-
-		ended := c
-		ended.Status, ended.Result = status, result
-		s.closed(ctx, ended)
-
-		s.log.Info(ctx, "Confirmed action carried out", "user_id", c.OwnerID, "confirmation_id", c.ID, "kind", c.Kind, "status", status)
+		s.Finish(ctx, c, out, err)
 	}()
 
 	return c, nil
 }
 
-// Refuse ends a waiting action without carrying it out, at a browser only.
+// Finish records how a confirmed action ended, carried out by the service or by the tool
+// call that waited for it, and says so where the user was told.
+func (s *Service) Finish(ctx context.Context, c domain.Confirmation, out string, err error) {
+	status, result := domain.ConfirmDone, out
+	if err != nil {
+		status, result = domain.ConfirmFailed, err.Error()
+	}
+
+	if err := s.repo.Finish(ctx, c.ID, status, result); err != nil {
+		s.log.Error(ctx, "Confirmed action's end not kept", "confirmation_id", c.ID, logging.Err(err))
+	}
+
+	ended := c
+	ended.Status, ended.Result = status, result
+	s.closed(ctx, ended)
+
+	s.log.Info(ctx, "Confirmed action carried out", "user_id", c.OwnerID, "confirmation_id", c.ID, "kind", c.Kind, "status", status)
+}
+
+// Refuse ends a waiting action without carrying it out, at a browser or on Telegram.
 func (s *Service) Refuse(ctx context.Context, p auth.Principal, id domain.ConfirmationID) (domain.Confirmation, error) {
 	c, err := s.decide(ctx, p, id, domain.ConfirmRefused)
 	if err == nil {
-		s.log.Info(ctx, "Live action refused", "user_id", c.OwnerID, "confirmation_id", c.ID, "kind", c.Kind)
-		s.closed(ctx, c)
+		s.refused(ctx, c)
 	}
 
 	return c, err
+}
+
+func (s *Service) refused(ctx context.Context, c domain.Confirmation) {
+	s.log.Info(ctx, "Live action refused", "user_id", c.OwnerID, "confirmation_id", c.ID, "kind", c.Kind, "via", c.DecidedVia)
+	s.closed(ctx, c)
+	s.handOff(c)
 }
 
 func (s *Service) decide(ctx context.Context, p auth.Principal, id domain.ConfirmationID, status domain.ConfirmStatus) (domain.Confirmation, error) {
@@ -268,7 +293,18 @@ func (s *Service) decide(ctx context.Context, p auth.Principal, id domain.Confir
 		return domain.Confirmation{}, fmt.Errorf("%w: only the user confirms or refuses, at a browser or on Telegram", domain.ErrForbidden)
 	}
 
-	c, err := s.repo.Decide(ctx, p.User.ID, id, status, s.now())
+	via := domain.ConfirmViaTelegram
+	if p.ViaSession() {
+		via = domain.ConfirmViaApp
+	}
+
+	return s.decideVia(ctx, p, id, status, via)
+}
+
+func (s *Service) decideVia(
+	ctx context.Context, p auth.Principal, id domain.ConfirmationID, status domain.ConfirmStatus, via domain.ConfirmVia,
+) (domain.Confirmation, error) {
+	c, err := s.repo.Decide(ctx, p.User.ID, id, status, s.now(), via)
 	if err == nil || !errors.Is(err, domain.ErrConflict) {
 		return c, err
 	}
@@ -284,6 +320,138 @@ func (s *Service) decide(ctx context.Context, p auth.Principal, id domain.Confir
 	}
 
 	return domain.Confirmation{}, fmt.Errorf("%w: it is %s already", domain.ErrConflict, now.Status)
+}
+
+// The agent's own window (D409): a tool call that held an action asks the user there,
+// where they let it, and waits, a little, for the answer; confirmed, the call carries it
+// out itself, so the agent hears what came of it as if it had gone ahead.
+
+// ConfirmInWindow confirms one of p's own waiting actions, as the user answered in its
+// window, where they let agents ask there. The caller carries it out, then calls Finish.
+func (s *Service) ConfirmInWindow(ctx context.Context, p auth.Principal, id domain.ConfirmationID) (domain.Confirmation, error) {
+	if err := s.mayAsk(ctx, p, id); err != nil {
+		return domain.Confirmation{}, err
+	}
+
+	c, err := s.decideVia(ctx, p, id, domain.ConfirmConfirmed, domain.ConfirmViaAgent)
+	if err == nil {
+		s.closed(ctx, c)
+	}
+
+	return c, err
+}
+
+// RefuseInWindow refuses one of p's own waiting actions, as the user answered in its
+// window.
+func (s *Service) RefuseInWindow(ctx context.Context, p auth.Principal, id domain.ConfirmationID) (domain.Confirmation, error) {
+	if err := s.mayAsk(ctx, p, id); err != nil {
+		return domain.Confirmation{}, err
+	}
+
+	c, err := s.decideVia(ctx, p, id, domain.ConfirmRefused, domain.ConfirmViaAgent)
+	if err == nil {
+		s.refused(ctx, c)
+	}
+
+	return c, err
+}
+
+// mayAsk is nil when the user lets p's window ask, and the action is p's own.
+func (s *Service) mayAsk(ctx context.Context, p auth.Principal, id domain.ConfirmationID) error {
+	if !p.User.AskInAgent || p.Itself() {
+		return fmt.Errorf("%w: the user has not let agents ask in their own window", domain.ErrForbidden)
+	}
+
+	c, err := s.repo.Get(ctx, p.User.ID, id)
+	if err != nil {
+		return err
+	}
+
+	if c.GrantID != p.GrantID || c.TokenID != p.TokenID {
+		return domain.ErrNotFound // another agent's, or another token's
+	}
+
+	return nil
+}
+
+// Await waits for the user to decide one of p's own waiting actions in Polythought, while
+// ctx lasts (D409). Confirmed, it is the caller's to carry out, carry says so, and Finish
+// says how it ended; refused, the error is domain.ErrConfirmRefused. Waiting no more, it is the
+// service's again to carry out when the user confirms it.
+func (s *Service) Await(ctx context.Context, p auth.Principal, id domain.ConfirmationID) (c domain.Confirmation, carry bool, err error) {
+	if err := s.mayAsk(ctx, p, id); err != nil {
+		return domain.Confirmation{}, false, err
+	}
+
+	ch := make(chan domain.Confirmation, 1)
+
+	s.mu.Lock()
+	if s.waiting == nil {
+		s.waiting = map[domain.ConfirmationID]chan domain.Confirmation{}
+	}
+	s.waiting[id] = ch
+	s.mu.Unlock()
+
+	select {
+	case c = <-ch:
+	case <-ctx.Done():
+		s.mu.Lock()
+		_, still := s.waiting[id]
+		delete(s.waiting, id)
+		s.mu.Unlock()
+
+		if still {
+			return domain.Confirmation{}, false, ctx.Err()
+		}
+
+		c = <-ch // decided as it ended: handed over already
+	}
+
+	if c.Status == domain.ConfirmRefused {
+		return c, false, domain.ErrConfirmRefused
+	}
+
+	return c, true, nil
+}
+
+// Awaited says a tool call awaits the user's decision of id, as the agent's window asked.
+func (s *Service) Awaited(id domain.ConfirmationID) bool {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	_, ok := s.waiting[id]
+
+	return ok
+}
+
+// handOff gives a decision to the tool call awaiting it, if one is: true when it did.
+func (s *Service) handOff(c domain.Confirmation) bool {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	ch, ok := s.waiting[c.ID]
+	if ok {
+		delete(s.waiting, c.ID)
+		ch <- c
+	}
+
+	return ok
+}
+
+// SetAskInAgent records whether the user's tokens' and agents' live actions are also asked
+// in the agent's own window, at a browser only (D409).
+func (s *Service) SetAskInAgent(ctx context.Context, p auth.Principal, on bool) error {
+	if !p.ViaSession() {
+		return fmt.Errorf("%w: only at a browser", domain.ErrForbidden)
+	}
+
+	if err := s.users.SetAskInAgent(ctx, p.User.ID, on); err != nil {
+		return err
+	}
+
+	s.log.Info(ctx, "Asking in the agent's window changed", "user_id", p.User.ID, "on", on)
+
+	return nil
 }
 
 // SetUnconfirmed records which of the user's tokens' and agents' live actions go ahead

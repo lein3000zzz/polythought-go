@@ -35,6 +35,8 @@ type UserRepository interface {
 	// SetUnconfirmed records which of their agents' and tokens' live actions go ahead
 	// without the user confirming them (D406).
 	SetUnconfirmed(ctx context.Context, id domain.UserID, u domain.Unconfirmed) error
+	// SetAskInAgent records whether those are also asked in the agent's own window (D409).
+	SetAskInAgent(ctx context.Context, id domain.UserID, on bool) error
 	List(ctx context.Context, f PageFilter) (Page[domain.User], error)
 	CountActiveAdmins(ctx context.Context) (int, error)
 	// LockActiveAdmins locks the active admins' rows until the surrounding transaction

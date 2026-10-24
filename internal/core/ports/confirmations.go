@@ -18,7 +18,9 @@ type ConfirmationRepository interface {
 	CountPending(ctx context.Context, owner domain.UserID, now time.Time) (int, error)
 	// Decide moves one of owner's pending at now to status, once: domain.ErrConflict if it
 	// is not pending any more, or has expired.
-	Decide(ctx context.Context, owner domain.UserID, id domain.ConfirmationID, status domain.ConfirmStatus, now time.Time) (domain.Confirmation, error)
+	Decide(
+		ctx context.Context, owner domain.UserID, id domain.ConfirmationID, status domain.ConfirmStatus, now time.Time, via domain.ConfirmVia,
+	) (domain.Confirmation, error)
 	// Finish records how a confirmed one ended.
 	Finish(ctx context.Context, id domain.ConfirmationID, status domain.ConfirmStatus, result string) error
 	// SetMessage records the Telegram message that asked the user.

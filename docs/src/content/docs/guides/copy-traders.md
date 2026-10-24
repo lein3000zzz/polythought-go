@@ -275,7 +275,9 @@ you confirm it: going live, switching on or running a workflow that trades live,
 one that is on, and turning the kill switch off each wait for you, a bar on every page
 saying so and a Telegram message with buttons, and you confirm or refuse them there or
 under **Settings → Connected agents**. Each of the
-four has a switch there, on to start with; what you do yourself never waits. Turning the
+four has a switch there, on to start with; what you do yourself never waits. With **Also ask
+in the agent's window** on, an agent such as Claude Code asks you in its own window too: a
+link to the request here, or where it shows no links, Confirm and Refuse in the agent. Turning the
 kill switch on never waits, whoever does it.
 
 When an admin disables an account, its kill switch goes on, and stays on if it is enabled

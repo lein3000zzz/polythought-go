@@ -688,6 +688,69 @@ func (_c *MockUserRepository_SetAgentAccess_Call) RunAndReturn(run func(ctx cont
 	return _c
 }
 
+// SetAskInAgent provides a mock function for the type MockUserRepository
+func (_mock *MockUserRepository) SetAskInAgent(ctx context.Context, id domain.UserID, on bool) error {
+	ret := _mock.Called(ctx, id, on)
+
+	if len(ret) == 0 {
+		panic("no return value specified for SetAskInAgent")
+	}
+
+	var r0 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context, domain.UserID, bool) error); ok {
+		r0 = returnFunc(ctx, id, on)
+	} else {
+		r0 = ret.Error(0)
+	}
+	return r0
+}
+
+// MockUserRepository_SetAskInAgent_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'SetAskInAgent'
+type MockUserRepository_SetAskInAgent_Call struct {
+	*mock.Call
+}
+
+// SetAskInAgent is a helper method to define mock.On call
+//   - ctx context.Context
+//   - id domain.UserID
+//   - on bool
+func (_e *MockUserRepository_Expecter) SetAskInAgent(ctx any, id any, on any) *MockUserRepository_SetAskInAgent_Call {
+	return &MockUserRepository_SetAskInAgent_Call{Call: _e.mock.On("SetAskInAgent", ctx, id, on)}
+}
+
+func (_c *MockUserRepository_SetAskInAgent_Call) Run(run func(ctx context.Context, id domain.UserID, on bool)) *MockUserRepository_SetAskInAgent_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		var arg1 domain.UserID
+		if args[1] != nil {
+			arg1 = args[1].(domain.UserID)
+		}
+		var arg2 bool
+		if args[2] != nil {
+			arg2 = args[2].(bool)
+		}
+		run(
+			arg0,
+			arg1,
+			arg2,
+		)
+	})
+	return _c
+}
+
+func (_c *MockUserRepository_SetAskInAgent_Call) Return(err error) *MockUserRepository_SetAskInAgent_Call {
+	_c.Call.Return(err)
+	return _c
+}
+
+func (_c *MockUserRepository_SetAskInAgent_Call) RunAndReturn(run func(ctx context.Context, id domain.UserID, on bool) error) *MockUserRepository_SetAskInAgent_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // SetEmailVerified provides a mock function for the type MockUserRepository
 func (_mock *MockUserRepository) SetEmailVerified(ctx context.Context, id domain.UserID, at time.Time) error {
 	ret := _mock.Called(ctx, id, at)

@@ -67,6 +67,7 @@ func (r *Users) Create(ctx context.Context, u domain.User, passwordHash string) 
 		UnconfirmedRun:       u.Unconfirmed.Run,
 		UnconfirmedChange:    u.Unconfirmed.Change,
 		UnconfirmedKillOff:   u.Unconfirmed.KillOff,
+		AskInAgent:           u.AskInAgent,
 	}
 
 	_, err = table.Users.INSERT(table.Users.AllColumns).MODEL(m).ExecContext(ctx, r.db.conn(ctx))
@@ -181,6 +182,22 @@ func (r *Users) SetUnconfirmed(ctx context.Context, id domain.UserID, u domain.U
 
 	return affectedOne(t.UPDATE(t.UnconfirmedGoLive, t.UnconfirmedRun, t.UnconfirmedChange, t.UnconfirmedKillOff).
 		MODEL(model.Users{UnconfirmedGoLive: u.GoLive, UnconfirmedRun: u.Run, UnconfirmedChange: u.Change, UnconfirmedKillOff: u.KillOff}).
+		WHERE(t.ID.EQ(jet.UUID(uid))).
+		ExecContext(ctx, r.db.conn(ctx)))
+}
+
+// SetAskInAgent records whether the user's agents' and tokens' live actions that wait for
+// them are also asked in the agent's own window (D409).
+func (r *Users) SetAskInAgent(ctx context.Context, id domain.UserID, on bool) error {
+	uid, err := parseID(id)
+	if err != nil {
+		return err
+	}
+
+	t := table.Users
+
+	return affectedOne(t.UPDATE(t.AskInAgent).
+		MODEL(model.Users{AskInAgent: on}).
 		WHERE(t.ID.EQ(jet.UUID(uid))).
 		ExecContext(ctx, r.db.conn(ctx)))
 }
@@ -363,8 +380,9 @@ func toUser(m model.Users) domain.User {
 		Unconfirmed: domain.Unconfirmed{
 			GoLive: m.UnconfirmedGoLive, Run: m.UnconfirmedRun, Change: m.UnconfirmedChange, KillOff: m.UnconfirmedKillOff,
 		},
-		CreatedAt: m.CreatedAt.UTC(),
-		UpdatedAt: m.UpdatedAt.UTC(),
+		AskInAgent: m.AskInAgent,
+		CreatedAt:  m.CreatedAt.UTC(),
+		UpdatedAt:  m.UpdatedAt.UTC(),
 	}
 }
 

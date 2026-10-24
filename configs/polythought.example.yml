@@ -388,6 +388,12 @@ mcp:
   # Environment: POLYTHOUGHT_MCP_CONFIRM_FOR.
   # confirm_for: "1h"
 
+  # How long an agent's tool call waits for the user's answer in the agent's own window,
+  # where the user has it ask there, before it says the action waits in Polythought.
+  # Some clients give up on a call sooner. Applies at once.
+  # Environment: POLYTHOUGHT_MCP_WINDOW_WAIT.
+  # window_wait: "2m"
+
 webhook:
 
   # Let workflows reach addresses inside the server's network, such as a service on the

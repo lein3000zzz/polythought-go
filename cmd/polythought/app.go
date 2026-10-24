@@ -339,6 +339,8 @@ func (a *app) newMCP() (*mcpserver.Server, error) {
 		Sharing:       a.library,
 		Confirmations: a.confirmations,
 		Trader:        a.trading,
+		Window:        a.confirmations,
+		WindowWait:    func() time.Duration { return a.settings.Current().Duration(config.KeyMCPWindowWait) },
 		NodeTypes:     nodeTypes{types: a.customNodes, plugins: a.plugins},
 		CodeTypes:     codeTypes{types: a.customNodes},
 		Library:       a.library,

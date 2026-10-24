@@ -128,6 +128,12 @@ export function SettingsPage() {
       words:
         'agents api tokens mcp confirm live trading run switch on kill switch waiting approve refuse',
     },
+    {
+      slug: 'connected',
+      key: 'confirm-in-agent',
+      label: "Also ask in the agent's window",
+      words: 'agents mcp confirm window elicitation claude code codex ask link',
+    },
     ...(grants.data ?? [])
       .filter((g) => !g.revokedAt)
       .map((g) => ({

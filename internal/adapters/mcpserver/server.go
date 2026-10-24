@@ -79,6 +79,10 @@ type Deps struct {
 	Confirmations Confirmations
 	// What the trading tools change (D406); without it, they are not offered.
 	Trader Trader
+	// What decides a waiting action from the agent's window (D409), and how long a call
+	// waits there; without it, actions wait in Polythought alone.
+	Window     Window
+	WindowWait func() time.Duration
 
 	// What the market tools read (D402); without a reader they are not offered.
 	Markets Markets
@@ -106,6 +110,9 @@ type Server struct {
 	sharing     Sharing
 	confirms    Confirmations
 	trader      Trader
+	window      Window
+	windowWait  func() time.Duration
+	publicURL   string
 
 	markets      ai.Sources
 	marketReader ports.MarketReader
@@ -132,6 +139,7 @@ func New(cfg Config, d Deps) (*Server, error) {
 		workflows: d.Workflows, nodeTypes: d.NodeTypes, codeTypes: d.CodeTypes, library: d.Library, trading: d.Trading,
 		edit: d.Edit, code: d.Code, customNodes: d.CustomNodes, credentials: d.Credentials,
 		sharing: d.Sharing, confirms: d.Confirmations, trader: d.Trader,
+		window: d.Window, windowWait: d.WindowWait, publicURL: strings.TrimRight(cfg.PublicURL, "/"),
 		markets: d.Markets.Sources, marketReader: d.Markets.Reader, wallets: d.Wallets, trades: d.Trades,
 		scope: tracing.Scope{Manager: d.Util.TracerManager, TracerName: tracerName},
 	}

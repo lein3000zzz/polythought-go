@@ -30,4 +30,5 @@ type Confirmations struct {
 	ExpiresAt       time.Time
 	DecidedAt       *time.Time
 	TelegramMessage int64
+	DecidedVia      string
 }

@@ -41,4 +41,5 @@ type Users struct {
 	UnconfirmedRun       bool
 	UnconfirmedChange    bool
 	UnconfirmedKillOff   bool
+	AskInAgent           bool
 }

@@ -63,7 +63,19 @@ type Confirmation struct {
 	CreatedAt time.Time
 	ExpiresAt time.Time
 	DecidedAt time.Time // zero while pending
+	// DecidedVia is where the user decided it (D409); empty while pending.
+	DecidedVia ConfirmVia
 }
+
+// ConfirmVia is where a confirmation was decided: at a browser, on Telegram, or in the
+// agent's own window, where the user lets it ask (D409).
+type ConfirmVia string
+
+const (
+	ConfirmViaApp      ConfirmVia = "app"
+	ConfirmViaTelegram ConfirmVia = "telegram"
+	ConfirmViaAgent    ConfirmVia = "agent"
+)
 
 // StatusAt is its status at now: a pending one past its time has expired.
 func (c Confirmation) StatusAt(now time.Time) ConfirmStatus {
@@ -110,6 +122,9 @@ func (u Unconfirmed) Waits(kind ConfirmKind) bool {
 
 	return true
 }
+
+// ErrConfirmRefused means the user refused a live action that waited for them (D409).
+var ErrConfirmRefused = errors.New("the user refused it")
 
 // ErrAwaitsConfirmation means the action waits for its user to confirm it; an
 // *AwaitingError says which confirmation.

@@ -8,6 +8,7 @@ import { AdminConfigPage } from '@/pages/AdminConfigPage'
 import { AdminInvitesPage } from '@/pages/AdminInvitesPage'
 import { AdminPluginsPage } from '@/pages/AdminPluginsPage'
 import { AdminPage } from '@/pages/AdminPage'
+import { ConfirmationPage } from '@/pages/ConfirmationPage'
 import { CustomNodePage } from '@/pages/CustomNodePage'
 import { ForgotPasswordPage } from '@/pages/ForgotPasswordPage'
 import { LibraryPage } from '@/pages/LibraryPage'
@@ -68,6 +69,8 @@ export const routes: RouteObject[] = [
           { path: 'nodes/:id', element: <CustomNodePage /> },
           { path: 'wallets', element: <WalletsPage /> },
           { path: 'orders', element: <OrdersPage /> },
+          // Where an agent's window links, to confirm one of its live actions (D409).
+          { path: 'confirmations/:id', element: <ConfirmationPage /> },
           // A page of Settings now (D392): old links still get there.
           { path: 'credentials', element: <Navigate to="/settings/credentials" replace /> },
           { path: 'settings/:page?', element: <SettingsPage /> },

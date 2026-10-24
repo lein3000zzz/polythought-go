@@ -2299,6 +2299,12 @@ export interface components {
             createdAt: string;
             /** Format: date-time */
             decidedAt?: string;
+            /**
+             * @description DecidedVia is where you decided it: in the app, on Telegram, or in the agent's own
+             *     window (D409).
+             * @enum {string}
+             */
+            decidedVia?: "app" | "telegram" | "agent";
             /** Format: date-time */
             expiresAt: string;
             id: string;
@@ -2782,6 +2788,11 @@ export interface components {
             change: boolean;
             /** @description GoLive is setting a workflow to trade live, or changing its live wallet. */
             goLive: boolean;
+            /**
+             * @description InAgent has them also asked in the agent's own window, where its client can ask
+             *     (D409): off to start with.
+             */
+            inAgent: boolean;
             /** @description KillOff is turning the kill switch off. */
             killOff: boolean;
             /** @description Run is switching on, or running by hand, a workflow that trades live. */
@@ -2790,6 +2801,7 @@ export interface components {
         LiveConfirmRequest: {
             change?: boolean;
             goLive?: boolean;
+            inAgent?: boolean;
             killOff?: boolean;
             run?: boolean;
         };

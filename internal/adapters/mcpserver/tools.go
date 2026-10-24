@@ -83,7 +83,7 @@ func add[In, Out any](s *Server, srv *mcp.Server, t Tool[In, Out]) {
 		err := s.scope.WithSpan(ctx, "mcp "+t.Name, func(ctx context.Context, span trace.Span) error {
 			span.SetAttributes(attribute.String("mcp.tool", t.Name), attribute.String("mcp.caller", callerKind(p)))
 
-			got, err := s.run(ctx, p, t.Scope, func(ctx context.Context) (any, error) { return t.Handle(ctx, p, in) })
+			got, err := s.run(ctx, p, t.Scope, func(ctx context.Context) (any, error) { return handle(ctx, s, req.Session, p, t.Handle, in) })
 			if err == nil {
 				out = got.(Out)
 			}
@@ -102,6 +102,38 @@ func add[In, Out any](s *Server, srv *mcp.Server, t Tool[In, Out]) {
 
 		return nil, out, nil
 	})
+}
+
+// handle calls the tool; one whose live action waits for the user is asked about in the
+// agent's window too, where the user lets it (D409), and carried out confirmed when they
+// confirm it in time.
+func handle[In, Out any](
+	ctx context.Context, s *Server, session *mcp.ServerSession, p auth.Principal,
+	h func(context.Context, auth.Principal, In) (Out, error), in In,
+) (Out, error) {
+	out, err := h(ctx, p, in)
+
+	var waiting *domain.AwaitingError
+	if !errors.As(err, &waiting) {
+		return out, err
+	}
+
+	c, carry, werr := s.inWindow(ctx, session, p, waiting.Confirmation)
+	switch {
+	case werr != nil:
+		var zero Out
+		return zero, werr
+	case !carry:
+		return out, err
+	}
+
+	confirmed := p
+	confirmed.Confirmed = true
+
+	out, err = h(ctx, confirmed, in)
+	s.window.Finish(ctx, c, "carried out by the call that asked", err)
+
+	return out, err
 }
 
 // run holds a call to the caller's limit and scope, then to the size of what it gives.
@@ -143,7 +175,7 @@ var expectedErrors = []error{
 	domain.ErrNotConfirmed, domain.ErrWalletCannotTrade, domain.ErrHoldsLive, domain.ErrOrdersLive,
 	domain.ErrNotOpen, domain.ErrWalletTradesLive, domain.ErrNotWaiting, domain.ErrExecutionFinished,
 	domain.ErrCustomNodeTaken, domain.ErrBreaksWorkflows, domain.ErrCredentialExists, domain.ErrNoBuilderKey,
-	domain.ErrAwaitsConfirmation,
+	domain.ErrAwaitsConfirmation, domain.ErrConfirmRefused,
 }
 
 func expected(err error) bool {

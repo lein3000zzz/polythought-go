@@ -652,6 +652,15 @@
                         "format": "date-time",
                         "type": "string"
                     },
+                    "decidedVia": {
+                        "description": "DecidedVia is where you decided it: in the app, on Telegram, or in the agent's own\nwindow (D409).",
+                        "enum": [
+                            "app",
+                            "telegram",
+                            "agent"
+                        ],
+                        "type": "string"
+                    },
                     "expiresAt": {
                         "format": "date-time",
                         "type": "string"
@@ -2019,6 +2028,10 @@
                         "description": "GoLive is setting a workflow to trade live, or changing its live wallet.",
                         "type": "boolean"
                     },
+                    "inAgent": {
+                        "description": "InAgent has them also asked in the agent's own window, where its client can ask\n(D409): off to start with.",
+                        "type": "boolean"
+                    },
                     "killOff": {
                         "description": "KillOff is turning the kill switch off.",
                         "type": "boolean"
@@ -2031,6 +2044,7 @@
                 "required": [
                     "change",
                     "goLive",
+                    "inAgent",
                     "killOff",
                     "run"
                 ],
@@ -2042,6 +2056,9 @@
                         "type": "boolean"
                     },
                     "goLive": {
+                        "type": "boolean"
+                    },
+                    "inAgent": {
                         "type": "boolean"
                     },
                     "killOff": {

@@ -108,6 +108,37 @@ export function ConfirmationsSection() {
         </div>
       ))}
 
+      <div id={jumpId('confirm-in-agent')} className="flex items-start justify-between gap-4">
+        <div className="flex flex-col gap-0.5">
+          <Label htmlFor="confirm-in-agent">Also ask in the agent&apos;s window</Label>
+          <p id="confirm-in-agent-hint" className="text-xs text-muted-foreground">
+            Where its client can ask: a link to this app, where you decide, or where it shows no
+            links, a Confirm and a Refuse in the agent itself, whose answer counts. Its call waits a
+            little for you, then the request waits here.
+          </p>
+        </div>
+        <Switch
+          id="confirm-in-agent"
+          aria-describedby="confirm-in-agent-hint"
+          checked={me.data?.liveConfirm.inAgent ?? false}
+          disabled={set.isPending || !me.data}
+          onCheckedChange={(on) =>
+            set.mutate(
+              { inAgent: on },
+              {
+                onSuccess: () =>
+                  toast.success(
+                    on
+                      ? 'Agents ask you in their window too, where they can'
+                      : 'Agents no longer ask in their window',
+                  ),
+                onError: (error) => toast.error(errorMessage(error)),
+              },
+            )
+          }
+        />
+      </div>
+
       {list.isPending && <Skeleton className="h-16" />}
       {list.isError && <ErrorAlert error={list.error} onRetry={() => void list.refetch()} />}
 

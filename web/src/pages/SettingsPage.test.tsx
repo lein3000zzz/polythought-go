@@ -597,6 +597,11 @@ describe('settings page', () => {
     await user.click(run)
     await waitFor(() => expect(sent).toEqual([{ run: false }]))
 
+    const inAgent = screen.getByRole('switch', { name: "Also ask in the agent's window" })
+    expect(inAgent).not.toBeChecked()
+    await user.click(inAgent)
+    await waitFor(() => expect(sent).toEqual([{ run: false }, { inAgent: true }]))
+
     const waiting = within(await screen.findByRole('list', { name: 'Waiting for you' }))
     expect(
       waiting.getByText(/Trade "Spread watch" live, from the wallet "Main"/),

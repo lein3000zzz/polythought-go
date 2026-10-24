@@ -14,6 +14,7 @@ import (
 	"net/url"
 	"os"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -41,8 +42,22 @@ type browser struct {
 	client *http.Client
 }
 
+// signedIn is the admin's session, shared by the tests: each sign-in counts toward the
+// login rate limit the browser specs after them sign in under too.
+var signedIn struct {
+	sync.Mutex
+	client *http.Client
+}
+
 func signIn(t *testing.T, base string) *browser {
 	t.Helper()
+
+	signedIn.Lock()
+	defer signedIn.Unlock()
+
+	if signedIn.client != nil {
+		return &browser{t: t, base: base, client: signedIn.client}
+	}
 
 	jar, err := cookiejar.New(nil)
 	require.NoError(t, err)
@@ -52,6 +67,8 @@ func signIn(t *testing.T, base string) *browser {
 	b.call(http.MethodPost, "/api/v1/auth/login", map[string]string{
 		"email": env("E2E_ADMIN_EMAIL", "admin@e2e.test"), "password": env("E2E_ADMIN_PASSWORD", "e2e-admin-password"),
 	}, http.StatusOK, nil)
+
+	signedIn.client = b.client
 
 	return b
 }

@@ -707,6 +707,18 @@ How long an agent's or an API token's live action waits for its user to confirm 
 | Default | `1h` |
 | Applies | at once |
 
+### Agent window waits
+
+How long an agent's tool call waits for the user's answer in the agent's own window, where the user has it ask there, before it says the action waits in Polythought. Some clients give up on a call sooner. Applies at once.
+
+| | |
+|---|---|
+| Key | `mcp.window_wait` |
+| Environment variable | `POLYTHOUGHT_MCP_WINDOW_WAIT` |
+| Kind | duration, e.g. `30s`, `5m`, `168h` |
+| Default | `2m` |
+| Applies | at once |
+
 ## Network
 
 ### Trusted proxies

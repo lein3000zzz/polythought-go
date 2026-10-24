@@ -3,12 +3,14 @@
 package e2e
 
 import (
+	"context"
 	"encoding/json"
 	"net/http"
 	"strings"
 	"testing"
 	"time"
 
+	"github.com/modelcontextprotocol/go-sdk/mcp"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -77,4 +79,55 @@ func TestLiveActionWaitsForTheUser(t *testing.T) {
 	assert.False(t, me.LiveStopped, "off, as the token asked")
 
 	b.call(http.MethodPost, "/api/v1/me/confirmations/"+waiting.ID+"/refuse", nil, http.StatusConflict, nil)
+}
+
+// Asked in the agent's window, where the user lets it (D409): the client's yes there
+// confirms the action, and the call carries it out, answering as if it had gone ahead.
+func TestAgentWindowConfirms(t *testing.T) {
+	ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
+	defer cancel()
+
+	base := env("E2E_BASE_URL", "http://localhost:3100")
+	b := signIn(t, base)
+
+	b.call(http.MethodPut, "/api/v1/me/kill-switch", map[string]any{"on": true}, http.StatusOK, nil)
+	defer b.call(http.MethodPut, "/api/v1/me/kill-switch", map[string]any{"on": false}, http.StatusOK, nil)
+
+	b.call(http.MethodPut, "/api/v1/me/live-confirm", map[string]any{"inAgent": true}, http.StatusNoContent, nil)
+	defer b.call(http.MethodPut, "/api/v1/me/live-confirm", map[string]any{"inAgent": false}, http.StatusNoContent, nil)
+
+	var token struct{ Token string }
+	b.call(http.MethodPost, "/api/v1/tokens", map[string]any{"name": "e2e window", "scopes": []string{"live"}}, http.StatusCreated, &token)
+
+	var asked []string
+
+	client := mcp.NewClient(&mcp.Implementation{Name: "go-sdk-e2e-window", Version: "1"}, &mcp.ClientOptions{
+		ElicitationHandler: func(_ context.Context, req *mcp.ElicitRequest) (*mcp.ElicitResult, error) {
+			asked = append(asked, req.Params.Message)
+			return &mcp.ElicitResult{Action: "accept"}, nil
+		},
+	})
+
+	agent, err := client.Connect(ctx, &mcp.StreamableClientTransport{
+		Endpoint: base + "/mcp", HTTPClient: &http.Client{Transport: bearer(token.Token)},
+	}, nil)
+	require.NoError(t, err)
+
+	defer func() { _ = agent.Close() }()
+
+	off := tool(ctx, t, agent, "set_kill_switch", map[string]any{"on": false})
+	assert.Equal(t, false, off["on"], "carried out once confirmed in the window")
+	require.Len(t, asked, 1)
+	assert.Contains(t, asked[0], "Turn your kill switch off")
+
+	var list struct {
+		Confirmations []struct{ Kind, Status, DecidedVia string }
+	}
+	b.call(http.MethodGet, "/api/v1/me/confirmations", nil, http.StatusOK, &list)
+	require.NotEmpty(t, list.Confirmations)
+	assert.Equal(t, struct{ Kind, Status, DecidedVia string }{"kill_off", "done", "agent"}, list.Confirmations[0])
+
+	var me struct{ LiveStopped bool }
+	b.call(http.MethodGet, "/api/v1/me", nil, http.StatusOK, &me)
+	assert.False(t, me.LiveStopped)
 }

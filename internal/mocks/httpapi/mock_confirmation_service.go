@@ -260,6 +260,69 @@ func (_c *MockConfirmationService_Refuse_Call) RunAndReturn(run func(ctx context
 	return _c
 }
 
+// SetAskInAgent provides a mock function for the type MockConfirmationService
+func (_mock *MockConfirmationService) SetAskInAgent(ctx context.Context, p auth.Principal, on bool) error {
+	ret := _mock.Called(ctx, p, on)
+
+	if len(ret) == 0 {
+		panic("no return value specified for SetAskInAgent")
+	}
+
+	var r0 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context, auth.Principal, bool) error); ok {
+		r0 = returnFunc(ctx, p, on)
+	} else {
+		r0 = ret.Error(0)
+	}
+	return r0
+}
+
+// MockConfirmationService_SetAskInAgent_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'SetAskInAgent'
+type MockConfirmationService_SetAskInAgent_Call struct {
+	*mock.Call
+}
+
+// SetAskInAgent is a helper method to define mock.On call
+//   - ctx context.Context
+//   - p auth.Principal
+//   - on bool
+func (_e *MockConfirmationService_Expecter) SetAskInAgent(ctx any, p any, on any) *MockConfirmationService_SetAskInAgent_Call {
+	return &MockConfirmationService_SetAskInAgent_Call{Call: _e.mock.On("SetAskInAgent", ctx, p, on)}
+}
+
+func (_c *MockConfirmationService_SetAskInAgent_Call) Run(run func(ctx context.Context, p auth.Principal, on bool)) *MockConfirmationService_SetAskInAgent_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		var arg1 auth.Principal
+		if args[1] != nil {
+			arg1 = args[1].(auth.Principal)
+		}
+		var arg2 bool
+		if args[2] != nil {
+			arg2 = args[2].(bool)
+		}
+		run(
+			arg0,
+			arg1,
+			arg2,
+		)
+	})
+	return _c
+}
+
+func (_c *MockConfirmationService_SetAskInAgent_Call) Return(err error) *MockConfirmationService_SetAskInAgent_Call {
+	_c.Call.Return(err)
+	return _c
+}
+
+func (_c *MockConfirmationService_SetAskInAgent_Call) RunAndReturn(run func(ctx context.Context, p auth.Principal, on bool) error) *MockConfirmationService_SetAskInAgent_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // SetUnconfirmed provides a mock function for the type MockConfirmationService
 func (_mock *MockConfirmationService) SetUnconfirmed(ctx context.Context, p auth.Principal, u domain.Unconfirmed) error {
 	ret := _mock.Called(ctx, p, u)

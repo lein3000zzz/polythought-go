@@ -89,6 +89,15 @@ func TestConfirmationRoutes(t *testing.T) {
 		w := request{method: http.MethodPut, path: "/api/v1/me/live-confirm", body: `{"run": false, "killOff": true}`, headers: cookie}.do(t, srv)
 		assert.Equal(t, http.StatusNoContent, w.Code, w.Body.String())
 	})
+
+	t.Run("asking in the agent's window too (D409)", func(t *testing.T) {
+		srv, authSvc, svc := confirmationServer(t)
+		withSession(authSvc, alice)
+		svc.EXPECT().SetAskInAgent(mock.Anything, mock.Anything, true).Return(nil)
+
+		w := request{method: http.MethodPut, path: "/api/v1/me/live-confirm", body: `{"inAgent": true}`, headers: cookie}.do(t, srv)
+		assert.Equal(t, http.StatusNoContent, w.Code, "the other switches left as they were")
+	})
 }
 
 // A live action that waits is not done: a token hears so, with the confirmation (D406).

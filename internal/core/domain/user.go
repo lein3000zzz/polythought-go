@@ -110,8 +110,10 @@ type User struct {
 	// Agents is what they let their agents and API tokens do beyond their scopes.
 	Agents AgentAccess
 	// Unconfirmed is which of their agents' and tokens' live actions go ahead without them
-	// confirming (D406); the rest wait.
+	// confirming (D406); the rest wait. AskInAgent has those also asked in the agent's own
+	// window, where its client can ask (D409).
 	Unconfirmed Unconfirmed
+	AskInAgent  bool
 	CreatedAt   time.Time
 	UpdatedAt   time.Time
 }

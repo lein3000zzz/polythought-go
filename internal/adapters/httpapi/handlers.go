@@ -117,7 +117,7 @@ func (s *Server) userDTO(u domain.User) userDTO {
 		AgentsMayShare:          u.Agents.Share,
 		AgentsMayUseCredentials: u.Agents.UseCredentials,
 		AgentsMayAnswer:         u.Agents.Answer,
-		LiveConfirm:             toLiveConfirmDTO(u.Unconfirmed),
+		LiveConfirm:             toLiveConfirmDTO(u),
 		CreatedAt:               u.CreatedAt,
 	}
 }

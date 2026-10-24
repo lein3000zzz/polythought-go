@@ -76,7 +76,9 @@ func (m *memRepo) CountPending(_ context.Context, owner domain.UserID, now time.
 	return n, nil
 }
 
-func (m *memRepo) Decide(_ context.Context, owner domain.UserID, id domain.ConfirmationID, status domain.ConfirmStatus, now time.Time) (domain.Confirmation, error) {
+func (m *memRepo) Decide(
+	_ context.Context, owner domain.UserID, id domain.ConfirmationID, status domain.ConfirmStatus, now time.Time, via domain.ConfirmVia,
+) (domain.Confirmation, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
@@ -89,7 +91,7 @@ func (m *memRepo) Decide(_ context.Context, owner domain.UserID, id domain.Confi
 		return domain.Confirmation{}, domain.ErrConflict
 	}
 
-	c.Status, c.DecidedAt = status, now
+	c.Status, c.DecidedAt, c.DecidedVia = status, now, via
 	m.rows[id] = c
 
 	return c, nil
@@ -146,10 +148,16 @@ func (t *told) ConfirmationClosed(_ context.Context, c domain.Confirmation) {
 
 type users struct {
 	set domain.Unconfirmed
+	ask bool
 }
 
 func (u *users) SetUnconfirmed(_ context.Context, _ domain.UserID, un domain.Unconfirmed) error {
 	u.set = un
+	return nil
+}
+
+func (u *users) SetAskInAgent(_ context.Context, _ domain.UserID, on bool) error {
+	u.ask = on
 	return nil
 }
 
@@ -379,4 +387,135 @@ func TestTold(t *testing.T) {
 	assert.Equal(t, []domain.ConfirmStatus{
 		domain.ConfirmConfirmed, domain.ConfirmDone, domain.ConfirmRefused, domain.ConfirmExpired,
 	}, n.closed)
+}
+
+// The agent's own window (D409): where the user lets it, the agent's call asks there and
+// waits; the user's answer, there or in Polythought, is the call's to carry out.
+func TestInWindow(t *testing.T) {
+	ctx := context.Background()
+	clock := at
+
+	setup := func(t *testing.T) (*confirmations.Service, *int) {
+		t.Helper()
+
+		repo := &memRepo{rows: map[domain.ConfirmationID]domain.Confirmation{}}
+		svc := confirmations.New(repo, &users{}, logging.Noop(), confirmations.WithClock(func() time.Time { return clock }))
+
+		ran := 0
+		svc.Handle(domain.ConfirmRun, func(context.Context, auth.Principal, domain.Confirmation) (string, error) {
+			ran++
+			return "done by the service", nil
+		})
+
+		return svc, &ran
+	}
+
+	asks := agent
+	asks.User.AskInAgent = true
+
+	t.Run("only where the user lets it, and only its own", func(t *testing.T) {
+		svc, _ := setup(t)
+		c := held(t, svc.Hold(ctx, agent, domain.ConfirmRun, "wf-1", "Run it", nil))
+
+		_, err := svc.ConfirmInWindow(ctx, agent, c.ID)
+		require.ErrorIs(t, err, domain.ErrForbidden)
+
+		other := asks
+		other.GrantID = "g-2"
+		_, err = svc.ConfirmInWindow(ctx, other, c.ID)
+		require.ErrorIs(t, err, domain.ErrNotFound, "another agent's")
+	})
+
+	t.Run("confirmed there, the call carries it out", func(t *testing.T) {
+		svc, ran := setup(t)
+		c := held(t, svc.Hold(ctx, asks, domain.ConfirmRun, "wf-1", "Run it", nil))
+
+		decided, err := svc.ConfirmInWindow(ctx, asks, c.ID)
+		require.NoError(t, err)
+		assert.Equal(t, domain.ConfirmViaAgent, decided.DecidedVia)
+
+		svc.Finish(ctx, decided, "execution ex-1, succeeded", nil)
+
+		got, err := svc.Get(ctx, atDesk, c.ID)
+		require.NoError(t, err)
+		assert.Equal(t, domain.ConfirmDone, got.Status)
+		assert.Equal(t, "execution ex-1, succeeded", got.Result)
+		assert.Zero(t, *ran, "not the service's to carry out")
+	})
+
+	t.Run("refused there", func(t *testing.T) {
+		svc, _ := setup(t)
+		c := held(t, svc.Hold(ctx, asks, domain.ConfirmRun, "wf-1", "Run it", nil))
+
+		refused, err := svc.RefuseInWindow(ctx, asks, c.ID)
+		require.NoError(t, err)
+		assert.Equal(t, domain.ConfirmRefused, refused.Status)
+	})
+
+	t.Run("confirmed in Polythought while the call awaits it", func(t *testing.T) {
+		svc, ran := setup(t)
+		c := held(t, svc.Hold(ctx, asks, domain.ConfirmRun, "wf-1", "Run it", nil))
+
+		type answer struct {
+			c     domain.Confirmation
+			carry bool
+			err   error
+		}
+
+		got := make(chan answer, 1)
+
+		go func() {
+			c, carry, err := svc.Await(ctx, asks, c.ID)
+			got <- answer{c, carry, err}
+		}()
+
+		require.Eventually(t, func() bool { return svc.Awaited(c.ID) }, time.Second, time.Millisecond)
+
+		_, err := svc.Confirm(ctx, atDesk, c.ID)
+		require.NoError(t, err)
+
+		a := <-got
+		require.NoError(t, a.err)
+		assert.True(t, a.carry, "the call's to carry out")
+		assert.Equal(t, domain.ConfirmViaApp, a.c.DecidedVia)
+
+		require.NoError(t, svc.Wait(ctx))
+		assert.Zero(t, *ran, "not the service's too")
+	})
+
+	t.Run("refused in Polythought while the call awaits it", func(t *testing.T) {
+		svc, _ := setup(t)
+		c := held(t, svc.Hold(ctx, asks, domain.ConfirmRun, "wf-1", "Run it", nil))
+
+		errs := make(chan error, 1)
+
+		go func() {
+			_, _, err := svc.Await(ctx, asks, c.ID)
+			errs <- err
+		}()
+
+		require.Eventually(t, func() bool { return svc.Awaited(c.ID) }, time.Second, time.Millisecond)
+
+		_, err := svc.Refuse(ctx, atDesk, c.ID)
+		require.NoError(t, err)
+
+		require.ErrorIs(t, <-errs, domain.ErrConfirmRefused)
+	})
+
+	t.Run("the call gone, the service carries it out", func(t *testing.T) {
+		svc, ran := setup(t)
+		c := held(t, svc.Hold(ctx, asks, domain.ConfirmRun, "wf-1", "Run it", nil))
+
+		short, cancel := context.WithTimeout(ctx, 10*time.Millisecond)
+		defer cancel()
+
+		_, carry, err := svc.Await(short, asks, c.ID)
+		require.ErrorIs(t, err, context.DeadlineExceeded)
+		assert.False(t, carry)
+
+		_, err = svc.Confirm(ctx, atDesk, c.ID)
+		require.NoError(t, err)
+		require.NoError(t, svc.Wait(ctx))
+		assert.Equal(t, 1, *ran)
+	})
 }

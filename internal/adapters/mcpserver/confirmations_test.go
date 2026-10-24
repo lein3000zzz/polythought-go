@@ -21,7 +21,11 @@ type liveEditing struct {
 	*editing
 }
 
-func (liveEditing) Run(context.Context, auth.Principal, domain.WorkflowID, domain.NodeID) (domain.Execution, error) {
+func (liveEditing) Run(_ context.Context, p auth.Principal, _ domain.WorkflowID, _ domain.NodeID) (domain.Execution, error) {
+	if p.Confirmed {
+		return byHand, nil // as the user confirmed it
+	}
+
 	return domain.Execution{}, &domain.AwaitingError{Confirmation: held}
 }
 

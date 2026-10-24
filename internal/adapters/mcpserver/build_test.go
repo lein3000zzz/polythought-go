@@ -207,6 +207,13 @@ func deps(u domain.User, tr *trades, scopes []domain.Scope) mcpserver.Deps {
 func connect(t *testing.T, d mcpserver.Deps) *mcp.ClientSession {
 	t.Helper()
 
+	return connectWith(t, d, nil)
+}
+
+// connectWith is connect with a client of opts, such as one that answers elicitations.
+func connectWith(t *testing.T, d mcpserver.Deps, opts *mcp.ClientOptions) *mcp.ClientSession {
+	t.Helper()
+
 	srv, err := mcpserver.New(mcpserver.Config{PublicURL: publicURL}, d)
 	require.NoError(t, err)
 
@@ -216,7 +223,7 @@ func connect(t *testing.T, d mcpserver.Deps) *mcp.ClientSession {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	t.Cleanup(cancel)
 
-	session, err := mcp.NewClient(&mcp.Implementation{Name: "test-agent", Version: "1"}, nil).
+	session, err := mcp.NewClient(&mcp.Implementation{Name: "test-agent", Version: "1"}, opts).
 		Connect(ctx, &mcp.StreamableClientTransport{Endpoint: h.URL, HTTPClient: &http.Client{Transport: bearer("poa_agent")}}, nil)
 	require.NoError(t, err)
 	t.Cleanup(func() { _ = session.Close() })

@@ -17,6 +17,7 @@ type ConfirmationService interface {
 	Confirm(ctx context.Context, p auth.Principal, id domain.ConfirmationID) (domain.Confirmation, error)
 	Refuse(ctx context.Context, p auth.Principal, id domain.ConfirmationID) (domain.Confirmation, error)
 	SetUnconfirmed(ctx context.Context, p auth.Principal, u domain.Unconfirmed) error
+	SetAskInAgent(ctx context.Context, p auth.Principal, on bool) error
 }
 
 // confirmationDTO is a token's or an agent's live action waiting for you, or how it ended.
@@ -34,6 +35,9 @@ type confirmationDTO struct {
 	CreatedAt time.Time  `json:"createdAt" format:"date-time"`
 	ExpiresAt time.Time  `json:"expiresAt" format:"date-time"`
 	DecidedAt *time.Time `json:"decidedAt,omitempty" validate:"optional" format:"date-time"`
+	// DecidedVia is where you decided it: in the app, on Telegram, or in the agent's own
+	// window (D409).
+	DecidedVia string `json:"decidedVia,omitempty" validate:"optional" enums:"app,telegram,agent"`
 } // @name Confirmation
 
 type confirmationList struct {
@@ -44,6 +48,7 @@ func toConfirmationDTO(c domain.Confirmation) confirmationDTO {
 	return confirmationDTO{
 		ID: string(c.ID), Kind: string(c.Kind), WorkflowID: string(c.WorkflowID), Asker: c.Asker(), What: c.What,
 		Status: string(c.Status), Result: c.Result, CreatedAt: c.CreatedAt, ExpiresAt: c.ExpiresAt, DecidedAt: optionalTime(c.DecidedAt),
+		DecidedVia: string(c.DecidedVia),
 	}
 }
 
@@ -137,10 +142,14 @@ type liveConfirmDTO struct {
 	Change bool `json:"change"`
 	// KillOff is turning the kill switch off.
 	KillOff bool `json:"killOff"`
+	// InAgent has them also asked in the agent's own window, where its client can ask
+	// (D409): off to start with.
+	InAgent bool `json:"inAgent"`
 } // @name LiveConfirm
 
-func toLiveConfirmDTO(u domain.Unconfirmed) liveConfirmDTO {
-	return liveConfirmDTO{GoLive: !u.GoLive, Run: !u.Run, Change: !u.Change, KillOff: !u.KillOff}
+func toLiveConfirmDTO(u domain.User) liveConfirmDTO {
+	n := u.Unconfirmed
+	return liveConfirmDTO{GoLive: !n.GoLive, Run: !n.Run, Change: !n.Change, KillOff: !n.KillOff, InAgent: u.AskInAgent}
 }
 
 // liveConfirmRequest changes the switches it names, and leaves the others as they are.
@@ -149,6 +158,7 @@ type liveConfirmRequest struct {
 	Run     *bool `json:"run,omitempty" validate:"optional"`
 	Change  *bool `json:"change,omitempty" validate:"optional"`
 	KillOff *bool `json:"killOff,omitempty" validate:"optional"`
+	InAgent *bool `json:"inAgent,omitempty" validate:"optional"`
 } // @name LiveConfirmRequest
 
 // setLiveConfirm sets which of your tokens' and agents' live actions wait for you to
@@ -184,9 +194,18 @@ func (s *Server) setLiveConfirm(ctx context.Context, c *app.RequestContext) {
 		}
 	}
 
-	if err := s.confirmations.SetUnconfirmed(ctx, p, u); err != nil {
-		s.fail(ctx, c, err)
-		return
+	if u != p.User.Unconfirmed || req.InAgent == nil {
+		if err := s.confirmations.SetUnconfirmed(ctx, p, u); err != nil {
+			s.fail(ctx, c, err)
+			return
+		}
+	}
+
+	if req.InAgent != nil {
+		if err := s.confirmations.SetAskInAgent(ctx, p, *req.InAgent); err != nil {
+			s.fail(ctx, c, err)
+			return
+		}
 	}
 
 	c.Status(http.StatusNoContent)
