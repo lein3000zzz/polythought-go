@@ -31,6 +31,7 @@ export default defineConfig({
             'guides/library',
             'guides/credentials',
             'guides/agents',
+            'guides/agents-over-mcp',
             'guides/telegram',
             'guides/copy-traders',
           ],

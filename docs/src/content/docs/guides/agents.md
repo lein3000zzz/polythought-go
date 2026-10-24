@@ -135,8 +135,9 @@ Code or Codex, and waits for its answer. Polythought runs no agent and holds no 
 yours: your agent connects to Polythought over MCP, works for you alone, and calls nothing
 it would not call anyway. No key is needed, and nothing is billed to Polythought.
 
-1. Connect the agent at the server's address followed by `/mcp`, and tick **Take tasks**
-   on the consent page, unticked to start with. An API token with that scope works too.
+1. Connect the agent as [Agents over MCP](/docs/guides/agents-over-mcp/) describes, and tick
+   **Take tasks** on the consent page, unticked to start with. An API token with that scope
+   works too.
 2. Have it wait for tasks: ask it to call `wait_for_task` again and again, and work each
    task it gets. While it waits, **Settings → Connected agents** marks it **Taking tasks**.
 3. Add a **Local agent** node and write the **Task**, which takes
@@ -173,5 +174,6 @@ fields of each, for more.
 Your agent may have a shell and your files. A task's text comes from the workflow: its
 prompt, perhaps from another user's library entry, and its items, which hold market
 questions and other people's words. The agent gets all of it marked as such, a request
-from your workflow, never from you, to answer and nothing more. Run it in a permission
-mode that asks before it does anything else.
+from your workflow, never from you, to answer and nothing more. Choose how far it may go on
+its own as [Running one on its own](/docs/guides/agents-over-mcp/#running-one-on-its-own)
+lays out.

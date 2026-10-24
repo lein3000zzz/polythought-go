@@ -65,19 +65,25 @@ month each.
 
 ## Agents over MCP
 
-A coming part of Polythought lets agents such as Claude Code and Codex work with it as their
-user does, over an MCP server in the app; and lets a workflow hand a task to its owner's own
-agent. The sign-in is built: an OAuth 2.1 server in the app, where the user allows an agent
-scopes on a consent page and revokes it on Settings, as
-[the security model](/docs/architecture/security/#accounts) describes.
+Agents such as Claude Code and Codex work with Polythought as their user does, over an MCP
+server in the app, and a workflow hands tasks to its owner's own agents;
+[Agents over MCP](/docs/guides/agents-over-mcp/) is the guide. They sign in with an OAuth 2.1
+server in the app, where the user allows an agent scopes on a consent page and revokes it on
+Settings, as [the security model](/docs/architecture/security/#accounts) describes.
+Settings, Connected agents gives the steps for each client, the address filled in, and the
+repository is a Claude Code plugin marketplace whose plugin asks for that address and brings
+skills on the tools.
 
-So is the endpoint, `/mcp`: the official Go SDK's MCP server, over Streamable HTTP, inside the
+The endpoint, `/mcp`, is the official Go SDK's MCP server, over Streamable HTTP, inside the
 API server. An agent's OAuth token works there, and so does an API token, each with its
 scopes; a request without one is told where to sign in. Each tool asks for a scope, and each
 agent or token may call 120 a minute unless an admin changes it; an answer is kept under
-about 8,000 tokens, and a list comes a page at a time.
+about 8,000 tokens, and a list comes a page at a time. Each session is kept in the database
+as it opens, its last call written each minute, and forgotten as it ends: the SDK keeps no
+session across a restart, so the list of agents connected keeps those open as the server
+stopped until their agents open new ones.
 
-The tools so far read what the user builds: their workflows, as JSON or as the TypeScript the
+The read tools give what the user builds: their workflows, as JSON or as the TypeScript the
 Code view shows (the server prints it as the app does, held to it by shared tests), their
 problems, their executions and the first items a run by hand kept, the node types with their
 settings, the code SDK's declarations, and the library. Text others wrote, a plugin's words,

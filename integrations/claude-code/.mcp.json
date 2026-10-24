@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "polythought": {
+      "type": "http",
+      "url": "${user_config.address}"
+    }
+  }
+}

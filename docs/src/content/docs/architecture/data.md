@@ -56,6 +56,9 @@ SHA-256 hash, so the database alone signs nobody in.
 | Agents' OAuth codes and tokens | until they end (a code 10 minutes, an access token an hour, a refresh token 30 days), pruned hourly |
 | Agents that registered themselves and were never allowed | a day |
 | Agents' grants | always, revoked ones too, one for each user and agent |
+| Agents' sessions on `/mcp` | while open; one open as the server restarted until its agent opens another, or an hour without a call |
+| Tasks for agents | with their waiting execution: until answered, failed, or the node's timeout |
+| Agents' and tokens' confirmations | always, what was asked and how it was decided |
 | What nodes remember | each value until its expiry, swept every ten minutes |
 | Orders, fills and holdings | always, including those of deleted workflows' live trading |
 | The Config page's history, plugins' audit | always |

@@ -14,13 +14,14 @@ plugins, and keeps each user's code, keys and orders from everyone else's.
 ```mermaid
 flowchart LR
   user((User)) --> web
+  agent((The user's agents)) -- "/mcp" --> web
   tg((Telegram)) <--> server
   subgraph web [Web container: Caddy]
     app[The app] & docs[The docs]
   end
-  web -- "/api, same origin" --> server
+  web -- "/api and /mcp, same origin" --> server
   subgraph server [Server container: one Go binary]
-    api[API] --> core[Engine and services]
+    api[API and MCP] --> core[Engine and services]
     core --> runners[Code runners]
     core --> plugins[Plugins]
   end
@@ -30,12 +31,13 @@ flowchart LR
   core --> mail[Mail server]
 ```
 
-- **The server** is one Go binary: the API, the engine that runs workflows, and the services
-  behind them, trading, accounts, Telegram, mail, plugins. The same binary, started another
+- **The server** is one Go binary: the API, the MCP endpoint agents work through, the engine
+  that runs workflows, and the services behind them, trading, accounts, Telegram, mail,
+  plugins. The same binary, started another
   way, is the code runner and the sandbox's launcher, so there is one program to build, ship
   and trust.
 - **The web container** is Caddy, serving the app and these docs as files and passing `/api`
-  to the server, so the browser sees one origin.
+  and `/mcp` to the server, so the browser sees one origin.
 - **Postgres** keeps everything: workflows, executions, orders, settings, secrets, sealed.
 - **Code runners and plugins**, where an instance uses them, are processes of their own beside
   the server, in a sandbox on Linux.
@@ -80,6 +82,8 @@ if they chose, Telegram hear of it.
   shown again, and opened only where they are used.
 - **Each user's own.** Workflows, credentials, wallets and model keys are their owner's; the
   instance holds no model key, and nothing calls a provider unless a user's workflow does.
+- **Agents on a short leash.** An agent does only what its user ticked, its live actions wait
+  for the user to confirm them, and the text others wrote reaches it marked as such.
 
 ## Reading on
 

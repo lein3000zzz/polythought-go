@@ -30,7 +30,10 @@ export function ConnectAgent() {
         <h3 className="font-medium">Connect an agent</h3>
         <p className="text-sm text-muted-foreground">
           Add Polythought to your agent, then sign in: your browser opens this app, which asks what
-          the agent may do. Tick Take tasks for it to work your workflows&apos; Local agent nodes.
+          the agent may do. Tick Take tasks for it to work your workflows&apos; Local agent nodes.{' '}
+          <a href="/docs/guides/agents-over-mcp/" target="_blank" className="underline">
+            Running an agent safely
+          </a>
         </p>
       </div>
 

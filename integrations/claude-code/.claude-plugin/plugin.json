@@ -1,0 +1,21 @@
+{
+  "name": "polythought",
+  "version": "0.1.0",
+  "description": "Work with your Polythought instance: build and run workflows, research markets, trade on paper and live, take your workflows' tasks, and an admin's work.",
+  "author": {
+    "name": "lein3000zzz",
+    "url": "https://github.com/lein3000zzz"
+  },
+  "homepage": "https://github.com/lein3000zzz/polythought-go",
+  "repository": "https://github.com/lein3000zzz/polythought-go",
+  "license": "PolyForm-Noncommercial-1.0.0",
+  "keywords": ["polymarket", "workflows", "trading", "mcp"],
+  "userConfig": {
+    "address": {
+      "type": "string",
+      "title": "Polythought's MCP address",
+      "description": "Where your Polythought instance takes agents, as Settings, Connected agents shows it, like https://polythought.example.com/mcp",
+      "required": true
+    }
+  }
+}

@@ -1,0 +1,15 @@
+{
+  "name": "polythought",
+  "owner": {
+    "name": "lein3000zzz",
+    "url": "https://github.com/lein3000zzz"
+  },
+  "description": "Polythought for Claude Code: its MCP server and skills.",
+  "plugins": [
+    {
+      "name": "polythought",
+      "source": "./integrations/claude-code",
+      "description": "Work with your Polythought instance: build and run workflows, research markets, trade on paper and live, take your workflows' tasks, and an admin's work."
+    }
+  ]
+}
