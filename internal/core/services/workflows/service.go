@@ -82,6 +82,7 @@ type Service struct {
 	tradeScope TradeScope          // optional: without it, a workflow's orders need no scope of their own
 	personal   Personal            // optional: without it, nothing is hidden from tokens and agents
 	creds      Credentials         // optional: without it, tokens and agents use credentials freely
+	confirm    Confirmer           // optional: without it, tokens' and agents' live actions go ahead at once
 	limits     func() Limits
 	log        logging.Logger
 	now        func() time.Time
@@ -277,6 +278,46 @@ func (s *Service) allowed(ctx context.Context, p auth.Principal, w domain.Workfl
 	return s.mayTrade(ctx, p, w)
 }
 
+// Confirmer holds a token's or an agent's live action for its user to confirm (D406): nil to
+// go ahead.
+type Confirmer interface {
+	Hold(ctx context.Context, p auth.Principal, kind domain.ConfirmKind, wf domain.WorkflowID, what string, payload any) error
+}
+
+// WithConfirmations has tokens' and agents' live actions wait for their users where the
+// users say so (D406): switching on, or running, a workflow that trades live, and saving a
+// new graph for one that is on.
+func WithConfirmations(c Confirmer) Option {
+	return func(s *Service) { s.confirm = c }
+}
+
+// RunAsked is what a held run carries out.
+type RunAsked struct {
+	Trigger domain.NodeID `json:"trigger,omitempty"`
+}
+
+// ChangeAsked is what a held change carries out: the definition as it was given, on the
+// version it was given for.
+type ChangeAsked struct {
+	Version    int        `json:"version"`
+	Definition Definition `json:"definition"`
+}
+
+// hold keeps a token's or an agent's action on a workflow that trades live for its user
+// (D406).
+func (s *Service) hold(ctx context.Context, p auth.Principal, kind domain.ConfirmKind, w domain.Workflow, what string, payload any) error {
+	if s.confirm == nil || s.tradeScope == nil || p.Itself() || p.Confirmed {
+		return nil
+	}
+
+	sc, err := s.tradeScope(ctx, w)
+	if err != nil || sc != domain.ScopeLive {
+		return err
+	}
+
+	return s.confirm.Hold(ctx, p, kind, w.ID, fmt.Sprintf(what, w.Name), payload)
+}
+
 // mayTrade is nil when the principal may have the workflow place its orders.
 func (s *Service) mayTrade(ctx context.Context, p auth.Principal, w domain.Workflow) error {
 	if s.tradeScope == nil {
@@ -416,6 +457,12 @@ func (s *Service) Update(ctx context.Context, p auth.Principal, id domain.Workfl
 		return domain.Workflow{}, err
 	}
 
+	if w.Active {
+		if err := s.hold(ctx, p, domain.ConfirmChange, w, "Change %q, which trades live and is on", ChangeAsked{Version: version, Definition: def}); err != nil {
+			return domain.Workflow{}, err
+		}
+	}
+
 	w.Version = version + 1
 	w.UpdatedAt = s.now()
 
@@ -497,6 +544,12 @@ func (s *Service) Activate(ctx context.Context, p auth.Principal, id domain.Work
 
 	if err := s.allowed(ctx, p, w); err != nil {
 		return domain.Workflow{}, err
+	}
+
+	if !w.Active {
+		if err := s.hold(ctx, p, domain.ConfirmSwitchOn, w, "Switch on %q, which trades live", struct{}{}); err != nil {
+			return domain.Workflow{}, err
+		}
 	}
 
 	if err := s.repo.SetActive(ctx, p.User.ID, id, true, s.now()); err != nil {
@@ -659,6 +712,10 @@ func (s *Service) Run(ctx context.Context, p auth.Principal, id domain.WorkflowI
 	}
 
 	if err := s.allowed(ctx, p, w); err != nil {
+		return domain.Execution{}, err
+	}
+
+	if err := s.hold(ctx, p, domain.ConfirmRun, w, "Run %q by hand, which trades live", RunAsked{Trigger: trigger}); err != nil {
 		return domain.Execution{}, err
 	}
 

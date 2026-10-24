@@ -185,8 +185,28 @@ func (s *Service) setSetup(ctx context.Context, p auth.Principal, id domain.Work
 			return fmt.Errorf("%w: choose a wallet to trade from", domain.ErrInvalidInput)
 		case !w.HasKey && !w.HasSessionKey:
 			return domain.ErrWalletCannotTrade
-		case !c.Confirmed && (current.Mode != domain.ModeLive || current.WalletID != c.WalletID):
-			return domain.ErrNotConfirmed
+		}
+
+		if current.Mode != domain.ModeLive || current.WalletID != c.WalletID {
+			name, err := s.workflowName(ctx, p, id)
+			if err != nil {
+				return err
+			}
+
+			// The user's confirming it is their yes to real money too (D201).
+			asked := SetupChange{Mode: c.Mode, WalletID: c.WalletID, Confirmed: true}
+			from := string(w.Address)
+			if w.Label != "" {
+				from = fmt.Sprintf("%q, %s", w.Label, w.Address)
+			}
+
+			if err := s.hold(ctx, p, domain.ConfirmGoLive, id, fmt.Sprintf("Trade %q live, from the wallet %s", name, from), asked); err != nil {
+				return err
+			}
+
+			if !c.Confirmed && !p.Confirmed {
+				return domain.ErrNotConfirmed
+			}
 		}
 	}
 
@@ -199,6 +219,11 @@ func (s *Service) setSetup(ctx context.Context, p auth.Principal, id domain.Work
 		"mode", t.Mode, "wallet_id", t.WalletID, "was", current.Mode)
 
 	return nil
+}
+
+func (s *Service) workflowName(ctx context.Context, p auth.Principal, id domain.WorkflowID) (string, error) {
+	w, err := s.d.Workflows.Get(ctx, p, id)
+	return w.Name, err
 }
 
 var _ ports.WalletReleaser = (*Service)(nil)

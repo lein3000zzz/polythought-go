@@ -121,6 +121,13 @@ export function SettingsPage() {
       label: "Agents and tokens may answer my workflows' questions",
       words: 'agents api tokens mcp answer questions telegram approve wait',
     },
+    {
+      slug: 'connected',
+      key: 'confirmations',
+      label: "Confirm my agents' live actions",
+      words:
+        'agents api tokens mcp confirm live trading run switch on kill switch waiting approve refuse',
+    },
     ...(grants.data ?? [])
       .filter((g) => !g.revokedAt)
       .map((g) => ({

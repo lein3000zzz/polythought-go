@@ -1038,6 +1038,57 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/me/confirmations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Live actions waiting for you */
+        get: operations["listConfirmations"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/me/confirmations/{id}/confirm": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Confirm a live action */
+        post: operations["confirmConfirmation"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/me/confirmations/{id}/refuse": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Refuse a live action */
+        post: operations["refuseConfirmation"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/me/grants": {
         parameters: {
             query?: never;
@@ -1082,6 +1133,23 @@ export interface paths {
         get?: never;
         /** Stop or resume live trading */
         put: operations["setKillSwitch"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/me/live-confirm": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Which live actions wait for you */
+        put: operations["setLiveConfirm"];
         post?: never;
         delete?: never;
         options?: never;
@@ -2189,6 +2257,29 @@ export interface components {
             /** @description Token is the one in the mailed link. */
             token: string;
         };
+        Confirmation: {
+            /** @description Asker is who asked: the agent by name, or "an API token". */
+            asker: string;
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: date-time */
+            decidedAt?: string;
+            /** Format: date-time */
+            expiresAt: string;
+            id: string;
+            /** @enum {string} */
+            kind: "go_live" | "switch_on" | "run" | "change" | "kill_off";
+            /** @description Result is what came of it: an execution, or why it failed. */
+            result?: string;
+            /** @enum {string} */
+            status: "pending" | "confirmed" | "done" | "failed" | "refused" | "expired";
+            /** @description What says what it does, such as Run "Spread watch" by hand, which trades live. */
+            what: string;
+            workflowId?: string;
+        };
+        ConfirmationList: {
+            confirmations: components["schemas"]["Confirmation"][];
+        };
         Connection: {
             from: string;
             fromPort: string;
@@ -2648,6 +2739,22 @@ export interface components {
         LiveCaps: {
             perDay?: number;
             perOrder?: number;
+        };
+        LiveConfirm: {
+            /** @description Change is saving a new graph for a workflow that trades live and is on. */
+            change: boolean;
+            /** @description GoLive is setting a workflow to trade live, or changing its live wallet. */
+            goLive: boolean;
+            /** @description KillOff is turning the kill switch off. */
+            killOff: boolean;
+            /** @description Run is switching on, or running by hand, a workflow that trades live. */
+            run: boolean;
+        };
+        LiveConfirmRequest: {
+            change?: boolean;
+            goLive?: boolean;
+            killOff?: boolean;
+            run?: boolean;
         };
         LoggedOrder: {
             /** Format: date-time */
@@ -3603,6 +3710,8 @@ export interface components {
             killStopsAgents: boolean;
             /** @description LiveCaps are an admin's caps for them; those left out are the instance's (D222). */
             liveCaps: components["schemas"]["LiveCaps"];
+            /** @description LiveConfirm is which of their tokens' and agents' live actions wait for them (D406). */
+            liveConfirm: components["schemas"]["LiveConfirm"];
             /**
              * @description LiveStopped says their kill switch is on, since LiveStoppedAt: their workflows place
              *     no live orders (D220).
@@ -7154,6 +7263,153 @@ export interface operations {
             };
         };
     };
+    listConfirmations: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ConfirmationList"];
+                };
+            };
+            /** @description unauthenticated */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    confirmConfirmation: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Confirmation ID */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Confirmation"];
+                };
+            };
+            /** @description unauthenticated */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description forbidden: not from a browser session */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description not_found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description conflict: refused, expired or confirmed already */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    refuseConfirmation: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Confirmation ID */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Confirmation"];
+                };
+            };
+            /** @description unauthenticated */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description forbidden: not from a browser session */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description not_found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description conflict: refused, expired or confirmed already */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
     listGrants: {
         parameters: {
             query?: never;
@@ -7256,6 +7512,56 @@ export interface operations {
             };
             /** @description unauthenticated */
             401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description awaits_confirmation: a token's live action waits for its user to confirm it (D406) */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    setLiveConfirm: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description The switches to change */
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LiveConfirmRequest"];
+            };
+        };
+        responses: {
+            /** @description No Content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description unauthenticated */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description forbidden: not from a browser session */
+            403: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -9337,7 +9643,7 @@ export interface operations {
                     "application/json": components["schemas"]["Error"];
                 };
             };
-            /** @description conflict: someone saved a newer version */
+            /** @description conflict: someone saved a newer version; awaits_confirmation: a token's live action waits for its user to confirm it (D406) */
             409: {
                 headers: {
                     [name: string]: unknown;
@@ -9428,6 +9734,15 @@ export interface operations {
             };
             /** @description not_found */
             404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description awaits_confirmation: a token's live action waits for its user to confirm it (D406) */
+            409: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -10048,6 +10363,15 @@ export interface operations {
                     "application/json": components["schemas"]["Error"];
                 };
             };
+            /** @description awaits_confirmation: a token's live action waits for its user to confirm it (D406) */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
         };
     };
     getSharedCopy: {
@@ -10302,7 +10626,7 @@ export interface operations {
                     "application/json": components["schemas"]["Error"];
                 };
             };
-            /** @description holds_live: its wallet stays while it holds live shares; orders_live: or while its live orders rest or are pending */
+            /** @description holds_live: its wallet stays while it holds live shares; orders_live: or while its live orders rest or are pending; awaits_confirmation: a token's live action waits for its user to confirm it (D406) */
             409: {
                 headers: {
                     [name: string]: unknown;

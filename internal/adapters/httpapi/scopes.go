@@ -51,16 +51,20 @@ var routeScopes = map[string]access{
 	"POST /api/v1/code/workflow":               need(domain.ScopeRead), // it translates, saving nothing
 
 	// The account.
-	"PUT /api/v1/me/password":        browserOnly,
-	"PUT /api/v1/me/kill-switch":     anyToken, // on with any scope, off with live: the service's
-	"PUT /api/v1/me/agents":          need(domain.ScopeSettings),
-	"DELETE /api/v1/me/grants/:id":   need(domain.ScopeSettings),
-	"PUT /api/v1/me/agent-access":    browserOnly, // what agents may see (D401)
-	"POST /api/v1/tokens":            browserOnly,
-	"DELETE /api/v1/tokens/:id":      browserOnly,
-	"PUT /api/v1/notifications/:key": need(domain.ScopeSettings),
-	"POST /api/v1/telegram/link":     need(domain.ScopeSettings),
-	"DELETE /api/v1/telegram/link":   need(domain.ScopeSettings),
+	"PUT /api/v1/me/password":      browserOnly,
+	"PUT /api/v1/me/kill-switch":   anyToken, // on with any scope, off with live: the service's
+	"PUT /api/v1/me/agents":        need(domain.ScopeSettings),
+	"DELETE /api/v1/me/grants/:id": need(domain.ScopeSettings),
+	"PUT /api/v1/me/agent-access":  browserOnly, // what agents may see (D401)
+	// Confirming tokens' and agents' live actions is the user's, at a browser (D406).
+	"POST /api/v1/me/confirmations/:id/confirm": browserOnly,
+	"POST /api/v1/me/confirmations/:id/refuse":  browserOnly,
+	"PUT /api/v1/me/live-confirm":               browserOnly,
+	"POST /api/v1/tokens":                       browserOnly,
+	"DELETE /api/v1/tokens/:id":                 browserOnly,
+	"PUT /api/v1/notifications/:key":            need(domain.ScopeSettings),
+	"POST /api/v1/telegram/link":                need(domain.ScopeSettings),
+	"DELETE /api/v1/telegram/link":              need(domain.ScopeSettings),
 
 	// Wallets are for trading live; their keys and approvals only at a browser.
 	"POST /api/v1/wallets":                                      need(domain.ScopeLive),

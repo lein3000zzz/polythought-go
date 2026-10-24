@@ -14,6 +14,7 @@ export const keys = {
   customNode: (id: string) => ['custom-nodes', 'detail', id],
   tokens: ['tokens'],
   grants: ['grants'],
+  confirmations: ['confirmations'],
   consent: (request: object) => ['oauth-consent', request],
   telegram: ['telegram'],
   notifications: ['notifications'],

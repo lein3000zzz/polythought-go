@@ -146,6 +146,8 @@ type Services struct {
 	Meta MetaService
 	// OAuth is the OAuth server agents sign in with (D397).
 	OAuth OAuthService
+	// Confirmations hold tokens' and agents' live actions for their users (D406).
+	Confirmations ConfirmationService
 	// MCP serves /mcp, agents' endpoint (D398): the SDK's server, checking its own tokens.
 	MCP http.Handler
 	// Spend is what users' agents spend, and the caps on it; nil when there is no agent.
@@ -195,6 +197,7 @@ type Server struct {
 	geoblock      GeoblockService
 	meta          MetaService
 	oauth         OAuthService
+	confirmations ConfirmationService
 	mcp           http.Handler
 	spend         SpendService
 	plugins       PluginService
@@ -275,6 +278,7 @@ func New(cfg Config, util *observability.Utility, services Services) (*Server, e
 		geoblock:      services.Geoblock,
 		meta:          services.Meta,
 		oauth:         services.OAuth,
+		confirmations: services.Confirmations,
 		mcp:           services.MCP,
 		spend:         services.Spend,
 		plugins:       services.Plugins,
@@ -345,6 +349,10 @@ func (s *Server) routes() {
 	v1.GET("/me/grants", s.requireAuth, s.listGrants)
 	v1.DELETE("/me/grants/:id", s.requireAuth, s.revokeGrant)
 	v1.PUT("/me/agent-access", s.requireAuth, s.setAgentAccess)
+	v1.GET("/me/confirmations", s.requireAuth, s.listConfirmations)
+	v1.POST("/me/confirmations/:id/confirm", s.requireAuth, s.confirmConfirmation)
+	v1.POST("/me/confirmations/:id/refuse", s.requireAuth, s.refuseConfirmation)
+	v1.PUT("/me/live-confirm", s.requireAuth, s.setLiveConfirm)
 
 	// Agents' endpoint (D398) and its metadata (RFC 9728), at the path clients derive from
 	// /mcp and at the root.

@@ -67,6 +67,25 @@ type Deps struct {
 	// without Stream, live ones are read every so often only.
 	Feed   ports.MarketFeed
 	Stream ports.LiveOrderStream
+
+	// Confirm holds tokens' and agents' going live and turning the kill switch off for
+	// their users, where the users say so (D406); optional.
+	Confirm Confirmer
+}
+
+// Confirmer holds a token's or an agent's live action for its user to confirm (D406): nil to
+// go ahead.
+type Confirmer interface {
+	Hold(ctx context.Context, p auth.Principal, kind domain.ConfirmKind, wf domain.WorkflowID, what string, payload any) error
+}
+
+// hold keeps a token's or an agent's live action for its user (D406).
+func (s *Service) hold(ctx context.Context, p auth.Principal, kind domain.ConfirmKind, wf domain.WorkflowID, what string, payload any) error {
+	if s.d.Confirm == nil || p.Itself() || p.Confirmed {
+		return nil
+	}
+
+	return s.d.Confirm.Hold(ctx, p, kind, wf, what, payload)
 }
 
 type Service struct {

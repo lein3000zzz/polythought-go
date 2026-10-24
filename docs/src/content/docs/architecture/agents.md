@@ -118,4 +118,15 @@ approves a step; the question then says which agent answered. Agents use library
 any of them, the workflow made switched off; for another user's entry the answer names the
 code it brings, which `get_template` gives in full, for the user to read before it runs. They
 share the user's workflows and take the user's entries down where the share switch lets
-them. Tools that trade are coming; this page will describe them as they do.
+them.
+
+What reaches real money waits for the user where they say so: going live, switching on or
+running a workflow that trades live, changing one that is on, and turning the kill switch
+off, a switch each on Settings, on to start with. An agent's or a token's such action is
+checked as any would be, its scopes and all, then kept as a confirmation, with who asked,
+what it does in a sentence, and what carrying it out needs; the agent hears that it waits,
+and `get_confirmation` says how it went. The user confirms or refuses it at a browser,
+from a bar on every page, before it expires, an hour unless an admin changes it; confirmed,
+it is carried out as the agent asked, with its scopes then, and how it ended is kept. The
+user's own actions never wait, nor does turning the kill switch on. Tools that trade are
+coming; this page will describe them as they do.

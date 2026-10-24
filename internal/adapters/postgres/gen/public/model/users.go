@@ -37,4 +37,8 @@ type Users struct {
 	AgentsMayShare       bool
 	AgentsUseCredentials bool
 	AgentsMayAnswer      bool
+	UnconfirmedGoLive    bool
+	UnconfirmedRun       bool
+	UnconfirmedChange    bool
+	UnconfirmedKillOff   bool
 }

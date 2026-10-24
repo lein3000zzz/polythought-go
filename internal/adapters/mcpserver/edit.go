@@ -103,7 +103,8 @@ func (s *Server) addEditTools(srv *mcp.Server) {
 		Name: "update_workflow", Title: "Change a workflow", Scope: domain.ScopeBuild,
 		Description: "Replace a workflow's graph with workflow code or JSON, as get_workflow gave it and changed: the version " +
 			"you read must still be current. Nodes it had keep their places on the canvas; new ones go beside theirs. Personal " +
-			`settings left {"$personal": "hidden"} keep their values. One that runs carries on with the new graph.`,
+			`settings left {"$personal": "hidden"} keep their values. One that runs carries on with the new graph; one that ` +
+			"trades live and is on may wait for the user to confirm the change, as get_confirmation then says.",
 		Handle: s.updateWorkflow,
 	})
 
@@ -117,14 +118,15 @@ func (s *Server) addEditTools(srv *mcp.Server) {
 	add(s, srv, Tool[switchIn, workflowSummary]{
 		Name: "switch_workflow", Title: "Switch a workflow on or off", Scope: domain.ScopeBuild,
 		Description: "Switch a workflow's triggers on, so it runs by itself, or off. Switching on one that places orders needs " +
-			"paper, or live where it trades live.",
+			"paper, or live where it trades live; one that trades live may wait for the user to confirm it.",
 		Handle: s.switchWorkflow,
 	})
 
 	add(s, srv, Tool[runIn, executionOut]{
 		Name: "run_workflow", Title: "Run a workflow", Scope: domain.ScopeBuild,
 		Description: "Run a workflow once, now, from its manual trigger or schedule, and wait for it to end: each node's " +
-			"status and counts, as get_execution has them; get_execution_items gives the items it kept.",
+			"status and counts, as get_execution has them; get_execution_items gives the items it kept. One that trades " +
+			"live may wait for the user to confirm it, as get_confirmation then says.",
 		Handle: s.runWorkflow,
 	})
 

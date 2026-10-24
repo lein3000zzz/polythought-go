@@ -585,6 +585,86 @@
                 ],
                 "type": "object"
             },
+            "Confirmation": {
+                "properties": {
+                    "asker": {
+                        "description": "Asker is who asked: the agent by name, or \"an API token\".",
+                        "type": "string"
+                    },
+                    "createdAt": {
+                        "format": "date-time",
+                        "type": "string"
+                    },
+                    "decidedAt": {
+                        "format": "date-time",
+                        "type": "string"
+                    },
+                    "expiresAt": {
+                        "format": "date-time",
+                        "type": "string"
+                    },
+                    "id": {
+                        "type": "string"
+                    },
+                    "kind": {
+                        "enum": [
+                            "go_live",
+                            "switch_on",
+                            "run",
+                            "change",
+                            "kill_off"
+                        ],
+                        "type": "string"
+                    },
+                    "result": {
+                        "description": "Result is what came of it: an execution, or why it failed.",
+                        "type": "string"
+                    },
+                    "status": {
+                        "enum": [
+                            "pending",
+                            "confirmed",
+                            "done",
+                            "failed",
+                            "refused",
+                            "expired"
+                        ],
+                        "type": "string"
+                    },
+                    "what": {
+                        "description": "What says what it does, such as Run \"Spread watch\" by hand, which trades live.",
+                        "type": "string"
+                    },
+                    "workflowId": {
+                        "type": "string"
+                    }
+                },
+                "required": [
+                    "asker",
+                    "createdAt",
+                    "expiresAt",
+                    "id",
+                    "kind",
+                    "status",
+                    "what"
+                ],
+                "type": "object"
+            },
+            "ConfirmationList": {
+                "properties": {
+                    "confirmations": {
+                        "items": {
+                            "$ref": "#/components/schemas/Confirmation"
+                        },
+                        "type": "array",
+                        "uniqueItems": false
+                    }
+                },
+                "required": [
+                    "confirmations"
+                ],
+                "type": "object"
+            },
             "Connection": {
                 "properties": {
                     "from": {
@@ -1868,6 +1948,50 @@
                         "maximum": 10000000,
                         "minimum": 0,
                         "type": "integer"
+                    }
+                },
+                "type": "object"
+            },
+            "LiveConfirm": {
+                "properties": {
+                    "change": {
+                        "description": "Change is saving a new graph for a workflow that trades live and is on.",
+                        "type": "boolean"
+                    },
+                    "goLive": {
+                        "description": "GoLive is setting a workflow to trade live, or changing its live wallet.",
+                        "type": "boolean"
+                    },
+                    "killOff": {
+                        "description": "KillOff is turning the kill switch off.",
+                        "type": "boolean"
+                    },
+                    "run": {
+                        "description": "Run is switching on, or running by hand, a workflow that trades live.",
+                        "type": "boolean"
+                    }
+                },
+                "required": [
+                    "change",
+                    "goLive",
+                    "killOff",
+                    "run"
+                ],
+                "type": "object"
+            },
+            "LiveConfirmRequest": {
+                "properties": {
+                    "change": {
+                        "type": "boolean"
+                    },
+                    "goLive": {
+                        "type": "boolean"
+                    },
+                    "killOff": {
+                        "type": "boolean"
+                    },
+                    "run": {
+                        "type": "boolean"
                     }
                 },
                 "type": "object"
@@ -4406,6 +4530,10 @@
                         "$ref": "#/components/schemas/LiveCaps",
                         "description": "LiveCaps are an admin's caps for them; those left out are the instance's (D222)."
                     },
+                    "liveConfirm": {
+                        "$ref": "#/components/schemas/LiveConfirm",
+                        "description": "LiveConfirm is which of their tokens' and agents' live actions wait for them (D406)."
+                    },
                     "liveStopped": {
                         "description": "LiveStopped says their kill switch is on, since LiveStoppedAt: their workflows place\nno live orders (D220).",
                         "type": "boolean"
@@ -4441,6 +4569,7 @@
                     "id",
                     "killStopsAgents",
                     "liveCaps",
+                    "liveConfirm",
                     "liveStopped",
                     "mayWriteCode",
                     "role"
@@ -9403,6 +9532,199 @@
                 ]
             }
         },
+        "/me/confirmations": {
+            "get": {
+                "operationId": "listConfirmations",
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ConfirmationList"
+                                }
+                            }
+                        },
+                        "description": "OK"
+                    },
+                    "401": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "unauthenticated"
+                    }
+                },
+                "security": [
+                    {
+                        "SessionCookie": []
+                    },
+                    {
+                        "APIToken": []
+                    }
+                ],
+                "summary": "Live actions waiting for you",
+                "tags": [
+                    "confirmations"
+                ]
+            }
+        },
+        "/me/confirmations/{id}/confirm": {
+            "post": {
+                "operationId": "confirmConfirmation",
+                "parameters": [
+                    {
+                        "description": "Confirmation ID",
+                        "in": "path",
+                        "name": "id",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Confirmation"
+                                }
+                            }
+                        },
+                        "description": "OK"
+                    },
+                    "401": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "unauthenticated"
+                    },
+                    "403": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "forbidden: not from a browser session"
+                    },
+                    "404": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "not_found"
+                    },
+                    "409": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "conflict: refused, expired or confirmed already"
+                    }
+                },
+                "security": [
+                    {
+                        "SessionCookie": []
+                    }
+                ],
+                "summary": "Confirm a live action",
+                "tags": [
+                    "confirmations"
+                ]
+            }
+        },
+        "/me/confirmations/{id}/refuse": {
+            "post": {
+                "operationId": "refuseConfirmation",
+                "parameters": [
+                    {
+                        "description": "Confirmation ID",
+                        "in": "path",
+                        "name": "id",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Confirmation"
+                                }
+                            }
+                        },
+                        "description": "OK"
+                    },
+                    "401": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "unauthenticated"
+                    },
+                    "403": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "forbidden: not from a browser session"
+                    },
+                    "404": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "not_found"
+                    },
+                    "409": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "conflict: refused, expired or confirmed already"
+                    }
+                },
+                "security": [
+                    {
+                        "SessionCookie": []
+                    }
+                ],
+                "summary": "Refuse a live action",
+                "tags": [
+                    "confirmations"
+                ]
+            }
+        },
         "/me/grants": {
             "get": {
                 "operationId": "listGrants",
@@ -9541,6 +9863,16 @@
                             }
                         },
                         "description": "unauthenticated"
+                    },
+                    "409": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "awaits_confirmation: a token's live action waits for its user to confirm it (D406)"
                     }
                 },
                 "security": [
@@ -9554,6 +9886,58 @@
                 "summary": "Stop or resume live trading",
                 "tags": [
                     "me"
+                ]
+            }
+        },
+        "/me/live-confirm": {
+            "put": {
+                "operationId": "setLiveConfirm",
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/LiveConfirmRequest",
+                                "summary": "body",
+                                "description": "The switches to change"
+                            }
+                        }
+                    },
+                    "description": "The switches to change",
+                    "required": true
+                },
+                "responses": {
+                    "204": {
+                        "description": "No Content"
+                    },
+                    "401": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "unauthenticated"
+                    },
+                    "403": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "forbidden: not from a browser session"
+                    }
+                },
+                "security": [
+                    {
+                        "SessionCookie": []
+                    }
+                ],
+                "summary": "Which live actions wait for you",
+                "tags": [
+                    "confirmations"
                 ]
             }
         },
@@ -12500,7 +12884,7 @@
                                 }
                             }
                         },
-                        "description": "conflict: someone saved a newer version"
+                        "description": "conflict: someone saved a newer version; awaits_confirmation: a token's live action waits for its user to confirm it (D406)"
                     }
                 },
                 "security": [
@@ -12571,6 +12955,16 @@
                             }
                         },
                         "description": "not_found"
+                    },
+                    "409": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "awaits_confirmation: a token's live action waits for its user to confirm it (D406)"
                     }
                 },
                 "security": [
@@ -13501,6 +13895,16 @@
                             }
                         },
                         "description": "not_found"
+                    },
+                    "409": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "awaits_confirmation: a token's live action waits for its user to confirm it (D406)"
                     }
                 },
                 "security": [
@@ -13884,7 +14288,7 @@
                                 }
                             }
                         },
-                        "description": "holds_live: its wallet stays while it holds live shares; orders_live: or while its live orders rest or are pending"
+                        "description": "holds_live: its wallet stays while it holds live shares; orders_live: or while its live orders rest or are pending; awaits_confirmation: a token's live action waits for its user to confirm it (D406)"
                     }
                 },
                 "security": [

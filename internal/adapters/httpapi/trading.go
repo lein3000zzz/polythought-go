@@ -478,7 +478,7 @@ func (s *Server) getTradingSetup(ctx context.Context, c *app.RequestContext) {
 //	@Failure	401		{object}	errorBody	"unauthenticated"
 //	@Failure	403		{object}	errorBody	"live_trading_off"
 //	@Failure	404		{object}	errorBody	"not_found: the workflow, or the wallet"
-//	@Failure	409		{object}	errorBody	"holds_live: its wallet stays while it holds live shares; orders_live: or while its live orders rest or are pending"
+//	@Failure	409		{object}	errorBody	"holds_live: its wallet stays while it holds live shares; orders_live: or while its live orders rest or are pending; awaits_confirmation: a token's live action waits for its user to confirm it (D406)"
 //	@Security	SessionCookie
 //	@Security	APIToken
 //	@Router		/workflows/{id}/trading/setup [put]
@@ -587,6 +587,7 @@ type killSwitchDTO struct {
 //	@Success	200		{object}	killSwitchDTO
 //	@Failure	400		{object}	errorBody	"invalid_input"
 //	@Failure	401		{object}	errorBody	"unauthenticated"
+//	@Failure	409		{object}	errorBody	"awaits_confirmation: a token's live action waits for its user to confirm it (D406)"
 //	@Security	SessionCookie
 //	@Security	APIToken
 //	@Router		/me/kill-switch [put]

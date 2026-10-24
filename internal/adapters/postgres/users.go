@@ -63,6 +63,10 @@ func (r *Users) Create(ctx context.Context, u domain.User, passwordHash string) 
 		AgentsMayShare:       u.Agents.Share,
 		AgentsUseCredentials: u.Agents.UseCredentials,
 		AgentsMayAnswer:      u.Agents.Answer,
+		UnconfirmedGoLive:    u.Unconfirmed.GoLive,
+		UnconfirmedRun:       u.Unconfirmed.Run,
+		UnconfirmedChange:    u.Unconfirmed.Change,
+		UnconfirmedKillOff:   u.Unconfirmed.KillOff,
 	}
 
 	_, err = table.Users.INSERT(table.Users.AllColumns).MODEL(m).ExecContext(ctx, r.db.conn(ctx))
@@ -161,6 +165,22 @@ func (r *Users) SetKillStopsAgents(ctx context.Context, id domain.UserID, on boo
 
 	return affectedOne(t.UPDATE(t.KillStopsAgents).
 		SET(on).
+		WHERE(t.ID.EQ(jet.UUID(uid))).
+		ExecContext(ctx, r.db.conn(ctx)))
+}
+
+// SetUnconfirmed records which of their agents' and tokens' live actions go ahead without
+// the user confirming them (D406).
+func (r *Users) SetUnconfirmed(ctx context.Context, id domain.UserID, u domain.Unconfirmed) error {
+	uid, err := parseID(id)
+	if err != nil {
+		return err
+	}
+
+	t := table.Users
+
+	return affectedOne(t.UPDATE(t.UnconfirmedGoLive, t.UnconfirmedRun, t.UnconfirmedChange, t.UnconfirmedKillOff).
+		MODEL(model.Users{UnconfirmedGoLive: u.GoLive, UnconfirmedRun: u.Run, UnconfirmedChange: u.Change, UnconfirmedKillOff: u.KillOff}).
 		WHERE(t.ID.EQ(jet.UUID(uid))).
 		ExecContext(ctx, r.db.conn(ctx)))
 }
@@ -339,6 +359,9 @@ func toUser(m model.Users) domain.User {
 		Agents: domain.AgentAccess{
 			SeePersonal: m.AgentsSeePersonal, Delete: m.AgentsMayDelete, Share: m.AgentsMayShare, UseCredentials: m.AgentsUseCredentials,
 			Answer: m.AgentsMayAnswer,
+		},
+		Unconfirmed: domain.Unconfirmed{
+			GoLive: m.UnconfirmedGoLive, Run: m.UnconfirmedRun, Change: m.UnconfirmedChange, KillOff: m.UnconfirmedKillOff,
 		},
 		CreatedAt: m.CreatedAt.UTC(),
 		UpdatedAt: m.UpdatedAt.UTC(),

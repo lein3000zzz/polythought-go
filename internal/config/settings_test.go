@@ -104,6 +104,7 @@ func TestSettingsDefaults(t *testing.T) {
 		config.KeyMCPRate:             120,
 		config.KeyMCPAccessTTL:        time.Hour,
 		config.KeyMCPRefreshTTL:       30 * 24 * time.Hour,
+		config.KeyMCPConfirmFor:       time.Hour,
 		config.KeyTrustedProxies:      []string{},
 		config.KeyWebhookAllowPrivate: false,
 		config.KeyGitHubStars:         true,
@@ -124,7 +125,7 @@ func TestSettingsDefaults(t *testing.T) {
 		assert.Equal(t, want, spec(t, key).Default, key)
 	}
 
-	assert.Len(t, registry(t).Specs(), 72, "every setting has a default checked above")
+	assert.Len(t, registry(t).Specs(), 73, "every setting has a default checked above")
 
 	for _, key := range []string{
 		config.KeyTelegramToken, config.KeyBuilderAPIKey, config.KeyBuilderSecret, config.KeyBuilderPassphrase, config.KeyPolygonRPC,

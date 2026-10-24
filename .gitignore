@@ -7,3 +7,9 @@ deployments/docker-compose.override.yml
 /docgen
 /plugins
 /polythought
+/dbgen
+/fixtures
+/pluginpack
+examples/plugins/movers/movers
+/coverage.out
+.DS_Store

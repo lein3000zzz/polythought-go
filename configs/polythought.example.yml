@@ -382,6 +382,12 @@ mcp:
   # Environment: POLYTHOUGHT_MCP_REFRESH_TTL.
   # refresh_ttl: "720h"
 
+  # How long an agent's or an API token's live action waits for its user to confirm it,
+  # where the user has it wait, before it expires unconfirmed. Applies to those asked
+  # from now.
+  # Environment: POLYTHOUGHT_MCP_CONFIRM_FOR.
+  # confirm_for: "1h"
+
 webhook:
 
   # Let workflows reach addresses inside the server's network, such as a service on the

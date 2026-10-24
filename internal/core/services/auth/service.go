@@ -204,6 +204,9 @@ type Principal struct {
 	Agent   string
 	// Scopes are what a token or an agent may do (D398).
 	Scopes []domain.Scope
+	// Confirmed says the user confirmed this live action of a token's or an agent's
+	// (D406): it goes ahead as it was asked.
+	Confirmed bool
 }
 
 func (p Principal) ViaSession() bool { return p.SessionID != "" }

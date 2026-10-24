@@ -32,6 +32,9 @@ type UserRepository interface {
 	SetKillStopsAgents(ctx context.Context, id domain.UserID, on bool) error
 	// SetAgentAccess records what the user lets their agents and API tokens do (D401, D403).
 	SetAgentAccess(ctx context.Context, id domain.UserID, a domain.AgentAccess) error
+	// SetUnconfirmed records which of their agents' and tokens' live actions go ahead
+	// without the user confirming them (D406).
+	SetUnconfirmed(ctx context.Context, id domain.UserID, u domain.Unconfirmed) error
 	List(ctx context.Context, f PageFilter) (Page[domain.User], error)
 	CountActiveAdmins(ctx context.Context) (int, error)
 	// LockActiveAdmins locks the active admins' rows until the surrounding transaction

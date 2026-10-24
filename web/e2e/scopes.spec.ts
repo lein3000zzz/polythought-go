@@ -101,7 +101,7 @@ test('a token does only what its scopes allow on the API', async ({
   await script.dispose()
 })
 
-test('any token turns the kill switch on; only live turns it off', async ({
+test('any token turns the kill switch on; only live turns it off, once the user confirms or lets it', async ({
   page,
   playwright,
   baseURL,
@@ -117,11 +117,19 @@ test('any token turns the kill switch on; only live turns it off', async ({
     expect(off.status).toBe(403)
     expect(off.text).toContain('it needs the live scope')
 
+    // Turning it off waits for the user to start with (D406)...
+    const waits = await as(script, live, 'PUT', '/api/v1/me/kill-switch', { on: false })
+    expect(waits.status).toBe(409)
+    expect(waits.text).toContain('awaits_confirmation')
+
+    // ...and goes at once where they let it.
+    await page.request.put('/api/v1/me/live-confirm', { data: { killOff: false } })
     expect((await as(script, live, 'PUT', '/api/v1/me/kill-switch', { on: false })).status).toBe(
       200,
     )
   } finally {
-    // Off again whatever happened above, for the specs after this one.
+    // As they were whatever happened above, for the specs after this one.
+    await page.request.put('/api/v1/me/live-confirm', { data: { killOff: true } })
     await page.request.put('/api/v1/me/kill-switch', { data: { on: false } })
     await script.dispose()
   }

@@ -22,6 +22,7 @@ import {
 import { scopeTitle } from '@/features/oauth/scopes'
 import { formatDateTime } from '@/lib/format'
 
+import { ConfirmationsSection } from './ConfirmationsSection'
 import { jumpId } from './pages'
 
 /** The agents the user allowed, with what each may do, to revoke (D384). */
@@ -100,6 +101,8 @@ export function ConnectedSection() {
             : 'Your agents and tokens may no longer answer your questions'
         }
       />
+
+      <ConfirmationsSection />
 
       {grants.isPending && <Skeleton className="h-24" />}
       {grants.isError && <ErrorAlert error={grants.error} onRetry={() => void grants.refetch()} />}

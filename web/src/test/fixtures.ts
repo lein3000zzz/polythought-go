@@ -19,6 +19,7 @@ export const alice: Schemas['User'] = {
   agentsMayShare: false,
   agentsMayUseCredentials: false,
   agentsMayAnswer: false,
+  liveConfirm: { goLive: true, run: true, change: true, killOff: true },
   createdAt: '2026-10-01T10:00:00Z',
 }
 

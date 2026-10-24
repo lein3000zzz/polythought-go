@@ -17,6 +17,8 @@ export const server = setupServer(
   // unless a test says.
   http.get('/api/v1/tokens', () => HttpResponse.json({ tokens: [] })),
   http.get('/api/v1/me/grants', () => HttpResponse.json({ grants: [] })),
+  // Every page asks what waits for the user to confirm (D406): nothing, unless a test says.
+  http.get('/api/v1/me/confirmations', () => HttpResponse.json({ confirmations: [] })),
   http.get('/api/v1/notifications', () => HttpResponse.json({ notifications: [], mailOn: false })),
   http.get('/api/v1/credentials', () => HttpResponse.json({ credentials: [] })),
   http.get('/api/v1/credential-types', () => HttpResponse.json({ credentialTypes: [] })),

@@ -108,9 +108,12 @@ type User struct {
 	// (D276).
 	KillStopsAgents bool
 	// Agents is what they let their agents and API tokens do beyond their scopes.
-	Agents    AgentAccess
-	CreatedAt time.Time
-	UpdatedAt time.Time
+	Agents AgentAccess
+	// Unconfirmed is which of their agents' and tokens' live actions go ahead without them
+	// confirming (D406); the rest wait.
+	Unconfirmed Unconfirmed
+	CreatedAt   time.Time
+	UpdatedAt   time.Time
 }
 
 // AgentAccess is what a user lets their agents and API tokens do beyond their scopes, off

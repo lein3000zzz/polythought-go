@@ -946,6 +946,69 @@ func (_c *MockUserRepository_SetPasswordHash_Call) RunAndReturn(run func(ctx con
 	return _c
 }
 
+// SetUnconfirmed provides a mock function for the type MockUserRepository
+func (_mock *MockUserRepository) SetUnconfirmed(ctx context.Context, id domain.UserID, u domain.Unconfirmed) error {
+	ret := _mock.Called(ctx, id, u)
+
+	if len(ret) == 0 {
+		panic("no return value specified for SetUnconfirmed")
+	}
+
+	var r0 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context, domain.UserID, domain.Unconfirmed) error); ok {
+		r0 = returnFunc(ctx, id, u)
+	} else {
+		r0 = ret.Error(0)
+	}
+	return r0
+}
+
+// MockUserRepository_SetUnconfirmed_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'SetUnconfirmed'
+type MockUserRepository_SetUnconfirmed_Call struct {
+	*mock.Call
+}
+
+// SetUnconfirmed is a helper method to define mock.On call
+//   - ctx context.Context
+//   - id domain.UserID
+//   - u domain.Unconfirmed
+func (_e *MockUserRepository_Expecter) SetUnconfirmed(ctx any, id any, u any) *MockUserRepository_SetUnconfirmed_Call {
+	return &MockUserRepository_SetUnconfirmed_Call{Call: _e.mock.On("SetUnconfirmed", ctx, id, u)}
+}
+
+func (_c *MockUserRepository_SetUnconfirmed_Call) Run(run func(ctx context.Context, id domain.UserID, u domain.Unconfirmed)) *MockUserRepository_SetUnconfirmed_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		var arg1 domain.UserID
+		if args[1] != nil {
+			arg1 = args[1].(domain.UserID)
+		}
+		var arg2 domain.Unconfirmed
+		if args[2] != nil {
+			arg2 = args[2].(domain.Unconfirmed)
+		}
+		run(
+			arg0,
+			arg1,
+			arg2,
+		)
+	})
+	return _c
+}
+
+func (_c *MockUserRepository_SetUnconfirmed_Call) Return(err error) *MockUserRepository_SetUnconfirmed_Call {
+	_c.Call.Return(err)
+	return _c
+}
+
+func (_c *MockUserRepository_SetUnconfirmed_Call) RunAndReturn(run func(ctx context.Context, id domain.UserID, u domain.Unconfirmed) error) *MockUserRepository_SetUnconfirmed_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // Update provides a mock function for the type MockUserRepository
 func (_mock *MockUserRepository) Update(ctx context.Context, u domain.User) error {
 	ret := _mock.Called(ctx, u)

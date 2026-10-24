@@ -46,12 +46,14 @@ type userDTO struct {
 	// delete workflows, custom nodes and credentials and share workflows to the library
 	// (D403, D404); AgentsMayUseCredentials, that they may use credentials in workflows
 	// (D404); AgentsMayAnswer, that they may answer their workflows' questions (D405).
-	AgentsSeePersonal       bool      `json:"agentsSeePersonal"`
-	AgentsMayDelete         bool      `json:"agentsMayDelete"`
-	AgentsMayShare          bool      `json:"agentsMayShare"`
-	AgentsMayUseCredentials bool      `json:"agentsMayUseCredentials"`
-	AgentsMayAnswer         bool      `json:"agentsMayAnswer"`
-	CreatedAt               time.Time `json:"createdAt" format:"date-time"`
+	AgentsSeePersonal       bool `json:"agentsSeePersonal"`
+	AgentsMayDelete         bool `json:"agentsMayDelete"`
+	AgentsMayShare          bool `json:"agentsMayShare"`
+	AgentsMayUseCredentials bool `json:"agentsMayUseCredentials"`
+	AgentsMayAnswer         bool `json:"agentsMayAnswer"`
+	// LiveConfirm is which of their tokens' and agents' live actions wait for them (D406).
+	LiveConfirm liveConfirmDTO `json:"liveConfirm"`
+	CreatedAt   time.Time      `json:"createdAt" format:"date-time"`
 } // @name User
 
 // liveCapsDTO caps a user's live buys in whole dollars: one order, and 24 hours. Left out,
@@ -115,6 +117,7 @@ func (s *Server) userDTO(u domain.User) userDTO {
 		AgentsMayShare:          u.Agents.Share,
 		AgentsMayUseCredentials: u.Agents.UseCredentials,
 		AgentsMayAnswer:         u.Agents.Answer,
+		LiveConfirm:             toLiveConfirmDTO(u.Unconfirmed),
 		CreatedAt:               u.CreatedAt,
 	}
 }

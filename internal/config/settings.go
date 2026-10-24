@@ -81,6 +81,7 @@ const (
 	KeyMCPRate             = "mcp.rate"
 	KeyMCPAccessTTL        = "mcp.access_ttl"
 	KeyMCPRefreshTTL       = "mcp.refresh_ttl"
+	KeyMCPConfirmFor       = "mcp.confirm_for"
 
 	KeyTrustedProxies      = "http.trusted_proxies"
 	KeyWebhookAllowPrivate = "webhook.allow_private"
@@ -450,6 +451,12 @@ func Settings() (*settings.Registry, error) {
 			Description: "How long an agent may go unused before its user signs it in again: each refresh gives it a new " +
 				"refresh token, lasting this long. Applies to tokens given from now.",
 			Kind: settings.KindDuration, Default: 30 * 24 * time.Hour, Check: within(time.Hour, 365*24*time.Hour),
+		},
+		settings.Spec{
+			Key: KeyMCPConfirmFor, Group: groupMCP, Label: "Live actions wait",
+			Description: "How long an agent's or an API token's live action waits for its user to confirm it, where the " +
+				"user has it wait, before it expires unconfirmed. Applies to those asked from now.",
+			Kind: settings.KindDuration, Default: time.Hour, Check: within(5*time.Minute, 7*24*time.Hour),
 		},
 		settings.Spec{
 			Key: KeyTrustedProxies, Group: groupNetwork, Label: "Trusted proxies",

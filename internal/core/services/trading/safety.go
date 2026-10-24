@@ -98,6 +98,10 @@ func (s *Service) SetKillSwitch(ctx context.Context, p auth.Principal, on bool) 
 		return KillSwitch{}, err
 	}
 
+	if err := s.hold(ctx, p, domain.ConfirmKillOff, "", "Turn your kill switch off, so your workflows trade live again", struct{}{}); err != nil {
+		return KillSwitch{}, err
+	}
+
 	if s.d.Users == nil {
 		return KillSwitch{}, nil
 	}

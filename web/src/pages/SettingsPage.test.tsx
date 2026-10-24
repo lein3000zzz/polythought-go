@@ -542,6 +542,69 @@ describe('settings page', () => {
     expect(sent[3]).toEqual({ answer: true })
   })
 
+  it("waits for you to confirm agents' live actions, each switch on to start with (D406)", async () => {
+    const sent: unknown[] = []
+    let confirmed = ''
+    server.use(
+      signedIn,
+      http.put('/api/v1/me/live-confirm', async ({ request }) => {
+        sent.push(await request.json())
+        return new HttpResponse(null, { status: 204 })
+      }),
+      http.get('/api/v1/me/confirmations', () =>
+        HttpResponse.json({
+          confirmations: [
+            {
+              id: 'c-1',
+              kind: 'go_live',
+              workflowId: 'wf-1',
+              asker: 'Claude Code',
+              what: 'Trade "Spread watch" live, from the wallet "Main"',
+              status: 'pending',
+              createdAt: '2026-10-24T12:00:00Z',
+              expiresAt: '2026-10-24T13:00:00Z',
+            },
+          ],
+        }),
+      ),
+      http.post('/api/v1/me/confirmations/:id/confirm', ({ params }) => {
+        confirmed = params.id as string
+        return HttpResponse.json({
+          id: 'c-1',
+          kind: 'go_live',
+          asker: 'Claude Code',
+          what: 'x',
+          status: 'confirmed',
+          createdAt: '2026-10-24T12:00:00Z',
+          expiresAt: '2026-10-24T13:00:00Z',
+        })
+      }),
+    )
+    const { user } = renderApp('/settings/connected')
+
+    const run = await screen.findByRole('switch', {
+      name: 'Switching on or running a live workflow',
+    })
+    for (const name of [
+      'Going live',
+      'Switching on or running a live workflow',
+      'Changing a live workflow that is on',
+      'Turning the kill switch off',
+    ]) {
+      expect(screen.getByRole('switch', { name })).toBeChecked()
+    }
+
+    await user.click(run)
+    await waitFor(() => expect(sent).toEqual([{ run: false }]))
+
+    const waiting = within(await screen.findByRole('list', { name: 'Waiting for you' }))
+    expect(
+      waiting.getByText(/Trade "Spread watch" live, from the wallet "Main"/),
+    ).toBeInTheDocument()
+    await user.click(waiting.getByRole('button', { name: 'Confirm' }))
+    await waitFor(() => expect(confirmed).toBe('c-1'))
+  })
+
   it('has Credentials as a page, where its old address goes (D392)', async () => {
     server.use(signedIn)
     const { router } = renderApp('/credentials')

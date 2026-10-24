@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"os"
 	"strings"
@@ -37,6 +38,7 @@ import (
 	"github.com/lein3000zzz/polythought-go/internal/core/ports"
 	"github.com/lein3000zzz/polythought-go/internal/core/services/auth"
 	"github.com/lein3000zzz/polythought-go/internal/core/services/code"
+	"github.com/lein3000zzz/polythought-go/internal/core/services/confirmations"
 	"github.com/lein3000zzz/polythought-go/internal/core/services/credentials"
 	"github.com/lein3000zzz/polythought-go/internal/core/services/customnodes"
 	"github.com/lein3000zzz/polythought-go/internal/core/services/events"
@@ -123,6 +125,7 @@ type app struct {
 	feed            *feed.Hub
 	traders         *traders.Hub
 	trading         *trading.Service
+	confirmations   *confirmations.Service
 	workflowTrading *postgres.WorkflowTrading
 	nodeMemory      *postgres.NodeMemory
 	memory          *memory.Service
@@ -325,16 +328,17 @@ func (a *app) init(ctx context.Context) error {
 func (a *app) newMCP() (*mcpserver.Server, error) {
 	return mcpserver.New(mcpserver.Config{PublicURL: a.cfg.PublicURL}, mcpserver.Deps{
 		Agents: a.oauth, Tokens: a.auth, Util: a.util,
-		Limiter:     ratelimit.NewPerMinute(func() int { return a.settings.Current().Int(config.KeyMCPRate) }),
-		Workflows:   a.workflows,
-		Edit:        a.workflows,
-		Code:        workflowCode{code: a.code, gate: a.codeGate},
-		CustomNodes: a.customNodes,
-		Credentials: a.credentials,
-		Sharing:     a.library,
-		NodeTypes:   nodeTypes{types: a.customNodes, plugins: a.plugins},
-		CodeTypes:   codeTypes{types: a.customNodes},
-		Library:     a.library,
+		Limiter:       ratelimit.NewPerMinute(func() int { return a.settings.Current().Int(config.KeyMCPRate) }),
+		Workflows:     a.workflows,
+		Edit:          a.workflows,
+		Code:          workflowCode{code: a.code, gate: a.codeGate},
+		CustomNodes:   a.customNodes,
+		Credentials:   a.credentials,
+		Sharing:       a.library,
+		Confirmations: a.confirmations,
+		NodeTypes:     nodeTypes{types: a.customNodes, plugins: a.plugins},
+		CodeTypes:     codeTypes{types: a.customNodes},
+		Library:       a.library,
 		Markets: mcpserver.Markets{Reader: a.markets, Sources: ai.Sources{
 			Events: a.markets, Books: a.markets, History: a.markets, Trades: a.markets, Positions: a.markets,
 		}},
@@ -588,6 +592,59 @@ func (l laterWorkflows) Get(ctx context.Context, p auth.Principal, id domain.Wor
 	return l.a.workflows.Get(ctx, p, id)
 }
 
+// handleConfirmed carries out what users confirm of their tokens' and agents' live
+// actions, as each asked (D406).
+func (a *app) handleConfirmed() {
+	a.confirmations.Handle(domain.ConfirmRun, func(ctx context.Context, p auth.Principal, c domain.Confirmation) (string, error) {
+		var in workflows.RunAsked
+		if err := json.Unmarshal(c.Payload, &in); err != nil {
+			return "", err
+		}
+
+		e, err := a.workflows.Run(ctx, p, c.WorkflowID, in.Trigger)
+		if err != nil {
+			return "", err
+		}
+
+		return fmt.Sprintf("execution %s, %s", e.ID, e.Status), nil
+	})
+
+	a.confirmations.Handle(domain.ConfirmSwitchOn, func(ctx context.Context, p auth.Principal, c domain.Confirmation) (string, error) {
+		_, err := a.workflows.Activate(ctx, p, c.WorkflowID)
+		return "switched on", err
+	})
+
+	a.confirmations.Handle(domain.ConfirmChange, func(ctx context.Context, p auth.Principal, c domain.Confirmation) (string, error) {
+		var in workflows.ChangeAsked
+		if err := json.Unmarshal(c.Payload, &in); err != nil {
+			return "", err
+		}
+
+		w, err := a.workflows.Update(ctx, p, c.WorkflowID, in.Version, in.Definition)
+		if err != nil {
+			return "", err
+		}
+
+		return fmt.Sprintf("version %d saved", w.Version), nil
+	})
+
+	a.confirmations.Handle(domain.ConfirmGoLive, func(ctx context.Context, p auth.Principal, c domain.Confirmation) (string, error) {
+		var in trading.SetupChange
+		if err := json.Unmarshal(c.Payload, &in); err != nil {
+			return "", err
+		}
+
+		_, err := a.trading.SetSetup(ctx, p, c.WorkflowID, in)
+
+		return "trading live", err
+	})
+
+	a.confirmations.Handle(domain.ConfirmKillOff, func(ctx context.Context, p auth.Principal, _ domain.Confirmation) (string, error) {
+		_, err := a.trading.SetKillSwitch(ctx, p, false)
+		return "kill switch off", err
+	})
+}
+
 // paramsWhere names a node type's settings that match.
 func paramsWhere(r *engine.Registry, match func(engine.ParamSpec) bool) func(nodeType string) []string {
 	return func(nodeType string) []string {
@@ -808,11 +865,16 @@ func (a *app) initEngine(ctx context.Context, pmc polymarket) error {
 	}
 	a.nodeMemory = postgres.NewNodeMemory(a.db)
 
+	// Tokens' and agents' live actions wait for their users where they say so (D406).
+	a.confirmations = confirmations.New(postgres.NewConfirmations(a.db), postgres.NewUsers(a.db), a.util.Logger,
+		confirmations.WithExpiry(func() time.Duration { return a.settings.Current().Duration(config.KeyMCPConfirmFor) }))
+	a.util.OnShutdown(a.confirmations.Wait)
+
 	a.trading = trading.New(trading.Deps{
 		Ledger: ledger, Books: pmc.reader, Rules: pmc.reader, Markets: pmc.reader,
 		Workflows: laterWorkflows{a}, Logger: a.util.Logger, PaperBalance: paperBalance,
 		Trading: a.workflowTrading, Exchange: pmc.exchange, Keys: a.wallets, Wallets: a.wallets, Notifier: a.notify,
-		Feed: a.feed, Stream: pmc.orders,
+		Feed: a.feed, Stream: pmc.orders, Confirm: a.confirmations,
 		LiveOn:      func() bool { return a.settings.Current().Bool(config.KeyLiveTrading) },
 		BuilderCode: func() string { return a.settings.Current().String(config.KeyBuilderCode) },
 		Users:       postgres.NewUsers(a.db),
@@ -919,8 +981,10 @@ func (a *app) initEngine(ctx context.Context, pmc polymarket) error {
 			mode, err := a.trading.Mode(ctx, w.ID)
 
 			return mode.Scope(), err
-		}))
+		}),
+		workflows.WithConfirmations(a.confirmations))
 	a.memory = memory.New(a.nodeMemory, a.workflows, a.util.Logger)
+	a.handleConfirmed()
 
 	if a.library, err = library.New(postgres.NewTemplates(a.db), a.workflows, a.registry, a.util.Logger,
 		library.WithOwnTypes(a.customNodes), library.WithCustomNodes(a.customNodes),

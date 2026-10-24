@@ -5,6 +5,7 @@ import { cn } from 'cn'
 import { useLogout, useMe } from '@/api/auth'
 import type { Schemas } from '@/api/client'
 import { useLiveEvents } from '@/api/events'
+import { ConfirmationsBanner } from '@/components/ConfirmationsBanner'
 import { GitHubLink } from '@/components/GitHubLink'
 import { StopLiveButton, StoppedBanner } from '@/components/KillSwitch'
 import { ThemeChoices } from '@/components/ThemeToggle'
@@ -82,6 +83,7 @@ export function AppShell() {
       </header>
 
       {user && <StoppedBanner user={user} />}
+      {user && <ConfirmationsBanner />}
 
       {/* The scrollbar's room is kept, so a page that scrolls does not move sideways from
           one that does not; but not beside a canvas that fills the page and never scrolls. */}

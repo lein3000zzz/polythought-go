@@ -695,6 +695,18 @@ How long an agent may go unused before its user signs it in again: each refresh 
 | Default | `720h` |
 | Applies | at once |
 
+### Live actions wait
+
+How long an agent's or an API token's live action waits for its user to confirm it, where the user has it wait, before it expires unconfirmed. Applies to those asked from now.
+
+| | |
+|---|---|
+| Key | `mcp.confirm_for` |
+| Environment variable | `POLYTHOUGHT_MCP_CONFIRM_FOR` |
+| Kind | duration, e.g. `30s`, `5m`, `168h` |
+| Default | `1h` |
+| Applies | at once |
+
 ## Network
 
 ### Trusted proxies

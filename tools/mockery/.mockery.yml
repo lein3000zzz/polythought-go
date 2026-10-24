@@ -144,3 +144,4 @@ packages:
       GeoblockService: {}
       MetaService: {}
       OAuthService: {}
+      ConfirmationService: {}

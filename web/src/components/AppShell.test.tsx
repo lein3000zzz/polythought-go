@@ -112,3 +112,47 @@ describe('the top bar (D368)', () => {
     )
   })
 })
+
+describe('what waits for you (D406)', () => {
+  it('says on every page that an agent asks you to confirm, and takes you there', async () => {
+    server.use(
+      signedIn,
+      noWorkflows,
+      http.get('/api/v1/me/confirmations', () =>
+        HttpResponse.json({
+          confirmations: [
+            {
+              id: 'c-1',
+              kind: 'run',
+              workflowId: 'wf-1',
+              asker: 'Claude Code',
+              what: 'Run "Spread watch" by hand, which trades live',
+              status: 'pending',
+              createdAt: '2026-10-24T12:00:00Z',
+              expiresAt: '2026-10-24T13:00:00Z',
+            },
+            {
+              id: 'c-0',
+              kind: 'kill_off',
+              asker: 'an API token',
+              what: 'Turn your kill switch off',
+              status: 'refused',
+              createdAt: '2026-10-24T11:00:00Z',
+              expiresAt: '2026-10-24T12:00:00Z',
+            },
+          ],
+        }),
+      ),
+    )
+    const { user, router } = renderApp('/workflows')
+
+    const banner = await screen.findByText(/Claude Code asks you to confirm:/)
+    expect(banner.closest('[role="status"]')).toHaveTextContent(
+      'Run "Spread watch" by hand, which trades live.',
+    )
+
+    await user.click(screen.getByRole('link', { name: 'Review' }))
+    expect(router.state.location.pathname).toBe('/settings/connected')
+    expect(router.state.location.hash).toBe('#confirmations')
+  })
+})

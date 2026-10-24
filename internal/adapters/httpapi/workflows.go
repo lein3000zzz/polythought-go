@@ -558,7 +558,7 @@ func (s *Server) checkWorkflow(ctx context.Context, c *app.RequestContext) {
 //	@Failure	400		{object}	errorBody	"invalid_input, or invalid_workflow with problems"
 //	@Failure	401		{object}	errorBody	"unauthenticated"
 //	@Failure	404		{object}	errorBody	"not_found"
-//	@Failure	409		{object}	errorBody	"conflict: someone saved a newer version"
+//	@Failure	409		{object}	errorBody	"conflict: someone saved a newer version; awaits_confirmation: a token's live action waits for its user to confirm it (D406)"
 //	@Security	SessionCookie
 //	@Security	APIToken
 //	@Router		/workflows/{id} [put]
@@ -614,6 +614,7 @@ func (s *Server) deleteWorkflow(ctx context.Context, c *app.RequestContext) {
 //	@Failure	400	{object}	errorBody	"invalid_workflow"
 //	@Failure	401	{object}	errorBody	"unauthenticated"
 //	@Failure	404	{object}	errorBody	"not_found"
+//	@Failure	409	{object}	errorBody	"awaits_confirmation: a token's live action waits for its user to confirm it (D406)"
 //	@Security	SessionCookie
 //	@Security	APIToken
 //	@Router		/workflows/{id}/activate [post]
@@ -672,6 +673,7 @@ func (s *Server) setActive(
 //	@Failure	400		{object}	errorBody	"invalid_input or invalid_workflow"
 //	@Failure	401		{object}	errorBody	"unauthenticated"
 //	@Failure	404		{object}	errorBody	"not_found"
+//	@Failure	409		{object}	errorBody	"awaits_confirmation: a token's live action waits for its user to confirm it (D406)"
 //	@Security	SessionCookie
 //	@Security	APIToken
 //	@Router		/workflows/{id}/run [post]

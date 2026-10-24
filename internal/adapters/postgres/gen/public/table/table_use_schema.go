@@ -13,6 +13,7 @@ func UseSchema(schema string) {
 	AgentUsage = AgentUsage.FromSchema(schema)
 	APITokens = APITokens.FromSchema(schema)
 	ApprovalSetups = ApprovalSetups.FromSchema(schema)
+	Confirmations = Confirmations.FromSchema(schema)
 	Credentials = Credentials.FromSchema(schema)
 	CustomNodes = CustomNodes.FromSchema(schema)
 	EmailTokens = EmailTokens.FromSchema(schema)

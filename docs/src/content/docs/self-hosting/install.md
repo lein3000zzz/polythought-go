@@ -162,6 +162,8 @@ Under **Agents over MCP** on the Config page:
   with: an agent unused for the second signs in again through the browser.
 - **Tool calls a minute**, 120 to start with, is how many tool calls one agent, or one API
   token, may make in a minute.
+- **Live actions wait**, an hour to start with, is how long an agent's or a token's live
+  action waits for its user to confirm it before it expires.
 
 A proxy of your own in front of the API must pass `/mcp` and `/.well-known/oauth-*` on as
 Caddy does, and must not buffer `/mcp`'s answers, which stream.
