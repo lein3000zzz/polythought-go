@@ -300,6 +300,32 @@ type told struct {
 
 // describe says what happened to the order, in a sentence: Live: Copy A bought 10 shares
 // of Yes in “Will it rain?” at 52¢ for $5.20.
+// behind says which agent or token an order's run was in the name of, as a sentence: empty
+// for the user's own.
+func behind(a domain.Actor) string {
+	if a.IsUser() {
+		return ""
+	}
+
+	name := a.Name
+	if a.GrantID == "" {
+		name = "the API token “" + a.Name + "”"
+	}
+
+	how := map[domain.ActorHow]string{
+		domain.ActorRan: "Run by ", domain.ActorSwitchedOn: "Switched on by ", domain.ActorChanged: "Changed by ",
+	}[a.How]
+	if how == "" {
+		how = "By "
+	}
+
+	if a.Confirmed {
+		return " " + how + name + ", confirmed by you."
+	}
+
+	return " " + how + name + "."
+}
+
 func (s *Service) describe(ctx context.Context, e domain.OrderEvent, workflow string) told {
 	o := e.Order
 
@@ -314,6 +340,9 @@ func (s *Service) describe(ctx context.Context, e domain.OrderEvent, workflow st
 	if o.TraderLabel != "" {
 		copying = " Copying " + o.TraderLabel + "."
 	}
+
+	// The agent or token behind it, where one is (D408).
+	copying += behind(o.By)
 
 	// say writes the sentence for each channel, the workflow's name in bold on Telegram.
 	say := func(icon, subject string, sentence func(who string) string) told {

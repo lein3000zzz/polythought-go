@@ -386,6 +386,7 @@ func (s *Server) routes() {
 
 	v1.GET("/orders", s.requireAuth, s.listLiveOrders)
 	v1.GET("/orders/export", s.requireAuth, s.exportLiveOrders)
+	v1.GET("/orders/actors", s.requireAuth, s.listOrderActors)
 
 	w := v1.Group("/wallets", s.requireAuth)
 	w.GET("", s.listWallets)

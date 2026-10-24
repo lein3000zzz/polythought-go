@@ -549,6 +549,7 @@ func (x *execution) step(
 			WorkflowID:  x.workflow.ID,
 			OwnerID:     x.workflow.OwnerID,
 			NodeID:      id,
+			By:          x.exec.By,
 			Params: x.executor.resolverFor(ctx, typ, spec.Params, in, map[string]any{
 				"id": string(x.exec.ID), "workflowId": string(x.workflow.ID), "startedAt": x.exec.StartedAt,
 			}),

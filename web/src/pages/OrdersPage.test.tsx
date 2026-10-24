@@ -58,6 +58,14 @@ function log(orders: Schemas['LoggedOrder'][]) {
       asked.push(new URL(request.url).searchParams)
       return HttpResponse.json({ orders })
     }),
+    http.get('/api/v1/orders/actors', () =>
+      HttpResponse.json({
+        actors: [
+          { kind: 'agent', id: 'g-1', name: 'Claude Code' },
+          { kind: 'token', id: 't-1', name: 'deploy' },
+        ],
+      }),
+    ),
   )
 
   return asked
@@ -130,5 +138,32 @@ describe('live orders page', () => {
 
     expect(router.state.location.search).toBe('?wallet=w-1')
     expect(await screen.findByText('No live orders like that.')).toBeInTheDocument()
+  })
+
+  it('says who is behind each order, and narrows to them (D408)', async () => {
+    const asked = log([
+      logged({ by: { kind: 'agent', id: 'g-1', name: 'Claude Code', how: 'switched_on' } }),
+      logged({
+        id: 'o-2',
+        by: { kind: 'token', id: 't-1', name: 'deploy', how: 'run', confirmed: true },
+      }),
+      logged({ id: 'o-3' }),
+    ])
+    const { user, router } = renderApp('/orders')
+
+    expect(await screen.findByText('switched on by Claude Code')).toBeInTheDocument()
+    expect(screen.getByText('run by the API token “deploy”, confirmed by you')).toBeInTheDocument()
+
+    const by = screen.getByLabelText('By')
+    expect(within(by).getByRole('option', { name: 'Everyone' })).toBeInTheDocument()
+    await within(by).findByRole('option', { name: 'the API token “deploy”' })
+    await user.selectOptions(by, 'agent:g-1')
+
+    await waitFor(() => expect(router.state.location.search).toBe('?by=agent%3Ag-1'))
+    await waitFor(() => expect(asked.at(-1)?.get('by')).toBe('agent:g-1'))
+    expect(screen.getByRole('link', { name: 'Download CSV' })).toHaveAttribute(
+      'href',
+      '/api/v1/orders/export?by=agent%3Ag-1',
+    )
   })
 })

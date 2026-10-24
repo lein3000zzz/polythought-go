@@ -440,3 +440,30 @@ func TestExecuteBy(t *testing.T) {
 	require.NoError(t, err)
 	assert.True(t, res.Execution.By.IsUser(), "run by the user by hand")
 }
+
+// A node sees who is behind its run, to act in their name, as an order does (D408).
+func TestRunContextBy(t *testing.T) {
+	ctx := context.Background()
+
+	r := engine.NewRegistry()
+	require.NoError(t, r.RegisterTrigger(fakeTrigger{typ: engine.NodeType{Name: "test.trigger", Outputs: mainPorts()}}))
+	require.NoError(t, r.RegisterNode(fakeNode{
+		typ: engine.NodeType{Name: "test.by", Inputs: mainPorts(), Outputs: mainPorts()},
+		run: eachItem(func(rc engine.RunContext, _ engine.Params, _ engine.Item, out engine.Ports, src engine.ItemRef) error {
+			out.Add(engine.DefaultPort, engine.Item{JSON: map[string]any{"by": rc.By.Name}, Source: []engine.ItemRef{src}})
+			return nil
+		}),
+	}))
+
+	ex, err := engine.NewExecutor(observability.NoopUtility(), r, engine.WithClock(tickingClock()))
+	require.NoError(t, err)
+
+	w := domain.Workflow{
+		ID: "wf", Nodes: []domain.NodeSpec{trigger(), spec("by", "test.by", nil)}, Connections: []domain.Connection{mainLink("trigger", "by")},
+		ActedBy: domain.Actor{TokenID: "t-1", Name: "deploy", How: domain.ActorChanged},
+	}
+
+	res, err := ex.Execute(ctx, w, "trigger", fired(item("n", 1)))
+	require.NoError(t, err)
+	assert.Equal(t, "deploy", res.Outputs["by"][engine.DefaultPort][0].JSON["by"])
+}

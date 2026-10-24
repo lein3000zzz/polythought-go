@@ -367,11 +367,19 @@ The same is in the API: `GET /api/v1/workflows/{id}/trading`, with `?mode=paper`
 **Live orders**, beside Wallets in the top bar, lists every live order of all your
 workflows, the newest first, deleted workflows' too, under the name they had: the record of
 the real money they spent. Each says its workflow, its wallet, what it was, its market and
-what came of it, with its fees. **Wallet**, **Workflow** and **Status** narrow the list,
-and **Download CSV** downloads what they keep, the newest 10,000, a row per order. Each
+what came of it, with its fees. **Wallet**, **Workflow**, **Status** and **By** narrow the
+list, and **Download CSV** downloads what they keep, the newest 10,000, a row per order. Each
 wallet on the Wallets page has **Live orders** too, opening the list for that wallet. In the
-API, it is `GET /api/v1/orders`, with `wallet`, `workflow` and `status`, and
+API, it is `GET /api/v1/orders`, with `wallet`, `workflow`, `status` and `by`, and
 `GET /api/v1/orders/export` for the CSV.
+
+An order an [agent](/docs/architecture/agents/#agents-over-mcp) or an API token is behind says
+which, there and in the workflow's Trading view: the agent ran its workflow by hand, or
+switched it on, or changed it while on, and whether you confirmed it first. Tokens go by
+their names. **By** narrows the list to yours, or to one agent's or token's;
+`GET /api/v1/orders/actors` lists them, and the API's `by` takes `you`, `agent:<id>` or
+`token:<id>`. The CSV says who in `by_kind`, `by` and `by_how`. An order keeps who was behind
+it after its execution is long deleted, and its notifications name them too.
 
 To hear of orders as they happen, switch on the order
 [notifications](/docs/guides/telegram/#notifications) you want, live and paper.

@@ -121,7 +121,7 @@ func (a *api) place(ctx context.Context, reqs []domain.OrderRequest) ([]ports.Pl
 // checked here, the rest by the service, which records why it refuses one.
 func orderRequest(s *session, o *pluginv1.OrderRequest) (domain.OrderRequest, error) {
 	r := domain.OrderRequest{
-		WorkflowID: s.rc.WorkflowID, OwnerID: s.rc.OwnerID, ExecutionID: s.rc.ExecutionID, NodeID: s.rc.NodeID,
+		WorkflowID: s.rc.WorkflowID, OwnerID: s.rc.OwnerID, ExecutionID: s.rc.ExecutionID, NodeID: s.rc.NodeID, By: s.rc.By,
 		TokenID: domain.TokenID(strings.TrimSpace(o.GetTokenId())), MarketID: domain.MarketID(strings.TrimSpace(o.GetMarketId())),
 		Side: domain.Side(o.GetSide()), Type: domain.OrderType(o.GetType()),
 	}

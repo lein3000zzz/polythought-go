@@ -96,6 +96,8 @@ type OrderRequest struct {
 	ExecutionID ExecutionID // the run that placed it; empty when none
 	NodeID      NodeID
 	Mode        TradingMode
+	// By is the agent or token behind its run when it was placed (D408): zero for the user.
+	By Actor
 
 	// Trader is the wallet whose trade it copies, with their label then; empty for an
 	// order copied from no one. Positions are kept per trader (D92).

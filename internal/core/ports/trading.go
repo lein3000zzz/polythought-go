@@ -66,6 +66,9 @@ type Ledger interface {
 	// OwnerOrders are a user's orders in a mode, all their workflows', deleted ones' too,
 	// the newest first, as the filter narrows them: the order log (D228).
 	OwnerOrders(ctx context.Context, owner domain.UserID, f OrderLogFilter) (Page[LoggedOrder], error)
+	// OwnerActors are the agents and tokens behind a user's orders in a mode, each once,
+	// by its latest name: what the log filters by (D408).
+	OwnerActors(ctx context.Context, owner domain.UserID, mode domain.TradingMode) ([]domain.Actor, error)
 
 	// Record adds an order with its fills and, with a change, what it did: in one
 	// transaction, so the books always add up.
@@ -105,7 +108,17 @@ type OrderLogFilter struct {
 	WalletID   domain.WalletID
 	WorkflowID domain.WorkflowID
 	Status     domain.OrderStatus
+	// By is who is behind them (D408): ByYou, or an agent's grant or a token as ByGrant and
+	// ByToken name them; empty for everyone.
+	By string
 }
+
+// What OrderLogFilter.By takes: the user, an agent by its grant, a token.
+const (
+	ByYou   = "you"
+	ByGrant = "agent:"
+	ByToken = "token:"
+)
 
 // LoggedOrder is an order in the log, with its workflow's name, or the one it had when
 // it was deleted (D199).

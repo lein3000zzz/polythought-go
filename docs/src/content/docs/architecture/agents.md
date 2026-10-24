@@ -136,7 +136,9 @@ was; by mail if they turn it on.
 Who acted is kept, named as they were then: an execution an agent or a token ran by hand
 names it, and so does every run of a workflow it switched on, or changed while on, until the
 workflow is switched on or off again; confirmed by the user, it says so. History shows it,
-and the API and `get_execution` give it.
+and the API and `get_execution` give it. Each order keeps who was behind its run when it was
+placed, so it outlives the execution: Live orders, the workflow's orders and the order
+notifications name them, and Live orders, its API and `list_live_orders` filter by them.
 
 The trading tools set how a workflow trades, on paper or live from one of the user's
 wallets, turn the kill switch on or off, reset a paper account, and cancel an order resting

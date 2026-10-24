@@ -40,6 +40,11 @@ type ordersTable struct {
 	WorkflowName postgres.ColumnString
 	WalletID     postgres.ColumnString
 	ClobID       postgres.ColumnString
+	ByHow        postgres.ColumnString
+	ByGrant      postgres.ColumnString
+	ByToken      postgres.ColumnString
+	ByName       postgres.ColumnString
+	ByConfirmed  postgres.ColumnBool
 
 	AllColumns     postgres.ColumnList
 	MutableColumns postgres.ColumnList
@@ -104,9 +109,14 @@ func newOrdersTableImpl(schemaName, tableName, alias string) ordersTable {
 		WorkflowNameColumn = postgres.StringColumn("workflow_name")
 		WalletIDColumn     = postgres.StringColumn("wallet_id")
 		ClobIDColumn       = postgres.StringColumn("clob_id")
-		allColumns         = postgres.ColumnList{IDColumn, WorkflowIDColumn, OwnerIDColumn, ExecutionIDColumn, NodeIDColumn, ModeColumn, TraderColumn, TraderLabelColumn, TokenIDColumn, MarketIDColumn, SideColumn, OrderTypeColumn, PostOnlyColumn, PriceColumn, SharesColumn, DollarsColumn, ExpiresAtColumn, StatusColumn, ReasonColumn, CreatedAtColumn, WorkflowNameColumn, WalletIDColumn, ClobIDColumn}
-		mutableColumns     = postgres.ColumnList{WorkflowIDColumn, OwnerIDColumn, ExecutionIDColumn, NodeIDColumn, ModeColumn, TraderColumn, TraderLabelColumn, TokenIDColumn, MarketIDColumn, SideColumn, OrderTypeColumn, PostOnlyColumn, PriceColumn, SharesColumn, DollarsColumn, ExpiresAtColumn, StatusColumn, ReasonColumn, CreatedAtColumn, WorkflowNameColumn, WalletIDColumn, ClobIDColumn}
-		defaultColumns     = postgres.ColumnList{TraderColumn, TraderLabelColumn, MarketIDColumn, PostOnlyColumn, SharesColumn, DollarsColumn, ReasonColumn, WorkflowNameColumn, ClobIDColumn}
+		ByHowColumn        = postgres.StringColumn("by_how")
+		ByGrantColumn      = postgres.StringColumn("by_grant")
+		ByTokenColumn      = postgres.StringColumn("by_token")
+		ByNameColumn       = postgres.StringColumn("by_name")
+		ByConfirmedColumn  = postgres.BoolColumn("by_confirmed")
+		allColumns         = postgres.ColumnList{IDColumn, WorkflowIDColumn, OwnerIDColumn, ExecutionIDColumn, NodeIDColumn, ModeColumn, TraderColumn, TraderLabelColumn, TokenIDColumn, MarketIDColumn, SideColumn, OrderTypeColumn, PostOnlyColumn, PriceColumn, SharesColumn, DollarsColumn, ExpiresAtColumn, StatusColumn, ReasonColumn, CreatedAtColumn, WorkflowNameColumn, WalletIDColumn, ClobIDColumn, ByHowColumn, ByGrantColumn, ByTokenColumn, ByNameColumn, ByConfirmedColumn}
+		mutableColumns     = postgres.ColumnList{WorkflowIDColumn, OwnerIDColumn, ExecutionIDColumn, NodeIDColumn, ModeColumn, TraderColumn, TraderLabelColumn, TokenIDColumn, MarketIDColumn, SideColumn, OrderTypeColumn, PostOnlyColumn, PriceColumn, SharesColumn, DollarsColumn, ExpiresAtColumn, StatusColumn, ReasonColumn, CreatedAtColumn, WorkflowNameColumn, WalletIDColumn, ClobIDColumn, ByHowColumn, ByGrantColumn, ByTokenColumn, ByNameColumn, ByConfirmedColumn}
+		defaultColumns     = postgres.ColumnList{TraderColumn, TraderLabelColumn, MarketIDColumn, PostOnlyColumn, SharesColumn, DollarsColumn, ReasonColumn, WorkflowNameColumn, ClobIDColumn, ByHowColumn, ByGrantColumn, ByTokenColumn, ByNameColumn, ByConfirmedColumn}
 	)
 
 	return ordersTable{
@@ -136,6 +146,11 @@ func newOrdersTableImpl(schemaName, tableName, alias string) ordersTable {
 		WorkflowName: WorkflowNameColumn,
 		WalletID:     WalletIDColumn,
 		ClobID:       ClobIDColumn,
+		ByHow:        ByHowColumn,
+		ByGrant:      ByGrantColumn,
+		ByToken:      ByTokenColumn,
+		ByName:       ByNameColumn,
+		ByConfirmed:  ByConfirmedColumn,
 
 		AllColumns:     allColumns,
 		MutableColumns: mutableColumns,

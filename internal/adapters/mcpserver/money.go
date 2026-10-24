@@ -147,6 +147,7 @@ type orderOut struct {
 	ExpiresAt    *time.Time `json:"expiresAt,omitempty"`
 	Untrusted    Untrusted  `json:"untrusted,omitempty" jsonschema:"the market's question and the outcome's label"`
 	WorkflowName string     `json:"workflowName,omitempty" jsonschema:"its workflow, as it was named when deleted"`
+	By           *actorOut  `json:"by,omitempty" jsonschema:"the agent or API token behind its run when it was placed; absent for the user"`
 }
 
 type orderList struct {
@@ -159,6 +160,7 @@ type logIn struct {
 	Workflow string `json:"workflow,omitempty" jsonschema:"one workflow's"`
 	Wallet   string `json:"wallet,omitempty" jsonschema:"one wallet's"`
 	Status   string `json:"status,omitempty" jsonschema:"only those with this status: open, filled, partial, cancelled, refused, failed"`
+	By       string `json:"by,omitempty" jsonschema:"only those behind which: you, the user's own; agent:<id> or token:<id>, as an order's by gives them"`
 	page
 }
 
@@ -355,7 +357,7 @@ func (s *Server) listOrders(ctx context.Context, p auth.Principal, in ordersIn) 
 func (s *Server) listLiveOrders(ctx context.Context, p auth.Principal, in logIn) (orderList, error) {
 	f := ports.OrderLogFilter{
 		PageFilter: in.filter(), WorkflowID: domain.WorkflowID(in.Workflow), WalletID: domain.WalletID(in.Wallet),
-		Status: domain.OrderStatus(in.Status),
+		Status: domain.OrderStatus(in.Status), By: in.By,
 	}
 
 	got, err := s.trades.OrderLog(ctx, p, f)
@@ -383,7 +385,7 @@ func orderOf(o domain.PlacedOrder) orderOut {
 		Type: string(o.Type), TokenID: string(o.TokenID), Market: string(o.MarketID), Price: o.Price.String(),
 		Filled: shares.String(), FilledFor: dollars.String(), Fees: fees.String(), Trader: string(o.Trader),
 		Execution: string(o.ExecutionID), Node: string(o.NodeID), Workflow: string(o.WorkflowID), CreatedAt: o.CreatedAt,
-		ExpiresAt: optionalTime(o.Expires),
+		ExpiresAt: optionalTime(o.Expires), By: actorOf(o.By),
 	}
 
 	if !o.Shares.IsZero() {

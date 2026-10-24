@@ -299,9 +299,42 @@ func TestTrading(t *testing.T) {
 		assert.Equal(t, "text/csv; charset=utf-8", string(w.Header().ContentType()))
 		assert.Equal(t, `attachment; filename="live-orders.csv"`, w.Header().Get("Content-Disposition"))
 		assert.Equal(t, "at,workflow,workflow_deleted,wallet_id,market,outcome,token_id,side,type,post_only,price,shares,"+
-			"dollars,status,filled_shares,filled_dollars,fees,reason,trader,trader_label,clob_id,order_id\n"+
+			"dollars,status,filled_shares,filled_dollars,fees,reason,trader,trader_label,clob_id,order_id,by_kind,by,by_how\n"+
 			`2026-10-17T12:00:00Z,"Copy, old",true,w-1,Will it?,Yes,'=t-yes,buy,GTC,false,0.4,10,0,canceled,4,1.6,0,`+
-			`"'=cancelled by its owner, 4 of 10 shares filled",,,0xabc,o-3`+"\n", w.Body.String(), "a formula is kept text")
+			`"'=cancelled by its owner, 4 of 10 shares filled",,,0xabc,o-3,you,,`+"\n", w.Body.String(), "a formula is kept text")
+	})
+
+	t.Run("by who, and who there is (D408)", func(t *testing.T) {
+		placed := tradingsvc.LogEntry{LoggedOrder: ports.LoggedOrder{PlacedOrder: domain.PlacedOrder{
+			OrderRequest: domain.OrderRequest{
+				WorkflowID: "wf-1", NodeID: "buy", Mode: domain.ModeLive, TokenID: "t-yes", Side: domain.SideBuy, Type: domain.OrderFOK,
+				Price: num("0.5"), Dollars: num("5"),
+				By: domain.Actor{GrantID: "g-1", Name: "Claude Code", How: domain.ActorSwitchedOn, Confirmed: true},
+			},
+			ID: "o-4", Status: domain.OrderFilled, CreatedAt: at,
+		}, Workflow: "Spreads"}}
+
+		trading.EXPECT().OrderLog(mock.Anything, byAlice, ports.OrderLogFilter{By: "agent:g-1"}).
+			Return(ports.Page[tradingsvc.LogEntry]{Items: []tradingsvc.LogEntry{placed}}, nil).Once()
+
+		w := get("/api/v1/orders?by=agent:g-1").do(t, srv)
+		require.Equal(t, http.StatusOK, w.Code, w.Body.String())
+		assert.Contains(t, w.Body.String(), `"by":{"kind":"agent","id":"g-1","name":"Claude Code","how":"switched_on","confirmed":true}`)
+
+		for _, bad := range []string{"someone", "agent:", "token:"} {
+			assert.Equal(t, http.StatusBadRequest, get("/api/v1/orders?by="+bad).do(t, srv).Code, bad)
+		}
+
+		trading.EXPECT().OrderActors(mock.Anything, byAlice).Return([]domain.Actor{
+			{GrantID: "g-1", Name: "Claude Code"}, {TokenID: "t-1", Name: "deploy"},
+		}, nil).Once()
+
+		w = get("/api/v1/orders/actors").do(t, srv)
+		require.Equal(t, http.StatusOK, w.Code, w.Body.String())
+		assert.JSONEq(t, `{"actors": [
+			{"kind": "agent", "id": "g-1", "name": "Claude Code"},
+			{"kind": "token", "id": "t-1", "name": "deploy"}
+		]}`, w.Body.String())
 	})
 
 	t.Run("someone else's workflow is not there", func(t *testing.T) {

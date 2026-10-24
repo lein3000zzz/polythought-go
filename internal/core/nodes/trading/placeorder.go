@@ -165,7 +165,7 @@ func (n *PlaceOrder) Run(ctx context.Context, rc engine.RunContext, in engine.Po
 // copies when there is one, so the copy is held as theirs (D92).
 func (n *PlaceOrder) request(rc engine.RunContext, p engine.Params, j map[string]any) (domain.OrderRequest, error) {
 	// The mode is the workflow's when the order goes: the trading service's to say.
-	req := domain.OrderRequest{WorkflowID: rc.WorkflowID, OwnerID: rc.OwnerID, ExecutionID: rc.ExecutionID, NodeID: rc.NodeID}
+	req := domain.OrderRequest{WorkflowID: rc.WorkflowID, OwnerID: rc.OwnerID, ExecutionID: rc.ExecutionID, NodeID: rc.NodeID, By: rc.By}
 
 	if who, ok := j["trader"].(map[string]any); ok {
 		row := engine.Params(who)

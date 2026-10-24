@@ -39,6 +39,7 @@ type TradingService interface {
 
 	OrderLog(ctx context.Context, p auth.Principal, f ports.OrderLogFilter) (ports.Page[trading.LogEntry], error)
 	ExportOrders(ctx context.Context, p auth.Principal, f ports.OrderLogFilter) ([]trading.LogEntry, error)
+	OrderActors(ctx context.Context, p auth.Principal) ([]domain.Actor, error)
 }
 
 // Amounts are text, as items carry decimals: exact.
@@ -92,6 +93,8 @@ type orderDTO struct {
 	At     time.Time      `json:"at" format:"date-time"`
 	// ExpiresAt is when a GTD's rest is cancelled.
 	ExpiresAt *time.Time `json:"expiresAt,omitempty" validate:"optional" format:"date-time"`
+	// By is the agent or token behind its run when it was placed (D408); absent for you.
+	By *actorDTO `json:"by,omitempty" validate:"optional"`
 } // @name Order
 
 type orderPage struct {
@@ -245,7 +248,7 @@ func toOrderDTO(o domain.PlacedOrder) orderDTO {
 		Trader: string(o.Trader), TraderLabel: o.TraderLabel, TokenID: string(o.TokenID), MarketID: string(o.MarketID),
 		Side: string(o.Side), Type: string(o.Type), PostOnly: o.PostOnly, Price: o.Price.String(),
 		Shares: amount(o.Shares), Dollars: amount(o.Dollars), Status: string(o.Status), Reason: o.Reason,
-		Fills: make([]orderFillDTO, len(o.Fills)), At: o.CreatedAt,
+		Fills: make([]orderFillDTO, len(o.Fills)), At: o.CreatedAt, By: toActorDTO(o.By),
 	}
 
 	if !o.Expires.IsZero() {
@@ -643,14 +646,73 @@ func orderLogFilter(c *app.RequestContext) (ports.OrderLogFilter, error) {
 
 	f := ports.OrderLogFilter{
 		PageFilter: page, WalletID: domain.WalletID(c.Query("wallet")), WorkflowID: domain.WorkflowID(c.Query("workflow")),
-		Status: domain.OrderStatus(c.Query("status")),
+		Status: domain.OrderStatus(c.Query("status")), By: c.Query("by"),
 	}
 
 	if f.Status != "" && !slices.Contains(orderStatuses, f.Status) {
 		return ports.OrderLogFilter{}, fmt.Errorf("%w: no order status %q", domain.ErrInvalidInput, f.Status)
 	}
 
+	if !validBy(f.By) {
+		return ports.OrderLogFilter{}, fmt.Errorf("%w: by is you, agent:<id> or token:<id>", domain.ErrInvalidInput)
+	}
+
 	return f, nil
+}
+
+func validBy(by string) bool {
+	switch {
+	case by == "" || by == ports.ByYou:
+		return true
+	case strings.HasPrefix(by, ports.ByGrant):
+		return len(by) > len(ports.ByGrant)
+	case strings.HasPrefix(by, ports.ByToken):
+		return len(by) > len(ports.ByToken)
+	}
+
+	return false
+}
+
+// orderActorDTO is an agent or a token behind some of your orders, by its latest name.
+type orderActorDTO struct {
+	Kind string `json:"kind" enums:"agent,token"`
+	// ID is the agent's grant, or the token: the log's by takes kind:id.
+	ID   string `json:"id"`
+	Name string `json:"name"`
+} // @name OrderActor
+
+type actorList struct {
+	Actors []orderActorDTO `json:"actors"`
+} // @name ActorList
+
+// listOrderActors lists the agents and API tokens behind your live orders, each once, by
+// its latest name: what the log filters by (D408).
+//
+//	@Summary	Who placed your live orders
+//	@ID			listOrderActors
+//	@Tags		trading
+//	@Success	200	{object}	actorList
+//	@Failure	401	{object}	errorBody	"unauthenticated"
+//	@Security	SessionCookie
+//	@Security	APIToken
+//	@Router		/orders/actors [get]
+func (s *Server) listOrderActors(ctx context.Context, c *app.RequestContext) {
+	p, _ := principal(c)
+
+	actors, err := s.trading.OrderActors(ctx, p)
+	if err != nil {
+		s.fail(ctx, c, err)
+		return
+	}
+
+	out := actorList{Actors: make([]orderActorDTO, 0, len(actors))}
+	for _, a := range actors {
+		if dto := toActorDTO(a); dto != nil {
+			out.Actors = append(out.Actors, orderActorDTO{Kind: dto.Kind, ID: dto.ID, Name: dto.Name})
+		}
+	}
+
+	c.JSON(http.StatusOK, out)
 }
 
 func toLoggedOrderDTO(e trading.LogEntry) loggedOrderDTO {
@@ -669,6 +731,7 @@ func toLoggedOrderDTO(e trading.LogEntry) loggedOrderDTO {
 //	@Param		wallet		query		string	false	"Only those from this wallet"
 //	@Param		workflow	query		string	false	"Only those of this workflow"
 //	@Param		status		query		string	false	"Only those with this status"	Enums(filled,partial,open,canceled,expired,unfilled,refused,pending,failed)
+//	@Param		by			query		string	false	"Only those behind which: you, agent:<id> or token:<id>, as the actors list gives them"
 //	@Param		limit		query		int		false	"Page size"						minimum(1)
 //	@Param		cursor		query		string	false	"nextCursor of the previous page"
 //	@Success	200			{object}	loggedOrderPage
@@ -710,6 +773,7 @@ func (s *Server) listLiveOrders(ctx context.Context, c *app.RequestContext) {
 //	@Param		wallet		query		string	false	"Only those from this wallet"
 //	@Param		workflow	query		string	false	"Only those of this workflow"
 //	@Param		status		query		string	false	"Only those with this status"	Enums(filled,partial,open,canceled,expired,unfilled,refused,pending,failed)
+//	@Param		by			query		string	false	"Only those behind which: you, agent:<id> or token:<id>, as the actors list gives them"
 //	@Success	200			{string}	string	"CSV, a header row first"
 //	@Failure	400			{object}	errorBody	"invalid_input"
 //	@Failure	401			{object}	errorBody	"unauthenticated"
@@ -737,7 +801,7 @@ func (s *Server) exportLiveOrders(ctx context.Context, c *app.RequestContext) {
 	_ = w.Write([]string{
 		"at", "workflow", "workflow_deleted", "wallet_id", "market", "outcome", "token_id", "side", "type", "post_only",
 		"price", "shares", "dollars", "status", "filled_shares", "filled_dollars", "fees", "reason", "trader",
-		"trader_label", "clob_id", "order_id",
+		"trader_label", "clob_id", "order_id", "by_kind", "by", "by_how",
 	})
 
 	for _, e := range orders {
@@ -749,6 +813,7 @@ func (s *Server) exportLiveOrders(ctx context.Context, c *app.RequestContext) {
 			cell(e.Question), cell(e.Outcome), cell(string(e.TokenID)), string(e.Side), string(e.Type), strconv.FormatBool(e.PostOnly),
 			e.Price.String(), e.Shares.String(), e.Dollars.String(), string(e.Status), shares.String(), dollars.String(),
 			fees.String(), cell(e.Reason), cell(string(e.Trader)), cell(e.TraderLabel), cell(e.ClobID), cell(string(e.ID)),
+			byKind(e.By), cell(e.By.Name), string(e.By.How),
 		})
 	}
 
@@ -756,6 +821,18 @@ func (s *Server) exportLiveOrders(ctx context.Context, c *app.RequestContext) {
 
 	c.Header("Content-Disposition", `attachment; filename="live-orders.csv"`)
 	c.Data(http.StatusOK, "text/csv; charset=utf-8", buf.Bytes())
+}
+
+// byKind is who placed an order, for the download: you, agent or token.
+func byKind(a domain.Actor) string {
+	switch {
+	case a.IsUser():
+		return "you"
+	case a.GrantID != "":
+		return "agent"
+	}
+
+	return "token"
 }
 
 // cell keeps text a spreadsheet would read as a formula, like =HYPERLINK(…), text.

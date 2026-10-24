@@ -507,4 +507,48 @@ func TestOrderLog(t *testing.T) {
 		require.NoError(t, err)
 		assert.Equal(t, []domain.OrderID{first.ID}, ids(page))
 	})
+
+	t.Run("who is behind them, kept with each and filtered by (D408)", func(t *testing.T) {
+		agent := domain.Actor{GrantID: "g-1", Name: "Claude Code", How: domain.ActorSwitchedOn, Confirmed: true}
+		token := domain.Actor{TokenID: "t-1", Name: "deploy", How: domain.ActorRan}
+
+		byAgent := order(kept, main, domain.ModeLive, domain.OrderFilled)
+		byAgent.ID, byAgent.ClobID, byAgent.By = domain.OrderID(newID()), "0x"+newID(), agent
+		require.NoError(t, ledger.Record(ctx, byAgent, nil))
+
+		byToken := order(kept, main, domain.ModeLive, domain.OrderFilled)
+		byToken.ID, byToken.ClobID, byToken.By = domain.OrderID(newID()), "0x"+newID(), token
+		require.NoError(t, ledger.Record(ctx, byToken, nil))
+
+		got, err := ledger.Order(ctx, byAgent.ID)
+		require.NoError(t, err)
+		assert.Equal(t, agent, got.By)
+
+		for by, want := range map[string][]domain.OrderID{
+			ports.ByGrant + "g-1": {byAgent.ID},
+			ports.ByToken + "t-1": {byToken.ID},
+		} {
+			f := live
+			f.By = by
+			page, err := ledger.OwnerOrders(ctx, alice.ID, f)
+			require.NoError(t, err)
+			assert.Equal(t, want, ids(page), by)
+		}
+
+		f := live
+		f.By = ports.ByYou
+		page, err := ledger.OwnerOrders(ctx, alice.ID, f)
+		require.NoError(t, err)
+		assert.NotContains(t, ids(page), byAgent.ID)
+		assert.NotContains(t, ids(page), byToken.ID)
+		assert.Contains(t, ids(page), third.ID, "the user's own")
+
+		actors, err := ledger.OwnerActors(ctx, alice.ID, domain.ModeLive)
+		require.NoError(t, err)
+		assert.ElementsMatch(t, []domain.Actor{{GrantID: "g-1", Name: "Claude Code"}, {TokenID: "t-1", Name: "deploy"}}, actors)
+
+		none, err := ledger.OwnerActors(ctx, alice.ID, domain.ModePaper)
+		require.NoError(t, err)
+		assert.Empty(t, none, "paper orders are none of the live log's")
+	})
 }

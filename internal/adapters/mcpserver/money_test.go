@@ -109,8 +109,11 @@ func (*trades) Orders(context.Context, auth.Principal, domain.WorkflowID, ports.
 func (t *trades) OrderLog(_ context.Context, _ auth.Principal, f ports.OrderLogFilter) (ports.Page[trading.LogEntry], error) {
 	t.log = f
 
+	placed := order
+	placed.By = domain.Actor{TokenID: "t-1", Name: "deploy", How: domain.ActorRan}
+
 	return ports.Page[trading.LogEntry]{Items: []trading.LogEntry{{
-		LoggedOrder: ports.LoggedOrder{PlacedOrder: order, Workflow: "Spread watch"}, Question: btc.Question, Outcome: "Yes",
+		LoggedOrder: ports.LoggedOrder{PlacedOrder: placed, Workflow: "Spread watch"}, Question: btc.Question, Outcome: "Yes",
 	}}}, nil
 }
 
@@ -212,4 +215,10 @@ func TestLiveOrderLog(t *testing.T) {
 
 	assert.Equal(t, ports.OrderLogFilter{PageFilter: ports.PageFilter{Limit: 5}, WalletID: "w-1", Status: domain.OrderFilled}, tr.log)
 	require.NotNil(t, log)
+
+	// Who is behind it, and only theirs (D408).
+	assert.Equal(t, map[string]any{"kind": "token", "id": "t-1", "name": "deploy", "how": "run"}, o["by"])
+
+	_, _ = call(t, agent, "list_live_orders", map[string]any{"by": "token:t-1"})
+	assert.Equal(t, "token:t-1", tr.log.By)
 }

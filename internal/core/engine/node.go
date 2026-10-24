@@ -76,6 +76,9 @@ type RunContext struct {
 	OwnerID     domain.UserID // nodes act on this user's behalf, e.g. with their wallets
 	NodeID      domain.NodeID
 	Params      ParamResolver
+	// By is the agent or token behind the execution (D407), for what the node does in its
+	// name, such as an order (D408): zero for the user.
+	By domain.Actor
 }
 
 type TriggerContext struct {

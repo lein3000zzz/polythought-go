@@ -37,4 +37,9 @@ type Orders struct {
 	WorkflowName string
 	WalletID     *uuid.UUID
 	ClobID       string
+	ByHow        string
+	ByGrant      string
+	ByToken      string
+	ByName       string
+	ByConfirmed  bool
 }

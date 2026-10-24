@@ -70,6 +70,8 @@ type workflowDTO struct {
 // actorDTO is an agent or an API token that acted for you (D407), named as it was then.
 type actorDTO struct {
 	Kind string `json:"kind" enums:"agent,token"`
+	// ID is the agent's grant, or the token: the orders' filter takes kind:id.
+	ID   string `json:"id"`
 	Name string `json:"name"`
 	// How: it ran this by hand (run), switched its workflow on (switched_on), or changed it
 	// while on (changed).
@@ -83,12 +85,12 @@ func toActorDTO(a domain.Actor) *actorDTO {
 		return nil
 	}
 
-	kind := "agent"
+	kind, id := "agent", string(a.GrantID)
 	if a.GrantID == "" {
-		kind = "token"
+		kind, id = "token", string(a.TokenID)
 	}
 
-	return &actorDTO{Kind: kind, Name: a.Name, How: string(a.How), Confirmed: a.Confirmed}
+	return &actorDTO{Kind: kind, ID: id, Name: a.Name, How: string(a.How), Confirmed: a.Confirmed}
 }
 
 func toWorkflowDTO(w domain.Workflow) workflowDTO {

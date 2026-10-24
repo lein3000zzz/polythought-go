@@ -57,10 +57,17 @@ func (p *placer) Place(_ context.Context, req domain.OrderRequest) (domain.Place
 func place(t *testing.T, p *placer, params map[string]any, items ...engine.Item) engine.Ports {
 	t.Helper()
 
+	return placeBy(t, p, domain.Actor{}, params, items...)
+}
+
+// placeBy runs a Place order node in a run by, its orders that run's.
+func placeBy(t *testing.T, p *placer, by domain.Actor, params map[string]any, items ...engine.Item) engine.Ports {
+	t.Helper()
+
 	n := trading.NewPlaceOrder(p)
 
 	out, err := n.Run(context.Background(), engine.RunContext{
-		ExecutionID: "ex-1", WorkflowID: "wf", OwnerID: "u", NodeID: "place", Params: engine.LiteralParams(n.Type(), params),
+		ExecutionID: "ex-1", WorkflowID: "wf", OwnerID: "u", NodeID: "place", Params: engine.LiteralParams(n.Type(), params), By: by,
 	}, engine.Ports{engine.DefaultPort: items})
 	require.NoError(t, err)
 	require.NoError(t, shape.Check(n.Type(), out), "the fields it adds, as declared")
@@ -103,6 +110,15 @@ func TestPlaceOrder(t *testing.T) {
 		assert.Equal(t, "0.19996", order["fees"].(decimal.Decimal).String())
 		assert.Equal(t, "0.504949", order["price"].(decimal.Decimal).String(), "the average")
 		assert.NotNil(t, out[engine.DefaultPort][0].JSON["copy"], "the item passes on")
+	})
+
+	t.Run("in an agent's run, its order the agent's (D408)", func(t *testing.T) {
+		p := &placer{}
+		by := domain.Actor{GrantID: "g-1", Name: "Claude Code", How: domain.ActorSwitchedOn}
+		placeBy(t, p, by, nil, withCopy(domain.SideBuy, nil))
+
+		require.Len(t, p.asked, 1)
+		assert.Equal(t, by, p.asked[0].By)
 	})
 
 	t.Run("what did not fill goes out of missed, saying why (D96)", func(t *testing.T) {

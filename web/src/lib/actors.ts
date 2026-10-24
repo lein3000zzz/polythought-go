@@ -3,7 +3,7 @@ import type { Schemas } from '@/api/client'
 export type Actor = Schemas['Actor']
 
 /** An agent by its name, a token by its (D407). */
-export function actorName(a: Actor): string {
+export function actorName(a: Pick<Actor, 'kind' | 'name'>): string {
   return a.kind === 'agent' ? a.name : `the API token “${a.name}”`
 }
 

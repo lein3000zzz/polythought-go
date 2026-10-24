@@ -4,6 +4,7 @@ import (
 	"cmp"
 	"context"
 	"slices"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -141,7 +142,8 @@ func (l *ledger) OwnerOrders(_ context.Context, owner domain.UserID, f ports.Ord
 
 	for _, o := range slices.Backward(l.orders) {
 		if o.OwnerID != owner || o.Mode != f.Mode || (f.WalletID != "" && o.WalletID != f.WalletID) ||
-			(f.WorkflowID != "" && o.WorkflowID != f.WorkflowID) || (f.Status != "" && o.Status != f.Status) {
+			(f.WorkflowID != "" && o.WorkflowID != f.WorkflowID) || (f.Status != "" && o.Status != f.Status) ||
+			(f.By == ports.ByYou && !o.By.IsUser()) || (strings.HasPrefix(f.By, ports.ByGrant) && string(o.By.GrantID) != strings.TrimPrefix(f.By, ports.ByGrant)) {
 			continue
 		}
 
@@ -149,6 +151,22 @@ func (l *ledger) OwnerOrders(_ context.Context, owner domain.UserID, f ports.Ord
 	}
 
 	return page, nil
+}
+
+func (l *ledger) OwnerActors(_ context.Context, owner domain.UserID, mode domain.TradingMode) ([]domain.Actor, error) {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+
+	var out []domain.Actor
+
+	for _, o := range l.orders {
+		if o.OwnerID == owner && o.Mode == mode && !o.By.IsUser() &&
+			!slices.ContainsFunc(out, func(a domain.Actor) bool { return a.GrantID == o.By.GrantID && a.TokenID == o.By.TokenID }) {
+			out = append(out, domain.Actor{GrantID: o.By.GrantID, TokenID: o.By.TokenID, Name: o.By.Name})
+		}
+	}
+
+	return out, nil
 }
 
 func (l *ledger) OpenHoldings(_ context.Context, mode domain.TradingMode) ([]domain.Holding, error) {

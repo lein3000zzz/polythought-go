@@ -552,7 +552,7 @@ describe('running and inspecting', () => {
       triggeredBy: 'every',
       workflowVersion: 2,
       runs: ran.runs.map((run) => ({ ...run, samples: undefined })),
-      by: { kind: 'agent', name: 'Claude Code', how: 'switched_on', confirmed: true },
+      by: { kind: 'agent', id: 'g-1', name: 'Claude Code', how: 'switched_on', confirmed: true },
     }
 
     editing(branching())

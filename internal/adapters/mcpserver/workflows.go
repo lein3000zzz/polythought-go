@@ -81,6 +81,7 @@ type executionSummary struct {
 
 type actorOut struct {
 	Kind      string `json:"kind" jsonschema:"agent or token"`
+	ID        string `json:"id" jsonschema:"the agent's grant, or the token: list_live_orders' by takes kind:id"`
 	Name      string `json:"name"`
 	How       string `json:"how" jsonschema:"run: it ran this by hand; switched_on: it switched the workflow on; changed: it changed the workflow while on"`
 	Confirmed bool   `json:"confirmed,omitempty" jsonschema:"the user confirmed it first"`
@@ -91,12 +92,12 @@ func actorOf(a domain.Actor) *actorOut {
 		return nil
 	}
 
-	kind := "agent"
+	kind, id := "agent", string(a.GrantID)
 	if a.GrantID == "" {
-		kind = "token"
+		kind, id = "token", string(a.TokenID)
 	}
 
-	return &actorOut{Kind: kind, Name: a.Name, How: string(a.How), Confirmed: a.Confirmed}
+	return &actorOut{Kind: kind, ID: id, Name: a.Name, How: string(a.How), Confirmed: a.Confirmed}
 }
 
 type executionList struct {

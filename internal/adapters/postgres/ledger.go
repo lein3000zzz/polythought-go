@@ -3,6 +3,8 @@ package postgres
 import (
 	"context"
 	"errors"
+	"fmt"
+	"strings"
 	"time"
 
 	jet "github.com/go-jet/jet/v2/postgres"
@@ -461,6 +463,18 @@ func (r *Ledger) OwnerOrders(ctx context.Context, owner domain.UserID, f ports.O
 		where = where.AND(o.Status.EQ(jet.String(string(f.Status))))
 	}
 
+	switch {
+	case f.By == "":
+	case f.By == ports.ByYou:
+		where = where.AND(o.ByGrant.EQ(jet.String(""))).AND(o.ByToken.EQ(jet.String("")))
+	case strings.HasPrefix(f.By, ports.ByGrant):
+		where = where.AND(o.ByGrant.EQ(jet.String(strings.TrimPrefix(f.By, ports.ByGrant))))
+	case strings.HasPrefix(f.By, ports.ByToken):
+		where = where.AND(o.ByToken.EQ(jet.String(strings.TrimPrefix(f.By, ports.ByToken))))
+	default:
+		return ports.Page[ports.LoggedOrder]{}, fmt.Errorf("%w: by is you, agent:<grant> or token:<token>", domain.ErrInvalidInput)
+	}
+
 	if f.Cursor != "" {
 		before, err := uuid.Parse(f.Cursor)
 		if err != nil {
@@ -505,6 +519,41 @@ func (r *Ledger) OwnerOrders(ctx context.Context, owner domain.UserID, f ports.O
 	}
 
 	return page, nil
+}
+
+// OwnerActors are the agents and tokens behind owner's orders in mode, each by its latest
+// name, for the log's filter (D408).
+func (r *Ledger) OwnerActors(ctx context.Context, owner domain.UserID, mode domain.TradingMode) ([]domain.Actor, error) {
+	uid, err := parseID(owner)
+	if err != nil {
+		return nil, err
+	}
+
+	o := table.Orders
+
+	var rows []struct {
+		ByGrant string `alias:"orders.by_grant"`
+		ByToken string `alias:"orders.by_token"`
+		ByName  string `alias:"orders.by_name"`
+	}
+
+	err = jet.SELECT(o.ByGrant, o.ByToken, o.ByName).
+		DISTINCT(o.ByGrant, o.ByToken).
+		FROM(o).
+		WHERE(o.OwnerID.EQ(jet.UUID(uid)).AND(o.Mode.EQ(jet.String(string(mode)))).
+			AND(o.ByGrant.NOT_EQ(jet.String("")).OR(o.ByToken.NOT_EQ(jet.String(""))))).
+		ORDER_BY(o.ByGrant, o.ByToken, o.ID.DESC()).
+		QueryContext(ctx, r.db.conn(ctx), &rows)
+	if err != nil && !errors.Is(err, qrm.ErrNoRows) {
+		return nil, err
+	}
+
+	out := make([]domain.Actor, len(rows))
+	for i, row := range rows {
+		out[i] = domain.Actor{GrantID: domain.GrantID(row.ByGrant), TokenID: domain.APITokenID(row.ByToken), Name: row.ByName}
+	}
+
+	return out, nil
 }
 
 // moveCash adds cash to a paper order's account; live cash is the wallet's. The check
@@ -673,6 +722,8 @@ func toOrderModel(o domain.PlacedOrder) (model.Orders, error) {
 		OrderType: string(o.Type), PostOnly: o.PostOnly, Price: o.Price, Shares: o.Shares, Dollars: o.Dollars,
 		ExpiresAt: timePtr(o.Expires), Status: string(o.Status), Reason: o.Reason, CreatedAt: o.CreatedAt,
 		WalletID: wallet, ClobID: o.ClobID,
+		ByHow: string(o.By.How), ByGrant: string(o.By.GrantID), ByToken: string(o.By.TokenID), ByName: o.By.Name,
+		ByConfirmed: o.By.Confirmed,
 	}, nil
 }
 
@@ -684,6 +735,10 @@ func toPlacedOrder(m model.Orders, fills []model.OrderFills) domain.PlacedOrder 
 			Trader: domain.WalletAddress(m.Trader), TraderLabel: m.TraderLabel,
 			TokenID: domain.TokenID(m.TokenID), MarketID: domain.MarketID(m.MarketID), Side: domain.Side(m.Side),
 			Type: domain.OrderType(m.OrderType), PostOnly: m.PostOnly, Price: m.Price, Shares: m.Shares, Dollars: m.Dollars,
+			By: domain.Actor{
+				GrantID: domain.GrantID(m.ByGrant), TokenID: domain.APITokenID(m.ByToken), Name: m.ByName,
+				How: domain.ActorHow(m.ByHow), Confirmed: m.ByConfirmed,
+			},
 		},
 		ID: domain.OrderID(m.ID.String()), Status: domain.OrderStatus(m.Status), Reason: m.Reason,
 		CreatedAt: m.CreatedAt.UTC(), ClobID: m.ClobID,

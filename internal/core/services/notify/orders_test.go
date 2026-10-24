@@ -2,6 +2,7 @@ package notify_test
 
 import (
 	"context"
+	"strings"
 	"testing"
 	"time"
 
@@ -85,6 +86,22 @@ func TestOrderNotifications(t *testing.T) {
 		assert.Equal(t, "✅ Live: <b>Spreads &lt;tight&gt;</b> bought 10 shares of Yes in “Will it rain?” at 52¢ for $5.20, "+
 			"$0.03 in fees. Copying Alice.", msg.HTML)
 		assert.Equal(t, [][]ports.TelegramButton{{{Text: "Open the workflow", URL: "https://poly.example/workflows/wf-1"}}}, msg.Buttons)
+	})
+
+	t.Run("the agent or token behind it named (D408)", func(t *testing.T) {
+		s, d := orderService(t, "")
+
+		agent := liveOrder(domain.OrderFilled, "")
+		agent.By = domain.Actor{GrantID: "g-1", Name: "Claude <Code>", How: domain.ActorSwitchedOn, Confirmed: true}
+		token := liveOrder(domain.OrderRefused, "not enough cash")
+		token.By = domain.Actor{TokenID: "t-1", Name: "deploy", How: domain.ActorRan}
+
+		s.OrderHappened(domain.OrderEvent{Kind: domain.OrderEventFilled, Order: agent, Fills: []domain.OrderFill{fill}})
+		s.OrderHappened(domain.OrderEvent{Kind: domain.OrderEventRefused, Order: token})
+		settle(t, d, 2)
+
+		assert.True(t, strings.HasSuffix(d.messenger.sent[0].HTML, " Switched on by Claude &lt;Code&gt;, confirmed by you."), d.messenger.sent[0].HTML)
+		assert.True(t, strings.HasSuffix(d.messenger.sent[1].HTML, " Run by the API token “deploy”."), d.messenger.sent[1].HTML)
 	})
 
 	t.Run("refused, with why; the market unknown, it is not named", func(t *testing.T) {

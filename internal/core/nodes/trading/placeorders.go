@@ -182,7 +182,7 @@ func (n *PlaceOrders) result(item engine.Item, r int, row engine.Params, o *doma
 
 // request is a row's order, the item's trader its copier when there is one (D92).
 func (n *PlaceOrders) request(rc engine.RunContext, p engine.Params, j map[string]any, row engine.Params) (domain.OrderRequest, error) {
-	req := domain.OrderRequest{WorkflowID: rc.WorkflowID, OwnerID: rc.OwnerID, ExecutionID: rc.ExecutionID, NodeID: rc.NodeID}
+	req := domain.OrderRequest{WorkflowID: rc.WorkflowID, OwnerID: rc.OwnerID, ExecutionID: rc.ExecutionID, NodeID: rc.NodeID, By: rc.By}
 
 	if who, ok := j["trader"].(map[string]any); ok {
 		w := engine.Params(who)

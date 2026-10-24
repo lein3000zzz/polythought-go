@@ -23,6 +23,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
+import { actorSays } from '@/lib/actors'
 import {
   formatDateTime,
   formatDollars,
@@ -334,6 +335,9 @@ function Orders({
                   </Badge>
                 )}
                 {orderText(o)}
+                {o.by && (
+                  <span className="block text-xs text-muted-foreground">{actorSays(o.by)}</span>
+                )}
               </TableCell>
               <TableCell className="max-w-64 truncate" title={names.get(o.tokenId)}>
                 {names.get(o.tokenId) ?? shortAddress(o.tokenId)}

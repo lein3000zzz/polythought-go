@@ -285,7 +285,8 @@ test('the live orders page lists none on paper, and downloads them as CSV (D228)
   expect(csv.headers()['content-type']).toBe('text/csv; charset=utf-8')
   expect((await csv.text()).trim()).toBe(
     'at,workflow,workflow_deleted,wallet_id,market,outcome,token_id,side,type,post_only,price,shares,' +
-      'dollars,status,filled_shares,filled_dollars,fees,reason,trader,trader_label,clob_id,order_id',
+      'dollars,status,filled_shares,filled_dollars,fees,reason,trader,trader_label,clob_id,order_id,' +
+      'by_kind,by,by_how',
   )
 })
 

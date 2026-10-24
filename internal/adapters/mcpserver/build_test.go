@@ -329,7 +329,7 @@ func TestBuildTools(t *testing.T) {
 
 		// Its workflow switched on by an agent: the agent is behind it (D407).
 		failed, _ := call(t, agent, "get_execution", map[string]any{"workflow": "wf-1", "execution": "ex-2"})
-		assert.Equal(t, map[string]any{"kind": "agent", "name": "Claude Code", "how": "switched_on", "confirmed": true}, failed["by"])
+		assert.Equal(t, map[string]any{"kind": "agent", "id": "g-1", "name": "Claude Code", "how": "switched_on", "confirmed": true}, failed["by"])
 		assert.NotContains(t, ex, "by", "the user's own")
 
 		none, _ := call(t, agent, "get_execution_items", map[string]any{"workflow": "wf-1", "execution": "ex-2"})

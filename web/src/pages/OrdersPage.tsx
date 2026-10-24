@@ -2,7 +2,7 @@ import { Download } from 'lucide-react'
 import { Link, useSearchParams } from 'react-router'
 
 import type { Schemas } from '@/api/client'
-import { exportURL, type OrderLogFilter, useLiveOrders } from '@/api/orders'
+import { exportURL, type OrderLogFilter, useLiveOrders, useOrderActors } from '@/api/orders'
 import { useWallets } from '@/api/wallets'
 import { useWorkflows } from '@/api/workflows'
 import { ErrorAlert } from '@/components/ErrorAlert'
@@ -19,6 +19,7 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import { orderText, resultText, traderName } from '@/features/trading/orderText'
+import { actorName, actorSays } from '@/lib/actors'
 import { formatDateTime, shortAddress } from '@/lib/format'
 
 type Status = NonNullable<OrderLogFilter['status']>
@@ -37,8 +38,8 @@ const statuses: Status[] = [
 
 /**
  * Every live order of your workflows, deleted ones' too (D228, D199): the record of the
- * real money they spent, narrowed by wallet, workflow and status, and downloaded as CSV.
- * The filters live in the address, so a wallet links to its own.
+ * real money they spent, narrowed by wallet, workflow, status and who is behind them (D408),
+ * and downloaded as CSV. The filters live in the address, so a wallet links to its own.
  */
 export function OrdersPage() {
   const [params, setParams] = useSearchParams()
@@ -46,11 +47,13 @@ export function OrdersPage() {
     wallet: params.get('wallet') || undefined,
     workflow: params.get('workflow') || undefined,
     status: (params.get('status') as Status | null) || undefined,
+    by: params.get('by') || undefined,
   }
 
   const orders = useLiveOrders(filter)
   const wallets = useWallets()
   const workflows = useWorkflows()
+  const actors = useOrderActors()
   const items = orders.data?.pages.flatMap((p) => p.orders) ?? []
   const walletName = new Map(wallets.data?.map((w) => [w.id, w.label || shortAddress(w.address)]))
 
@@ -121,13 +124,23 @@ export function OrdersPage() {
             </NativeSelectOption>
           ))}
         </Filter>
+        <Filter label="By" id="orders-by" value={filter.by} onChange={(v) => narrow('by', v)}>
+          <NativeSelectOption value="">Everyone</NativeSelectOption>
+          <NativeSelectOption value="you">You</NativeSelectOption>
+          {actors.data?.map((a) => (
+            <NativeSelectOption key={`${a.kind}:${a.id}`} value={`${a.kind}:${a.id}`}>
+              {actorName(a)}
+            </NativeSelectOption>
+          ))}
+        </Filter>
       </div>
 
       {orders.isPending && <Skeleton className="h-48" />}
       {orders.isError && <ErrorAlert error={orders.error} onRetry={() => void orders.refetch()} />}
       {orders.isSuccess && items.length === 0 && (
         <p className="rounded-lg border border-dashed p-8 text-center text-sm text-muted-foreground">
-          No live orders{filter.wallet || filter.workflow || filter.status ? ' like that' : ' yet'}.
+          No live orders
+          {filter.wallet || filter.workflow || filter.status || filter.by ? ' like that' : ' yet'}.
         </p>
       )}
 
@@ -149,6 +162,9 @@ export function OrdersPage() {
                 <TableCell className="whitespace-nowrap">{formatDateTime(o.at)}</TableCell>
                 <TableCell>
                   <WorkflowName order={o} />
+                  {o.by && (
+                    <span className="block text-xs text-muted-foreground">{actorSays(o.by)}</span>
+                  )}
                 </TableCell>
                 <TableCell>
                   {o.walletId ? (walletName.get(o.walletId) ?? 'An unlinked wallet') : '—'}

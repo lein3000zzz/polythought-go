@@ -144,6 +144,10 @@
                         ],
                         "type": "string"
                     },
+                    "id": {
+                        "description": "ID is the agent's grant, or the token: the orders' filter takes kind:id.",
+                        "type": "string"
+                    },
                     "kind": {
                         "enum": [
                             "agent",
@@ -157,8 +161,24 @@
                 },
                 "required": [
                     "how",
+                    "id",
                     "kind",
                     "name"
+                ],
+                "type": "object"
+            },
+            "ActorList": {
+                "properties": {
+                    "actors": {
+                        "items": {
+                            "$ref": "#/components/schemas/OrderActor"
+                        },
+                        "type": "array",
+                        "uniqueItems": false
+                    }
+                },
+                "required": [
+                    "actors"
                 ],
                 "type": "object"
             },
@@ -2039,6 +2059,10 @@
                         "format": "date-time",
                         "type": "string"
                     },
+                    "by": {
+                        "$ref": "#/components/schemas/Actor",
+                        "description": "By is the agent or token behind its run when it was placed (D408); absent for you."
+                    },
                     "deleted": {
                         "type": "boolean"
                     },
@@ -2804,6 +2828,10 @@
                         "format": "date-time",
                         "type": "string"
                     },
+                    "by": {
+                        "$ref": "#/components/schemas/Actor",
+                        "description": "By is the agent or token behind its run when it was placed (D408); absent for you."
+                    },
                     "dollars": {
                         "type": "string"
                     },
@@ -2908,6 +2936,30 @@
                     "status",
                     "tokenId",
                     "type"
+                ],
+                "type": "object"
+            },
+            "OrderActor": {
+                "properties": {
+                    "id": {
+                        "description": "ID is the agent's grant, or the token: the log's by takes kind:id.",
+                        "type": "string"
+                    },
+                    "kind": {
+                        "enum": [
+                            "agent",
+                            "token"
+                        ],
+                        "type": "string"
+                    },
+                    "name": {
+                        "type": "string"
+                    }
+                },
+                "required": [
+                    "id",
+                    "kind",
+                    "name"
                 ],
                 "type": "object"
             },
@@ -10610,6 +10662,14 @@
                         }
                     },
                     {
+                        "description": "Only those behind which: you, agent:\u003cid\u003e or token:\u003cid\u003e, as the actors list gives them",
+                        "in": "query",
+                        "name": "by",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
                         "description": "Page size",
                         "in": "query",
                         "name": "limit",
@@ -10673,6 +10733,45 @@
                 ]
             }
         },
+        "/orders/actors": {
+            "get": {
+                "operationId": "listOrderActors",
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ActorList"
+                                }
+                            }
+                        },
+                        "description": "OK"
+                    },
+                    "401": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "unauthenticated"
+                    }
+                },
+                "security": [
+                    {
+                        "SessionCookie": []
+                    },
+                    {
+                        "APIToken": []
+                    }
+                ],
+                "summary": "Who placed your live orders",
+                "tags": [
+                    "trading"
+                ]
+            }
+        },
         "/orders/export": {
             "get": {
                 "operationId": "exportLiveOrders",
@@ -10709,6 +10808,14 @@
                                 "pending",
                                 "failed"
                             ],
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "description": "Only those behind which: you, agent:\u003cid\u003e or token:\u003cid\u003e, as the actors list gives them",
+                        "in": "query",
+                        "name": "by",
+                        "schema": {
                             "type": "string"
                         }
                     }

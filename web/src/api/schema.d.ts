@@ -1361,6 +1361,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/orders/actors": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Who placed your live orders */
+        get: operations["listOrderActors"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/orders/export": {
         parameters: {
             query?: never;
@@ -2086,9 +2103,14 @@ export interface components {
              * @enum {string}
              */
             how: "run" | "switched_on" | "changed";
+            /** @description ID is the agent's grant, or the token: the orders' filter takes kind:id. */
+            id: string;
             /** @enum {string} */
             kind: "agent" | "token";
             name: string;
+        };
+        ActorList: {
+            actors: components["schemas"]["OrderActor"][];
         };
         AgentAccessRequest: {
             /** @description Answer lets them answer the questions the user's workflows ask (D405). */
@@ -2774,6 +2796,8 @@ export interface components {
         LoggedOrder: {
             /** Format: date-time */
             at: string;
+            /** @description By is the agent or token behind its run when it was placed (D408); absent for you. */
+            by?: components["schemas"]["Actor"];
             deleted: boolean;
             dollars?: string;
             executionId?: string;
@@ -3055,6 +3079,8 @@ export interface components {
         Order: {
             /** Format: date-time */
             at: string;
+            /** @description By is the agent or token behind its run when it was placed (D408); absent for you. */
+            by?: components["schemas"]["Actor"];
             dollars?: string;
             executionId?: string;
             /**
@@ -3096,6 +3122,13 @@ export interface components {
              * @enum {string}
              */
             type: "FOK" | "FAK" | "GTC" | "GTD" | "SETTLE";
+        };
+        OrderActor: {
+            /** @description ID is the agent's grant, or the token: the log's by takes kind:id. */
+            id: string;
+            /** @enum {string} */
+            kind: "agent" | "token";
+            name: string;
         };
         OrderFill: {
             dollars: string;
@@ -8024,6 +8057,8 @@ export interface operations {
                 workflow?: string;
                 /** @description Only those with this status */
                 status?: "filled" | "partial" | "open" | "canceled" | "expired" | "unfilled" | "refused" | "pending" | "failed";
+                /** @description Only those behind which: you, agent:<id> or token:<id>, as the actors list gives them */
+                by?: string;
                 /** @description Page size */
                 limit?: number;
                 /** @description nextCursor of the previous page */
@@ -8064,6 +8099,35 @@ export interface operations {
             };
         };
     };
+    listOrderActors: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ActorList"];
+                };
+            };
+            /** @description unauthenticated */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
     exportLiveOrders: {
         parameters: {
             query?: {
@@ -8073,6 +8137,8 @@ export interface operations {
                 workflow?: string;
                 /** @description Only those with this status */
                 status?: "filled" | "partial" | "open" | "canceled" | "expired" | "unfilled" | "refused" | "pending" | "failed";
+                /** @description Only those behind which: you, agent:<id> or token:<id>, as the actors list gives them */
+                by?: string;
             };
             header?: never;
             path?: never;

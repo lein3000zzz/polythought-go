@@ -35,6 +35,12 @@ func (s *Service) OrderLog(ctx context.Context, p auth.Principal, f ports.OrderL
 	return ports.Page[LogEntry]{Items: s.named(ctx, page.Items), NextCursor: page.NextCursor}, nil
 }
 
+// OrderActors are the agents and tokens behind the user's live orders, to filter the log by
+// (D408).
+func (s *Service) OrderActors(ctx context.Context, p auth.Principal) ([]domain.Actor, error) {
+	return s.d.Ledger.OwnerActors(ctx, p.User.ID, domain.ModeLive)
+}
+
 // ExportOrders is every live order of the user f keeps, the newest exportMost, for a
 // download.
 func (s *Service) ExportOrders(ctx context.Context, p auth.Principal, f ports.OrderLogFilter) ([]LogEntry, error) {

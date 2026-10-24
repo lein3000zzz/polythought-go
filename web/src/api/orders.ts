@@ -1,12 +1,15 @@
-import { useInfiniteQuery } from '@tanstack/react-query'
+import { useInfiniteQuery, useQuery } from '@tanstack/react-query'
 
 import { api, call, type Schemas } from './client'
 import { keys } from './keys'
 
 type Status = NonNullable<Schemas['LoggedOrder']['status']>
 
-/** What the order log is narrowed to: a wallet, a workflow, a status (D228). */
-export type OrderLogFilter = { wallet?: string; workflow?: string; status?: Status }
+/**
+ * What the order log is narrowed to: a wallet, a workflow, a status (D228), and who is
+ * behind them, you or agent:<id> or token:<id> (D408).
+ */
+export type OrderLogFilter = { wallet?: string; workflow?: string; status?: Status; by?: string }
 
 const pageSize = 50
 
@@ -33,4 +36,12 @@ export function exportURL(f: OrderLogFilter): string {
   ).toString()
 
   return `/api/v1/orders/export${query ? `?${query}` : ''}`
+}
+
+/** The agents and tokens behind your live orders, each once, to filter by (D408). */
+export function useOrderActors() {
+  return useQuery({
+    queryKey: keys.orderActors,
+    queryFn: async () => (await call(api.GET('/orders/actors'))).actors,
+  })
 }
