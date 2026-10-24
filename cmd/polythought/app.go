@@ -388,14 +388,16 @@ func (a *app) newMCP() (*mcpserver.Server, error) {
 		Markets: mcpserver.Markets{Reader: a.markets, Sources: ai.Sources{
 			Events: a.markets, Books: a.markets, History: a.markets, Trades: a.markets, Positions: a.markets,
 		}},
-		Wallets:  a.wallets,
-		Trades:   a.trading,
-		Admin:    a.auth,
-		Settings: a.settings,
-		Mail:     a.mail,
-		Geoblock: a.geoblock,
-		Plugins:  a.plugins,
-		Tasks:    a.tasks,
+		Wallets:     a.wallets,
+		Trades:      a.trading,
+		Admin:       a.auth,
+		Settings:    a.settings,
+		Mail:        a.mail,
+		Geoblock:    a.geoblock,
+		Plugins:     a.plugins,
+		Tasks:       a.tasks,
+		Sessions:    postgres.NewMCPSessions(a.db),
+		SessionIdle: a.settings.Current().Duration(config.KeyMCPSessionIdle),
 		Trading: func(ctx context.Context, w domain.Workflow) (string, error) {
 			if !nodes.PlacesOrders(a.registry, w) {
 				return "none", nil

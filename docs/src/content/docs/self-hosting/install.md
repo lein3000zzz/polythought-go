@@ -141,9 +141,10 @@ Empty, which it is to start with, orders carry none.
 ## Agents over MCP
 
 Users can connect agents such as Claude Code and Codex at the server's address followed by
-`/mcp`, such as `https://polythought.example.com/mcp`. The agent signs in through its user's
-browser, where they choose what it may do, and **Settings → Connected agents** lists the
-agents allowed, to revoke. An API token works there too, with the scopes it was made with.
+`/mcp`, such as `https://polythought.example.com/mcp`. **Settings → Connected agents** has
+the steps for each client, the address filled in. The agent signs in through its user's
+browser, where they choose what it may do, and the same page lists the agents connected now
+and those allowed, to revoke. An API token works there too, with the scopes it was made with.
 Agents read workflows, executions, the node catalog, the library, the markets and the user's
 wallets and orders, build workflows, and trade, what reaches real money waiting for the
 user to confirm it where they say so; `whoami` says who an agent acts for and what it may do.
@@ -177,6 +178,17 @@ Under **Agents over MCP** on the Config page:
   the user's other agents.
 - **Agents count as around for**, a minute to start with, is how long after an agent last
   waited it still counts as there, so a Local agent node hands it a task rather than fail.
+- **Clients with steps** lists the clients Connected agents gives steps for, a tab each,
+  in order: `claude-code`, `codex`, `gemini-cli`, `cursor`, `opencode`, `vscode`,
+  `claude-ai` and `other`, all of them to start with. Claude Desktop and claude.ai connect
+  from Anthropic's cloud, so leave `claude-ai` out where the server is not reachable from
+  the internet.
+- **Address agents connect at**, empty to start with for the public URL followed by `/mcp`,
+  is the address those steps give, for a server agents reach by another name.
+- **Agents' sessions last**, an hour to start with, is how long an agent's session stays
+  open with no call; it applies from the next restart. Sessions are kept in the database,
+  so Connected agents still lists those open as the server restarts, until their agents
+  come back with new ones.
 - **Agents create accounts with passwords**, off to start with, lets an admin's agents and
   tokens create accounts with a password they give. Off, they invite people, by mail where
   mail is set up, else with a link, and no password passes through an agent.

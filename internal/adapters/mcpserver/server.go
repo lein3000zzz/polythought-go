@@ -11,6 +11,8 @@ import (
 	"net/http"
 	"runtime/debug"
 	"strings"
+	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/lein3000zzz/the-watchers/pkg/observability"
@@ -28,7 +30,8 @@ import (
 )
 
 const (
-	// A session no request came for in this long is closed; its client starts another.
+	// A session no request came for in this long is closed, unless Deps say otherwise;
+	// its client starts another.
 	sessionIdle = time.Hour
 	maxBody     = 1 << 20 // as the API's
 )
@@ -96,6 +99,11 @@ type Deps struct {
 	// are not offered.
 	Tasks Tasks
 
+	// Sessions keeps the sessions open, for Settings to show who is connected (D414); and
+	// SessionIdle is how long one lasts with no call, an hour when zero.
+	Sessions    ports.MCPSessionRepository
+	SessionIdle time.Duration
+
 	// What the market tools read (D402); without a reader they are not offered.
 	Markets Markets
 	// What the money tools read (D402).
@@ -138,6 +146,13 @@ type Server struct {
 	wallets      Wallets
 	trades       Trades
 
+	sessions ports.MCPSessionRepository
+	boot     string        // this run of the server, its sessions kept with it
+	idle     time.Duration // how long a session lasts with no call
+	closing  atomic.Bool   // the server is stopping: its sessions stay kept
+	mu       sync.Mutex
+	tracked  map[string]time.Time // the sessions seen, and when last written down
+
 	kit     *redkit.Kit
 	scope   tracing.Scope
 	handler http.Handler
@@ -161,7 +176,12 @@ func New(cfg Config, d Deps) (*Server, error) {
 		window: d.Window, windowWait: d.WindowWait, publicURL: strings.TrimRight(cfg.PublicURL, "/"),
 		admin: d.Admin, config: d.Settings, mail: d.Mail, geoblock: d.Geoblock, plugins: d.Plugins, tasks: d.Tasks,
 		markets: d.Markets.Sources, marketReader: d.Markets.Reader, wallets: d.Wallets, trades: d.Trades,
-		scope: tracing.Scope{Manager: d.Util.TracerManager, TracerName: tracerName},
+		scope:    tracing.Scope{Manager: d.Util.TracerManager, TracerName: tracerName},
+		sessions: d.Sessions, boot: newBoot(), idle: d.SessionIdle, tracked: map[string]time.Time{},
+	}
+
+	if s.idle <= 0 {
+		s.idle = sessionIdle
 	}
 
 	srv := mcp.NewServer(&mcp.Implementation{
@@ -171,6 +191,8 @@ func New(cfg Config, d Deps) (*Server, error) {
 			"You act for the user who allowed you, with the scopes they gave you; whoami says which. With the tasks scope, " +
 			"wait_for_task hands you what their workflows ask of you. " + Notice,
 	})
+
+	srv.AddReceivingMiddleware(s.track)
 
 	add(s, srv, Tool[struct{}, whoamiResult]{
 		Name:        "whoami",
@@ -237,7 +259,7 @@ func New(cfg Config, d Deps) (*Server, error) {
 	}
 
 	stream := mcp.NewStreamableHTTPHandler(func(*http.Request) *mcp.Server { return srv }, &mcp.StreamableHTTPOptions{
-		SessionTimeout:      sessionIdle,
+		SessionTimeout:      s.idle,
 		MaxRequestBodyBytes: maxBody,
 		// The protection is for local servers that take no credentials: every request here
 		// carries a bearer token, which a page rebound to this host's name would not have.

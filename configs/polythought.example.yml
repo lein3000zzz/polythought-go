@@ -419,6 +419,24 @@ mcp:
   # Environment: POLYTHOUGHT_MCP_TASK_SEEN.
   # task_seen: "1m"
 
+  # The agents' clients Connected agents gives steps for, a tab each, in this order:
+  # claude-code, codex, gemini-cli, cursor, opencode, vscode, claude-ai (Claude Desktop
+  # and claude.ai, which connect from Anthropic's cloud) and other (any client, or an
+  # API token). Applies at once.
+  # Environment: POLYTHOUGHT_MCP_CLIENTS.
+  # clients: ["claude-code","codex","gemini-cli","cursor","opencode","vscode","claude-ai","other"]
+
+  # The address Connected agents gives agents, such as
+  # https://polythought.example.com/mcp. Empty for the server's public URL followed by
+  # /mcp; set it where agents reach the server by another name. Applies at once.
+  # Environment: POLYTHOUGHT_MCP_ADDRESS.
+  # address: ""
+
+  # How long an agent's MCP session lasts with no call before the server closes it, and
+  # it no longer shows as connected; its client opens another when it calls again.
+  # Environment: POLYTHOUGHT_MCP_SESSION_IDLE.
+  # session_idle: "1h"
+
 webhook:
 
   # Let workflows reach addresses inside the server's network, such as a service on the

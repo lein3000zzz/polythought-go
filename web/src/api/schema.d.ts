@@ -1004,6 +1004,40 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/me/agent-sessions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Your agents connected now */
+        get: operations["listAgentSessions"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/me/agent-setup": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** How to connect an agent */
+        get: operations["getAgentSetup"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/me/agent-spend": {
         parameters: {
             query?: never;
@@ -2197,6 +2231,39 @@ export interface components {
         };
         AgentChoicesRequest: {
             killStopsAgents: boolean;
+        };
+        AgentSession: {
+            /**
+             * @description BeforeRestart says it was open as the server restarted, and its agent has not come
+             *     back since; it opens a new one when it calls again.
+             */
+            beforeRestart: boolean;
+            /** @description Client is its client as it said, with its version, like claude-code 2.1.300. */
+            client: string;
+            /**
+             * @description Kind is agent, signed in with OAuth, or token, an API token.
+             * @enum {string}
+             */
+            kind: "agent" | "token";
+            /** @description Name is the agent's or the token's, as it was when the session opened. */
+            name: string;
+            /** Format: date-time */
+            openedAt: string;
+            /** Format: date-time */
+            seenAt: string;
+        };
+        AgentSessionList: {
+            sessions: components["schemas"]["AgentSession"][];
+        };
+        AgentSetup: {
+            /** @description Address is where agents connect, such as https://polythought.example.com/mcp. */
+            address: string;
+            /** @description Clients are those the steps are for, a tab each, in order. */
+            clients: ("claude-code" | "codex" | "gemini-cli" | "cursor" | "opencode" | "vscode" | "claude-ai" | "other")[];
+            /** @description Enabled says agents may connect here; off, an admin turned Agents over MCP off. */
+            enabled: boolean;
+            /** @description Metadata is where an agent finds how to sign in (RFC 9728). */
+            metadata: string;
         };
         AgentSpend: {
             calls: number;
@@ -7372,6 +7439,64 @@ export interface operations {
             };
             /** @description forbidden: not from a browser session */
             403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    listAgentSessions: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AgentSessionList"];
+                };
+            };
+            /** @description unauthenticated */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    getAgentSetup: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AgentSetup"];
+                };
+            };
+            /** @description unauthenticated */
+            401: {
                 headers: {
                     [name: string]: unknown;
                 };

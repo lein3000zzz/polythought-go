@@ -767,6 +767,42 @@ How long after an agent last waited for a task it still counts as there, so a lo
 | Default | `1m` |
 | Applies | at once |
 
+### Clients with steps
+
+The agents' clients Connected agents gives steps for, a tab each, in this order: claude-code, codex, gemini-cli, cursor, opencode, vscode, claude-ai (Claude Desktop and claude.ai, which connect from Anthropic's cloud) and other (any client, or an API token). Applies at once.
+
+| | |
+|---|---|
+| Key | `mcp.clients` |
+| Environment variable | `POLYTHOUGHT_MCP_CLIENTS` |
+| Kind | list; in the environment, separated by commas |
+| Default | `claude-code`, `codex`, `gemini-cli`, `cursor`, `opencode`, `vscode`, `claude-ai`, `other` |
+| Applies | at once |
+
+### Address agents connect at
+
+The address Connected agents gives agents, such as https://polythought.example.com/mcp. Empty for the server's public URL followed by /mcp; set it where agents reach the server by another name. Applies at once.
+
+| | |
+|---|---|
+| Key | `mcp.address` |
+| Environment variable | `POLYTHOUGHT_MCP_ADDRESS` |
+| Kind | text |
+| Default | empty |
+| Applies | at once |
+
+### Agents' sessions last
+
+How long an agent's MCP session lasts with no call before the server closes it, and it no longer shows as connected; its client opens another when it calls again.
+
+| | |
+|---|---|
+| Key | `mcp.session_idle` |
+| Environment variable | `POLYTHOUGHT_MCP_SESSION_IDLE` |
+| Kind | duration, e.g. `30s`, `5m`, `168h` |
+| Default | `1h` |
+| Applies | after a restart |
+
 ## Network
 
 ### Trusted proxies

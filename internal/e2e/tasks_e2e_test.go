@@ -126,6 +126,23 @@ func TestAgentTakesATask(t *testing.T) {
 		return false
 	}, 10*time.Second, 100*time.Millisecond, "marked as taking tasks")
 
+	// Connected now, by its client (D414); and the steps' address, the server's.
+	var sessions struct {
+		Sessions []struct{ Kind, Name, Client string }
+	}
+	b.call(http.MethodGet, "/api/v1/me/agent-sessions", nil, http.StatusOK, &sessions)
+	assert.Contains(t, sessions.Sessions, struct{ Kind, Name, Client string }{"token", "e2e tasks", "go-sdk-e2e-tasks 1"})
+
+	var setup struct {
+		Enabled bool
+		Address string
+	}
+	b.call(http.MethodGet, "/api/v1/me/agent-setup", nil, http.StatusOK, &setup)
+	assert.Equal(t, struct {
+		Enabled bool
+		Address string
+	}{true, base + "/mcp"}, setup)
+
 	time.Sleep(2 * time.Second) // the agent's call held open a while, through the proxy
 
 	waits := run()

@@ -152,6 +152,10 @@ type Services struct {
 	// (D413); nil where there are none.
 	Tasks      TaskService
 	TaskAgents TaskAgents
+	// AgentSetup is how to connect an agent, and AgentSessions the agents connected now
+	// (D414); nil where there is no MCP.
+	AgentSetup    func() AgentSetup
+	AgentSessions AgentSessions
 	// MCP serves /mcp, agents' endpoint (D398): the SDK's server, checking its own tokens.
 	MCP http.Handler
 	// Spend is what users' agents spend, and the caps on it; nil when there is no agent.
@@ -204,6 +208,9 @@ type Server struct {
 	confirmations ConfirmationService
 	tasks         TaskService
 	taskAgents    TaskAgents
+	agentSetup    func() AgentSetup
+	agentSessions AgentSessions
+	publicURL     string
 	mcp           http.Handler
 	spend         SpendService
 	plugins       PluginService
@@ -287,6 +294,9 @@ func New(cfg Config, util *observability.Utility, services Services) (*Server, e
 		confirmations: services.Confirmations,
 		tasks:         services.Tasks,
 		taskAgents:    services.TaskAgents,
+		agentSetup:    services.AgentSetup,
+		agentSessions: services.AgentSessions,
+		publicURL:     cfg.PublicURL,
 		mcp:           services.MCP,
 		spend:         services.Spend,
 		plugins:       services.Plugins,
@@ -355,6 +365,8 @@ func (s *Server) routes() {
 	v1.POST("/oauth/authorization/approve", s.requireAuth, s.oauthApprove)
 	v1.POST("/oauth/authorization/deny", s.requireAuth, s.oauthDeny)
 	v1.GET("/me/grants", s.requireAuth, s.listGrants)
+	v1.GET("/me/agent-setup", s.requireAuth, s.getAgentSetup)
+	v1.GET("/me/agent-sessions", s.requireAuth, s.listAgentSessions)
 	v1.DELETE("/me/grants/:id", s.requireAuth, s.revokeGrant)
 	v1.PUT("/me/agent-access", s.requireAuth, s.setAgentAccess)
 	v1.GET("/me/confirmations", s.requireAuth, s.listConfirmations)

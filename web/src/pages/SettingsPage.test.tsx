@@ -495,6 +495,82 @@ describe('settings page', () => {
     )
   })
 
+  it('gives the steps for the clients an admin lists, and the agents connected now (D414)', async () => {
+    server.use(
+      signedIn,
+      http.get('/api/v1/me/agent-setup', () =>
+        HttpResponse.json({
+          enabled: true,
+          address: 'https://poly.example/mcp',
+          metadata: 'https://poly.example/.well-known/oauth-protected-resource/mcp',
+          clients: ['codex', 'claude-code', 'other'],
+        }),
+      ),
+      http.get('/api/v1/me/agent-sessions', () =>
+        HttpResponse.json({
+          sessions: [
+            {
+              kind: 'agent',
+              name: 'Claude Code',
+              client: 'claude-code 2.1.300',
+              openedAt: '2026-10-24T12:00:00Z',
+              seenAt: '2026-10-24T12:01:00Z',
+              beforeRestart: false,
+            },
+            {
+              kind: 'token',
+              name: 'laptop',
+              client: '',
+              openedAt: '2026-10-24T11:00:00Z',
+              seenAt: '2026-10-24T11:30:00Z',
+              beforeRestart: true,
+            },
+          ],
+        }),
+      ),
+    )
+    const { user } = renderApp('/settings/connected')
+
+    const tabs = within(await screen.findByRole('tablist', { name: 'Agent clients' }))
+    expect(tabs.getAllByRole('tab').map((t) => t.textContent)).toEqual([
+      'Codex',
+      'Claude Code',
+      'Other clients',
+    ])
+    expect(screen.getByRole('tabpanel', { name: 'Codex' })).toHaveTextContent(
+      'url = "https://poly.example/mcp"',
+    )
+
+    await user.click(tabs.getByRole('tab', { name: 'Claude Code' }))
+    expect(screen.getByRole('tabpanel', { name: 'Claude Code' })).toHaveTextContent(
+      'claude mcp add --transport http --scope user polythought https://poly.example/mcp',
+    )
+
+    const now = within(await screen.findByRole('list', { name: 'Connected now' }))
+    expect(now.getByText('Claude Code').closest('li')).toHaveTextContent('claude-code 2.1.300')
+    expect(now.getByText('The API token “laptop”').closest('li')).toHaveTextContent(
+      'Since before a restart',
+    )
+  })
+
+  it('says when an admin turned agents off (D414)', async () => {
+    server.use(
+      signedIn,
+      http.get('/api/v1/me/agent-setup', () =>
+        HttpResponse.json({
+          enabled: false,
+          address: 'https://poly.example/mcp',
+          metadata: 'https://poly.example/.well-known/oauth-protected-resource/mcp',
+          clients: ['claude-code'],
+        }),
+      ),
+    )
+    renderApp('/settings/connected')
+
+    expect(await screen.findByText(/An admin has turned agents off/)).toBeInTheDocument()
+    expect(screen.queryByRole('tablist', { name: 'Agent clients' })).not.toBeInTheDocument()
+  })
+
   it('lets agents see personal settings, off to start with (D401)', async () => {
     let sent: unknown
     server.use(

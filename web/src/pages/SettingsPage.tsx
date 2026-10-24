@@ -93,6 +93,19 @@ export function SettingsPage() {
     },
     {
       slug: 'connected',
+      key: 'connect-agent',
+      label: 'Connect an agent',
+      words:
+        'mcp add claude code codex gemini cursor opencode vs code claude.ai desktop setup steps address',
+    },
+    {
+      slug: 'connected',
+      key: 'connected-now',
+      label: 'Connected now',
+      words: 'agents tokens mcp sessions online connected',
+    },
+    {
+      slug: 'connected',
       key: 'agents-see-personal',
       label: 'Agents and tokens see personal settings',
       words: 'agents api tokens mcp personal sensitive webhook url secret hidden',

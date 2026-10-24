@@ -23,6 +23,7 @@ import { scopeTitle } from '@/features/oauth/scopes'
 import { formatDateTime } from '@/lib/format'
 
 import { ConfirmationsSection } from './ConfirmationsSection'
+import { ConnectAgent, ConnectedNow } from './ConnectAgent'
 import { jumpId } from './pages'
 
 /** The agents the user allowed, with what each may do, to revoke (D384). */
@@ -42,6 +43,9 @@ export function ConnectedSection() {
           asks you again the next time it signs in.
         </p>
       </div>
+
+      <ConnectAgent />
+      <ConnectedNow />
 
       <AccessSwitch
         id="agents-see-personal"

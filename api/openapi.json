@@ -244,6 +244,103 @@
                 ],
                 "type": "object"
             },
+            "AgentSession": {
+                "properties": {
+                    "beforeRestart": {
+                        "description": "BeforeRestart says it was open as the server restarted, and its agent has not come\nback since; it opens a new one when it calls again.",
+                        "type": "boolean"
+                    },
+                    "client": {
+                        "description": "Client is its client as it said, with its version, like claude-code 2.1.300.",
+                        "type": "string"
+                    },
+                    "kind": {
+                        "description": "Kind is agent, signed in with OAuth, or token, an API token.",
+                        "enum": [
+                            "agent",
+                            "token"
+                        ],
+                        "type": "string"
+                    },
+                    "name": {
+                        "description": "Name is the agent's or the token's, as it was when the session opened.",
+                        "type": "string"
+                    },
+                    "openedAt": {
+                        "format": "date-time",
+                        "type": "string"
+                    },
+                    "seenAt": {
+                        "format": "date-time",
+                        "type": "string"
+                    }
+                },
+                "required": [
+                    "beforeRestart",
+                    "client",
+                    "kind",
+                    "name",
+                    "openedAt",
+                    "seenAt"
+                ],
+                "type": "object"
+            },
+            "AgentSessionList": {
+                "properties": {
+                    "sessions": {
+                        "items": {
+                            "$ref": "#/components/schemas/AgentSession"
+                        },
+                        "type": "array",
+                        "uniqueItems": false
+                    }
+                },
+                "required": [
+                    "sessions"
+                ],
+                "type": "object"
+            },
+            "AgentSetup": {
+                "properties": {
+                    "address": {
+                        "description": "Address is where agents connect, such as https://polythought.example.com/mcp.",
+                        "type": "string"
+                    },
+                    "clients": {
+                        "description": "Clients are those the steps are for, a tab each, in order.",
+                        "items": {
+                            "enum": [
+                                "claude-code",
+                                "codex",
+                                "gemini-cli",
+                                "cursor",
+                                "opencode",
+                                "vscode",
+                                "claude-ai",
+                                "other"
+                            ],
+                            "type": "string"
+                        },
+                        "type": "array",
+                        "uniqueItems": false
+                    },
+                    "enabled": {
+                        "description": "Enabled says agents may connect here; off, an admin turned Agents over MCP off.",
+                        "type": "boolean"
+                    },
+                    "metadata": {
+                        "description": "Metadata is where an agent finds how to sign in (RFC 9728).",
+                        "type": "string"
+                    }
+                },
+                "required": [
+                    "address",
+                    "clients",
+                    "enabled",
+                    "metadata"
+                ],
+                "type": "object"
+            },
             "AgentSpend": {
                 "properties": {
                     "calls": {
@@ -9701,6 +9798,84 @@
                     }
                 ],
                 "summary": "What your agents may see and do",
+                "tags": [
+                    "oauth"
+                ]
+            }
+        },
+        "/me/agent-sessions": {
+            "get": {
+                "operationId": "listAgentSessions",
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/AgentSessionList"
+                                }
+                            }
+                        },
+                        "description": "OK"
+                    },
+                    "401": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "unauthenticated"
+                    }
+                },
+                "security": [
+                    {
+                        "SessionCookie": []
+                    },
+                    {
+                        "APIToken": []
+                    }
+                ],
+                "summary": "Your agents connected now",
+                "tags": [
+                    "oauth"
+                ]
+            }
+        },
+        "/me/agent-setup": {
+            "get": {
+                "operationId": "getAgentSetup",
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/AgentSetup"
+                                }
+                            }
+                        },
+                        "description": "OK"
+                    },
+                    "401": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "unauthenticated"
+                    }
+                },
+                "security": [
+                    {
+                        "SessionCookie": []
+                    },
+                    {
+                        "APIToken": []
+                    }
+                ],
+                "summary": "How to connect an agent",
                 "tags": [
                     "oauth"
                 ]

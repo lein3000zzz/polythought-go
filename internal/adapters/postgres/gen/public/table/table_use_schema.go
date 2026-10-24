@@ -22,6 +22,7 @@ func UseSchema(schema string) {
 	InviteUses = InviteUses.FromSchema(schema)
 	Invites = Invites.FromSchema(schema)
 	JoinRequests = JoinRequests.FromSchema(schema)
+	McpSessions = McpSessions.FromSchema(schema)
 	NodeMemory = NodeMemory.FromSchema(schema)
 	NotificationPrefs = NotificationPrefs.FromSchema(schema)
 	OAuthClients = OAuthClients.FromSchema(schema)

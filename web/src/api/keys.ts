@@ -14,6 +14,8 @@ export const keys = {
   customNode: (id: string) => ['custom-nodes', 'detail', id],
   tokens: ['tokens'],
   grants: ['grants'],
+  agentSetup: ['grants', 'setup'], // under grants: what refreshes those does this
+  agentSessions: ['grants', 'sessions'],
   confirmations: ['confirmations'],
   consent: (request: object) => ['oauth-consent', request],
   telegram: ['telegram'],

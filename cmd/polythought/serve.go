@@ -53,6 +53,9 @@ func serve(ctx context.Context) error {
 		return err
 	}
 
+	// Its sessions stay kept as the server stops, for their agents to come back to (D414).
+	a.util.OnShutdown(mcp.Shutdown)
+
 	srv, err := httpapi.New(httpapi.Config{
 		Addr:           a.cfg.HTTPAddr,
 		PublicURL:      a.cfg.PublicURL,
@@ -69,6 +72,13 @@ func serve(ctx context.Context) error {
 		OAuth: a.oauth, Confirmations: a.confirmations,
 		MCP:     mcp,
 		Plugins: a.plugins,
+		AgentSetup: func() httpapi.AgentSetup {
+			cur := a.settings.Current()
+			return httpapi.AgentSetup{
+				Enabled: cur.Bool(config.KeyMCPEnabled), Address: cur.String(config.KeyMCPAddress), Clients: cur.Strings(config.KeyMCPClients),
+			}
+		},
+		AgentSessions: mcp,
 
 		CodeRunners: a.codeRunners,
 	})

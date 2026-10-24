@@ -8,6 +8,7 @@ import (
 	"net"
 	"net/mail"
 	"net/url"
+	"slices"
 	"strings"
 	"time"
 	"unicode"
@@ -87,6 +88,9 @@ const (
 	KeyMCPTaskWait         = "mcp.task_wait"
 	KeyMCPTaskLease        = "mcp.task_lease"
 	KeyMCPTaskSeen         = "mcp.task_seen"
+	KeyMCPClients          = "mcp.clients"
+	KeyMCPAddress          = "mcp.address"
+	KeyMCPSessionIdle      = "mcp.session_idle"
 
 	KeyTrustedProxies      = "http.trusted_proxies"
 	KeyWebhookAllowPrivate = "webhook.allow_private"
@@ -497,6 +501,26 @@ func Settings() (*settings.Registry, error) {
 			Kind: settings.KindDuration, Default: time.Minute, Check: within(5*time.Second, time.Hour),
 		},
 		settings.Spec{
+			Key: KeyMCPClients, Group: groupMCP, Label: "Clients with steps",
+			Description: "The agents' clients Connected agents gives steps for, a tab each, in this order: claude-code, codex, " +
+				"gemini-cli, cursor, opencode, vscode, claude-ai (Claude Desktop and claude.ai, which connect from " +
+				"Anthropic's cloud) and other (any client, or an API token). Applies at once.",
+			Kind: settings.KindList, Default: slices.Clone(MCPClients), Check: mcpClients,
+		},
+		settings.Spec{
+			Key: KeyMCPAddress, Group: groupMCP, Label: "Address agents connect at",
+			Description: "The address Connected agents gives agents, such as https://polythought.example.com/mcp. Empty " +
+				"for the server's public URL followed by /mcp; set it where agents reach the server by another name. " +
+				"Applies at once.",
+			Kind: settings.KindString, Default: "", Check: mcpAddress,
+		},
+		settings.Spec{
+			Key: KeyMCPSessionIdle, Group: groupMCP, Label: "Agents' sessions last",
+			Description: "How long an agent's MCP session lasts with no call before the server closes it, and it no " +
+				"longer shows as connected; its client opens another when it calls again.",
+			Kind: settings.KindDuration, Default: time.Hour, Check: within(5*time.Minute, 24*time.Hour), Apply: settings.ApplyRestart,
+		},
+		settings.Spec{
 			Key: KeyTrustedProxies, Group: groupNetwork, Label: "Trusted proxies",
 			Description: "Address ranges (CIDR, e.g. 10.0.0.0/8) of reverse proxies allowed to report the client's address in X-Forwarded-For. Leave empty without a proxy: anyone could then pick their own address and dodge rate limits.",
 			Kind:        settings.KindList, Default: []string{}, Check: cidrs,
@@ -624,6 +648,34 @@ func atLeast(least time.Duration) func(any) error {
 
 		return nil
 	}
+}
+
+// MCPClients are the agents' clients Connected agents can give steps for (D414), in their
+// order there.
+var MCPClients = []string{"claude-code", "codex", "gemini-cli", "cursor", "opencode", "vscode", "claude-ai", "other"}
+
+func mcpClients(v any) error {
+	for _, c := range v.([]string) {
+		if !slices.Contains(MCPClients, c) {
+			return fmt.Errorf("%q is no client with steps: %s", c, strings.Join(MCPClients, ", "))
+		}
+	}
+
+	return nil
+}
+
+func mcpAddress(v any) error {
+	addr := v.(string)
+	if addr == "" {
+		return nil
+	}
+
+	u, err := url.Parse(addr)
+	if err != nil || (u.Scheme != "https" && u.Scheme != "http") || u.Host == "" {
+		return errors.New("an http or https address, like https://polythought.example.com/mcp")
+	}
+
+	return nil
 }
 
 func within(least, most time.Duration) func(any) error {

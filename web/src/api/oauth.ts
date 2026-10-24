@@ -44,6 +44,23 @@ export function useGrants() {
   })
 }
 
+/** How to connect an agent here: the address, and the clients with steps (D414). */
+export function useAgentSetup() {
+  return useQuery({
+    queryKey: keys.agentSetup,
+    queryFn: () => call(api.GET('/me/agent-setup')),
+  })
+}
+
+/** Your agents and tokens connected now, looked at again every half minute (D414). */
+export function useAgentSessions() {
+  return useQuery({
+    queryKey: keys.agentSessions,
+    queryFn: async () => (await call(api.GET('/me/agent-sessions'))).sessions,
+    refetchInterval: 30_000,
+  })
+}
+
 /** What agents see and do (D401, D403), the switches named, at a browser only. */
 export function useSetAgentAccess() {
   const queryClient = useQueryClient()
