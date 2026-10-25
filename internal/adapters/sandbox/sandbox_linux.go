@@ -56,12 +56,6 @@ func become(p Policy, run func() error) error {
 		return fmt.Errorf("its priority: %w", err)
 	}
 
-	for resource, limit := range limits(p) {
-		if err := unix.Setrlimit(resource, &unix.Rlimit{Cur: limit, Max: limit}); err != nil {
-			return fmt.Errorf("limits: %w", err)
-		}
-	}
-
 	rules := []landlock.Rule{
 		landlock.PathAccess(read|write, p.Temp).WithResolveUnix(),
 		landlock.PathAccess(ll.AccessFSReadFile|ll.AccessFSWriteFile, "/dev/null"),
@@ -92,13 +86,26 @@ func become(p Policy, run func() error) error {
 		return fmt.Errorf("seccomp: %w", err)
 	}
 
+	if run == nil {
+		// Writing past its file size, it is told so, EFBIG, not killed, as a Go program's
+		// runtime has it anyway (P9).
+		signal.Ignore(syscall.SIGXFSZ)
+	}
+
+	// The limits last, the launcher's own work done: built with the race detector, as in
+	// tests, it is past its memory from the start, the detector's shadow counted, and
+	// dies of any more it maps, a memory profile's samples too, so it keeps none.
+	runtime.MemProfileRate = 0
+
+	for resource, limit := range limits(p) {
+		if err := unix.Setrlimit(resource, &unix.Rlimit{Cur: limit, Max: limit}); err != nil {
+			return fmt.Errorf("limits: %w", err)
+		}
+	}
+
 	if run != nil {
 		return run()
 	}
-
-	// Writing past its file size, it is told so, EFBIG, not killed, as a Go program's
-	// runtime has it anyway (P9).
-	signal.Ignore(syscall.SIGXFSZ)
 
 	//nolint:gosec // the program the host was given, in the directory it may run programs from
 	return syscall.Exec(p.Program, []string{p.Program}, os.Environ())

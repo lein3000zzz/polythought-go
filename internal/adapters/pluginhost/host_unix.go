@@ -10,6 +10,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"runtime"
+	"strings"
 	"syscall"
 )
 
@@ -22,7 +23,7 @@ func ownSession(cmd *exec.Cmd) {
 
 // unlinked is what the files pid holds open with no name left take, as Usage counts them
 // (P9): a plugin's data that no walk of its directories finds. Linux shows them in /proc;
-// elsewhere there are none to count. A process gone takes nothing.
+// elsewhere there are none to count. A process gone, or on its way out, takes nothing.
 func unlinked(pid int) (int64, error) {
 	if runtime.GOOS != "linux" {
 		return 0, nil
@@ -31,7 +32,7 @@ func unlinked(pid int) (int64, error) {
 	dir := fmt.Sprintf("/proc/%d/fd", pid)
 
 	fds, err := os.ReadDir(dir)
-	if errors.Is(err, fs.ErrNotExist) || errors.Is(err, syscall.ESRCH) {
+	if gone(pid, err) {
 		return 0, nil
 	} else if err != nil {
 		return 0, bare(err)
@@ -48,6 +49,8 @@ func unlinked(pid int) (int64, error) {
 		switch {
 		case errors.Is(err, fs.ErrNotExist):
 			continue // closed meanwhile
+		case gone(pid, err):
+			return 0, nil // on its way out meanwhile
 		case err != nil:
 			return 0, bare(err)
 		}
@@ -69,4 +72,26 @@ func unlinked(pid int) (int64, error) {
 	}
 
 	return total, nil
+}
+
+// gone is whether err, reading pid's /proc, says it is gone or on its way out: no such
+// process, or one refused for having let go of its memory, as it does as it exits, the
+// kernel then giving its /proc to root and refusing the server's user. One that keeps its
+// memory, its files hidden from the server, is not.
+func gone(pid int, err error) bool {
+	switch {
+	case errors.Is(err, fs.ErrNotExist) || errors.Is(err, syscall.ESRCH):
+		return true
+	case !errors.Is(err, fs.ErrPermission):
+		return false
+	}
+
+	raw, err := os.ReadFile(fmt.Sprintf("/proc/%d/statm", pid))
+	if err != nil {
+		return errors.Is(err, fs.ErrNotExist) || errors.Is(err, syscall.ESRCH)
+	}
+
+	size, _, _ := strings.Cut(string(raw), " ")
+
+	return size == "0"
 }
