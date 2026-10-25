@@ -184,18 +184,25 @@ func TestLimits(t *testing.T) {
 
 		// A minute, so the memory runs out first however slow the machine: with the race
 		// detector on a shared runner, filling 16 MiB has taken longer than the 5s default.
+		// A runner of its own, as a job gets no more time than its runner's most.
+		roomy, err := jsruntime.New(ctx, observability.NoopUtility(), jsruntime.Config{
+			Concurrency: 1, Limits: func() ports.CodeLimits { return ports.CodeLimits{Time: time.Minute} },
+		})
+		require.NoError(t, err)
+		t.Cleanup(func() { _ = roomy.Close(ctx) })
+
 		limits := ports.CodeLimits{Memory: 16 << 20, Time: time.Minute}
 
 		for _, source := range []string{
 			`function run() { const a = []; while (true) a.push("x".repeat(1e5) + a.length) }`,
 			`function run() { try { const a = []; while (true) a.push(new Array(1e5).fill(1)) } catch { return "fine" } }`,
 		} {
-			_, err := runner.Run(ctx, job(source, limits))
+			_, err := roomy.Run(ctx, job(source, limits))
 			ce := codeErr(t, err, domain.CodeOutOfMemory)
 			assert.Equal(t, "the code needed more than the 16 MiB of memory it may use", ce.Message)
 		}
 
-		res, err := runner.Run(ctx, job(`function run() { return new Array(1e5).fill(1).length }`, limits))
+		res, err := roomy.Run(ctx, job(`function run() { return new Array(1e5).fill(1).length }`, limits))
 		require.NoError(t, err, "within it")
 		assert.Equal(t, "100000", string(res.Output))
 	})
