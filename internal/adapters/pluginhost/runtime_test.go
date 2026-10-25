@@ -119,13 +119,14 @@ func TestRuntimeStopped(t *testing.T) {
 
 	require.NoError(t, rt.Load(ctx, echoFile(t, nil)))
 
-	_, err := run(t, r, "plugin.echo.fill", map[string]any{"bytes": 1 << 20, "files": 2}, items(map[string]any{}))
-	require.NoError(t, err)
+	// Each file within the cap, both together past it; stopped as they are written, the call
+	// may fail, and how far past is the moment's (TestDataCap).
+	_, _ = run(t, r, "plugin.echo.fill", map[string]any{"bytes": 600 << 10, "files": 2}, items(map[string]any{}))
 
 	select {
 	case why := <-told:
-		assert.Equal(t, "echo: it was stopped: its data, 2.0 MiB, went past its cap of 1.0 MiB", why)
-	case <-time.After(5 * time.Second):
+		assert.Regexp(t, `^echo: it was stopped: its data, \d+\.\d MiB, went past its cap of 1\.0 MiB$`, why)
+	case <-time.After(patience):
 		t.Fatal("not told")
 	}
 

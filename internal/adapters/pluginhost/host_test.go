@@ -242,7 +242,7 @@ func TestCrash(t *testing.T) {
 	require.Error(t, err)
 	assert.True(t, strings.HasPrefix(err.Error(), "plugin echo: "), err.Error())
 
-	require.Eventually(t, p.Exited, 2*time.Second, 10*time.Millisecond, "the process is gone, the server not")
+	require.Eventually(t, p.Exited, patience, 10*time.Millisecond, "the process is gone, the server not")
 
 	_, err = run(t, r, "plugin.echo.shout", nil, items(map[string]any{"text": "a"}))
 	assert.EqualError(t, err, "plugin echo is not running: its process exited", "its nodes fail while nothing starts it again")
@@ -276,7 +276,7 @@ func TestSupervise(t *testing.T) {
 
 	t.Run("started again after a crash, its files checked first", func(t *testing.T) {
 		crash()
-		require.Eventually(t, running, 5*time.Second, 20*time.Millisecond)
+		require.Eventually(t, running, patience, 20*time.Millisecond)
 
 		st := p.Status()
 		assert.Equal(t, pluginhost.Running, st.State)
@@ -288,13 +288,13 @@ func TestSupervise(t *testing.T) {
 
 	t.Run("stopped as crashed, once too often, until an admin starts it", func(t *testing.T) {
 		crash()
-		require.Eventually(t, running, 5*time.Second, 20*time.Millisecond)
+		require.Eventually(t, running, patience, 20*time.Millisecond)
 		crash()
 
 		select {
 		case err := <-crashed:
 			assert.Error(t, err)
-		case <-time.After(5 * time.Second):
+		case <-time.After(patience):
 			t.Fatal("not stopped as crashed")
 		}
 
@@ -302,12 +302,17 @@ func TestSupervise(t *testing.T) {
 		assert.False(t, running())
 
 		require.NoError(t, p.Start())
-		require.Eventually(t, running, 5*time.Second, 20*time.Millisecond)
+		require.Eventually(t, running, patience, 20*time.Millisecond)
 		assert.Zero(t, p.Status().Crashes, "its crashes forgotten")
 
 		assert.Error(t, p.Start(), "only a crashed one")
 	})
 }
+
+// patience is how long a test waits for what should happen, such as a plugin started
+// again: it goes on the moment it does, so this is room for a busy machine, as CI running
+// every package at once under -race is, where a restart can take seconds.
+const patience = 30 * time.Second
 
 // fast are restarts for tests, measuring at every look.
 var fast = pluginhost.Restarts{First: 10 * time.Millisecond, Max: 40 * time.Millisecond, Crashes: 3, Within: time.Minute, Every: 5 * time.Millisecond}
@@ -330,7 +335,7 @@ func supervised(t *testing.T, p *pluginhost.Plugin) (stoppedFor func(want string
 		select {
 		case err := <-crashed:
 			assert.Regexp(t, want, err)
-		case <-time.After(5 * time.Second):
+		case <-time.After(patience):
 			t.Fatal("not stopped")
 		}
 
@@ -363,7 +368,7 @@ func TestDataCap(t *testing.T) {
 
 	limit.Store(10 << 20)
 	require.NoError(t, p.Start())
-	require.Eventually(t, func() bool { return p.Status().State == pluginhost.Running }, 5*time.Second, 10*time.Millisecond, "its cap raised")
+	require.Eventually(t, func() bool { return p.Status().State == pluginhost.Running }, patience, 10*time.Millisecond, "its cap raised")
 }
 
 // Data its process hides from a walk of its directories counts against its cap (P9):
@@ -415,7 +420,7 @@ func TestMemoryCap(t *testing.T) {
 
 	p.Supervise(ctx, fast, pluginhost.Watch{})
 
-	require.Eventually(t, func() bool { return p.Status().Memory > 0 }, 5*time.Second, 10*time.Millisecond, "measured")
+	require.Eventually(t, func() bool { return p.Status().Memory > 0 }, patience, 10*time.Millisecond, "measured")
 	assert.Less(t, p.Status().Memory, int64(64<<20))
 
 	_, _ = run(t, r, "plugin.echo.hog", map[string]any{"mib": 128}, items(map[string]any{}))
@@ -423,7 +428,7 @@ func TestMemoryCap(t *testing.T) {
 	require.Eventually(t, func() bool {
 		st := p.Status()
 		return st.Crashes == 1 && st.State == pluginhost.Running
-	}, 10*time.Second, 10*time.Millisecond, "killed, and started again")
+	}, patience, 10*time.Millisecond, "killed, and started again")
 	assert.Contains(t, p.Status().LastError, "past its cap of 64.0 MiB")
 }
 
@@ -469,7 +474,7 @@ func TestHardLimits(t *testing.T) {
 		// 384 MiB at most: unwatched, its runtime is refused memory, and it dies.
 		_, err := run(t, r, "plugin.echo.hog", map[string]any{"mib": 512}, items(map[string]any{}))
 		require.Error(t, err)
-		require.Eventually(t, p.Exited, 5*time.Second, 10*time.Millisecond)
+		require.Eventually(t, p.Exited, patience, 10*time.Millisecond)
 	})
 }
 
@@ -539,7 +544,7 @@ func TestStderrQuota(t *testing.T) {
 	require.Eventually(t, func() bool {
 		said, dropped := tally()
 		return said+dropped >= spammed
-	}, 10*time.Second, 50*time.Millisecond, "each line logged, or counted as dropped")
+	}, patience, 50*time.Millisecond, "each line logged, or counted as dropped")
 
 	logged, dropped := tally()
 	assert.LessOrEqual(t, logged, 100+int(10*time.Since(started).Seconds())+1, "a burst, then ten a second")
@@ -609,7 +614,7 @@ func TestTrigger(t *testing.T) {
 		select {
 		case err := <-done:
 			require.NoError(t, err, "stopped, quietly")
-		case <-time.After(5 * time.Second):
+		case <-time.After(patience):
 			t.Fatal("the trigger did not stop")
 		}
 	})

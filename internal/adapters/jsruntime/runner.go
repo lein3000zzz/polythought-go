@@ -49,9 +49,12 @@ const (
 	// MaxMemory is the most a run's memory limit may be; more is lowered to it.
 	MaxMemory = 1 << 30
 
-	// The engine's C stack is 4 MiB (engine/build.sh). JavaScript gets all but 1 MiB of
-	// it, which the engine's own C code may still need when JavaScript is at its limit.
-	jsStack = 3 << 20
+	// What JavaScript may take of the engine's C stack, 4 MiB (engine/build.sh), before a
+	// call too deep is a RangeError it can catch: about 3,000 calls deep. What binds is not
+	// that stack but wazero's own, which each call takes far more of, more on amd64 than
+	// arm64: there, about 2 MiB of this ran it out, a crash rather than the error. Half
+	// that leaves room for whatever a call does.
+	jsStack = 1 << 20
 
 	// overhead is what an instance takes outside its memory limit: the stack, the
 	// engine's data, and the source and input the host writes in.

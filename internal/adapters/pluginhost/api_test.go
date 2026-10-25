@@ -47,7 +47,7 @@ func server(t *testing.T) *httptest.Server {
 	mux.HandleFunc("/slow", func(_ http.ResponseWriter, r *http.Request) {
 		select {
 		case <-r.Context().Done():
-		case <-time.After(5 * time.Second):
+		case <-time.After(patience):
 		}
 	})
 

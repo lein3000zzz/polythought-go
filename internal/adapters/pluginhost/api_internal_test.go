@@ -27,6 +27,10 @@ import (
 	pluginv1 "github.com/lein3000zzz/polythought-go/pkg/plugin/v1"
 )
 
+// patience is how long a test waits for what should happen: it goes on the moment it does,
+// so this is room for a busy machine.
+const patience = 30 * time.Second
+
 func TestCount(t *testing.T) {
 	t.Run("a node's run, past its calls, is over", func(t *testing.T) {
 		s := &session{limits: Limits{HostCalls: 2}}
@@ -258,7 +262,7 @@ func TestCallsInFlight(t *testing.T) {
 		})
 	}
 
-	assert.Eventually(t, func() bool { return going.Load() == maxInFlight }, 5*time.Second, time.Millisecond)
+	assert.Eventually(t, func() bool { return going.Load() == maxInFlight }, patience, time.Millisecond)
 	assert.Never(t, func() bool { return going.Load() > maxInFlight }, 100*time.Millisecond, time.Millisecond,
 		"the rest wait their turn (P12)")
 
@@ -283,7 +287,7 @@ func TestCallsInFlight(t *testing.T) {
 			}()
 		}
 
-		require.Eventually(t, func() bool { return holding.Load() == maxInFlight }, 5*time.Second, time.Millisecond)
+		require.Eventually(t, func() bool { return holding.Load() == maxInFlight }, patience, time.Millisecond)
 
 		waited := make(chan error, 1)
 
@@ -298,7 +302,7 @@ func TestCallsInFlight(t *testing.T) {
 		select {
 		case err := <-waited:
 			assert.Equal(t, codes.Canceled, status.Code(err))
-		case <-time.After(5 * time.Second):
+		case <-time.After(patience):
 			t.Fatal("a call waited on after its run's session closed")
 		}
 	})
@@ -326,7 +330,7 @@ func TestCallsEndWithTheSession(t *testing.T) {
 	select {
 	case err := <-done:
 		assert.Equal(t, codes.Canceled, status.Code(err), "the run's ended, its plugin's call with it (P15)")
-	case <-time.After(5 * time.Second):
+	case <-time.After(patience):
 		t.Fatal("a call went on after its run's session closed")
 	}
 }

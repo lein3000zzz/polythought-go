@@ -389,6 +389,10 @@ release workflow. Each also carries its build provenance and a software bill of 
 
 ## For development
 
+The app and these docs need Node 26, which `nvm use` takes from `.nvmrc`, and pnpm, such as
+from `npm install --global pnpm`. Whichever pnpm you install runs the version the app and the
+docs pin, fetching it the first time.
+
 | Command | What it does |
 |---|---|
 | `make db-up` | Starts PostgreSQL alone on port 5432, reachable from this machine only. |

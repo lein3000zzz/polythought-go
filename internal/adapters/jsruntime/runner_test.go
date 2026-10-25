@@ -136,14 +136,25 @@ func TestFailures(t *testing.T) {
 		assert.False(t, errors.As(err, &ce))
 	})
 
-	t.Run("deep recursion is an error the code can catch", func(t *testing.T) {
-		t.Parallel()
+	// However it nests, too deep is an error it can catch, never the engine running out of
+	// wazero's stack first, which on amd64 it once did (jsStack).
+	for name, deep := range map[string]string{
+		"recursion":         `function f(n) { return f(n + 1) + 1 }`,
+		"through callbacks": `function f(n) { return [n].map((x) => f(x + 1))[0] }`,
+		"through sort":      `function f(n) { return [2, 1].sort(() => f(n + 1)) }`,
+		"through a getter":  `const o = { get x() { return this.x } }; function f() { return o.x }`,
+		"through toString":  `const o = { toString() { return "" + this } }; function f() { return String(o) }`,
+		"through a Proxy":   `const p = new Proxy({}, { get: (t, k, r) => r[k] }); function f() { return p.x }`,
+		"parsing":           `function f() { return JSON.parse("[".repeat(200000) + "]".repeat(200000)) }`,
+	} {
+		t.Run("deep "+name+" is an error the code can catch", func(t *testing.T) {
+			t.Parallel()
 
-		res, err := run(t, `function f(n) { return f(n + 1) + 1 }
-			function run() { try { f(0) } catch (e) { return String(e) } }`, "")
-		require.NoError(t, err)
-		assert.Equal(t, `"RangeError: Maximum call stack size exceeded"`, string(res.Output))
-	})
+			res, err := run(t, deep+` function run() { try { f(0) } catch (e) { return String(e) } }`, "")
+			require.NoError(t, err)
+			assert.Equal(t, `"RangeError: Maximum call stack size exceeded"`, string(res.Output))
+		})
+	}
 }
 
 func TestLimits(t *testing.T) {

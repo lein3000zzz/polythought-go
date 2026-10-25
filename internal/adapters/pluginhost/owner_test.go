@@ -317,7 +317,7 @@ func TestQuestionFlow(t *testing.T) {
 	require.ErrorIs(t, s.Answer(ctx, "alice", res.Execution.ID, "other", map[string]any{"option": 0}), domain.ErrNotFound, "another question's key")
 	require.NoError(t, s.Answer(ctx, "alice", res.Execution.ID, key, map[string]any{"option": 0}))
 
-	require.Eventually(t, func() bool { return len(answered.items()) == 1 }, 5*time.Second, 10*time.Millisecond)
+	require.Eventually(t, func() bool { return len(answered.items()) == 1 }, patience, 10*time.Millisecond)
 	assert.Equal(t, "Yes", answered.items()[0].JSON["label"])
 	assert.Contains(t, tg.closed[101], "✅ <b>Yes</b>")
 }

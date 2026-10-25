@@ -1,12 +1,14 @@
-# The checks (D374, D421): on every push and pull request, each its own job, a newer push
-# cancelling the run before it. What `make check` and its siblings do on a laptop, on
-# GitHub's Ubuntu runners. Version tags run release.yml instead.
+# The checks (D374, D421, D422): on each push to main, and on a pull request once a
+# maintainer labels it ci, then on each push to it while labelled; any branch by hand. Each
+# check its own job, a newer push cancelling the run before it. What `make check` and its
+# siblings do on a laptop, on GitHub's Ubuntu runners. Version tags run release.yml instead.
 name: CI
 
 on:
   push:
-    branches: ['**']
+    branches: [main]
   pull_request:
+    types: [opened, reopened, synchronize, labeled]
   workflow_dispatch:
 
 permissions:
@@ -17,13 +19,23 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  COREPACK_ENABLE_DOWNLOAD_PROMPT: '0'
+  # The tests' shards: the heaviest packages apart, the rest together (D422).
+  RUNNERS: ./internal/adapters/coderunner/
+  ENGINES: >-
+    ./internal/adapters/pluginhost/ ./internal/adapters/sandbox/ ./internal/adapters/jsruntime/
+    ./internal/adapters/tscompiler/ ./tools/pluginpack/
 
 jobs:
-  go:
-    name: Go
+  # On a pull request, every job runs only with the ci label: added, or there as commits
+  # come. Only those who may write here can label one (D422).
+  lint:
+    name: Go lint
+    if: >-
+      github.event_name != 'pull_request' ||
+      (github.event.action == 'labeled' && github.event.label.name == 'ci') ||
+      (github.event.action != 'labeled' && contains(github.event.pull_request.labels.*.name, 'ci'))
     runs-on: ubuntu-24.04
-    timeout-minutes: 30
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -34,11 +46,72 @@ jobs:
           cache-dependency-path: |
             go.sum
             examples/plugins/movers/go.sum
-      - name: Format, vet, lint, tests with -race, the example plugin
-        run: make check
+      # golangci-lint's own cache, what it found of each package kept for the next run.
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.cache/golangci-lint
+          key: golangci-lint-${{ hashFiles('go.sum') }}-${{ github.sha }}
+          restore-keys: golangci-lint-${{ hashFiles('go.sum') }}-
+      - name: Format, vet, lint, the example plugin
+        run: make fmt-check vet lint examples
+
+  # The tests with -race, in shards side by side. The runner is Linux, as the server's
+  # container is: the sandbox's tests run on it as they are, and must not skip for want of
+  # one (D337).
+  test:
+    name: Go tests (${{ matrix.shard }})
+    if: >-
+      github.event_name != 'pull_request' ||
+      (github.event.action == 'labeled' && github.event.label.name == 'ci') ||
+      (github.event.action != 'labeled' && contains(github.event.pull_request.labels.*.name, 'ci'))
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [code runners, plugins and engines, the rest]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: go.mod
+      - name: Tests with -race
+        env:
+          SHARD: ${{ matrix.shard }}
+        run: |
+          set -o pipefail
+          case "$SHARD" in
+            'code runners') packages=$RUNNERS ;;
+            'plugins and engines') packages=$ENGINES ;;
+            *)
+              # shellcheck disable=SC2086 # the lists are words
+              apart=$(go list $RUNNERS $ENGINES)
+              packages=$(go list ./... | grep -vxF "$apart")
+              ;;
+          esac
+          # shellcheck disable=SC2086
+          go test -race -count=1 -v $packages > test.log 2>&1 || { grep -E '^(--- FAIL|FAIL|panic)|Error' -A12 test.log | head -400; exit 1; }
+          grep -E '^(ok|FAIL)\s' test.log
+          if grep -q 'no sandbox on this kernel' test.log; then
+            echo '::error::The runner had no sandbox: its tests skipped'
+            exit 1
+          fi
+      - if: failure()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: go-tests-${{ strategy.job-index }}
+          path: test.log
+          retention-days: 7
+          if-no-files-found: ignore
 
   database:
     name: Database
+    if: >-
+      github.event_name != 'pull_request' ||
+      (github.event.action == 'labeled' && github.event.label.name == 'ci') ||
+      (github.event.action != 'labeled' && contains(github.event.pull_request.labels.*.name, 'ci'))
     runs-on: ubuntu-24.04
     timeout-minutes: 20
     steps:
@@ -51,30 +124,12 @@ jobs:
       - name: Repository tests against a throwaway Postgres
         run: make test-db
 
-  # The runner is Linux, as the server's container is: the sandbox's tests run on it as
-  # they are, and here must not skip for want of one (D337).
-  sandbox:
-    name: Sandbox
-    runs-on: ubuntu-24.04
-    timeout-minutes: 20
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
-      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
-        with:
-          go-version-file: go.mod
-      - name: Plugins and code runners in the sandbox
-        run: |
-          set -o pipefail
-          go test -count=1 -v ./internal/adapters/sandbox/ ./internal/adapters/pluginhost/ ./internal/adapters/coderunner/ | tee sandbox.log
-          if grep -q 'no sandbox on this kernel' sandbox.log; then
-            echo '::error::The runner had no sandbox: its tests skipped'
-            exit 1
-          fi
-
   web:
     name: Web
+    if: >-
+      github.event_name != 'pull_request' ||
+      (github.event.action == 'labeled' && github.event.label.name == 'ci') ||
+      (github.event.action != 'labeled' && contains(github.event.pull_request.labels.*.name, 'ci'))
     runs-on: ubuntu-24.04
     timeout-minutes: 20
     steps:
@@ -83,14 +138,17 @@ jobs:
           persist-credentials: false
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
-          node-version: '22'
-          # The newest 22, not the runner's cached one: the docs' Astro wants a recent patch.
+          node-version-file: .nvmrc
+          # Its newest release, not the runner's cached one: the docs' Astro wants a recent one.
           check-latest: true
-      # In web/, so corepack takes the pnpm its package.json pins.
+      # pnpm as web/package.json pins it, docs/package.json alike: Node no longer brings
+      # corepack (D423).
+      - name: pnpm
+        run: npm install --global "pnpm@$(node -p "require('./web/package.json').packageManager.replace(/^pnpm@/, '')")"
       - id: pnpm
         name: The pnpm store
         working-directory: web
-        run: echo "path=$(corepack pnpm store path --silent)" >> "$GITHUB_OUTPUT"
+        run: echo "path=$(pnpm store path --silent)" >> "$GITHUB_OUTPUT"
       - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ${{ steps.pnpm.outputs.path }}
@@ -102,6 +160,10 @@ jobs:
 
   docs:
     name: Docs
+    if: >-
+      github.event_name != 'pull_request' ||
+      (github.event.action == 'labeled' && github.event.label.name == 'ci') ||
+      (github.event.action != 'labeled' && contains(github.event.pull_request.labels.*.name, 'ci'))
     runs-on: ubuntu-24.04
     timeout-minutes: 20
     steps:
@@ -110,23 +172,26 @@ jobs:
           persist-credentials: false
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
-          node-version: '22'
-          # The newest 22, not the runner's cached one: the docs' Astro wants a recent patch.
+          node-version-file: .nvmrc
+          # Its newest release, not the runner's cached one: the docs' Astro wants a recent one.
           check-latest: true
-      # In docs/, so corepack takes the pnpm its package.json pins.
+      # pnpm as web/package.json pins it, docs/package.json alike: Node no longer brings
+      # corepack (D423).
+      - name: pnpm
+        run: npm install --global "pnpm@$(node -p "require('./web/package.json').packageManager.replace(/^pnpm@/, '')")"
       - id: pnpm
         name: The pnpm store
         working-directory: docs
-        run: echo "path=$(corepack pnpm store path --silent)" >> "$GITHUB_OUTPUT"
+        run: echo "path=$(pnpm store path --silent)" >> "$GITHUB_OUTPUT"
       - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ${{ steps.pnpm.outputs.path }}
           key: pnpm-docs-${{ hashFiles('docs/pnpm-lock.yaml') }}
           restore-keys: pnpm-docs-
-      - run: corepack pnpm install --frozen-lockfile
+      - run: pnpm install --frozen-lockfile
         working-directory: docs
       # The diagrams are drawn by a headless Chromium as the docs build (6f).
-      - run: corepack pnpm exec playwright install --with-deps --only-shell chromium
+      - run: pnpm exec playwright install --with-deps --only-shell chromium
         working-directory: docs
       - name: Build, with the Content-Security-Policy
         run: make docs-build
@@ -134,6 +199,10 @@ jobs:
   # What is generated and committed, generated again: a difference fails.
   generated:
     name: Generated code
+    if: >-
+      github.event_name != 'pull_request' ||
+      (github.event.action == 'labeled' && github.event.label.name == 'ci') ||
+      (github.event.action != 'labeled' && contains(github.event.pull_request.labels.*.name, 'ci'))
     runs-on: ubuntu-24.04
     timeout-minutes: 20
     steps:
@@ -148,6 +217,10 @@ jobs:
 
   vulnerabilities:
     name: Vulnerabilities
+    if: >-
+      github.event_name != 'pull_request' ||
+      (github.event.action == 'labeled' && github.event.label.name == 'ci') ||
+      (github.event.action != 'labeled' && contains(github.event.pull_request.labels.*.name, 'ci'))
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     steps:
@@ -159,8 +232,12 @@ jobs:
           go-version-file: go.mod
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
-          node-version: '22'
-          # The newest 22, not the runner's cached one: the docs' Astro wants a recent patch.
+          node-version-file: .nvmrc
+          # Its newest release, not the runner's cached one: the docs' Astro wants a recent one.
           check-latest: true
+      # pnpm as web/package.json pins it, docs/package.json alike: Node no longer brings
+      # corepack (D423).
+      - name: pnpm
+        run: npm install --global "pnpm@$(node -p "require('./web/package.json').packageManager.replace(/^pnpm@/, '')")"
       - name: govulncheck, and pnpm audit of what the app and the docs ship
         run: make vulncheck

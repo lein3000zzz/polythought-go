@@ -45,9 +45,9 @@ flowchart LR
 The three containers come with a Compose file, which pulls the released images from GitHub's
 container registry, or builds them from the code with `make up`; an instance is up with a few
 keys in its environment. Everything else is set by admins on the Config page while it runs.
-Every push is checked on GitHub Actions: the Go code with its tests, the database's and the
-sandbox's, the app's and the docs' builds, generated code up to date, and known
-vulnerabilities. A version tag runs the end-to-end tests, then builds the images for amd64
+Every push to `main` is checked on GitHub Actions, and so is a pull request once a maintainer
+labels it `ci`: the Go code with its tests, the database's and the sandbox's, the app's and
+the docs' builds, generated code up to date, and known vulnerabilities. A version tag runs the end-to-end tests, then builds the images for amd64
 and arm64, with their provenance and bill of materials, and a release.
 
 ## A run's way

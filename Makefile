@@ -3,11 +3,10 @@ GOLANGCI_LINT ?= $(GO) run github.com/golangci/golangci-lint/v2/cmd/golangci-lin
 MOCKERY       ?= $(GO) run github.com/vektra/mockery/v3@v3.8.1 --config tools/mockery/.mockery.yml
 SWAG          ?= $(GO) run github.com/swaggo/swag/v2/cmd/swag@v2.0.0-rc6
 GOVULNCHECK   ?= $(GO) run golang.org/x/vuln/cmd/govulncheck@v1.9.0
-# The pnpm version is pinned in web/package.json, and docs/package.json alike; corepack
-# (bundled with Node) fetches it. Named here, as corepack reads the package.json of where it
-# starts, which for --dir web is the root, with none: it would take the newest pnpm.
-PNPM_VERSION  := $(shell sed -n 's/.*"packageManager": *"pnpm@\([^"]*\)".*/\1/p' web/package.json)
-PNPM          ?= COREPACK_ENABLE_DOWNLOAD_PROMPT=0 corepack pnpm@$(PNPM_VERSION)
+# pnpm, installed itself (D423): Node no longer brings corepack. Whatever version is
+# installed, it runs the one web/package.json and docs/package.json pin, as their
+# packageManager says, fetching it the first time.
+PNPM          ?= pnpm
 
 INTEGRATION_TAG := integration
 DB_TAG          := db
@@ -202,7 +201,7 @@ order-vectors: ## Regenerate the order-signing vectors from Polymarket's officia
 		&& cd packages/client && pnpm dlx tsx@4.23.15 src/ordervectors.ts' > "$$tmp/vectors.json"; \
 	mv "$$tmp/vectors.json" $(ORDER_VECTORS)
 
-## Web UI (web/, needs Node 22)
+## Web UI (web/, needs Node 26 and pnpm)
 
 .PHONY: web-install
 web-install: ## Install the UI's dependencies
@@ -239,7 +238,7 @@ sdk-types-check: ## Fail if the code SDK or the node declarations do not type-ch
 web-build: ## Build the UI into web/dist
 	$(PNPM) --dir web build
 
-## Docs site (docs/, needs Node 22)
+## Docs site (docs/, needs Node 26 and pnpm)
 
 .PHONY: jsruntime-wasm
 jsruntime-wasm: ## Rebuild the JavaScript engine for user code from pinned QuickJS-NG sources (Docker)

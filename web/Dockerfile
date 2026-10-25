@@ -6,12 +6,13 @@
 
 # The app and the docs are files the same on every platform: they build on the builder's
 # own (D373), and only Caddy is the image's.
-FROM --platform=$BUILDPLATFORM node:22-alpine AS app
+FROM --platform=$BUILDPLATFORM node:26-alpine AS app
 
 WORKDIR /src/web
-RUN corepack enable
 
 COPY web/package.json web/pnpm-lock.yaml web/pnpm-workspace.yaml ./
+# pnpm as package.json pins it: Node no longer brings corepack (D423).
+RUN npm install --global "pnpm@$(node -p "require('./package.json').packageManager.replace(/^pnpm@/, '')")"
 RUN --mount=type=cache,target=/root/.local/share/pnpm/store pnpm install --frozen-lockfile
 
 # The API types are committed (src/api/schema.d.ts), so the build does not need the spec.
@@ -22,13 +23,13 @@ RUN pnpm exec vite build
 
 # Debian, not Alpine: the docs' diagrams are drawn by a headless Chromium as they build
 # (Mermaid), which needs glibc. Only this stage has it; the image is Caddy and files.
-FROM --platform=$BUILDPLATFORM node:22-bookworm-slim AS docs
+FROM --platform=$BUILDPLATFORM node:26-bookworm-slim AS docs
 
 WORKDIR /src
-RUN corepack enable
 ENV ASTRO_TELEMETRY_DISABLED=1
 
 COPY docs/package.json docs/pnpm-lock.yaml docs/pnpm-workspace.yaml ./
+RUN npm install --global "pnpm@$(node -p "require('./package.json').packageManager.replace(/^pnpm@/, '')")"
 RUN --mount=type=cache,target=/root/.local/share/pnpm/store pnpm install --frozen-lockfile
 RUN pnpm exec playwright install --with-deps --only-shell chromium
 
