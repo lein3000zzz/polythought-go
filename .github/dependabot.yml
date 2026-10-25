@@ -1,11 +1,11 @@
-# Updates once a week (D421), each ecosystem's in one pull request, which runs the checks.
+# Updates once a month (D421), each ecosystem's in one pull request, which runs the checks.
 version: 2
 
 updates:
   - package-ecosystem: gomod
     directories: ['/', '/examples/plugins/movers']
     schedule:
-      interval: weekly
+      interval: monthly
     groups:
       go:
         patterns: ['*']
@@ -13,7 +13,7 @@ updates:
   - package-ecosystem: npm # pnpm's lockfiles
     directories: ['/web', '/docs']
     schedule:
-      interval: weekly
+      interval: monthly
     groups:
       javascript:
         patterns: ['*']
@@ -21,7 +21,7 @@ updates:
   - package-ecosystem: github-actions
     directory: '/'
     schedule:
-      interval: weekly
+      interval: monthly
     groups:
       actions:
         patterns: ['*']
@@ -29,7 +29,7 @@ updates:
   - package-ecosystem: docker
     directories: ['/deployments', '/web']
     schedule:
-      interval: weekly
+      interval: monthly
     groups:
       images:
         patterns: ['*']
@@ -37,7 +37,7 @@ updates:
   - package-ecosystem: docker-compose
     directory: '/deployments'
     schedule:
-      interval: weekly
+      interval: monthly
     groups:
       compose:
         patterns: ['*']

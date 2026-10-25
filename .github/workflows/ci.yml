@@ -84,9 +84,11 @@ jobs:
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: '22'
+      # In web/, so corepack takes the pnpm its package.json pins.
       - id: pnpm
         name: The pnpm store
-        run: echo "path=$(corepack pnpm --dir web store path --silent)" >> "$GITHUB_OUTPUT"
+        working-directory: web
+        run: echo "path=$(corepack pnpm store path --silent)" >> "$GITHUB_OUTPUT"
       - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ${{ steps.pnpm.outputs.path }}
@@ -107,17 +109,21 @@ jobs:
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: '22'
+      # In docs/, so corepack takes the pnpm its package.json pins.
       - id: pnpm
         name: The pnpm store
-        run: echo "path=$(corepack pnpm --dir docs store path --silent)" >> "$GITHUB_OUTPUT"
+        working-directory: docs
+        run: echo "path=$(corepack pnpm store path --silent)" >> "$GITHUB_OUTPUT"
       - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ${{ steps.pnpm.outputs.path }}
           key: pnpm-docs-${{ hashFiles('docs/pnpm-lock.yaml') }}
           restore-keys: pnpm-docs-
-      - run: corepack pnpm --dir docs install --frozen-lockfile
+      - run: corepack pnpm install --frozen-lockfile
+        working-directory: docs
       # The diagrams are drawn by a headless Chromium as the docs build (6f).
-      - run: corepack pnpm --dir docs exec playwright install --with-deps --only-shell chromium
+      - run: corepack pnpm exec playwright install --with-deps --only-shell chromium
+        working-directory: docs
       - name: Build, with the Content-Security-Policy
         run: make docs-build
 

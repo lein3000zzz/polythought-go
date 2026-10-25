@@ -3,8 +3,11 @@ GOLANGCI_LINT ?= $(GO) run github.com/golangci/golangci-lint/v2/cmd/golangci-lin
 MOCKERY       ?= $(GO) run github.com/vektra/mockery/v3@v3.8.1 --config tools/mockery/.mockery.yml
 SWAG          ?= $(GO) run github.com/swaggo/swag/v2/cmd/swag@v2.0.0-rc6
 GOVULNCHECK   ?= $(GO) run golang.org/x/vuln/cmd/govulncheck@v1.9.0
-# The pnpm version is pinned in web/package.json; corepack (bundled with Node) fetches it.
-PNPM          ?= COREPACK_ENABLE_DOWNLOAD_PROMPT=0 corepack pnpm
+# The pnpm version is pinned in web/package.json, and docs/package.json alike; corepack
+# (bundled with Node) fetches it. Named here, as corepack reads the package.json of where it
+# starts, which for --dir web is the root, with none: it would take the newest pnpm.
+PNPM_VERSION  := $(shell sed -n 's/.*"packageManager": *"pnpm@\([^"]*\)".*/\1/p' web/package.json)
+PNPM          ?= COREPACK_ENABLE_DOWNLOAD_PROMPT=0 corepack pnpm@$(PNPM_VERSION)
 
 INTEGRATION_TAG := integration
 DB_TAG          := db

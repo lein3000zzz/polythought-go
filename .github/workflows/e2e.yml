@@ -28,7 +28,8 @@ jobs:
         with:
           node-version: '22'
       - run: make web-install
-      - run: corepack pnpm --dir web exec playwright install --with-deps --only-shell chromium
+      - run: corepack pnpm exec playwright install --with-deps --only-shell chromium
+        working-directory: web
       - name: The stack, the agent's tests, then the browser's
         run: make e2e
       - if: failure()
