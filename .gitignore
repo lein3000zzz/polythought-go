@@ -13,3 +13,4 @@ deployments/docker-compose.override.yml
 examples/plugins/movers/movers
 /coverage.out
 .DS_Store
+/brag-output

@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="256" height="256" role="img" aria-label="Polythought">
+  <title>Polythought</title>
+  <rect width="32" height="32" rx="7" fill="#171717"/>
+  <circle cx="10" cy="16" r="3.5" fill="#fafafa"/>
+  <circle cx="22" cy="10" r="3.5" fill="#fafafa"/>
+  <circle cx="22" cy="22" r="3.5" fill="#fafafa"/>
+  <path d="M13 15 19 11M13 17 19 21" stroke="#fafafa" stroke-width="2" stroke-linecap="round"/>
+</svg>
