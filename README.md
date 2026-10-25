@@ -11,7 +11,7 @@
   Self-hosted.
 </p>
 
-<!-- The video: upload it on github.com, then paste its user-attachments link here, on a line of its own. -->
+https://github.com/user-attachments/assets/ac194d61-aa0c-4f60-8e54-e6dfd5e64795
 
 Polythought is a workflow builder for Polymarket that you run on your own server. Its
 workflows watch markets, follow traders, ask a language model, message you on Telegram, and
