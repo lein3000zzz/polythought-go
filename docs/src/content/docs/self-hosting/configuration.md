@@ -68,8 +68,17 @@ Every setting also has an environment variable, named in the reference. A variab
 set wins over the config file and the Config page, and locks the setting there. An empty
 variable counts as not set.
 
-With Docker Compose, `deployments/docker-compose.yml` passes some variables through from `.env`;
-add others under the `api` service's `environment`.
+With Docker Compose, `deployments/docker-compose.yml` passes some variables through from `.env`.
+Add others under the `api` service's `environment` in a file of your own beside it, such as
+`deployments/docker-compose.override.yml`, named with a second `-f`:
+
+```sh
+docker compose -f deployments/docker-compose.yml -f deployments/docker-compose.override.yml \
+  --env-file .env --profile app up -d
+```
+
+The Compose file then stays as released, and the updater, which runs the stack with every
+file it was started with, keeps yours.
 
 A variable with a bad value stops the server from starting, with a message naming it. A
 value saved on the Config page that no longer fits, say after an upgrade made a rule
@@ -87,5 +96,8 @@ stay signed in. Restarting the `api` container does the same.
 Sign-in attempts are limited per client address. The API learns a client's address from the
 connection, or from `X-Forwarded-For` when the connection comes from a **trusted proxy**. With
 Docker Compose, the `web` container is that proxy, and its network is trusted. If another
-proxy sits in front of `web`, every client looks like that proxy; set `trusted_proxies` in
-Caddy's global options so the client's own address is passed on.
+proxy or a tunnel sits in front of `web`, every client looks like that proxy. Set
+`POLYTHOUGHT_WEB_TRUSTED_PROXIES` in `.env` to the addresses it connects from, ranges
+separated by spaces, such as `100.64.0.0/10` through Tailscale. `web` then passes on each
+client's own address, as that proxy reported it. Leave it unset otherwise: anyone could then
+say where they come from.
