@@ -84,6 +84,8 @@ jobs:
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: '22'
+          # The newest 22, not the runner's cached one: the docs' Astro wants a recent patch.
+          check-latest: true
       # In web/, so corepack takes the pnpm its package.json pins.
       - id: pnpm
         name: The pnpm store
@@ -109,6 +111,8 @@ jobs:
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: '22'
+          # The newest 22, not the runner's cached one: the docs' Astro wants a recent patch.
+          check-latest: true
       # In docs/, so corepack takes the pnpm its package.json pins.
       - id: pnpm
         name: The pnpm store
@@ -156,5 +160,7 @@ jobs:
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: '22'
+          # The newest 22, not the runner's cached one: the docs' Astro wants a recent patch.
+          check-latest: true
       - name: govulncheck, and pnpm audit of what the app and the docs ship
         run: make vulncheck

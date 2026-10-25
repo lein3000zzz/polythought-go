@@ -27,6 +27,8 @@ jobs:
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: '22'
+          # The newest 22, not the runner's cached one: the docs' Astro wants a recent patch.
+          check-latest: true
       - run: make web-install
       - run: corepack pnpm exec playwright install --with-deps --only-shell chromium
         working-directory: web
