@@ -4,7 +4,9 @@
 # /api to the API server. Build from the repository root, as the docs live beside web/:
 #   docker build -f web/Dockerfile -t polythought-web .
 
-FROM node:22-alpine AS app
+# The app and the docs are files the same on every platform: they build on the builder's
+# own (D373), and only Caddy is the image's.
+FROM --platform=$BUILDPLATFORM node:22-alpine AS app
 
 WORKDIR /src/web
 RUN corepack enable
@@ -20,7 +22,7 @@ RUN pnpm exec vite build
 
 # Debian, not Alpine: the docs' diagrams are drawn by a headless Chromium as they build
 # (Mermaid), which needs glibc. Only this stage has it; the image is Caddy and files.
-FROM node:22-bookworm-slim AS docs
+FROM --platform=$BUILDPLATFORM node:22-bookworm-slim AS docs
 
 WORKDIR /src
 RUN corepack enable

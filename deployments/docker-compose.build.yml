@@ -1,0 +1,14 @@
+# The images built from this checkout rather than pulled, for development: make up and
+# make e2e add this file.
+services:
+  api:
+    image: polythought-api:dev
+    build:
+      context: ..
+      dockerfile: deployments/Dockerfile
+
+  web:
+    image: polythought-web:dev
+    build:
+      context: ..
+      dockerfile: web/Dockerfile

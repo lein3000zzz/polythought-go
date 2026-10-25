@@ -10,7 +10,12 @@ serves the app and these docs and passes `/api`, `/mcp` and the OAuth metadata u
 ## What you need
 
 - Docker with Compose.
-- `make` and `openssl`, to follow the steps below.
+- `openssl`, to make a key below, and `make` to build from the code.
+
+Each release is two images on GitHub's container registry, for `linux/amd64` and
+`linux/arm64`: `ghcr.io/lein3000zzz/polythought-api` and
+`ghcr.io/lein3000zzz/polythought-web`. A version such as `1.2.3` is tagged `1.2.3`, `1.2`
+and `latest`; a pre-release such as `0.1.0-beta.1` only itself.
 
 ## Start
 
@@ -26,15 +31,17 @@ serves the app and these docs and passes `/api`, `/mcp` and the OAuth metadata u
    - `POLYTHOUGHT_ADMIN_EMAIL` and `POLYTHOUGHT_ADMIN_PASSWORD`: the first admin, created when
      the server starts and there is no admin yet. The password needs at least 12 characters.
 
-3. Start everything:
+3. Start everything, with the released images:
 
    ```sh
-   make up
+   docker compose -f deployments/docker-compose.yml --env-file .env --profile app up -d
    ```
 
-   The first start builds the images, which takes a few minutes. Then open
-   <http://localhost:3000> and sign in as the admin. `Ctrl+C` stops it; `make down` removes
-   the containers. Your data stays in a Docker volume.
+   `POLYTHOUGHT_VERSION` in `.env` picks the version, such as `1.2.3` or `1.2`; `latest`
+   unless set. Or build the images from the code you have, which takes a few minutes the
+   first time: `make up`, which `Ctrl+C` stops. Either way, open <http://localhost:3000> and
+   sign in as the admin. `make down` removes the containers; your data stays in a Docker
+   volume.
 
 Everything else, such as who may sign up, is set by admins on the **Config** page; see
 [Configuration](/docs/self-hosting/configuration/).
@@ -359,9 +366,26 @@ so an owner learns of a change they did not make.
 
 ## Upgrading and backups
 
-Get the new code and run `make up` again. The database schema is updated when the server
-starts, so back up the database first: `pg_dump` of the `polythought` database is enough,
-together with your keys.
+Back up the database first, as the server updates its schema when it starts: `pg_dump` of
+the `polythought` database is enough, together with your keys. Then, with the released
+images, set `POLYTHOUGHT_VERSION` to the new version, or leave it at `latest`, and pull:
+
+```sh
+docker compose -f deployments/docker-compose.yml --env-file .env --profile app pull
+docker compose -f deployments/docker-compose.yml --env-file .env --profile app up -d
+```
+
+Built from the code, get the new code and run `make up` again. A release's notes, on
+GitHub, say what changed. A version pinned as `1.2` takes its patch releases with each pull,
+and `latest` every release.
+
+Once the repository is public, each image is signed: `cosign verify
+ghcr.io/lein3000zzz/polythought-api:1.2.3 --certificate-identity-regexp
+'https://github.com/lein3000zzz/polythought-go/' --certificate-oidc-issuer
+https://token.actions.githubusercontent.com` checks it was built by this repository's
+release workflow. Each also carries its build provenance and a software bill of materials:
+`docker buildx imagetools inspect ghcr.io/lein3000zzz/polythought-api:1.2.3 --format
+'{{json .SBOM}}'` shows the packages in it.
 
 ## For development
 
@@ -371,4 +395,6 @@ together with your keys.
 | `make run` | Runs the API on port 8080 with the settings in `.env`. |
 | `make web-dev` | Runs the app on port 5173, with live reload. |
 | `make docs-dev` | Runs these docs on port 4321, at `/docs`. |
+| `make check` | Format, vet, lint and unit tests, as CI runs them on each push. |
+| `make vulncheck` | Known vulnerabilities the Go code reaches, and those of what the app and docs ship. |
 | `make help` | Lists every target. |

@@ -1,0 +1,154 @@
+# The checks (D374, D421): on every push and pull request, each its own job, a newer push
+# cancelling the run before it. What `make check` and its siblings do on a laptop, on
+# GitHub's Ubuntu runners. Version tags run release.yml instead.
+name: CI
+
+on:
+  push:
+    branches: ['**']
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+env:
+  COREPACK_ENABLE_DOWNLOAD_PROMPT: '0'
+
+jobs:
+  go:
+    name: Go
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: go.mod
+          cache-dependency-path: |
+            go.sum
+            examples/plugins/movers/go.sum
+      - name: Format, vet, lint, tests with -race, the example plugin
+        run: make check
+
+  database:
+    name: Database
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: go.mod
+      - name: Repository tests against a throwaway Postgres
+        run: make test-db
+
+  # The runner is Linux, as the server's container is: the sandbox's tests run on it as
+  # they are, and here must not skip for want of one (D337).
+  sandbox:
+    name: Sandbox
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: go.mod
+      - name: Plugins and code runners in the sandbox
+        run: |
+          set -o pipefail
+          go test -count=1 -v ./internal/adapters/sandbox/ ./internal/adapters/pluginhost/ ./internal/adapters/coderunner/ | tee sandbox.log
+          if grep -q 'no sandbox on this kernel' sandbox.log; then
+            echo '::error::The runner had no sandbox: its tests skipped'
+            exit 1
+          fi
+
+  web:
+    name: Web
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: '22'
+      - id: pnpm
+        name: The pnpm store
+        run: echo "path=$(corepack pnpm --dir web store path --silent)" >> "$GITHUB_OUTPUT"
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ steps.pnpm.outputs.path }}
+          key: pnpm-web-${{ hashFiles('web/pnpm-lock.yaml') }}
+          restore-keys: pnpm-web-
+      - run: make web-install
+      - name: Typecheck, lint, format, API and SDK types up to date, tests
+        run: make web-check
+
+  docs:
+    name: Docs
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: '22'
+      - id: pnpm
+        name: The pnpm store
+        run: echo "path=$(corepack pnpm --dir docs store path --silent)" >> "$GITHUB_OUTPUT"
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ steps.pnpm.outputs.path }}
+          key: pnpm-docs-${{ hashFiles('docs/pnpm-lock.yaml') }}
+          restore-keys: pnpm-docs-
+      - run: corepack pnpm --dir docs install --frozen-lockfile
+      # The diagrams are drawn by a headless Chromium as the docs build (6f).
+      - run: corepack pnpm --dir docs exec playwright install --with-deps --only-shell chromium
+      - name: Build, with the Content-Security-Policy
+        run: make docs-build
+
+  # What is generated and committed, generated again: a difference fails.
+  generated:
+    name: Generated code
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: go.mod
+      - name: The API spec, the mocks, the plugin contract and the JavaScript engine
+        run: make api-check mocks-check proto-check jsruntime-check
+
+  vulnerabilities:
+    name: Vulnerabilities
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: go.mod
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: '22'
+      - name: govulncheck, and pnpm audit of what the app and the docs ship
+        run: make vulncheck

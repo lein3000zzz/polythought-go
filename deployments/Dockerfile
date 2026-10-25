@@ -4,7 +4,10 @@
 #   docker build -f deployments/Dockerfile -t polythought .
 # The image's GOTOOLCHAIN is local, so go.mod's toolchain line does not reach it: the patch
 # release is pinned here too, to build with the same Go.
-FROM golang:1.27.3-alpine AS build
+# On the builder's own platform, Go cross-compiling for the image's (D373): no emulation.
+FROM --platform=$BUILDPLATFORM golang:1.27.3-alpine AS build
+
+ARG TARGETOS TARGETARCH
 
 WORKDIR /src
 
@@ -18,7 +21,8 @@ COPY pkg ./pkg
 # stdjson keeps Hertz on encoding/json: sonic does not support this Go version and would
 # only fall back to it at runtime, with a warning.
 RUN --mount=type=cache,target=/go/pkg/mod --mount=type=cache,target=/root/.cache/go-build \
-    CGO_ENABLED=0 go build -trimpath -tags stdjson -ldflags="-s -w" -o /out/polythought ./cmd/polythought
+    CGO_ENABLED=0 GOOS=$TARGETOS GOARCH=$TARGETARCH \
+    go build -trimpath -tags stdjson -ldflags="-s -w" -o /out/polythought ./cmd/polythought
 
 # The plugins directory (D315), the server's to write: a volume, so installed plugins
 # outlive the container.

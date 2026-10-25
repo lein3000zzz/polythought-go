@@ -1,0 +1,43 @@
+# Updates once a week (D421), each ecosystem's in one pull request, which runs the checks.
+version: 2
+
+updates:
+  - package-ecosystem: gomod
+    directories: ['/', '/examples/plugins/movers']
+    schedule:
+      interval: weekly
+    groups:
+      go:
+        patterns: ['*']
+
+  - package-ecosystem: npm # pnpm's lockfiles
+    directories: ['/web', '/docs']
+    schedule:
+      interval: weekly
+    groups:
+      javascript:
+        patterns: ['*']
+
+  - package-ecosystem: github-actions
+    directory: '/'
+    schedule:
+      interval: weekly
+    groups:
+      actions:
+        patterns: ['*']
+
+  - package-ecosystem: docker
+    directories: ['/deployments', '/web']
+    schedule:
+      interval: weekly
+    groups:
+      images:
+        patterns: ['*']
+
+  - package-ecosystem: docker-compose
+    directory: '/deployments'
+    schedule:
+      interval: weekly
+    groups:
+      compose:
+        patterns: ['*']

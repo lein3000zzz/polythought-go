@@ -2,6 +2,7 @@ GO            ?= go
 GOLANGCI_LINT ?= $(GO) run github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.14.0
 MOCKERY       ?= $(GO) run github.com/vektra/mockery/v3@v3.8.1 --config tools/mockery/.mockery.yml
 SWAG          ?= $(GO) run github.com/swaggo/swag/v2/cmd/swag@v2.0.0-rc6
+GOVULNCHECK   ?= $(GO) run golang.org/x/vuln/cmd/govulncheck@v1.9.0
 # The pnpm version is pinned in web/package.json; corepack (bundled with Node) fetches it.
 PNPM          ?= COREPACK_ENABLE_DOWNLOAD_PROMPT=0 corepack pnpm
 
@@ -11,9 +12,12 @@ E2E_TAG         := e2e
 COVER_PROFILE   := coverage.out
 # deployments/docker-compose.override.yml, a machine's own and not committed, joins when it is there.
 COMPOSE         := docker compose -f deployments/docker-compose.yml $(addprefix -f ,$(wildcard deployments/docker-compose.override.yml))
-APP_COMPOSE     := $(COMPOSE) --env-file .env --profile app
+# The app built from this checkout, rather than the released images the compose file pulls.
+APP_COMPOSE     := docker compose -f deployments/docker-compose.yml -f deployments/docker-compose.build.yml \
+	$(addprefix -f ,$(wildcard deployments/docker-compose.override.yml)) --env-file .env --profile app
 DEV_DATABASE    := postgres://polythought:polythought@localhost:5432/polythought?sslmode=disable
-E2E_COMPOSE     := docker compose -p polythought-e2e -f deployments/docker-compose.yml -f deployments/docker-compose.e2e.yml --profile app
+E2E_COMPOSE     := docker compose -p polythought-e2e -f deployments/docker-compose.yml -f deployments/docker-compose.build.yml \
+	-f deployments/docker-compose.e2e.yml --profile app
 API_SPEC        := api/openapi.json
 
 # swag writes swagger.json into a directory; the targets move it to API_SPEC.
@@ -41,7 +45,7 @@ run: ## Run the API on :8080 with settings from .env, for the UI from make web-d
 	$(GO) run -tags stdjson ./cmd/polythought serve
 
 .PHONY: up
-up: ## Run everything in Docker at http://localhost:3000 with settings from .env (Ctrl+C stops)
+up: ## Run everything in Docker at http://localhost:3000, built from this checkout, with settings from .env (Ctrl+C stops)
 	@test -f .env || { echo "no .env: copy .env.example to .env and fill it in"; exit 1; }
 	$(APP_COMPOSE) up --build
 
@@ -99,6 +103,12 @@ test-sandbox: ## The sandbox's tests on Linux, in Docker, as the server runs the
 .PHONY: examples
 examples: ## Vet, lint and test the example plugin, a module of its own (D360) that ./... does not reach
 	cd examples/plugins/movers && $(GO) vet ./... && $(GOLANGCI_LINT) run ./... && $(GO) test -count=1 ./...
+
+.PHONY: vulncheck
+vulncheck: ## Known vulnerabilities the Go code reaches, and those of what the app and the docs ship (network)
+	$(GOVULNCHECK) ./...
+	$(PNPM) --dir web audit --prod
+	$(PNPM) --dir docs audit --prod
 
 .PHONY: test-all
 test-all: test test-db test-integration ## Unit, database and live tests

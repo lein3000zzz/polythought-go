@@ -1,6 +1,9 @@
 # Local Postgres for development: `make db-up`.
 # The whole app runs in containers with its profile, at http://localhost:3000: `make up`,
-# which reads the settings below from the .env file at the repository root.
+# which reads the settings below from the .env file at the repository root and builds the
+# images from this checkout (docker-compose.build.yml). Run alone, with
+# `docker compose --profile app up`, it pulls the released images instead (D373), the
+# version POLYTHOUGHT_VERSION names, latest unless set.
 services:
   postgres:
     image: postgres:17-alpine
@@ -22,9 +25,7 @@ services:
   # Not published: clients reach it through web at /api, API tokens included.
   api:
     profiles: [app]
-    build:
-      context: ..
-      dockerfile: deployments/Dockerfile
+    image: ghcr.io/lein3000zzz/polythought-api:${POLYTHOUGHT_VERSION:-latest}
     depends_on:
       postgres:
         condition: service_healthy
@@ -51,9 +52,7 @@ services:
 
   web:
     profiles: [app]
-    build:
-      context: ..
-      dockerfile: web/Dockerfile # the app and the docs
+    image: ghcr.io/lein3000zzz/polythought-web:${POLYTHOUGHT_VERSION:-latest} # the app and the docs
     depends_on:
       - api
     ports:
