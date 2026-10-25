@@ -9,6 +9,7 @@ import (
 	"github.com/lein3000zzz/the-watchers/pkg/observability/logging"
 
 	"github.com/lein3000zzz/polythought-go/internal/adapters/httpapi"
+	"github.com/lein3000zzz/polythought-go/internal/buildinfo"
 	"github.com/lein3000zzz/polythought-go/internal/config"
 	"github.com/lein3000zzz/polythought-go/internal/core/services/settings"
 )
@@ -31,6 +32,8 @@ func serve(ctx context.Context) error {
 	defer shutdown(a.util)
 
 	log := a.util.Logger
+	build := buildinfo.Get()
+	log.Info(ctx, "Polythought starting", "version", build.Version, "commit", build.Short(), "go", build.Go)
 
 	if a.cfg.AdminEmail != "" {
 		created, err := a.auth.EnsureAdmin(ctx, a.cfg.AdminEmail, a.cfg.AdminPassword)
@@ -62,6 +65,7 @@ func serve(ctx context.Context) error {
 		Addr:           a.cfg.HTTPAddr,
 		PublicURL:      a.cfg.PublicURL,
 		TrustedProxies: proxies,
+		Build:          build,
 	}, a.util, httpapi.Services{
 		Auth: a.auth, Wallets: a.wallets, Workflows: a.workflows, NodeTypes: nodeTypes{types: a.customNodes, plugins: a.plugins}, Events: a.events,
 		CodeTypes: codeTypes{types: a.customNodes}, WorkflowCode: workflowCode{code: a.code, gate: a.codeGate},

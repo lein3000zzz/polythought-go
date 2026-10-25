@@ -14,6 +14,8 @@ E2E_TAG         := e2e
 COVER_PROFILE   := coverage.out
 # deployments/docker-compose.override.yml, a machine's own and not committed, joins when it is there.
 COMPOSE         := docker compose -f deployments/docker-compose.yml $(addprefix -f ,$(wildcard deployments/docker-compose.override.yml))
+# The commit images built from this checkout report (D425); their version stays dev.
+export POLYTHOUGHT_COMMIT ?= $(shell git rev-parse HEAD 2>/dev/null)
 # The app built from this checkout, rather than the released images the compose file pulls.
 APP_COMPOSE     := docker compose -f deployments/docker-compose.yml -f deployments/docker-compose.build.yml \
 	$(addprefix -f ,$(wildcard deployments/docker-compose.override.yml)) --env-file .env --profile app

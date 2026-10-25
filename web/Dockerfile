@@ -19,7 +19,9 @@ RUN --mount=type=cache,target=/root/.local/share/pnpm/store pnpm install --froze
 # The builder of workflow code lives beside the SDK, where the server embeds it.
 COPY internal/adapters/tscompiler/sdk/workflow.ts /src/internal/adapters/tscompiler/sdk/
 COPY web/ ./
-RUN pnpm exec vite build
+# The version a release was tagged (D425): the app shows it beside the server's.
+ARG VERSION=dev
+RUN VITE_POLYTHOUGHT_VERSION="$VERSION" pnpm exec vite build
 
 # Debian, not Alpine: the docs' diagrams are drawn by a headless Chromium as they build
 # (Mermaid), which needs glibc. Only this stage has it; the image is Caddy and files.

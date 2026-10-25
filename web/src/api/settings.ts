@@ -106,6 +106,14 @@ export function useCodeRunners() {
   })
 }
 
+/** The build of Polythought the server runs (D425). */
+export function useServerVersion() {
+  return useQuery({
+    queryKey: ['admin', 'version'],
+    queryFn: () => call(api.GET('/admin/version')),
+  })
+}
+
 /** Whether Polymarket takes orders from the server, as it last answered (D186). */
 export function useGeoblock() {
   return useQuery({

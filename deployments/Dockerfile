@@ -18,11 +18,18 @@ COPY cmd ./cmd
 COPY internal ./internal
 COPY pkg ./pkg
 
+# The version a release was tagged and the commit it was built from (D425); dev for a
+# build from the code.
+ARG VERSION=dev
+ARG COMMIT=
+
 # stdjson keeps Hertz on encoding/json: sonic does not support this Go version and would
 # only fall back to it at runtime, with a warning.
 RUN --mount=type=cache,target=/go/pkg/mod --mount=type=cache,target=/root/.cache/go-build \
     CGO_ENABLED=0 GOOS=$TARGETOS GOARCH=$TARGETARCH \
-    go build -trimpath -tags stdjson -ldflags="-s -w" -o /out/polythought ./cmd/polythought
+    go build -trimpath -tags stdjson -o /out/polythought \
+      -ldflags="-s -w -X github.com/lein3000zzz/polythought-go/internal/buildinfo.version=${VERSION} -X github.com/lein3000zzz/polythought-go/internal/buildinfo.commit=${COMMIT}" \
+      ./cmd/polythought
 
 # The plugins directory (D315), the server's to write: a volume, so installed plugins
 # outlive the container.

@@ -6,6 +6,9 @@ services:
     build:
       context: ..
       dockerfile: deployments/Dockerfile
+      # dev, as no release stamped it, and the commit make passes (D425)
+      args:
+        COMMIT: ${POLYTHOUGHT_COMMIT:-}
 
   web:
     image: polythought-web:dev

@@ -3998,6 +3998,33 @@
                 },
                 "type": "object"
             },
+            "ServerVersion": {
+                "properties": {
+                    "commit": {
+                        "description": "Commit is the full hash it was built from; empty where unknown.",
+                        "type": "string"
+                    },
+                    "go": {
+                        "description": "the Go toolchain it was built with",
+                        "type": "string"
+                    },
+                    "modified": {
+                        "description": "Modified says the checkout had changes not committed.",
+                        "type": "boolean"
+                    },
+                    "version": {
+                        "description": "Version is as its release was tagged, such as 0.1.2; dev for a build no release\nstamped.",
+                        "type": "string"
+                    }
+                },
+                "required": [
+                    "commit",
+                    "go",
+                    "modified",
+                    "version"
+                ],
+                "type": "object"
+            },
             "SessionKey": {
                 "properties": {
                     "createdAt": {
@@ -7996,6 +8023,55 @@
                     }
                 ],
                 "summary": "Send a user's verification link again",
+                "tags": [
+                    "admin"
+                ]
+            }
+        },
+        "/admin/version": {
+            "get": {
+                "operationId": "getServerVersion",
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ServerVersion"
+                                }
+                            }
+                        },
+                        "description": "OK"
+                    },
+                    "401": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "unauthenticated"
+                    },
+                    "403": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "forbidden: not an admin"
+                    }
+                },
+                "security": [
+                    {
+                        "SessionCookie": []
+                    },
+                    {
+                        "APIToken": []
+                    }
+                ],
+                "summary": "The server's version",
                 "tags": [
                     "admin"
                 ]

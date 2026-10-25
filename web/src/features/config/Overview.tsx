@@ -3,16 +3,18 @@ import { Badge } from '@/components/ui/badge'
 
 import { configPath, historySlug, locked, type ConfigPage } from './pages'
 import { PolymarketAccess } from './PolymarketAccess'
+import { Version } from './Version'
 
 type Props = {
   pages: ConfigPage[]
   unsaved: (page: ConfigPage) => number
 }
 
-/** /admin/config itself (D391): Polymarket access, and each page with what is set there. */
+/** /admin/config itself (D391): the version, Polymarket access, and each page with what is set there. */
 export function Overview({ pages, unsaved }: Props) {
   return (
     <div className="flex flex-col gap-8">
+      <Version />
       <PolymarketAccess />
 
       <section className="flex flex-col gap-3">

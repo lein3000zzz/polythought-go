@@ -366,6 +366,10 @@ so an owner learns of a change they did not make.
 
 ## Upgrading and backups
 
+The **Config** page shows the version the server runs, with its commit; so does
+`polythought version`, run in the `api` container. Images built from the code say
+`dev`.
+
 Back up the database first, as the server updates its schema when it starts: `pg_dump` of
 the `polythought` database is enough, together with your keys. Then, with the released
 images, set `POLYTHOUGHT_VERSION` to the new version, or leave it at `latest`, and pull:

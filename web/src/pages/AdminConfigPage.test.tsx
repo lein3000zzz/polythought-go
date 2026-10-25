@@ -121,7 +121,15 @@ function config(settings: Schemas['Setting'][] = all, restartPending = false) {
     http.get('/api/v1/admin/settings/history', () => HttpResponse.json({ changes: [] })),
     http.get('/api/v1/admin/geoblock', () => HttpResponse.json({ checked: false, blocked: false })),
     http.get('/api/v1/admin/code-runners', () => HttpResponse.json(inTheServer)),
+    http.get('/api/v1/admin/version', () => HttpResponse.json(devBuild)),
   )
+}
+
+const devBuild: Schemas['ServerVersion'] = {
+  version: 'dev',
+  commit: '',
+  modified: false,
+  go: 'go1.27.3',
 }
 
 const inTheServer: Schemas['CodeRunners'] = {
@@ -536,6 +544,43 @@ describe('admin config page', () => {
         'The runner processes would not start, so code does not run: coderunner: its engine: the prelude does not compile',
       ),
     ).toBeInTheDocument()
+  })
+
+  it('says which release the server runs, with its notes and commit (D425)', async () => {
+    config()
+    server.use(
+      http.get('/api/v1/admin/version', () =>
+        HttpResponse.json({
+          version: '0.1.2',
+          commit: '0123456789abcdef0123456789abcdef01234567',
+          modified: false,
+          go: 'go1.27.3',
+        }),
+      ),
+    )
+    renderApp('/admin/config')
+
+    expect(await screen.findByRole('link', { name: '0.1.2' })).toHaveAttribute(
+      'href',
+      'https://github.com/lein3000zzz/polythought-go/releases/tag/v0.1.2',
+    )
+    expect(screen.getByRole('link', { name: '0123456' })).toHaveAttribute(
+      'href',
+      'https://github.com/lein3000zzz/polythought-go/commit/0123456789abcdef0123456789abcdef01234567',
+    )
+    // the tests' app is a development build: not the server's release
+    expect(
+      screen.getByText(/This page's app is a development build: reload it/),
+    ).toBeInTheDocument()
+  })
+
+  it('says a development build is one, and nothing of the app when it is the same', async () => {
+    config()
+    renderApp('/admin/config')
+
+    expect(await screen.findByText('A development build')).toBeInTheDocument()
+    expect(screen.getByText(/built with go1.27.3/)).toBeInTheDocument()
+    expect(screen.queryByText(/This page's app is/)).not.toBeInTheDocument()
   })
 
   it('says whether Polymarket takes orders from the server, and checks again (D186)', async () => {

@@ -20,6 +20,7 @@ import (
 
 	"github.com/lein3000zzz/polythought-go/internal/adapters/coderunner"
 	"github.com/lein3000zzz/polythought-go/internal/adapters/sandbox"
+	"github.com/lein3000zzz/polythought-go/internal/buildinfo"
 )
 
 func main() {
@@ -50,8 +51,10 @@ func main() {
 		err = admin(ctx, args)
 	case "demo":
 		err = demo(ctx, args)
+	case "version":
+		fmt.Println("polythought", buildinfo.Get())
 	default:
-		err = fmt.Errorf("unknown command %q (want serve, admin or demo)", cmd)
+		err = fmt.Errorf("unknown command %q (want serve, admin, demo or version)", cmd)
 	}
 
 	if err != nil {

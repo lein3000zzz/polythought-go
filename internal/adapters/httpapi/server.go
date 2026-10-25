@@ -18,6 +18,7 @@ import (
 	"github.com/lein3000zzz/the-watchers/pkg/observability/metrics/redkit"
 	"github.com/lein3000zzz/the-watchers/pkg/observability/tracing"
 
+	"github.com/lein3000zzz/polythought-go/internal/buildinfo"
 	"github.com/lein3000zzz/polythought-go/internal/core/domain"
 	"github.com/lein3000zzz/polythought-go/internal/core/engine"
 	"github.com/lein3000zzz/polythought-go/internal/core/ports"
@@ -184,6 +185,9 @@ type Config struct {
 	TrustedProxies []*net.IPNet
 
 	MaxBodyBytes int
+
+	// Build is the server's own build, shown to admins (D425).
+	Build buildinfo.Info
 }
 
 type Server struct {
@@ -224,6 +228,7 @@ type Server struct {
 	kit               *redkit.Kit
 	scope             tracing.Scope
 	origin            string
+	build             buildinfo.Info
 	secure            bool
 	clientIP          atomic.Pointer[app.ClientIP]
 
@@ -310,6 +315,7 @@ func New(cfg Config, util *observability.Utility, services Services) (*Server, e
 		kit:               kit,
 		scope:             tracing.Scope{Manager: util.TracerManager, TracerName: tracerName},
 		origin:            public.Scheme + "://" + public.Host,
+		build:             cfg.Build,
 		secure:            public.Scheme == "https",
 		closing:           make(chan struct{}),
 		maxBody:           maxBody,
@@ -520,6 +526,7 @@ func (s *Server) routes() {
 	admin.PATCH("/settings", s.updateSettings)
 	admin.GET("/settings/history", s.listSettingChanges)
 	admin.POST("/restart", s.restartServer)
+	admin.GET("/version", s.serverVersion)
 	admin.POST("/mail/test", s.sendTestMail)
 	admin.GET("/plugins", s.hasPlugins, s.listPlugins)
 	admin.POST("/plugins", s.hasPlugins, s.installPlugin)

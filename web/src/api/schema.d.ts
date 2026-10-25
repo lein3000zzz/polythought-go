@@ -553,6 +553,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/admin/version": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The server's version */
+        get: operations["getServerVersion"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/auth/config": {
         parameters: {
             query?: never;
@@ -3659,6 +3676,19 @@ export interface components {
             /** @description Trigger is the trigger node to start from; left out means the manual trigger. */
             trigger?: string;
         };
+        ServerVersion: {
+            /** @description Commit is the full hash it was built from; empty where unknown. */
+            commit: string;
+            /** @description the Go toolchain it was built with */
+            go: string;
+            /** @description Modified says the checkout had changes not committed. */
+            modified: boolean;
+            /**
+             * @description Version is as its release was tagged, such as 0.1.2; dev for a build no release
+             *     stamped.
+             */
+            version: string;
+        };
         SessionKey: {
             /** Format: date-time */
             createdAt: string;
@@ -6116,6 +6146,44 @@ export interface operations {
             };
             /** @description mail_failed */
             502: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    getServerVersion: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ServerVersion"];
+                };
+            };
+            /** @description unauthenticated */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description forbidden: not an admin */
+            403: {
                 headers: {
                     [name: string]: unknown;
                 };

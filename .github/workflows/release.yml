@@ -88,6 +88,11 @@ jobs:
           annotations: ${{ steps.meta.outputs.annotations }}
           provenance: mode=max
           sbom: true
+          # what the images report of themselves (D425): 0.1.2 for v0.1.2, edge or the
+          # branch by hand
+          build-args: |
+            VERSION=${{ steps.meta.outputs.version }}
+            COMMIT=${{ github.sha }}
           cache-from: type=gha,scope=${{ matrix.image }}
           cache-to: type=gha,mode=max,scope=${{ matrix.image }}
       # Keyless signing writes who signed, this repository and its commit, to Sigstore's
