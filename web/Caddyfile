@@ -1,11 +1,28 @@
 # Serves the web UI and the docs, and proxies the API on the same origin, so the session
-# cookie and the API's origin check need no CORS. Put TLS in front, or give Caddy a domain and let it
-# manage certificates itself.
+# cookie and the API's origin check need no CORS. Set from the environment (D427), as the
+# image is the same for everyone:
+#   POLYTHOUGHT_DOMAIN, the site: a domain, such as polythought.example.com, for which Caddy
+#     gets and renews a certificate itself, on ports 80 and 443; unset, plain HTTP on :80, for
+#     TLS in front.
+#   POLYTHOUGHT_WEB_TRUSTED_PROXIES, address ranges separated by spaces, such as a tunnel's:
+#     proxies in front whose X-Forwarded-For is kept; none unless set, so a client's address
+#     is where the connection comes from.
 {
 	admin off
+	servers {
+		trusted_proxies static {$POLYTHOUGHT_WEB_TRUSTED_PROXIES}
+	}
 }
 
-:80 {
+# The API, told the client's address alone, as Caddy finds it from the proxies it trusts:
+# with a proxy's appended after it, the API would take the proxy's.
+(api) {
+	reverse_proxy {$API_UPSTREAM:api:8080} {
+		header_up X-Forwarded-For {client_ip}
+	}
+}
+
+{$POLYTHOUGHT_DOMAIN::80} {
 	encode zstd gzip
 
 	header {
@@ -18,16 +35,16 @@
 	}
 
 	handle /api/* {
-		reverse_proxy {$API_UPSTREAM:api:8080}
+		import api
 	}
 
 	# Agents' endpoint, and the OAuth metadata they look for at the root (RFC 8414, RFC 9728).
 	handle /mcp {
-		reverse_proxy {$API_UPSTREAM:api:8080}
+		import api
 	}
 
 	handle /.well-known/oauth-* {
-		reverse_proxy {$API_UPSTREAM:api:8080}
+		import api
 	}
 
 	# The docs, a static site. Its Content-Security-Policy replaces the app's: it allows the

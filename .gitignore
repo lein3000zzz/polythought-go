@@ -14,3 +14,4 @@ examples/plugins/movers/movers
 /coverage.out
 .DS_Store
 /brag-output
+/local

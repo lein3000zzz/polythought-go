@@ -51,7 +51,8 @@ run: ## Run the API on :8080 with settings from .env, for the UI from make web-d
 .PHONY: up
 up: ## Run everything in Docker at http://localhost:3000, built from this checkout, with settings from .env (Ctrl+C stops)
 	@test -f .env || { echo "no .env: copy .env.example to .env and fill it in"; exit 1; }
-	$(APP_COMPOSE) up --build
+	@# Its own address, over the one .env may give make run (D427).
+	POLYTHOUGHT_PUBLIC_URL=http://localhost:3000 $(APP_COMPOSE) up --build
 
 .PHONY: down
 down: ## Stop everything make up or make db-up started (data is kept in a volume)

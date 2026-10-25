@@ -11,6 +11,12 @@
   Self-hosted.
 </p>
 
+<p align="center">
+  <a href="https://polythought.lein3000.dev/docs/"><b>Docs</b></a> ·
+  <a href="https://polythought.lein3000.dev/docs/self-hosting/install/">Install</a> ·
+  <a href="https://polythought.lein3000.dev/docs/guides/concepts/">Concepts</a>
+</p>
+
 https://github.com/user-attachments/assets/ac194d61-aa0c-4f60-8e54-e6dfd5e64795
 
 Polythought is a workflow builder for Polymarket that you run on your own server. Its
@@ -115,8 +121,9 @@ You need Docker with Compose, plus `openssl` and `make`.
 4. Open <http://localhost:3000> and sign in as the admin.
 
 Images are published for `linux/amd64` and `linux/arm64`. Before others use your instance,
-see [Install](docs/src/content/docs/self-hosting/install.md) for its address, HTTPS and the
-database password.
+set its address, HTTPS and the database password in `.env`: see
+[On a server](https://polythought.lein3000.dev/docs/self-hosting/install/#on-a-server). With
+`--profile updater` too, admins update it from the Config page.
 
 ## Develop
 
@@ -146,17 +153,17 @@ integrations           the Claude Code plugin
 
 ## Docs
 
-Every instance serves the docs at `/docs`. To read them here:
+Every instance serves the docs at `/docs`, and they are at
+[polythought.lein3000.dev/docs](https://polythought.lein3000.dev/docs/). To start with:
 
-- [Concepts](docs/src/content/docs/guides/concepts.md),
-  [the editor](docs/src/content/docs/guides/editor.md) and
-  [workflows as code](docs/src/content/docs/guides/workflow-code.md)
-- [Custom nodes](docs/src/content/docs/guides/custom-nodes.md) and
-  [copy traders](docs/src/content/docs/guides/copy-traders.md)
-- [Agents over MCP](docs/src/content/docs/guides/agents-over-mcp.md)
-- [Install](docs/src/content/docs/self-hosting/install.md) and
-  [write a plugin](docs/src/content/docs/self-hosting/write-a-plugin.md)
-- [How it is built](docs/src/content/docs/architecture/overview.md)
+- [Concepts](https://polythought.lein3000.dev/docs/guides/concepts/), [the editor](https://polythought.lein3000.dev/docs/guides/editor/) and
+  [workflows as code](https://polythought.lein3000.dev/docs/guides/workflow-code/)
+- [Custom nodes](https://polythought.lein3000.dev/docs/guides/custom-nodes/) and [copy traders](https://polythought.lein3000.dev/docs/guides/copy-traders/)
+- [Agents over MCP](https://polythought.lein3000.dev/docs/guides/agents-over-mcp/)
+- [Install](https://polythought.lein3000.dev/docs/self-hosting/install/) and [write a plugin](https://polythought.lein3000.dev/docs/self-hosting/write-a-plugin/)
+- [How it is built](https://polythought.lein3000.dev/docs/architecture/overview/)
+
+Their sources are in [`docs/`](docs/src/content/docs), in Markdown.
 
 ## License
 

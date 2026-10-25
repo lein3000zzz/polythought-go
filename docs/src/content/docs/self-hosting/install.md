@@ -49,17 +49,42 @@ Everything else, such as who may sign up, is set by admins on the **Config** pag
 
 ## On a server
 
-The Compose file in `deployments/` suits a single machine. Before others use it:
+The Compose file in `deployments/` suits a single machine as it is. On a server, `.env` sets
+what changes, and the file stays as released. Before others use it:
 
-- **Address.** Set `POLYTHOUGHT_PUBLIC_URL` in `deployments/docker-compose.yml` to the address
-  people use, such as `https://polythought.example.com`. Only that origin may make changes
-  with a signed-in session, and an `https` address makes the session cookie secure, named
-  `__Host-polythought_session` so no other site of the domain can set it.
-- **HTTPS.** Put a proxy that handles TLS in front of the `web` container, or give Caddy your
-  domain in `web/Caddyfile` instead of `:80` and let it get certificates itself.
-- **Database password.** Change `POSTGRES_PASSWORD` and the password in
-  `POLYTHOUGHT_DATABASE_URL` from the development default.
+- **Address.** Set `POLYTHOUGHT_PUBLIC_URL` to the address people use, such as
+  `https://polythought.example.com`. Links in mail point there, only that origin may make
+  changes with a signed-in session, and an `https` address makes the session cookie secure,
+  named `__Host-polythought_session` so no other site of the domain can set it.
+- **HTTPS.** Caddy, in the `web` container, gets a certificate itself, or a proxy or a tunnel
+  in front of it does TLS:
+  - Caddy: set `POLYTHOUGHT_DOMAIN` to the domain, and publish `web` on ports 80 and 443 with
+    `POLYTHOUGHT_HTTP_PORT` and `POLYTHOUGHT_HTTPS_PORT`. The domain must point at the server
+    and port 80 be open, for Let's Encrypt to check it. The certificates stay in a volume,
+    across updates.
+  - A proxy or a tunnel, such as Cloudflare Tunnel: leave `POLYTHOUGHT_DOMAIN` unset and
+    point it at `web`'s port, 3000 unless `POLYTHOUGHT_HTTP_PORT` says otherwise. Set
+    `POLYTHOUGHT_WEB_TRUSTED_PROXIES` to the addresses it connects from, such as
+    `100.64.0.0/10` through Tailscale, or every client looks like the proxy; see
+    [Client addresses](/docs/self-hosting/configuration/#client-addresses).
+- **Database password.** Set `POSTGRES_PASSWORD` before the first start: hex, such as from
+  `openssl rand -hex 24`, as it goes in the API's database URL. The database keeps the
+  password it began with, so changing it later takes an `ALTER USER` in Postgres too.
 - **Sign-up.** Registration is by invite unless an admin changes it.
+
+With Caddy getting the certificate, `.env` has, beside the keys and the admin:
+
+```sh
+POLYTHOUGHT_PUBLIC_URL='https://polythought.example.com'
+POLYTHOUGHT_DOMAIN='polythought.example.com'
+POLYTHOUGHT_HTTP_PORT='80'
+POLYTHOUGHT_HTTPS_PORT='443'
+POSTGRES_PASSWORD='…'
+```
+
+The containers start again with Docker, after a reboot too, unless they were stopped. More
+variables go in a file of your own beside the Compose file; see
+[Configuration](/docs/self-hosting/configuration/#environment-variables).
 
 ## Environment variables
 
@@ -419,7 +444,13 @@ docker compose -f deployments/docker-compose.yml --env-file .env --profile app u
 ```
 
 Or let the updater do it, as above. Built from the code, get the new code and run `make up`
-again. A release's notes, on GitHub, say what changed. A version pinned as `1.2` takes its
+again.
+
+Stacks started before 0.0.1 ran as the Compose project `deployments`, after the Compose
+file's folder; the file now names it `polythought`. Before running the new file with such a
+stack, set `COMPOSE_PROJECT_NAME='deployments'` in `.env`, so it keeps its containers and its
+data. Without it, Compose starts a new, empty stack beside the old one. The updater keeps the
+name it found either way. A release's notes, on GitHub, say what changed. A version pinned as `1.2` takes its
 patch releases with each pull, and `latest` every release.
 
 Once the repository is public, each image is signed: `cosign verify

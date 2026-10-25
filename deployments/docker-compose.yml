@@ -4,15 +4,24 @@
 # images from this checkout (docker-compose.build.yml). Run alone, with
 # `docker compose --profile app up`, it pulls the released images instead (D373), the
 # version POLYTHOUGHT_VERSION names, latest unless set. With the updater profile too, an
-# admin updates them from the Config page (D425).
+# admin updates them from the Config page (D425). On a server, .env sets the rest (D427):
+# its address, HTTPS, the database's password.
+#
+# The project, which names the containers and volumes. A stack started before it had this
+# name, as deployments after this file's folder, keeps its data by setting
+# COMPOSE_PROJECT_NAME to that in .env.
+name: polythought
+
 services:
   postgres:
     image: postgres:17-alpine
     environment:
       POSTGRES_USER: polythought
-      POSTGRES_PASSWORD: polythought
+      # Set in .env before the first start: the database keeps the one it began with. Hex,
+      # such as from openssl rand -hex 24, as it goes in the API's URL below.
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-polythought}
       POSTGRES_DB: polythought
-    # On this machine only: its password is the development one above (R21).
+    # On this machine only, for make run (R21).
     ports:
       - "127.0.0.1:5432:5432"
     volumes:
@@ -22,6 +31,7 @@ services:
       interval: 2s
       timeout: 3s
       retries: 15
+    restart: unless-stopped
 
   # Not published: clients reach it through web at /api, API tokens included.
   api:
@@ -31,11 +41,11 @@ services:
       postgres:
         condition: service_healthy
     environment:
-      POLYTHOUGHT_DATABASE_URL: postgres://polythought:polythought@postgres:5432/polythought?sslmode=disable
+      POLYTHOUGHT_DATABASE_URL: postgres://polythought:${POSTGRES_PASSWORD:-polythought}@postgres:5432/polythought?sslmode=disable
       POLYTHOUGHT_SECRET_KEYS: ${POLYTHOUGHT_SECRET_KEYS:-} # required, see internal/config
-      # Where browsers reach this stack: web's published port below. Not taken from .env,
-      # whose public URL is the one for development.
-      POLYTHOUGHT_PUBLIC_URL: http://localhost:3000
+      # Where people reach this stack, such as https://polythought.example.com: web's
+      # published port below unless set. make up keeps that, whatever .env says for make run.
+      POLYTHOUGHT_PUBLIC_URL: ${POLYTHOUGHT_PUBLIC_URL:-http://localhost:3000}
       # Only web can reach the API, from the compose network, so its X-Forwarded-For is
       # trusted for client IPs.
       POLYTHOUGHT_TRUSTED_PROXIES: ${POLYTHOUGHT_TRUSTED_PROXIES:-172.16.0.0/12}
@@ -52,14 +62,29 @@ services:
     # The plugins admins install (D315); what they decided about them is in Postgres.
     volumes:
       - plugins:/var/lib/polythought/plugins
+    restart: unless-stopped
 
   web:
     profiles: [app]
     image: ghcr.io/lein3000zzz/polythought-web:${POLYTHOUGHT_VERSION:-latest} # the app and the docs
     depends_on:
       - api
+    environment:
+      # A domain, for Caddy to get and renew its certificate itself: then publish 80 and
+      # 443 below. Unset, plain HTTP, for a proxy or a tunnel to put TLS in front.
+      POLYTHOUGHT_DOMAIN: ${POLYTHOUGHT_DOMAIN:-:80}
+      # Proxies in front of web whose X-Forwarded-For it keeps, ranges separated by spaces,
+      # such as a tunnel's; none unless set.
+      POLYTHOUGHT_WEB_TRUSTED_PROXIES: ${POLYTHOUGHT_WEB_TRUSTED_PROXIES:-}
     ports:
-      - "3000:80"
+      - "${POLYTHOUGHT_HTTP_PORT:-3000}:80"
+      - "${POLYTHOUGHT_HTTPS_PORT:-3443}:443"
+      - "${POLYTHOUGHT_HTTPS_PORT:-3443}:443/udp" # HTTP/3
+    # Caddy's certificates, kept across updates.
+    volumes:
+      - caddy-data:/data
+      - caddy-config:/config
+    restart: unless-stopped
 
   # Updates the services to a release when an admin asks on the Config page (D425), with
   # --profile updater and POLYTHOUGHT_UPDATER_TOKEN in .env. Not published: the API asks it
@@ -77,3 +102,5 @@ services:
 volumes:
   pgdata:
   plugins:
+  caddy-data:
+  caddy-config:
