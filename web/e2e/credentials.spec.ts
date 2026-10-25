@@ -21,9 +21,15 @@ test('a credential is made once, picked in a webhook node, and kept private', as
 
   // Settings' search finds it by name, from any page, and opens its row.
   await page.goto('/settings')
+  await expect(page.getByRole('heading', { name: 'Settings', exact: true })).toBeVisible()
   await page.keyboard.press('/')
-  await page.getByRole('searchbox', { name: 'Search settings' }).fill(name)
-  await page.keyboard.press('Enter')
+  const search = page.getByRole('searchbox', { name: 'Search settings' })
+  await expect(search).toBeFocused()
+  await search.fill(name)
+  // Found once the page has the credentials from the server: Enter opens the first found.
+  const found = page.getByRole('navigation', { name: 'Matching settings' })
+  await expect(found.getByRole('link', { name })).toBeVisible()
+  await search.press('Enter')
   await expect(page).toHaveURL(/\/settings\/credentials#credential-/)
   await expect(row).toBeInViewport()
 
