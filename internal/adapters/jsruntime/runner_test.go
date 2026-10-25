@@ -182,16 +182,20 @@ func TestLimits(t *testing.T) {
 	t.Run("memory, even when caught", func(t *testing.T) {
 		t.Parallel()
 
+		// A minute, so the memory runs out first however slow the machine: with the race
+		// detector on a shared runner, filling 16 MiB has taken longer than the 5s default.
+		limits := ports.CodeLimits{Memory: 16 << 20, Time: time.Minute}
+
 		for _, source := range []string{
 			`function run() { const a = []; while (true) a.push("x".repeat(1e5) + a.length) }`,
 			`function run() { try { const a = []; while (true) a.push(new Array(1e5).fill(1)) } catch { return "fine" } }`,
 		} {
-			_, err := runner.Run(ctx, job(source, ports.CodeLimits{Memory: 16 << 20}))
+			_, err := runner.Run(ctx, job(source, limits))
 			ce := codeErr(t, err, domain.CodeOutOfMemory)
 			assert.Equal(t, "the code needed more than the 16 MiB of memory it may use", ce.Message)
 		}
 
-		res, err := runner.Run(ctx, job(`function run() { return new Array(1e5).fill(1).length }`, ports.CodeLimits{Memory: 16 << 20}))
+		res, err := runner.Run(ctx, job(`function run() { return new Array(1e5).fill(1).length }`, limits))
 		require.NoError(t, err, "within it")
 		assert.Equal(t, "100000", string(res.Output))
 	})

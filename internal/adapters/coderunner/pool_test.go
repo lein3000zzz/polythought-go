@@ -93,7 +93,7 @@ func TestSameAsInTheServer(t *testing.T) {
 		"it throws":        {Source: `function run() { throw new TypeError("not that") }`, Entry: "run"},
 		"no such function": {Source: `function other() {}`, Entry: "run"},
 		"past its time":    {Source: `function run() { for (;;) {} }`, Entry: "run", Limits: ports.CodeLimits{Time: 200 * time.Millisecond}},
-		"past its memory":  {Source: `function run() { const a = []; for (;;) a.push("x".repeat(1000)) }`, Entry: "run", Limits: ports.CodeLimits{Memory: 8 << 20}},
+		"past its memory":  {Source: `function run() { const a = []; for (;;) a.push("x".repeat(1000)) }`, Entry: "run", Limits: ports.CodeLimits{Memory: 8 << 20, Time: time.Minute}}, // memory first, however slow the machine
 		"past its output":  {Source: `function run() { return "x".repeat(1000) }`, Entry: "run", Limits: ports.CodeLimits{Output: 100}},
 		"never settles":    {Source: `function run() { return new Promise(() => {}) }`, Entry: "run"},
 		"as it gives it":   {Source: `function run() { return "<b>&amp;</b>".repeat(10) }`, Entry: "run", Limits: ports.CodeLimits{Output: 122}},
