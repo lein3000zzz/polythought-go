@@ -89,6 +89,7 @@ var routeScopes = map[string]access{
 	"PATCH /api/v1/credentials/:id":                     need(domain.ScopeBuild),
 	"DELETE /api/v1/credentials/:id":                    need(domain.ScopeBuild),
 	"POST /api/v1/credentials/:id/test":                 need(domain.ScopeBuild),
+	"GET /api/v1/credentials/:id/models":                need(domain.ScopeBuild), // it sends the key, as a test does (A18)
 	"POST /api/v1/custom-nodes":                         need(domain.ScopeBuild),
 	"PUT /api/v1/custom-nodes/:id":                      need(domain.ScopeBuild),
 	"DELETE /api/v1/custom-nodes/:id":                   need(domain.ScopeBuild),

@@ -61,21 +61,25 @@ func (p *Presence) Around(owner domain.UserID) bool {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 
-	if p.waiting[owner] > 0 {
-		return true
-	}
+	p.prune(owner)
 
+	return p.waiting[owner] > 0 || len(p.seen[owner]) > 0
+}
+
+// prune forgets owner's holders gone a while, every one of them, and owner once none is
+// left (A26). Under p.mu.
+func (p *Presence) prune(owner domain.UserID) {
 	since := p.now().Add(-p.window())
 
 	for holder, at := range p.seen[owner] {
-		if at.After(since) {
-			return true
+		if !at.After(since) {
+			delete(p.seen[owner], holder)
 		}
-
-		delete(p.seen[owner], holder) // gone a while: forgotten
 	}
 
-	return false
+	if len(p.seen[owner]) == 0 {
+		delete(p.seen, owner)
+	}
 }
 
 // Taking is which of owner's grants and tokens take tasks now, by holder ("grant:<id>",
@@ -84,13 +88,11 @@ func (p *Presence) Taking(owner domain.UserID) map[string]bool {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 
-	since := p.now().Add(-p.window())
-	out := map[string]bool{}
+	p.prune(owner)
 
-	for holder, at := range p.seen[owner] {
-		if at.After(since) {
-			out[holder] = true
-		}
+	out := map[string]bool{}
+	for holder := range p.seen[owner] {
+		out[holder] = true
 	}
 
 	return out
@@ -135,8 +137,10 @@ func (p *Presence) touch(owner domain.UserID, holder string) {
 	p.mark(owner, holder)
 }
 
-// mark notes holder was around now. Under p.mu.
+// mark notes holder was around now, forgetting those gone a while. Under p.mu.
 func (p *Presence) mark(owner domain.UserID, holder string) {
+	p.prune(owner)
+
 	if p.seen[owner] == nil {
 		p.seen[owner] = map[string]time.Time{}
 	}

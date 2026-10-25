@@ -10,6 +10,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/lein3000zzz/polythought-go/internal/adapters/mcpserver"
 	"github.com/lein3000zzz/polythought-go/internal/core/domain"
 	"github.com/lein3000zzz/polythought-go/internal/core/services/auth"
 	"github.com/lein3000zzz/polythought-go/internal/core/services/oauth"
@@ -97,6 +98,54 @@ func windowedAs(
 		d.Agents = agents{access: map[string]oauth.Access{"poa_agent": access}}
 	}
 
+	return windowedWith(t, d, links, answer)
+}
+
+// changing is the agent's access, which the user changes while a call waits.
+type changing struct {
+	mu     sync.Mutex
+	access oauth.Access
+	gone   bool
+}
+
+func (c *changing) Enabled() bool { return true }
+
+func (c *changing) Verify(context.Context, string) (oauth.Access, error) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	if c.gone {
+		return oauth.Access{}, domain.ErrUnauthenticated
+	}
+
+	return c.access, nil
+}
+
+func (c *changing) set(f func(*changing)) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	f(c)
+}
+
+// windowedChanging is windowed, its agent's access as access has it at each check.
+func windowedChanging(
+	t *testing.T, w *window, access *changing, answer func(*mcp.ElicitRequest) string,
+) (*mcp.ClientSession, *[]*mcp.ElicitParams) {
+	t.Helper()
+
+	e := liveEditing{&editing{}}
+	d := deps(alice, &trades{}, nil)
+	d.Edit, d.Code, d.Confirmations, d.Window = e, e.editing, confirms{}, w
+	d.WindowWait = func() time.Duration { return 2 * time.Second }
+	d.Agents = access
+
+	return windowedWith(t, d, false, answer)
+}
+
+func windowedWith(t *testing.T, d mcpserver.Deps, links bool, answer func(*mcp.ElicitRequest) string) (*mcp.ClientSession, *[]*mcp.ElicitParams) {
+	t.Helper()
+
 	var (
 		mu    sync.Mutex
 		asked []*mcp.ElicitParams
@@ -174,6 +223,84 @@ func TestAgentWindow(t *testing.T) {
 		defer w.mu.Unlock()
 
 		assert.Empty(t, w.confirmed)
+	})
+
+	t.Run("accepted after the agent was revoked meanwhile, nothing carried out (A16)", func(t *testing.T) {
+		w := &window{}
+		u := alice
+		u.AskInAgent = true
+		access := &changing{access: oauth.Access{
+			Principal: auth.Principal{User: u, GrantID: "g-1", Agent: "Claude Code", Scopes: []domain.Scope{domain.ScopeBuild, domain.ScopeLive}},
+			ExpiresAt: time.Now().Add(time.Hour),
+		}}
+
+		agent, _ := windowedChanging(t, w, access, func(*mcp.ElicitRequest) string {
+			access.set(func(c *changing) { c.gone = true }) // revoked while the form was open
+			return "accept"
+		})
+
+		// Its answer comes with its token, refused now: the call ends unanswered.
+		_, err := agent.CallTool(context.Background(), &mcp.CallToolParams{Name: "run_workflow", Arguments: map[string]any{"id": "wf-1"}})
+		require.ErrorContains(t, err, "Unauthorized")
+
+		w.mu.Lock()
+		defer w.mu.Unlock()
+
+		assert.Empty(t, w.confirmed, "not confirmed for an agent that is gone")
+	})
+
+	t.Run("accepted after the user stopped it asking there, it waits in Polythought (A16)", func(t *testing.T) {
+		w := &window{}
+		u := alice
+		u.AskInAgent = true
+		access := &changing{access: oauth.Access{
+			Principal: auth.Principal{User: u, GrantID: "g-1", Agent: "Claude Code", Scopes: []domain.Scope{domain.ScopeBuild, domain.ScopeLive}},
+			ExpiresAt: time.Now().Add(time.Hour),
+		}}
+
+		agent, _ := windowedChanging(t, w, access, func(*mcp.ElicitRequest) string {
+			access.set(func(c *changing) { c.access.Principal.User.AskInAgent = false })
+			return "accept"
+		})
+
+		_, err := call(t, agent, "run_workflow", map[string]any{"id": "wf-1"})
+		assert.Contains(t, err, "it waits for the user to confirm it")
+
+		w.mu.Lock()
+		defer w.mu.Unlock()
+
+		assert.Empty(t, w.confirmed)
+	})
+
+	t.Run("confirmed by a link, then carried out only with the scope it still has (A16)", func(t *testing.T) {
+		w := &window{inPolythought: make(chan domain.ConfirmStatus, 1)}
+		u := alice
+		u.AskInAgent = true
+		access := &changing{access: oauth.Access{
+			Principal: auth.Principal{User: u, GrantID: "g-1", Agent: "Claude Code", Scopes: []domain.Scope{domain.ScopeBuild, domain.ScopeLive}},
+			ExpiresAt: time.Now().Add(time.Hour),
+		}}
+
+		e := liveEditing{&editing{}}
+		d := deps(alice, &trades{}, nil)
+		d.Edit, d.Code, d.Confirmations, d.Window = e, e.editing, confirms{}, w
+		d.WindowWait = func() time.Duration { return 2 * time.Second }
+		d.Agents = access
+
+		agent, _ := windowedWith(t, d, true, func(*mcp.ElicitRequest) string {
+			access.set(func(c *changing) { c.access.Principal.Scopes = []domain.Scope{domain.ScopeRead} })
+			w.inPolythought <- domain.ConfirmConfirmed // the user confirms in Polythought
+			return "accept"
+		})
+
+		_, err := call(t, agent, "run_workflow", map[string]any{"id": "wf-1"})
+		assert.Contains(t, err, "build")
+
+		w.mu.Lock()
+		defer w.mu.Unlock()
+
+		require.Len(t, w.finished, 1)
+		require.Error(t, w.finished[0], "kept as failed, not carried out")
 	})
 
 	t.Run("not where the user has it off", func(t *testing.T) {

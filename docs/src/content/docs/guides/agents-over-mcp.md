@@ -22,7 +22,9 @@ opencode, VS Code, Claude Desktop and claude.ai, and any other client. Each come
 
 The agent then shows under **Connected agents**, with its scopes and its last use, and under
 **Connected now** while it has a session open. Revoke it there and it stops at once; it asks
-you again the next time it signs in. An agent that also ran before a restart shows as
+you again the next time it signs in. Signing in again with what you allowed, an agent on
+your machine, such as Claude Code or Codex, takes a click, its scopes ticked as before:
+another program there could be the one asking. An agent that also ran before a restart shows as
 **Since before a restart** until it comes back.
 
 Claude Desktop and claude.ai connect from Anthropic's cloud, not from your computer, so they
@@ -122,17 +124,22 @@ stops at the first ask and waits for you. Good while you watch it, or for a few 
 needs, such as Polythought's `wait_for_task` and `answer_task`, and the agent is refused the
 rest without asking: no shell, no file edits. It runs unattended, and a task that tries to
 steer it into more is refused by the client, not by the model's judgment. Allow too much,
-and you are back to trusting the model.
+and you are back to trusting the model. Tools a client runs without ever asking stay
+allowed, though: Claude Code reads and searches the files of the directory it started in
+whatever the mode, so a task could still ask it to read a `.env` and put that in its answer.
+Deny those too, and start the agent in an empty directory.
 
 Either way, running the agent in a container or a virtual machine of its own, with none of
 your files and no other credentials, limits what a mistake can reach.
 
 How each client does it:
 
-- **Claude Code**: the default mode asks before tools; `dontAsk` refuses everything not in
-  your `permissions.allow` rules, such as `mcp__polythought__wait_for_task` for a server you
-  added as `polythought`, or `mcp__plugin_polythought_polythought__wait_for_task` for the
-  plugin's. `bypassPermissions` asks for nothing at all, and is meant for isolated containers.
+- **Claude Code**: the default mode asks before tools; `dontAsk` refuses what would ask and
+  is not in your `permissions.allow` rules, such as `mcp__polythought__wait_for_task` for a
+  server you added as `polythought`, or `mcp__plugin_polythought_polythought__wait_for_task`
+  for the plugin's. Reading and searching files needs no asking, so add `Read`, `Glob`,
+  `Grep` and `WebFetch` to `permissions.deny`, or pass them to `--disallowedTools`.
+  `bypassPermissions` asks for nothing at all, and is meant for isolated containers.
 - **Codex**: `default_tools_approval_mode`, and `approval_mode` per tool under
   `[mcp_servers.polythought.tools.<tool>]`; `enabled_tools` and `disabled_tools` narrow the
   server's tools.

@@ -99,6 +99,7 @@ func TestSettingsDefaults(t *testing.T) {
 		config.KeyPolygonRPC:          pm.DefaultRPCURL,
 		config.KeyMCPEnabled:          true,
 		config.KeyMCPRegistration:     true,
+		config.KeyMCPMaxUnused:        1000,
 		config.KeyMCPPrivateDocuments: false,
 		config.KeyMCPSkipConsent:      true,
 		config.KeyMCPRate:             120,
@@ -137,7 +138,7 @@ func TestSettingsDefaults(t *testing.T) {
 		assert.Equal(t, want, spec(t, key).Default, key)
 	}
 
-	assert.Len(t, registry(t).Specs(), 85, "every setting has a default checked above")
+	assert.Len(t, registry(t).Specs(), 86, "every setting has a default checked above")
 
 	for _, key := range []string{
 		config.KeyTelegramToken, config.KeyBuilderAPIKey, config.KeyBuilderSecret, config.KeyBuilderPassphrase, config.KeyPolygonRPC,

@@ -53,6 +53,8 @@ func serve(ctx context.Context) error {
 		return err
 	}
 
+	a.mcp = mcp
+
 	// Its sessions stay kept as the server stops, for their agents to come back to (D414).
 	a.util.OnShutdown(mcp.Shutdown)
 

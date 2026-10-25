@@ -30,7 +30,9 @@ type Window interface {
 // inWindow asks the user about c in the agent's window and waits for the answer. carry
 // says the call is to carry the action out now, then finish c; an error, that it ends so,
 // refused; neither, that it waits in Polythought as before.
-func (s *Server) inWindow(ctx context.Context, session *mcp.ServerSession, p auth.Principal, c domain.Confirmation) (domain.Confirmation, bool, error) {
+func (s *Server) inWindow(
+	ctx context.Context, session *mcp.ServerSession, p auth.Principal, now func(context.Context) (auth.Principal, error), c domain.Confirmation,
+) (domain.Confirmation, bool, error) {
 	if s.window == nil || !p.User.AskInAgent || session == nil {
 		return domain.Confirmation{}, false, nil
 	}
@@ -58,7 +60,7 @@ func (s *Server) inWindow(ctx context.Context, session *mcp.ServerSession, p aut
 		return domain.Confirmation{}, false, nil
 	}
 
-	return s.byForm(ctx, session, p, c)
+	return s.byForm(ctx, session, p, now, c)
 }
 
 // byLink sends the user to Polythought's page for c, and waits for them to decide there.
@@ -100,8 +102,11 @@ func (s *Server) byLink(ctx context.Context, session *mcp.ServerSession, p auth.
 	return domain.Confirmation{}, false, nil // unanswered while the call waited
 }
 
-// byForm asks in the window itself, the answer counting.
-func (s *Server) byForm(ctx context.Context, session *mcp.ServerSession, p auth.Principal, c domain.Confirmation) (domain.Confirmation, bool, error) {
+// byForm asks in the window itself, the answer counting, given by the caller as it is once
+// the user answers: still allowed, and still letting it ask there (A16).
+func (s *Server) byForm(
+	ctx context.Context, session *mcp.ServerSession, p auth.Principal, now func(context.Context) (auth.Principal, error), c domain.Confirmation,
+) (domain.Confirmation, bool, error) {
 	res, err := session.Elicit(ctx, &mcp.ElicitParams{
 		Mode: "form", RequestedSchema: map[string]any{"type": "object", "properties": map[string]any{}},
 		Message: "Polythought: confirm, or decline to refuse: " + c.What + ". It waits for you in Polythought too.",
@@ -109,6 +114,16 @@ func (s *Server) byForm(ctx context.Context, session *mcp.ServerSession, p auth.
 	if err != nil {
 		s.windowFailed(ctx, c, err)
 		return domain.Confirmation{}, false, nil
+	}
+
+	if res.Action == "accept" {
+		if p, err = now(ctx); err != nil {
+			return domain.Confirmation{}, false, err
+		}
+
+		if !p.User.AskInAgent {
+			return domain.Confirmation{}, false, nil // no longer asked here: it waits in Polythought
+		}
 	}
 
 	switch res.Action {

@@ -6,8 +6,11 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
+	"fmt"
 	"io"
 	"net/http"
+	"runtime/debug"
 	"slices"
 	"time"
 
@@ -96,8 +99,16 @@ func (s *Server) limitOpening(next http.Handler) http.Handler {
 // track keeps the sessions its requests come in: one first seen is written down, its last
 // call now and then, and its end once the SDK closes it.
 func (s *Server) track(next mcp.MethodHandler) mcp.MethodHandler {
-	return func(ctx context.Context, method string, req mcp.Request) (mcp.Result, error) {
-		res, err := next(ctx, method, req)
+	return func(ctx context.Context, method string, req mcp.Request) (res mcp.Result, err error) {
+		// Nothing recovers what panics in a method but here: the server would stop (A24).
+		defer func() {
+			if r := recover(); r != nil {
+				s.log.Error(ctx, "MCP method panicked", "method", method, "panic", fmt.Sprint(r), "stack", string(debug.Stack()))
+				res, err = nil, errors.New("internal error")
+			}
+		}()
+
+		res, err = next(ctx, method, req)
 
 		s.seen(ctx, req)
 
@@ -177,6 +188,30 @@ func (s *Server) seen(ctx context.Context, req mcp.Request) {
 
 	if err != nil {
 		s.log.Warn(ctx, "MCP session not kept", logging.Err(err))
+	}
+}
+
+// EndedGrant closes the sessions of a grant revoked, and EndedToken those of an API token
+// (A16): its next request is refused anyway, but a call waiting meanwhile ends now.
+func (s *Server) EndedGrant(id domain.GrantID) { s.closeHolder("grant:" + string(id)) }
+
+func (s *Server) EndedToken(id domain.APITokenID) { s.closeHolder("token:" + string(id)) }
+
+func (s *Server) closeHolder(holder string) {
+	s.mu.Lock()
+
+	var closing []*mcp.ServerSession
+
+	for id, o := range s.tracked {
+		if o.holder == holder {
+			closing = append(closing, o.session)
+			delete(s.tracked, id)
+		}
+	}
+	s.mu.Unlock()
+
+	for _, ss := range closing {
+		go func() { _ = ss.Close() }()
 	}
 }
 

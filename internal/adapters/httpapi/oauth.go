@@ -331,6 +331,9 @@ type oauthProblemDTO struct {
 	// Redirect is where to send the browser with it, back to the client; absent, the page
 	// shows it, as the client or its redirect is wrong.
 	Redirect string `json:"redirect,omitempty" validate:"optional"`
+	// AskFirst says the page shows it, and where it goes, with a link, rather than sending
+	// the browser there at once: the user never allowed the client (A14).
+	AskFirst bool `json:"askFirst,omitempty" validate:"optional"`
 } // @name OAuthProblem
 
 type consentDTO struct {
@@ -342,8 +345,10 @@ type consentDTO struct {
 	RedirectAway bool       `json:"redirectAway,omitempty" validate:"optional"`
 	Offered      []offerDTO `json:"offered,omitempty" validate:"optional"`
 	// Allowed says the user's grant covers what the client asks: the page approves with
-	// Granted, not asking again.
+	// Granted, not asking again. Again says it covers it, but the client comes back
+	// elsewhere than its own site: the page asks for a click, the grant's scopes ticked (A15).
 	Allowed bool     `json:"allowed"`
+	Again   bool     `json:"again,omitempty" validate:"optional"`
 	Granted []string `json:"granted,omitempty" validate:"optional"`
 	// Problem is set instead when the request is wrong.
 	Problem *oauthProblemDTO `json:"problem,omitempty" validate:"optional"`
@@ -367,7 +372,7 @@ func problemOf(err error) *oauthProblemDTO {
 		return nil
 	}
 
-	return &oauthProblemDTO{Code: oe.Code, Description: oe.Description, Redirect: oe.Redirect}
+	return &oauthProblemDTO{Code: oe.Code, Description: oe.Description, Redirect: oe.Redirect, AskFirst: oe.AskFirst}
 }
 
 // oauthConsent checks an authorization request for the consent page, signed in.
@@ -402,7 +407,7 @@ func (s *Server) oauthConsent(ctx context.Context, c *app.RequestContext) {
 	}
 
 	client := toOAuthClientDTO(consent.Client)
-	out := consentDTO{Client: &client, Allowed: consent.Allowed}
+	out := consentDTO{Client: &client, Allowed: consent.Allowed, Again: consent.Again}
 
 	if u, err := url.Parse(consent.RedirectURI); err == nil {
 		out.RedirectHost = u.Scheme + "://" + asciiHost(u.Hostname())

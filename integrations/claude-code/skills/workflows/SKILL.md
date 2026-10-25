@@ -66,8 +66,10 @@ with each problem.
 `update_workflow` takes the `id`, the `version` you read it at, and the whole new `code` or
 `workflow`. A newer version means someone changed it since: read it again first. A personal
 setting you were shown as `{"$personal": "hidden"}` keeps its value when you leave it so; the
-answer's `hidden` lists those kept. Nodes keep their places on the canvas; new ones go
-beside the node feeding them.
+answer's `hidden` lists those kept. A name or notes shown as
+`(another user's words: see untrusted)` are another user's, from the library entry the
+workflow came from, the text under `untrusted`: leave it so and it keeps that text. Nodes
+keep their places on the canvas; new ones go beside the node feeding them.
 
 ## Running
 

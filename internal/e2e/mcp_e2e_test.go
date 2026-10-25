@@ -191,7 +191,17 @@ func tool(ctx context.Context, t *testing.T, session *mcp.ClientSession, name st
 
 	res, err := session.CallTool(ctx, &mcp.CallToolParams{Name: name, Arguments: args})
 	require.NoError(t, err, name)
-	require.False(t, res.IsError, "%s: %v", name, res.Content)
+
+	if res.IsError {
+		var said []string
+		for _, c := range res.Content {
+			if text, ok := c.(*mcp.TextContent); ok {
+				said = append(said, text.Text)
+			}
+		}
+
+		require.Fail(t, name+" failed", strings.Join(said, "\n"))
+	}
 
 	data, err := json.Marshal(res.StructuredContent)
 	require.NoError(t, err)

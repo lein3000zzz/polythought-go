@@ -327,18 +327,27 @@ func (s *Server) verify(ctx context.Context, token string, _ *http.Request) (*sd
 	case errors.Is(err, domain.ErrUnauthenticated), errors.Is(err, domain.ErrUserDisabled), errors.Is(err, domain.ErrEmailNotVerified):
 		return nil, fmt.Errorf("%w: %v", sdkauth.ErrInvalidToken, err)
 	case err != nil:
-		return nil, err
+		// The SDK says an error as it is, to whoever sent the token: the reason stays in
+		// the log (A17).
+		s.log.Error(ctx, "MCP token not checked", logging.Err(err))
+		return nil, errTokenUnchecked
 	}
 
 	return &sdkauth.TokenInfo{
 		Scopes:     scopesOf(p),
 		Expiration: expires,
 		UserID:     string(p.User.ID), // a session stays its user's
-		Extra:      map[string]any{principalName: p},
+		// The token, for a call that waited a while to check it again (A16).
+		Extra: map[string]any{principalName: p, tokenName: token},
 	}, nil
 }
 
-const principalName = "principal"
+const (
+	principalName = "principal"
+	tokenName     = "token"
+)
+
+var errTokenUnchecked = errors.New("the server could not check the token just now: try again")
 
 // Principal is who a tool's request acts for, its scopes with it.
 func Principal(req *mcp.CallToolRequest) (auth.Principal, bool) {
@@ -349,6 +358,24 @@ func Principal(req *mcp.CallToolRequest) (auth.Principal, bool) {
 	p, ok := req.Extra.TokenInfo.Extra[principalName].(auth.Principal)
 
 	return p, ok
+}
+
+// again is the principal of req's token as it is now, its grant, token and user read
+// again: for a call that waited for the user, who may have revoked it, disabled it, taken
+// a scope from it or stopped it asking in its window meanwhile (A16).
+func (s *Server) again(req *mcp.CallToolRequest) func(context.Context) (auth.Principal, error) {
+	return func(ctx context.Context) (auth.Principal, error) {
+		token, _ := req.Extra.TokenInfo.Extra[tokenName].(string)
+
+		info, err := s.verify(ctx, token, nil)
+		if err != nil {
+			return auth.Principal{}, fmt.Errorf("%w: its access changed while it waited, so nothing was carried out", domain.ErrForbidden)
+		}
+
+		p, _ := info.Extra[principalName].(auth.Principal)
+
+		return p, nil
+	}
 }
 
 // scopesOf is what the principal may do, its role allowing: an API token made before

@@ -1,6 +1,7 @@
 package polymarket
 
 import (
+	"context"
 	"net/http"
 	"time"
 )
@@ -35,11 +36,14 @@ const (
 
 // HTTPConfig configures one REST client. Zero fields take that client's defaults.
 type HTTPConfig struct {
-	BaseURL    string
-	Timeout    time.Duration     // per attempt, 0 => 10s
-	RPS        float64           // 0 => client default (gamma 30, clob 50, data 20)
-	Burst      int               // 0 => RPS
-	TradeRPS   float64           // the CLOB's orders, cancels and heartbeats, apart from its reads; 0 => 50
+	BaseURL  string
+	Timeout  time.Duration // per attempt, 0 => 10s
+	RPS      float64       // 0 => client default (gamma 30, clob 50, data 20)
+	Burst    int           // 0 => RPS
+	TradeRPS float64       // the CLOB's orders, cancels and heartbeats, apart from its reads; 0 => 50
+	// CallerOf says whose a request is, such as a user's, for each to take the budget in
+	// turn with the others; nil, first come first served.
+	CallerOf   func(ctx context.Context) string
 	MaxRetries int               // 0 => 3, negative => no retries
 	Transport  http.RoundTripper // nil => http.DefaultTransport, always wrapped by otelhttp
 }

@@ -61,6 +61,22 @@ func (m *memRepo) Recent(_ context.Context, owner domain.UserID, _ int) ([]domai
 	return out, nil
 }
 
+func (m *memRepo) PendingOf(_ context.Context, grant domain.GrantID, token domain.APITokenID, now time.Time) ([]domain.Confirmation, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	var out []domain.Confirmation
+
+	for _, c := range m.rows {
+		ours := (grant != "" && c.GrantID == grant) || (grant == "" && c.GrantID == "" && c.TokenID == token)
+		if ours && c.Status == domain.ConfirmPending && now.Before(c.ExpiresAt) {
+			out = append(out, c)
+		}
+	}
+
+	return out, nil
+}
+
 func (m *memRepo) CountPending(_ context.Context, owner domain.UserID, now time.Time) (int, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
@@ -216,6 +232,80 @@ func TestHold(t *testing.T) {
 	lets.User.Unconfirmed.Run = true
 	require.NoError(t, svc.Hold(ctx, lets, domain.Ask{Kind: domain.ConfirmSwitchOn, WorkflowID: "wf-1", What: "x", Payload: nil}), "switching on goes with running")
 	held(t, svc.Hold(ctx, lets, domain.Ask{Kind: domain.ConfirmGoLive, WorkflowID: "wf-1", What: "x", Payload: nil}))
+}
+
+// A confirmed call goes ahead with what the user confirmed, and nothing else it reaches
+// (A23): its action made otherwise the second time, or another that would wait.
+func TestHoldConfirmed(t *testing.T) {
+	ctx := context.Background()
+	clock := at
+	svc, _ := newService(t, &clock)
+
+	confirmed := agent
+	confirmed.Confirmed = true
+	confirmed.Confirming = &domain.Confirmation{Kind: domain.ConfirmChange, WorkflowID: "wf-1", Payload: []byte(`{"version": 3, "nodes": [1, 2.0]}`)}
+
+	same := domain.Ask{Kind: domain.ConfirmChange, WorkflowID: "wf-1", Payload: map[string]any{"nodes": []int{1, 2}, "version": 3}}
+	require.NoError(t, svc.Hold(ctx, confirmed, same), "the same, however written")
+
+	for name, a := range map[string]domain.Ask{
+		"another graph":    {Kind: domain.ConfirmChange, WorkflowID: "wf-1", Payload: map[string]any{"nodes": []int{1, 3}, "version": 3}},
+		"another workflow": {Kind: domain.ConfirmChange, WorkflowID: "wf-2", Payload: same.Payload},
+		"another action":   {Kind: domain.ConfirmGoLive, WorkflowID: "wf-1", Payload: same.Payload},
+	} {
+		require.ErrorIs(t, svc.Hold(ctx, confirmed, a), domain.ErrConflict, name)
+	}
+
+	lets := confirmed
+	lets.User.Unconfirmed.GoLive = true
+	require.NoError(t, svc.Hold(ctx, lets, domain.Ask{Kind: domain.ConfirmGoLive, WorkflowID: "wf-1"}), "one the user lets go ahead")
+}
+
+// A grant or a token revoked refuses what it asked for that still waits, and a call
+// waiting for the answer hears so (A16).
+func TestEnded(t *testing.T) {
+	ctx := context.Background()
+	clock := at
+	svc, _ := newService(t, &clock)
+
+	asks := agent
+	asks.User.AskInAgent = true
+
+	mine := held(t, svc.Hold(ctx, asks, domain.Ask{Kind: domain.ConfirmRun, WorkflowID: "wf-1", What: "Run it"}))
+
+	other := asks
+	other.GrantID = "g-2"
+	theirs := held(t, svc.Hold(ctx, other, domain.Ask{Kind: domain.ConfirmRun, WorkflowID: "wf-1", What: "Run it"}))
+
+	token := asks
+	token.GrantID, token.TokenID = "", "t-1"
+	byToken := held(t, svc.Hold(ctx, token, domain.Ask{Kind: domain.ConfirmKillOff, What: "Turn it off"}))
+
+	waited := make(chan error, 1)
+
+	go func() {
+		_, _, err := svc.Await(ctx, asks, mine.ID)
+		waited <- err
+	}()
+
+	require.Eventually(t, func() bool { return svc.Awaited(mine.ID) }, time.Second, time.Millisecond)
+
+	svc.Ended(ctx, "g-1", "")
+	require.ErrorIs(t, <-waited, domain.ErrConfirmRefused, "the waiting call hears so")
+
+	for id, want := range map[domain.ConfirmationID]domain.ConfirmStatus{
+		mine.ID: domain.ConfirmRefused, theirs.ID: domain.ConfirmPending, byToken.ID: domain.ConfirmPending,
+	} {
+		got, err := svc.Get(ctx, atDesk, id)
+		require.NoError(t, err)
+		assert.Equal(t, want, got.Status, id)
+	}
+
+	svc.Ended(ctx, "", "t-1")
+
+	got, err := svc.Get(ctx, atDesk, byToken.ID)
+	require.NoError(t, err)
+	assert.Equal(t, domain.ConfirmRefused, got.Status, "a token's too")
 }
 
 func TestConfirm(t *testing.T) {

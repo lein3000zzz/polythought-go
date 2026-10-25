@@ -161,7 +161,10 @@ Under **Agents over MCP** on the Config page:
 - **Documents at private addresses** lets the server fetch an agent's metadata document from
   inside its own network. Off to start with: any signed-in user could have it fetch one.
 - **Let allowed agents through** skips the consent page when an agent asks for no more than
-  it has, as when it starts on another of its user's machines.
+  it has and comes back to its own site over https. One coming back to its user's machine,
+  as command-line agents do, takes a click, its scopes ticked as allowed.
+- **Agents registered, not yet allowed**, 1,000 to start with: past it, agents registering
+  themselves are refused until the daily prune.
 - **Access token lifetime** and **Refresh token lifetime**, an hour and 30 days to start
   with: an agent unused for the second signs in again through the browser.
 - **Tool calls a minute**, 120 to start with, is how many tool calls one agent, or one API

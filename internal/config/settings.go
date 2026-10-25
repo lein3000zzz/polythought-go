@@ -78,6 +78,7 @@ const (
 	// Agents over MCP (D398): agents such as Claude Code, signed in with OAuth.
 	KeyMCPEnabled          = "mcp.enabled"
 	KeyMCPRegistration     = "mcp.registration"
+	KeyMCPMaxUnused        = "mcp.max_unused_clients"
 	KeyMCPPrivateDocuments = "mcp.private_documents"
 	KeyMCPSkipConsent      = "mcp.skip_consent"
 	KeyMCPRate             = "mcp.rate"
@@ -436,6 +437,12 @@ func Settings() (*settings.Registry, error) {
 			Kind: settings.KindBool, Default: true,
 		},
 		settings.Spec{
+			Key: KeyMCPMaxUnused, Group: groupMCP, Label: "Agents registered, not yet allowed",
+			Description: "How many agents that registered themselves may wait at once with no user allowing them. Past " +
+				"it, registering is refused until the daily prune removes those a day old. Applies at once.",
+			Kind: settings.KindInt, Default: 1000, Check: between(10, 1_000_000),
+		},
+		settings.Spec{
 			Key: KeyMCPPrivateDocuments, Group: groupMCP, Label: "Documents at private addresses",
 			Description: "Fetch agents' metadata documents from addresses inside the server's network too, for an agent " +
 				"published there. Leave off on a shared instance: any signed-in user could have the server fetch one. " +
@@ -445,7 +452,9 @@ func Settings() (*settings.Registry, error) {
 		settings.Spec{
 			Key: KeyMCPSkipConsent, Group: groupMCP, Label: "Let allowed agents through",
 			Description: "An agent asking for no more than its user allowed it before gets in without the consent page " +
-				"asking again, as when it starts on another of their machines. Off, the page asks every time.",
+				"asking again, as when it starts on another of their machines, where it comes back to its own site. One " +
+				"coming back to the user's machine, as command-line agents do, takes a click, its scopes ticked as " +
+				"allowed: anything there could be listening. Off, the page asks every time.",
 			Kind: settings.KindBool, Default: true,
 		},
 		settings.Spec{

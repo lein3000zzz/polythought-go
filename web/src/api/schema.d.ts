@@ -3258,9 +3258,11 @@ export interface components {
             site?: string;
         };
         OAuthConsent: {
+            again?: boolean;
             /**
              * @description Allowed says the user's grant covers what the client asks: the page approves with
-             *     Granted, not asking again.
+             *     Granted, not asking again. Again says it covers it, but the client comes back
+             *     elsewhere than its own site: the page asks for a click, the grant's scopes ticked (A15).
              */
             allowed: boolean;
             client?: components["schemas"]["OAuthClient"];
@@ -3306,6 +3308,11 @@ export interface components {
             ticked: boolean;
         };
         OAuthProblem: {
+            /**
+             * @description AskFirst says the page shows it, and where it goes, with a link, rather than sending
+             *     the browser there at once: the user never allowed the client (A14).
+             */
+            askFirst?: boolean;
             code: string;
             description: string;
             /**

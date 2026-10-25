@@ -27,6 +27,14 @@ var (
 type definitionDoc struct {
 	Nodes       []nodeDoc       `json:"nodes"`
 	Connections []connectionDoc `json:"connections"`
+	// Borrowed is what of a workflow another user wrote (A21): with its graph, as it
+	// changes with it.
+	Borrowed *borrowedDoc `json:"borrowed,omitempty"`
+}
+
+type borrowedDoc struct {
+	Name  bool     `json:"name,omitempty"`
+	Nodes []string `json:"nodes,omitempty"`
 }
 
 type nodeDoc struct {
@@ -53,6 +61,11 @@ type connectionDoc struct {
 
 // encodeDefinition stores a graph: a workflow's, or a shared template's.
 func encodeDefinition(nodes []domain.NodeSpec, connections []domain.Connection) (string, error) {
+	return encodeWorkflowDefinition(nodes, connections, domain.Borrowed{})
+}
+
+// encodeWorkflowDefinition stores a workflow's graph, with what of it another user wrote.
+func encodeWorkflowDefinition(nodes []domain.NodeSpec, connections []domain.Connection, borrowed domain.Borrowed) (string, error) {
 	doc := definitionDoc{
 		Nodes:       make([]nodeDoc, len(nodes)),
 		Connections: make([]connectionDoc, len(connections)),
@@ -69,6 +82,13 @@ func encodeDefinition(nodes []domain.NodeSpec, connections []domain.Connection) 
 		doc.Connections[i] = connectionDoc{From: string(c.From), FromPort: c.FromPort, To: string(c.To), ToPort: c.ToPort}
 	}
 
+	if borrowed.Name || len(borrowed.Nodes) > 0 {
+		doc.Borrowed = &borrowedDoc{Name: borrowed.Name}
+		for _, n := range borrowed.Nodes {
+			doc.Borrowed.Nodes = append(doc.Borrowed.Nodes, string(n))
+		}
+	}
+
 	b, err := json.Marshal(doc)
 
 	return string(b), err
@@ -76,13 +96,27 @@ func encodeDefinition(nodes []domain.NodeSpec, connections []domain.Connection) 
 
 // decodeDefinition keeps numbers as json.Number, so parameters like 0.02 stay exact.
 func decodeDefinition(raw string) ([]domain.NodeSpec, []domain.Connection, error) {
+	nodes, conns, _, err := decodeWorkflowDefinition(raw)
+	return nodes, conns, err
+}
+
+// decodeWorkflowDefinition is decodeDefinition with what of it another user wrote.
+func decodeWorkflowDefinition(raw string) ([]domain.NodeSpec, []domain.Connection, domain.Borrowed, error) {
 	var doc definitionDoc
 
 	dec := json.NewDecoder(bytes.NewReader([]byte(raw)))
 	dec.UseNumber()
 
 	if err := dec.Decode(&doc); err != nil {
-		return nil, nil, fmt.Errorf("postgres: decode workflow definition: %w", err)
+		return nil, nil, domain.Borrowed{}, fmt.Errorf("postgres: decode workflow definition: %w", err)
+	}
+
+	var borrowed domain.Borrowed
+	if doc.Borrowed != nil {
+		borrowed.Name = doc.Borrowed.Name
+		for _, n := range doc.Borrowed.Nodes {
+			borrowed.Nodes = append(borrowed.Nodes, domain.NodeID(n))
+		}
 	}
 
 	nodes := make([]domain.NodeSpec, len(doc.Nodes))
@@ -98,7 +132,7 @@ func decodeDefinition(raw string) ([]domain.NodeSpec, []domain.Connection, error
 		conns[i] = domain.Connection{From: domain.NodeID(c.From), FromPort: c.FromPort, To: domain.NodeID(c.To), ToPort: c.ToPort}
 	}
 
-	return nodes, conns, nil
+	return nodes, conns, borrowed, nil
 }
 
 type Workflows struct {
@@ -319,7 +353,7 @@ func (r *Workflows) Update(ctx context.Context, w domain.Workflow, expectedVersi
 		return err
 	}
 
-	def, err := encodeDefinition(w.Nodes, w.Connections)
+	def, err := encodeWorkflowDefinition(w.Nodes, w.Connections, w.Borrowed)
 	if err != nil {
 		return err
 	}
@@ -470,7 +504,7 @@ func toWorkflowModel(w domain.Workflow) (model.Workflows, error) {
 		return model.Workflows{}, err
 	}
 
-	def, err := encodeDefinition(w.Nodes, w.Connections)
+	def, err := encodeWorkflowDefinition(w.Nodes, w.Connections, w.Borrowed)
 	if err != nil {
 		return model.Workflows{}, err
 	}
@@ -493,7 +527,7 @@ func toWorkflowModel(w domain.Workflow) (model.Workflows, error) {
 }
 
 func toWorkflow(m model.Workflows) (domain.Workflow, error) {
-	nodes, conns, err := decodeDefinition(m.Definition)
+	nodes, conns, borrowed, err := decodeWorkflowDefinition(m.Definition)
 	if err != nil {
 		return domain.Workflow{}, err
 	}
@@ -515,6 +549,7 @@ func toWorkflow(m model.Workflows) (domain.Workflow, error) {
 		Version:     int(m.Version),
 		CreatedAt:   m.CreatedAt.UTC(),
 		UpdatedAt:   m.UpdatedAt.UTC(),
+		Borrowed:    borrowed,
 		ActedBy: domain.Actor{
 			GrantID: domain.GrantID(m.ActedGrant), TokenID: domain.APITokenID(m.ActedToken), Name: m.ActedName,
 			How: domain.ActorHow(m.ActedHow), Confirmed: m.ActedConfirmed,

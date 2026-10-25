@@ -203,6 +203,54 @@ describe('the consent page (D384)', () => {
     )
   })
 
+  it('asks before sending an error back to an agent never allowed (A14)', async () => {
+    serve({
+      allowed: false,
+      problem: {
+        code: 'unsupported_response_type',
+        description: 'the response_type is code',
+        redirect: 'https://evil.example/login?error=unsupported_response_type',
+        askFirst: true,
+      },
+    })
+    renderApp(path)
+
+    expect(await screen.findByText('This sign-in link does not work')).toBeInTheDocument()
+    expect(screen.getByText('https://evil.example')).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'go back to the agent' })).toHaveAttribute(
+      'href',
+      'https://evil.example/login?error=unsupported_response_type',
+    )
+    expect(leaveFor).not.toHaveBeenCalled()
+  })
+
+  it('asks for a click to sign an agent in again where it comes back off-site (A15)', async () => {
+    const sent = serve(
+      consent({
+        again: true,
+        granted: ['read', 'build'],
+        offered: [
+          { scope: 'read', ticked: true },
+          { scope: 'build', ticked: true },
+          { scope: 'paper', ticked: false },
+          { scope: 'live', ticked: false },
+        ],
+      }),
+    )
+    const { user } = renderApp(path)
+
+    expect(await screen.findByText('Sign Claude Code in again?')).toBeInTheDocument()
+    expect(screen.getByText(/comes back to http:\/\/127\.0\.0\.1:4000/)).toBeInTheDocument()
+    expect(leaveFor).not.toHaveBeenCalled()
+
+    await user.click(screen.getByRole('button', { name: 'Allow' }))
+
+    await waitFor(() =>
+      expect(leaveFor).toHaveBeenCalledWith('http://127.0.0.1:4000/cb?code=c0de&state=st'),
+    )
+    expect(sent.approve).toEqual({ request, scopes: ['read', 'build'] })
+  })
+
   it('shows what the server refused', async () => {
     serve(consent())
     server.use(

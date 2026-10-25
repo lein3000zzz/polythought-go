@@ -39,6 +39,22 @@ func TestList(t *testing.T) {
 			Return(credtypes.AnthropicKey, map[string]string{"apiKey": apiKey}, nil).Once()
 	}
 
+	t.Run("a token's or an agent's only where the user lets them use credentials (A18)", func(t *testing.T) {
+		s, creds, llm, _ := setup(t)
+
+		token := auth.Principal{User: domain.User{ID: "alice"}, TokenID: "t-1"}
+		_, err := s.List(ctx, token, "c-1")
+		require.ErrorIs(t, err, domain.ErrForbidden, "the key is not sent")
+
+		token.User.Agents.UseCredentials = true
+		holds(creds, "sk-ant-1")
+		llm.EXPECT().Models(mock.Anything, key).Return(opus, nil).Once()
+
+		got, err := s.List(ctx, token, "c-1")
+		require.NoError(t, err)
+		assert.Equal(t, opus, got)
+	})
+
 	t.Run("asked once an hour", func(t *testing.T) {
 		s, creds, llm, now := setup(t)
 

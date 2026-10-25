@@ -76,6 +76,10 @@ func TestOAuthClients(t *testing.T) {
 	_, err = repo.SaveGrant(ctx, oauthGrant(u.ID, staleUsed, at, domain.ScopeRead))
 	require.NoError(t, err)
 
+	unusedNow, err := repo.CountUnusedClients(ctx)
+	require.NoError(t, err)
+	assert.Equal(t, 2, unusedNow, "registered, no grant: unused and recent, not documents' (A13)")
+
 	n, err := repo.PruneClients(ctx, at.Add(time.Hour))
 	require.NoError(t, err)
 	assert.Equal(t, int64(2), n)

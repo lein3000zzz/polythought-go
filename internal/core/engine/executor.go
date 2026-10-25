@@ -153,6 +153,7 @@ func (e *Executor) Execute(
 	}
 
 	ctx = ports.WithCodeOwner(ctx, w.OwnerID) // its code and expressions are its owner's
+	ctx = ports.WithUser(ctx, w.OwnerID)      // and its calls out, for their fair share (A11)
 
 	reg, err := e.catalog.For(ctx, w.OwnerID)
 	if err != nil {
@@ -213,6 +214,7 @@ func (e *Executor) Continue(ctx context.Context, rec ports.WaitRecord, r Resumpt
 	}
 
 	ctx = ports.WithCodeOwner(ctx, snap.Workflow.OwnerID)
+	ctx = ports.WithUser(ctx, snap.Workflow.OwnerID)
 
 	// Not reading the node types fails the execution rather than losing it.
 	reg, typesErr := e.catalog.For(ctx, snap.Workflow.OwnerID)

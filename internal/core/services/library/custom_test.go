@@ -13,6 +13,7 @@ import (
 
 	"github.com/lein3000zzz/polythought-go/internal/core/domain"
 	"github.com/lein3000zzz/polythought-go/internal/core/nodes/customnodes"
+	"github.com/lein3000zzz/polythought-go/internal/core/services/auth"
 	custom "github.com/lein3000zzz/polythought-go/internal/core/services/customnodes"
 	"github.com/lein3000zzz/polythought-go/internal/core/services/library"
 	"github.com/lein3000zzz/polythought-go/internal/core/services/workflows"
@@ -265,4 +266,39 @@ func TestUseCopiesCustomNodes(t *testing.T) {
 		require.ErrorIs(t, err, domain.ErrCodeOff)
 		assert.ErrorContains(t, err, "its custom node other")
 	})
+}
+
+// A workflow made from another user's entry keeps their name and their nodes' names and
+// notes marked as theirs; one from the user's own, or Polythought's, keeps nothing marked
+// (A21).
+func TestUseMarksOthersWords(t *testing.T) {
+	ctx := context.Background()
+	values := library.UseInput{Values: map[domain.NodeID]map[string]any{"split": {"wallet": "w-bob"}}}
+
+	marked := func(t *testing.T, who auth.Principal, in library.UseInput, want *domain.Borrowed) {
+		t.Helper()
+
+		s, d := withCustom(t)
+		d.repo.EXPECT().Get(ctx, domain.TemplateID("tpl-1")).Return(usingSplit(), nil)
+		d.custom.EXPECT().List(ctx, who).Return(nil, nil)
+		d.custom.EXPECT().Create(ctx, who, mock.Anything).Return(domain.CustomNode{ID: "n-1", Name: "split"}, nil).Maybe()
+
+		var got workflows.Definition
+		d.workflows.EXPECT().Create(ctx, who, mock.Anything).RunAndReturn(func(_ context.Context, _ auth.Principal, def workflows.Definition) (domain.Workflow, error) {
+			got = def
+			return domain.Workflow{ID: "wf-1"}, nil
+		})
+
+		_, err := s.Use(ctx, who, "tpl-1", in)
+		require.NoError(t, err)
+		assert.Equal(t, want, got.Borrowed)
+	}
+
+	marked(t, bob, values, &domain.Borrowed{Name: true, Nodes: []domain.NodeID{"manual", "split", "log"}})
+
+	named := values
+	named.Name = "Bob's spreads"
+	marked(t, bob, named, &domain.Borrowed{Nodes: []domain.NodeID{"manual", "split", "log"}})
+
+	marked(t, alice, values, nil)
 }

@@ -470,7 +470,7 @@ func (s *Service) Restart(ctx context.Context, p auth.Principal) error {
 		return errors.New("settings: this server cannot restart itself")
 	}
 
-	if s.confirm != nil && !p.Itself() && !p.Confirmed {
+	if s.confirm != nil && !p.Itself() {
 		if err := s.confirm.Hold(ctx, p, domain.Ask{Kind: domain.ConfirmRestart, What: "Restart the server", Payload: RestartAsked{}}); err != nil {
 			return err
 		}

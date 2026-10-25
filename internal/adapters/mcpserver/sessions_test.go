@@ -229,6 +229,30 @@ func TestSessionLimits(t *testing.T) {
 			"each initialize, and nothing more")
 	})
 
+	t.Run("a revoked holder's, closed at once (A16)", func(t *testing.T) {
+		l := &ledger{rows: map[string]ports.MCPSession{}}
+		srv, open := sessionServerWith(t, l, nil)
+
+		s, err := open("claude-code")
+		require.NoError(t, err)
+
+		_, err = s.CallTool(ctx, &mcp.CallToolParams{Name: "whoami"})
+		require.NoError(t, err)
+		require.Eventually(t, func() bool { return l.count() == 1 }, time.Second, 5*time.Millisecond)
+
+		srv.EndedToken("t-1") // another holder's: nothing closes
+
+		_, err = s.CallTool(ctx, &mcp.CallToolParams{Name: "whoami"})
+		require.NoError(t, err)
+
+		srv.EndedGrant("g-1")
+
+		require.Eventually(t, func() bool { return l.count() == 0 }, time.Second, 5*time.Millisecond)
+
+		_, err = s.CallTool(ctx, &mcp.CallToolParams{Name: "whoami"})
+		require.Error(t, err)
+	})
+
 	t.Run("a small first request, and the client's name cut", func(t *testing.T) {
 		l := &ledger{rows: map[string]ports.MCPSession{}}
 		srv, open := sessionServerWith(t, l, nil)

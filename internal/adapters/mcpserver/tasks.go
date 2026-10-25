@@ -2,7 +2,9 @@ package mcpserver
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
+	"fmt"
 	"time"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
@@ -118,15 +120,31 @@ func (s *Server) waitForTask(ctx context.Context, p auth.Principal, _ struct{}) 
 		Untrusted: taskText{Prompt: t.Task.Prompt, Items: make([]taskItemOut, len(t.Task.Items))},
 	}
 
+	// As it was written: decoded, a schema's numbers could come out many times as long as
+	// the node measured them (A20).
 	if len(t.Task.Schema) > 0 {
-		out.Untrusted.Schema = jsonValue(t.Task.Schema)
+		out.Untrusted.Schema = t.Task.Schema
 	}
 
 	for i, it := range t.Task.Items {
 		out.Untrusted.Items[i] = taskItemOut{Prompt: it.Prompt, Item: it.Item}
 	}
 
-	return waitOut{Task: out, Notice: TaskNotice}, nil
+	got := waitOut{Task: out, Notice: TaskNotice}
+
+	// One no answer could carry fails at once, for its run to say why, rather than coming
+	// back to every agent that waits until it times out (A20).
+	if data, err := json.Marshal(got); err == nil && len(data) > maxResult {
+		reason := fmt.Sprintf("the task is %d KiB as an agent gets it, more than a tool's answer takes (%d KiB): send fewer items, "+
+			"or fewer fields of each", len(data)>>10, maxResult>>10)
+		if err := s.tasks.Fail(ctx, p, t.ID, reason); err != nil {
+			return waitOut{}, err
+		}
+
+		return waitOut{Notice: "A task came too big to hand over, and failed: call wait_for_task again for the next."}, nil
+	}
+
+	return got, nil
 }
 
 func (s *Server) answerTask(ctx context.Context, p auth.Principal, in answerTaskIn) (answeredTaskOut, error) {

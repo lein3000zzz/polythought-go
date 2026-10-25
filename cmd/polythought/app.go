@@ -112,6 +112,7 @@ const restartDelay = 300 * time.Millisecond
 
 // app is everything the server and the operator tools share.
 type app struct {
+	mcp             *mcpserver.Server // agents' endpoint, once serving
 	cfg             config.Config
 	file            config.File // the config file's values, for the settings' file layer
 	util            *observability.Utility
@@ -278,7 +279,14 @@ func (a *app) init(ctx context.Context) error {
 		postgres.NewUsers(a.db),
 		ratelimit.NewMemory(30*time.Second, 10), // per address: 10, then one every 30 s
 		a.util.Logger,
-		oauth.WithPolicy(func() oauth.Policy { return oauthPolicy(a.settings.Current()) }))
+		oauth.WithPolicy(func() oauth.Policy { return oauthPolicy(a.settings.Current()) }),
+		// A grant revoked ends its sessions and refuses what it asked for that waits (A16).
+		oauth.WithRevoked(func(ctx context.Context, id domain.GrantID) {
+			a.confirmations.Ended(ctx, id, "")
+			if a.mcp != nil {
+				a.mcp.EndedGrant(id)
+			}
+		}))
 
 	// After notify, which reminds of expiring session keys. A wallet a workflow trades
 	// live from is not unlinked.
@@ -326,6 +334,13 @@ func (a *app) init(ctx context.Context) error {
 		// An admin's agents' work on users waits for the admin where they say so (D410).
 		auth.WithConfirmations(a.confirmations),
 		auth.WithInstanceCaps(func() (domain.LiveCaps, domain.AgentCaps) { return a.liveCaps(), a.agentCaps() }),
+		// So does an API token revoked (A16).
+		auth.WithTokenRevoked(func(ctx context.Context, id domain.APITokenID) {
+			a.confirmations.Ended(ctx, "", id)
+			if a.mcp != nil {
+				a.mcp.EndedToken(id)
+			}
+		}),
 	)
 	if err != nil {
 		return err
@@ -494,6 +509,7 @@ func oauthPolicy(s *settings.Snapshot) oauth.Policy {
 		SkipConsent:  s.Bool(config.KeyMCPSkipConsent),
 		AccessTTL:    s.Duration(config.KeyMCPAccessTTL),
 		RefreshTTL:   s.Duration(config.KeyMCPRefreshTTL),
+		MaxUnused:    s.Int(config.KeyMCPMaxUnused),
 	}
 }
 
@@ -848,18 +864,22 @@ type polymarket struct {
 	orders      *pmadapter.OrderStream
 }
 
+// userOf is whose a request to Polymarket is: a workflow's owner's or an agent's user's,
+// each taking the shared budgets in turn with the others (A11).
+func userOf(ctx context.Context) string { return string(ports.UserOf(ctx)) }
+
 func newPolymarket(a *app) (polymarket, error) {
-	gamma, err := pm.NewGammaClient(a.util, pm.HTTPConfig{})
+	gamma, err := pm.NewGammaClient(a.util, pm.HTTPConfig{CallerOf: userOf})
 	if err != nil {
 		return polymarket{}, err
 	}
 
-	clob, err := pm.NewClobClient(a.util, pm.HTTPConfig{})
+	clob, err := pm.NewClobClient(a.util, pm.HTTPConfig{CallerOf: userOf})
 	if err != nil {
 		return polymarket{}, err
 	}
 
-	data, err := pm.NewDataClient(a.util, pm.HTTPConfig{})
+	data, err := pm.NewDataClient(a.util, pm.HTTPConfig{CallerOf: userOf})
 	if err != nil {
 		return polymarket{}, err
 	}

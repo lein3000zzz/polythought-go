@@ -130,6 +130,19 @@ func request(client string) AuthRequest {
 	}
 }
 
+// ticked is what the page ticks to start with.
+func ticked(c Consent) []domain.Scope {
+	var out []domain.Scope
+
+	for _, o := range c.Offered {
+		if o.Ticked {
+			out = append(out, o.Scope)
+		}
+	}
+
+	return out
+}
+
 func exchange(client, code string) TokenRequest {
 	return TokenRequest{
 		GrantType: "authorization_code", ClientID: client, Code: code, RedirectURI: callback,
@@ -189,6 +202,29 @@ func TestRegister(t *testing.T) {
 		kept, err := f.repo.Client(ctx, c.ID)
 		require.NoError(t, err)
 		assert.Equal(t, c, kept)
+	})
+
+	t.Run("no redirect that starts a program of the system's (A14)", func(t *testing.T) {
+		f := newFixture(t)
+
+		for _, uri := range []string{"ms-msdt:/id", "search-ms:query=x", "MS-Settings:privacy", "x-callback-url://x", "shell:startup"} {
+			_, err := f.s.Register(ctx, Registration{RedirectURIs: []string{uri}}, "ip")
+
+			var e *Error
+			require.ErrorAs(t, err, &e, uri)
+			assert.Equal(t, "invalid_redirect_uri", e.Code, uri)
+		}
+	})
+
+	t.Run("so many unused at once (A13)", func(t *testing.T) {
+		f := newFixture(t)
+		f.policy.MaxUnused = 1
+
+		_, err := f.s.Register(ctx, Registration{RedirectURIs: []string{callback}}, "ip")
+		require.NoError(t, err)
+
+		_, err = f.s.Register(ctx, Registration{RedirectURIs: []string{callback}}, "ip")
+		require.ErrorIs(t, err, domain.ErrRateLimited, "one waits already, no user allowing it")
 	})
 
 	t.Run("names", func(t *testing.T) {
@@ -321,6 +357,11 @@ func TestClientDocument(t *testing.T) {
 			require.True(t, errors.As(err, &e), err)
 			assert.Contains(t, []string{"invalid_client", "invalid_redirect_uri"}, e.Code)
 			assert.Empty(t, e.Redirect, "shown on the page, never sent to the client")
+
+			if tt.fails || name == "another client's" || name == "not JSON" {
+				assert.Equal(t, "the client's document could not be fetched, or is not one for this client", e.Description,
+					"one answer, whatever the address said (A22)")
+			}
 		})
 	}
 
@@ -411,18 +452,45 @@ func TestPrepare(t *testing.T) {
 			return consent
 		}
 
+		// A registered client coming back to this machine: a click, what it has ticked (A15).
 		got := prepare("")
-		assert.True(t, got.Allowed)
+		assert.False(t, got.Allowed)
+		assert.True(t, got.Again)
 		assert.Equal(t, []domain.Scope{domain.ScopeRead, domain.ScopeBuild}, got.Granted, "all it was granted")
+		assert.Equal(t, []domain.Scope{domain.ScopeRead, domain.ScopeBuild}, ticked(got), "ticked as granted")
 
 		got = prepare("build")
-		assert.True(t, got.Allowed)
+		assert.True(t, got.Again)
 		assert.Equal(t, []domain.Scope{domain.ScopeBuild}, got.Granted)
+		assert.Equal(t, []domain.Scope{domain.ScopeBuild}, ticked(got))
 
-		assert.False(t, prepare("read paper").Allowed, "more than was granted")
+		got = prepare("read paper")
+		assert.False(t, got.Allowed || got.Again, "more than was granted")
 
 		require.NoError(t, f.s.RevokeGrant(ctx, p, f.grantOf(t, p, c.ID).ID))
-		assert.False(t, prepare("read").Allowed, "revoked")
+		got = prepare("read")
+		assert.False(t, got.Allowed || got.Again, "revoked")
+	})
+
+	t.Run("allowed before, through at once only back to its own site (A15)", func(t *testing.T) {
+		f := newFixture(t)
+		p := f.user("u1", domain.RoleUser)
+		site := "https://agent.example/oauth/cb"
+		doc := `{"client_id": "` + docURL + `", "client_name": "Doc Agent", "redirect_uris": ["` + site + `", "` + callback + `"]}`
+		f.docs.EXPECT().Fetch(mock.Anything, docURL).Return([]byte(doc), nil).Once()
+
+		home := request(docURL)
+		home.RedirectURI = site
+		f.code(t, p, home, domain.ScopeRead)
+
+		got, err := f.s.Prepare(ctx, p, home)
+		require.NoError(t, err)
+		assert.True(t, got.Allowed, "https, on the host its document is at")
+
+		got, err = f.s.Prepare(ctx, p, request(docURL))
+		require.NoError(t, err)
+		assert.False(t, got.Allowed, "to this machine, where anything could listen")
+		assert.True(t, got.Again)
 	})
 
 	t.Run("a grant for another resource", func(t *testing.T) {
@@ -496,7 +564,18 @@ func TestPrepare(t *testing.T) {
 			assert.Equal(t, tt.code, back.Query().Get("error"), name)
 			assert.Equal(t, "st-1", back.Query().Get("state"), name)
 			assert.Equal(t, issuer, back.Query().Get("iss"), name)
+			assert.True(t, e.AskFirst, "%s: never allowed, the page asks before sending the browser there (A14)", name)
 		}
+
+		f.code(t, p, request(c.ID), domain.ScopeRead)
+
+		req := request(c.ID)
+		req.ResponseType = "token"
+		_, err := f.s.Prepare(ctx, p, req)
+
+		var e *Error
+		require.ErrorAs(t, err, &e)
+		assert.False(t, e.AskFirst, "allowed before: back at once")
 	})
 
 	t.Run("a trailing slash on the resource", func(t *testing.T) {
@@ -575,7 +654,7 @@ func TestApprove(t *testing.T) {
 
 		consent, err := f.s.Prepare(ctx, p, req)
 		require.NoError(t, err)
-		require.True(t, consent.Allowed)
+		require.True(t, consent.Again)
 
 		tokens, err := f.s.Token(ctx, exchange(c.ID, f.code(t, p, req, consent.Granted...)))
 		require.NoError(t, err)
@@ -867,10 +946,14 @@ func TestRevoke(t *testing.T) {
 	require.NoError(t, f.s.Revoke(ctx, tokens.Access, "pc_other"))
 	assert.True(t, f.grantOf(t, p, c.ID).Active(), "not another client's")
 
+	var ended []domain.GrantID
+	f.s.revoked = func(_ context.Context, id domain.GrantID) { ended = append(ended, id) }
+
 	require.NoError(t, f.s.Revoke(ctx, tokens.Refresh, c.ID))
 
 	g := f.grantOf(t, p, c.ID)
 	assert.False(t, g.Active())
+	assert.Equal(t, []domain.GrantID{g.ID}, ended, "by its client too (A16)")
 	assert.Zero(t, f.repo.tokensOf(g.ID, domain.AccessToken), "the access token went too")
 }
 
@@ -891,8 +974,13 @@ func TestGrants(t *testing.T) {
 	require.NoError(t, err)
 	assert.Empty(t, list)
 
+	var ended []domain.GrantID
+	f.s.revoked = func(_ context.Context, id domain.GrantID) { ended = append(ended, id) }
+
 	require.ErrorIs(t, f.s.RevokeGrant(ctx, other, g.ID), domain.ErrNotFound, "another user's")
+	assert.Empty(t, ended)
 	require.NoError(t, f.s.RevokeGrant(ctx, p, g.ID))
+	assert.Equal(t, []domain.GrantID{g.ID}, ended, "told, to end its sessions and what it asked for (A16)")
 
 	_, err = f.s.Token(ctx, refresh(c.ID, tokens.Refresh))
 	assert.Equal(t, "invalid_grant", codeOf(err), "its tokens stop working at once")

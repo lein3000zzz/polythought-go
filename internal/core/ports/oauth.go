@@ -14,6 +14,8 @@ type OAuthRepository interface {
 	SaveClient(ctx context.Context, c domain.OAuthClient) error
 	// Client is a client; domain.ErrNotFound when there is none.
 	Client(ctx context.Context, id string) (domain.OAuthClient, error)
+	// CountUnusedClients counts the registered clients no grant uses.
+	CountUnusedClients(ctx context.Context) (int, error)
 	// PruneClients removes the clients no grant uses: registered ones made before before,
 	// and documents' fetched before it.
 	PruneClients(ctx context.Context, before time.Time) (int64, error)

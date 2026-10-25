@@ -19,6 +19,7 @@ func (s *Service) RevokeGrant(ctx context.Context, p auth.Principal, id domain.G
 	}
 
 	s.log.Info(ctx, "OAuth grant revoked", "user_id", p.User.ID, "grant_id", id)
+	s.ended(ctx, id)
 
 	return nil
 }

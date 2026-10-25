@@ -68,10 +68,34 @@ func TestConfirmations(t *testing.T) {
 		assert.Equal(t, 1, n, "the first expired")
 	})
 
+	t.Run("a holder's still pending, to refuse as it is revoked (A16)", func(t *testing.T) {
+		mine, err := repo.PendingOf(ctx, "g-1", "", at.Add(30*time.Minute))
+		require.NoError(t, err)
+
+		ids := make([]domain.ConfirmationID, len(mine))
+		for i, c := range mine {
+			ids[i] = c.ID
+		}
+
+		assert.ElementsMatch(t, []domain.ConfirmationID{run.ID, kill.ID}, ids)
+
+		none, err := repo.PendingOf(ctx, "g-2", "", at)
+		require.NoError(t, err)
+		assert.Empty(t, none, "another grant's")
+
+		none, err = repo.PendingOf(ctx, "", "t-1", at)
+		require.NoError(t, err)
+		assert.Empty(t, none, "no token's")
+
+		later, err := repo.PendingOf(ctx, "g-1", "", at.Add(time.Hour))
+		require.NoError(t, err)
+		assert.Len(t, later, 1, "the first expired")
+	})
+
 	t.Run("every kind, the instance's too (D411)", func(t *testing.T) {
 		for _, kind := range []domain.ConfirmKind{
 			domain.ConfirmRole, domain.ConfirmCode, domain.ConfirmConfig, domain.ConfirmRestart,
-			domain.ConfirmPluginApprove, domain.ConfirmPluginChange,
+			domain.ConfirmPluginApprove, domain.ConfirmPluginChange, domain.ConfirmNodeChange,
 		} {
 			c := ask(kind, "", at.Add(-time.Hour))
 

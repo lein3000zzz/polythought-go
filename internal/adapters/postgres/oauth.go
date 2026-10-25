@@ -62,6 +62,20 @@ func (r *OAuth) Client(ctx context.Context, id string) (domain.OAuthClient, erro
 	return toOAuthClient(m), nil
 }
 
+func (r *OAuth) CountUnusedClients(ctx context.Context) (int, error) {
+	c, g := table.OAuthClients, table.OAuthGrants
+
+	var out struct{ Count int64 }
+
+	err := jet.SELECT(jet.COUNT(jet.STAR).AS("count")).
+		FROM(c).
+		WHERE(c.Kind.EQ(jet.String(string(domain.ClientRegistered))).
+			AND(jet.NOT(jet.EXISTS(jet.SELECT(g.ID).FROM(g).WHERE(g.ClientID.EQ(c.ID)))))).
+		QueryContext(ctx, r.db.conn(ctx), &out)
+
+	return int(out.Count), err
+}
+
 func (r *OAuth) PruneClients(ctx context.Context, before time.Time) (int64, error) {
 	c, g := table.OAuthClients, table.OAuthGrants
 

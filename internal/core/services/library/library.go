@@ -223,13 +223,25 @@ func (s *Service) Use(ctx context.Context, p auth.Principal, id domain.TemplateI
 	}
 
 	// Its summary describes it, where the words are Polythought's or the user's own: another
-	// user's are theirs, and a description is read as the user's.
-	var description *string
+	// user's are theirs, and a description is read as the user's. Their name, and their
+	// nodes' names and notes, stay marked as theirs until the user changes them (A21).
+	var (
+		description *string
+		borrowed    *domain.Borrowed
+	)
+
 	if t.BuiltIn() || t.AuthorID == p.User.ID {
 		description = &t.Summary
+	} else {
+		borrowed = &domain.Borrowed{Name: strings.TrimSpace(in.Name) == ""}
+		for _, n := range nodes {
+			borrowed.Nodes = append(borrowed.Nodes, n.ID)
+		}
 	}
 
-	w, err := s.workflows.Create(ctx, p, workflows.Definition{Name: name, Description: description, Nodes: nodes, Connections: t.Connections})
+	w, err := s.workflows.Create(ctx, p, workflows.Definition{
+		Name: name, Description: description, Nodes: nodes, Connections: t.Connections, Borrowed: borrowed,
+	})
 	if err != nil {
 		s.removeCopies(ctx, p, made)
 		return domain.Workflow{}, err

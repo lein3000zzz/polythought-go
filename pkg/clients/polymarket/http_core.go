@@ -33,31 +33,47 @@ type httpCore struct {
 	baseURL    string
 	client     *http.Client
 	limiter    *rate.Limiter
+	fair       *fair                            // the limiter's turns, by caller, where callerOf says whose
+	callerOf   func(ctx context.Context) string // nil: first come, first served
 	maxRetries int
 	log        logging.Logger
 	now        func() time.Time
 }
 
 func newHTTPCore(log logging.Logger, cfg HTTPConfig) *httpCore {
-	return &httpCore{
+	c := &httpCore{
 		baseURL: strings.TrimRight(cfg.BaseURL, "/"),
 		client: &http.Client{
 			Timeout:   cfg.Timeout,
 			Transport: otelhttp.NewTransport(cfg.Transport),
 		},
 		limiter:    rate.NewLimiter(rate.Limit(cfg.RPS), cfg.Burst),
+		callerOf:   cfg.CallerOf,
 		maxRetries: cfg.MaxRetries,
 		log:        log,
 		now:        time.Now,
 	}
+	c.fair = newFair(c.limiter)
+
+	return c
 }
 
 // withLimiter is c on a budget of its own.
 func (c *httpCore) withLimiter(l *rate.Limiter) *httpCore {
 	other := *c
-	other.limiter = l
+	other.limiter, other.fair = l, newFair(l)
 
 	return &other
+}
+
+// wait waits for a request's turn on the budget: in turn with other callers', where it is
+// known whose each is, so none takes it all (A11).
+func (c *httpCore) wait(ctx context.Context) error {
+	if c.callerOf == nil {
+		return c.limiter.Wait(ctx)
+	}
+
+	return c.fair.Wait(ctx, c.callerOf(ctx))
 }
 
 func (c *httpCore) get(ctx context.Context, path string, query url.Values, out any) error {
@@ -139,7 +155,7 @@ func (e *SendError) Unwrap() error { return e.Err }
 // once sends a request a single time, signed now (a retry needs a fresh timestamp). Its
 // error is a *SendError once the request may have gone out.
 func (c *httpCore) once(ctx context.Context, method, path string, query url.Values, payload []byte, creds authorizer) (response, error) {
-	if err := c.limiter.Wait(ctx); err != nil {
+	if err := c.wait(ctx); err != nil {
 		return response{}, err
 	}
 

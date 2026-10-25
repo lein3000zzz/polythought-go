@@ -81,7 +81,7 @@ type Confirmer interface {
 
 // hold keeps a token's or an agent's live action for its user (D406).
 func (s *Service) hold(ctx context.Context, p auth.Principal, kind domain.ConfirmKind, wf domain.WorkflowID, what string, payload any) error {
-	if s.d.Confirm == nil || p.Itself() || p.Confirmed {
+	if s.d.Confirm == nil || p.Itself() {
 		return nil
 	}
 

@@ -23,19 +23,20 @@ func TestRouteScopesCoverRoutes(t *testing.T) {
 
 	var routes []string
 
+	listed := httpapi.RouteScopes()
+
 	for _, r := range srv.Engine().Routes() {
 		if !strings.HasPrefix(r.Path, "/api/v1/") || strings.HasPrefix(r.Path, "/api/v1/admin/") {
 			continue // the admin's need admin, all of them
 		}
 
-		if r.Method == http.MethodGet || r.Method == http.MethodHead {
-			continue // reads need read
+		if (r.Method == http.MethodGet || r.Method == http.MethodHead) && !slices.Contains(listed, r.Method+" "+r.Path) {
+			continue // reads need read, but those that need more
 		}
 
 		routes = append(routes, r.Method+" "+r.Path)
 	}
 
-	listed := httpapi.RouteScopes()
 	slices.Sort(routes)
 	slices.Sort(listed)
 

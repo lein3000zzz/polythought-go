@@ -635,6 +635,18 @@ Let an agent with no metadata document of its own register itself, naming itself
 | Default | `true` |
 | Applies | at once |
 
+### Agents registered, not yet allowed
+
+How many agents that registered themselves may wait at once with no user allowing them. Past it, registering is refused until the daily prune removes those a day old. Applies at once.
+
+| | |
+|---|---|
+| Key | `mcp.max_unused_clients` |
+| Environment variable | `POLYTHOUGHT_MCP_MAX_UNUSED_CLIENTS` |
+| Kind | whole number |
+| Default | `1000` |
+| Applies | at once |
+
 ### Documents at private addresses
 
 Fetch agents' metadata documents from addresses inside the server's network too, for an agent published there. Leave off on a shared instance: any signed-in user could have the server fetch one. Agents on a private network can register themselves instead.
@@ -649,7 +661,7 @@ Fetch agents' metadata documents from addresses inside the server's network too,
 
 ### Let allowed agents through
 
-An agent asking for no more than its user allowed it before gets in without the consent page asking again, as when it starts on another of their machines. Off, the page asks every time.
+An agent asking for no more than its user allowed it before gets in without the consent page asking again, as when it starts on another of their machines, where it comes back to its own site. One coming back to the user's machine, as command-line agents do, takes a click, its scopes ticked as allowed: anything there could be listening. Off, the page asks every time.
 
 | | |
 |---|---|

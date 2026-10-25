@@ -146,7 +146,23 @@ type CodeFile struct {
 	Content string
 }
 
-type codeOwnerKey struct{}
+type (
+	codeOwnerKey struct{}
+	userKey      struct{}
+)
+
+// WithUser says whose work runs under ctx, a workflow's owner's or an agent's user's, for
+// each user's fair share of what all share, such as the Polymarket APIs' budgets (A11).
+func WithUser(ctx context.Context, user domain.UserID) context.Context {
+	return context.WithValue(ctx, userKey{}, user)
+}
+
+// UserOf is whose work runs under ctx, or "" when nobody said.
+func UserOf(ctx context.Context) domain.UserID {
+	user, _ := ctx.Value(userKey{}).(domain.UserID)
+
+	return user
+}
 
 // WithCodeOwner says whose code runs under ctx, for the runner's fair share of its slots
 // (R12).

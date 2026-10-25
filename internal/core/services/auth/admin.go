@@ -99,6 +99,10 @@ func (s *Service) RevokeAPIToken(ctx context.Context, p Principal, id domain.API
 
 	s.log.Info(ctx, "API token revoked", "user_id", p.User.ID, "token_id", id)
 
+	if s.revoked != nil {
+		s.revoked(ctx, id)
+	}
+
 	return nil
 }
 
@@ -162,7 +166,7 @@ func (s *Service) UpdateUser(ctx context.Context, actor Principal, id domain.Use
 
 	// A token's or an agent's change waits for the admin where they say so (D410), checked
 	// as any change is first.
-	if s.confirm != nil && !actor.Itself() && !actor.Confirmed {
+	if s.confirm != nil && !actor.Itself() {
 		user, err := s.repos.Users.ByID(ctx, id)
 		if err != nil {
 			return domain.User{}, err

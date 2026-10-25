@@ -123,8 +123,18 @@ func TestRevokeAPIToken(t *testing.T) {
 			d := newDeps(t)
 			tt.setup(d)
 
-			err := newService(t, d, config(domain.RegistrationOpen)).RevokeAPIToken(context.Background(), tt.p, "tok-9")
+			var ended []domain.APITokenID
+
+			err := newService(t, d, config(domain.RegistrationOpen),
+				auth.WithTokenRevoked(func(_ context.Context, id domain.APITokenID) { ended = append(ended, id) })).
+				RevokeAPIToken(context.Background(), tt.p, "tok-9")
 			require.ErrorIs(t, err, tt.wantErr)
+
+			if tt.wantErr == nil {
+				assert.Equal(t, []domain.APITokenID{"tok-9"}, ended, "told, to end its sessions and what it asked for (A16)")
+			} else {
+				assert.Empty(t, ended)
+			}
 		})
 	}
 }

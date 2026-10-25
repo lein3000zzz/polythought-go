@@ -238,7 +238,10 @@ func (s *Service) revokeCopied(ctx context.Context, id domain.GrantID, why strin
 
 	if err := s.repo.RevokeGrant(ctx, "", id, s.now()); err != nil && !errors.Is(err, domain.ErrNotFound) {
 		s.log.Warn(ctx, "OAuth grant not revoked", "grant_id", id, logging.Err(err))
+		return
 	}
+
+	s.ended(ctx, id)
 }
 
 // Revoke revokes a token's grant, as the client asks when it signs out (RFC 7009): its
@@ -267,6 +270,7 @@ func (s *Service) Revoke(ctx context.Context, token, client string) error {
 	}
 
 	s.log.Info(ctx, "OAuth grant revoked by its client", "grant_id", grant.ID, "client_id", client)
+	s.ended(ctx, grant.ID)
 
 	return nil
 }

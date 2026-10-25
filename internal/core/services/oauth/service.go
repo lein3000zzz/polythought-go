@@ -62,14 +62,21 @@ type Policy struct {
 	Enabled bool
 	// Registration lets agents with no metadata document register themselves.
 	Registration bool
-	// SkipConsent lets an agent asking for what it has through without asking again.
+	// SkipConsent lets an agent asking for what it has through without asking again, where
+	// it comes back to its own site; elsewhere it takes a click (A15).
 	SkipConsent bool
 	AccessTTL   time.Duration
 	RefreshTTL  time.Duration
+	// MaxUnused is how many registered clients no grant uses there may be at once; past
+	// it, registering waits for the prune (A13). Zero is no bound.
+	MaxUnused int
 }
 
 func DefaultPolicy() Policy {
-	return Policy{Enabled: true, Registration: true, SkipConsent: true, AccessTTL: time.Hour, RefreshTTL: 30 * 24 * time.Hour}
+	return Policy{
+		Enabled: true, Registration: true, SkipConsent: true, AccessTTL: time.Hour, RefreshTTL: 30 * 24 * time.Hour,
+		MaxUnused: 1000,
+	}
 }
 
 type Service struct {
@@ -84,9 +91,25 @@ type Service struct {
 
 	mu        sync.Mutex
 	unfetched map[string]time.Time // the documents not fetched lately, and when (A12)
+
+	revoked func(ctx context.Context, id domain.GrantID) // optional; told of each grant revoked
 }
 
 type Option func(*Service)
+
+// WithRevoked tells f of each grant revoked, by its user, its client or as a token of it
+// was copied, to end what it left going: its sessions, and the live actions it asked for
+// that still wait (A16).
+func WithRevoked(f func(ctx context.Context, id domain.GrantID)) Option {
+	return func(s *Service) { s.revoked = f }
+}
+
+// ended tells of a grant revoked.
+func (s *Service) ended(ctx context.Context, id domain.GrantID) {
+	if s.revoked != nil {
+		s.revoked(ctx, id)
+	}
+}
 
 // WithPolicy reads the policy from the settings as it changes.
 func WithPolicy(policy func() Policy) Option {
@@ -122,6 +145,10 @@ type Error struct {
 	Code        string
 	Description string
 	Redirect    string
+	// AskFirst says the page shows it, and where it goes, before sending the browser back:
+	// the user has no grant to the client, whose redirect anyone could have registered
+	// (A14, RFC 9700 4.11.2).
+	AskFirst bool
 }
 
 func (e *Error) Error() string { return e.Code + ": " + e.Description }
@@ -219,6 +246,18 @@ func (s *Service) Register(ctx context.Context, reg Registration, ip string) (do
 		return domain.OAuthClient{}, domain.ErrRateLimited
 	}
 
+	if most := s.policy().MaxUnused; most > 0 {
+		n, err := s.repo.CountUnusedClients(ctx)
+		if err != nil {
+			return domain.OAuthClient{}, err
+		}
+
+		if n >= most {
+			s.log.Warn(ctx, "OAuth registration refused: too many clients unused", "unused", n, "ip", ip)
+			return domain.OAuthClient{}, domain.ErrRateLimited
+		}
+	}
+
 	if len(reg.GrantTypes) > 0 && !slices.Contains(reg.GrantTypes, "authorization_code") {
 		return domain.OAuthClient{}, oauthErr("invalid_client_metadata", "a client here uses the authorization_code grant")
 	}
@@ -273,21 +312,27 @@ func (s *Service) client(ctx context.Context, who domain.UserID, id string) (dom
 		return domain.OAuthClient{}, err
 	}
 
+	// One answer for every way it fails, the reason only in the log: what an address
+	// answers is not the user's to learn (A22).
+	unread := func(why string, err error) error {
+		s.fetchFailed(id)
+		s.log.Warn(ctx, "OAuth client's document not taken", "client_id", id, "why", why, logging.Err(err))
+
+		return oauthErr("invalid_client", "the client's document could not be fetched, or is not one for this client")
+	}
+
 	body, err := s.docs.Fetch(ctx, id)
 	if err != nil {
-		s.fetchFailed(id)
-		s.log.Warn(ctx, "OAuth client's document not fetched", "client_id", id, logging.Err(err))
-
-		return domain.OAuthClient{}, oauthErr("invalid_client", "the client's document could not be fetched")
+		return domain.OAuthClient{}, unread("not fetched", err)
 	}
 
 	var doc document
 	if err := json.Unmarshal(body, &doc); err != nil {
-		return domain.OAuthClient{}, oauthErr("invalid_client", "the client's document is not JSON")
+		return domain.OAuthClient{}, unread("not JSON", err)
 	}
 
 	if doc.ClientID != id {
-		return domain.OAuthClient{}, oauthErr("invalid_client", "the client's document names another client")
+		return domain.OAuthClient{}, unread("names another client", fmt.Errorf("client_id %q", doc.ClientID))
 	}
 
 	c, err := clientOf(id, domain.ClientDocument, doc.ClientName, doc.RedirectURIs, doc.ClientURI)
@@ -389,7 +434,17 @@ func clientOf(id string, kind domain.OAuthClientKind, name string, redirects []s
 }
 
 // Schemes a redirect may never use: they run or read things in the browser itself.
-var refusedSchemes = []string{"javascript", "data", "file", "vbscript", "about", "blob", "ftp", "ws", "wss", "mailto"}
+// refusedSchemes are no app's own, but the browser's, the network's, or ones that start a
+// program of the system's, as ms-msdt: and search-ms: do (A14); refusedPrefixes the same,
+// by family.
+var (
+	refusedSchemes = []string{
+		"javascript", "data", "file", "vbscript", "about", "blob", "ftp", "ws", "wss", "mailto",
+		"search", "shell", "res", "mk", "its", "hcp", "help", "intent", "view-source", "jar", "smb", "nfs", "afp",
+		"tel", "sms", "callto", "facetime", "applescript", "steam",
+	}
+	refusedPrefixes = []string{"ms-", "search-", "x-", "chrome", "edge", "microsoft-", "windows", "itms"}
+)
 
 // allowedRedirect says what is wrong with a redirect URI, if anything: https; http to the
 // machine itself, as a CLI agent listens there (RFC 8252); or an app's own scheme.
@@ -411,7 +466,8 @@ func allowedRedirect(raw string) error {
 		if !loopback(u.Hostname()) {
 			return fmt.Errorf("%q: http only to this machine, 127.0.0.1, [::1] or localhost", raw)
 		}
-	case slices.Contains(refusedSchemes, strings.ToLower(u.Scheme)):
+	case slices.Contains(refusedSchemes, strings.ToLower(u.Scheme)) ||
+		slices.ContainsFunc(refusedPrefixes, func(p string) bool { return strings.HasPrefix(strings.ToLower(u.Scheme), p) }):
 		return fmt.Errorf("%q: no %s redirects", raw, u.Scheme)
 	}
 

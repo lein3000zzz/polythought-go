@@ -48,6 +48,22 @@ func TestWorkflows(t *testing.T) {
 			require.NoError(t, err)
 			assert.Equal(t, w, got)
 		}},
+		{"what another user wrote stays marked, as it changes (A21)", func(t *testing.T, _ *postgres.DB, repo *postgres.Workflows, owner domain.User) {
+			w := newWorkflow(owner.ID, "theirs")
+			w.Borrowed = domain.Borrowed{Name: true, Nodes: []domain.NodeID{"if"}}
+			require.NoError(t, repo.Create(ctx, w))
+
+			got, err := repo.Get(ctx, owner.ID, w.ID)
+			require.NoError(t, err)
+			assert.Equal(t, w.Borrowed, got.Borrowed)
+
+			w.Borrowed, w.Version = domain.Borrowed{Nodes: []domain.NodeID{"if"}}, 2
+			require.NoError(t, repo.Update(ctx, w, 1))
+
+			got, err = repo.Get(ctx, owner.ID, w.ID)
+			require.NoError(t, err)
+			assert.Equal(t, domain.Borrowed{Nodes: []domain.NodeID{"if"}}, got.Borrowed)
+		}},
 		{"other users cannot reach it", func(t *testing.T, db *postgres.DB, repo *postgres.Workflows, owner domain.User) {
 			w := newWorkflow(owner.ID, "spreads")
 			require.NoError(t, repo.Create(ctx, w))

@@ -3,6 +3,7 @@ package auth_test
 import (
 	"context"
 	"testing"
+	"time"
 
 	"github.com/shopspring/decimal"
 	"github.com/stretchr/testify/assert"
@@ -20,7 +21,7 @@ type holder struct {
 }
 
 func (h *holder) Hold(_ context.Context, p auth.Principal, a domain.Ask) error {
-	if !p.User.Unconfirmed.Waits(a.Kind) {
+	if !p.User.Unconfirmed.Waits(a.Kind) || p.Confirmed {
 		return nil
 	}
 
@@ -100,6 +101,24 @@ func TestAdminWorkWaits(t *testing.T) {
 		require.Len(t, h.asks, 1)
 		assert.Equal(t, domain.ConfirmRole, h.asks[0].Kind)
 		assert.Equal(t, "Change the user target: make them an admin, let them write code", h.asks[0].What)
+	})
+
+	t.Run("saying all it does, what alone would not wait too (A19)", func(t *testing.T) {
+		coder := target
+		coder.CodeChosen, coder.EmailVerifiedAt = true, time.Time{}
+
+		h, err := held(t, agent, coder, auth.UserUpdate{
+			Role: role(domain.RoleAdmin), EmailVerified: flag(true), CodeChosen: flag(false),
+			LiveCaps: &domain.LiveCaps{PerOrder: dollars(10)},
+		})
+		require.ErrorIs(t, err, domain.ErrAwaitsConfirmation)
+		require.Len(t, h.asks, 1)
+		assert.Equal(t, "Change the user target: make them an admin, mark their address verified, "+
+			"no longer let them write code, lower their own caps", h.asks[0].What)
+
+		h, err = held(t, agent, target, auth.UserUpdate{Role: role(domain.RoleAdmin), LiveCaps: &domain.LiveCaps{}})
+		require.ErrorIs(t, err, domain.ErrAwaitsConfirmation)
+		assert.Equal(t, "Change the user target: make them an admin", h.asks[0].What, "caps as they were, by value")
 	})
 
 	t.Run("where the admin lets it go, and the admin's own", func(t *testing.T) {

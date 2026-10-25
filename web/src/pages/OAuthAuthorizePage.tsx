@@ -21,6 +21,16 @@ type Consent = Schemas['OAuthConsent']
 type Decision = Schemas['OAuthDecision']
 type Scope = Schemas['OAuthOffer']['scope']
 
+/** Where a URL goes, its scheme and host, to name it. */
+function originOf(raw: string) {
+  try {
+    const u = new URL(raw)
+    return u.host ? `${u.protocol}//${u.host}` : `${u.protocol}`
+  } catch {
+    return raw
+  }
+}
+
 /** The request as the agent sent the browser here with it. */
 function requestOf(params: URLSearchParams): AuthRequest {
   const get = (k: string) => params.get(k) ?? ''
@@ -51,23 +61,24 @@ export function OAuthAuthorizePage() {
   const [leaving, setLeaving] = useState(false)
   const started = useRef(false)
 
-  // Back to the agent, with a code or with what went wrong; a problem without a redirect
-  // is shown instead.
+  // Back to the agent, with a code or with what went wrong; a problem without a redirect,
+  // or to an agent the user never allowed, is shown instead (A14).
   const decided = useCallback((d: Decision) => {
-    const to = d.redirect ?? d.problem?.redirect
+    const to = d.redirect ?? (d.problem?.askFirst ? undefined : d.problem?.redirect)
     if (to) {
       setLeaving(true)
       leaveFor(to)
     }
   }, [])
 
-  // A request wrong in a way the agent should hear of goes back to it; one allowed before
-  // is approved with what was granted. Once: the page must not send two codes.
+  // A request wrong in a way the agent should hear of goes back to it, at once where the
+  // user allowed it before; one allowed before is approved with what was granted. Once:
+  // the page must not send two codes.
   useEffect(() => {
     const data = consent.data
     if (!data || started.current) return
 
-    if (data.problem?.redirect) {
+    if (data.problem?.redirect && !data.problem.askFirst) {
       started.current = true
       leaveFor(data.problem.redirect) // the page says it is going back already
     } else if (data.allowed && data.granted) {
@@ -96,7 +107,7 @@ export function OAuthAuthorizePage() {
   const name = data.client?.name ?? 'the agent'
   const problem = data.problem ?? approve.data?.problem
 
-  if (leaving || problem?.redirect) {
+  if (leaving || (problem?.redirect && !problem.askFirst)) {
     return (
       <AuthLayout
         title={`Back to ${name}`}
@@ -121,6 +132,21 @@ export function OAuthAuthorizePage() {
               <code className="text-xs">{problem.code}</code>
             </AlertDescription>
           </Alert>
+          {problem.redirect && (
+            <p className="text-muted-foreground">
+              It would go back to{' '}
+              <span className="text-foreground">{originOf(problem.redirect)}</span> to say so. You
+              never allowed this agent, so follow it only if you just started its sign-in:{' '}
+              <a
+                href={problem.redirect}
+                rel="noreferrer"
+                className="text-foreground underline underline-offset-4"
+              >
+                go back to the agent
+              </a>
+              .
+            </p>
+          )}
           <Link to="/workflows" className="text-center underline underline-offset-4">
             Go to Polythought
           </Link>
@@ -169,8 +195,12 @@ function ConsentForm({ request, consent, onDecided }: FormProps) {
 
   return (
     <AuthLayout
-      title={`Allow ${name}?`}
-      description="An agent asks to work with Polythought as you, over MCP."
+      title={consent.again ? `Sign ${name} in again?` : `Allow ${name}?`}
+      description={
+        consent.again
+          ? `You allowed it this before. It comes back to ${consent.redirectHost}, where any program could be listening, so Polythought asks once more.`
+          : 'An agent asks to work with Polythought as you, over MCP.'
+      }
     >
       <div className="flex flex-col gap-4 text-sm">
         <div className="flex flex-col gap-1 rounded-md border p-3">

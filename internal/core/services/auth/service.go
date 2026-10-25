@@ -91,12 +91,13 @@ type Service struct {
 	log      logging.Logger
 	now      func() time.Time
 
-	workflows WorkflowStopper   // optional; commands without the engine have none
-	live      LiveStopper       // optional; without it, disabling stops no live trading
-	mail      ports.AccountMail // optional; without it, nothing is mailed
-	inviteBox ports.SecretBox   // optional; without it, an invite's code shows only as made
-	joins     JoinNotifier      // optional; without it, admins are told of no request to join
-	confirm   Confirmer         // optional; without it, an admin's agents' work on users goes ahead at once
+	workflows WorkflowStopper                                 // optional; commands without the engine have none
+	live      LiveStopper                                     // optional; without it, disabling stops no live trading
+	mail      ports.AccountMail                               // optional; without it, nothing is mailed
+	inviteBox ports.SecretBox                                 // optional; without it, an invite's code shows only as made
+	joins     JoinNotifier                                    // optional; without it, admins are told of no request to join
+	confirm   Confirmer                                       // optional; without it, an admin's agents' work on users goes ahead at once
+	revoked   func(ctx context.Context, id domain.APITokenID) // optional; told of each token revoked
 
 	instanceCaps func() (domain.LiveCaps, domain.AgentCaps) // optional; without it, any cap left to the instance's is a raise
 
@@ -150,6 +151,12 @@ type LiveStopper interface {
 // WithLiveStopper stops a user's live trading when an admin disables them.
 func WithLiveStopper(l LiveStopper) Option {
 	return func(s *Service) { s.live = l }
+}
+
+// WithTokenRevoked tells f of each API token revoked, to end what it left going: its
+// sessions, and the live actions it asked for that still wait (A16).
+func WithTokenRevoked(f func(ctx context.Context, id domain.APITokenID)) Option {
+	return func(s *Service) { s.revoked = f }
 }
 
 // WithInviteBox seals invites' codes, so admins can copy them again (D393).

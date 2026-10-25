@@ -2,6 +2,7 @@ package auth
 
 import (
 	"context"
+	"encoding/json"
 	"strings"
 
 	"github.com/shopspring/decimal"
@@ -36,7 +37,7 @@ type UserAsked struct {
 // holdUserUpdate is nil when the actor's change to u goes ahead, and holds it for the
 // admin when a part of it waits for them, the whole change together.
 func (s *Service) holdUserUpdate(ctx context.Context, actor Principal, u domain.User, upd UserUpdate) error {
-	if s.confirm == nil || actor.Itself() || actor.Confirmed {
+	if s.confirm == nil || actor.Itself() {
 		return nil
 	}
 
@@ -90,11 +91,34 @@ func (s *Service) holdUserUpdate(ctx context.Context, actor Principal, u domain.
 		return nil
 	}
 
+	// And what else the change does, which alone would not wait, as the admin confirms all
+	// of it together (A19).
+	if upd.EmailVerified != nil && *upd.EmailVerified && u.EmailVerifiedAt.IsZero() {
+		says = append(says, "mark their address verified")
+	}
+
+	if upd.CodeChosen != nil && !*upd.CodeChosen && u.CodeChosen {
+		says = append(says, "no longer let them write code")
+	}
+
+	if !s.raisesCaps(u, upd) && ((upd.LiveCaps != nil && !same(*upd.LiveCaps, u.LiveCaps)) ||
+		(upd.AgentCaps != nil && !same(*upd.AgentCaps, u.AgentCaps))) {
+		says = append(says, "lower their own caps")
+	}
+
 	// The agent named them by ID: their email is the admin's to see (D410).
 	return s.confirm.Hold(ctx, actor, domain.Ask{
 		Kind: kind, What: "Change the user " + string(u.ID) + ": " + strings.Join(says, ", "), About: u.Email,
 		Payload: UserAsked{User: u.ID, Update: upd},
 	})
+}
+
+// same says two caps are the same, by value: their pointers are not.
+func same(a, b any) bool {
+	x, xerr := json.Marshal(a)
+	y, yerr := json.Marshal(b)
+
+	return xerr == nil && yerr == nil && string(x) == string(y)
 }
 
 // raisesCaps says upd lets u spend more than their caps let them now, live or on agents: a

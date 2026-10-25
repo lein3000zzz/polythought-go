@@ -578,7 +578,11 @@ func TestDeleteNeedsTheSwitch(t *testing.T) {
 // user has them wait.
 type holder struct{ asks []domain.Ask }
 
-func (h *holder) Hold(_ context.Context, _ auth.Principal, a domain.Ask) error {
+func (h *holder) Hold(_ context.Context, p auth.Principal, a domain.Ask) error {
+	if p.Confirmed {
+		return nil // as the confirmations service does, what the user confirmed matching
+	}
+
 	h.asks = append(h.asks, a)
 	return &domain.AwaitingError{Confirmation: domain.Confirmation{ID: "c-1"}}
 }

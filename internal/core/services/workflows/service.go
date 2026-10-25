@@ -350,7 +350,7 @@ type ChangeAsked struct {
 // hold keeps a token's or an agent's action on a workflow that trades live for its user
 // (D406), saying what it does with the workflow's name as it is now, and what it changes.
 func (s *Service) hold(ctx context.Context, p auth.Principal, kind domain.ConfirmKind, w domain.Workflow, a domain.Ask) error {
-	if s.confirm == nil || s.tradeScope == nil || p.Itself() || p.Confirmed {
+	if s.confirm == nil || s.tradeScope == nil || p.Itself() {
 		return nil
 	}
 
@@ -428,6 +428,9 @@ type Definition struct {
 	Description *string
 	Nodes       []domain.NodeSpec
 	Connections []domain.Connection
+	// Borrowed is what of a new one another user wrote, as the library's use of their
+	// entry says (A21); a change works it out itself.
+	Borrowed *domain.Borrowed `json:",omitempty"`
 }
 
 // Create stores a new, inactive workflow.
@@ -450,9 +453,13 @@ func (s *Service) Create(ctx context.Context, p auth.Principal, def Definition) 
 		UpdatedAt: now,
 	}
 
+	def, _ = keepBorrowed(p, def, domain.Workflow{})
+
 	if err := s.apply(ctx, &w, s.keepHidden(def, nil)); err != nil {
 		return domain.Workflow{}, err
 	}
+
+	w.Borrowed = borrowedOf(def)
 
 	if err := s.allowed(ctx, p, w); err != nil {
 		return domain.Workflow{}, err
@@ -518,9 +525,13 @@ func (s *Service) Update(ctx context.Context, p auth.Principal, id domain.Workfl
 
 	stored := w // as it is, before the change: what the user knows it by
 
-	if err := s.apply(ctx, &w, s.keepHidden(def, w.Nodes)); err != nil {
+	kept, borrowed := keepBorrowed(p, def, w)
+
+	if err := s.apply(ctx, &w, s.keepHidden(kept, w.Nodes)); err != nil {
 		return domain.Workflow{}, err
 	}
+
+	w.Borrowed = borrowed
 
 	if err := s.allowed(ctx, p, w); err != nil {
 		return domain.Workflow{}, err

@@ -40,7 +40,7 @@ type NodeAsked struct {
 // hold keeps a token's or an agent's change to n, edited, or its deleting when edited is
 // nil, for its user where a live workflow that is on uses it.
 func (s *Service) hold(ctx context.Context, p auth.Principal, n domain.CustomNode, edited *domain.CustomNode, asked NodeAsked) error {
-	if s.confirm == nil || s.live == nil || p.Itself() || p.Confirmed {
+	if s.confirm == nil || s.live == nil || p.Itself() {
 		return nil
 	}
 

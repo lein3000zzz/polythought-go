@@ -4,6 +4,7 @@ import (
 	"context"
 	"sync"
 	"testing"
+	"time"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 	"github.com/shopspring/decimal"
@@ -128,4 +129,39 @@ func TestTradeTools(t *testing.T) {
 		_, msg = call(t, reader, "set_trading", map[string]any{"workflow": "wf-1", "mode": "paper"})
 		assert.Contains(t, msg, "it needs the paper scope", "the service's to say, by the mode")
 	})
+}
+
+// confirming is the trading service as it holds the kill switch, a confirmed call going
+// ahead.
+type confirming struct{ *trader }
+
+func (confirming) SetKillSwitch(_ context.Context, p auth.Principal, on bool) (trading.KillSwitch, error) {
+	if !on && !p.Confirmed {
+		return trading.KillSwitch{}, &domain.AwaitingError{Confirmation: held}
+	}
+
+	return trading.KillSwitch{On: on}, nil
+}
+
+// A tool with no scope of its own, as set_kill_switch, is carried out once confirmed in the
+// agent's window, the caller checked again as it is then (A16).
+func TestConfirmedWithNoScope(t *testing.T) {
+	u := alice
+	u.AskInAgent = true
+
+	w := &window{}
+	d := deps(u, &trades{}, []domain.Scope{domain.ScopeLive})
+	d.Trader, d.Confirmations, d.Window = confirming{&trader{}}, confirms{}, w
+	d.WindowWait = func() time.Duration { return 2 * time.Second }
+
+	agent, _ := windowedWith(t, d, false, func(*mcp.ElicitRequest) string { return "accept" })
+
+	off, msg := call(t, agent, "set_kill_switch", map[string]any{"on": false})
+	require.Empty(t, msg)
+	assert.Equal(t, false, off["on"])
+
+	w.mu.Lock()
+	defer w.mu.Unlock()
+
+	assert.Equal(t, []error{nil}, w.finished)
 }

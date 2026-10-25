@@ -26,7 +26,11 @@ type holder struct {
 	details []string
 }
 
-func (h *holder) Hold(_ context.Context, _ auth.Principal, a domain.Ask) error {
+func (h *holder) Hold(_ context.Context, p auth.Principal, a domain.Ask) error {
+	if p.Confirmed {
+		return nil // as the confirmations service does, what the user confirmed matching
+	}
+
 	h.kinds, h.whats, h.details = append(h.kinds, a.Kind), append(h.whats, a.What), append(h.details, a.Detail)
 	return &domain.AwaitingError{Confirmation: domain.Confirmation{ID: "c-1"}}
 }

@@ -20,7 +20,7 @@ type holder struct {
 }
 
 func (h *holder) Hold(_ context.Context, p auth.Principal, a domain.Ask) error {
-	if !p.User.Unconfirmed.Waits(a.Kind) {
+	if !p.User.Unconfirmed.Waits(a.Kind) || p.Confirmed {
 		return nil
 	}
 

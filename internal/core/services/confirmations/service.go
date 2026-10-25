@@ -9,6 +9,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"reflect"
 	"sync"
 	"time"
 	"unicode/utf8"
@@ -108,8 +109,12 @@ func (s *Service) Handle(kind domain.ConfirmKind, do Do) {
 func (s *Service) Hold(ctx context.Context, p auth.Principal, a domain.Ask) error {
 	kind, wf, what := a.Kind, a.WorkflowID, a.What
 
-	if p.Itself() || p.Confirmed || !p.User.Unconfirmed.Waits(kind) {
+	if p.Itself() || !p.User.Unconfirmed.Waits(kind) {
 		return nil
+	}
+
+	if p.Confirmed {
+		return asConfirmed(p, a)
 	}
 
 	now := s.now()
@@ -145,6 +150,38 @@ func (s *Service) Hold(ctx context.Context, p auth.Principal, a domain.Ask) erro
 		"workflow_id", wf, "grant_id", p.GrantID, "token_id", p.TokenID)
 
 	return &domain.AwaitingError{Confirmation: c}
+}
+
+// asConfirmed is nil when a confirmed call holds what the user confirmed, and refuses
+// anything else it reaches: an action the call now makes otherwise, as a workflow's code
+// building another graph the second time, or another that would wait (A23).
+func asConfirmed(p auth.Principal, a domain.Ask) error {
+	c := p.Confirming
+	if c == nil {
+		return nil
+	}
+
+	data, err := json.Marshal(a.Payload)
+	if err != nil {
+		return err
+	}
+
+	if a.Kind != c.Kind || a.WorkflowID != c.WorkflowID || !sameJSON(data, c.Payload) {
+		return fmt.Errorf("%w: what it would carry out now is not what the user confirmed: ask again", domain.ErrConflict)
+	}
+
+	return nil
+}
+
+// sameJSON says two JSON texts hold the same value, however they were written.
+func sameJSON(a, b []byte) bool {
+	var x, y any
+
+	if json.Unmarshal(a, &x) != nil || json.Unmarshal(b, &y) != nil {
+		return false
+	}
+
+	return reflect.DeepEqual(x, y)
 }
 
 // tell tells the user, the action waiting whatever comes of it, and keeps the message.
@@ -322,6 +359,29 @@ func (s *Service) decideVia(
 	}
 
 	return domain.Confirmation{}, fmt.Errorf("%w: it is %s already", domain.ErrConflict, now.Status)
+}
+
+// Ended refuses what an agent's grant, or an API token, asked for and still waits, as it
+// is revoked (A16): the user withdrew it, and a call waiting for the answer hears so.
+func (s *Service) Ended(ctx context.Context, grant domain.GrantID, token domain.APITokenID) {
+	if grant == "" && token == "" {
+		return
+	}
+
+	list, err := s.repo.PendingOf(ctx, grant, token, s.now())
+	if err != nil {
+		s.log.Warn(ctx, "Revoked holder's live actions not refused", "grant_id", grant, "token_id", token, logging.Err(err))
+		return
+	}
+
+	for _, c := range list {
+		decided, err := s.repo.Decide(ctx, c.OwnerID, c.ID, domain.ConfirmRefused, s.now(), domain.ConfirmViaApp)
+		if err != nil {
+			continue // decided meanwhile
+		}
+
+		s.refused(ctx, decided)
+	}
 }
 
 // The agent's own window (D409): a tool call that held an action asks the user there,

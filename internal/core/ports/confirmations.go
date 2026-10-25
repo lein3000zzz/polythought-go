@@ -23,6 +23,9 @@ type ConfirmationRepository interface {
 	) (domain.Confirmation, error)
 	// Finish records how a confirmed one ended.
 	Finish(ctx context.Context, id domain.ConfirmationID, status domain.ConfirmStatus, result string) error
+	// PendingOf are the ones an agent's grant, or an API token, asked for still pending at
+	// now: what its revoking refuses.
+	PendingOf(ctx context.Context, grant domain.GrantID, token domain.APITokenID, now time.Time) ([]domain.Confirmation, error)
 	// SetMessage records the Telegram message that asked the user.
 	SetMessage(ctx context.Context, id domain.ConfirmationID, message int) error
 }

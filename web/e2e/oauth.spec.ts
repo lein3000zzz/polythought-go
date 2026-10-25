@@ -142,8 +142,14 @@ test('an agent signs in with OAuth, refreshes, and is revoked (D397)', async ({
   await expect(row).toContainText('Unverified')
   await expect(row.getByRole('button', { name: 'Revoke' })).toBeVisible()
 
-  // Signing in again for what it has, it is let through without asking.
-  const again = await authorize('read build', 'st-2')
+  // Signing in again for what it has, it comes back to this machine, where any program
+  // could listen: one click, what it has ticked (A15).
+  const again = await authorize('read build', 'st-2', async (page) => {
+    await expect(page.getByText(`Sign ${name} in again?`)).toBeVisible()
+    await expect(page.getByRole('checkbox', { name: 'Read' })).toBeChecked()
+    await expect(page.getByRole('checkbox', { name: 'Build' })).toBeChecked()
+    await page.getByRole('button', { name: 'Allow' }).click()
+  })
   const quiet = await tokensOf(
     agent,
     exchange(again.url.searchParams.get('code') ?? '', again.verifier),

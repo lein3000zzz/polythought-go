@@ -46,8 +46,14 @@ approving session keys or a wallet's approvals, or allowing an agent.
 
 Agents such as Claude Code sign in with OAuth 2.1, through the user's browser. The agent
 registers, or names a metadata document at an https address it controls; the user sees on a
-consent page which it is, verified by that document or not, and ticks what it may do, live
-trading and admin unticked to start with. Only a browser session can allow it. The code it
+consent page which it is, the host its document is published at or its own word, and ticks
+what it may do, live trading and admin unticked to start with. Only a browser session can
+allow it. An agent allowed before goes through without asking only where it comes back to
+its own site over https; one coming back to the user's machine, where any program could be
+listening, takes a click. A request wrong after the client and redirect check out goes back
+to the agent with the error at once only where the user allowed it before; otherwise the
+page shows the error and where it would go, with a link. Redirects that start a program of
+the system's, such as `ms-msdt:` and `search-ms:`, are refused. The code it
 gets back works once, for ten minutes, and only with the PKCE verifier the agent started
 with. Its access token lasts an hour; its refresh token works once, for 30 days, and each
 refresh gives a new pair. A code or refresh token used twice means a copy is about, so the
@@ -56,15 +62,19 @@ each agent allowed, to revoke.
 
 At `/mcp`, every request's token is checked as it comes: an agent's with its grant and its
 user, so revoking the agent or disabling its user stops it at once, and allowing it less
-narrows the tokens it has. An admin can switch agents off for the whole instance. What an
+narrows the tokens it has. Revoking an agent or a token also closes its sessions and refuses
+the live actions it asked for that still wait; a call that waited for the user's answer in
+the agent's window checks the agent again before it carries anything out, as it is then.
+A confirmed action is carried out only as the user saw it: a call that would now do
+otherwise, or reach another action that waits, is refused. An admin can switch agents off for the whole instance. What an
 agent or an API token reads of a workflow, over MCP or the API, leaves its personal settings
 out, such as a webhook's URL, which can be a secret, unless its owner lets them see those, at
 a browser; a workflow they save keeps those as they were. Nor do they delete workflows,
 custom nodes or credentials, or share workflows to the library, unless the user lets them, at
 a browser, each switch on its own. A credential's secret never comes back to them, but a
 workflow they build could send it wherever its nodes call: they save, switch on or run a
-workflow that uses one, test one, or change where one goes, only where the user lets them
-use credentials, a switch of its own, off to start with. Nor do they answer the questions the
+workflow that uses one, test one, list a key's models, or change where one goes, only where
+the user lets them use credentials, a switch of its own, off to start with. Nor do they answer the questions the
 user's workflows ask, often how the user approves a trade, unless the user lets them, and the
 question then says who answered. What reaches real money, going live, switching on, running
 or changing a workflow that trades live or a custom node it uses, and turning the kill switch
@@ -82,7 +92,9 @@ say where the mail password and every reset link go, and creates no account with
 password unless an admin lets it; it invites instead. An agent takes the tasks of the
 user's Local agent nodes only with the tasks scope, unticked to start with, and every word
 of a task comes marked as the workflow's, not the user's.
-Text others wrote comes marked as such.
+Text others wrote comes marked as such, a workflow's name and its nodes' names and notes
+too where another user wrote them, in the library entry it was made from, until the user
+changes them.
 
 Every admin action checks the role in the service, not only in the page, and the last admin
 cannot be demoted or disabled. Disabling a user signs them out everywhere, stops their

@@ -2907,8 +2907,11 @@
             },
             "OAuthConsent": {
                 "properties": {
+                    "again": {
+                        "type": "boolean"
+                    },
                     "allowed": {
-                        "description": "Allowed says the user's grant covers what the client asks: the page approves with\nGranted, not asking again.",
+                        "description": "Allowed says the user's grant covers what the client asks: the page approves with\nGranted, not asking again. Again says it covers it, but the client comes back\nelsewhere than its own site: the page asks for a click, the grant's scopes ticked (A15).",
                         "type": "boolean"
                     },
                     "client": {
@@ -3040,6 +3043,10 @@
             },
             "OAuthProblem": {
                 "properties": {
+                    "askFirst": {
+                        "description": "AskFirst says the page shows it, and where it goes, with a link, rather than sending\nthe browser there at once: the user never allowed the client (A14).",
+                        "type": "boolean"
+                    },
                     "code": {
                         "type": "string"
                     },

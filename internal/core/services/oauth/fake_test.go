@@ -66,6 +66,26 @@ func (r *fakeRepo) Client(_ context.Context, id string) (domain.OAuthClient, err
 	return c, nil
 }
 
+func (r *fakeRepo) CountUnusedClients(context.Context) (int, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	n := 0
+
+	for id, c := range r.clients {
+		used := false
+		for _, g := range r.grants {
+			used = used || g.Client.ID == id
+		}
+
+		if c.Kind == domain.ClientRegistered && !used {
+			n++
+		}
+	}
+
+	return n, r.fail
+}
+
 func (r *fakeRepo) PruneClients(_ context.Context, before time.Time) (int64, error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()

@@ -31,9 +31,12 @@ type Consent struct {
 	Verified    bool
 	RedirectURI string
 	Offered     []Offer
-	// Allowed is set when the user's grant to the client covers what it asks: the page
-	// approves with Granted, not asking again.
+	// Allowed is set when the user's grant to the client covers what it asks and it comes
+	// back to its own site: the page approves with Granted, not asking again. Again is set
+	// instead when it comes back elsewhere, as to this machine, where any program could
+	// listen: the page asks for a click, the grant's scopes ticked (A15).
 	Allowed bool
+	Again   bool
 	Granted []domain.Scope
 
 	grant domain.Grant // the grant that allows it, when Allowed
@@ -87,7 +90,29 @@ func (s *Service) Prepare(ctx context.Context, p auth.Principal, req AuthRequest
 		return Consent{}, err
 	}
 
+	if c.Allowed && !ownSite(client, req.RedirectURI) {
+		c.Allowed, c.Again = false, true
+
+		for i, o := range c.Offered {
+			c.Offered[i].Ticked = slices.Contains(c.Granted, o.Scope)
+		}
+	}
+
 	return c, nil
+}
+
+// ownSite says a redirect goes back to the client's own site: https, on the host its
+// document is published at. A registered client's is its own word, and anything on this
+// machine may listen at a loopback one (A15, RFC 8252 8.6).
+func ownSite(c domain.OAuthClient, redirect string) bool {
+	if c.Kind != domain.ClientDocument {
+		return false
+	}
+
+	id, err := url.Parse(c.ID)
+	r, rerr := url.Parse(redirect)
+
+	return err == nil && rerr == nil && r.Scheme == "https" && strings.EqualFold(r.Host, id.Host)
 }
 
 // Approve grants the client the scopes the user ticked, and gives where to send the
@@ -118,10 +143,11 @@ func (s *Service) Approve(ctx context.Context, p auth.Principal, req AuthRequest
 
 	now := s.now()
 
-	// A grant that allows the request already stays as it is: only what the user ticked
-	// on the page replaces a grant's scopes, never a request that asks for fewer.
+	// A grant that allows the request already stays as it is, the click asked again for it
+	// included: only more than it has, ticked on the page, replaces a grant's scopes, never
+	// a request that asks for fewer.
 	grant := consent.grant
-	if !consent.Allowed || !grant.Covers(scopes) {
+	if !consent.Allowed && !consent.Again || !grant.Covers(scopes) {
 		grant, err = s.repo.SaveGrant(ctx, domain.Grant{
 			ID: domain.GrantID(newID()), UserID: p.User.ID, Client: consent.Client, Scopes: scopes,
 			Resource: s.cfg.Resource, CreatedAt: now, UpdatedAt: now,
@@ -178,9 +204,20 @@ func (s *Service) check(ctx context.Context, p auth.Principal, req AuthRequest) 
 		return domain.OAuthClient{}, nil, oauthErr("invalid_request", "the redirect_uri is not one the client registered")
 	}
 
-	// From here, errors go back to the client.
+	// One registered before a scheme was refused is refused now.
+	if err := allowedRedirect(req.RedirectURI); err != nil {
+		return domain.OAuthClient{}, nil, oauthErr("invalid_request", err.Error())
+	}
+
+	// From here, errors go back to the client: at once to one the user allowed before,
+	// else once they see where (A14).
 	back := func(code, description string) error {
-		return &Error{Code: code, Description: description, Redirect: s.redirect(req, url.Values{"error": {code}, "error_description": {description}})}
+		e := &Error{Code: code, Description: description, Redirect: s.redirect(req, url.Values{"error": {code}, "error_description": {description}})}
+
+		g, err := s.repo.GrantOf(ctx, p.User.ID, client.ID)
+		e.AskFirst = err != nil || !g.Active()
+
+		return e
 	}
 
 	switch {

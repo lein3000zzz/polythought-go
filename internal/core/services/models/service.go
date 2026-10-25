@@ -56,6 +56,12 @@ func New(d Deps) *Service {
 // once an hour. A list is kept for the key itself: a key or base URL changed since asks
 // again. A failure is not kept, so trying again asks again.
 func (s *Service) List(ctx context.Context, p auth.Principal, id domain.CredentialID) ([]ports.LLMModel, error) {
+	// Listing sends the key to its provider, as a test does (A18, D404).
+	if !p.MayUseCredentials() {
+		return nil, fmt.Errorf("%w: listing a key's models sends it to its provider, which needs the user to let agents "+
+			"and tokens use credentials: Settings, Connected agents", domain.ErrForbidden)
+	}
+
 	credType, values, err := s.credentials.Values(ctx, p.User.ID, id, credtypes.LLMKeyTypes)
 	if err != nil {
 		return nil, err

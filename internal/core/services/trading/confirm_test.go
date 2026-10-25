@@ -20,7 +20,11 @@ type holder struct {
 	payloads []any
 }
 
-func (h *holder) Hold(_ context.Context, _ auth.Principal, a domain.Ask) error {
+func (h *holder) Hold(_ context.Context, p auth.Principal, a domain.Ask) error {
+	if p.Confirmed {
+		return nil // as the confirmations service does, what the user confirmed matching
+	}
+
 	h.kinds, h.whats, h.payloads = append(h.kinds, a.Kind), append(h.whats, a.What), append(h.payloads, a.Payload)
 	return &domain.AwaitingError{Confirmation: domain.Confirmation{ID: "c-1"}}
 }

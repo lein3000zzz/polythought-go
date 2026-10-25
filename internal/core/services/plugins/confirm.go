@@ -55,7 +55,7 @@ type Asked struct {
 
 // hold keeps a token's or an agent's plugin action for the admin, saying what it does.
 func (s *Service) hold(ctx context.Context, p auth.Principal, a Asked, what string) error {
-	if s.confirm == nil || p.Itself() || p.Confirmed {
+	if s.confirm == nil || p.Itself() {
 		return nil
 	}
 

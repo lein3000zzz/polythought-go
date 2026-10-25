@@ -100,6 +100,35 @@ func (r *Confirmations) Recent(ctx context.Context, owner domain.UserID, limit i
 	return out, nil
 }
 
+func (r *Confirmations) PendingOf(
+	ctx context.Context, grant domain.GrantID, token domain.APITokenID, now time.Time,
+) ([]domain.Confirmation, error) {
+	c := table.Confirmations
+
+	holder := c.GrantID.EQ(jet.String(string(grant)))
+	if grant == "" {
+		holder = c.GrantID.EQ(jet.String("")).AND(c.TokenID.EQ(jet.String(string(token))))
+	}
+
+	var rows []model.Confirmations
+
+	err := c.SELECT(c.AllColumns).
+		WHERE(holder.
+			AND(c.Status.EQ(jet.String(string(domain.ConfirmPending)))).
+			AND(c.ExpiresAt.GT(jet.TimestampzT(now)))).
+		QueryContext(ctx, r.db.conn(ctx), &rows)
+	if err != nil {
+		return nil, err
+	}
+
+	out := make([]domain.Confirmation, len(rows))
+	for i, m := range rows {
+		out[i] = confirmationOf(m)
+	}
+
+	return out, nil
+}
+
 func (r *Confirmations) CountPending(ctx context.Context, owner domain.UserID, now time.Time) (int, error) {
 	oid, err := parseID(owner)
 	if err != nil {

@@ -91,7 +91,12 @@ Code view shows (the server prints it as the app does, held to it by shared test
 problems, their executions and the first items a run by hand kept, the node types with their
 settings, the code SDK's declarations, and the library. Text others wrote, a plugin's words,
 another user's library entry, what flowed through a workflow from the markets, comes in fields
-named `untrusted`, which the server tells agents are data, never instructions. A workflow's
+named `untrusted`, which the server tells agents are data, never instructions. So does what
+another user wrote of a workflow made from their library entry, its name and its nodes' names
+and notes, until the user changes it at a browser: where it was, the agent sees
+`(another user's words: see untrusted)`, and a workflow saved with that keeps the text. What
+agents and workflows ask of Polymarket takes its budgets in turn, user by user, and orders,
+cancels and heartbeats have a budget of their own, apart from reads. A workflow's
 personal settings, such as a webhook's URL, show only as set unless the user lets agents see
 them.
 

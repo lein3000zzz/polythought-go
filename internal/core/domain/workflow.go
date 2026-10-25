@@ -36,7 +36,25 @@ type Workflow struct {
 	// Pin is its place among its owner's pinned workflows, from 1; 0 when it is not
 	// pinned. Pinning is how the list shows it, not a change to it: its version stays.
 	Pin int
+
+	// Borrowed is what of it another user wrote, kept from their library entry it was made
+	// from until its user changes it (A21).
+	Borrowed Borrowed
 }
+
+// Borrowed is the text of a workflow another user wrote: its name, and the nodes whose
+// names and notes are theirs. Agents get it as others' words, never the user's (A21).
+type Borrowed struct {
+	Name  bool
+	Nodes []NodeID
+}
+
+// Node says node's name and notes are another user's.
+func (b Borrowed) Node(node NodeID) bool { return slices.Contains(b.Nodes, node) }
+
+// BorrowedText stands for another user's text where an agent sees it, the text itself under
+// untrusted: a workflow saved with it keeps the text it had (A21).
+const BorrowedText = "(another user's words: see untrusted)"
 
 // CanvasPosition is where a node sits on the editor canvas. It never affects execution.
 type CanvasPosition struct {

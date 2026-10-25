@@ -51,7 +51,7 @@ func (s *Service) agentsMay(p auth.Principal, keys []string) error {
 }
 
 func (s *Service) holdChanges(ctx context.Context, p auth.Principal, batch []ports.SettingChange, changes any) error {
-	if s.confirm == nil || p.Itself() || p.Confirmed {
+	if s.confirm == nil || p.Itself() {
 		return nil
 	}
 

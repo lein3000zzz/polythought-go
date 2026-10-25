@@ -5,8 +5,10 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"runtime/debug"
 	"strings"
 	"time"
+	"unicode/utf8"
 
 	"github.com/google/jsonschema-go/jsonschema"
 	"github.com/lein3000zzz/the-watchers/pkg/observability/logging"
@@ -15,6 +17,7 @@ import (
 	"go.opentelemetry.io/otel/trace"
 
 	"github.com/lein3000zzz/polythought-go/internal/core/domain"
+	"github.com/lein3000zzz/polythought-go/internal/core/ports"
 	"github.com/lein3000zzz/polythought-go/internal/core/services/auth"
 )
 
@@ -69,8 +72,17 @@ func add[In, Out any](s *Server, srv *mcp.Server, t Tool[In, Out]) {
 		tool.InputSchema = &schema
 	}
 
-	mcp.AddTool(srv, tool, func(ctx context.Context, req *mcp.CallToolRequest, in In) (*mcp.CallToolResult, Out, error) {
-		var out Out
+	mcp.AddTool(srv, tool, func(ctx context.Context, req *mcp.CallToolRequest, in In) (_ *mcp.CallToolResult, out Out, err error) {
+		// The SDK recovers nothing: one tool's panic would stop the server, everyone's
+		// workflows and live trading with it (A24).
+		defer func() {
+			if r := recover(); r != nil {
+				s.log.Error(ctx, "MCP tool panicked", "tool", t.Name, "panic", fmt.Sprint(r), "stack", string(debug.Stack()))
+
+				var zero Out
+				out, err = zero, errors.New("internal error")
+			}
+		}()
 
 		p, ok := Principal(req)
 		if !ok {
@@ -80,10 +92,12 @@ func add[In, Out any](s *Server, srv *mcp.Server, t Tool[In, Out]) {
 		start := time.Now()
 		done := s.kit.Start(ctx, t.Name)
 
-		err := s.scope.WithSpan(ctx, "mcp "+t.Name, func(ctx context.Context, span trace.Span) error {
+		err = s.scope.WithSpan(ctx, "mcp "+t.Name, func(ctx context.Context, span trace.Span) error {
 			span.SetAttributes(attribute.String("mcp.tool", t.Name), attribute.String("mcp.caller", callerKind(p)))
 
-			got, err := s.run(ctx, p, t.Scope, func(ctx context.Context) (any, error) { return handle(ctx, s, req.Session, p, t.Handle, in) })
+			got, err := s.run(ctx, p, t.Scope, func(ctx context.Context) (any, error) {
+				return handle(ctx, s, req.Session, p, s.again(req), t.Scope, t.Handle, in)
+			})
 			if err == nil {
 				out = got.(Out)
 			}
@@ -109,6 +123,7 @@ func add[In, Out any](s *Server, srv *mcp.Server, t Tool[In, Out]) {
 // confirm it in time.
 func handle[In, Out any](
 	ctx context.Context, s *Server, session *mcp.ServerSession, p auth.Principal,
+	now func(context.Context) (auth.Principal, error), scope domain.Scope,
 	h func(context.Context, auth.Principal, In) (Out, error), in In,
 ) (Out, error) {
 	out, err := h(ctx, p, in)
@@ -118,7 +133,7 @@ func handle[In, Out any](
 		return out, err
 	}
 
-	c, carry, werr := s.inWindow(ctx, session, p, waiting.Confirmation)
+	c, carry, werr := s.inWindow(ctx, session, p, now, waiting.Confirmation)
 	switch {
 	case werr != nil:
 		var zero Out
@@ -127,7 +142,20 @@ func handle[In, Out any](
 		return out, err
 	}
 
-	confirmed := p
+	// Carried out as the caller is now, not as it was before it waited (A16).
+	confirmed, err := now(ctx)
+	if err == nil && scope != "" {
+		err = confirmed.Need(scope)
+	}
+
+	if err != nil {
+		s.window.Finish(ctx, c, "", err)
+
+		var zero Out
+
+		return zero, err
+	}
+
 	confirmed.Confirmed, confirmed.Confirming = true, &c
 
 	out, err = h(ctx, confirmed, in)
@@ -153,7 +181,8 @@ func (s *Server) run(ctx context.Context, p auth.Principal, scope domain.Scope, 
 		}
 	}
 
-	out, err = call(ctx)
+	// What it asks of the markets is its user's, in turn with other users' (A11).
+	out, err = call(ports.WithUser(ctx, p.User.ID))
 	if err != nil {
 		return nil, err
 	}
@@ -220,18 +249,34 @@ func (s *Server) toolError(ctx context.Context, tool string, err error) error {
 
 	switch {
 	case errors.As(err, &code):
-		return codeError(code)
+		return capped(codeError(code))
 	case errors.As(err, &breaks):
-		return breaksError(breaks)
+		return capped(breaksError(breaks))
 	case errors.As(err, &v):
-		return validationError(v)
+		return capped(validationError(v))
 	case expected(err):
-		return err
+		return capped(err)
 	}
 
 	s.log.Error(ctx, "MCP tool failed", "tool", tool, logging.Err(err))
 
 	return errors.New("internal error")
+}
+
+// capped is an error said within what a result may be, as long code failures and lists of
+// problems can be: the rest cut, saying how much (A25).
+func capped(err error) error {
+	text := err.Error()
+	if len(text) <= maxResult {
+		return err
+	}
+
+	cut := text[:maxResult]
+	for !utf8.ValidString(cut) {
+		cut = cut[:len(cut)-1]
+	}
+
+	return fmt.Errorf("%s\n… and %d KiB more, cut: fix what is above first", cut, (len(text)-len(cut))>>10)
 }
 
 // codeError says what in an agent's code failed, each problem where it is.

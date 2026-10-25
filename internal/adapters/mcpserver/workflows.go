@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"slices"
 	"strconv"
 	"time"
 
@@ -22,17 +23,21 @@ const itemsBudget = maxResult - 4<<10
 type workflowSummary struct {
 	ID          string    `json:"id"`
 	Name        string    `json:"name"`
-	Description string    `json:"description,omitempty" jsonschema:"what it does, in the user's words"`
+	Description string    `json:"description,omitempty" jsonschema:"what it does, a line or two, set by the user or their agents"`
 	Active      bool      `json:"active" jsonschema:"switched on: its triggers run"`
 	Version     int       `json:"version"`
 	Nodes       int       `json:"nodes"`
 	Trading     string    `json:"trading" jsonschema:"none, paper or live: how its orders go"`
 	UpdatedAt   time.Time `json:"updatedAt"`
+	// Untrusted is what of it another user wrote, from their library entry it was made
+	// from: its name, and nodes' names and notes, which show as BorrowedText (A21).
+	Untrusted Untrusted `json:"untrusted,omitempty" jsonschema:"what of it another user wrote, by field: name, or node.name and node.notes; each shows where it is as (another user's words: see untrusted), and saving that keeps it"`
 }
 
 type workflowList struct {
 	Workflows []workflowSummary `json:"workflows"`
 	Next      string            `json:"next,omitempty" jsonschema:"the cursor for the page after; absent on the last"`
+	Notice    string            `json:"notice,omitempty"`
 }
 
 type workflowIn struct {
@@ -47,6 +52,7 @@ type workflowOut struct {
 	Code     string `json:"code,omitempty" jsonschema:"its workflow code, for typescript"`
 	// Hidden are the personal settings left out (D401).
 	Hidden []string `json:"hidden,omitempty" jsonschema:"personal settings shown as {\"$personal\": \"hidden\"}, as node.setting: the user has not let agents see them"`
+	Notice string   `json:"notice,omitempty"`
 }
 
 type idIn struct {
@@ -227,6 +233,10 @@ func (s *Server) listWorkflows(ctx context.Context, p auth.Principal, in listWor
 		if out.Workflows[i], err = s.summaryOf(ctx, w); err != nil {
 			return workflowList{}, err
 		}
+
+		if out.Workflows[i].Untrusted != nil {
+			out.Notice = Notice
+		}
 	}
 
 	return out, nil
@@ -244,10 +254,43 @@ func (s *Server) summaryOf(ctx context.Context, w domain.Workflow) (workflowSumm
 		trading = t
 	}
 
-	return workflowSummary{
+	sum := workflowSummary{
 		ID: string(w.ID), Name: w.Name, Description: w.Description, Active: w.Active, Version: w.Version, Nodes: len(w.Nodes), Trading: trading,
 		UpdatedAt: w.UpdatedAt,
-	}, nil
+	}
+
+	if w.Borrowed.Name {
+		sum.Name, sum.Untrusted = domain.BorrowedText, Untrusted{"name": w.Name}
+	}
+
+	return sum, nil
+}
+
+// borrowedNodes is w's nodes, their names and notes another user wrote shown as
+// domain.BorrowedText, and those texts by node.field, to give under untrusted (A21).
+func borrowedNodes(w domain.Workflow) ([]domain.NodeSpec, Untrusted) {
+	if len(w.Borrowed.Nodes) == 0 {
+		return w.Nodes, nil
+	}
+
+	text := Untrusted{}
+	nodes := slices.Clone(w.Nodes)
+
+	for i, n := range nodes {
+		if !w.Borrowed.Node(n.ID) {
+			continue
+		}
+
+		if n.Name != "" {
+			text[string(n.ID)+".name"], nodes[i].Name = n.Name, domain.BorrowedText
+		}
+
+		if n.Notes != "" {
+			text[string(n.ID)+".notes"], nodes[i].Notes = n.Notes, domain.BorrowedText
+		}
+	}
+
+	return nodes, text
 }
 
 func (s *Server) getWorkflow(ctx context.Context, p auth.Principal, in workflowIn) (workflowOut, error) {
@@ -271,13 +314,27 @@ func (s *Server) getWorkflow(ctx context.Context, p auth.Principal, in workflowI
 		return workflowOut{}, err
 	}
 
-	// Personal settings come hidden from the workflows service, where they must be.
+	// Personal settings come hidden from the workflows service, where they must be; what
+	// another user wrote comes as theirs (A21).
 	out := workflowOut{workflowSummary: summary, Hidden: hiddenIn(w.Nodes)}
 
+	nodes, text := borrowedNodes(w)
+	for k, v := range text {
+		if out.Untrusted == nil {
+			out.Untrusted = Untrusted{}
+		}
+
+		out.Untrusted[k] = v
+	}
+
+	if out.Untrusted != nil {
+		out.Notice = Notice
+	}
+
 	if format == formatTypeScript {
-		out.Code = workflowcode.Print(w.Name, w.Nodes, w.Connections, types.printer())
+		out.Code = workflowcode.Print(summary.Name, nodes, w.Connections, types.printer())
 	} else {
-		out.Workflow = graphOf(w.Nodes, w.Connections)
+		out.Workflow = graphOf(nodes, w.Connections)
 	}
 
 	return out, nil
