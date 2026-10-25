@@ -14,7 +14,7 @@ import (
 )
 
 // fakeGitHub answers for one repository as GitHub's API does, and keeps the request.
-func fakeGitHub(t *testing.T, status int, body string) (*Stars, *http.Request) {
+func fakeGitHub(t *testing.T, status int, body string) (*Client, *http.Request) {
 	t.Helper()
 
 	got := &http.Request{}

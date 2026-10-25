@@ -44,8 +44,8 @@ denial, and notifications.
 Each kind of notification has a switch for Telegram and one for mail, per user: a workflow
 failing, a question waiting, a session key about to expire, live and paper orders filling,
 refused, unfilled, resting or ended, agents' spend nearing or at its cap, a workflow paused;
-and for admins, a plugin that keeps crashing and someone asking to join. Mail needs an admin
-to allow notifications by mail.
+and for admins, a plugin that keeps crashing, someone asking to join and a newer release
+out. Mail needs an admin to allow notifications by mail.
 
 Notifications never hold up a run: they are queued, and a full queue drops one rather than
 wait. A workflow's failures are told at most once an hour, and never for a run started by

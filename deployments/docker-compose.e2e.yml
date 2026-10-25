@@ -8,8 +8,9 @@ services:
   api:
     environment:
       POLYTHOUGHT_PUBLIC_URL: http://localhost:3100
-      # The tests never call GitHub (D372).
+      # The tests never call GitHub (D372, D424).
       POLYTHOUGHT_GITHUB_STARS: "false"
+      POLYTHOUGHT_UPDATE_CHECK: "false"
 
   web:
     ports: !override

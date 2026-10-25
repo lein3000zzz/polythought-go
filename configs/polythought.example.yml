@@ -485,6 +485,30 @@ github:
   # Environment: POLYTHOUGHT_GITHUB_STARS.
   # stars: true
 
+updates:
+
+  # Ask GitHub once a day for Polythought's newest release, to show on the Config page
+  # beside the server's version, and to tell admins once when a newer one is out. Off,
+  # the server never asks GitHub about releases.
+  # Environment: POLYTHOUGHT_UPDATE_CHECK.
+  # check: true
+
+  # Count pre-releases, such as 0.2.0-beta.1, as newer versions too, to update to before
+  # they are stable. Off, only stable releases.
+  # Environment: POLYTHOUGHT_UPDATE_PRERELEASES.
+  # prereleases: false
+
+  # Where the server reaches Polythought's updater, which updates it when an admin asks
+  # on the Config page. The Compose file's updater is at http://updater:8080.
+  # Environment: POLYTHOUGHT_UPDATER_URL.
+  # updater_url: "http://updater:8080"
+
+  # The token the updater takes, the same as its own POLYTHOUGHT_UPDATER_TOKEN: at least
+  # 32 characters. Empty, no updater is set up, and the Config page shows the commands
+  # to update by hand.
+  # Environment: POLYTHOUGHT_UPDATER_TOKEN.
+  # updater_token: ""
+
 log:
 
   # The least severe messages the server logs. One of debug, info, warn, error.

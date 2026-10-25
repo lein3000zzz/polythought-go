@@ -100,7 +100,7 @@ var Kinds = []Kind{
 	WorkflowFailed, ApprovalWaiting, SessionKeyExpiring, LiveTradeFailed,
 	LiveOrderFilled, LiveOrderRefused, LiveOrderUnfilled, LiveOrderRests, LiveOrderEnded,
 	PaperOrderFilled, PaperOrderRefused, PaperOrderUnfilled, PaperOrderRests, PaperOrderEnded,
-	AgentSpendWarned, AgentSpendCapped, ConfirmationAsked, WorkflowPaused, PluginCrashed, JoinRequested,
+	AgentSpendWarned, AgentSpendCapped, ConfirmationAsked, WorkflowPaused, PluginCrashed, JoinRequested, UpdateAvailable,
 }
 
 const (
@@ -139,6 +139,7 @@ type Service struct {
 	paused    chan pausedWorkflow
 	crashed   chan crashedPlugin
 	requested chan joinRequest
+	released  chan newRelease
 	admins    AdminLister   // optional: without it, admins hear of no crashed plugin
 	tick      time.Duration // how often held order notifications are looked at
 
@@ -204,6 +205,7 @@ func New(messenger ports.UserMessenger, prefs ports.NotificationPrefRepository, 
 		paused:    make(chan pausedWorkflow, queueSize),
 		crashed:   make(chan crashedPlugin, queueSize),
 		requested: make(chan joinRequest, queueSize),
+		released:  make(chan newRelease, queueSize),
 		tick:      time.Minute,
 		windows:   make(map[windowKey]*window),
 	}
@@ -353,6 +355,8 @@ func (s *Service) Run(ctx context.Context) {
 			s.pluginCrashed(ctx, pc)
 		case jr := <-s.requested:
 			s.joinRequested(ctx, jr)
+		case nr := <-s.released:
+			s.updateAvailable(ctx, nr)
 		case <-t.C:
 			s.summarise(ctx)
 		}

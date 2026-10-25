@@ -901,6 +901,56 @@ Ask GitHub about once an hour how many stars Polythought's repository has, to sh
 | Default | `true` |
 | Applies | at once |
 
+## Updates
+
+### Check for updates
+
+Ask GitHub once a day for Polythought's newest release, to show on the Config page beside the server's version, and to tell admins once when a newer one is out. Off, the server never asks GitHub about releases.
+
+| | |
+|---|---|
+| Key | `updates.check` |
+| Environment variable | `POLYTHOUGHT_UPDATE_CHECK` |
+| Kind | `true` or `false` |
+| Default | `true` |
+| Applies | at once |
+
+### Pre-releases
+
+Count pre-releases, such as 0.2.0-beta.1, as newer versions too, to update to before they are stable. Off, only stable releases.
+
+| | |
+|---|---|
+| Key | `updates.prereleases` |
+| Environment variable | `POLYTHOUGHT_UPDATE_PRERELEASES` |
+| Kind | `true` or `false` |
+| Default | `false` |
+| Applies | at once |
+
+### Updater address
+
+Where the server reaches Polythought's updater, which updates it when an admin asks on the Config page. The Compose file's updater is at http://updater:8080.
+
+| | |
+|---|---|
+| Key | `updates.updater_url` |
+| Environment variable | `POLYTHOUGHT_UPDATER_URL` |
+| Kind | text |
+| Default | `http://updater:8080` |
+| Applies | at once |
+
+### Updater token
+
+The token the updater takes, the same as its own POLYTHOUGHT_UPDATER_TOKEN: at least 32 characters. Empty, no updater is set up, and the Config page shows the commands to update by hand.
+
+| | |
+|---|---|
+| Key | `updates.updater_token` |
+| Environment variable | `POLYTHOUGHT_UPDATER_TOKEN` |
+| Kind | text, secret: stored encrypted and never shown |
+| Default | empty |
+| Applies | at once |
+
 ## Logging
 
 ### Log level

@@ -43,7 +43,8 @@ type AdminLister interface {
 	Admins(ctx context.Context) ([]domain.User, error)
 }
 
-// WithAdmins tells admins about plugins that crashed for good (D320).
+// WithAdmins tells admins about plugins that crashed for good (D320), requests to join
+// (D394) and newer releases (D424).
 func WithAdmins(a AdminLister) Option {
 	return func(s *Service) { s.admins = a }
 }

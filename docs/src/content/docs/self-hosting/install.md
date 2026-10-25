@@ -12,10 +12,11 @@ serves the app and these docs and passes `/api`, `/mcp` and the OAuth metadata u
 - Docker with Compose.
 - `openssl`, to make a key below, and `make` to build from the code.
 
-Each release is two images on GitHub's container registry, for `linux/amd64` and
-`linux/arm64`: `ghcr.io/lein3000zzz/polythought-api` and
-`ghcr.io/lein3000zzz/polythought-web`. A version such as `1.2.3` is tagged `1.2.3`, `1.2`
-and `latest`; a pre-release such as `0.1.0-beta.1` only itself.
+Each release is three images on GitHub's container registry, for `linux/amd64` and
+`linux/arm64`: `ghcr.io/lein3000zzz/polythought-api`, `ghcr.io/lein3000zzz/polythought-web`
+and, for [updates](#the-updater) from the Config page, `ghcr.io/lein3000zzz/polythought-updater`.
+A version such as `1.2.3` is tagged `1.2.3`, `1.2` and `latest`; a pre-release such as
+`0.1.0-beta.1` only itself.
 
 ## Start
 
@@ -227,8 +228,9 @@ are is between them and Polymarket's terms.
 Every page, the docs too, links to Polythought's repository on GitHub with its star count.
 The server asks GitHub's API for the count at start and about once an hour, without a
 token, and pages read it from the server. While GitHub does not answer, the link shows no
-count. To keep the server from calling GitHub at all, turn off **GitHub stars** in the
-Network group of the Config page, or set `POLYTHOUGHT_GITHUB_STARS=false`.
+count. Turn off **GitHub stars** in the Network group of the Config page, or set
+`POLYTHOUGHT_GITHUB_STARS=false`, and the server no longer asks; to keep it from calling
+GitHub at all, turn off the update check too (see [Updates](#updates)).
 
 ## User code
 
@@ -364,11 +366,48 @@ keep working), verifies its address, and leads to the sign-in form, where the ne
 is needed. After a reset, or a password change in Settings, the account is mailed a notice,
 so an owner learns of a change they did not make.
 
-## Upgrading and backups
+## Updates
 
 The **Config** page shows the version the server runs, with its commit; so does
-`polythought version`, run in the `api` container. Images built from the code say
-`dev`.
+`polythought version`, run in the `api` container. Images built from the code say `dev`.
+
+Once a day, and on **Check now**, the server asks GitHub's API for Polythought's newest
+release, without a token. When one is newer than the server's, the Config page says so, with
+a link to what changed, and each admin hears of it once, on Telegram or by mail as they chose
+under **Settings → Notifications**. Pre-releases, such as `1.3.0-beta.1`, count only with
+**Pre-releases** on. To keep the server from asking, turn off **Check for updates** in the
+Updates group of the Config page, or set `POLYTHOUGHT_UPDATE_CHECK=false`.
+
+### The updater
+
+With the updater, an admin updates from the Config page: **Update to 1.2.4**. It is a small
+container beside the others with the Docker socket, which it needs to pull images and
+recreate containers. Anything holding the socket is root on the machine, so leave it out if
+you would rather update by hand. To set it up:
+
+1. Make a token, `openssl rand -hex 32`, and put it in `.env` as
+   `POLYTHOUGHT_UPDATER_TOKEN`. The API and the updater both read it there.
+2. Start the stack with the updater's profile as well:
+
+   ```sh
+   docker compose -f deployments/docker-compose.yml --env-file .env --profile app --profile updater up -d
+   ```
+
+An update pulls the release's `api` and `web` images, sets `POLYTHOUGHT_VERSION` to it in
+`.env`, so a later `docker compose up` stays on it, and recreates those two containers; the
+server then updates the database as it starts, so back it up first, as below. The updater
+updates itself last, where it can. It runs the update as the stack was started: the same
+Compose files and env file, at the same paths, in a container of its own, which finishes even
+if the updater stops. So the stack must have been started with `--env-file`, and its files
+must not be at `/`. If an update fails, the Config page says why, with the end of what the
+updater did; `docker compose logs updater` has the rest.
+
+The updater also reads `POLYTHOUGHT_UPDATER_SERVICES`, the services it updates (`api,web`
+unless set), `POLYTHOUGHT_UPDATER_PROJECT`, the stack's Compose project, and
+`POLYTHOUGHT_UPDATER_IMAGE`, the image an update runs in, both its own unless set. The API
+reaches it at **Updater address**, `http://updater:8080` unless set.
+
+## Upgrading and backups
 
 Back up the database first, as the server updates its schema when it starts: `pg_dump` of
 the `polythought` database is enough, together with your keys. Then, with the released
@@ -379,9 +418,9 @@ docker compose -f deployments/docker-compose.yml --env-file .env --profile app p
 docker compose -f deployments/docker-compose.yml --env-file .env --profile app up -d
 ```
 
-Built from the code, get the new code and run `make up` again. A release's notes, on
-GitHub, say what changed. A version pinned as `1.2` takes its patch releases with each pull,
-and `latest` every release.
+Or let the updater do it, as above. Built from the code, get the new code and run `make up`
+again. A release's notes, on GitHub, say what changed. A version pinned as `1.2` takes its
+patch releases with each pull, and `latest` every release.
 
 Once the repository is public, each image is signed: `cosign verify
 ghcr.io/lein3000zzz/polythought-api:1.2.3 --certificate-identity-regexp

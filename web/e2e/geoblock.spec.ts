@@ -7,7 +7,10 @@ test('the Config page says whether Polymarket takes orders from the server, and 
   await expect(page.getByRole('heading', { name: 'Polymarket access' })).toBeVisible()
 
   // Polymarket answers for wherever the test stack runs: either way, it is said.
-  await page.getByRole('button', { name: 'Check now' }).click()
+  const access = page.locator('section', {
+    has: page.getByRole('heading', { name: 'Polymarket access' }),
+  })
+  await access.getByRole('button', { name: 'Check now' }).click()
   await expect(page.getByText(/^Answered /)).toBeVisible({ timeout: 15_000 })
   await expect(
     page

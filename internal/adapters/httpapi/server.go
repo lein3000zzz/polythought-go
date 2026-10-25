@@ -167,6 +167,9 @@ type Services struct {
 	Spend SpendService
 	// Plugins are what admins install (5c); nil where there are none.
 	Plugins PluginService
+	// Updates says whether a newer Polythought is out, and updates the server (D424,
+	// D425); nil: no such pages.
+	Updates UpdateService
 	// CodeRunners says where user code runs, and how its runners are (D357); nil: in
 	// the server's process.
 	CodeRunners func() ports.CodeRunners
@@ -222,6 +225,7 @@ type Server struct {
 	mcp           http.Handler
 	spend         SpendService
 	plugins       PluginService
+	updates       UpdateService
 
 	codeRunnersStatus func() ports.CodeRunners
 	log               logging.Logger
@@ -309,6 +313,7 @@ func New(cfg Config, util *observability.Utility, services Services) (*Server, e
 		mcp:           services.MCP,
 		spend:         services.Spend,
 		plugins:       services.Plugins,
+		updates:       services.Updates,
 
 		codeRunnersStatus: services.CodeRunners,
 		log:               log,
@@ -527,6 +532,9 @@ func (s *Server) routes() {
 	admin.GET("/settings/history", s.listSettingChanges)
 	admin.POST("/restart", s.restartServer)
 	admin.GET("/version", s.serverVersion)
+	admin.GET("/updates", s.hasUpdates, s.updatesStatus)
+	admin.POST("/updates/check", s.hasUpdates, s.checkUpdates)
+	admin.POST("/updates/apply", s.hasUpdates, s.applyUpdate)
 	admin.POST("/mail/test", s.sendTestMail)
 	admin.GET("/plugins", s.hasPlugins, s.listPlugins)
 	admin.POST("/plugins", s.hasPlugins, s.installPlugin)

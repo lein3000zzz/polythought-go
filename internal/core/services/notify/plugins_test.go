@@ -58,4 +58,12 @@ func TestPluginNotices(t *testing.T) {
 		assert.Equal(t, "🙋 new@example.com asks to join. They say: “I trade &lt;b&gt;weather&lt;/b&gt; markets.”", d.messenger.sent[3].HTML)
 		assert.Equal(t, "https://poly.example/admin/invites", d.messenger.sent[4].Buttons[0][0].URL)
 	})
+
+	t.Run("every admin hears of a newer release (D424)", func(t *testing.T) {
+		s.UpdateAvailable("0.0.2", "0.0.1")
+		settle(t, d, 7)
+
+		assert.Equal(t, "🆕 Polythought 0.0.2 is out; this server runs 0.0.1. See what changed, and update, on the Config page.", d.messenger.sent[5].HTML)
+		assert.Equal(t, "https://poly.example/admin/config", d.messenger.sent[6].Buttons[0][0].URL)
+	})
 }

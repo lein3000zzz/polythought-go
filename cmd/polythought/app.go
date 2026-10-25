@@ -30,6 +30,7 @@ import (
 	tgadapter "github.com/lein3000zzz/polythought-go/internal/adapters/telegram"
 	"github.com/lein3000zzz/polythought-go/internal/adapters/tscompiler"
 	"github.com/lein3000zzz/polythought-go/internal/adapters/webhook"
+	"github.com/lein3000zzz/polythought-go/internal/buildinfo"
 	"github.com/lein3000zzz/polythought-go/internal/config"
 	"github.com/lein3000zzz/polythought-go/internal/core/domain"
 	"github.com/lein3000zzz/polythought-go/internal/core/engine"
@@ -58,9 +59,11 @@ import (
 	"github.com/lein3000zzz/polythought-go/internal/core/services/telegram"
 	"github.com/lein3000zzz/polythought-go/internal/core/services/traders"
 	"github.com/lein3000zzz/polythought-go/internal/core/services/trading"
+	"github.com/lein3000zzz/polythought-go/internal/core/services/updates"
 	"github.com/lein3000zzz/polythought-go/internal/core/services/waits"
 	"github.com/lein3000zzz/polythought-go/internal/core/services/wallets"
 	"github.com/lein3000zzz/polythought-go/internal/core/services/workflows"
+	"github.com/lein3000zzz/polythought-go/internal/updater"
 	pm "github.com/lein3000zzz/polythought-go/pkg/clients/polymarket"
 )
 
@@ -143,6 +146,7 @@ type app struct {
 	mail            *mail.Service
 	geoblock        *geoblock.Service
 	meta            *meta.Service
+	updates         *updates.Service
 	oauth           *oauth.Service
 	markets         *pmadapter.Reader
 	waits           *waits.Service
@@ -263,12 +267,26 @@ func (a *app) init(ctx context.Context) error {
 
 	// The repository's stars beside its link, while the setting is on (D372); serve
 	// looks.
-	stars, err := github.New(a.util, github.Config{Repo: meta.Repository})
+	gh, err := github.New(a.util, github.Config{Repo: meta.Repository})
 	if err != nil {
 		return err
 	}
 
-	a.meta = meta.New(stars, func() bool { return a.settings.Current().Bool(config.KeyGitHubStars) }, a.util.Logger)
+	a.meta = meta.New(gh, func() bool { return a.settings.Current().Bool(config.KeyGitHubStars) }, a.util.Logger)
+
+	// Whether a newer Polythought is out, while the check is on (D424), admins told of
+	// each once; and the updater that updates the server to it, where one is set up
+	// (D425). serve checks daily.
+	updaterClient := updater.NewClient(func() updater.ClientConfig {
+		s := a.settings.Current()
+		return updater.ClientConfig{URL: s.String(config.KeyUpdaterURL), Token: s.String(config.KeyUpdaterToken)}
+	}, nil)
+
+	a.updates = updates.New(gh, postgres.NewReleaseNotices(a.db), updates.Config{
+		Current:     buildinfo.Get().Version,
+		On:          func() bool { return a.settings.Current().Bool(config.KeyUpdateCheck) },
+		Prereleases: func() bool { return a.settings.Current().Bool(config.KeyUpdatePrereleases) },
+	}, a.util.Logger, updates.WithNotifier(a.notify), updates.WithUpdater(updaterClient))
 
 	// The OAuth server agents sign in with, for the MCP endpoint (D382, D397), as the
 	// Config page sets it (D398). A client's document is fetched through the guard

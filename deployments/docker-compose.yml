@@ -3,7 +3,8 @@
 # which reads the settings below from the .env file at the repository root and builds the
 # images from this checkout (docker-compose.build.yml). Run alone, with
 # `docker compose --profile app up`, it pulls the released images instead (D373), the
-# version POLYTHOUGHT_VERSION names, latest unless set.
+# version POLYTHOUGHT_VERSION names, latest unless set. With the updater profile too, an
+# admin updates them from the Config page (D425).
 services:
   postgres:
     image: postgres:17-alpine
@@ -46,6 +47,8 @@ services:
       POLYTHOUGHT_LOG_LEVEL: ${POLYTHOUGHT_LOG_LEVEL:-}
       POLYTHOUGHT_LOG_FORMAT: ${POLYTHOUGHT_LOG_FORMAT:-}
       POLYTHOUGHT_WEBHOOK_ALLOW_PRIVATE: ${POLYTHOUGHT_WEBHOOK_ALLOW_PRIVATE:-}
+      # The updater's token, the same for both (D425): empty, there is no updater.
+      POLYTHOUGHT_UPDATER_TOKEN: ${POLYTHOUGHT_UPDATER_TOKEN:-}
     # The plugins admins install (D315); what they decided about them is in Postgres.
     volumes:
       - plugins:/var/lib/polythought/plugins
@@ -57,6 +60,19 @@ services:
       - api
     ports:
       - "3000:80"
+
+  # Updates the services to a release when an admin asks on the Config page (D425), with
+  # --profile updater and POLYTHOUGHT_UPDATER_TOKEN in .env. Not published: the API asks it
+  # at http://updater:8080. It holds the Docker socket, which is root on this machine: leave
+  # the profile off to update by hand.
+  updater:
+    profiles: [updater]
+    image: ghcr.io/lein3000zzz/polythought-updater:${POLYTHOUGHT_VERSION:-latest}
+    environment:
+      POLYTHOUGHT_UPDATER_TOKEN: ${POLYTHOUGHT_UPDATER_TOKEN:-}
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    restart: unless-stopped
 
 volumes:
   pgdata:

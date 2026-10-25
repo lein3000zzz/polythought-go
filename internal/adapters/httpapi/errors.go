@@ -102,6 +102,8 @@ var errorMapping = []struct {
 	{domain.ErrNotOpen, http.StatusConflict, "not_open"},
 	{domain.ErrWalletTradesLive, http.StatusConflict, "wallet_trades_live"},
 	{domain.ErrMailNotSetUp, http.StatusConflict, "mail_not_set_up"},
+	{domain.ErrNoUpdater, http.StatusConflict, "no_updater"},
+	{domain.ErrUpdating, http.StatusConflict, "updating"},
 	{domain.ErrMailFailed, http.StatusBadGateway, "mail_failed"},
 	{domain.ErrProviderFailed, http.StatusBadGateway, "provider_failed"},
 	{domain.ErrCredentialsRejected, http.StatusBadRequest, "credentials_rejected"},

@@ -262,13 +262,13 @@ func TestPrefs(t *testing.T) {
 		"live_order_unfilled": false, "live_order_rests": false, "live_order_ended": false,
 		"paper_order_filled": false, "paper_order_refused": false, "paper_order_unfilled": false, // D232
 		"paper_order_rests": false, "paper_order_ended": false,
-		"workflow_paused": true, // D319; plugin_crashed and join_requested only an admin sees (D320, D394)
+		"workflow_paused": true, // D319; plugin_crashed, join_requested and update_available only an admin sees (D320, D394, D424)
 	}, on, "what is on by default")
 
 	admin := auth.Principal{User: domain.User{ID: "root", Role: domain.RoleAdmin}}
 	all, err := s.Prefs(ctx, admin)
 	require.NoError(t, err)
-	assert.Len(t, all, len(got)+2, "an admin sees plugin_crashed and join_requested too")
+	assert.Len(t, all, len(got)+3, "an admin sees plugin_crashed, join_requested and update_available too")
 
 	_, err = s.SetPref(ctx, alice, "plugin_crashed", false)
 	require.ErrorIs(t, err, domain.ErrNotFound, "none of a user's")

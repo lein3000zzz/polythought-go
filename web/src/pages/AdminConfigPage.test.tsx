@@ -122,7 +122,38 @@ function config(settings: Schemas['Setting'][] = all, restartPending = false) {
     http.get('/api/v1/admin/geoblock', () => HttpResponse.json({ checked: false, blocked: false })),
     http.get('/api/v1/admin/code-runners', () => HttpResponse.json(inTheServer)),
     http.get('/api/v1/admin/version', () => HttpResponse.json(devBuild)),
+    http.get('/api/v1/admin/updates', () => HttpResponse.json(checkOff)),
   )
+}
+
+const checkOff: Schemas['Updates'] = {
+  current: 'dev',
+  on: false,
+  prereleases: false,
+  newer: false,
+  updater: false,
+}
+
+const release012 = {
+  version: '0.1.2',
+  commit: '0123456789abcdef0123456789abcdef01234567',
+  modified: false,
+  go: 'go1.27.3',
+}
+
+const newer: Schemas['Updates'] = {
+  current: '0.1.2',
+  on: true,
+  prereleases: false,
+  latest: {
+    version: '0.1.3',
+    prerelease: false,
+    url: 'https://github.com/lein3000zzz/polythought-go/releases/tag/v0.1.3',
+    publishedAt: '2026-10-25T09:00:00Z',
+  },
+  newer: true,
+  checkedAt: '2026-10-25T10:00:00Z',
+  updater: false,
 }
 
 const devBuild: Schemas['ServerVersion'] = {
@@ -581,6 +612,180 @@ describe('admin config page', () => {
     expect(await screen.findByText('A development build')).toBeInTheDocument()
     expect(screen.getByText(/built with go1.27.3/)).toBeInTheDocument()
     expect(screen.queryByText(/This page's app is/)).not.toBeInTheDocument()
+  })
+
+  it('says the update check is off, linking to it', async () => {
+    config()
+    renderApp('/admin/config')
+
+    expect(await screen.findByText(/The update check is off/)).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Check for updates' })).toHaveAttribute(
+      'href',
+      '/admin/config/updates#updates.check',
+    )
+  })
+
+  it('says a newer release is out, and how to update by hand (D424)', async () => {
+    config()
+    server.use(
+      http.get('/api/v1/admin/version', () => HttpResponse.json(release012)),
+      http.get('/api/v1/admin/updates', () => HttpResponse.json(newer)),
+    )
+    renderApp('/admin/config')
+
+    expect(await screen.findByText('Polythought 0.1.3 is out')).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'See what changed' })).toHaveAttribute(
+      'href',
+      'https://github.com/lein3000zzz/polythought-go/releases/tag/v0.1.3',
+    )
+    expect(screen.getByText(/--profile app pull/)).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'set up the updater' })).toHaveAttribute(
+      'href',
+      '/docs/self-hosting/install/#updates',
+    )
+    expect(screen.queryByRole('button', { name: /Update to/ })).not.toBeInTheDocument()
+  })
+
+  it('checks for updates again', async () => {
+    let checks = 0
+
+    config()
+    server.use(
+      http.get('/api/v1/admin/version', () => HttpResponse.json(release012)),
+      http.get('/api/v1/admin/updates', () =>
+        HttpResponse.json({
+          ...newer,
+          latest: undefined,
+          newer: false,
+          error: 'GitHub shows no release of Polythought yet',
+        }),
+      ),
+      http.post('/api/v1/admin/updates/check', () => {
+        checks++
+        return HttpResponse.json(newer)
+      }),
+    )
+    const { user } = renderApp('/admin/config')
+
+    const card = (await screen.findByText('GitHub shows no release of Polythought yet.')).closest(
+      'section',
+    )!
+    await user.click(within(card).getByRole('button', { name: 'Check now' }))
+
+    expect(await screen.findByText('Polythought 0.1.3 is out')).toBeInTheDocument()
+    expect(checks).toBe(1)
+  })
+
+  it('updates the server with the updater, and waits for it (D425)', async () => {
+    let asked: unknown
+
+    config()
+    server.use(
+      http.get('/api/v1/admin/version', () =>
+        HttpResponse.json(asked ? { ...release012, version: '0.1.3' } : release012),
+      ),
+      // Back, the server runs the newest release.
+      http.get('/api/v1/admin/updates', () =>
+        HttpResponse.json(
+          asked
+            ? {
+                ...newer,
+                current: '0.1.3',
+                newer: false,
+                updater: true,
+                update: { state: 'done', version: '0.1.3' },
+              }
+            : { ...newer, updater: true, update: { state: 'idle' } },
+        ),
+      ),
+      http.post('/api/v1/admin/updates/apply', async ({ request }) => {
+        asked = await request.json()
+        return new HttpResponse(null, { status: 202 })
+      }),
+    )
+    const { user } = renderApp('/admin/config')
+
+    await user.click(await screen.findByRole('button', { name: 'Update to 0.1.3' }))
+    const dialog = await screen.findByRole('alertdialog')
+    expect(within(dialog).getByText(/back it up first/)).toBeInTheDocument()
+    await user.click(within(dialog).getByRole('button', { name: 'Update' }))
+
+    expect(
+      await screen.findByText('Updated to 0.1.3. Reload the page to use its app.', undefined, {
+        timeout: 5000,
+      }),
+    ).toBeInTheDocument()
+    expect(asked).toEqual({ version: '0.1.3' })
+    expect(
+      await screen.findByText(/This page's app is a development build: reload it/),
+    ).toBeInTheDocument()
+    expect(
+      screen.getByText('Updated to 0.1.3. Reload the page to use its app.'),
+    ).toBeInTheDocument()
+  })
+
+  it("says why an update failed, with the updater's log", async () => {
+    let asked = false
+
+    config()
+    server.use(
+      http.get('/api/v1/admin/version', () => HttpResponse.json(release012)),
+      http.get('/api/v1/admin/updates', () =>
+        HttpResponse.json({
+          ...newer,
+          updater: true,
+          update: asked
+            ? {
+                state: 'failed',
+                version: '0.1.3',
+                error: 'pulling the images: docker compose: exit status 1',
+                log: 'Error response from daemon: manifest unknown',
+              }
+            : { state: 'idle' },
+        }),
+      ),
+      http.post('/api/v1/admin/updates/apply', () => {
+        asked = true
+        return new HttpResponse(null, { status: 202 })
+      }),
+    )
+    const { user } = renderApp('/admin/config')
+
+    await user.click(await screen.findByRole('button', { name: 'Update to 0.1.3' }))
+    await user.click(
+      within(await screen.findByRole('alertdialog')).getByRole('button', { name: 'Update' }),
+    )
+
+    expect(
+      await screen.findByText(
+        'The update failed: pulling the images: docker compose: exit status 1.',
+        undefined,
+        {
+          timeout: 5000,
+        },
+      ),
+    ).toBeInTheDocument()
+    expect(screen.getByText('Error response from daemon: manifest unknown')).toBeInTheDocument()
+  })
+
+  it('says when the updater does not answer', async () => {
+    config()
+    server.use(
+      http.get('/api/v1/admin/version', () => HttpResponse.json(release012)),
+      http.get('/api/v1/admin/updates', () =>
+        HttpResponse.json({
+          ...newer,
+          updater: true,
+          updaterError:
+            'upstream service unavailable: the updater did not answer at http://updater:8080: is it running?',
+        }),
+      ),
+    )
+    renderApp('/admin/config')
+
+    expect(
+      await screen.findByText(/The updater does not answer: .* is it running\?/),
+    ).toBeInTheDocument()
   })
 
   it('says whether Polymarket takes orders from the server, and checks again (D186)', async () => {

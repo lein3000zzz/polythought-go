@@ -74,8 +74,9 @@ func serve(ctx context.Context) error {
 		Memory:   a.memory,
 		Telegram: a.telegram, TelegramWebhook: a.telegramBot, Notifications: a.notify, Mail: a.mail,
 		Geoblock: a.geoblock, Tasks: a.tasks, TaskAgents: a.taskAgents,
-		Meta:  a.meta,
-		OAuth: a.oauth, Confirmations: a.confirmations,
+		Meta:    a.meta,
+		Updates: a.updates,
+		OAuth:   a.oauth, Confirmations: a.confirmations,
 		MCP:     mcp,
 		Plugins: a.plugins,
 		AgentSetup: func() httpapi.AgentSetup {
@@ -134,6 +135,9 @@ func serve(ctx context.Context) error {
 
 	// GitHub's star count, at start and about once an hour while it is on (D372).
 	go a.meta.LookEvery(ctx, time.Minute)
+
+	// Polythought's newest release, at start and once a day while the check is on (D424).
+	go a.updates.CheckEvery(ctx, time.Minute)
 
 	// The bot follows its settings: a change restarts it, not the server.
 	telegramDone := make(chan struct{})

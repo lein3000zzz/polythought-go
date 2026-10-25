@@ -409,6 +409,18 @@
                 },
                 "type": "object"
             },
+            "ApplyUpdateRequest": {
+                "properties": {
+                    "version": {
+                        "description": "Version is the newest release, which the check found.",
+                        "type": "string"
+                    }
+                },
+                "required": [
+                    "version"
+                ],
+                "type": "object"
+            },
             "Approval": {
                 "properties": {
                     "name": {
@@ -3931,6 +3943,32 @@
                 ],
                 "type": "object"
             },
+            "Release": {
+                "properties": {
+                    "prerelease": {
+                        "type": "boolean"
+                    },
+                    "publishedAt": {
+                        "format": "date-time",
+                        "type": "string"
+                    },
+                    "url": {
+                        "description": "URL is its page on GitHub, with what changed.",
+                        "type": "string"
+                    },
+                    "version": {
+                        "description": "Version is as it was tagged, without the v, such as 0.1.2.",
+                        "type": "string"
+                    }
+                },
+                "required": [
+                    "prerelease",
+                    "publishedAt",
+                    "url",
+                    "version"
+                ],
+                "type": "object"
+            },
             "RequestToJoinRequest": {
                 "properties": {
                     "email": {
@@ -4917,6 +4955,90 @@
                     "name",
                     "nodes",
                     "version"
+                ],
+                "type": "object"
+            },
+            "UpdaterStatus": {
+                "properties": {
+                    "error": {
+                        "description": "Error says why the update failed; Log is the end of what it did.",
+                        "type": "string"
+                    },
+                    "finishedAt": {
+                        "format": "date-time",
+                        "type": "string"
+                    },
+                    "log": {
+                        "type": "string"
+                    },
+                    "startedAt": {
+                        "format": "date-time",
+                        "type": "string"
+                    },
+                    "state": {
+                        "enum": [
+                            "idle",
+                            "updating",
+                            "done",
+                            "failed"
+                        ],
+                        "type": "string"
+                    },
+                    "version": {
+                        "description": "the release it updates or updated to",
+                        "type": "string"
+                    }
+                },
+                "required": [
+                    "state"
+                ],
+                "type": "object"
+            },
+            "Updates": {
+                "properties": {
+                    "checkedAt": {
+                        "format": "date-time",
+                        "type": "string"
+                    },
+                    "current": {
+                        "description": "Current is the server's version, such as 0.1.2, or dev.",
+                        "type": "string"
+                    },
+                    "error": {
+                        "description": "Error says why the last check failed, when it did.",
+                        "type": "string"
+                    },
+                    "latest": {
+                        "$ref": "#/components/schemas/Release",
+                        "description": "Latest is the newest release GitHub last gave; Newer says it is newer than the\nserver's, never so for a development build."
+                    },
+                    "newer": {
+                        "type": "boolean"
+                    },
+                    "on": {
+                        "description": "On says the update check is on; off, the server asks GitHub nothing.",
+                        "type": "boolean"
+                    },
+                    "prereleases": {
+                        "type": "boolean"
+                    },
+                    "update": {
+                        "$ref": "#/components/schemas/UpdaterStatus"
+                    },
+                    "updater": {
+                        "description": "Updater says an updater is set up, which Update now asks. Update is its latest\nupdate, absent where it did not answer, and UpdaterError why.",
+                        "type": "boolean"
+                    },
+                    "updaterError": {
+                        "type": "string"
+                    }
+                },
+                "required": [
+                    "current",
+                    "newer",
+                    "on",
+                    "prereleases",
+                    "updater"
                 ],
                 "type": "object"
             },
@@ -7589,6 +7711,186 @@
                     }
                 ],
                 "summary": "List changes to settings, newest first",
+                "tags": [
+                    "admin"
+                ]
+            }
+        },
+        "/admin/updates": {
+            "get": {
+                "operationId": "getUpdates",
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Updates"
+                                }
+                            }
+                        },
+                        "description": "OK"
+                    },
+                    "401": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "unauthenticated"
+                    },
+                    "403": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "forbidden"
+                    }
+                },
+                "security": [
+                    {
+                        "SessionCookie": []
+                    },
+                    {
+                        "APIToken": []
+                    }
+                ],
+                "summary": "Updates",
+                "tags": [
+                    "admin"
+                ]
+            }
+        },
+        "/admin/updates/apply": {
+            "post": {
+                "operationId": "applyUpdate",
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/ApplyUpdateRequest",
+                                "summary": "body",
+                                "description": "The newest release"
+                            }
+                        }
+                    },
+                    "description": "The newest release",
+                    "required": true
+                },
+                "responses": {
+                    "202": {
+                        "description": "Accepted"
+                    },
+                    "400": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "invalid_input: not the newest release, newer than the server's"
+                    },
+                    "401": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "unauthenticated"
+                    },
+                    "403": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "forbidden: not an admin, or not at a browser"
+                    },
+                    "409": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "no_updater, or updating: an update is under way already"
+                    },
+                    "503": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "upstream_unavailable: the updater did not answer, or refused the token"
+                    }
+                },
+                "security": [
+                    {
+                        "SessionCookie": []
+                    }
+                ],
+                "summary": "Update the server",
+                "tags": [
+                    "admin"
+                ]
+            }
+        },
+        "/admin/updates/check": {
+            "post": {
+                "operationId": "checkUpdates",
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Updates"
+                                }
+                            }
+                        },
+                        "description": "OK"
+                    },
+                    "401": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "unauthenticated"
+                    },
+                    "403": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "forbidden"
+                    }
+                },
+                "security": [
+                    {
+                        "SessionCookie": []
+                    },
+                    {
+                        "APIToken": []
+                    }
+                ],
+                "summary": "Check for updates now",
                 "tags": [
                     "admin"
                 ]

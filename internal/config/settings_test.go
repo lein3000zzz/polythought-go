@@ -121,6 +121,10 @@ func TestSettingsDefaults(t *testing.T) {
 		config.KeyTrustedProxies:      []string{},
 		config.KeyWebhookAllowPrivate: false,
 		config.KeyGitHubStars:         true,
+		config.KeyUpdateCheck:         true,
+		config.KeyUpdatePrereleases:   false,
+		config.KeyUpdaterURL:          "http://updater:8080",
+		config.KeyUpdaterToken:        "",
 		config.KeyLogLevel:            "info",
 		config.KeyLogFormat:           "text",
 		config.KeyTelegramEnabled:     false,
@@ -138,11 +142,11 @@ func TestSettingsDefaults(t *testing.T) {
 		assert.Equal(t, want, spec(t, key).Default, key)
 	}
 
-	assert.Len(t, registry(t).Specs(), 86, "every setting has a default checked above")
+	assert.Len(t, registry(t).Specs(), 90, "every setting has a default checked above")
 
 	for _, key := range []string{
 		config.KeyTelegramToken, config.KeyBuilderAPIKey, config.KeyBuilderSecret, config.KeyBuilderPassphrase, config.KeyPolygonRPC,
-		config.KeyMailPassword,
+		config.KeyMailPassword, config.KeyUpdaterToken,
 	} {
 		assert.True(t, spec(t, key).Secret, key)
 	}
@@ -160,6 +164,8 @@ func TestSettingsEnvironmentNames(t *testing.T) {
 		config.KeyTrustedProxies:      "POLYTHOUGHT_TRUSTED_PROXIES",
 		config.KeyWebhookAllowPrivate: "POLYTHOUGHT_WEBHOOK_ALLOW_PRIVATE",
 		config.KeyGitHubStars:         "POLYTHOUGHT_GITHUB_STARS",
+		config.KeyUpdateCheck:         "POLYTHOUGHT_UPDATE_CHECK",
+		config.KeyUpdaterToken:        "POLYTHOUGHT_UPDATER_TOKEN",
 		config.KeyLogLevel:            "POLYTHOUGHT_LOG_LEVEL",
 		config.KeyLogFormat:           "POLYTHOUGHT_LOG_FORMAT",
 		config.KeyInviteTTL:           "POLYTHOUGHT_AUTH_INVITE_TTL",
@@ -195,6 +201,10 @@ func TestSettingsValidation(t *testing.T) {
 		{config.KeyBuilderSecret, "not base64!", "is not base64"},
 		{config.KeyPolygonRPC, "wss://polygon.example", "is not an http or https URL"},
 		{config.KeyPolygonRPC, "polygon.drpc.org", "is not an http or https URL"},
+		{config.KeyUpdaterURL, "updater:8080", "is not an http or https address, like http://updater:8080"},
+		{config.KeyUpdaterURL, "http://updater:8080/?token=x", "is not an http or https address, like http://updater:8080"},
+		{config.KeyUpdaterToken, "short", "must be at least 32 characters, with no spaces, such as from openssl rand -hex 32"},
+		{config.KeyUpdaterToken, strings.Repeat("a", 31) + " b", "must be at least 32 characters, with no spaces, such as from openssl rand -hex 32"},
 		{config.KeyBuilderCode, "0xb1", "is not 0x and 64 hex digits"},
 		{config.KeyBuilderCode, "0x" + strings.Repeat("g", 64), "is not 0x and 64 hex digits"},
 		{config.KeyLiveTrading, "maybe", `"maybe" is not true or false`},

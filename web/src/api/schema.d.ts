@@ -484,6 +484,57 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/admin/updates": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Updates */
+        get: operations["getUpdates"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/updates/apply": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Update the server */
+        post: operations["applyUpdate"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/updates/check": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Check for updates now */
+        post: operations["checkUpdates"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/admin/users": {
         parameters: {
             query?: never;
@@ -2362,6 +2413,10 @@ export interface components {
             answer?: unknown;
             answers?: unknown[];
         };
+        ApplyUpdateRequest: {
+            /** @description Version is the newest release, which the check found. */
+            version: string;
+        };
         Approval: {
             /** @description Name is what it is for people, like "pUSD to the CTF Exchange". */
             name: string;
@@ -3653,6 +3708,15 @@ export interface components {
             sent: boolean;
             user: components["schemas"]["User"];
         };
+        Release: {
+            prerelease: boolean;
+            /** Format: date-time */
+            publishedAt: string;
+            /** @description URL is its page on GitHub, with what changed. */
+            url: string;
+            /** @description Version is as it was tagged, without the v, such as 0.1.2. */
+            version: string;
+        };
         RequestToJoinRequest: {
             email: string;
             /** @description Note says who they are and why they would like in: at most 500 characters. */
@@ -4038,6 +4102,43 @@ export interface components {
             nodes: components["schemas"]["Node"][];
             /** @description Version is the version the edit started from; a newer one on the server is a conflict. */
             version: number;
+        };
+        UpdaterStatus: {
+            /** @description Error says why the update failed; Log is the end of what it did. */
+            error?: string;
+            /** Format: date-time */
+            finishedAt?: string;
+            log?: string;
+            /** Format: date-time */
+            startedAt?: string;
+            /** @enum {string} */
+            state: "idle" | "updating" | "done" | "failed";
+            /** @description the release it updates or updated to */
+            version?: string;
+        };
+        Updates: {
+            /** Format: date-time */
+            checkedAt?: string;
+            /** @description Current is the server's version, such as 0.1.2, or dev. */
+            current: string;
+            /** @description Error says why the last check failed, when it did. */
+            error?: string;
+            /**
+             * @description Latest is the newest release GitHub last gave; Newer says it is newer than the
+             *     server's, never so for a development build.
+             */
+            latest?: components["schemas"]["Release"];
+            newer: boolean;
+            /** @description On says the update check is on; off, the server asks GitHub nothing. */
+            on: boolean;
+            prereleases: boolean;
+            update?: components["schemas"]["UpdaterStatus"];
+            /**
+             * @description Updater says an updater is set up, which Update now asks. Update is its latest
+             *     update, absent where it did not answer, and UpdaterError why.
+             */
+            updater: boolean;
+            updaterError?: string;
         };
         UseTemplateRequest: {
             /** @description Name of the new workflow; left out, it takes the template's. */
@@ -5813,6 +5914,150 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description unauthenticated */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    getUpdates: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Updates"];
+                };
+            };
+            /** @description unauthenticated */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    applyUpdate: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description The newest release */
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ApplyUpdateRequest"];
+            };
+        };
+        responses: {
+            /** @description Accepted */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description invalid_input: not the newest release, newer than the server's */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description unauthenticated */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description forbidden: not an admin, or not at a browser */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description no_updater, or updating: an update is under way already */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description upstream_unavailable: the updater did not answer, or refused the token */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    checkUpdates: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Updates"];
                 };
             };
             /** @description unauthenticated */

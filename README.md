@@ -82,6 +82,8 @@ and agents such as Claude Code or Codex can build and run them with you over MCP
   beside PostgreSQL. Caddy serves the web app and the docs.
 - Admins configure the instance in the browser, with a history of every change, and can
   restart it from there. Sign-up is open, by invite or closed.
+- Admins hear when a new release is out, and can update to it from the Config page with
+  the optional updater container.
 - A Telegram bot for your workflows, traders, positions and notifications.
 - Secrets are encrypted at rest with AES-256-GCM, a key for each, and passwords are hashed
   with Argon2id.

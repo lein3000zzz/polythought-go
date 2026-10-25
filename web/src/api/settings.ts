@@ -131,3 +131,84 @@ export function useCheckGeoblock() {
     onSuccess: (data) => queryClient.setQueryData(['admin', 'geoblock'], data),
   })
 }
+
+/** Whether a newer Polythought is out, and how the updater is (D424, D425). */
+export function useUpdates(refetchInterval?: number) {
+  return useQuery({
+    queryKey: ['admin', 'updates'],
+    queryFn: () => call(api.GET('/admin/updates')),
+    refetchInterval,
+  })
+}
+
+/** Asks GitHub again for the newest release. */
+export function useCheckUpdates() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: () => call(api.POST('/admin/updates/check')),
+    onSuccess: (data) => queryClient.setQueryData(['admin', 'updates'], data),
+  })
+}
+
+/** How long an update may take, its images pulled and the server restarted. */
+const updateTimeout = 10 * 60_000
+const updatePollInterval = 2_000
+
+export class UpdateTimeoutError extends Error {
+  constructor() {
+    super(
+      "The server did not come back on the new version within 10 minutes. Check its logs, and the updater's.",
+    )
+    this.name = 'UpdateTimeoutError'
+  }
+}
+
+/** The updater's own account of an update that failed: why, and the end of what it did. */
+export class UpdateFailedError extends Error {
+  log: string
+
+  constructor(message: string, log: string) {
+    super(message)
+    this.name = 'UpdateFailedError'
+    this.log = log
+  }
+}
+
+/**
+ * Has the updater update the server to a release (D425), and resolves once the server
+ * says it runs it. Meanwhile the old server may answer, or none: the updater's status says
+ * whether it failed.
+ */
+export function useApplyUpdate() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: async (version: string) => {
+      await call(api.POST('/admin/updates/apply', { body: { version }, parseAs: 'text' })) // 202
+
+      const deadline = Date.now() + updateTimeout
+
+      while (Date.now() < deadline) {
+        await new Promise((resolve) => setTimeout(resolve, updatePollInterval))
+
+        const server = await call(api.GET('/admin/version')).catch(() => undefined)
+        if (server?.version === version) {
+          queryClient.setQueryData(['admin', 'version'], server)
+          return
+        }
+
+        const update = (await call(api.GET('/admin/updates')).catch(() => undefined))?.update
+        if (update?.state === 'failed' && update.version === version) {
+          throw new UpdateFailedError(update.error ?? 'The update failed.', update.log ?? '')
+        }
+      }
+
+      throw new UpdateTimeoutError()
+    },
+    onSettled: async () => {
+      await queryClient.invalidateQueries({ queryKey: ['admin', 'version'] })
+      await queryClient.invalidateQueries({ queryKey: ['admin', 'updates'] })
+    },
+  })
+}

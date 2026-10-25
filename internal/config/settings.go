@@ -101,6 +101,10 @@ const (
 	KeyTrustedProxies      = "http.trusted_proxies"
 	KeyWebhookAllowPrivate = "webhook.allow_private"
 	KeyGitHubStars         = "github.stars"
+	KeyUpdateCheck         = "updates.check"
+	KeyUpdatePrereleases   = "updates.prereleases"
+	KeyUpdaterURL          = "updates.updater_url"
+	KeyUpdaterToken        = "updates.updater_token"
 	KeyLogLevel            = "log.level"
 	KeyLogFormat           = "log.format"
 	KeyTelegramEnabled     = "telegram.enabled"
@@ -154,6 +158,7 @@ const (
 	groupAgents     = "AI agents"
 	groupMCP        = "Agents over MCP"
 	groupNetwork    = "Network"
+	groupUpdates    = "Updates"
 	groupLogging    = "Logging"
 	groupTelegram   = "Telegram"
 	groupMail       = "Mail"
@@ -581,6 +586,36 @@ func Settings() (*settings.Registry, error) {
 			Env: prefix + "GITHUB_STARS",
 		},
 		settings.Spec{
+			Key: KeyUpdateCheck, Group: groupUpdates, Label: "Check for updates",
+			Description: "Ask GitHub once a day for Polythought's newest release, to show on the Config page beside " +
+				"the server's version, and to tell admins once when a newer one is out. Off, the server never asks " +
+				"GitHub about releases.",
+			Kind: settings.KindBool, Default: true,
+			Env: prefix + "UPDATE_CHECK",
+		},
+		settings.Spec{
+			Key: KeyUpdatePrereleases, Group: groupUpdates, Label: "Pre-releases",
+			Description: "Count pre-releases, such as 0.2.0-beta.1, as newer versions too, to update to before " +
+				"they are stable. Off, only stable releases.",
+			Kind: settings.KindBool, Default: false,
+			Env: prefix + "UPDATE_PRERELEASES",
+		},
+		settings.Spec{
+			Key: KeyUpdaterURL, Group: groupUpdates, Label: "Updater address",
+			Description: "Where the server reaches Polythought's updater, which updates it when an admin asks on " +
+				"the Config page. The Compose file's updater is at http://updater:8080.",
+			Kind: settings.KindString, Default: "http://updater:8080", Check: updaterURL,
+			AtBrowser: true, // where the updater token goes
+			Env:       prefix + "UPDATER_URL",
+		},
+		settings.Spec{
+			Key: KeyUpdaterToken, Group: groupUpdates, Label: "Updater token",
+			Description: "The token the updater takes, the same as its own POLYTHOUGHT_UPDATER_TOKEN: at least 32 " +
+				"characters. Empty, no updater is set up, and the Config page shows the commands to update by hand.",
+			Kind: settings.KindString, Secret: true, Default: "", Check: updaterToken,
+			Env: prefix + "UPDATER_TOKEN",
+		},
+		settings.Spec{
 			Key: KeyLogLevel, Group: groupLogging, Label: "Log level",
 			Description: "The least severe messages the server logs.",
 			Kind:        settings.KindEnum, Default: "info", Options: []string{"debug", "info", "warn", "error"},
@@ -809,6 +844,36 @@ func rpcURL(v any) error {
 	u, err := url.Parse(v.(string))
 	if err != nil || (u.Scheme != "https" && u.Scheme != "http") || u.Host == "" {
 		return errors.New("is not an http or https URL")
+	}
+
+	return nil
+}
+
+// updaterURL checks the updater's address: http or https, with a host, and no sign-in,
+// query or fragment, as the paths it serves come after it.
+func updaterURL(v any) error {
+	u, err := url.Parse(v.(string))
+	if err != nil || (u.Scheme != "https" && u.Scheme != "http") || u.Host == "" || u.User != nil ||
+		u.RawQuery != "" || u.ForceQuery || u.Fragment != "" {
+		return errors.New("is not an http or https address, like http://updater:8080")
+	}
+
+	return nil
+}
+
+// MinUpdaterToken is the shortest token the updater takes (D425).
+const MinUpdaterToken = 32
+
+// updaterToken checks the updater's token: empty, or at least MinUpdaterToken printable
+// characters with no spaces, as it goes in a header.
+func updaterToken(v any) error {
+	s := v.(string)
+	if s == "" {
+		return nil
+	}
+
+	if len(s) < MinUpdaterToken || strings.ContainsFunc(s, func(r rune) bool { return r <= ' ' || r > '~' }) {
+		return fmt.Errorf("must be at least %d characters, with no spaces, such as from openssl rand -hex 32", MinUpdaterToken)
 	}
 
 	return nil

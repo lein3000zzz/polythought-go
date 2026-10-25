@@ -82,6 +82,9 @@ packages:
       EmailTokenRepository: {}
       GeoblockChecker: {}
       RepoStars: {}
+      Releases: {}
+      ReleaseNotices: {}
+      Updater: {}
       WorkflowTradingRepository: {}
       OrderKeys: {}
       LiveExchange: {}
@@ -142,6 +145,7 @@ packages:
       CustomNodeService: {}
       MailService: {}
       GeoblockService: {}
+      UpdateService: {}
       MetaService: {}
       OAuthService: {}
       ConfirmationService: {}
