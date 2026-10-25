@@ -313,7 +313,7 @@ func TestSupervise(t *testing.T) {
 var fast = pluginhost.Restarts{First: 10 * time.Millisecond, Max: 40 * time.Millisecond, Crashes: 3, Within: time.Minute, Every: 5 * time.Millisecond}
 
 // supervised supervises p, its restarts fast, and is what waits for it to be stopped as
-// crashed at once, saying want.
+// crashed at once, saying what the regular expression want matches.
 func supervised(t *testing.T, p *pluginhost.Plugin) (stoppedFor func(want string)) {
 	t.Helper()
 
@@ -329,7 +329,7 @@ func supervised(t *testing.T, p *pluginhost.Plugin) (stoppedFor func(want string
 
 		select {
 		case err := <-crashed:
-			assert.ErrorContains(t, err, want)
+			assert.Regexp(t, want, err)
 		case <-time.After(5 * time.Second):
 			t.Fatal("not stopped")
 		}
@@ -349,16 +349,17 @@ func TestDataCap(t *testing.T) {
 	p, r := startWith(t, pluginhost.Deps{Caps: func(string) pluginhost.Caps { return pluginhost.Caps{Data: limit.Load()} }})
 	stoppedFor := supervised(t, p)
 
-	// Two files, each within its cap, which is what one file may take (P9).
-	_, err := run(t, r, "plugin.echo.fill", map[string]any{"bytes": 1 << 20, "files": 2}, items(map[string]any{}))
-	require.NoError(t, err)
+	// Two files, each well within its cap, which is what one file may take (P9): only both
+	// together are past it. The supervisor measures as they are written, so how much it
+	// finds past the cap is the moment's.
+	_, _ = run(t, r, "plugin.echo.fill", map[string]any{"bytes": 600 << 10, "files": 2}, items(map[string]any{}))
 
-	stoppedFor("its data, 2.0 MiB, went past its cap of 1.0 MiB")
+	stoppedFor(`its data, \d+\.\d MiB, went past its cap of 1\.0 MiB`)
 	assert.Equal(t, pluginhost.Caps{Data: 1 << 20}, p.Status().Caps)
-	assert.Greater(t, p.Status().Data, int64(2<<20))
+	assert.Greater(t, p.Status().Data, int64(1<<20))
 
 	require.NoError(t, p.Start())
-	stoppedFor("its data takes 2.0 MiB, past its cap of 1.0 MiB")
+	stoppedFor(`its data takes \d+\.\d MiB, past its cap of 1\.0 MiB`)
 
 	limit.Store(10 << 20)
 	require.NoError(t, p.Start())
@@ -379,10 +380,11 @@ func TestHiddenData(t *testing.T) {
 		stoppedFor := supervised(t, p)
 
 		// The supervisor may measure, and stop it, before the call is answered: the call's
-		// own end is no matter, why it stopped is.
-		_, _ = run(t, r, "plugin.echo.hide", map[string]any{"bytes": 1 << 20, "files": 2}, items(map[string]any{}))
+		// own end is no matter, why it stopped is. Each file well within the cap, only both
+		// together are past it, how far the moment's (TestDataCap).
+		_, _ = run(t, r, "plugin.echo.hide", map[string]any{"bytes": 600 << 10, "files": 2}, items(map[string]any{}))
 
-		stoppedFor("its data, 2.0 MiB, went past its cap of 1.0 MiB")
+		stoppedFor(`its data, \d+\.\d MiB, went past its cap of 1\.0 MiB`)
 	})
 
 	t.Run("too deep to measure", func(t *testing.T) {
@@ -392,10 +394,10 @@ func TestHiddenData(t *testing.T) {
 		// As above: stopped mid-call or after it, it is stopped for its data.
 		_, _ = run(t, r, "plugin.echo.deep", map[string]any{"depth": 25, "bytes": 1 << 20}, items(map[string]any{}))
 
-		stoppedFor("its data cannot all be measured (file name too long), which counts as past its cap")
+		stoppedFor(`its data cannot all be measured \(file name too long\), which counts as past its cap`)
 
 		require.NoError(t, p.Start())
-		stoppedFor("its data cannot all be measured (file name too long), which counts as past its cap")
+		stoppedFor(`its data cannot all be measured \(file name too long\), which counts as past its cap`)
 	})
 }
 
