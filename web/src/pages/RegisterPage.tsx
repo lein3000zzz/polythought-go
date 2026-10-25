@@ -3,6 +3,7 @@ import { useForm } from 'react-hook-form'
 import { Link, Navigate, useSearchParams } from 'react-router'
 
 import { useAuthConfig, useInviteFor, useMe, useRegister } from '@/api/auth'
+import { errorMessage } from '@/api/client'
 import { AuthLayout } from '@/components/AuthLayout'
 import { ErrorAlert } from '@/components/ErrorAlert'
 import { Button } from '@/components/ui/button'
@@ -98,7 +99,11 @@ export function RegisterPage() {
           }),
         )}
       >
-        {registration.isError && <ErrorAlert error={registration.error} />}
+        {/* Said once: the link's invite, checked as the page opened, fails the sign-up alike. */}
+        {registration.isError &&
+          !(invite.isError && errorMessage(invite.error) === errorMessage(registration.error)) && (
+            <ErrorAlert error={registration.error} />
+          )}
         {invite.isError && <ErrorAlert error={invite.error} title="This invite does not work" />}
 
         <div className="flex flex-col gap-2">

@@ -240,10 +240,25 @@ describe('a mailed invite', () => {
         apiError(400, 'invalid_invite', 'invalid or expired invite'),
       ),
     )
-    renderApp('/register?invite=old')
+    const { user } = renderApp('/register?invite=old')
 
     expect(await screen.findByText('This invite does not work')).toBeInTheDocument()
     expect(screen.getByText('Invalid or expired invite')).toBeInTheDocument()
+
+    // Trying anyway fails the same way, which is said once.
+    server.use(
+      http.post('/api/v1/auth/register', () =>
+        apiError(400, 'invalid_invite', 'invalid or expired invite'),
+      ),
+    )
+    await user.type(screen.getByLabelText('Email'), 'late@example.com')
+    await user.type(screen.getByLabelText('Password'), 'a long enough password')
+    await user.click(screen.getByRole('button', { name: 'Create account' }))
+
+    await waitFor(() =>
+      expect(screen.getByRole('button', { name: 'Create account' })).toBeEnabled(),
+    )
+    expect(screen.getAllByText('Invalid or expired invite')).toHaveLength(1)
   })
 })
 

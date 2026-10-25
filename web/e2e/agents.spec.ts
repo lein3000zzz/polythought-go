@@ -48,9 +48,12 @@ test('an AI agent asks with your own key, and says why it could not', async ({ p
     await expect(
       settings.getByText(/Its models could not be listed: .*the base URL must be https/),
     ).toBeVisible()
-    await expect(settings.getByRole('textbox', { name: /^Prompt/ })).toHaveValue(
-      'Hello from {{ execution.id }}',
-    )
+    // An expression editor: its text as drawn, as Monaco keeps none in its input.
+    await expect(
+      settings
+        .locator('.monaco-editor', { has: page.getByRole('textbox', { name: /^Prompt/ }) })
+        .locator('.view-lines'),
+    ).toHaveText(/^Hello\sfrom\s\{\{\sexecution\.id\s\}\}$/)
 
     // The tools it may use, picked from the five, read-only.
     await expect(settings.getByRole('checkbox', { name: 'searchMarkets' })).toBeChecked()

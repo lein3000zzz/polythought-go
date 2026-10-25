@@ -88,6 +88,9 @@ test('an agent signs in with OAuth, refreshes, and is revoked (D397)', async ({
     if (decide) await decide(page)
 
     const url = new URL((await back).url())
+    // On the callback before going on: a page left for another while it still goes there
+    // has its next navigation cut short.
+    await page.waitForURL((u) => u.href.startsWith(callback))
     expect(url.searchParams.get('state')).toBe(state)
     expect(url.searchParams.get('iss')).toBe(baseURL)
 
