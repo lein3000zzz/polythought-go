@@ -36,6 +36,24 @@ func TestUsers(t *testing.T) {
 			require.NoError(t, err)
 			assert.Equal(t, u, got)
 		}},
+		{"the editor's shortcuts, kept as set (D420)", func(t *testing.T, db *postgres.DB, users *postgres.Users) {
+			u := seedUser(t, db, "keys@example.com", domain.RoleUser)
+			assert.Nil(t, u.Shortcuts, "none set to start with")
+
+			keys := map[string]string{"undo": "mod+z", "help": "?"}
+			require.NoError(t, users.SetShortcuts(ctx, u.ID, keys))
+
+			got, err := users.ByID(ctx, u.ID)
+			require.NoError(t, err)
+			assert.Equal(t, keys, got.Shortcuts)
+
+			require.NoError(t, users.Update(ctx, got), "an update with the user as it was")
+			require.NoError(t, users.SetShortcuts(ctx, u.ID, nil))
+
+			got, err = users.ByID(ctx, u.ID)
+			require.NoError(t, err)
+			assert.Nil(t, got.Shortcuts, "all back to their keys")
+		}},
 		{"email lookup ignores case and returns the hash", func(t *testing.T, db *postgres.DB, users *postgres.Users) {
 			u := seedUser(t, db, "Bob@Example.com", domain.RoleUser)
 

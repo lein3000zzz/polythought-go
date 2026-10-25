@@ -138,3 +138,14 @@ export function useLogout() {
     },
   })
 }
+
+/** Keeps the keys the user set for the editor's shortcuts, in place of all before (D420). */
+export function useSetShortcuts() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: (shortcuts: Record<string, string>) =>
+      call(api.PUT('/me/shortcuts', { body: { shortcuts } })),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: keys.me }),
+  })
+}

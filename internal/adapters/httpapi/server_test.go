@@ -333,6 +333,26 @@ func TestRoutes(t *testing.T) {
 			wantBody:   []string{`"email":"alice@example.com"`, `"codeChosen":false`, `"mayWriteCode":false`},
 		},
 		{
+			name: "me says the shortcuts you set (D420)",
+			req:  request{method: "GET", path: "/api/v1/me", headers: cookie},
+			setup: func(svc *httpapimocks.MockAuthService) {
+				keyed := alice
+				keyed.Shortcuts = map[string]string{"undo": "mod+u"}
+				withSession(svc, keyed)
+			},
+			wantStatus: http.StatusOK,
+			wantBody:   []string{`"shortcuts":{"undo":"mod+u"}`},
+		},
+		{
+			name: "set your shortcuts",
+			req:  request{method: "PUT", path: "/api/v1/me/shortcuts", headers: cookie, body: `{"shortcuts":{"help":"?"}}`},
+			setup: func(svc *httpapimocks.MockAuthService) {
+				withSession(svc, alice)
+				svc.EXPECT().SetShortcuts(mock.Anything, mock.Anything, map[string]string{"help": "?"}).Return(nil)
+			},
+			wantStatus: http.StatusNoContent,
+		},
+		{
 			name:       "me says an admin may write code while it is for chosen users",
 			req:        request{method: "GET", path: "/api/v1/me", headers: cookie},
 			setup:      func(svc *httpapimocks.MockAuthService) { withSession(svc, root) },

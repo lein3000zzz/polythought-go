@@ -51,6 +51,7 @@ type AuthService interface {
 	AuthenticateSession(ctx context.Context, token string) (auth.Principal, error)
 	AuthenticateToken(ctx context.Context, token string) (auth.Principal, error)
 	ChangePassword(ctx context.Context, p auth.Principal, current, next string) error
+	SetShortcuts(ctx context.Context, p auth.Principal, keys map[string]string) error
 
 	CreateAPIToken(ctx context.Context, p auth.Principal, name string, expiresAt time.Time, scopes []domain.Scope) (string, domain.APIToken, error)
 	ListAPITokens(ctx context.Context, p auth.Principal) ([]domain.APIToken, error)
@@ -398,6 +399,7 @@ func (s *Server) routes() {
 	v1.POST("/auth/logout", s.requireAuth, s.logout)
 
 	v1.GET("/me", s.requireAuth, s.me)
+	v1.PUT("/me/shortcuts", s.requireAuth, s.setShortcuts)
 	v1.PUT("/me/password", s.requireAuth, s.changePassword)
 	v1.PUT("/me/kill-switch", s.requireAuth, s.setKillSwitch)
 	v1.GET("/me/agent-spend", s.requireAuth, s.myAgentSpend)

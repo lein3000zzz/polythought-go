@@ -12,6 +12,7 @@ export const settingsPages = [
   { slug: 'tokens', label: 'API tokens' },
   { slug: 'connected', label: 'Connected agents' },
   { slug: 'credentials', label: 'Credentials' },
+  { slug: 'shortcuts', label: 'Shortcuts' },
 ]
 
 export function settingsPath(slug?: string, key?: string): string {

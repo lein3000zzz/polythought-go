@@ -1009,6 +1009,69 @@ func (_c *MockUserRepository_SetPasswordHash_Call) RunAndReturn(run func(ctx con
 	return _c
 }
 
+// SetShortcuts provides a mock function for the type MockUserRepository
+func (_mock *MockUserRepository) SetShortcuts(ctx context.Context, id domain.UserID, keys map[string]string) error {
+	ret := _mock.Called(ctx, id, keys)
+
+	if len(ret) == 0 {
+		panic("no return value specified for SetShortcuts")
+	}
+
+	var r0 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context, domain.UserID, map[string]string) error); ok {
+		r0 = returnFunc(ctx, id, keys)
+	} else {
+		r0 = ret.Error(0)
+	}
+	return r0
+}
+
+// MockUserRepository_SetShortcuts_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'SetShortcuts'
+type MockUserRepository_SetShortcuts_Call struct {
+	*mock.Call
+}
+
+// SetShortcuts is a helper method to define mock.On call
+//   - ctx context.Context
+//   - id domain.UserID
+//   - keys map[string]string
+func (_e *MockUserRepository_Expecter) SetShortcuts(ctx any, id any, keys any) *MockUserRepository_SetShortcuts_Call {
+	return &MockUserRepository_SetShortcuts_Call{Call: _e.mock.On("SetShortcuts", ctx, id, keys)}
+}
+
+func (_c *MockUserRepository_SetShortcuts_Call) Run(run func(ctx context.Context, id domain.UserID, keys map[string]string)) *MockUserRepository_SetShortcuts_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		var arg1 domain.UserID
+		if args[1] != nil {
+			arg1 = args[1].(domain.UserID)
+		}
+		var arg2 map[string]string
+		if args[2] != nil {
+			arg2 = args[2].(map[string]string)
+		}
+		run(
+			arg0,
+			arg1,
+			arg2,
+		)
+	})
+	return _c
+}
+
+func (_c *MockUserRepository_SetShortcuts_Call) Return(err error) *MockUserRepository_SetShortcuts_Call {
+	_c.Call.Return(err)
+	return _c
+}
+
+func (_c *MockUserRepository_SetShortcuts_Call) RunAndReturn(run func(ctx context.Context, id domain.UserID, keys map[string]string) error) *MockUserRepository_SetShortcuts_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // SetUnconfirmed provides a mock function for the type MockUserRepository
 func (_mock *MockUserRepository) SetUnconfirmed(ctx context.Context, id domain.UserID, u domain.Unconfirmed) error {
 	ret := _mock.Called(ctx, id, u)

@@ -2114,6 +2114,69 @@ func (_c *MockAuthService_SendVerificationLink_Call) RunAndReturn(run func(ctx c
 	return _c
 }
 
+// SetShortcuts provides a mock function for the type MockAuthService
+func (_mock *MockAuthService) SetShortcuts(ctx context.Context, p auth.Principal, keys map[string]string) error {
+	ret := _mock.Called(ctx, p, keys)
+
+	if len(ret) == 0 {
+		panic("no return value specified for SetShortcuts")
+	}
+
+	var r0 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context, auth.Principal, map[string]string) error); ok {
+		r0 = returnFunc(ctx, p, keys)
+	} else {
+		r0 = ret.Error(0)
+	}
+	return r0
+}
+
+// MockAuthService_SetShortcuts_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'SetShortcuts'
+type MockAuthService_SetShortcuts_Call struct {
+	*mock.Call
+}
+
+// SetShortcuts is a helper method to define mock.On call
+//   - ctx context.Context
+//   - p auth.Principal
+//   - keys map[string]string
+func (_e *MockAuthService_Expecter) SetShortcuts(ctx any, p any, keys any) *MockAuthService_SetShortcuts_Call {
+	return &MockAuthService_SetShortcuts_Call{Call: _e.mock.On("SetShortcuts", ctx, p, keys)}
+}
+
+func (_c *MockAuthService_SetShortcuts_Call) Run(run func(ctx context.Context, p auth.Principal, keys map[string]string)) *MockAuthService_SetShortcuts_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		var arg1 auth.Principal
+		if args[1] != nil {
+			arg1 = args[1].(auth.Principal)
+		}
+		var arg2 map[string]string
+		if args[2] != nil {
+			arg2 = args[2].(map[string]string)
+		}
+		run(
+			arg0,
+			arg1,
+			arg2,
+		)
+	})
+	return _c
+}
+
+func (_c *MockAuthService_SetShortcuts_Call) Return(err error) *MockAuthService_SetShortcuts_Call {
+	_c.Call.Return(err)
+	return _c
+}
+
+func (_c *MockAuthService_SetShortcuts_Call) RunAndReturn(run func(ctx context.Context, p auth.Principal, keys map[string]string) error) *MockAuthService_SetShortcuts_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // UpdateUser provides a mock function for the type MockAuthService
 func (_mock *MockAuthService) UpdateUser(ctx context.Context, actor auth.Principal, id domain.UserID, upd auth.UserUpdate) (domain.User, error) {
 	ret := _mock.Called(ctx, actor, id, upd)

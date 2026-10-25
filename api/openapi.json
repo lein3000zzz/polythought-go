@@ -4293,6 +4293,21 @@
                 },
                 "type": "object"
             },
+            "ShortcutsRequest": {
+                "properties": {
+                    "shortcuts": {
+                        "additionalProperties": {
+                            "type": "string"
+                        },
+                        "description": "Shortcuts are the keys you set, by action, such as {\"undo\": \"mod+z\"}, in place of all\nyou set before; empty puts every one back to its keys to start with.",
+                        "type": "object"
+                    }
+                },
+                "required": [
+                    "shortcuts"
+                ],
+                "type": "object"
+            },
             "SignatureRequest": {
                 "properties": {
                     "signature": {
@@ -4967,6 +4982,13 @@
                             "user"
                         ],
                         "type": "string"
+                    },
+                    "shortcuts": {
+                        "additionalProperties": {
+                            "type": "string"
+                        },
+                        "description": "Shortcuts are the keys you set for the workflow editor's shortcuts, by action (D420):\nyours, in /me only.",
+                        "type": "object"
                     }
                 },
                 "required": [
@@ -10501,6 +10523,61 @@
                     }
                 ],
                 "summary": "Change password",
+                "tags": [
+                    "me"
+                ]
+            }
+        },
+        "/me/shortcuts": {
+            "put": {
+                "operationId": "setShortcuts",
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/ShortcutsRequest",
+                                "summary": "body",
+                                "description": "The keys you set, by action"
+                            }
+                        }
+                    },
+                    "description": "The keys you set, by action",
+                    "required": true
+                },
+                "responses": {
+                    "204": {
+                        "description": "No Content"
+                    },
+                    "400": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "not keys a shortcut takes"
+                    },
+                    "401": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "unauthenticated"
+                    }
+                },
+                "security": [
+                    {
+                        "SessionCookie": []
+                    },
+                    {
+                        "APIToken": []
+                    }
+                ],
+                "summary": "Set your shortcuts",
                 "tags": [
                     "me"
                 ]

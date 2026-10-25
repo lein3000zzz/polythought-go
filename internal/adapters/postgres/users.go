@@ -2,6 +2,7 @@ package postgres
 
 import (
 	"context"
+	"encoding/json"
 	"strings"
 	"time"
 
@@ -76,6 +77,7 @@ func (r *Users) Create(ctx context.Context, u domain.User, passwordHash string) 
 		UnconfirmedRestart:       u.Unconfirmed.Restart,
 		UnconfirmedPluginApprove: u.Unconfirmed.PluginApprove,
 		UnconfirmedPluginChange:  u.Unconfirmed.PluginChange,
+		Shortcuts:                shortcutsJSON(u.Shortcuts),
 	}
 
 	_, err = table.Users.INSERT(table.Users.AllColumns).MODEL(m).ExecContext(ctx, r.db.conn(ctx))
@@ -217,6 +219,35 @@ func (r *Users) SetAskInAgent(ctx context.Context, id domain.UserID, on bool) er
 		MODEL(model.Users{AskInAgent: on}).
 		WHERE(t.ID.EQ(jet.UUID(uid))).
 		ExecContext(ctx, r.db.conn(ctx)))
+}
+
+// SetShortcuts records the keys the user set for the workflow editor's shortcuts (D420).
+func (r *Users) SetShortcuts(ctx context.Context, id domain.UserID, keys map[string]string) error {
+	uid, err := parseID(id)
+	if err != nil {
+		return err
+	}
+
+	t := table.Users
+
+	return affectedOne(t.UPDATE(t.Shortcuts).
+		MODEL(model.Users{Shortcuts: shortcutsJSON(keys)}).
+		WHERE(t.ID.EQ(jet.UUID(uid))).
+		ExecContext(ctx, r.db.conn(ctx)))
+}
+
+// shortcutsJSON is the keys a user set, as kept: an object, empty for none.
+func shortcutsJSON(keys map[string]string) string {
+	if len(keys) == 0 {
+		return "{}"
+	}
+
+	data, err := json.Marshal(keys)
+	if err != nil {
+		return "{}"
+	}
+
+	return string(data)
 }
 
 // SetAgentAccess records what the user lets their agents and API tokens do (D401, D403).
@@ -401,9 +432,20 @@ func toUser(m model.Users) domain.User {
 			PluginChange: m.UnconfirmedPluginChange,
 		},
 		AskInAgent: m.AskInAgent,
+		Shortcuts:  shortcutsOf(m.Shortcuts),
 		CreatedAt:  m.CreatedAt.UTC(),
 		UpdatedAt:  m.UpdatedAt.UTC(),
 	}
+}
+
+// shortcutsOf is the keys a user set, as kept; none for none, or for what does not read.
+func shortcutsOf(raw string) map[string]string {
+	var keys map[string]string
+	if json.Unmarshal([]byte(raw), &keys) != nil || len(keys) == 0 {
+		return nil
+	}
+
+	return keys
 }
 
 func (r *Users) SetEmailVerified(ctx context.Context, id domain.UserID, at time.Time) error {

@@ -42,7 +42,8 @@ first, then the list, so the canvas keeps some room.
   **Trades**.
 - **Connect two nodes**: drag from a node's output port, on its right edge, to another
   node's input port, on its left edge.
-- **Remove a connection**: select it and press Delete or Backspace.
+- **Remove a connection**: select it and press Delete or Backspace. Undo brings it back;
+  see [Shortcuts](#shortcuts).
 - **Change a node**: select it. Its settings open on the right, with a description of each.
   Changes apply as you type. Settings left empty use their default, shown in grey. With the
   settings folded, double-click the node to open them on it.
@@ -61,6 +62,38 @@ first, then the list, so the canvas keeps some room.
 - **Notes** on a node are for you: they show on the canvas and never change what it does.
 - **Continue on failure** sends items the node fails on to its `error` port instead of
   failing the execution; see [When items fail](/docs/guides/concepts/#when-items-fail).
+
+## Shortcuts
+
+On the canvas, outside a field, these keys work, Cmd taking the place of Ctrl on a Mac.
+**?** lists them all, and so does **Keyboard shortcuts** under the editor's **⋮** menu.
+
+| Keys | What they do |
+|---|---|
+| Ctrl+Z, Ctrl+Shift+Z or Ctrl+Y | Undo, redo |
+| Ctrl+C, Ctrl+X, Ctrl+V | Copy, cut and paste the selected nodes and the connections between them |
+| Ctrl+D | Duplicate the selected nodes |
+| Delete or Backspace | Delete the selected nodes and connections |
+| Ctrl+A, Escape | Select every node, clear the selection |
+| Arrow keys, with Shift for further | Move the selected nodes |
+| Shift+1, + and - | Fit the workflow in view, zoom in and out |
+| Ctrl+S, Ctrl+Enter | Save, run |
+| / | Search the node list |
+
+Undo goes back over every change on the canvas: nodes added, deleted or moved, connections,
+settings, names and notes, the workflow's name and description, and code applied from the
+**Code** view. Typing on in one field is one step, and in a field Ctrl+Z is the field's own.
+The **Undo** and **Redo** buttons at the top do the same. Saving starts a new history.
+
+Copied nodes go to your computer's clipboard as text, so they paste into another workflow,
+in another tab too, beside the originals or in the middle of the view. Their personal
+settings, such as a webhook's URL, a credential or a wallet, stay behind, as sharing to the
+library leaves them out: fill them in where you paste. Duplicating keeps everything, as the
+copy never leaves the page.
+
+**Settings → Shortcuts** changes the keys of any of them but copy, cut, paste and the arrows:
+press **Change**, then the new keys. They are kept for your account, on every browser, and
+**Reset** puts one back.
 
 ## Saving
 

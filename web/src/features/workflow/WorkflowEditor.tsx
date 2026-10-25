@@ -8,6 +8,7 @@ import {
   useEdgesState,
   useNodesState,
   useReactFlow,
+  type EdgeChange,
   type IsValidConnection,
   type NodeChange,
   type OnConnect,
@@ -18,13 +19,16 @@ import {
   ChevronLeft,
   EllipsisVertical,
   History,
+  Keyboard,
   PanelLeftClose,
   PanelLeftOpen,
   PanelRightClose,
   PanelRightOpen,
   Play,
+  Redo2,
   Share2,
   Trash2,
+  Undo2,
   X,
 } from 'lucide-react'
 import { useEffect, useEffectEvent, useMemo, useRef, useState } from 'react'
@@ -70,6 +74,7 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuSeparator,
+  DropdownMenuShortcut,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { Input } from '@/components/ui/input'
@@ -102,6 +107,10 @@ import {
   type NodeSpec,
 } from './graph'
 import { ExecutionsPanel } from './ExecutionsPanel'
+import { clipText, copyOf, fromClip, placed, type Copied } from './clipboard'
+import { UndoHistory } from './history'
+import { actionOf, inField, keymapOf, shown, type Keymap } from './shortcuts'
+import { ShortcutsDialog } from './ShortcutsDialog'
 import { ExecutionStatus } from './ExecutionStatus'
 import { NodePanel, WorkflowPanel } from './NodePanel'
 import { nodeTypeMime, Palette } from './Palette'
@@ -133,6 +142,27 @@ const fitViewOptions = { padding: 0.2, maxZoom: 1 }
 // New nodes are placed by their top-left corner; these centre them on the target point.
 const nodeOffset = { x: 120, y: 40 }
 
+// What undo goes back to (D420): the canvas as it was, its workflow's name and description.
+type Snapshot = { nodes: FlowNode[]; edges: FlowEdge[]; name: string; description: string }
+
+// How far a nudge moves the selected nodes, as React Flow moves a focused one.
+const nudge = { step: 5, far: 20 }
+
+/** Where an arrow key moves the selected nodes, if it is one with nothing but Shift. */
+function nudgeOf(e: KeyboardEvent): XYPosition | undefined {
+  if (e.metaKey || e.ctrlKey || e.altKey) return undefined
+
+  const by = e.shiftKey ? nudge.far : nudge.step
+  const arrows: Record<string, XYPosition> = {
+    ArrowUp: { x: 0, y: -by },
+    ArrowDown: { x: 0, y: by },
+    ArrowLeft: { x: -by, y: 0 },
+    ArrowRight: { x: by, y: 0 },
+  }
+
+  return arrows[e.key]
+}
+
 type Props = {
   workflow?: Workflow // undefined for a workflow not saved yet
   types: NodeType[]
@@ -150,7 +180,10 @@ export function WorkflowEditor(props: Props) {
 function Editor({ workflow, types, onReload }: Props) {
   const navigate = useNavigate()
   const { data: me } = useMe()
-  const { screenToFlowPosition, deleteElements } = useReactFlow<FlowNode, FlowEdge>()
+  const { screenToFlowPosition, deleteElements, fitView, zoomIn, zoomOut } = useReactFlow<
+    FlowNode,
+    FlowEdge
+  >()
   const { theme } = useTheme()
   const canvas = useRef<HTMLDivElement>(null)
   const search = useRef<HTMLInputElement>(null)
@@ -192,6 +225,15 @@ function Editor({ workflow, types, onReload }: Props) {
   const [nodeListOpen, setNodeListOpen] = useStoredFlag('polythought.nodeList', true)
   const [settingsOpen, setSettingsOpen] = useStoredFlag('polythought.settingsPanel', true)
   const leaving = useRef(false) // set before navigating away on purpose
+
+  // Undo and redo (D420): a step for each change, a save clearing them.
+  const history = useRef(new UndoHistory<Snapshot>())
+  const [, setSteps] = useState(0) // bumped as the history changes, for its buttons
+  const dragging = useRef(false)
+  // A deletion's nodes and connections go as one step: React Flow says them apart.
+  const deleting = useRef(0)
+  const [listingShortcuts, setListingShortcuts] = useState(false)
+  const keymap: Keymap = useMemo(() => keymapOf(me?.shortcuts), [me?.shortcuts])
 
   // An execution shown on the canvas: each node's status, counts and kept items.
   const [inspectedId, setInspectedId] = useState<string>()
@@ -323,6 +365,8 @@ function Editor({ workflow, types, onReload }: Props) {
       setDescription((current) => (current === sent.description ? w.description : current))
       setVersion(w.version)
       setProblems([])
+      history.current.clear()
+      setSteps((n) => n + 1)
 
       if (!workflow && !stay) {
         leaving.current = true
@@ -362,6 +406,7 @@ function Editor({ workflow, types, onReload }: Props) {
       )
       const flow = toFlow(built, types)
 
+      record()
       setNodes(flow.nodes)
       setEdges(flow.edges)
       setName(built.name)
@@ -433,36 +478,110 @@ function Editor({ workflow, types, onReload }: Props) {
     })
   }
 
-  // Cmd/Ctrl+S saves, wherever the focus is.
-  const onSaveKey = useEffectEvent((e: KeyboardEvent) => {
-    if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 's') {
+  // The editor's shortcuts (D420), as the user has them. Saving goes wherever the focus is;
+  // the rest are the canvas's, but in a field, where keys are the field's, or a dialog.
+  const onKey = useEffectEvent((e: KeyboardEvent) => {
+    const action = actionOf(e, keymap)
+
+    if (action === 'save') {
       e.preventDefault()
       void save()
+      return
     }
-  })
-  useEffect(() => {
-    window.addEventListener('keydown', onSaveKey)
-    return () => window.removeEventListener('keydown', onSaveKey)
-  }, [])
 
-  // "/" searches the node list, opening it if need be, unless the focus is in a field.
-  const onSearchKey = useEffectEvent((e: KeyboardEvent) => {
-    if (view !== 'canvas' || e.key !== '/' || e.metaKey || e.ctrlKey || e.altKey) return
-    if (
-      e.target instanceof Element &&
-      e.target.closest('input, textarea, select, [contenteditable], .nokey')
-    ) {
+    if (view !== 'canvas' || e.defaultPrevented || inField(e.target)) return
+
+    if (!action) {
+      // The arrows nudge the selected nodes, as React Flow does a focused one.
+      const at = nudgeOf(e)
+      if (at && nodes.some((n) => n.selected)) {
+        e.preventDefault()
+        record('nudge')
+        setNodes((ns) =>
+          ns.map((n) =>
+            n.selected ? { ...n, position: { x: n.position.x + at.x, y: n.position.y + at.y } } : n,
+          ),
+        )
+      }
+
       return
     }
 
     e.preventDefault()
-    setNodeListOpen(true)
-    // Once the list is open: a closed one is inert and cannot take the focus.
-    requestAnimationFrame(() => search.current?.focus())
+
+    switch (action) {
+      case 'undo':
+        return undo()
+      case 'redo':
+        return redo()
+      case 'delete':
+        return deleteSelected()
+      case 'duplicate':
+        return duplicate()
+      case 'selectAll':
+        setNodes((ns) => ns.map((n) => (n.selected ? n : { ...n, selected: true })))
+        return
+      case 'deselect':
+        setNodes((ns) => ns.map((n) => (n.selected ? { ...n, selected: false } : n)))
+        setEdges((es) => es.map((ed) => (ed.selected ? { ...ed, selected: false } : ed)))
+        return
+      case 'fitView':
+        void fitView(fitViewOptions)
+        return
+      case 'zoomIn':
+        void zoomIn()
+        return
+      case 'zoomOut':
+        void zoomOut()
+        return
+      case 'run':
+        if (workflow && !run.isPending && !saving) void runNow()
+        return
+      case 'search':
+        setNodeListOpen(true)
+        // Once the list is open: a closed one is inert and cannot take the focus.
+        requestAnimationFrame(() => search.current?.focus())
+        return
+      case 'help':
+        setListingShortcuts(true)
+        return
+    }
   })
   useEffect(() => {
-    window.addEventListener('keydown', onSearchKey)
-    return () => window.removeEventListener('keydown', onSearchKey)
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [])
+
+  // Copy, cut and paste are the browser's own (D420): its events carry the system
+  // clipboard, which needs no permission, the selected nodes going as text.
+  const onClip = useEffectEvent((e: ClipboardEvent) => {
+    if (view !== 'canvas' || inField(e.target) || !e.clipboardData) return
+
+    if (e.type === 'paste') {
+      const c = fromClip(e.clipboardData.getData('text/plain'))
+      if (!c) return
+
+      e.preventDefault()
+      put(c)
+
+      return
+    }
+
+    // Text selected on the page is the browser's to copy.
+    if (!nodes.some((n) => n.selected) || window.getSelection()?.toString()) return
+
+    e.preventDefault()
+    e.clipboardData.setData('text/plain', clipText(copyOf(nodes, edges)))
+    pastes.current = 0
+
+    if (e.type === 'cut') deleteSelected()
+  })
+  useEffect(() => {
+    for (const t of ['copy', 'cut', 'paste']) document.addEventListener(t, onClip as EventListener)
+    return () => {
+      for (const t of ['copy', 'cut', 'paste'])
+        document.removeEventListener(t, onClip as EventListener)
+    }
   }, [])
 
   // Closing or reloading the tab with unsaved changes, or code not applied, asks first.
@@ -486,6 +605,30 @@ function Editor({ workflow, types, onReload }: Props) {
       nextLocation.pathname !== '/login',
   )
 
+  /** Keeps the canvas as it is now, before a change, to undo to; key joins a change to the last. */
+  function record(key?: string) {
+    history.current.record({ nodes, edges, name, description }, key)
+    setSteps((n) => n + 1)
+  }
+
+  function restore(to: Snapshot) {
+    setNodes(to.nodes.map((n) => ({ ...n, selected: false, dragging: false })))
+    setEdges(to.edges.map((e) => ({ ...e, selected: false })))
+    setName(to.name)
+    setDescription(to.description)
+    setSteps((n) => n + 1)
+  }
+
+  function undo() {
+    const to = history.current.undo({ nodes, edges, name, description })
+    if (to) restore(to)
+  }
+
+  function redo() {
+    const to = history.current.redo({ nodes, edges, name, description })
+    if (to) restore(to)
+  }
+
   function updateSpec(id: string, update: (spec: NodeSpec) => NodeSpec) {
     setNodes((ns) =>
       ns.map((n) => (n.id === id ? { ...n, data: { ...n.data, spec: update(n.data.spec) } } : n)),
@@ -496,6 +639,7 @@ function Editor({ workflow, types, onReload }: Props) {
     id: string,
     patch: Partial<Pick<NodeSpec, 'name' | 'continueOnFail' | 'notes'>>,
   ) {
+    record(`node:${id}:${Object.keys(patch).join(',')}`)
     updateSpec(id, (spec) => ({ ...spec, ...patch }))
 
     // The error port goes away with the setting, and so do its connections.
@@ -505,6 +649,8 @@ function Editor({ workflow, types, onReload }: Props) {
   }
 
   function changeParam(id: string, param: string, value: unknown) {
+    record(`param:${id}:${param}`)
+
     const paramsWith = (spec: NodeSpec) =>
       Object.fromEntries(
         Object.entries({ ...spec.params, [param]: value }).filter(([, v]) => v !== undefined),
@@ -526,6 +672,19 @@ function Editor({ workflow, types, onReload }: Props) {
   }
 
   function handleNodesChange(changes: NodeChange<FlowNode>[]) {
+    // A step before nodes go, before a drag moves them, and before a nudge, nudging on
+    // joining it; selecting and measuring are no change.
+    const moved = changes.filter((c) => c.type === 'position')
+    if (changes.some((c) => c.type === 'remove')) {
+      record(`delete:${deleting.current}`)
+    } else if (moved.some((c) => c.dragging)) {
+      if (!dragging.current) record()
+      dragging.current = true
+    } else if (moved.length > 0) {
+      if (!dragging.current) record('nudge')
+      dragging.current = false
+    }
+
     onNodesChange(changes)
 
     const removed = changes.flatMap((c) => (c.type === 'remove' ? [c.id] : []))
@@ -534,7 +693,67 @@ function Editor({ workflow, types, onReload }: Props) {
     }
   }
 
+  function handleEdgesChange(changes: EdgeChange<FlowEdge>[]) {
+    if (changes.some((c) => c.type === 'remove')) record(`delete:${deleting.current}`)
+    onEdgesChange(changes)
+  }
+
+  /** Deletes the selected nodes and connections, as one step. */
+  function deleteSelected() {
+    deleting.current++
+    void deleteElements({
+      nodes: nodes.filter((n) => n.selected).map((n) => ({ id: n.id })),
+      edges: edges.filter((e) => e.selected).map((e) => ({ id: e.id })),
+    })
+  }
+
+  // Pasting again in the same place steps each copy further off the last (D420).
+  const pastes = useRef(0)
+
+  /** Puts copied nodes on the canvas, selected: beside the originals where they are here, else mid-view. */
+  function put(c: Copied) {
+    if (c.nodes.length === 0) return
+
+    let offset = { x: 40 * (pastes.current + 1), y: 40 * (pastes.current + 1) }
+
+    const here = c.nodes.some((n) =>
+      nodes.some((o) => o.id === n.id && o.data.spec.type === n.type),
+    )
+    if (!here) {
+      const rect = canvas.current?.getBoundingClientRect()
+      const centre = rect
+        ? screenToFlowPosition({ x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 })
+        : { x: 0, y: 0 }
+      const left = Math.min(...c.nodes.map((n) => n.position?.x ?? 0))
+      const top = Math.min(...c.nodes.map((n) => n.position?.y ?? 0))
+
+      offset = { x: centre.x - nodeOffset.x - left, y: centre.y - nodeOffset.y - top }
+    } else {
+      pastes.current++
+    }
+
+    const got = placed(c, nodes, types, offset)
+    if (got.skipped.length > 0) {
+      toast.error(`Left out nodes of types you do not have: ${got.skipped.join(', ')}`)
+    }
+
+    if (got.nodes.length === 0) return
+
+    record()
+    setNodes((ns) => [...ns.map((n) => (n.selected ? { ...n, selected: false } : n)), ...got.nodes])
+    setEdges((es) => [...es.map((e) => (e.selected ? { ...e, selected: false } : e)), ...got.edges])
+  }
+
+  /** Duplicates the selected nodes in place, every setting with them: they never leave the page. */
+  function duplicate() {
+    const c = copyOf(nodes, edges, true)
+    pastes.current = 0
+    put(c)
+  }
+
   function addNode(type: NodeType, at?: XYPosition) {
+    record()
+
     let position = at
 
     if (!position) {
@@ -571,6 +790,7 @@ function Editor({ workflow, types, onReload }: Props) {
       return
     }
 
+    record()
     setEdges((es) => [
       ...es,
       edgeOf({
@@ -589,7 +809,10 @@ function Editor({ workflow, types, onReload }: Props) {
           <Header
             workflow={workflow}
             name={name}
-            onName={setName}
+            onName={(n) => {
+              record('name')
+              setName(n)
+            }}
             version={version}
             dirty={unsaved}
             saving={saving || runCode.isPending}
@@ -603,6 +826,12 @@ function Editor({ workflow, types, onReload }: Props) {
             view={view}
             onView={(v) => (v === 'code' ? showCode() : leave(v))}
             trading={trading}
+            keymap={keymap}
+            canUndo={history.current.canUndo}
+            canRedo={history.current.canRedo}
+            onUndo={undo}
+            onRedo={redo}
+            onShortcuts={() => setListingShortcuts(true)}
           />
 
           {workflow && inspected.data && (
@@ -734,10 +963,10 @@ function Editor({ workflow, types, onReload }: Props) {
                     edges={edges}
                     nodeTypes={nodeTypes}
                     onNodesChange={handleNodesChange}
-                    onEdgesChange={onEdgesChange}
+                    onEdgesChange={handleEdgesChange}
                     onConnect={onConnect}
                     isValidConnection={isValidConnection}
-                    deleteKeyCode={['Backspace', 'Delete']}
+                    deleteKeyCode={null}
                     fitView
                     fitViewOptions={fitViewOptions}
                   >
@@ -850,13 +1079,19 @@ function Editor({ workflow, types, onReload }: Props) {
                         inputs={shapes.get(selectedNode.id)}
                         onChange={(patch) => changeNode(selectedNode.id, patch)}
                         onParam={(param, value) => changeParam(selectedNode.id, param, value)}
-                        onDelete={() => void deleteElements({ nodes: [{ id: selectedNode.id }] })}
+                        onDelete={() => {
+                          deleting.current++
+                          void deleteElements({ nodes: [{ id: selectedNode.id }] })
+                        }}
                       />
                     ) : (
                       <WorkflowPanel
                         problems={problems}
                         description={description}
-                        onDescription={setDescription}
+                        onDescription={(d) => {
+                          record('description')
+                          setDescription(d)
+                        }}
                       />
                     )}
                   </div>
@@ -872,6 +1107,12 @@ function Editor({ workflow, types, onReload }: Props) {
               </aside>
             </div>
           )}
+
+          <ShortcutsDialog
+            open={listingShortcuts}
+            onOpenChange={setListingShortcuts}
+            keymap={keymap}
+          />
 
           <ConfirmDialog
             open={conflict}
@@ -1006,6 +1247,12 @@ type HeaderProps = {
   view: View
   onView: (view: View) => void
   trading: boolean // the workflow trades: its results have a view
+  keymap: Keymap
+  canUndo: boolean
+  canRedo: boolean
+  onUndo: () => void
+  onRedo: () => void
+  onShortcuts: () => void
 }
 
 function Header({
@@ -1025,7 +1272,15 @@ function Header({
   view,
   onView,
   trading,
+  keymap,
+  canUndo,
+  canRedo,
+  onUndo,
+  onRedo,
+  onShortcuts,
 }: HeaderProps) {
+  const keys = (action: keyof Keymap) => shown(keymap[action][0])
+
   return (
     <header className="flex items-center gap-3 border-b px-4 py-2">
       <Link
@@ -1055,6 +1310,39 @@ function Header({
       </span>
 
       <div className="ml-auto flex items-center gap-3">
+        {view === 'canvas' && (
+          <div className="flex items-center">
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  aria-label="Undo"
+                  disabled={!canUndo}
+                  onClick={onUndo}
+                >
+                  <Undo2 />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>Undo ({keys('undo')})</TooltipContent>
+            </Tooltip>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  aria-label="Redo"
+                  disabled={!canRedo}
+                  onClick={onRedo}
+                >
+                  <Redo2 />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>Redo ({keys('redo')})</TooltipContent>
+            </Tooltip>
+          </div>
+        )}
+
         {/* First, so nothing moves as it comes and goes with the Canvas view. */}
         {workflow && view === 'canvas' && (
           <Button
@@ -1088,15 +1376,25 @@ function Header({
         {workflow && <ActiveSwitch workflow={workflow} dirty={dirty} />}
 
         {workflow && (
-          <Button variant="outline" onClick={onRun} disabled={running || saving}>
-            <Play />
-            {running ? 'Running…' : dirty ? 'Save and run' : 'Run'}
-          </Button>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button variant="outline" onClick={onRun} disabled={running || saving}>
+                <Play />
+                {running ? 'Running…' : dirty ? 'Save and run' : 'Run'}
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>{keys('run')}</TooltipContent>
+          </Tooltip>
         )}
 
-        <Button onClick={onSave} disabled={saving || (workflow !== undefined && !dirty)}>
-          {saving ? 'Saving…' : 'Save'}
-        </Button>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button onClick={onSave} disabled={saving || (workflow !== undefined && !dirty)}>
+              {saving ? 'Saving…' : 'Save'}
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent>{keys('save')}</TooltipContent>
+        </Tooltip>
 
         {workflow && (
           <DropdownMenu>
@@ -1106,6 +1404,12 @@ function Header({
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
+              <DropdownMenuItem onSelect={onShortcuts}>
+                <Keyboard />
+                Keyboard shortcuts
+                <DropdownMenuShortcut>{keys('help')}</DropdownMenuShortcut>
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
               <DropdownMenuItem onSelect={onShare}>
                 <Share2 />
                 Share to library…

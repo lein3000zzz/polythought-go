@@ -42,6 +42,7 @@ export function Overview({ pages }: { pages: typeof settingsPages }) {
     connected:
       grants.data && count(grants.data.filter((g) => !g.revokedAt).length, 'agent', 'agents'),
     credentials: credentials.data && count(credentials.data.length, 'credential', 'credentials'),
+    shortcuts: me.data ? shortcutsSaid(Object.keys(me.data.shortcuts ?? {}).length) : undefined,
   }
 
   return (
@@ -55,4 +56,8 @@ export function Overview({ pages }: { pages: typeof settingsPages }) {
       ))}
     </ul>
   )
+}
+
+function shortcutsSaid(changed: number): string {
+  return changed === 0 ? 'As they come' : `${changed} changed`
 }

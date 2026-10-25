@@ -1384,3 +1384,143 @@ describe('workflow as code', () => {
     expect(saves[0].nodes.map((n) => n.id)).toContain('more')
   })
 })
+
+// key presses a key on the page, as the canvas takes it: Ctrl, not on a Mac.
+function key(k: string, code: string, mods: { ctrl?: boolean; shift?: boolean } = {}) {
+  fireEvent.keyDown(document.body, { key: k, code, ctrlKey: mods.ctrl, shiftKey: mods.shift })
+}
+
+const onCanvas = (id: string) =>
+  document.querySelector(`.react-flow__node[data-id="${id}"]`) !== null
+
+// clipboard is the system's, as the browser's copy and paste events carry it.
+function clipboard() {
+  const data = new Map<string, string>()
+
+  return {
+    setData: (type: string, value: string) => void data.set(type, value),
+    getData: (type: string) => data.get(type) ?? '',
+  }
+}
+
+describe('workflow editor shortcuts (D420)', () => {
+  it('undoes and redoes a deletion, a save clearing them', async () => {
+    const saves = editing(branching())
+    const { user } = renderApp('/workflows/wf-1')
+
+    await selectNode('log')
+    key('Delete', 'Delete')
+    await waitFor(() => expect(onCanvas('log')).toBe(false))
+
+    key('z', 'KeyZ', { ctrl: true })
+    await waitFor(() => expect(onCanvas('log')).toBe(true))
+    expect(screen.queryByText(/Unsaved changes/)).not.toBeInTheDocument()
+
+    key('Z', 'KeyZ', { ctrl: true, shift: true })
+    await waitFor(() => expect(onCanvas('log')).toBe(false))
+
+    await user.click(screen.getByRole('button', { name: 'Save' }))
+    await waitFor(() => expect(saves).toHaveLength(1))
+    expect(saves[0].nodes.map((n) => n.id)).toEqual(['manual', 'tight'])
+    expect(saves[0].connections, 'its connection went with it').toHaveLength(1)
+    expect(screen.getByRole('button', { name: 'Undo' })).toBeDisabled()
+  })
+
+  it('undoes typing in one field as one step, the field keeping its own keys', async () => {
+    editing(branching())
+    const { user } = renderApp('/workflows/wf-1')
+
+    const name = await screen.findByRole('textbox', { name: 'Workflow name' })
+    await user.type(name, ' v2')
+    expect(name).toHaveValue(`${branching().name} v2`)
+
+    await user.click(screen.getByRole('button', { name: 'Undo' }))
+    expect(name).toHaveValue(branching().name)
+    await user.click(screen.getByRole('button', { name: 'Redo' }))
+    expect(name).toHaveValue(`${branching().name} v2`)
+  })
+
+  it('selects every node, and Escape clears them', async () => {
+    editing(branching())
+    renderApp('/workflows/wf-1')
+    await waitFor(() => canvasNode('tight'))
+
+    key('a', 'KeyA', { ctrl: true })
+    await waitFor(() => expect(canvasNode('manual')).toHaveClass('selected'))
+    expect(canvasNode('log')).toHaveClass('selected')
+
+    key('Escape', 'Escape')
+    await waitFor(() => expect(canvasNode('manual')).not.toHaveClass('selected'))
+  })
+
+  it('copies nodes to the clipboard and pastes them, with the connections between them', async () => {
+    const saves = editing(branching())
+    const { user } = renderApp('/workflows/wf-1')
+    await waitFor(() => canvasNode('tight'))
+
+    key('a', 'KeyA', { ctrl: true })
+    await waitFor(() => expect(canvasNode('log')).toHaveClass('selected'))
+
+    const data = clipboard()
+    fireEvent.copy(document.body, { clipboardData: data })
+    expect(JSON.parse(data.getData('text/plain'))).toMatchObject({ 'polythought/nodes': 1 })
+
+    fireEvent.paste(document.body, { clipboardData: data })
+    await waitFor(() => expect(onCanvas('tight2')).toBe(true))
+    expect(canvasNode('tight2')).toHaveClass('selected')
+    expect(canvasNode('tight')).not.toHaveClass('selected')
+
+    await user.click(screen.getByRole('button', { name: 'Save' }))
+    await waitFor(() => expect(saves).toHaveLength(1))
+    expect(saves[0].nodes.map((n) => n.id)).toEqual([
+      'manual',
+      'tight',
+      'log',
+      'manual2',
+      'tight2',
+      'log2',
+    ])
+    expect(saves[0].nodes[4]).toMatchObject({
+      params: { field: 'spread', value: '0.02' },
+      position: { x: 340, y: 40 },
+    })
+    expect(saves[0].connections).toContainEqual({
+      from: 'tight2',
+      fromPort: 'true',
+      to: 'log2',
+      toPort: 'main',
+    })
+  })
+
+  it('duplicates the selected nodes, and lists the shortcuts', async () => {
+    editing(branching())
+    renderApp('/workflows/wf-1')
+
+    await selectNode('tight')
+    key('d', 'KeyD', { ctrl: true })
+    await waitFor(() => expect(onCanvas('tight2')).toBe(true))
+
+    key('?', 'Slash', { shift: true })
+    const dialog = await screen.findByRole('dialog', { name: 'Keyboard shortcuts' })
+    expect(within(dialog).getByText('Undo')).toBeInTheDocument()
+    expect(within(dialog).getByText('Ctrl+Z')).toBeInTheDocument()
+  })
+
+  it('takes the keys the user set', async () => {
+    editing(branching())
+    server.use(
+      http.get('/api/v1/me', () => HttpResponse.json({ ...alice, shortcuts: { undo: 'mod+u' } })),
+    )
+    renderApp('/workflows/wf-1')
+
+    await selectNode('log')
+    key('Delete', 'Delete')
+    await waitFor(() => expect(onCanvas('log')).toBe(false))
+
+    key('z', 'KeyZ', { ctrl: true })
+    expect(onCanvas('log')).toBe(false)
+
+    key('u', 'KeyU', { ctrl: true })
+    await waitFor(() => expect(onCanvas('log')).toBe(true))
+  })
+})

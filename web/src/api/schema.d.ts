@@ -1208,6 +1208,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/me/shortcuts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Set your shortcuts */
+        put: operations["setShortcuts"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/meta": {
         parameters: {
             query?: never;
@@ -3757,6 +3774,15 @@ export interface components {
             description?: string;
             summary?: string;
         };
+        ShortcutsRequest: {
+            /**
+             * @description Shortcuts are the keys you set, by action, such as {"undo": "mod+z"}, in place of all
+             *     you set before; empty puts every one back to its keys to start with.
+             */
+            shortcuts: {
+                [key: string]: string;
+            };
+        };
         SignatureRequest: {
             /** @description Signature is what eth_signTypedData_v4 gave, hex. */
             signature: string;
@@ -4042,6 +4068,13 @@ export interface components {
             mayWriteCode: boolean;
             /** @enum {string} */
             role: "admin" | "user";
+            /**
+             * @description Shortcuts are the keys you set for the workflow editor's shortcuts, by action (D420):
+             *     yours, in /me only.
+             */
+            shortcuts?: {
+                [key: string]: string;
+            };
         };
         UserPage: {
             /** @description NextCursor is absent on the last page. */
@@ -7987,6 +8020,47 @@ export interface operations {
                 };
             };
             /** @description unauthenticated or invalid_credentials */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    setShortcuts: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description The keys you set, by action */
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ShortcutsRequest"];
+            };
+        };
+        responses: {
+            /** @description No Content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description not keys a shortcut takes */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description unauthenticated */
             401: {
                 headers: {
                     [name: string]: unknown;

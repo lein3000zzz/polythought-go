@@ -114,8 +114,11 @@ type User struct {
 	// window, where its client can ask (D409).
 	Unconfirmed Unconfirmed
 	AskInAgent  bool
-	CreatedAt   time.Time
-	UpdatedAt   time.Time
+	// Shortcuts are the keys they set for the workflow editor's shortcuts, by action
+	// (D420); the rest keep theirs.
+	Shortcuts map[string]string
+	CreatedAt time.Time
+	UpdatedAt time.Time
 }
 
 // AgentAccess is what a user lets their agents and API tokens do beyond their scopes, off

@@ -53,7 +53,10 @@ type userDTO struct {
 	AgentsMayAnswer         bool `json:"agentsMayAnswer"`
 	// LiveConfirm is which of their tokens' and agents' live actions wait for them (D406).
 	LiveConfirm liveConfirmDTO `json:"liveConfirm"`
-	CreatedAt   time.Time      `json:"createdAt" format:"date-time"`
+	// Shortcuts are the keys you set for the workflow editor's shortcuts, by action (D420):
+	// yours, in /me only.
+	Shortcuts map[string]string `json:"shortcuts,omitempty" validate:"optional"`
+	CreatedAt time.Time         `json:"createdAt" format:"date-time"`
 } // @name User
 
 // liveCapsDTO caps a user's live buys in whole dollars: one order, and 24 hours. Left out,
@@ -537,7 +540,47 @@ func (s *Server) logout(ctx context.Context, c *app.RequestContext) {
 //	@Router		/me [get]
 func (s *Server) me(_ context.Context, c *app.RequestContext) {
 	p, _ := principal(c)
-	c.JSON(http.StatusOK, s.userDTO(p.User))
+
+	out := s.userDTO(p.User)
+	out.Shortcuts = p.User.Shortcuts // yours alone: no other user's list says theirs
+
+	c.JSON(http.StatusOK, out)
+}
+
+type shortcutsRequest struct {
+	// Shortcuts are the keys you set, by action, such as {"undo": "mod+z"}, in place of all
+	// you set before; empty puts every one back to its keys to start with.
+	Shortcuts map[string]string `json:"shortcuts"`
+} // @name ShortcutsRequest
+
+// setShortcuts keeps the keys you set for the workflow editor's shortcuts (D420).
+//
+//	@Summary	Set your shortcuts
+//	@ID			setShortcuts
+//	@Tags		me
+//	@Param		body	body	shortcutsRequest	true	"The keys you set, by action"
+//	@Success	204
+//	@Failure	400	{object}	errorBody	"not keys a shortcut takes"
+//	@Failure	401	{object}	errorBody	"unauthenticated"
+//	@Security	SessionCookie
+//	@Security	APIToken
+//	@Router		/me/shortcuts [put]
+func (s *Server) setShortcuts(ctx context.Context, c *app.RequestContext) {
+	var req shortcutsRequest
+
+	if err := decodeJSON(c, &req); err != nil {
+		s.fail(ctx, c, err)
+		return
+	}
+
+	p, _ := principal(c)
+
+	if err := s.auth.SetShortcuts(ctx, p, req.Shortcuts); err != nil {
+		s.fail(ctx, c, err)
+		return
+	}
+
+	c.Status(http.StatusNoContent)
 }
 
 // changePassword ends every other session of the user.

@@ -50,4 +50,5 @@ type Users struct {
 	UnconfirmedRestart       bool
 	UnconfirmedPluginApprove bool
 	UnconfirmedPluginChange  bool
+	Shortcuts                string
 }

@@ -21,6 +21,7 @@ import {
   type Entry,
 } from '@/features/settings/pages'
 import { PasswordSection } from '@/features/settings/PasswordSection'
+import { ShortcutsSection } from '@/features/settings/ShortcutsSection'
 import { TelegramSection } from '@/features/settings/TelegramSection'
 import { TokensSection } from '@/features/settings/TokensSection'
 import { useJump } from '@/lib/jump'
@@ -167,6 +168,12 @@ export function SettingsPage() {
       label: c.name,
       words: `credential ${typeLabel.get(c.type) ?? c.type}`,
     })),
+    {
+      slug: 'shortcuts',
+      key: 'shortcuts',
+      label: 'Workflow editor shortcuts',
+      words: 'keyboard keys shortcuts hotkeys undo redo copy paste editor canvas',
+    },
   ]
 
   useJump(
@@ -205,6 +212,8 @@ export function SettingsPage() {
             <ConnectedSection />
           ) : slug === 'credentials' ? (
             <Credentials />
+          ) : slug === 'shortcuts' ? (
+            <ShortcutsSection />
           ) : (
             <Overview pages={pages} />
           )}

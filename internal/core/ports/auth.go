@@ -37,6 +37,8 @@ type UserRepository interface {
 	SetUnconfirmed(ctx context.Context, id domain.UserID, u domain.Unconfirmed) error
 	// SetAskInAgent records whether those are also asked in the agent's own window (D409).
 	SetAskInAgent(ctx context.Context, id domain.UserID, on bool) error
+	// SetShortcuts records the keys the user set for the editor's shortcuts (D420).
+	SetShortcuts(ctx context.Context, id domain.UserID, keys map[string]string) error
 	List(ctx context.Context, f PageFilter) (Page[domain.User], error)
 	CountActiveAdmins(ctx context.Context) (int, error)
 	// LockActiveAdmins locks the active admins' rows until the surrounding transaction
