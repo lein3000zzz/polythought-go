@@ -5,6 +5,7 @@ import { useJoinRequests } from '@/api/admin'
 
 const tabs = [
   ['/admin', 'Users'],
+  ['/admin/stats', 'Stats'],
   ['/admin/invites', 'Invites'],
   ['/admin/config', 'Config'],
   ['/admin/plugins', 'Plugins'],

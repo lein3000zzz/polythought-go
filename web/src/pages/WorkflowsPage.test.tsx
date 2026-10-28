@@ -66,12 +66,91 @@ describe('workflows page', () => {
     expect(card).toHaveTextContent('Logs markets whose spread is tight')
     expect(card).toHaveTextContent('Active')
     expect(card).toHaveTextContent('2 nodes')
+    expect(screen.getByRole('link', { name: 'Dashboard' })).toHaveAttribute(
+      'href',
+      '/workflows/dashboard',
+    )
 
     await user.click(screen.getByRole('button', { name: 'Load more' }))
 
     expect(await screen.findByRole('link', { name: 'Whale alert' })).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Load more' })).not.toBeInTheDocument()
     expect(cursors).toEqual([null, 'wf-1'])
+  })
+
+  it('says on each card what it made, and its last run (D429)', async () => {
+    const ago = (minutes: number) => new Date(Date.now() - minutes * 60_000).toISOString()
+    const counts = { runs: 0, failed: 0 }
+    const result = {
+      mode: 'paper' as const,
+      profit: '12.4',
+      realized: '10',
+      unrealized: '2.4',
+      positions: 3,
+      unpriced: 0,
+      volume: '90',
+      orders: 7,
+      wins: 2,
+      closed: 4,
+    }
+    const quiet = workflow({ id: 'wf-3', name: 'Quiet one' })
+
+    server.use(
+      signedIn,
+      workflows([spread, whales, quiet]).handler,
+      http.get('/api/v1/workflows/stats', () =>
+        HttpResponse.json({
+          workflows: [
+            {
+              id: spread.id,
+              name: spread.name,
+              active: true,
+              trading: result,
+              runs: {
+                day: counts,
+                week: counts,
+                last: { id: 'ex-1', status: 'succeeded', startedAt: ago(6), finishedAt: ago(5) },
+              },
+            },
+            {
+              id: whales.id,
+              name: whales.name,
+              active: false,
+              trading: { ...result, mode: 'live', profit: '-1.2', unpriced: 1 },
+              runs: {
+                day: counts,
+                week: counts,
+                last: { id: 'ex-2', status: 'failed', startedAt: ago(121), finishedAt: ago(120) },
+              },
+            },
+            { id: quiet.id, name: quiet.name, active: false, runs: { day: counts, week: counts } },
+          ],
+          paper: { ...result, workflows: 1 },
+          live: { ...result, workflows: 1 },
+          day: counts,
+          week: counts,
+          at: ago(0),
+        }),
+      ),
+    )
+
+    renderApp('/workflows')
+
+    const list = within(await screen.findByRole('list', { name: 'Workflows' }))
+    const card = async (name: string) => (await list.findByRole('link', { name })).closest('li')!
+
+    // The stats come in their own request, after the cards perhaps.
+    const made = await card('Spread watch')
+    await waitFor(() => expect(made).toHaveTextContent('+$12.40 paper · ran 5 min ago'))
+
+    const lost = await card('Whale alert')
+    await waitFor(() => expect(lost).toHaveTextContent('≈ −$1.20 live · failed 2 h ago'))
+    expect(within(lost).getByTitle('The last run failed')).toBeInTheDocument()
+    expect(within(lost).getByTitle('1 open position has no price now: at cost')).toBeInTheDocument()
+
+    const none = await card('Quiet one')
+    expect(none).toHaveTextContent('never ran')
+    expect(none).not.toHaveTextContent('paper')
   })
 
   it('offers a retry when loading fails', async () => {

@@ -353,6 +353,26 @@ func TestRoutes(t *testing.T) {
 			wantStatus: http.StatusNoContent,
 		},
 		{
+			name: "me says the dashboard's parts you hid (D429)",
+			req:  request{method: "GET", path: "/api/v1/me", headers: cookie},
+			setup: func(svc *httpapimocks.MockAuthService) {
+				hid := alice
+				hid.Dashboard = domain.Dashboard{Hidden: []string{"traders"}}
+				withSession(svc, hid)
+			},
+			wantStatus: http.StatusOK,
+			wantBody:   []string{`"dashboard":{"hidden":["traders"]}`},
+		},
+		{
+			name: "set your dashboard",
+			req:  request{method: "PUT", path: "/api/v1/me/dashboard", headers: cookie, body: `{"hidden":["traders","chart"]}`},
+			setup: func(svc *httpapimocks.MockAuthService) {
+				withSession(svc, alice)
+				svc.EXPECT().SetDashboard(mock.Anything, mock.Anything, domain.Dashboard{Hidden: []string{"traders", "chart"}}).Return(nil)
+			},
+			wantStatus: http.StatusNoContent,
+		},
+		{
 			name:       "me says an admin may write code while it is for chosen users",
 			req:        request{method: "GET", path: "/api/v1/me", headers: cookie},
 			setup:      func(svc *httpapimocks.MockAuthService) { withSession(svc, root) },

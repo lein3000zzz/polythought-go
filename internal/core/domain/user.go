@@ -117,8 +117,16 @@ type User struct {
 	// Shortcuts are the keys they set for the workflow editor's shortcuts, by action
 	// (D420); the rest keep theirs.
 	Shortcuts map[string]string
+	// Dashboard is how they set the workflows' dashboard (D429).
+	Dashboard Dashboard
 	CreatedAt time.Time
 	UpdatedAt time.Time
+}
+
+// Dashboard is how a user set the workflows' dashboard (D429): the parts they hid, by the
+// app's names for them; the rest show.
+type Dashboard struct {
+	Hidden []string
 }
 
 // AgentAccess is what a user lets their agents and API tokens do beyond their scopes, off

@@ -183,6 +183,11 @@ type TraderTotal struct {
 	Trader WalletAddress
 	Orders int
 	Volume decimal.Decimal
+
+	// WorkflowID and Mode say whose they are, where totals of many workflows come
+	// together (D429).
+	WorkflowID WorkflowID
+	Mode       TradingMode
 }
 
 // Holding is a workflow's position in one outcome, copied from one trader or from no one

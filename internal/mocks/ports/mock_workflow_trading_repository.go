@@ -47,6 +47,74 @@ func (_m *MockWorkflowTradingRepository) EXPECT() *MockWorkflowTradingRepository
 	return &MockWorkflowTradingRepository_Expecter{mock: &_m.Mock}
 }
 
+// OwnerTrading provides a mock function for the type MockWorkflowTradingRepository
+func (_mock *MockWorkflowTradingRepository) OwnerTrading(ctx context.Context, owner domain.UserID) ([]domain.WorkflowTrading, error) {
+	ret := _mock.Called(ctx, owner)
+
+	if len(ret) == 0 {
+		panic("no return value specified for OwnerTrading")
+	}
+
+	var r0 []domain.WorkflowTrading
+	var r1 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context, domain.UserID) ([]domain.WorkflowTrading, error)); ok {
+		return returnFunc(ctx, owner)
+	}
+	if returnFunc, ok := ret.Get(0).(func(context.Context, domain.UserID) []domain.WorkflowTrading); ok {
+		r0 = returnFunc(ctx, owner)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).([]domain.WorkflowTrading)
+		}
+	}
+	if returnFunc, ok := ret.Get(1).(func(context.Context, domain.UserID) error); ok {
+		r1 = returnFunc(ctx, owner)
+	} else {
+		r1 = ret.Error(1)
+	}
+	return r0, r1
+}
+
+// MockWorkflowTradingRepository_OwnerTrading_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'OwnerTrading'
+type MockWorkflowTradingRepository_OwnerTrading_Call struct {
+	*mock.Call
+}
+
+// OwnerTrading is a helper method to define mock.On call
+//   - ctx context.Context
+//   - owner domain.UserID
+func (_e *MockWorkflowTradingRepository_Expecter) OwnerTrading(ctx any, owner any) *MockWorkflowTradingRepository_OwnerTrading_Call {
+	return &MockWorkflowTradingRepository_OwnerTrading_Call{Call: _e.mock.On("OwnerTrading", ctx, owner)}
+}
+
+func (_c *MockWorkflowTradingRepository_OwnerTrading_Call) Run(run func(ctx context.Context, owner domain.UserID)) *MockWorkflowTradingRepository_OwnerTrading_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		var arg1 domain.UserID
+		if args[1] != nil {
+			arg1 = args[1].(domain.UserID)
+		}
+		run(
+			arg0,
+			arg1,
+		)
+	})
+	return _c
+}
+
+func (_c *MockWorkflowTradingRepository_OwnerTrading_Call) Return(workflowTradings []domain.WorkflowTrading, err error) *MockWorkflowTradingRepository_OwnerTrading_Call {
+	_c.Call.Return(workflowTradings, err)
+	return _c
+}
+
+func (_c *MockWorkflowTradingRepository_OwnerTrading_Call) RunAndReturn(run func(ctx context.Context, owner domain.UserID) ([]domain.WorkflowTrading, error)) *MockWorkflowTradingRepository_OwnerTrading_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // SetTrading provides a mock function for the type MockWorkflowTradingRepository
 func (_mock *MockWorkflowTradingRepository) SetTrading(ctx context.Context, t domain.WorkflowTrading) error {
 	ret := _mock.Called(ctx, t)

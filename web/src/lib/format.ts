@@ -77,3 +77,18 @@ export function formatProfit(text: string): string {
 export function formatShares(text: string): string {
   return shareFormat.format(Number(text))
 }
+
+/**
+ * How long ago a time was, as a card says it: just now, 5 min ago, 3 h ago, 2 d ago; the
+ * date past a week.
+ */
+export function formatAgo(iso: string, now: number = Date.now()): string {
+  const minutes = Math.floor((now - Date.parse(iso)) / 60_000)
+
+  if (minutes < 1) return 'just now'
+  if (minutes < 60) return `${minutes} min ago`
+  if (minutes < 24 * 60) return `${Math.floor(minutes / 60)} h ago`
+  if (minutes < 7 * 24 * 60) return `${Math.floor(minutes / (24 * 60))} d ago`
+
+  return formatDateTime(iso)
+}

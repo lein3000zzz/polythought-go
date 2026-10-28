@@ -56,8 +56,17 @@ type userDTO struct {
 	// Shortcuts are the keys you set for the workflow editor's shortcuts, by action (D420):
 	// yours, in /me only.
 	Shortcuts map[string]string `json:"shortcuts,omitempty" validate:"optional"`
-	CreatedAt time.Time         `json:"createdAt" format:"date-time"`
+	// Dashboard is how you set the workflows' dashboard (D429): yours, in /me only.
+	Dashboard *dashboardDTO `json:"dashboard,omitempty" validate:"optional"`
+	CreatedAt time.Time     `json:"createdAt" format:"date-time"`
 } // @name User
+
+// dashboardDTO is how you set the workflows' dashboard (D429).
+type dashboardDTO struct {
+	// Hidden are the parts you hid, by the app's names for them, such as traders; the
+	// rest show.
+	Hidden []string `json:"hidden"`
+} // @name Dashboard
 
 // liveCapsDTO caps a user's live buys in whole dollars: one order, and 24 hours. Left out,
 // the instance's cap; 0, none.
@@ -543,6 +552,11 @@ func (s *Server) me(_ context.Context, c *app.RequestContext) {
 
 	out := s.userDTO(p.User)
 	out.Shortcuts = p.User.Shortcuts // yours alone: no other user's list says theirs
+	out.Dashboard = &dashboardDTO{Hidden: p.User.Dashboard.Hidden}
+
+	if out.Dashboard.Hidden == nil {
+		out.Dashboard.Hidden = []string{}
+	}
 
 	c.JSON(http.StatusOK, out)
 }
@@ -576,6 +590,36 @@ func (s *Server) setShortcuts(ctx context.Context, c *app.RequestContext) {
 	p, _ := principal(c)
 
 	if err := s.auth.SetShortcuts(ctx, p, req.Shortcuts); err != nil {
+		s.fail(ctx, c, err)
+		return
+	}
+
+	c.Status(http.StatusNoContent)
+}
+
+// setDashboard keeps how you set the workflows' dashboard (D429).
+//
+//	@Summary	Set your dashboard
+//	@ID			setDashboard
+//	@Tags		me
+//	@Param		body	body	dashboardDTO	true	"The parts you hid"
+//	@Success	204
+//	@Failure	400	{object}	errorBody	"not a part of the dashboard"
+//	@Failure	401	{object}	errorBody	"unauthenticated"
+//	@Security	SessionCookie
+//	@Security	APIToken
+//	@Router		/me/dashboard [put]
+func (s *Server) setDashboard(ctx context.Context, c *app.RequestContext) {
+	var req dashboardDTO
+
+	if err := decodeJSON(c, &req); err != nil {
+		s.fail(ctx, c, err)
+		return
+	}
+
+	p, _ := principal(c)
+
+	if err := s.auth.SetDashboard(ctx, p, domain.Dashboard{Hidden: req.Hidden}); err != nil {
 		s.fail(ctx, c, err)
 		return
 	}

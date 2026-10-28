@@ -76,6 +76,7 @@ func serve(ctx context.Context) error {
 		Geoblock: a.geoblock, Tasks: a.tasks, TaskAgents: a.taskAgents,
 		Meta:    a.meta,
 		Updates: a.updates,
+		Stats:   a.stats,
 		OAuth:   a.oauth, Confirmations: a.confirmations,
 		MCP:     mcp,
 		Plugins: a.plugins,
@@ -122,6 +123,9 @@ func serve(ctx context.Context) error {
 	// them (D209), live ones read as their wallet's user channel says they changed (D195).
 	go a.trading.RestEvery(ctx, 5*time.Second)
 	go a.trading.WatchLive(ctx, 30*time.Second)
+
+	// Each trading workflow's highest and lowest P&L, sampled (D430).
+	go a.stats.SampleEvery(ctx, func() time.Duration { return a.settings.Current().Duration(config.KeyPnLSampleEvery) })
 
 	// What nodes remember goes when it expires (D121).
 	go a.memory.SweepEvery(ctx, 10*time.Minute)

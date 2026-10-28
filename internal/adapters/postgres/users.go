@@ -78,6 +78,7 @@ func (r *Users) Create(ctx context.Context, u domain.User, passwordHash string) 
 		UnconfirmedPluginApprove: u.Unconfirmed.PluginApprove,
 		UnconfirmedPluginChange:  u.Unconfirmed.PluginChange,
 		Shortcuts:                shortcutsJSON(u.Shortcuts),
+		Dashboard:                dashboardJSON(u.Dashboard),
 	}
 
 	_, err = table.Users.INSERT(table.Users.AllColumns).MODEL(m).ExecContext(ctx, r.db.conn(ctx))
@@ -234,6 +235,45 @@ func (r *Users) SetShortcuts(ctx context.Context, id domain.UserID, keys map[str
 		MODEL(model.Users{Shortcuts: shortcutsJSON(keys)}).
 		WHERE(t.ID.EQ(jet.UUID(uid))).
 		ExecContext(ctx, r.db.conn(ctx)))
+}
+
+// SetDashboard records how the user set the workflows' dashboard (D429).
+func (r *Users) SetDashboard(ctx context.Context, id domain.UserID, d domain.Dashboard) error {
+	uid, err := parseID(id)
+	if err != nil {
+		return err
+	}
+
+	t := table.Users
+
+	return affectedOne(t.UPDATE(t.Dashboard).
+		MODEL(model.Users{Dashboard: dashboardJSON(d)}).
+		WHERE(t.ID.EQ(jet.UUID(uid))).
+		ExecContext(ctx, r.db.conn(ctx)))
+}
+
+// dashboardDoc is how a user's dashboard is kept.
+type dashboardDoc struct {
+	Hidden []string `json:"hidden,omitempty"`
+}
+
+func dashboardJSON(d domain.Dashboard) string {
+	data, err := json.Marshal(dashboardDoc{Hidden: d.Hidden})
+	if err != nil {
+		return "{}"
+	}
+
+	return string(data)
+}
+
+// dashboardOf is a user's dashboard as kept; as it starts for what does not read.
+func dashboardOf(raw string) domain.Dashboard {
+	var doc dashboardDoc
+	if json.Unmarshal([]byte(raw), &doc) != nil {
+		return domain.Dashboard{}
+	}
+
+	return domain.Dashboard{Hidden: doc.Hidden}
 }
 
 // shortcutsJSON is the keys a user set, as kept: an object, empty for none.
@@ -433,6 +473,7 @@ func toUser(m model.Users) domain.User {
 		},
 		AskInAgent: m.AskInAgent,
 		Shortcuts:  shortcutsOf(m.Shortcuts),
+		Dashboard:  dashboardOf(m.Dashboard),
 		CreatedAt:  m.CreatedAt.UTC(),
 		UpdatedAt:  m.UpdatedAt.UTC(),
 	}

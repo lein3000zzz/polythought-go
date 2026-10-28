@@ -34,6 +34,21 @@ export function useWorkflows(filter: WorkflowFilter = {}, pinned?: false) {
   })
 }
 
+export type WorkflowStats = Schemas['WorkflowStats']
+
+/**
+ * How all your workflows are doing (D429): what each made trading, in the mode it trades
+ * in now, and its runs lately, with paper and live totals apart. Asked again each minute,
+ * so "ran 5 min ago" stays so.
+ */
+export function useWorkflowStats() {
+  return useQuery({
+    queryKey: keys.workflowStats,
+    queryFn: () => call(api.GET('/workflows/stats')),
+    refetchInterval: 60_000,
+  })
+}
+
 /** Your pinned workflows, in their order, all of them. */
 export function usePinnedWorkflows(filter: WorkflowFilter = {}) {
   return useQuery({

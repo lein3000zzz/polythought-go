@@ -164,3 +164,25 @@ func (e Execution) Duration() time.Duration {
 
 	return e.FinishedAt.Sub(e.StartedAt)
 }
+
+// RunStats is how a workflow's runs went lately (D429): those started in the last day and
+// in the last week, and its latest. Runs started by hand count too.
+type RunStats struct {
+	WorkflowID WorkflowID
+	Day, Week  RunCounts
+	Last       *LastRun // nil: none kept
+}
+
+// RunCounts counts runs, and those of them that failed.
+type RunCounts struct {
+	Runs   int
+	Failed int
+}
+
+// LastRun is a workflow's latest run.
+type LastRun struct {
+	ID         ExecutionID
+	Status     ExecutionStatus
+	StartedAt  time.Time
+	FinishedAt *time.Time
+}

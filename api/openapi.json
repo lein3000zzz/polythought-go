@@ -1391,6 +1391,22 @@
                 ],
                 "type": "object"
             },
+            "Dashboard": {
+                "properties": {
+                    "hidden": {
+                        "description": "Hidden are the parts you hid, by the app's names for them, such as traders; the\nrest show.",
+                        "items": {
+                            "type": "string"
+                        },
+                        "type": "array",
+                        "uniqueItems": false
+                    }
+                },
+                "required": [
+                    "hidden"
+                ],
+                "type": "object"
+            },
             "Error": {
                 "properties": {
                     "error": {
@@ -1856,6 +1872,44 @@
                 ],
                 "type": "object"
             },
+            "InstanceStats": {
+                "properties": {
+                    "at": {
+                        "format": "date-time",
+                        "type": "string"
+                    },
+                    "day": {
+                        "$ref": "#/components/schemas/RunCounts"
+                    },
+                    "live": {
+                        "$ref": "#/components/schemas/StatsTotals"
+                    },
+                    "paper": {
+                        "$ref": "#/components/schemas/StatsTotals",
+                        "description": "Paper and Live add up every user's, never one into the other."
+                    },
+                    "users": {
+                        "description": "Users are those with workflows, each one's added up.",
+                        "items": {
+                            "$ref": "#/components/schemas/UserTotals"
+                        },
+                        "type": "array",
+                        "uniqueItems": false
+                    },
+                    "week": {
+                        "$ref": "#/components/schemas/RunCounts"
+                    }
+                },
+                "required": [
+                    "at",
+                    "day",
+                    "live",
+                    "paper",
+                    "users",
+                    "week"
+                ],
+                "type": "object"
+            },
             "Invite": {
                 "properties": {
                     "code": {
@@ -2165,6 +2219,37 @@
                 },
                 "required": [
                     "on"
+                ],
+                "type": "object"
+            },
+            "LastRun": {
+                "properties": {
+                    "finishedAt": {
+                        "format": "date-time",
+                        "type": "string"
+                    },
+                    "id": {
+                        "type": "string"
+                    },
+                    "startedAt": {
+                        "format": "date-time",
+                        "type": "string"
+                    },
+                    "status": {
+                        "enum": [
+                            "running",
+                            "waiting",
+                            "succeeded",
+                            "failed",
+                            "cancelled"
+                        ],
+                        "type": "string"
+                    }
+                },
+                "required": [
+                    "id",
+                    "startedAt",
+                    "status"
                 ],
                 "type": "object"
             },
@@ -3879,6 +3964,23 @@
                 ],
                 "type": "object"
             },
+            "PnLExtreme": {
+                "properties": {
+                    "at": {
+                        "format": "date-time",
+                        "type": "string"
+                    },
+                    "profit": {
+                        "example": "18.2",
+                        "type": "string"
+                    }
+                },
+                "required": [
+                    "at",
+                    "profit"
+                ],
+                "type": "object"
+            },
             "Problem": {
                 "properties": {
                     "column": {
@@ -4027,6 +4129,21 @@
                 ],
                 "type": "object"
             },
+            "RunCounts": {
+                "properties": {
+                    "failed": {
+                        "type": "integer"
+                    },
+                    "runs": {
+                        "type": "integer"
+                    }
+                },
+                "required": [
+                    "failed",
+                    "runs"
+                ],
+                "type": "object"
+            },
             "RunRequest": {
                 "properties": {
                     "trigger": {
@@ -4034,6 +4151,26 @@
                         "type": "string"
                     }
                 },
+                "type": "object"
+            },
+            "RunStats": {
+                "properties": {
+                    "day": {
+                        "$ref": "#/components/schemas/RunCounts",
+                        "description": "Day and Week are the runs started in the last day and the last week, by hand too."
+                    },
+                    "last": {
+                        "$ref": "#/components/schemas/LastRun",
+                        "description": "Last is the latest run; absent when none is kept."
+                    },
+                    "week": {
+                        "$ref": "#/components/schemas/RunCounts"
+                    }
+                },
+                "required": [
+                    "day",
+                    "week"
+                ],
                 "type": "object"
             },
             "ServerVersion": {
@@ -4409,6 +4546,54 @@
                 ],
                 "type": "object"
             },
+            "StatsTotals": {
+                "properties": {
+                    "closed": {
+                        "type": "integer"
+                    },
+                    "orders": {
+                        "type": "integer"
+                    },
+                    "positions": {
+                        "type": "integer"
+                    },
+                    "profit": {
+                        "type": "string"
+                    },
+                    "realized": {
+                        "type": "string"
+                    },
+                    "unpriced": {
+                        "type": "integer"
+                    },
+                    "unrealized": {
+                        "type": "string"
+                    },
+                    "volume": {
+                        "type": "string"
+                    },
+                    "wins": {
+                        "type": "integer"
+                    },
+                    "workflows": {
+                        "description": "that have traded in the mode",
+                        "type": "integer"
+                    }
+                },
+                "required": [
+                    "closed",
+                    "orders",
+                    "positions",
+                    "profit",
+                    "realized",
+                    "unpriced",
+                    "unrealized",
+                    "volume",
+                    "wins",
+                    "workflows"
+                ],
+                "type": "object"
+            },
             "TaskItem": {
                 "properties": {
                     "item": {
@@ -4664,6 +4849,65 @@
                 ],
                 "type": "object"
             },
+            "TraderResult": {
+                "properties": {
+                    "closed": {
+                        "type": "integer"
+                    },
+                    "label": {
+                        "type": "string"
+                    },
+                    "mode": {
+                        "enum": [
+                            "paper",
+                            "live"
+                        ],
+                        "type": "string"
+                    },
+                    "orders": {
+                        "type": "integer"
+                    },
+                    "positions": {
+                        "type": "integer"
+                    },
+                    "profit": {
+                        "type": "string"
+                    },
+                    "realized": {
+                        "type": "string"
+                    },
+                    "trader": {
+                        "description": "Trader is the wallet copied; absent for the orders copied from no one.",
+                        "type": "string"
+                    },
+                    "unrealized": {
+                        "type": "string"
+                    },
+                    "volume": {
+                        "type": "string"
+                    },
+                    "wins": {
+                        "type": "integer"
+                    },
+                    "workflows": {
+                        "description": "that copy them in the mode",
+                        "type": "integer"
+                    }
+                },
+                "required": [
+                    "closed",
+                    "mode",
+                    "orders",
+                    "positions",
+                    "profit",
+                    "realized",
+                    "unrealized",
+                    "volume",
+                    "wins",
+                    "workflows"
+                ],
+                "type": "object"
+            },
             "TraderSummary": {
                 "properties": {
                     "closed": {
@@ -4700,6 +4944,66 @@
                     "closed",
                     "copies",
                     "realized",
+                    "unrealized",
+                    "volume",
+                    "wins"
+                ],
+                "type": "object"
+            },
+            "TradingResult": {
+                "properties": {
+                    "closed": {
+                        "description": "holdings sold out of, or settled",
+                        "type": "integer"
+                    },
+                    "mode": {
+                        "description": "Mode is the one it trades in now, which these are about.",
+                        "enum": [
+                            "paper",
+                            "live"
+                        ],
+                        "type": "string"
+                    },
+                    "orders": {
+                        "description": "that filled",
+                        "type": "integer"
+                    },
+                    "positions": {
+                        "description": "open holdings",
+                        "type": "integer"
+                    },
+                    "profit": {
+                        "description": "Profit is as its trading page has it: on paper its worth less what it started\nwith, live what its holdings made, Realized of those sold and Unrealized of those\nheld, at their marks. Dollars.",
+                        "example": "12.4",
+                        "type": "string"
+                    },
+                    "realized": {
+                        "type": "string"
+                    },
+                    "unpriced": {
+                        "description": "Unpriced are those of them at their cost: no price is known for them now.",
+                        "type": "integer"
+                    },
+                    "unrealized": {
+                        "type": "string"
+                    },
+                    "volume": {
+                        "description": "the dollars its filled orders traded",
+                        "type": "string"
+                    },
+                    "wins": {
+                        "description": "closed holdings that made money",
+                        "type": "integer"
+                    }
+                },
+                "required": [
+                    "closed",
+                    "mode",
+                    "orders",
+                    "positions",
+                    "profit",
+                    "realized",
+                    "unpriced",
                     "unrealized",
                     "volume",
                     "wins"
@@ -5089,6 +5393,10 @@
                         "format": "date-time",
                         "type": "string"
                     },
+                    "dashboard": {
+                        "$ref": "#/components/schemas/Dashboard",
+                        "description": "Dashboard is how you set the workflows' dashboard (D429): yours, in /me only."
+                    },
                     "disabled": {
                         "type": "boolean"
                     },
@@ -5162,6 +5470,26 @@
                 ],
                 "type": "object"
             },
+            "UserOverview": {
+                "properties": {
+                    "email": {
+                        "type": "string"
+                    },
+                    "id": {
+                        "type": "string"
+                    },
+                    "stats": {
+                        "$ref": "#/components/schemas/WorkflowsOverview",
+                        "description": "as their dashboard has it"
+                    }
+                },
+                "required": [
+                    "email",
+                    "id",
+                    "stats"
+                ],
+                "type": "object"
+            },
             "UserPage": {
                 "properties": {
                     "nextCursor": {
@@ -5178,6 +5506,58 @@
                 },
                 "required": [
                     "users"
+                ],
+                "type": "object"
+            },
+            "UserTotals": {
+                "properties": {
+                    "active": {
+                        "type": "integer"
+                    },
+                    "day": {
+                        "$ref": "#/components/schemas/RunCounts"
+                    },
+                    "disabled": {
+                        "type": "boolean"
+                    },
+                    "email": {
+                        "type": "string"
+                    },
+                    "id": {
+                        "type": "string"
+                    },
+                    "live": {
+                        "$ref": "#/components/schemas/StatsTotals"
+                    },
+                    "paper": {
+                        "$ref": "#/components/schemas/StatsTotals"
+                    },
+                    "role": {
+                        "enum": [
+                            "admin",
+                            "user"
+                        ],
+                        "type": "string"
+                    },
+                    "week": {
+                        "$ref": "#/components/schemas/RunCounts"
+                    },
+                    "workflows": {
+                        "description": "all they have",
+                        "type": "integer"
+                    }
+                },
+                "required": [
+                    "active",
+                    "day",
+                    "disabled",
+                    "email",
+                    "id",
+                    "live",
+                    "paper",
+                    "role",
+                    "week",
+                    "workflows"
                 ],
                 "type": "object"
             },
@@ -5435,6 +5815,87 @@
                 },
                 "required": [
                     "problems"
+                ],
+                "type": "object"
+            },
+            "WorkflowStats": {
+                "properties": {
+                    "active": {
+                        "type": "boolean"
+                    },
+                    "high": {
+                        "$ref": "#/components/schemas/PnLExtreme",
+                        "description": "High and Low are its highest and lowest profit in that mode, with when, as sampled\nand as it stands now; on paper since its account's last reset (D430). With Trading."
+                    },
+                    "id": {
+                        "type": "string"
+                    },
+                    "low": {
+                        "$ref": "#/components/schemas/PnLExtreme"
+                    },
+                    "name": {
+                        "type": "string"
+                    },
+                    "runs": {
+                        "$ref": "#/components/schemas/RunStats"
+                    },
+                    "trading": {
+                        "$ref": "#/components/schemas/TradingResult",
+                        "description": "Trading is what it made in the mode it trades in now; absent until it has traded in it."
+                    }
+                },
+                "required": [
+                    "active",
+                    "id",
+                    "name",
+                    "runs"
+                ],
+                "type": "object"
+            },
+            "WorkflowsOverview": {
+                "properties": {
+                    "at": {
+                        "format": "date-time",
+                        "type": "string"
+                    },
+                    "day": {
+                        "$ref": "#/components/schemas/RunCounts",
+                        "description": "Day and Week are all their runs, started in the last day and the last week."
+                    },
+                    "live": {
+                        "$ref": "#/components/schemas/StatsTotals"
+                    },
+                    "paper": {
+                        "$ref": "#/components/schemas/StatsTotals",
+                        "description": "Paper and Live add up the workflows trading in each mode, never one into the other."
+                    },
+                    "traders": {
+                        "description": "Traders are what copying each trader came to across the workflows, in each mode,\nthe most profitable first, copied from no one last.",
+                        "items": {
+                            "$ref": "#/components/schemas/TraderResult"
+                        },
+                        "type": "array",
+                        "uniqueItems": false
+                    },
+                    "week": {
+                        "$ref": "#/components/schemas/RunCounts"
+                    },
+                    "workflows": {
+                        "items": {
+                            "$ref": "#/components/schemas/WorkflowStats"
+                        },
+                        "type": "array",
+                        "uniqueItems": false
+                    }
+                },
+                "required": [
+                    "at",
+                    "day",
+                    "live",
+                    "paper",
+                    "traders",
+                    "week",
+                    "workflows"
                 ],
                 "type": "object"
             },
@@ -7711,6 +8172,125 @@
                     }
                 ],
                 "summary": "List changes to settings, newest first",
+                "tags": [
+                    "admin"
+                ]
+            }
+        },
+        "/admin/stats": {
+            "get": {
+                "operationId": "getInstanceStats",
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/InstanceStats"
+                                }
+                            }
+                        },
+                        "description": "OK"
+                    },
+                    "401": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "unauthenticated"
+                    },
+                    "403": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "not an admin"
+                    }
+                },
+                "security": [
+                    {
+                        "SessionCookie": []
+                    },
+                    {
+                        "APIToken": []
+                    }
+                ],
+                "summary": "How every user's workflows are doing",
+                "tags": [
+                    "admin"
+                ]
+            }
+        },
+        "/admin/stats/users/{id}": {
+            "get": {
+                "operationId": "getUserStats",
+                "parameters": [
+                    {
+                        "description": "the user's ID",
+                        "in": "path",
+                        "name": "id",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/UserOverview"
+                                }
+                            }
+                        },
+                        "description": "OK"
+                    },
+                    "401": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "unauthenticated"
+                    },
+                    "403": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "not an admin"
+                    },
+                    "404": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "no such user"
+                    }
+                },
+                "security": [
+                    {
+                        "SessionCookie": []
+                    },
+                    {
+                        "APIToken": []
+                    }
+                ],
+                "summary": "How a user's workflows are doing",
                 "tags": [
                     "admin"
                 ]
@@ -10632,6 +11212,61 @@
                 "summary": "Refuse a live action",
                 "tags": [
                     "confirmations"
+                ]
+            }
+        },
+        "/me/dashboard": {
+            "put": {
+                "operationId": "setDashboard",
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/Dashboard",
+                                "summary": "body",
+                                "description": "The parts you hid"
+                            }
+                        }
+                    },
+                    "description": "The parts you hid",
+                    "required": true
+                },
+                "responses": {
+                    "204": {
+                        "description": "No Content"
+                    },
+                    "400": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "not a part of the dashboard"
+                    },
+                    "401": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "unauthenticated"
+                    }
+                },
+                "security": [
+                    {
+                        "SessionCookie": []
+                    },
+                    {
+                        "APIToken": []
+                    }
+                ],
+                "summary": "Set your dashboard",
+                "tags": [
+                    "me"
                 ]
             }
         },
@@ -13793,6 +14428,45 @@
                     }
                 ],
                 "summary": "Order the pinned workflows",
+                "tags": [
+                    "workflows"
+                ]
+            }
+        },
+        "/workflows/stats": {
+            "get": {
+                "operationId": "getWorkflowsStats",
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/WorkflowsOverview"
+                                }
+                            }
+                        },
+                        "description": "OK"
+                    },
+                    "401": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "unauthenticated"
+                    }
+                },
+                "security": [
+                    {
+                        "SessionCookie": []
+                    },
+                    {
+                        "APIToken": []
+                    }
+                ],
+                "summary": "How the workflows are doing",
                 "tags": [
                     "workflows"
                 ]

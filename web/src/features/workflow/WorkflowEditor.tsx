@@ -32,7 +32,7 @@ import {
   X,
 } from 'lucide-react'
 import { useEffect, useEffectEvent, useMemo, useRef, useState } from 'react'
-import { Link, useBlocker, useNavigate } from 'react-router'
+import { Link, useBlocker, useNavigate, useSearchParams } from 'react-router'
 import { toast } from 'sonner'
 
 import { useMe } from '@/api/auth'
@@ -295,8 +295,10 @@ function Editor({ workflow, types, onReload }: Props) {
   const executionsShown = clamp(executionsHeight, panels.executions.min, executionsMax)
 
   // The workflow as code (D76), printed when the Code view opens. base is the code the
-  // canvas has: text that differs is not applied yet (D77).
-  const [view, setView] = useState<View>('canvas')
+  // canvas has: text that differs is not applied yet (D77). A link may open its Trading
+  // view instead, as the dashboard's do (D429).
+  const [query] = useSearchParams()
+  const [view, setView] = useState<View>(query.get('view') === 'trading' ? 'trading' : 'canvas')
 
   // Double-clicking a node opens the settings panel on it (D390). React Flow would zoom in
   // as well: the event stops at the canvas's edge on its way in, so it never reaches the

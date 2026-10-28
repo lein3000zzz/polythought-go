@@ -15,6 +15,31 @@ active, how many nodes it has and when it last changed. The search finds them by
 description, `/` jumps to it, and **All**, **Active** and **Inactive** narrow the
 cards to those switched on or off.
 
+Beside **Active**, a card says how the workflow is doing, such as `+$12.40 paper · ran 5 min
+ago`:
+- **What it made** in the mode it trades in now, as its **Trading** view says: on paper its
+  worth less what it started with, live what its holdings made. Only once it has traded in
+  that mode.
+- **Its last run,** in red where it failed.
+
+`≈` before the amount means some open positions have no price now, so they count at what
+they cost. The cards ask again each minute. Agents read the same through
+`get_workflow_stats`.
+
+**Dashboard**, at the top of Workflows, shows them all together, on paper or live, with
+**Paper** and **Live**: paper and live are never added together. It has three parts:
+- **Totals:** profit, realized and unrealized, open positions, volume, win rate, and the
+  runs of the last day and week.
+- **Workflows:** a row each, sorted by the column you click, a second click the other way;
+  one that trades links to its **Trading** view. **Highest** and **Lowest** are the best and
+  worst its profit has been, with when. They are checked every 10 minutes, so a peak
+  between checks is missed; on paper they start over when the account is reset. An admin
+  sets how often under **Workflows** on the Config page.
+- **Traders:** what copying each trader came to, across every workflow that copies them.
+
+**Customize** shows and hides each part, kept with your account, so another browser shows
+the same.
+
 The pin on a card puts it at the top, after the others pinned. Drag a pinned card to
 another place among them, by its handle on a touch screen, and let go: **Escape** while
 dragging puts it back. Or focus the handle and move the card with the arrow keys. The

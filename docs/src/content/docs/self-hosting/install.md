@@ -326,6 +326,16 @@ printf '%s' "$PASSWORD" | docker compose -f deployments/docker-compose.yml --env
   --profile app run --rm -T api admin create -email someone@example.com
 ```
 
+## How everyone is doing
+
+**Admin → Stats** shows every user's workflows together, on paper or live: the instance's
+totals and runs, and a row for each user with workflows, sorted by the column you click.
+A user's row opens their dashboard, read-only: their totals, workflows and traders, as
+they see them. Their workflows are not opened from there.
+
+An admin's agent with the `admin` scope reads the same through `get_instance_stats`, with
+users by ID and never their email addresses.
+
 ## Mail
 
 Polythought sends mail through an SMTP server you connect, your own or a provider's. Under

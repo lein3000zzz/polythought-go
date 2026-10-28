@@ -118,6 +118,8 @@ type Deps struct {
 	// What the money tools read (D402).
 	Wallets Wallets
 	Trades  Trades
+	// How the workflows are doing, together (D429); without it, its tool is not offered.
+	Stats Stats
 }
 
 type Server struct {
@@ -155,6 +157,7 @@ type Server struct {
 	marketReader ports.MarketReader
 	wallets      Wallets
 	trades       Trades
+	stats        Stats
 
 	sessions ports.MCPSessionRepository
 	boot     string        // this run of the server, its sessions kept with it
@@ -187,7 +190,7 @@ func New(cfg Config, d Deps) (*Server, error) {
 		sharing: d.Sharing, confirms: d.Confirmations, trader: d.Trader,
 		window: d.Window, windowWait: d.WindowWait, publicURL: strings.TrimRight(cfg.PublicURL, "/"),
 		admin: d.Admin, config: d.Settings, mail: d.Mail, geoblock: d.Geoblock, plugins: d.Plugins, tasks: d.Tasks,
-		markets: d.Markets.Sources, marketReader: d.Markets.Reader, wallets: d.Wallets, trades: d.Trades,
+		markets: d.Markets.Sources, marketReader: d.Markets.Reader, wallets: d.Wallets, trades: d.Trades, stats: d.Stats,
 		scope:    tracing.Scope{Manager: d.Util.TracerManager, TracerName: tracerName},
 		sessions: d.Sessions, boot: newBoot(), idle: d.SessionIdle, tracked: map[string]*opened{},
 		limits: d.SessionLimits, opening: d.NewSessions,
@@ -269,6 +272,10 @@ func New(cfg Config, d Deps) (*Server, error) {
 
 	if s.wallets != nil && s.trades != nil {
 		s.addMoneyTools(srv)
+	}
+
+	if s.stats != nil {
+		s.addStatsTools(srv)
 	}
 
 	stream := mcp.NewStreamableHTTPHandler(func(*http.Request) *mcp.Server { return srv }, &mcp.StreamableHTTPOptions{

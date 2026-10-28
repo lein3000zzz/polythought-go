@@ -64,4 +64,7 @@ type ExecutionRepository interface {
 	List(ctx context.Context, workflowID domain.WorkflowID, f PageFilter) (Page[domain.Execution], error)
 	Get(ctx context.Context, workflowID domain.WorkflowID, id domain.ExecutionID) (domain.Execution, error)
 	DeleteFinishedBefore(ctx context.Context, before time.Time) (int64, error)
+	// RunStats are the runs of an owner's workflows started since day and since week, and
+	// the latest of each, for each workflow that has any (D429).
+	RunStats(ctx context.Context, owner domain.UserID, day, week time.Time) ([]domain.RunStats, error)
 }

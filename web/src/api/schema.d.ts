@@ -484,6 +484,40 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/admin/stats": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** How every user's workflows are doing */
+        get: operations["getInstanceStats"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/stats/users/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** How a user's workflows are doing */
+        get: operations["getUserStats"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/admin/updates": {
         parameters: {
             query?: never;
@@ -1191,6 +1225,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/me/dashboard": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Set your dashboard */
+        put: operations["setDashboard"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/me/grants": {
         parameters: {
             query?: never;
@@ -1872,6 +1923,23 @@ export interface paths {
         get?: never;
         /** Order the pinned workflows */
         put: operations["orderPins"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/workflows/stats": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** How the workflows are doing */
+        get: operations["getWorkflowsStats"];
+        put?: never;
         post?: never;
         delete?: never;
         options?: never;
@@ -2756,6 +2824,13 @@ export interface components {
             options?: string[];
             required?: boolean;
         };
+        Dashboard: {
+            /**
+             * @description Hidden are the parts you hid, by the app's names for them, such as traders; the
+             *     rest show.
+             */
+            hidden: string[];
+        };
         Error: {
             error: components["schemas"]["ErrorDetail"];
         };
@@ -2935,6 +3010,17 @@ export interface components {
             /** @description Warning is for the admin who approves it, when no key they trust signed it (D280). */
             warning: string;
         };
+        InstanceStats: {
+            /** Format: date-time */
+            at: string;
+            day: components["schemas"]["RunCounts"];
+            live: components["schemas"]["StatsTotals"];
+            /** @description Paper and Live add up every user's, never one into the other. */
+            paper: components["schemas"]["StatsTotals"];
+            /** @description Users are those with workflows, each one's added up. */
+            users: components["schemas"]["UserTotals"][];
+            week: components["schemas"]["RunCounts"];
+        };
         Invite: {
             /** @description Code is the code to copy (D393); absent for an invite made before codes were kept. */
             code?: string;
@@ -3052,6 +3138,15 @@ export interface components {
         };
         KillSwitchRequest: {
             on: boolean;
+        };
+        LastRun: {
+            /** Format: date-time */
+            finishedAt?: string;
+            id: string;
+            /** Format: date-time */
+            startedAt: string;
+            /** @enum {string} */
+            status: "running" | "waiting" | "succeeded" | "failed" | "cancelled";
         };
         LeftPluginData: {
             /** @description its directory's */
@@ -3687,6 +3782,12 @@ export interface components {
             plugins: components["schemas"]["Plugin"][];
             sandbox: components["schemas"]["PluginSandbox"];
         };
+        PnLExtreme: {
+            /** Format: date-time */
+            at: string;
+            /** @example 18.2 */
+            profit: string;
+        };
         Problem: {
             column?: number;
             /** @description Line and Column are where in the code a problem is, from 1, columns in characters. */
@@ -3736,9 +3837,20 @@ export interface components {
             /** @description Revoked says the Relayer took the revocation; the key is removed here either way. */
             revoked: boolean;
         };
+        RunCounts: {
+            failed: number;
+            runs: number;
+        };
         RunRequest: {
             /** @description Trigger is the trigger node to start from; left out means the manual trigger. */
             trigger?: string;
+        };
+        RunStats: {
+            /** @description Day and Week are the runs started in the last day and the last week, by hand too. */
+            day: components["schemas"]["RunCounts"];
+            /** @description Last is the latest run; absent when none is kept. */
+            last?: components["schemas"]["LastRun"];
+            week: components["schemas"]["RunCounts"];
         };
         ServerVersion: {
             /** @description Commit is the full hash it was built from; empty where unknown. */
@@ -3889,6 +4001,19 @@ export interface components {
             /** @description Owner is the browser wallet's account, which must control the Deposit Wallet. */
             owner: string;
         };
+        StatsTotals: {
+            closed: number;
+            orders: number;
+            positions: number;
+            profit: string;
+            realized: string;
+            unpriced: number;
+            unrealized: string;
+            volume: string;
+            wins: number;
+            /** @description that have traded in the mode */
+            workflows: number;
+        };
         TaskItem: {
             item: {
                 [key: string]: unknown;
@@ -3976,6 +4101,23 @@ export interface components {
             /** @description To is the address the test email goes to. */
             to: string;
         };
+        TraderResult: {
+            closed: number;
+            label?: string;
+            /** @enum {string} */
+            mode: "paper" | "live";
+            orders: number;
+            positions: number;
+            profit: string;
+            realized: string;
+            /** @description Trader is the wallet copied; absent for the orders copied from no one. */
+            trader?: string;
+            unrealized: string;
+            volume: string;
+            wins: number;
+            /** @description that copy them in the mode */
+            workflows: number;
+        };
         TraderSummary: {
             /** @description holdings sold out of, or settled */
             closed: number;
@@ -3987,6 +4129,34 @@ export interface components {
             trader?: string;
             unrealized: string;
             /** @description the dollars they traded */
+            volume: string;
+            /** @description closed holdings that made money */
+            wins: number;
+        };
+        TradingResult: {
+            /** @description holdings sold out of, or settled */
+            closed: number;
+            /**
+             * @description Mode is the one it trades in now, which these are about.
+             * @enum {string}
+             */
+            mode: "paper" | "live";
+            /** @description that filled */
+            orders: number;
+            /** @description open holdings */
+            positions: number;
+            /**
+             * @description Profit is as its trading page has it: on paper its worth less what it started
+             *     with, live what its holdings made, Realized of those sold and Unrealized of those
+             *     held, at their marks. Dollars.
+             * @example 12.4
+             */
+            profit: string;
+            realized: string;
+            /** @description Unpriced are those of them at their cost: no price is known for them now. */
+            unpriced: number;
+            unrealized: string;
+            /** @description the dollars its filled orders traded */
             volume: string;
             /** @description closed holdings that made money */
             wins: number;
@@ -4175,6 +4345,8 @@ export interface components {
             codeChosen: boolean;
             /** Format: date-time */
             createdAt: string;
+            /** @description Dashboard is how you set the workflows' dashboard (D429): yours, in /me only. */
+            dashboard?: components["schemas"]["Dashboard"];
             disabled: boolean;
             email: string;
             emailVerified: boolean;
@@ -4207,10 +4379,30 @@ export interface components {
                 [key: string]: string;
             };
         };
+        UserOverview: {
+            email: string;
+            id: string;
+            /** @description as their dashboard has it */
+            stats: components["schemas"]["WorkflowsOverview"];
+        };
         UserPage: {
             /** @description NextCursor is absent on the last page. */
             nextCursor?: string;
             users: components["schemas"]["User"][];
+        };
+        UserTotals: {
+            active: number;
+            day: components["schemas"]["RunCounts"];
+            disabled: boolean;
+            email: string;
+            id: string;
+            live: components["schemas"]["StatsTotals"];
+            paper: components["schemas"]["StatsTotals"];
+            /** @enum {string} */
+            role: "admin" | "user";
+            week: components["schemas"]["RunCounts"];
+            /** @description all they have */
+            workflows: number;
         };
         Verified: {
             /** @description Email is the account's address, now verified, for the sign-in form. */
@@ -4301,6 +4493,36 @@ export interface components {
         WorkflowProblems: {
             /** @description Problems are what saving the workflow as it is would refuse; empty when none. */
             problems: components["schemas"]["Problem"][];
+        };
+        WorkflowStats: {
+            active: boolean;
+            /**
+             * @description High and Low are its highest and lowest profit in that mode, with when, as sampled
+             *     and as it stands now; on paper since its account's last reset (D430). With Trading.
+             */
+            high?: components["schemas"]["PnLExtreme"];
+            id: string;
+            low?: components["schemas"]["PnLExtreme"];
+            name: string;
+            runs: components["schemas"]["RunStats"];
+            /** @description Trading is what it made in the mode it trades in now; absent until it has traded in it. */
+            trading?: components["schemas"]["TradingResult"];
+        };
+        WorkflowsOverview: {
+            /** Format: date-time */
+            at: string;
+            /** @description Day and Week are all their runs, started in the last day and the last week. */
+            day: components["schemas"]["RunCounts"];
+            live: components["schemas"]["StatsTotals"];
+            /** @description Paper and Live add up the workflows trading in each mode, never one into the other. */
+            paper: components["schemas"]["StatsTotals"];
+            /**
+             * @description Traders are what copying each trader came to across the workflows, in each mode,
+             *     the most profitable first, copied from no one last.
+             */
+            traders: components["schemas"]["TraderResult"][];
+            week: components["schemas"]["RunCounts"];
+            workflows: components["schemas"]["WorkflowStats"][];
         };
         "httpapi.oauthRegistrationDTO": {
             client_id: string;
@@ -5927,6 +6149,94 @@ export interface operations {
             };
             /** @description forbidden */
             403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    getInstanceStats: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InstanceStats"];
+                };
+            };
+            /** @description unauthenticated */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description not an admin */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    getUserStats: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description the user's ID */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UserOverview"];
+                };
+            };
+            /** @description unauthenticated */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description not an admin */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description no such user */
+            404: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -8132,6 +8442,47 @@ export interface operations {
             };
             /** @description conflict: refused, expired or confirmed already */
             409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    setDashboard: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description The parts you hid */
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["Dashboard"];
+            };
+        };
+        responses: {
+            /** @description No Content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description not a part of the dashboard */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description unauthenticated */
+            401: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -10392,6 +10743,35 @@ export interface operations {
             };
             /** @description conflict: the pinned workflows changed; read them again */
             409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    getWorkflowsStats: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WorkflowsOverview"];
+                };
+            };
+            /** @description unauthenticated */
+            401: {
                 headers: {
                     [name: string]: unknown;
                 };

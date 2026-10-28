@@ -39,6 +39,8 @@ type UserRepository interface {
 	SetAskInAgent(ctx context.Context, id domain.UserID, on bool) error
 	// SetShortcuts records the keys the user set for the editor's shortcuts (D420).
 	SetShortcuts(ctx context.Context, id domain.UserID, keys map[string]string) error
+	// SetDashboard records how the user set the workflows' dashboard (D429).
+	SetDashboard(ctx context.Context, id domain.UserID, d domain.Dashboard) error
 	List(ctx context.Context, f PageFilter) (Page[domain.User], error)
 	CountActiveAdmins(ctx context.Context) (int, error)
 	// LockActiveAdmins locks the active admins' rows until the surrounding transaction

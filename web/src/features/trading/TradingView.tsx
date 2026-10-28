@@ -24,16 +24,11 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import { actorSays } from '@/lib/actors'
-import {
-  formatDateTime,
-  formatDollars,
-  formatProfit,
-  formatShares,
-  shortAddress,
-} from '@/lib/format'
+import { formatDateTime, formatDollars, formatShares, shortAddress } from '@/lib/format'
 
 import { HowItTrades } from './HowItTrades'
 import { orderText, resultText, traderName } from './orderText'
+import { Profit } from './Profit'
 
 type Summary = Schemas['TradingSummary']
 type Order = Schemas['Order']
@@ -267,22 +262,6 @@ function Figure({ label, value }: { label: string; value: React.ReactNode }) {
       <span className="text-xs text-muted-foreground">{label}</span>
       <span className="text-xl font-medium tabular-nums">{value}</span>
     </div>
-  )
-}
-
-function Profit({ text }: { text: string }) {
-  const n = Number(text)
-
-  return (
-    <span
-      className={cn(
-        'tabular-nums',
-        n > 0 && 'text-emerald-600 dark:text-emerald-400',
-        n < 0 && 'text-destructive',
-      )}
-    >
-      {formatProfit(text)}
-    </span>
   )
 }
 

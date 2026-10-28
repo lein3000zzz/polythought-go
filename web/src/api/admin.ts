@@ -121,3 +121,22 @@ export function useDenyJoin() {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: keys.joinRequests }),
   })
 }
+
+/** How every user's workflows are doing (D431), asked again each minute. */
+export function useInstanceStats() {
+  return useQuery({
+    queryKey: keys.instanceStats,
+    queryFn: () => call(api.GET('/admin/stats')),
+    refetchInterval: 60_000,
+  })
+}
+
+/** How one user's workflows are doing, as their dashboard has it (D431). */
+export function useUserStats(id: string) {
+  return useQuery({
+    queryKey: keys.userStats(id),
+    queryFn: () => call(api.GET('/admin/stats/users/{id}', { params: { path: { id } } })),
+    refetchInterval: 60_000,
+    retry: false,
+  })
+}
