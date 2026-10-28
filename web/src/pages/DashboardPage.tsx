@@ -1,5 +1,5 @@
 import { ArrowLeft, SlidersHorizontal } from 'lucide-react'
-import { Link, useSearchParams } from 'react-router'
+import { Link } from 'react-router'
 import { toast } from 'sonner'
 
 import { useMe, useSetDashboard } from '@/api/auth'
@@ -15,12 +15,12 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { Skeleton } from '@/components/ui/skeleton'
+import { useMode } from '@/features/dashboard/mode'
+import { ModeToggle } from '@/features/dashboard/ModeToggle'
 import { Totals } from '@/features/dashboard/Totals'
 import { TradersTable } from '@/features/dashboard/TradersTable'
 import { WorkflowsTable } from '@/features/dashboard/WorkflowsTable'
 import { formatDateTime } from '@/lib/format'
-
-type Mode = 'paper' | 'live'
 
 /** The dashboard's parts, by the names the hidden ones are kept under (D429). */
 const parts = [
@@ -28,8 +28,6 @@ const parts = [
   { name: 'workflows', label: 'Workflows' },
   { name: 'traders', label: 'Traders' },
 ] as const
-
-const modeLabels: Record<Mode, string> = { paper: 'Paper', live: 'Live' }
 
 /**
  * How all your workflows are doing (D429), from the Workflows page: totals, every workflow,
@@ -40,13 +38,9 @@ export function DashboardPage() {
   const stats = useWorkflowStats()
   const me = useMe()
   const setDashboard = useSetDashboard()
-  const [params, setParams] = useSearchParams()
 
   const s = stats.data
-  const asked = params.get('mode')
-  // Live where anything trades live, unless the page says otherwise.
-  const mode: Mode =
-    asked === 'paper' || asked === 'live' ? asked : s && s.live.workflows > 0 ? 'live' : 'paper'
+  const [mode, setMode] = useMode(!!s && s.live.workflows > 0)
   const hidden = me.data?.dashboard?.hidden ?? []
   const shows = (part: string) => !hidden.includes(part)
 
@@ -68,19 +62,7 @@ export function DashboardPage() {
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
-          <div role="group" aria-label="Mode" className="flex gap-1">
-            {(Object.keys(modeLabels) as Mode[]).map((m) => (
-              <Button
-                key={m}
-                size="sm"
-                variant={mode === m ? 'secondary' : 'ghost'}
-                aria-pressed={mode === m}
-                onClick={() => setParams({ mode: m }, { replace: true })}
-              >
-                {modeLabels[m]}
-              </Button>
-            ))}
-          </div>
+          <ModeToggle mode={mode} onChange={setMode} />
 
           <DropdownMenu>
             <DropdownMenuTrigger asChild>

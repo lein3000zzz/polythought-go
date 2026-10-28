@@ -527,6 +527,8 @@ func (s *Server) routes() {
 	admin.PATCH("/users/:id", s.updateUser)
 	admin.POST("/users/:id/verification", s.sendVerificationLink)
 	admin.GET("/users/:id/agent-spend", s.userAgentSpend)
+	admin.GET("/stats", s.hasStats, s.instanceStats)
+	admin.GET("/stats/users/:id", s.hasStats, s.userStats)
 	admin.GET("/invites", s.listInvites)
 	admin.POST("/invites", s.createInvite)
 	admin.POST("/invites/check", s.checkInviteCode)

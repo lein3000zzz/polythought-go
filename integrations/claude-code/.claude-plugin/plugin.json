@@ -1,6 +1,6 @@
 {
   "name": "polythought",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "Work with your Polythought instance: build and run workflows, research markets, trade on paper and live, take your workflows' tasks, and an admin's work.",
   "author": {
     "name": "lein3000zzz",

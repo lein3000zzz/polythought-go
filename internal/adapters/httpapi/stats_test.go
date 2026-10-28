@@ -91,3 +91,81 @@ func TestWorkflowsStats(t *testing.T) {
 		assert.Equal(t, http.StatusOK, w.Code, w.Body.String())
 	})
 }
+
+func TestInstanceStats(t *testing.T) {
+	at := time.Date(2026, 10, 28, 12, 0, 0, 0, time.UTC)
+	zero := `{"workflows":0,"profit":"0","realized":"0","unrealized":"0","positions":0,"unpriced":0,"volume":"0","orders":0,"wins":0,"closed":0}`
+
+	t.Run("every user's, added up", func(t *testing.T) {
+		authSvc := httpapimocks.NewMockAuthService(t)
+		withSession(authSvc, root)
+
+		svc := httpapimocks.NewMockStatsService(t)
+		svc.EXPECT().Instance(mock.Anything, mock.MatchedBy(func(p auth.Principal) bool { return p.User.ID == root.ID })).Return(stats.Instance{
+			Users: []stats.UserTotals{{
+				User: alice, Workflows: 3, Active: 2, Paper: stats.Totals{Workflows: 1, Profit: decimal.RequireFromString("12.4")},
+				Day: domain.RunCounts{Runs: 4, Failed: 1}, Week: domain.RunCounts{Runs: 30, Failed: 2},
+			}},
+			Paper: stats.Totals{Workflows: 1, Profit: decimal.RequireFromString("12.4")},
+			Day:   domain.RunCounts{Runs: 4, Failed: 1}, Week: domain.RunCounts{Runs: 30, Failed: 2}, At: at,
+		}, nil)
+
+		srv, err := httpapi.New(httpapi.Config{PublicURL: publicURL}, observability.NoopUtility(), httpapi.Services{Auth: authSvc, Stats: svc})
+		require.NoError(t, err)
+
+		w := request{method: "GET", path: "/api/v1/admin/stats", headers: cookie}.do(t, srv)
+		require.Equal(t, http.StatusOK, w.Code, w.Body.String())
+
+		paper := `{"workflows":1,"profit":"12.4","realized":"0","unrealized":"0","positions":0,"unpriced":0,"volume":"0","orders":0,"wins":0,"closed":0}`
+		assert.JSONEq(t, `{
+			"users":[{"id":"u-1","email":"alice@example.com","role":"user","disabled":false,"workflows":3,"active":2,
+				"paper":`+paper+`,"live":`+zero+`,"day":{"runs":4,"failed":1},"week":{"runs":30,"failed":2}}],
+			"paper":`+paper+`,"live":`+zero+`,
+			"day":{"runs":4,"failed":1},"week":{"runs":30,"failed":2},"at":"2026-10-28T12:00:00Z"
+		}`, w.Body.String())
+	})
+
+	t.Run("one user's, as their dashboard has it", func(t *testing.T) {
+		authSvc := httpapimocks.NewMockAuthService(t)
+		withSession(authSvc, root)
+
+		svc := httpapimocks.NewMockStatsService(t)
+		svc.EXPECT().OverviewOf(mock.Anything, mock.Anything, alice.ID).Return(alice, stats.Overview{
+			Workflows: []stats.Workflow{{ID: "wf-1", Name: "copy Alice", Runs: domain.RunStats{WorkflowID: "wf-1"}}}, At: at,
+		}, nil)
+
+		srv, err := httpapi.New(httpapi.Config{PublicURL: publicURL}, observability.NoopUtility(), httpapi.Services{Auth: authSvc, Stats: svc})
+		require.NoError(t, err)
+
+		w := request{method: "GET", path: "/api/v1/admin/stats/users/u-1", headers: cookie}.do(t, srv)
+		require.Equal(t, http.StatusOK, w.Code, w.Body.String())
+		assert.JSONEq(t, `{"id":"u-1","email":"alice@example.com","stats":{
+			"workflows":[{"id":"wf-1","name":"copy Alice","active":false,"runs":{"day":{"runs":0,"failed":0},"week":{"runs":0,"failed":0}}}],
+			"traders":[],"paper":`+zero+`,"live":`+zero+`,"day":{"runs":0,"failed":0},"week":{"runs":0,"failed":0},"at":"2026-10-28T12:00:00Z"
+		}}`, w.Body.String())
+	})
+
+	t.Run("not for users, nor for tokens without admin", func(t *testing.T) {
+		authSvc := httpapimocks.NewMockAuthService(t)
+		withSession(authSvc, alice)
+
+		svc := httpapimocks.NewMockStatsService(t)
+		svc.EXPECT().Instance(mock.Anything, mock.Anything).Return(stats.Instance{}, domain.ErrForbidden)
+
+		srv, err := httpapi.New(httpapi.Config{PublicURL: publicURL}, observability.NoopUtility(), httpapi.Services{Auth: authSvc, Stats: svc})
+		require.NoError(t, err)
+
+		w := request{method: "GET", path: "/api/v1/admin/stats", headers: cookie}.do(t, srv)
+		assert.Equal(t, http.StatusForbidden, w.Code, w.Body.String())
+
+		tokenAuth := httpapimocks.NewMockAuthService(t)
+		scoped(tokenAuth, root, domain.ScopeRead)
+
+		srv, err = httpapi.New(httpapi.Config{PublicURL: publicURL}, observability.NoopUtility(),
+			httpapi.Services{Auth: tokenAuth, Stats: httpapimocks.NewMockStatsService(t)})
+		require.NoError(t, err)
+
+		w = request{method: "GET", path: "/api/v1/admin/stats", headers: bearer}.do(t, srv)
+		assert.Equal(t, http.StatusForbidden, w.Code, "read is not admin: "+w.Body.String())
+	})
+}

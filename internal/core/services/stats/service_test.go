@@ -3,6 +3,7 @@ package stats_test
 import (
 	"context"
 	"errors"
+	"sync"
 	"testing"
 	"time"
 
@@ -45,10 +46,15 @@ func (w workflows) List(_ context.Context, owner domain.UserID, f ports.Workflow
 	return page, nil
 }
 
-type runs struct{ day, week time.Time }
+type runs struct {
+	mu        sync.Mutex
+	day, week time.Time
+}
 
 func (r *runs) RunStats(_ context.Context, _ domain.UserID, day, week time.Time) ([]domain.RunStats, error) {
+	r.mu.Lock()
 	r.day, r.week = day, week
+	r.mu.Unlock()
 
 	return []domain.RunStats{
 		{WorkflowID: "wf-copy", Day: domain.RunCounts{Runs: 4, Failed: 1}, Week: domain.RunCounts{Runs: 30, Failed: 2},
@@ -214,4 +220,81 @@ func TestSampleEvery(t *testing.T) {
 		"wf-copy":  {WorkflowID: "wf-copy", Mode: domain.ModePaper, Since: reset, Profit: d("12.4"), At: now},
 		"wf-carol": {WorkflowID: "wf-carol", Mode: domain.ModeLive, Profit: d("-1"), At: now},
 	}, kept.recorded, "bob's failing spares carol; a position at its cost is no sample")
+}
+
+// users pages one at a time.
+type users []domain.User
+
+func (u users) List(_ context.Context, f ports.PageFilter) (ports.Page[domain.User], error) {
+	i := 0
+	if f.Cursor != "" {
+		i = int(f.Cursor[0] - '0')
+	}
+
+	page := ports.Page[domain.User]{Items: u[i : i+1]}
+	if i+1 < len(u) {
+		page.NextCursor = string(rune('0' + i + 1))
+	}
+
+	return page, nil
+}
+
+func (u users) ByID(_ context.Context, id domain.UserID) (domain.User, error) {
+	for _, x := range u {
+		if x.ID == id {
+			return x, nil
+		}
+	}
+
+	return domain.User{}, domain.ErrNotFound
+}
+
+func TestInstance(t *testing.T) {
+	root := auth.Principal{User: domain.User{ID: "root", Role: domain.RoleAdmin}}
+	svc := stats.New(stats.Deps{
+		Workflows: workflows{
+			{ID: "wf-copy", Name: "copy Alice", Active: true},
+			{ID: "wf-alert", Name: "Alert"},
+			{ID: "wf-live", Name: "live one", Active: true},
+		},
+		Runs: &runs{},
+		Trading: results{
+			"wf-copy": {Mode: domain.ModePaper, Profit: d("12.40"), Orders: 7},
+			"wf-live": {Mode: domain.ModeLive, Profit: d("1.25"), Unpriced: 1},
+		},
+		Users: users{alice.User, {ID: "bob", Email: "bob@example.com"}},
+		Now:   func() time.Time { return now },
+	})
+
+	_, err := svc.Instance(context.Background(), alice)
+	require.ErrorIs(t, err, domain.ErrForbidden, "admins alone")
+
+	_, _, err = svc.OverviewOf(context.Background(), alice, "alice")
+	require.ErrorIs(t, err, domain.ErrForbidden)
+
+	in, err := svc.Instance(context.Background(), root)
+	require.NoError(t, err)
+
+	require.Len(t, in.Users, 1, "bob has no workflows")
+	a := in.Users[0]
+	assert.Equal(t, domain.UserID("alice"), a.User.ID)
+	assert.Equal(t, 3, a.Workflows)
+	assert.Equal(t, 2, a.Active)
+	assert.Equal(t, "12.4", a.Paper.Profit.String())
+	assert.Equal(t, 1, a.Live.Unpriced)
+	assert.Equal(t, domain.RunCounts{Runs: 6, Failed: 1}, a.Day)
+
+	assert.Equal(t, 1, in.Paper.Workflows)
+	assert.Equal(t, 7, in.Paper.Orders)
+	assert.Equal(t, "1.25", in.Live.Profit.String(), "live apart")
+	assert.Equal(t, domain.RunCounts{Runs: 39, Failed: 2}, in.Week)
+	assert.Equal(t, now, in.At)
+
+	u, o, err := svc.OverviewOf(context.Background(), root, "alice")
+	require.NoError(t, err)
+	assert.Equal(t, domain.UserID("alice"), u.ID)
+	assert.Len(t, o.Workflows, 3, "as her dashboard has it")
+
+	_, _, err = svc.OverviewOf(context.Background(), root, "nobody")
+	require.ErrorIs(t, err, domain.ErrNotFound)
 }

@@ -93,6 +93,7 @@ type Deps struct {
 	Trading   Trading
 	Extremes  ports.PnLExtremes
 	Owners    Owners
+	Users     Users // nil: no admin's view
 	Logger    logging.Logger
 	Now       func() time.Time // nil: the clock
 }
@@ -117,7 +118,11 @@ func New(d Deps) *Service {
 
 // Overview is how the principal's workflows are doing.
 func (s *Service) Overview(ctx context.Context, p auth.Principal) (Overview, error) {
-	owner, now := p.User.ID, s.d.Now()
+	return s.overview(ctx, p.User.ID)
+}
+
+func (s *Service) overview(ctx context.Context, owner domain.UserID) (Overview, error) {
+	now := s.d.Now()
 
 	var workflows []domain.Workflow
 

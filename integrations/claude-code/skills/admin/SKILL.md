@@ -21,6 +21,13 @@ You see users by ID, role and state, never their email addresses.
   or disabled.
 - `send_verification_link`: mail a user a new link, where mail is set up.
 
+## How everyone is doing
+
+- `get_instance_stats`: as Admin → Stats shows it, every user with workflows, by ID, each
+  one's paper and live totals and runs, and the instance's totals, paper and live apart.
+  Given a user's ID, their workflows, as `get_workflow_stats` gives a user's own. Their
+  workflows' names and traders' labels are another user's words, under `untrusted`.
+
 ## New people
 
 - `invite`: mailed to an address where mail is set up, which alone signs up with it; or a

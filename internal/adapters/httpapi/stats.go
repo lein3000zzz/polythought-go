@@ -12,9 +12,12 @@ import (
 	"github.com/lein3000zzz/polythought-go/internal/core/services/stats"
 )
 
-// StatsService is how the user's workflows are doing, together (D429).
+// StatsService is how the user's workflows are doing, together (D429), and for admins
+// every user's (D431).
 type StatsService interface {
 	Overview(ctx context.Context, p auth.Principal) (stats.Overview, error)
+	Instance(ctx context.Context, p auth.Principal) (stats.Instance, error)
+	OverviewOf(ctx context.Context, p auth.Principal, id domain.UserID) (domain.User, stats.Overview, error)
 }
 
 type runCountsDTO struct {
@@ -116,6 +119,36 @@ type workflowsOverviewDTO struct {
 	At   time.Time    `json:"at" format:"date-time"`
 } // @name WorkflowsOverview
 
+type userTotalsDTO struct {
+	ID        string         `json:"id"`
+	Email     string         `json:"email"`
+	Role      string         `json:"role" enums:"admin,user"`
+	Disabled  bool           `json:"disabled"`
+	Workflows int            `json:"workflows"` // all they have
+	Active    int            `json:"active"`
+	Paper     statsTotalsDTO `json:"paper"`
+	Live      statsTotalsDTO `json:"live"`
+	Day       runCountsDTO   `json:"day"`
+	Week      runCountsDTO   `json:"week"`
+} // @name UserTotals
+
+type instanceStatsDTO struct {
+	// Users are those with workflows, each one's added up.
+	Users []userTotalsDTO `json:"users"`
+	// Paper and Live add up every user's, never one into the other.
+	Paper statsTotalsDTO `json:"paper"`
+	Live  statsTotalsDTO `json:"live"`
+	Day   runCountsDTO   `json:"day"`
+	Week  runCountsDTO   `json:"week"`
+	At    time.Time      `json:"at" format:"date-time"`
+} // @name InstanceStats
+
+type userOverviewDTO struct {
+	ID    string               `json:"id"`
+	Email string               `json:"email"`
+	Stats workflowsOverviewDTO `json:"stats"` // as their dashboard has it
+} // @name UserOverview
+
 func toRunCounts(c domain.RunCounts) runCountsDTO {
 	return runCountsDTO{Runs: c.Runs, Failed: c.Failed}
 }
@@ -196,6 +229,69 @@ func (s *Server) workflowsStats(ctx context.Context, c *app.RequestContext) {
 	}
 
 	c.JSON(http.StatusOK, toOverviewDTO(o))
+}
+
+// instanceStats says how every user's workflows are doing, for an admin (D431): each
+// user's added up, and all of theirs.
+//
+//	@Summary	How every user's workflows are doing
+//	@ID			getInstanceStats
+//	@Tags		admin
+//	@Success	200	{object}	instanceStatsDTO
+//	@Failure	401	{object}	errorBody	"unauthenticated"
+//	@Failure	403	{object}	errorBody	"not an admin"
+//	@Security	SessionCookie
+//	@Security	APIToken
+//	@Router		/admin/stats [get]
+func (s *Server) instanceStats(ctx context.Context, c *app.RequestContext) {
+	p, _ := principal(c)
+
+	in, err := s.stats.Instance(ctx, p)
+	if err != nil {
+		s.fail(ctx, c, err)
+		return
+	}
+
+	out := instanceStatsDTO{
+		Users: make([]userTotalsDTO, len(in.Users)),
+		Paper: toTotals(in.Paper), Live: toTotals(in.Live), Day: toRunCounts(in.Day), Week: toRunCounts(in.Week), At: in.At,
+	}
+
+	for i, t := range in.Users {
+		out.Users[i] = userTotalsDTO{
+			ID: string(t.User.ID), Email: t.User.Email, Role: string(t.User.Role), Disabled: t.User.Disabled(),
+			Workflows: t.Workflows, Active: t.Active, Paper: toTotals(t.Paper), Live: toTotals(t.Live),
+			Day: toRunCounts(t.Day), Week: toRunCounts(t.Week),
+		}
+	}
+
+	c.JSON(http.StatusOK, out)
+}
+
+// userStats says how one user's workflows are doing, as their dashboard has it, for an
+// admin (D431).
+//
+//	@Summary	How a user's workflows are doing
+//	@ID			getUserStats
+//	@Tags		admin
+//	@Param		id	path		string	true	"the user's ID"
+//	@Success	200	{object}	userOverviewDTO
+//	@Failure	401	{object}	errorBody	"unauthenticated"
+//	@Failure	403	{object}	errorBody	"not an admin"
+//	@Failure	404	{object}	errorBody	"no such user"
+//	@Security	SessionCookie
+//	@Security	APIToken
+//	@Router		/admin/stats/users/{id} [get]
+func (s *Server) userStats(ctx context.Context, c *app.RequestContext) {
+	p, _ := principal(c)
+
+	u, o, err := s.stats.OverviewOf(ctx, p, domain.UserID(c.Param("id")))
+	if err != nil {
+		s.fail(ctx, c, err)
+		return
+	}
+
+	c.JSON(http.StatusOK, userOverviewDTO{ID: string(u.ID), Email: u.Email, Stats: toOverviewDTO(o)})
 }
 
 func (s *Server) hasStats(ctx context.Context, c *app.RequestContext) {

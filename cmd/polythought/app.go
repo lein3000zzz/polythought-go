@@ -1055,10 +1055,10 @@ func (a *app) initEngine(ctx context.Context, pmc polymarket) error {
 	})
 
 	// How the workflows are doing together, for their cards, the dashboard and agents
-	// (D429), each its highest and lowest sampled (D430).
+	// (D429), each its highest and lowest sampled (D430); every user's, for admins (D431).
 	a.stats = stats.New(stats.Deps{
 		Workflows: postgres.NewWorkflows(a.db), Runs: postgres.NewExecutions(a.db), Trading: a.trading,
-		Extremes: postgres.NewPnLExtremes(a.db), Owners: ledger, Logger: a.util.Logger,
+		Extremes: postgres.NewPnLExtremes(a.db), Owners: ledger, Users: postgres.NewUsers(a.db), Logger: a.util.Logger,
 	})
 
 	a.taskAgents = tasks.NewPresence(func() time.Duration { return a.settings.Current().Duration(config.KeyMCPTaskSeen) }, time.Now)

@@ -1,4 +1,4 @@
-import { createWorkflow, expect, test, unique } from './fixtures'
+import { admin, createWorkflow, expect, test, unique } from './fixtures'
 
 // Each card says how its workflow is doing (D429), as the server counts its runs.
 test('a card says its workflow ran, and failed where it did', async ({ page }) => {
@@ -54,4 +54,26 @@ test('the dashboard shows the parts asked, kept with the account (D429)', async 
   await page.getByRole('menuitemcheckbox', { name: 'Traders' }).click()
   await page.keyboard.press('Escape')
   await expect(page.getByRole('region', { name: 'Traders' })).toBeVisible()
+})
+
+test("an admin sees every user's workflows, and opens one user's (D431)", async ({ page }) => {
+  const name = unique('counted')
+  const id = await createWorkflow(page, name, [{ id: 'manual', type: 'trigger.manual' }])
+  expect((await page.request.post(`/api/v1/workflows/${id}/run`)).status()).toBe(200)
+
+  await page.goto('/admin')
+  await page
+    .getByRole('navigation', { name: 'Admin pages' })
+    .getByRole('link', { name: 'Stats' })
+    .click()
+  await expect(page).toHaveURL(/\/admin\/stats/)
+  await expect(page.getByRole('region', { name: 'Totals' })).toBeVisible()
+
+  const users = page.getByRole('table', { name: 'Users' })
+  await users.getByRole('link', { name: admin.email }).click()
+  await expect(page.getByRole('heading', { name: `${admin.email}'s workflows` })).toBeVisible()
+
+  const workflows = page.getByRole('table', { name: 'Workflows' })
+  await expect(workflows.getByText(name, { exact: true })).toBeVisible()
+  await expect(workflows.getByRole('link', { name })).toHaveCount(0)
 })

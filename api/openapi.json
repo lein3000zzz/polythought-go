@@ -1872,6 +1872,44 @@
                 ],
                 "type": "object"
             },
+            "InstanceStats": {
+                "properties": {
+                    "at": {
+                        "format": "date-time",
+                        "type": "string"
+                    },
+                    "day": {
+                        "$ref": "#/components/schemas/RunCounts"
+                    },
+                    "live": {
+                        "$ref": "#/components/schemas/StatsTotals"
+                    },
+                    "paper": {
+                        "$ref": "#/components/schemas/StatsTotals",
+                        "description": "Paper and Live add up every user's, never one into the other."
+                    },
+                    "users": {
+                        "description": "Users are those with workflows, each one's added up.",
+                        "items": {
+                            "$ref": "#/components/schemas/UserTotals"
+                        },
+                        "type": "array",
+                        "uniqueItems": false
+                    },
+                    "week": {
+                        "$ref": "#/components/schemas/RunCounts"
+                    }
+                },
+                "required": [
+                    "at",
+                    "day",
+                    "live",
+                    "paper",
+                    "users",
+                    "week"
+                ],
+                "type": "object"
+            },
             "Invite": {
                 "properties": {
                     "code": {
@@ -5432,6 +5470,26 @@
                 ],
                 "type": "object"
             },
+            "UserOverview": {
+                "properties": {
+                    "email": {
+                        "type": "string"
+                    },
+                    "id": {
+                        "type": "string"
+                    },
+                    "stats": {
+                        "$ref": "#/components/schemas/WorkflowsOverview",
+                        "description": "as their dashboard has it"
+                    }
+                },
+                "required": [
+                    "email",
+                    "id",
+                    "stats"
+                ],
+                "type": "object"
+            },
             "UserPage": {
                 "properties": {
                     "nextCursor": {
@@ -5448,6 +5506,58 @@
                 },
                 "required": [
                     "users"
+                ],
+                "type": "object"
+            },
+            "UserTotals": {
+                "properties": {
+                    "active": {
+                        "type": "integer"
+                    },
+                    "day": {
+                        "$ref": "#/components/schemas/RunCounts"
+                    },
+                    "disabled": {
+                        "type": "boolean"
+                    },
+                    "email": {
+                        "type": "string"
+                    },
+                    "id": {
+                        "type": "string"
+                    },
+                    "live": {
+                        "$ref": "#/components/schemas/StatsTotals"
+                    },
+                    "paper": {
+                        "$ref": "#/components/schemas/StatsTotals"
+                    },
+                    "role": {
+                        "enum": [
+                            "admin",
+                            "user"
+                        ],
+                        "type": "string"
+                    },
+                    "week": {
+                        "$ref": "#/components/schemas/RunCounts"
+                    },
+                    "workflows": {
+                        "description": "all they have",
+                        "type": "integer"
+                    }
+                },
+                "required": [
+                    "active",
+                    "day",
+                    "disabled",
+                    "email",
+                    "id",
+                    "live",
+                    "paper",
+                    "role",
+                    "week",
+                    "workflows"
                 ],
                 "type": "object"
             },
@@ -8062,6 +8172,125 @@
                     }
                 ],
                 "summary": "List changes to settings, newest first",
+                "tags": [
+                    "admin"
+                ]
+            }
+        },
+        "/admin/stats": {
+            "get": {
+                "operationId": "getInstanceStats",
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/InstanceStats"
+                                }
+                            }
+                        },
+                        "description": "OK"
+                    },
+                    "401": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "unauthenticated"
+                    },
+                    "403": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "not an admin"
+                    }
+                },
+                "security": [
+                    {
+                        "SessionCookie": []
+                    },
+                    {
+                        "APIToken": []
+                    }
+                ],
+                "summary": "How every user's workflows are doing",
+                "tags": [
+                    "admin"
+                ]
+            }
+        },
+        "/admin/stats/users/{id}": {
+            "get": {
+                "operationId": "getUserStats",
+                "parameters": [
+                    {
+                        "description": "the user's ID",
+                        "in": "path",
+                        "name": "id",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/UserOverview"
+                                }
+                            }
+                        },
+                        "description": "OK"
+                    },
+                    "401": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "unauthenticated"
+                    },
+                    "403": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "not an admin"
+                    },
+                    "404": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "no such user"
+                    }
+                },
+                "security": [
+                    {
+                        "SessionCookie": []
+                    },
+                    {
+                        "APIToken": []
+                    }
+                ],
+                "summary": "How a user's workflows are doing",
                 "tags": [
                     "admin"
                 ]

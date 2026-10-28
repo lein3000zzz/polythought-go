@@ -10,14 +10,18 @@ import (
 	"github.com/lein3000zzz/polythought-go/internal/core/domain"
 	"github.com/lein3000zzz/polythought-go/internal/core/services/auth"
 	"github.com/lein3000zzz/polythought-go/internal/core/services/stats"
+	"github.com/lein3000zzz/polythought-go/internal/core/services/trading"
 )
 
 // The tool that says how the user's workflows are doing, together (D429), as the workflow
 // cards and the dashboard do.
 
-// Stats is how the user's workflows are doing: the stats service.
+// Stats is how the user's workflows are doing, and for an admin every user's (D431): the
+// stats service.
 type Stats interface {
 	Overview(ctx context.Context, p auth.Principal) (stats.Overview, error)
+	Instance(ctx context.Context, p auth.Principal) (stats.Instance, error)
+	OverviewOf(ctx context.Context, p auth.Principal, id domain.UserID) (domain.User, stats.Overview, error)
 }
 
 type statsIn struct {
@@ -56,15 +60,16 @@ type extremeOut struct {
 }
 
 type workflowStatsOut struct {
-	ID      string       `json:"id"`
-	Name    string       `json:"name"`
-	Active  bool         `json:"active"`
-	Trading *resultOut   `json:"trading,omitempty" jsonschema:"what it made; absent until it traded in the mode it trades in now"`
-	High    *extremeOut  `json:"high,omitempty" jsonschema:"its highest profit in that mode, on paper since the account's last reset; with trading"`
-	Low     *extremeOut  `json:"low,omitempty" jsonschema:"its lowest, likewise"`
-	Day     runCountsOut `json:"runsDay" jsonschema:"its runs started in the last day, by hand too, and of them those that failed"`
-	Week    runCountsOut `json:"runsWeek" jsonschema:"in the last week"`
-	Last    *lastRunOut  `json:"lastRun,omitempty" jsonschema:"its latest run; absent when none is kept"`
+	ID        string       `json:"id"`
+	Name      string       `json:"name,omitempty" jsonschema:"absent for another user's: under untrusted"`
+	Untrusted Untrusted    `json:"untrusted,omitempty" jsonschema:"name: another user's workflow's, as they gave it"`
+	Active    bool         `json:"active"`
+	Trading   *resultOut   `json:"trading,omitempty" jsonschema:"what it made; absent until it traded in the mode it trades in now"`
+	High      *extremeOut  `json:"high,omitempty" jsonschema:"its highest profit in that mode, on paper since the account's last reset; with trading"`
+	Low       *extremeOut  `json:"low,omitempty" jsonschema:"its lowest, likewise"`
+	Day       runCountsOut `json:"runsDay" jsonschema:"its runs started in the last day, by hand too, and of them those that failed"`
+	Week      runCountsOut `json:"runsWeek" jsonschema:"in the last week"`
+	Last      *lastRunOut  `json:"lastRun,omitempty" jsonschema:"its latest run; absent when none is kept"`
 }
 
 type totalsOut struct {
@@ -107,6 +112,36 @@ type statsOut struct {
 	At        time.Time          `json:"at"`
 }
 
+type instanceIn struct {
+	User string `json:"user,omitempty" jsonschema:"a user's ID, as list_users gives it: their workflows, as get_workflow_stats gives a user's own"`
+	page
+}
+
+type userStatsOut struct {
+	ID        string       `json:"id"`
+	Role      string       `json:"role"`
+	Disabled  bool         `json:"disabled,omitempty"`
+	Workflows int          `json:"workflows" jsonschema:"all they have"`
+	Active    int          `json:"active"`
+	Paper     totalsOut    `json:"paper"`
+	Live      totalsOut    `json:"live"`
+	Day       runCountsOut `json:"runsDay"`
+	Week      runCountsOut `json:"runsWeek"`
+}
+
+type instanceOut struct {
+	Users     []userStatsOut     `json:"users,omitempty" jsonschema:"those with workflows, each one's added up, by ID; never their emails"`
+	Workflows []workflowStatsOut `json:"workflows,omitempty" jsonschema:"the user's asked for, by name"`
+	Traders   []traderStatsOut   `json:"traders,omitempty" jsonschema:"the user's asked for, on the first page, as get_workflow_stats gives them"`
+	Notice    string             `json:"notice,omitempty"`
+	Next      string             `json:"next,omitempty" jsonschema:"the cursor for the page after; absent at the end"`
+	Paper     totalsOut          `json:"paper" jsonschema:"every user's trading on paper, or the user's asked for; never added to live"`
+	Live      totalsOut          `json:"live"`
+	Day       runCountsOut       `json:"runsDay"`
+	Week      runCountsOut       `json:"runsWeek"`
+	At        time.Time          `json:"at"`
+}
+
 func (s *Server) addStatsTools(srv *mcp.Server) {
 	add(s, srv, Tool[statsIn, statsOut]{
 		Name: "get_workflow_stats", Title: "Get how the workflows are doing", Scope: domain.ScopeRead, ReadOnly: true,
@@ -118,6 +153,103 @@ func (s *Server) addStatsTools(srv *mcp.Server) {
 			"A page of workflows at a time, by name; or one workflow by its ID. Traders' labels are under untrusted.",
 		Handle: s.getWorkflowStats,
 	})
+
+	add(s, srv, Tool[instanceIn, instanceOut]{
+		Name: "get_instance_stats", Title: "Get how every user's workflows are doing", Scope: domain.ScopeAdmin, ReadOnly: true,
+		Description: "For an admin, as Admin → Stats shows it: every user with workflows, by ID, never their emails, each " +
+			"one's paper and live totals and runs in the last day and week, a page at a time; and the instance's totals, " +
+			"paper and live apart. Given a user's ID, their workflows instead, as get_workflow_stats gives a user's own; " +
+			"their workflows' names and traders' labels are under untrusted.",
+		Handle: s.getInstanceStats,
+	})
+}
+
+func (s *Server) getInstanceStats(ctx context.Context, p auth.Principal, in instanceIn) (instanceOut, error) {
+	if in.User != "" {
+		_, o, err := s.stats.OverviewOf(ctx, p, domain.UserID(in.User))
+		if err != nil {
+			return instanceOut{}, err
+		}
+
+		out := instanceOut{
+			Workflows: []workflowStatsOut{},
+			Paper:     totalsOf(o.Paper), Live: totalsOf(o.Live),
+			Day: runCountsOut(o.Day), Week: runCountsOut(o.Week), At: o.At,
+		}
+
+		if in.Cursor == "" {
+			out.Traders = tradersOf(o.Traders)
+		}
+
+		list, next := pageOf(o.Workflows, in.page)
+		for _, w := range list {
+			ws := workflowStatsOf(w)
+			ws.Name, ws.Untrusted = "", Untrusted{"name": w.Name}
+			out.Workflows = append(out.Workflows, ws)
+		}
+
+		out.Next = next
+		if len(out.Workflows) > 0 || len(out.Traders) > 0 {
+			out.Notice = Notice
+		}
+
+		return out, nil
+	}
+
+	all, err := s.stats.Instance(ctx, p)
+	if err != nil {
+		return instanceOut{}, err
+	}
+
+	out := instanceOut{
+		Users: []userStatsOut{},
+		Paper: totalsOf(all.Paper), Live: totalsOf(all.Live),
+		Day: runCountsOut(all.Day), Week: runCountsOut(all.Week), At: all.At,
+	}
+
+	list, next := pageOf(all.Users, in.page)
+	for _, t := range list {
+		out.Users = append(out.Users, userStatsOut{
+			ID: string(t.User.ID), Role: string(t.User.Role), Disabled: t.User.Disabled(), Workflows: t.Workflows, Active: t.Active,
+			Paper: totalsOf(t.Paper), Live: totalsOf(t.Live), Day: runCountsOut(t.Day), Week: runCountsOut(t.Week),
+		})
+	}
+
+	out.Next = next
+
+	return out, nil
+}
+
+// pageOf is the page of a list in memory the cursor asks for, and the cursor after it.
+func pageOf[T any](list []T, in page) ([]T, string) {
+	from, limit := min(in.offset(), len(list)), in.filter().Limit
+	to := min(from+limit, len(list))
+
+	if to < len(list) {
+		return list[from:to], strconv.Itoa(to)
+	}
+
+	return list[from:to], ""
+}
+
+// tradersOf are the most profitable of them, their labels under untrusted.
+func tradersOf(traders []trading.TraderResult) []traderStatsOut {
+	var out []traderStatsOut
+
+	for _, t := range traders[:min(len(traders), tradersShown)] {
+		tr := traderStatsOut{
+			Mode: string(t.Mode), Trader: string(t.Trader), Workflows: t.Workflows, Profit: t.Profit.String(),
+			Realized: t.Realized.String(), Positions: t.Positions, Volume: t.Volume.String(), Orders: t.Orders,
+			Wins: t.Wins, Closed: t.Closed,
+		}
+		if t.Label != "" {
+			tr.Untrusted = Untrusted{"label": t.Label}
+		}
+
+		out = append(out, tr)
+	}
+
+	return out
 }
 
 func (s *Server) getWorkflowStats(ctx context.Context, p auth.Principal, in statsIn) (statsOut, error) {
@@ -149,32 +281,15 @@ func (s *Server) getWorkflowStats(ctx context.Context, p auth.Principal, in stat
 	}
 
 	if in.Cursor == "" && in.Workflow == "" && len(o.Traders) > 0 {
-		for _, t := range o.Traders[:min(len(o.Traders), tradersShown)] {
-			tr := traderStatsOut{
-				Mode: string(t.Mode), Trader: string(t.Trader), Workflows: t.Workflows, Profit: t.Profit.String(),
-				Realized: t.Realized.String(), Positions: t.Positions, Volume: t.Volume.String(), Orders: t.Orders,
-				Wins: t.Wins, Closed: t.Closed,
-			}
-			if t.Label != "" {
-				tr.Untrusted = Untrusted{"label": t.Label}
-			}
-
-			out.Traders = append(out.Traders, tr)
-		}
-
-		out.Notice = Notice
+		out.Traders, out.Notice = tradersOf(o.Traders), Notice
 	}
 
-	from, limit := min(in.offset(), len(list)), in.filter().Limit
-	to := min(from+limit, len(list))
-
-	for _, w := range list[from:to] {
+	shown, next := pageOf(list, in.page)
+	for _, w := range shown {
 		out.Workflows = append(out.Workflows, workflowStatsOf(w))
 	}
 
-	if to < len(list) {
-		out.Next = strconv.Itoa(to)
-	}
+	out.Next = next
 
 	return out, nil
 }

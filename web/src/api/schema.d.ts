@@ -484,6 +484,40 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/admin/stats": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** How every user's workflows are doing */
+        get: operations["getInstanceStats"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/stats/users/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** How a user's workflows are doing */
+        get: operations["getUserStats"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/admin/updates": {
         parameters: {
             query?: never;
@@ -2976,6 +3010,17 @@ export interface components {
             /** @description Warning is for the admin who approves it, when no key they trust signed it (D280). */
             warning: string;
         };
+        InstanceStats: {
+            /** Format: date-time */
+            at: string;
+            day: components["schemas"]["RunCounts"];
+            live: components["schemas"]["StatsTotals"];
+            /** @description Paper and Live add up every user's, never one into the other. */
+            paper: components["schemas"]["StatsTotals"];
+            /** @description Users are those with workflows, each one's added up. */
+            users: components["schemas"]["UserTotals"][];
+            week: components["schemas"]["RunCounts"];
+        };
         Invite: {
             /** @description Code is the code to copy (D393); absent for an invite made before codes were kept. */
             code?: string;
@@ -4334,10 +4379,30 @@ export interface components {
                 [key: string]: string;
             };
         };
+        UserOverview: {
+            email: string;
+            id: string;
+            /** @description as their dashboard has it */
+            stats: components["schemas"]["WorkflowsOverview"];
+        };
         UserPage: {
             /** @description NextCursor is absent on the last page. */
             nextCursor?: string;
             users: components["schemas"]["User"][];
+        };
+        UserTotals: {
+            active: number;
+            day: components["schemas"]["RunCounts"];
+            disabled: boolean;
+            email: string;
+            id: string;
+            live: components["schemas"]["StatsTotals"];
+            paper: components["schemas"]["StatsTotals"];
+            /** @enum {string} */
+            role: "admin" | "user";
+            week: components["schemas"]["RunCounts"];
+            /** @description all they have */
+            workflows: number;
         };
         Verified: {
             /** @description Email is the account's address, now verified, for the sign-in form. */
@@ -6084,6 +6149,94 @@ export interface operations {
             };
             /** @description forbidden */
             403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    getInstanceStats: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InstanceStats"];
+                };
+            };
+            /** @description unauthenticated */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description not an admin */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    getUserStats: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description the user's ID */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UserOverview"];
+                };
+            };
+            /** @description unauthenticated */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description not an admin */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description no such user */
+            404: {
                 headers: {
                     [name: string]: unknown;
                 };

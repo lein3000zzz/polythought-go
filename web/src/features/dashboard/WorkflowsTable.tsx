@@ -5,8 +5,9 @@ import type { WorkflowStats } from '@/api/workflows'
 import { Badge } from '@/components/ui/badge'
 import { Table, TableBody, TableCell, TableHeader, TableRow } from '@/components/ui/table'
 import { Profit } from '@/features/trading/Profit'
-import { formatAgo, formatDateTime, formatDollars } from '@/lib/format'
+import { formatAgo, formatDateTime } from '@/lib/format'
 
+import { Count, Money, None } from './cells'
 import { type SortValue, sortRows, useSort, winRate } from './sort'
 import { SortHeader } from './SortHeader'
 
@@ -24,14 +25,15 @@ type Column =
   | 'failed'
   | 'last'
 
-type Props = { mode: 'paper' | 'live'; workflows: WorkflowStats[] }
+// linked: each name opens its workflow; not for another user's, which an admin sees (D431).
+type Props = { mode: 'paper' | 'live'; workflows: WorkflowStats[]; linked?: boolean }
 
 /**
  * Every workflow, its results in the mode shown where it trades in it, its highest and
  * lowest among them (D430), and its runs this week (D429), sorted as its heads are clicked:
  * the most profitable first to start with.
  */
-export function WorkflowsTable({ mode, workflows }: Props) {
+export function WorkflowsTable({ mode, workflows, linked = true }: Props) {
   const [sort, by] = useSort<Column>({ key: 'profit', dir: 'desc' }, ['name'])
 
   const value = (w: WorkflowStats, key: Column): SortValue => {
@@ -95,12 +97,16 @@ export function WorkflowsTable({ mode, workflows }: Props) {
                 <TableRow key={w.id}>
                   <TableCell className="max-w-64">
                     <div className="flex items-center gap-2">
-                      <Link
-                        to={t ? `/workflows/${w.id}?view=trading` : `/workflows/${w.id}`}
-                        className="truncate font-medium hover:underline"
-                      >
-                        {w.name}
-                      </Link>
+                      {linked ? (
+                        <Link
+                          to={t ? `/workflows/${w.id}?view=trading` : `/workflows/${w.id}`}
+                          className="truncate font-medium hover:underline"
+                        >
+                          {w.name}
+                        </Link>
+                      ) : (
+                        <span className="truncate font-medium">{w.name}</span>
+                      )}
                       {w.active && <Badge variant="secondary">Active</Badge>}
                     </div>
                   </TableCell>
@@ -144,14 +150,6 @@ export function WorkflowsTable({ mode, workflows }: Props) {
   )
 }
 
-function Money({ text, profit }: { text?: string; profit?: boolean }) {
-  return (
-    <TableCell className="text-right tabular-nums">
-      {text === undefined ? <None /> : profit ? <Profit text={text} /> : formatDollars(text)}
-    </TableCell>
-  )
-}
-
 /** A highest or a lowest profit (D430), and when it was. */
 function Extreme({ value }: { value?: Schemas['PnLExtreme'] }) {
   return (
@@ -168,16 +166,4 @@ function Extreme({ value }: { value?: Schemas['PnLExtreme'] }) {
       )}
     </TableCell>
   )
-}
-
-function Count({ value, suffix = '' }: { value?: number; suffix?: string }) {
-  return (
-    <TableCell className="text-right tabular-nums">
-      {value === undefined ? <None /> : `${value}${suffix}`}
-    </TableCell>
-  )
-}
-
-function None() {
-  return <span className="text-muted-foreground">—</span>
 }

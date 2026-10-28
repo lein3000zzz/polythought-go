@@ -7,6 +7,7 @@ package httpapimocks
 import (
 	"context"
 
+	"github.com/lein3000zzz/polythought-go/internal/core/domain"
 	"github.com/lein3000zzz/polythought-go/internal/core/services/auth"
 	"github.com/lein3000zzz/polythought-go/internal/core/services/stats"
 	mock "github.com/stretchr/testify/mock"
@@ -46,6 +47,72 @@ type MockStatsService_Expecter struct {
 
 func (_m *MockStatsService) EXPECT() *MockStatsService_Expecter {
 	return &MockStatsService_Expecter{mock: &_m.Mock}
+}
+
+// Instance provides a mock function for the type MockStatsService
+func (_mock *MockStatsService) Instance(ctx context.Context, p auth.Principal) (stats.Instance, error) {
+	ret := _mock.Called(ctx, p)
+
+	if len(ret) == 0 {
+		panic("no return value specified for Instance")
+	}
+
+	var r0 stats.Instance
+	var r1 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context, auth.Principal) (stats.Instance, error)); ok {
+		return returnFunc(ctx, p)
+	}
+	if returnFunc, ok := ret.Get(0).(func(context.Context, auth.Principal) stats.Instance); ok {
+		r0 = returnFunc(ctx, p)
+	} else {
+		r0 = ret.Get(0).(stats.Instance)
+	}
+	if returnFunc, ok := ret.Get(1).(func(context.Context, auth.Principal) error); ok {
+		r1 = returnFunc(ctx, p)
+	} else {
+		r1 = ret.Error(1)
+	}
+	return r0, r1
+}
+
+// MockStatsService_Instance_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'Instance'
+type MockStatsService_Instance_Call struct {
+	*mock.Call
+}
+
+// Instance is a helper method to define mock.On call
+//   - ctx context.Context
+//   - p auth.Principal
+func (_e *MockStatsService_Expecter) Instance(ctx any, p any) *MockStatsService_Instance_Call {
+	return &MockStatsService_Instance_Call{Call: _e.mock.On("Instance", ctx, p)}
+}
+
+func (_c *MockStatsService_Instance_Call) Run(run func(ctx context.Context, p auth.Principal)) *MockStatsService_Instance_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		var arg1 auth.Principal
+		if args[1] != nil {
+			arg1 = args[1].(auth.Principal)
+		}
+		run(
+			arg0,
+			arg1,
+		)
+	})
+	return _c
+}
+
+func (_c *MockStatsService_Instance_Call) Return(instance stats.Instance, err error) *MockStatsService_Instance_Call {
+	_c.Call.Return(instance, err)
+	return _c
+}
+
+func (_c *MockStatsService_Instance_Call) RunAndReturn(run func(ctx context.Context, p auth.Principal) (stats.Instance, error)) *MockStatsService_Instance_Call {
+	_c.Call.Return(run)
+	return _c
 }
 
 // Overview provides a mock function for the type MockStatsService
@@ -110,6 +177,84 @@ func (_c *MockStatsService_Overview_Call) Return(overview stats.Overview, err er
 }
 
 func (_c *MockStatsService_Overview_Call) RunAndReturn(run func(ctx context.Context, p auth.Principal) (stats.Overview, error)) *MockStatsService_Overview_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// OverviewOf provides a mock function for the type MockStatsService
+func (_mock *MockStatsService) OverviewOf(ctx context.Context, p auth.Principal, id domain.UserID) (domain.User, stats.Overview, error) {
+	ret := _mock.Called(ctx, p, id)
+
+	if len(ret) == 0 {
+		panic("no return value specified for OverviewOf")
+	}
+
+	var r0 domain.User
+	var r1 stats.Overview
+	var r2 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context, auth.Principal, domain.UserID) (domain.User, stats.Overview, error)); ok {
+		return returnFunc(ctx, p, id)
+	}
+	if returnFunc, ok := ret.Get(0).(func(context.Context, auth.Principal, domain.UserID) domain.User); ok {
+		r0 = returnFunc(ctx, p, id)
+	} else {
+		r0 = ret.Get(0).(domain.User)
+	}
+	if returnFunc, ok := ret.Get(1).(func(context.Context, auth.Principal, domain.UserID) stats.Overview); ok {
+		r1 = returnFunc(ctx, p, id)
+	} else {
+		r1 = ret.Get(1).(stats.Overview)
+	}
+	if returnFunc, ok := ret.Get(2).(func(context.Context, auth.Principal, domain.UserID) error); ok {
+		r2 = returnFunc(ctx, p, id)
+	} else {
+		r2 = ret.Error(2)
+	}
+	return r0, r1, r2
+}
+
+// MockStatsService_OverviewOf_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'OverviewOf'
+type MockStatsService_OverviewOf_Call struct {
+	*mock.Call
+}
+
+// OverviewOf is a helper method to define mock.On call
+//   - ctx context.Context
+//   - p auth.Principal
+//   - id domain.UserID
+func (_e *MockStatsService_Expecter) OverviewOf(ctx any, p any, id any) *MockStatsService_OverviewOf_Call {
+	return &MockStatsService_OverviewOf_Call{Call: _e.mock.On("OverviewOf", ctx, p, id)}
+}
+
+func (_c *MockStatsService_OverviewOf_Call) Run(run func(ctx context.Context, p auth.Principal, id domain.UserID)) *MockStatsService_OverviewOf_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		var arg1 auth.Principal
+		if args[1] != nil {
+			arg1 = args[1].(auth.Principal)
+		}
+		var arg2 domain.UserID
+		if args[2] != nil {
+			arg2 = args[2].(domain.UserID)
+		}
+		run(
+			arg0,
+			arg1,
+			arg2,
+		)
+	})
+	return _c
+}
+
+func (_c *MockStatsService_OverviewOf_Call) Return(user domain.User, overview stats.Overview, err error) *MockStatsService_OverviewOf_Call {
+	_c.Call.Return(user, overview, err)
+	return _c
+}
+
+func (_c *MockStatsService_OverviewOf_Call) RunAndReturn(run func(ctx context.Context, p auth.Principal, id domain.UserID) (domain.User, stats.Overview, error)) *MockStatsService_OverviewOf_Call {
 	_c.Call.Return(run)
 	return _c
 }

@@ -8,6 +8,8 @@ import { AdminConfigPage } from '@/pages/AdminConfigPage'
 import { AdminInvitesPage } from '@/pages/AdminInvitesPage'
 import { AdminPluginsPage } from '@/pages/AdminPluginsPage'
 import { AdminPage } from '@/pages/AdminPage'
+import { AdminStatsPage } from '@/pages/AdminStatsPage'
+import { AdminUserStatsPage } from '@/pages/AdminUserStatsPage'
 import { ConfirmationPage } from '@/pages/ConfirmationPage'
 import { CustomNodePage } from '@/pages/CustomNodePage'
 import { DashboardPage } from '@/pages/DashboardPage'
@@ -81,6 +83,8 @@ export const routes: RouteObject[] = [
             element: <AdminLayout />,
             children: [
               { index: true, element: <AdminPage /> },
+              { path: 'stats', element: <AdminStatsPage /> },
+              { path: 'stats/:id', element: <AdminUserStatsPage /> },
               { path: 'invites', element: <AdminInvitesPage /> },
               { path: 'config/:page?', element: <AdminConfigPage /> },
               { path: 'plugins', element: <AdminPluginsPage /> },
