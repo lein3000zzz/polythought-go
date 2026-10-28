@@ -67,7 +67,10 @@ type Config struct {
 	// that send to a service on the same machine or network. It is asked on every
 	// connection, so a change applies at once; nil means never.
 	AllowPrivate func() bool
-	Timeout      time.Duration
+	// Proxy is the outbound proxy posts to public addresses go through, asked on every
+	// connection as AllowPrivate is; empty, or nil, for none (D428).
+	Proxy   func() string
+	Timeout time.Duration
 }
 
 type Sender struct {
@@ -96,10 +99,10 @@ func New(util *observability.Utility, cfg Config) (*Sender, error) {
 		timeout = defaultTimeout
 	}
 
-	dialer := GuardedDialer(cfg.AllowPrivate)
+	dialer := GuardedDialer(cfg.AllowPrivate, cfg.Proxy)
 
 	transport := &http.Transport{
-		Proxy:                 nil, // a proxy would dial instead of us and hide the address
+		Proxy:                 nil, // the dialer goes through one, not the transport, which would hide the address
 		DialContext:           dialer.DialContext,
 		ForceAttemptHTTP2:     true,
 		TLSHandshakeTimeout:   5 * time.Second,
@@ -198,17 +201,25 @@ var carrierGradeNAT = netip.MustParsePrefix("100.64.0.0/10")
 // GuardedDialer dials public addresses only, checked as each connection is made, after
 // DNS, so a name cannot resolve its way inside (redirects included); allowPrivate, asked
 // on every connection, lets internal ones through too. For any request to an address a
-// user chose: webhooks, and OpenAI-compatible base URLs (phase 4).
-func GuardedDialer(allowPrivate func() bool) *net.Dialer {
-	return &net.Dialer{
-		Timeout: 5 * time.Second,
-		Control: func(network, address string, c syscall.RawConn) error {
-			if allowPrivate != nil && allowPrivate() {
-				return nil
-			}
+// user chose: webhooks, and OpenAI-compatible base URLs (phase 4). proxy, also asked on
+// every connection, names the outbound proxy public addresses go through, empty for none
+// (D428); either may be nil.
+func GuardedDialer(allowPrivate func() bool, proxy func() string) *Dialer {
+	return &Dialer{
+		direct: &net.Dialer{
+			Timeout: 5 * time.Second,
+			Control: func(network, address string, c syscall.RawConn) error {
+				if allowPrivate != nil && allowPrivate() {
+					return nil
+				}
 
-			return refuseInternal(network, address, c)
+				return refuseInternal(network, address, c)
+			},
 		},
+		allowPrivate: allowPrivate,
+		proxy:        proxy,
+		resolver:     net.DefaultResolver,
+		public:       public,
 	}
 }
 

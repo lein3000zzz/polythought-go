@@ -49,13 +49,13 @@ type fetchHeadersKey struct{}
 // internal ones, checked as each connection is made, after DNS; following redirects only
 // to hosts the plugin may fetch from, leaving its headers behind on another host.
 func (a *api) fetchClient() *http.Client {
-	dialer := webhook.GuardedDialer(a.deps.AllowPrivate)
+	dialer := webhook.GuardedDialer(a.deps.AllowPrivate, a.deps.Proxy)
 
 	return &http.Client{
 		// No otelhttp: its spans hold whole URLs, which may carry a token. The span of
 		// each fetch has its host.
 		Transport: &http.Transport{
-			Proxy:               nil, // a proxy would dial instead of us and hide the address
+			Proxy:               nil, // the dialer goes through one, not the transport, which would hide the address
 			DialContext:         dialer.DialContext,
 			ForceAttemptHTTP2:   true,
 			TLSHandshakeTimeout: 5 * time.Second,

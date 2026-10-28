@@ -100,6 +100,7 @@ const (
 
 	KeyTrustedProxies      = "http.trusted_proxies"
 	KeyWebhookAllowPrivate = "webhook.allow_private"
+	KeyOutboundProxy       = "outbound.proxy"
 	KeyGitHubStars         = "github.stars"
 	KeyUpdateCheck         = "updates.check"
 	KeyUpdatePrereleases   = "updates.prereleases"
@@ -579,6 +580,17 @@ func Settings() (*settings.Registry, error) {
 			Env: prefix + "WEBHOOK_ALLOW_PRIVATE",
 		},
 		settings.Spec{
+			Key: KeyOutboundProxy, Group: groupNetwork, Label: "Outbound proxy",
+			Description: "A proxy for requests to the internet, where the server cannot reach some sites directly. It " +
+				"carries webhooks, AI agent nodes' model calls, plugins' fetches, and the server's fetches of plugin archives " +
+				"and agents' documents. http://host:port or socks5://host:port, with user:password@ before the host if it asks. " +
+				"Each address is checked first, and the proxy asked for a tunnel to that address alone, so it reaches " +
+				"nothing inside the network for them; an address inside, where Private addresses allows it, goes direct. " +
+				"Polymarket, Telegram and GitHub follow HTTPS_PROXY in the server's environment instead. Empty for none.",
+			Kind: settings.KindString, Secret: true, Default: "", Check: outboundProxy,
+			Env: prefix + "OUTBOUND_PROXY",
+		},
+		settings.Spec{
 			Key: KeyGitHubStars, Group: groupNetwork, Label: "GitHub stars",
 			Description: "Ask GitHub about once an hour how many stars Polythought's repository has, to show beside its link " +
 				"in the app and the docs. Off, the server never calls GitHub, and the link shows no count.",
@@ -856,6 +868,23 @@ func updaterURL(v any) error {
 	if err != nil || (u.Scheme != "https" && u.Scheme != "http") || u.Host == "" || u.User != nil ||
 		u.RawQuery != "" || u.ForceQuery || u.Fragment != "" {
 		return errors.New("is not an http or https address, like http://updater:8080")
+	}
+
+	return nil
+}
+
+// outboundProxy checks the outbound proxy's address (D428): empty, or http:// or
+// socks5:// with a host and a port, a user and a password before them, nothing after.
+func outboundProxy(v any) error {
+	s := v.(string)
+	if s == "" {
+		return nil
+	}
+
+	u, err := url.Parse(s)
+	if err != nil || (u.Scheme != "http" && u.Scheme != "socks5") || u.Hostname() == "" || u.Port() == "" ||
+		(u.Path != "" && u.Path != "/") || u.RawQuery != "" || u.ForceQuery || u.Fragment != "" {
+		return errors.New("is not a proxy's address: http://host:port or socks5://host:port, a user:password@ before the host if it asks")
 	}
 
 	return nil

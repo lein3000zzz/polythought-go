@@ -37,7 +37,7 @@ func TestFetch(t *testing.T) {
 	roots.AddCert(srv.Certificate())
 	tlsConfig := &tls.Config{RootCAs: roots, MinVersion: tls.VersionTLS12}
 
-	private := plugindir.NewFetcher(func() bool { return true }, tlsConfig)
+	private := plugindir.NewFetcher(func() bool { return true }, nil, tlsConfig)
 	ctx := context.Background()
 
 	t.Run("an archive over https", func(t *testing.T) {
@@ -62,7 +62,7 @@ func TestFetch(t *testing.T) {
 			assert.ErrorIs(t, err, domain.ErrInvalidInput, name)
 		}
 
-		guarded := plugindir.NewFetcher(func() bool { return false }, tlsConfig)
+		guarded := plugindir.NewFetcher(func() bool { return false }, nil, tlsConfig)
 		_, err := guarded.Fetch(ctx, srv.URL+"/weather.tar.gz", 100)
 		require.ErrorIs(t, err, domain.ErrInvalidInput)
 		assert.Contains(t, err.Error(), "address inside the server's network", "never inside, unless an admin allows it")

@@ -189,10 +189,10 @@ func TestRedirectedFromHTTPSToHTTP(t *testing.T) {
 func TestDialers(t *testing.T) {
 	allowed, off := func() bool { return true }, func() bool { return false }
 
-	guarded := GuardedDialer(off).Control
+	guarded := GuardedDialer(off, nil).direct.Control
 	require.NoError(t, guarded("tcp4", "8.8.8.8:443", nil))
 	require.ErrorIs(t, guarded("tcp4", "10.0.0.5:443", nil), ErrForbiddenAddress)
-	require.NoError(t, GuardedDialer(allowed).Control("tcp4", "10.0.0.5:443", nil))
+	require.NoError(t, GuardedDialer(allowed, nil).direct.Control("tcp4", "10.0.0.5:443", nil))
 
 	internal := InternalDialer(allowed).Control
 	require.NoError(t, internal("tcp4", "127.0.0.1:11434", nil))

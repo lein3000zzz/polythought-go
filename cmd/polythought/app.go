@@ -293,7 +293,8 @@ func (a *app) init(ctx context.Context) error {
 	// webhooks use, from public addresses unless an admin allows private ones.
 	a.oauth = oauth.New(oauth.Config{Issuer: a.cfg.PublicURL, Resource: strings.TrimRight(a.cfg.PublicURL, "/") + "/mcp"},
 		postgres.NewOAuth(a.db),
-		clientdocs.New(func() bool { return a.settings.Current().Bool(config.KeyMCPPrivateDocuments) }, nil),
+		clientdocs.New(func() bool { return a.settings.Current().Bool(config.KeyMCPPrivateDocuments) },
+			func() string { return a.settings.Current().String(config.KeyOutboundProxy) }, nil),
 		postgres.NewUsers(a.db),
 		ratelimit.NewMemory(30*time.Second, 10), // per address: 10, then one every 30 s
 		a.util.Logger,
@@ -999,15 +1000,17 @@ func (a *app) initEngine(ctx context.Context, pmc polymarket) error {
 	a.credentials = credentials.New(a.registry, postgres.NewCredentials(a.db), a.box, a.util.Logger)
 
 	allowPrivate := func() bool { return a.settings.Current().Bool(config.KeyWebhookAllowPrivate) }
+	// The outbound proxy those requests take to the internet, where one is set (D428).
+	proxy := func() string { return a.settings.Current().String(config.KeyOutboundProxy) }
 
-	webhooks, err := webhook.New(a.util, webhook.Config{AllowPrivate: allowPrivate})
+	webhooks, err := webhook.New(a.util, webhook.Config{AllowPrivate: allowPrivate, Proxy: proxy})
 	if err != nil {
 		return err
 	}
 
 	// Language models, each call with its user's own key (D243); an OpenAI-compatible base
 	// URL keeps to public addresses as webhooks do.
-	llmClient, err := llm.New(a.util, llm.Config{AllowPrivate: allowPrivate})
+	llmClient, err := llm.New(a.util, llm.Config{AllowPrivate: allowPrivate, Proxy: proxy})
 	if err != nil {
 		return err
 	}
@@ -1087,7 +1090,7 @@ func (a *app) initEngine(ctx context.Context, pmc polymarket) error {
 		return err
 	}
 
-	if err := a.initPlugins(ctx, pmc, allowPrivate); err != nil {
+	if err := a.initPlugins(ctx, pmc, allowPrivate, proxy); err != nil {
 		return err
 	}
 
