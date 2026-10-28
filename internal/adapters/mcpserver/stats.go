@@ -50,11 +50,18 @@ type resultOut struct {
 	Closed     int    `json:"closed" jsonschema:"holdings sold out of, or settled"`
 }
 
+type extremeOut struct {
+	Profit string    `json:"profit" jsonschema:"dollars"`
+	At     time.Time `json:"at" jsonschema:"when it was: sampled every few minutes, or now"`
+}
+
 type workflowStatsOut struct {
 	ID      string       `json:"id"`
 	Name    string       `json:"name"`
 	Active  bool         `json:"active"`
 	Trading *resultOut   `json:"trading,omitempty" jsonschema:"what it made; absent until it traded in the mode it trades in now"`
+	High    *extremeOut  `json:"high,omitempty" jsonschema:"its highest profit in that mode, on paper since the account's last reset; with trading"`
+	Low     *extremeOut  `json:"low,omitempty" jsonschema:"its lowest, likewise"`
 	Day     runCountsOut `json:"runsDay" jsonschema:"its runs started in the last day, by hand too, and of them those that failed"`
 	Week    runCountsOut `json:"runsWeek" jsonschema:"in the last week"`
 	Last    *lastRunOut  `json:"lastRun,omitempty" jsonschema:"its latest run; absent when none is kept"`
@@ -104,7 +111,8 @@ func (s *Server) addStatsTools(srv *mcp.Server) {
 	add(s, srv, Tool[statsIn, statsOut]{
 		Name: "get_workflow_stats", Title: "Get how the workflows are doing", Scope: domain.ScopeRead, ReadOnly: true,
 		Description: "How the user's workflows are doing, as the Workflows page and its dashboard show it: for each, what it " +
-			"made in the mode it trades in now, its profit realized and unrealized, open positions, volume and wins, and " +
+			"made in the mode it trades in now, its profit realized and unrealized, its highest and lowest with when, " +
+			"open positions, volume and wins, and " +
 			"its runs and failures in the last day and week, with its latest run. Paper and live totals come apart, " +
 			"never added together. The first page also gives what copying each trader came to across the workflows. " +
 			"A page of workflows at a time, by name; or one workflow by its ID. Traders' labels are under untrusted.",
@@ -190,6 +198,14 @@ func workflowStatsOf(w stats.Workflow) workflowStatsOut {
 			Mode: string(r.Mode), Profit: r.Profit.String(), Realized: r.Realized.String(), Unrealized: r.Unrealized.String(),
 			Positions: r.Positions, Unpriced: r.Unpriced, Volume: r.Volume.String(), Orders: r.Orders, Wins: r.Wins, Closed: r.Closed,
 		}
+	}
+
+	if e := w.High; e != nil {
+		out.High = &extremeOut{Profit: e.Profit.String(), At: e.At}
+	}
+
+	if e := w.Low; e != nil {
+		out.Low = &extremeOut{Profit: e.Profit.String(), At: e.At}
 	}
 
 	return out

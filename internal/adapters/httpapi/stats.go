@@ -55,13 +55,22 @@ type tradingResultDTO struct {
 	Closed   int    `json:"closed"` // holdings sold out of, or settled
 } // @name TradingResult
 
+type extremeDTO struct {
+	Profit string    `json:"profit" example:"18.2"`
+	At     time.Time `json:"at" format:"date-time"`
+} // @name PnLExtreme
+
 type workflowStatsDTO struct {
 	ID     string `json:"id"`
 	Name   string `json:"name"`
 	Active bool   `json:"active"`
 	// Trading is what it made in the mode it trades in now; absent until it has traded in it.
 	Trading *tradingResultDTO `json:"trading,omitempty" validate:"optional"`
-	Runs    runStatsDTO       `json:"runs"`
+	// High and Low are its highest and lowest profit in that mode, with when, as sampled
+	// and as it stands now; on paper since its account's last reset (D430). With Trading.
+	High *extremeDTO `json:"high,omitempty" validate:"optional"`
+	Low  *extremeDTO `json:"low,omitempty" validate:"optional"`
+	Runs runStatsDTO `json:"runs"`
 } // @name WorkflowStats
 
 type statsTotalsDTO struct {
@@ -150,10 +159,19 @@ func toOverviewDTO(o stats.Overview) workflowsOverviewDTO {
 			}
 		}
 
+		dto.High, dto.Low = toExtreme(w.High), toExtreme(w.Low)
 		out.Workflows[i] = dto
 	}
 
 	return out
+}
+
+func toExtreme(e *stats.Extreme) *extremeDTO {
+	if e == nil {
+		return nil
+	}
+
+	return &extremeDTO{Profit: e.Profit.String(), At: e.At}
 }
 
 // workflowsStats says how all the user's workflows are doing (D429): what each made

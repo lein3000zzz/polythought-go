@@ -213,6 +213,28 @@ func (l *ledger) OwnerHoldings(_ context.Context, owner domain.UserID) ([]domain
 	return out, nil
 }
 
+// TradingOwners are those with an account or a holding.
+func (l *ledger) TradingOwners(context.Context) ([]domain.UserID, error) {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+
+	var out []domain.UserID
+
+	for _, a := range l.accounts {
+		if !slices.Contains(out, a.OwnerID) {
+			out = append(out, a.OwnerID)
+		}
+	}
+
+	for _, h := range l.holdings {
+		if !slices.Contains(out, h.OwnerID) {
+			out = append(out, h.OwnerID)
+		}
+	}
+
+	return out, nil
+}
+
 // OwnerTraderTotals has paper orders count since their account's reset, as Postgres does.
 func (l *ledger) OwnerTraderTotals(_ context.Context, owner domain.UserID) ([]domain.TraderTotal, error) {
 	l.mu.Lock()

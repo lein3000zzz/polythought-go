@@ -50,6 +50,8 @@ const overview: Schemas['WorkflowsOverview'] = {
         wins: 3,
         closed: 4,
       }),
+      high: { profit: '18.2', at: '2026-10-27T09:30:00Z' },
+      low: { profit: '-3', at: '2026-10-26T14:00:00Z' },
       runs: { day: { runs: 4, failed: 1 }, week: { runs: 30, failed: 2 } },
     },
     {
@@ -57,6 +59,8 @@ const overview: Schemas['WorkflowsOverview'] = {
       name: 'Backtest',
       active: false,
       trading: result({ profit: '-2.5', realized: '-2.5', volume: '10', closed: 1 }),
+      high: { profit: '1', at: '2026-10-28T11:00:00Z' },
+      low: { profit: '-2.5', at: '2026-10-28T12:00:00Z' },
       runs: { day: counts, week: { runs: 3, failed: 0 } },
     },
     {
@@ -247,6 +251,27 @@ describe('dashboard', () => {
       'Copy AliceActive',
       'Live oneActive',
     ])
+  })
+
+  it('shows each workflow its highest and lowest, with when, sorting by them (D430)', async () => {
+    dashboard()
+    const { user } = renderApp('/workflows/dashboard?mode=paper')
+
+    const workflows = await screen.findByRole('table', { name: 'Workflows' })
+    const copy = within(workflows).getByRole('row', { name: /Copy Alice/ })
+    const cells = within(copy).getAllByRole('cell')
+    expect(cells[2]).toHaveTextContent('+$18.20')
+    expect(cells[2]).toHaveAttribute('title', expect.stringContaining('2026'))
+    expect(cells[3]).toHaveTextContent('−$3.00')
+
+    const live = within(workflows).getByRole('row', { name: /Live one/ })
+    expect(within(live).getAllByRole('cell')[2], 'not on paper').toHaveTextContent('—')
+
+    const lowest = within(workflows).getByRole('columnheader', { name: /Lowest/ })
+    await user.click(within(lowest).getByRole('button'))
+    await user.click(within(lowest).getByRole('button'))
+    expect(lowest).toHaveAttribute('aria-sort', 'ascending')
+    expect(rowNames(workflows).slice(0, 2)).toEqual(['Copy AliceActive', 'Backtest'])
   })
 
   it('hides a part, kept with the account', async () => {

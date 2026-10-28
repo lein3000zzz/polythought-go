@@ -3926,6 +3926,23 @@
                 ],
                 "type": "object"
             },
+            "PnLExtreme": {
+                "properties": {
+                    "at": {
+                        "format": "date-time",
+                        "type": "string"
+                    },
+                    "profit": {
+                        "example": "18.2",
+                        "type": "string"
+                    }
+                },
+                "required": [
+                    "at",
+                    "profit"
+                ],
+                "type": "object"
+            },
             "Problem": {
                 "properties": {
                     "column": {
@@ -5696,8 +5713,15 @@
                     "active": {
                         "type": "boolean"
                     },
+                    "high": {
+                        "$ref": "#/components/schemas/PnLExtreme",
+                        "description": "High and Low are its highest and lowest profit in that mode, with when, as sampled\nand as it stands now; on paper since its account's last reset (D430). With Trading."
+                    },
                     "id": {
                         "type": "string"
+                    },
+                    "low": {
+                        "$ref": "#/components/schemas/PnLExtreme"
                     },
                     "name": {
                         "type": "string"

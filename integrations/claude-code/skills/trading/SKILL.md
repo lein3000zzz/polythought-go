@@ -15,7 +15,8 @@ order flow with no money; start there.
 - `get_trading`: how a workflow trades and has done: paper or live and from which wallet, its
   cash, worth and profit, what it holds, and whether the kill switch is on.
 - `get_workflow_stats`: how all the user's workflows are doing at once: each one's profit in
-  the mode it trades in now, its open positions and volume, its runs and failures in the last
+  the mode it trades in now, its highest and lowest with when, its open positions and volume,
+  its runs and failures in the last
   day and week, and paper and live totals, never added together; on its first page, what
   copying each trader came to across the workflows. Start here for "how are my workflows
   doing" or "which traders make me money", then `get_trading` for one of them.

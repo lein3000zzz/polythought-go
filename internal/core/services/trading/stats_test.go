@@ -130,6 +130,25 @@ func TestResults(t *testing.T) {
 		assert.True(t, found)
 	})
 
+	t.Run("counting from the account's start, then from its reset", func(t *testing.T) {
+		l := newLedger()
+		svc := resultsService(l, markets{}, twoSided)
+		copies(t, svc)
+
+		now := at
+		stats := statsService(l, countedBooks{books: books{book: twoSided}, asked: &atomic.Int32{}}, &now, nil)
+
+		before := results(t, stats)["wf"]
+		assert.Equal(t, l.accounts["wf"].StartedAt, before.Since)
+
+		a, err := svc.Reset(ctx, owner, "wf")
+		require.NoError(t, err)
+
+		after := results(t, stats)["wf"]
+		assert.Equal(t, a.ResetAt, after.Since, "a new start, its extremes with it")
+		assert.Equal(t, 0, after.Positions)
+	})
+
 	t.Run("one that never traded has none, nor anyone else's", func(t *testing.T) {
 		l := newLedger()
 		copies(t, resultsService(l, markets{}, twoSided))

@@ -33,7 +33,10 @@ type price struct {
 // across workflows (D429): its profit, as its trading page has it, made and still held;
 // its open positions; its traders' totals. No cash is read, so no wallet nor chain asked.
 type Result struct {
-	Mode       domain.TradingMode
+	Mode domain.TradingMode
+	// Since is what it counts from: on paper its account's start or last reset; live, the
+	// zero time, its results never starting over (D430).
+	Since      time.Time
 	Profit     decimal.Decimal
 	Realized   decimal.Decimal
 	Unrealized decimal.Decimal
@@ -126,7 +129,12 @@ func (s *Service) Results(ctx context.Context, owner domain.UserID) (Results, er
 
 	for _, a := range accounts {
 		if mode(a.WorkflowID) == domain.ModePaper {
-			out[a.WorkflowID], paper[a.WorkflowID] = Result{Mode: domain.ModePaper}, a
+			since := a.StartedAt
+			if !a.ResetAt.IsZero() {
+				since = a.ResetAt
+			}
+
+			out[a.WorkflowID], paper[a.WorkflowID] = Result{Mode: domain.ModePaper, Since: since}, a
 		}
 	}
 

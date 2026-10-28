@@ -28,6 +28,7 @@ func (overview) Overview(_ context.Context, p auth.Principal) (stats.Overview, e
 		w := stats.Workflow{ID: domain.WorkflowID(fmt.Sprintf("wf-%02d", i)), Name: fmt.Sprintf("workflow %02d", i)}
 		if i == 0 {
 			w.Active, w.Trading = true, &trading.Result{Mode: domain.ModePaper, Profit: d("12.4"), Realized: d("10"), Unrealized: d("2.4"), Positions: 3, Orders: 7}
+			w.High, w.Low = &stats.Extreme{Profit: d("18.2"), At: at}, &stats.Extreme{Profit: d("-3"), At: at}
 			w.Runs = domain.RunStats{Day: domain.RunCounts{Runs: 4, Failed: 1}, Last: &domain.LastRun{ID: "ex-9", Status: domain.ExecutionFailed, StartedAt: at}}
 		}
 
@@ -59,6 +60,8 @@ func TestStatsTool(t *testing.T) {
 		"mode": "paper", "profit": "12.4", "realized": "10", "unrealized": "2.4", "positions": float64(3),
 		"volume": "0", "orders": float64(7), "wins": float64(0), "closed": float64(0),
 	}, first["trading"])
+	assert.Equal(t, "18.2", first["high"].(map[string]any)["profit"])
+	assert.Equal(t, "-3", first["low"].(map[string]any)["profit"])
 	assert.Equal(t, "failed", first["lastRun"].(map[string]any)["status"])
 	assert.NotContains(t, list[1].(map[string]any), "trading", "it does not trade")
 

@@ -191,6 +191,18 @@ The most outcome tokens one market trigger may watch.
 | Default | `100` |
 | Applies | after a restart |
 
+### Highest and lowest P&L, checked every
+
+How often each trading workflow's profit and loss is checked, to keep its highest and lowest for the dashboard. A peak between checks is missed, and a workflow holding a position with no price is skipped until it has one. Applies from the next check.
+
+| | |
+|---|---|
+| Key | `workflows.pnl_sample_every` |
+| Environment variable | `POLYTHOUGHT_WORKFLOWS_PNL_SAMPLE_EVERY` |
+| Kind | duration, e.g. `30s`, `5m`, `168h` |
+| Default | `10m` |
+| Applies | at once |
+
 ## Executions
 
 ### Keep executions for

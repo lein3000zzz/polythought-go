@@ -124,6 +124,9 @@ func serve(ctx context.Context) error {
 	go a.trading.RestEvery(ctx, 5*time.Second)
 	go a.trading.WatchLive(ctx, 30*time.Second)
 
+	// Each trading workflow's highest and lowest P&L, sampled (D430).
+	go a.stats.SampleEvery(ctx, func() time.Duration { return a.settings.Current().Duration(config.KeyPnLSampleEvery) })
+
 	// What nodes remember goes when it expires (D121).
 	go a.memory.SweepEvery(ctx, 10*time.Minute)
 

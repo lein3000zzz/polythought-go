@@ -131,6 +131,13 @@ workflows:
   # Environment: POLYTHOUGHT_WORKFLOWS_FEED_MAX_TOKENS.
   # feed_max_tokens: 100
 
+  # How often each trading workflow's profit and loss is checked, to keep its highest
+  # and lowest for the dashboard. A peak between checks is missed, and a workflow
+  # holding a position with no price is skipped until it has one. Applies from the next
+  # check.
+  # Environment: POLYTHOUGHT_WORKFLOWS_PNL_SAMPLE_EVERY.
+  # pnl_sample_every: "10m"
+
 executions:
 
   # Finished executions older than this are deleted, at start and then daily.

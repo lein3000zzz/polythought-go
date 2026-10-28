@@ -39,6 +39,7 @@ func UseSchema(schema string) {
 	PluginUsers = PluginUsers.FromSchema(schema)
 	PluginVersions = PluginVersions.FromSchema(schema)
 	Plugins = Plugins.FromSchema(schema)
+	PnlExtremes = PnlExtremes.FromSchema(schema)
 	PolymarketCredentials = PolymarketCredentials.FromSchema(schema)
 	ReleaseNotices = ReleaseNotices.FromSchema(schema)
 	SessionKeys = SessionKeys.FromSchema(schema)

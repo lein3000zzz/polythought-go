@@ -236,6 +236,29 @@ func (r *Ledger) OwnerTraderTotals(ctx context.Context, owner domain.UserID) ([]
 	return out, nil
 }
 
+func (r *Ledger) TradingOwners(ctx context.Context) ([]domain.UserID, error) {
+	pa, h := table.PaperAccounts, table.Holdings
+
+	var rows []struct {
+		Owner uuid.UUID `alias:"owner"`
+	}
+
+	err := jet.UNION(
+		jet.SELECT(pa.OwnerID.AS("owner")).FROM(pa),
+		jet.SELECT(h.OwnerID.AS("owner")).FROM(h),
+	).QueryContext(ctx, r.db.conn(ctx), &rows)
+	if err != nil && !errors.Is(err, qrm.ErrNoRows) {
+		return nil, err
+	}
+
+	out := make([]domain.UserID, len(rows))
+	for i, row := range rows {
+		out[i] = domain.UserID(row.Owner.String())
+	}
+
+	return out, nil
+}
+
 func (r *Ledger) TraderTotals(ctx context.Context, workflow domain.WorkflowID, mode domain.TradingMode, since time.Time) ([]domain.TraderTotal, error) {
 	wid, err := parseID(workflow)
 	if err != nil {

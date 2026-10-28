@@ -37,6 +37,7 @@ const (
 	KeyMaxNodes            = "workflows.max_nodes"
 	KeyScheduleMinInterval = "workflows.schedule_min_interval"
 	KeyFeedMaxTokens       = "workflows.feed_max_tokens"
+	KeyPnLSampleEvery      = "workflows.pnl_sample_every"
 	KeyExecutionRetention  = "executions.retention"
 	KeyMaxWaiting          = "executions.max_waiting_per_user"
 	KeyMaxWait             = "executions.max_wait"
@@ -252,6 +253,12 @@ func Settings() (*settings.Registry, error) {
 			Description: "The most outcome tokens one market trigger may watch.",
 			Kind:        settings.KindInt, Default: 100, Check: between(1, 1_000),
 			Apply: settings.ApplyRestart,
+		},
+		settings.Spec{
+			Key: KeyPnLSampleEvery, Group: groupWorkflows, Label: "Highest and lowest P&L, checked every",
+			Description: "How often each trading workflow's profit and loss is checked, to keep its highest and lowest for the dashboard. " +
+				"A peak between checks is missed, and a workflow holding a position with no price is skipped until it has one. Applies from the next check.",
+			Kind: settings.KindDuration, Default: 10 * time.Minute, Check: within(time.Minute, 24*time.Hour),
 		},
 		settings.Spec{
 			Key: KeyExecutionRetention, Group: groupExecutions, Label: "Keep executions for",

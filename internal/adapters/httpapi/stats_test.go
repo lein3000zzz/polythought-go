@@ -29,6 +29,8 @@ func TestWorkflowsStats(t *testing.T) {
 					Mode: domain.ModePaper, Profit: decimal.RequireFromString("12.4"), Realized: decimal.RequireFromString("10"),
 					Unrealized: decimal.RequireFromString("2.4"), Positions: 3, Volume: decimal.RequireFromString("90"), Orders: 7, Wins: 2, Closed: 4,
 				},
+				High: &stats.Extreme{Profit: decimal.RequireFromString("18.2"), At: at.Add(-time.Hour)},
+				Low:  &stats.Extreme{Profit: decimal.RequireFromString("-3"), At: at.Add(-2 * time.Hour)},
 				Runs: domain.RunStats{
 					WorkflowID: "wf-1", Day: domain.RunCounts{Runs: 4, Failed: 1}, Week: domain.RunCounts{Runs: 30, Failed: 2},
 					Last: &domain.LastRun{ID: "ex-9", Status: domain.ExecutionFailed, StartedAt: at},
@@ -63,6 +65,7 @@ func TestWorkflowsStats(t *testing.T) {
 			"workflows": [
 				{"id":"wf-1","name":"copy Alice","active":true,
 				 "trading":{"mode":"paper","profit":"12.4","realized":"10","unrealized":"2.4","positions":3,"unpriced":0,"volume":"90","orders":7,"wins":2,"closed":4},
+				 "high":{"profit":"18.2","at":"2026-10-28T11:00:00Z"},"low":{"profit":"-3","at":"2026-10-28T10:00:00Z"},
 				 "runs":{"day":{"runs":4,"failed":1},"week":{"runs":30,"failed":2},"last":{"id":"ex-9","status":"failed","startedAt":"2026-10-28T12:00:00Z"}}},
 				{"id":"wf-2","name":"alert","active":false,"runs":{"day":{"runs":0,"failed":0},"week":{"runs":0,"failed":0}}}
 			],

@@ -1,10 +1,11 @@
 import { Link } from 'react-router'
 
+import type { Schemas } from '@/api/client'
 import type { WorkflowStats } from '@/api/workflows'
 import { Badge } from '@/components/ui/badge'
 import { Table, TableBody, TableCell, TableHeader, TableRow } from '@/components/ui/table'
 import { Profit } from '@/features/trading/Profit'
-import { formatAgo, formatDollars } from '@/lib/format'
+import { formatAgo, formatDateTime, formatDollars } from '@/lib/format'
 
 import { type SortValue, sortRows, useSort, winRate } from './sort'
 import { SortHeader } from './SortHeader'
@@ -12,6 +13,8 @@ import { SortHeader } from './SortHeader'
 type Column =
   | 'name'
   | 'profit'
+  | 'high'
+  | 'low'
   | 'realized'
   | 'unrealized'
   | 'positions'
@@ -24,8 +27,9 @@ type Column =
 type Props = { mode: 'paper' | 'live'; workflows: WorkflowStats[] }
 
 /**
- * Every workflow, its results in the mode shown where it trades in it, and its runs this
- * week (D429), sorted as its heads are clicked: the most profitable first to start with.
+ * Every workflow, its results in the mode shown where it trades in it, its highest and
+ * lowest among them (D430), and its runs this week (D429), sorted as its heads are clicked:
+ * the most profitable first to start with.
  */
 export function WorkflowsTable({ mode, workflows }: Props) {
   const [sort, by] = useSort<Column>({ key: 'profit', dir: 'desc' }, ['name'])
@@ -46,6 +50,9 @@ export function WorkflowsTable({ mode, workflows }: Props) {
         return t && winRate(t.wins, t.closed)
       case 'positions':
         return t?.positions
+      case 'high':
+      case 'low':
+        return t && w[key] && Number(w[key].profit)
       default:
         return t && Number(t[key])
     }
@@ -67,6 +74,8 @@ export function WorkflowsTable({ mode, workflows }: Props) {
             <TableRow>
               <SortHeader label="Workflow" column="name" {...head} />
               <SortHeader label="Profit" column="profit" numeric {...head} />
+              <SortHeader label="Highest" column="high" numeric {...head} />
+              <SortHeader label="Lowest" column="low" numeric {...head} />
               <SortHeader label="Realized" column="realized" numeric {...head} />
               <SortHeader label="Unrealized" column="unrealized" numeric {...head} />
               <SortHeader label="Positions" column="positions" numeric {...head} />
@@ -96,6 +105,8 @@ export function WorkflowsTable({ mode, workflows }: Props) {
                     </div>
                   </TableCell>
                   <Money text={t?.profit} profit />
+                  <Extreme value={t && w.high} />
+                  <Extreme value={t && w.low} />
                   <Money text={t?.realized} profit />
                   <Money text={t?.unrealized} profit />
                   <Count value={t?.positions} />
@@ -137,6 +148,24 @@ function Money({ text, profit }: { text?: string; profit?: boolean }) {
   return (
     <TableCell className="text-right tabular-nums">
       {text === undefined ? <None /> : profit ? <Profit text={text} /> : formatDollars(text)}
+    </TableCell>
+  )
+}
+
+/** A highest or a lowest profit (D430), and when it was. */
+function Extreme({ value }: { value?: Schemas['PnLExtreme'] }) {
+  return (
+    <TableCell className="text-right tabular-nums" title={value && formatDateTime(value.at)}>
+      {value ? (
+        <div className="flex flex-col items-end">
+          <Profit text={value.profit} />
+          <span className="text-xs whitespace-nowrap text-muted-foreground">
+            {formatAgo(value.at)}
+          </span>
+        </div>
+      ) : (
+        <None />
+      )}
     </TableCell>
   )
 }

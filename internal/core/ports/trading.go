@@ -55,6 +55,8 @@ type Ledger interface {
 	OwnerPaperAccounts(ctx context.Context, owner domain.UserID) ([]domain.PaperAccount, error)
 	OwnerHoldings(ctx context.Context, owner domain.UserID) ([]domain.Holding, error)
 	OwnerTraderTotals(ctx context.Context, owner domain.UserID) ([]domain.TraderTotal, error)
+	// TradingOwners are the users who have traded, on paper or live (D430).
+	TradingOwners(ctx context.Context) ([]domain.UserID, error)
 	// ResetPaperAccount starts a's workflow's account over as a has it, its paper
 	// holdings emptied; its orders stay (D107).
 	ResetPaperAccount(ctx context.Context, a domain.PaperAccount) error
@@ -133,4 +135,13 @@ type LoggedOrder struct {
 
 	Workflow string
 	Deleted  bool
+}
+
+// PnLExtremes keeps each workflow's highest and lowest profit and loss in a mode (D430).
+type PnLExtremes interface {
+	// Record takes samples: each the new highest or lowest of its workflow and mode, or
+	// starting them over where it counts from a later Since.
+	Record(ctx context.Context, samples []domain.PnLSample) error
+	// Owner gives those kept for an owner's workflows.
+	Owner(ctx context.Context, owner domain.UserID) ([]domain.PnLExtremes, error)
 }

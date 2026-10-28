@@ -90,6 +90,14 @@ func TestOwnerStats(t *testing.T) {
 		assert.Equal(t, domain.ModeLive, trading[0].Mode)
 	})
 
+	t.Run("those who have traded, each once", func(t *testing.T) {
+		seedUser(t, db, "carol@example.com", domain.RoleUser)
+
+		owners, err := ledger.TradingOwners(ctx)
+		require.NoError(t, err)
+		assert.ElementsMatch(t, []domain.UserID{alice.ID, bob.ID}, owners, "carol has not")
+	})
+
 	t.Run("orders by workflow and mode, on paper since the reset", func(t *testing.T) {
 		totals, err := ledger.OwnerTraderTotals(ctx, alice.ID)
 		require.NoError(t, err)

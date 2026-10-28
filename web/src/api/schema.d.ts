@@ -3737,6 +3737,12 @@ export interface components {
             plugins: components["schemas"]["Plugin"][];
             sandbox: components["schemas"]["PluginSandbox"];
         };
+        PnLExtreme: {
+            /** Format: date-time */
+            at: string;
+            /** @example 18.2 */
+            profit: string;
+        };
         Problem: {
             column?: number;
             /** @description Line and Column are where in the code a problem is, from 1, columns in characters. */
@@ -4425,7 +4431,13 @@ export interface components {
         };
         WorkflowStats: {
             active: boolean;
+            /**
+             * @description High and Low are its highest and lowest profit in that mode, with when, as sampled
+             *     and as it stands now; on paper since its account's last reset (D430). With Trading.
+             */
+            high?: components["schemas"]["PnLExtreme"];
             id: string;
+            low?: components["schemas"]["PnLExtreme"];
             name: string;
             runs: components["schemas"]["RunStats"];
             /** @description Trading is what it made in the mode it trades in now; absent until it has traded in it. */

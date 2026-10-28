@@ -31,7 +31,10 @@ they cost. The cards ask again each minute. Agents read the same through
 - **Totals:** profit, realized and unrealized, open positions, volume, win rate, and the
   runs of the last day and week.
 - **Workflows:** a row each, sorted by the column you click, a second click the other way;
-  one that trades links to its **Trading** view.
+  one that trades links to its **Trading** view. **Highest** and **Lowest** are the best and
+  worst its profit has been, with when. They are checked every 10 minutes, so a peak
+  between checks is missed; on paper they start over when the account is reset. An admin
+  sets how often under **Workflows** on the Config page.
 - **Traders:** what copying each trader came to, across every workflow that copies them.
 
 **Customize** shows and hides each part, kept with your account, so another browser shows
