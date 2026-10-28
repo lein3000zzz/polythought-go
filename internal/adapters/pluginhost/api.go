@@ -72,6 +72,9 @@ type Deps struct {
 	// AllowPrivate lets fetches reach addresses inside the server's network, as the
 	// webhooks' setting does; asked on every connection, nil means never.
 	AllowPrivate func() bool
+	// Proxy is the outbound proxy fetches to public addresses go through, asked on every
+	// connection; empty, or nil, for none (D428).
+	Proxy func() string
 
 	// Limits bound what one run may ask, read as each run starts; nil, or a limit at
 	// zero: DefaultLimits'.

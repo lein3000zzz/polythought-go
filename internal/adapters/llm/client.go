@@ -55,6 +55,9 @@ type Config struct {
 	// AllowPrivate lets an OpenAI-compatible base URL be an internal address, for a model
 	// served on the same machine or network: Private addresses, the webhooks' setting. Asked on every connection; nil means never.
 	AllowPrivate func() bool
+	// Proxy is the outbound proxy calls to public addresses go through, the providers'
+	// own too, asked on every connection; empty, or nil, for none (D428).
+	Proxy func() string
 }
 
 // Client is the providers, behind one port.
@@ -90,11 +93,16 @@ func New(util *observability.Utility, cfg Config) (*Client, error) {
 		private = func() bool { return false }
 	}
 
+	// The providers' own addresses: nothing to guard, but the outbound proxy where one is
+	// set, else the environment's, as before it.
+	own := http.DefaultTransport.(*http.Transport).Clone()
+	own.DialContext = webhook.GuardedDialer(func() bool { return true }, cfg.Proxy).DialContext
+
 	// No otelhttp: the kit's spans name the call, and the URLs stay out of traces.
 	return &Client{
-		public:       &http.Client{Timeout: timeout},
-		guarded:      dialing(webhook.GuardedDialer(private)),
-		local:        dialing(webhook.InternalDialer(private)),
+		public:       &http.Client{Timeout: timeout, Transport: own},
+		guarded:      dialing(webhook.GuardedDialer(private, cfg.Proxy).DialContext),
+		local:        dialing(webhook.InternalDialer(private).DialContext),
 		private:      private,
 		anthropicURL: anthropicURL, openAIURL: openAIURL, geminiURL: geminiURL,
 		kit:   kit,
@@ -107,14 +115,15 @@ func New(util *observability.Utility, cfg Config) (*Client, error) {
 // send the key on to the same host in plain http.
 var errRedirected = errors.New("the API answered with a redirect: give the address it redirects to as the base URL")
 
-// dialing is a client to addresses users chose, through dialer, following no redirect;
-// no proxy, which would dial instead and hide the address.
-func dialing(dialer *net.Dialer) *http.Client {
+// dialing is a client to addresses users chose, through dial, following no redirect;
+// no proxy of the transport's, which would dial instead and hide the address: the
+// guard's dialer goes through the outbound proxy itself.
+func dialing(dial func(ctx context.Context, network, address string) (net.Conn, error)) *http.Client {
 	return &http.Client{
 		Timeout:       timeout,
 		CheckRedirect: func(*http.Request, []*http.Request) error { return errRedirected },
 		Transport: &http.Transport{
-			Proxy: nil, DialContext: dialer.DialContext, ForceAttemptHTTP2: true,
+			Proxy: nil, DialContext: dial, ForceAttemptHTTP2: true,
 			TLSHandshakeTimeout: 10 * time.Second, IdleConnTimeout: 90 * time.Second,
 		},
 	}

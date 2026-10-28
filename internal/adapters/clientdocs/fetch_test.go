@@ -41,7 +41,7 @@ func server(t *testing.T) *httptest.Server {
 
 // fetcher trusts the test server's certificate, private addresses allowed or not.
 func fetcher(srv *httptest.Server, private bool) *clientdocs.Fetcher {
-	return clientdocs.New(func() bool { return private }, srv.Client().Transport.(*http.Transport).TLSClientConfig)
+	return clientdocs.New(func() bool { return private }, nil, srv.Client().Transport.(*http.Transport).TLSClientConfig)
 }
 
 func TestFetch(t *testing.T) {

@@ -101,3 +101,22 @@ proxy or a tunnel sits in front of `web`, every client looks like that proxy. Se
 separated by spaces, such as `100.64.0.0/10` through Tailscale. `web` then passes on each
 client's own address, as that proxy reported it. Leave it unset otherwise: anyone could then
 say where they come from.
+
+## An outbound proxy
+
+Where the server cannot reach some sites directly, **Outbound proxy**, in the Network group,
+names a proxy for the requests whose addresses users and agents choose:
+- webhooks;
+- AI agent nodes' model calls;
+- plugins' fetches;
+- the server's fetches of plugin archives and agents' documents.
+
+It is `http://host:port` or `socks5://host:port`, with `user:password@` before the host if
+the proxy asks, and is kept secret, as it may hold a password. Each address is checked
+first, as without a proxy, and the proxy asked for a tunnel to that address alone, so it
+cannot be steered at the server's own network; TLS runs through it end to end. An address
+inside the network, where **Private addresses** allows it, goes direct.
+
+Polymarket, Telegram and GitHub do not use it. They follow the usual `HTTPS_PROXY` and
+`NO_PROXY` in the `api` container's environment. Keep `updater` in `NO_PROXY` there, or
+**Update now** cannot reach the updater.

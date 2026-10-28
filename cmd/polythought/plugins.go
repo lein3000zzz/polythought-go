@@ -20,7 +20,7 @@ import (
 // services (5b), supervised (D320), each under the sandbox (5d), or not started where there
 // is none (D338). Their nodes join the registry before anything reads it. Who may use each
 // applies at once; the rest at the next start.
-func (a *app) initPlugins(ctx context.Context, pmc polymarket, allowPrivate func() bool) error {
+func (a *app) initPlugins(ctx context.Context, pmc polymarket, allowPrivate func() bool, proxy func() string) error {
 	dir, err := plugindir.Open(a.settings.Current().String(config.KeyPluginsDir))
 	if err != nil {
 		return err
@@ -38,6 +38,7 @@ func (a *app) initPlugins(ctx context.Context, pmc polymarket, allowPrivate func
 		Credentials:  a.credentials,
 		Store:        postgres.NewPluginStore(a.db),
 		AllowPrivate: allowPrivate,
+		Proxy:        proxy,
 		Limits:       func() pluginhost.Limits { return pluginLimits(a.settings.Current()) },
 		Settings:     func(id string) map[string]any { return a.plugins.RunSettings(id) },
 		Sandbox:      a.launcher,
@@ -61,7 +62,7 @@ func (a *app) initPlugins(ctx context.Context, pmc polymarket, allowPrivate func
 
 	a.plugins = plugins.New(repo, files, a.pluginRuntime, laterPauser{a}, a.util.Logger,
 		plugins.WithSettings(repo, a.box),
-		plugins.WithFetcher(plugindir.NewFetcher(allowPrivate, nil)),
+		plugins.WithFetcher(plugindir.NewFetcher(allowPrivate, proxy, nil)),
 		plugins.WithNotifier(a.notify),
 		plugins.WithLimits(func() plugins.Limits {
 			return plugins.Limits{MaxArchive: int64(a.settings.Current().Int(config.KeyPluginMaxArchive)) << 20}

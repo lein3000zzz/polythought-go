@@ -31,15 +31,15 @@ type Fetcher struct {
 	client *http.Client
 }
 
-// New makes a fetcher; tlsConfig, when given, is for tests that serve their own
-// certificate.
-func New(allowPrivate func() bool, tlsConfig *tls.Config) *Fetcher {
-	dialer := webhook.GuardedDialer(allowPrivate)
+// New makes a fetcher; proxy names the outbound proxy, empty or nil for none (D428), and
+// tlsConfig, when given, is for tests that serve their own certificate.
+func New(allowPrivate func() bool, proxy func() string, tlsConfig *tls.Config) *Fetcher {
+	dialer := webhook.GuardedDialer(allowPrivate, proxy)
 
 	return &Fetcher{client: &http.Client{
 		Timeout: fetchFor,
 		Transport: &http.Transport{
-			Proxy:               nil, // a proxy would dial instead of us and hide the address
+			Proxy:               nil, // the dialer goes through one, not the transport, which would hide the address
 			DialContext:         dialer.DialContext,
 			TLSClientConfig:     tlsConfig.Clone(),
 			TLSHandshakeTimeout: fetchFor,

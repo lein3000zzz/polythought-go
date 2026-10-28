@@ -889,6 +889,18 @@ Let workflows reach addresses inside the server's network, such as a service on 
 | Default | `false` |
 | Applies | at once |
 
+### Outbound proxy
+
+A proxy for requests to the internet, where the server cannot reach some sites directly. It carries webhooks, AI agent nodes' model calls, plugins' fetches, and the server's fetches of plugin archives and agents' documents. http://host:port or socks5://host:port, with user:password@ before the host if it asks. Each address is checked first, and the proxy asked for a tunnel to that address alone, so it reaches nothing inside the network for them; an address inside, where Private addresses allows it, goes direct. Polymarket, Telegram and GitHub follow HTTPS_PROXY in the server's environment instead. Empty for none.
+
+| | |
+|---|---|
+| Key | `outbound.proxy` |
+| Environment variable | `POLYTHOUGHT_OUTBOUND_PROXY` |
+| Kind | text, secret: stored encrypted and never shown |
+| Default | empty |
+| Applies | at once |
+
 ### GitHub stars
 
 Ask GitHub about once an hour how many stars Polythought's repository has, to show beside its link in the app and the docs. Off, the server never calls GitHub, and the link shows no count.
