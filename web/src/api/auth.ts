@@ -140,6 +140,28 @@ export function useLogout() {
 }
 
 /** Keeps the keys the user set for the editor's shortcuts, in place of all before (D420). */
+/**
+ * Keeps the parts of the workflows' dashboard you hid (D429), with your account: shown as
+ * hidden at once, put back if the server refuses.
+ */
+export function useSetDashboard() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: (hidden: string[]) => call(api.PUT('/me/dashboard', { body: { hidden } })),
+    onMutate: async (hidden) => {
+      await queryClient.cancelQueries({ queryKey: keys.me })
+      const before = queryClient.getQueryData<User | null>(keys.me)
+
+      if (before) queryClient.setQueryData<User>(keys.me, { ...before, dashboard: { hidden } })
+
+      return { before }
+    },
+    onError: (_error, _hidden, context) => queryClient.setQueryData(keys.me, context?.before),
+    onSettled: () => queryClient.invalidateQueries({ queryKey: keys.me }),
+  })
+}
+
 export function useSetShortcuts() {
   const queryClient = useQueryClient()
 

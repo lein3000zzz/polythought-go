@@ -1,4 +1,4 @@
-import { GripVertical, Pin, PinOff, Plus, Search } from 'lucide-react'
+import { ChartColumn, GripVertical, Pin, PinOff, Plus, Search } from 'lucide-react'
 import {
   type KeyboardEvent,
   type PointerEvent,
@@ -78,12 +78,20 @@ export function WorkflowsPage() {
     <div className="mx-auto flex max-w-6xl flex-col gap-6 p-6">
       <div className="flex items-center justify-between">
         <h1 className="font-heading text-xl font-semibold">Workflows</h1>
-        <Button asChild>
-          <Link to="/workflows/new">
-            <Plus />
-            New workflow
-          </Link>
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button asChild variant="outline">
+            <Link to="/workflows/dashboard">
+              <ChartColumn />
+              Dashboard
+            </Link>
+          </Button>
+          <Button asChild>
+            <Link to="/workflows/new">
+              <Plus />
+              New workflow
+            </Link>
+          </Button>
+        </div>
       </div>
 
       <div className="flex flex-wrap items-center gap-3">

@@ -1391,6 +1391,22 @@
                 ],
                 "type": "object"
             },
+            "Dashboard": {
+                "properties": {
+                    "hidden": {
+                        "description": "Hidden are the parts you hid, by the app's names for them, such as traders; the\nrest show.",
+                        "items": {
+                            "type": "string"
+                        },
+                        "type": "array",
+                        "uniqueItems": false
+                    }
+                },
+                "required": [
+                    "hidden"
+                ],
+                "type": "object"
+            },
             "Error": {
                 "properties": {
                     "error": {
@@ -4778,6 +4794,65 @@
                 ],
                 "type": "object"
             },
+            "TraderResult": {
+                "properties": {
+                    "closed": {
+                        "type": "integer"
+                    },
+                    "label": {
+                        "type": "string"
+                    },
+                    "mode": {
+                        "enum": [
+                            "paper",
+                            "live"
+                        ],
+                        "type": "string"
+                    },
+                    "orders": {
+                        "type": "integer"
+                    },
+                    "positions": {
+                        "type": "integer"
+                    },
+                    "profit": {
+                        "type": "string"
+                    },
+                    "realized": {
+                        "type": "string"
+                    },
+                    "trader": {
+                        "description": "Trader is the wallet copied; absent for the orders copied from no one.",
+                        "type": "string"
+                    },
+                    "unrealized": {
+                        "type": "string"
+                    },
+                    "volume": {
+                        "type": "string"
+                    },
+                    "wins": {
+                        "type": "integer"
+                    },
+                    "workflows": {
+                        "description": "that copy them in the mode",
+                        "type": "integer"
+                    }
+                },
+                "required": [
+                    "closed",
+                    "mode",
+                    "orders",
+                    "positions",
+                    "profit",
+                    "realized",
+                    "unrealized",
+                    "volume",
+                    "wins",
+                    "workflows"
+                ],
+                "type": "object"
+            },
             "TraderSummary": {
                 "properties": {
                     "closed": {
@@ -5263,6 +5338,10 @@
                         "format": "date-time",
                         "type": "string"
                     },
+                    "dashboard": {
+                        "$ref": "#/components/schemas/Dashboard",
+                        "description": "Dashboard is how you set the workflows' dashboard (D429): yours, in /me only."
+                    },
                     "disabled": {
                         "type": "boolean"
                     },
@@ -5656,6 +5735,14 @@
                         "$ref": "#/components/schemas/StatsTotals",
                         "description": "Paper and Live add up the workflows trading in each mode, never one into the other."
                     },
+                    "traders": {
+                        "description": "Traders are what copying each trader came to across the workflows, in each mode,\nthe most profitable first, copied from no one last.",
+                        "items": {
+                            "$ref": "#/components/schemas/TraderResult"
+                        },
+                        "type": "array",
+                        "uniqueItems": false
+                    },
                     "week": {
                         "$ref": "#/components/schemas/RunCounts"
                     },
@@ -5672,6 +5759,7 @@
                     "day",
                     "live",
                     "paper",
+                    "traders",
                     "week",
                     "workflows"
                 ],
@@ -10871,6 +10959,61 @@
                 "summary": "Refuse a live action",
                 "tags": [
                     "confirmations"
+                ]
+            }
+        },
+        "/me/dashboard": {
+            "put": {
+                "operationId": "setDashboard",
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/Dashboard",
+                                "summary": "body",
+                                "description": "The parts you hid"
+                            }
+                        }
+                    },
+                    "description": "The parts you hid",
+                    "required": true
+                },
+                "responses": {
+                    "204": {
+                        "description": "No Content"
+                    },
+                    "400": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "not a part of the dashboard"
+                    },
+                    "401": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "unauthenticated"
+                    }
+                },
+                "security": [
+                    {
+                        "SessionCookie": []
+                    },
+                    {
+                        "APIToken": []
+                    }
+                ],
+                "summary": "Set your dashboard",
+                "tags": [
+                    "me"
                 ]
             }
         },

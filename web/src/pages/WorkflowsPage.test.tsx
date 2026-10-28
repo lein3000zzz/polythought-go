@@ -66,6 +66,10 @@ describe('workflows page', () => {
     expect(card).toHaveTextContent('Logs markets whose spread is tight')
     expect(card).toHaveTextContent('Active')
     expect(card).toHaveTextContent('2 nodes')
+    expect(screen.getByRole('link', { name: 'Dashboard' })).toHaveAttribute(
+      'href',
+      '/workflows/dashboard',
+    )
 
     await user.click(screen.getByRole('button', { name: 'Load more' }))
 

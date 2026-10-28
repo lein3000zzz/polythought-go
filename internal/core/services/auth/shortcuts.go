@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"regexp"
+	"slices"
 
 	"github.com/lein3000zzz/polythought-go/internal/core/domain"
 )
@@ -43,4 +44,32 @@ func (s *Service) SetShortcuts(ctx context.Context, p Principal, keys map[string
 	s.log.Info(ctx, "Shortcuts set", "user_id", p.User.ID, "changed", len(keys))
 
 	return nil
+}
+
+// The bounds of the dashboard's parts a user hides (D429): the app knows the parts; this
+// keeps what it is given to their shape.
+const maxDashboardParts = 16
+
+var dashboardPart = regexp.MustCompile(`^[a-z][a-z0-9-]{0,31}$`)
+
+// SetDashboard keeps how the user set the workflows' dashboard (D429): the parts they
+// hid, each once, in place of those they hid before.
+func (s *Service) SetDashboard(ctx context.Context, p Principal, d domain.Dashboard) error {
+	if len(d.Hidden) > maxDashboardParts {
+		return fmt.Errorf("%w: at most %d parts", domain.ErrInvalidInput, maxDashboardParts)
+	}
+
+	hidden := make([]string, 0, len(d.Hidden))
+
+	for _, part := range d.Hidden {
+		if !dashboardPart.MatchString(part) {
+			return fmt.Errorf("%w: %q is not a part of the dashboard", domain.ErrInvalidInput, part)
+		}
+
+		if !slices.Contains(hidden, part) {
+			hidden = append(hidden, part)
+		}
+	}
+
+	return s.repos.Users.SetDashboard(ctx, p.User.ID, domain.Dashboard{Hidden: hidden})
 }

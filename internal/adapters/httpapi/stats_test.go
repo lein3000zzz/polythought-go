@@ -36,6 +36,11 @@ func TestWorkflowsStats(t *testing.T) {
 			},
 			{ID: "wf-2", Name: "alert", Runs: domain.RunStats{WorkflowID: "wf-2"}},
 		},
+		Traders: []trading.TraderResult{{
+			Mode: domain.ModePaper, Trader: "0x00000000000000000000000000000000000000a1", Label: "Alice", Workflows: 2,
+			Profit: decimal.RequireFromString("3"), Realized: decimal.RequireFromString("2"), Unrealized: decimal.RequireFromString("1"),
+			Positions: 1, Volume: decimal.RequireFromString("40"), Orders: 4, Wins: 1, Closed: 2,
+		}},
 		Paper: stats.Totals{Workflows: 1, Profit: decimal.RequireFromString("12.4")},
 		Day:   domain.RunCounts{Runs: 4, Failed: 1}, Week: domain.RunCounts{Runs: 30, Failed: 2}, At: at,
 	}
@@ -61,6 +66,8 @@ func TestWorkflowsStats(t *testing.T) {
 				 "runs":{"day":{"runs":4,"failed":1},"week":{"runs":30,"failed":2},"last":{"id":"ex-9","status":"failed","startedAt":"2026-10-28T12:00:00Z"}}},
 				{"id":"wf-2","name":"alert","active":false,"runs":{"day":{"runs":0,"failed":0},"week":{"runs":0,"failed":0}}}
 			],
+			"traders":[{"mode":"paper","trader":"0x00000000000000000000000000000000000000a1","label":"Alice","workflows":2,
+				"profit":"3","realized":"2","unrealized":"1","positions":1,"volume":"40","orders":4,"wins":1,"closed":2}],
 			"paper":{"workflows":1,"profit":"12.4","realized":"0","unrealized":"0","positions":0,"unpriced":0,"volume":"0","orders":0,"wins":0,"closed":0},
 			"live":`+zero+`,
 			"day":{"runs":4,"failed":1},"week":{"runs":30,"failed":2},"at":"2026-10-28T12:00:00Z"

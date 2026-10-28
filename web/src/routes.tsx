@@ -10,6 +10,7 @@ import { AdminPluginsPage } from '@/pages/AdminPluginsPage'
 import { AdminPage } from '@/pages/AdminPage'
 import { ConfirmationPage } from '@/pages/ConfirmationPage'
 import { CustomNodePage } from '@/pages/CustomNodePage'
+import { DashboardPage } from '@/pages/DashboardPage'
 import { ForgotPasswordPage } from '@/pages/ForgotPasswordPage'
 import { LibraryPage } from '@/pages/LibraryPage'
 import { LoginPage } from '@/pages/LoginPage'
@@ -56,6 +57,7 @@ export const routes: RouteObject[] = [
         children: [
           { index: true, element: <Navigate to="/workflows" replace /> },
           { path: 'workflows', element: <WorkflowsPage /> },
+          { path: 'workflows/dashboard', element: <DashboardPage /> },
           { path: 'workflows/new', ...editor },
           { path: 'workflows/:id', ...editor },
           { path: 'library', element: <LibraryPage /> },

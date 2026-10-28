@@ -16,8 +16,9 @@ order flow with no money; start there.
   cash, worth and profit, what it holds, and whether the kill switch is on.
 - `get_workflow_stats`: how all the user's workflows are doing at once: each one's profit in
   the mode it trades in now, its open positions and volume, its runs and failures in the last
-  day and week, and paper and live totals, never added together. Start here for "how are my
-  workflows doing", then `get_trading` for one of them.
+  day and week, and paper and live totals, never added together; on its first page, what
+  copying each trader came to across the workflows. Start here for "how are my workflows
+  doing" or "which traders make me money", then `get_trading` for one of them.
 - `list_orders`: a workflow's orders, paper and live, with status, price, fills and fees.
 - `list_live_orders`: the user's live orders across workflows, narrowed to a workflow, a
   wallet or a status.

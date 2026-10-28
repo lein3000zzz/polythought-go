@@ -58,8 +58,8 @@ func (r *runs) RunStats(_ context.Context, _ domain.UserID, day, week time.Time)
 
 type results map[domain.WorkflowID]trading.Result
 
-func (r results) Results(context.Context, domain.UserID) (map[domain.WorkflowID]trading.Result, error) {
-	return r, nil
+func (r results) Results(context.Context, domain.UserID) (trading.Results, error) {
+	return trading.Results{Workflows: r, Traders: []trading.TraderResult{{Mode: domain.ModePaper, Trader: "0xa1", Label: "Alice", Workflows: 2}}}, nil
 }
 
 func d(s string) decimal.Decimal { return decimal.RequireFromString(s) }
@@ -112,6 +112,9 @@ func TestOverview(t *testing.T) {
 	assert.Equal(t, 1, o.Live.Workflows)
 	assert.Equal(t, "1.25", o.Live.Profit.String(), "live never added to paper")
 	assert.Equal(t, 1, o.Live.Unpriced)
+
+	require.Len(t, o.Traders, 1, "as the trading service sums them")
+	assert.Equal(t, "Alice", o.Traders[0].Label)
 
 	assert.Equal(t, domain.RunCounts{Runs: 6, Failed: 1}, o.Day)
 	assert.Equal(t, domain.RunCounts{Runs: 39, Failed: 2}, o.Week)

@@ -50,3 +50,43 @@ func TestSetShortcuts(t *testing.T) {
 		})
 	}
 }
+
+// A user keeps the parts of the workflows' dashboard they hid, each once, of a part's
+// shape (D429).
+func TestSetDashboard(t *testing.T) {
+	ctx := context.Background()
+	u := user("u1", domain.RoleUser)
+
+	t.Run("kept, each once", func(t *testing.T) {
+		d := newDeps(t)
+		d.users.EXPECT().SetDashboard(mock.Anything, u.ID, domain.Dashboard{Hidden: []string{"traders", "chart"}}).Return(nil)
+
+		err := newService(t, d, config(domain.RegistrationOpen)).
+			SetDashboard(ctx, sessionPrincipal(u), domain.Dashboard{Hidden: []string{"traders", "chart", "traders"}})
+		require.NoError(t, err)
+	})
+
+	t.Run("none: every part shows", func(t *testing.T) {
+		d := newDeps(t)
+		d.users.EXPECT().SetDashboard(mock.Anything, u.ID, domain.Dashboard{Hidden: []string{}}).Return(nil)
+
+		require.NoError(t, newService(t, d, config(domain.RegistrationOpen)).SetDashboard(ctx, sessionPrincipal(u), domain.Dashboard{}))
+	})
+
+	many := make([]string, 17)
+	for i := range many {
+		many[i] = fmt.Sprintf("part-%d", i)
+	}
+
+	for name, hidden := range map[string][]string{
+		"a part of no shape": {"Traders!"},
+		"empty":              {""},
+		"too many":           many,
+	} {
+		t.Run(name+", refused", func(t *testing.T) {
+			err := newService(t, newDeps(t), config(domain.RegistrationOpen)).
+				SetDashboard(ctx, sessionPrincipal(u), domain.Dashboard{Hidden: hidden})
+			require.ErrorIs(t, err, domain.ErrInvalidInput)
+		})
+	}
+}

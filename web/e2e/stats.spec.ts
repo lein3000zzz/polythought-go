@@ -32,3 +32,26 @@ test('a card says its workflow ran, and failed where it did', async ({ page }) =
   await expect(card(badName)).toContainText('failed just now')
   await expect(card(badName).getByTitle('The last run failed')).toBeVisible()
 })
+
+test('the dashboard shows the parts asked, kept with the account (D429)', async ({ page }) => {
+  await page.goto('/workflows')
+  await page.getByRole('link', { name: 'Dashboard' }).click()
+  await expect(page).toHaveURL(/\/workflows\/dashboard/)
+  await expect(page.getByRole('region', { name: 'Totals' })).toBeVisible()
+  await expect(page.getByRole('region', { name: 'Traders' })).toBeVisible()
+
+  await page.getByRole('button', { name: 'Customize' }).click()
+  await page.getByRole('menuitemcheckbox', { name: 'Traders' }).click()
+  await page.keyboard.press('Escape')
+  await expect(page.getByRole('region', { name: 'Traders' })).toBeHidden()
+
+  // Kept, so another visit has it so.
+  await page.reload()
+  await expect(page.getByRole('region', { name: 'Totals' })).toBeVisible()
+  await expect(page.getByRole('region', { name: 'Traders' })).toBeHidden()
+
+  await page.getByRole('button', { name: 'Customize' }).click()
+  await page.getByRole('menuitemcheckbox', { name: 'Traders' }).click()
+  await page.keyboard.press('Escape')
+  await expect(page.getByRole('region', { name: 'Traders' })).toBeVisible()
+})

@@ -61,6 +61,7 @@ var routeScopes = map[string]access{
 	"POST /api/v1/me/confirmations/:id/refuse":  browserOnly,
 	"PUT /api/v1/me/live-confirm":               browserOnly,
 	"PUT /api/v1/me/shortcuts":                  need(domain.ScopeSettings), // the editor's keys (D420)
+	"PUT /api/v1/me/dashboard":                  need(domain.ScopeSettings), // the dashboard's parts (D429)
 	"POST /api/v1/tokens":                       browserOnly,
 	"DELETE /api/v1/tokens/:id":                 browserOnly,
 	"PUT /api/v1/notifications/:key":            need(domain.ScopeSettings),

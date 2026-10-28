@@ -71,8 +71,27 @@ type totalsOut struct {
 	Closed    int    `json:"closed"`
 }
 
+// tradersShown bounds the traders a result gives: the most profitable.
+const tradersShown = 50
+
+type traderStatsOut struct {
+	Mode      string    `json:"mode" jsonschema:"paper or live"`
+	Trader    string    `json:"trader,omitempty" jsonschema:"the wallet copied; absent for the orders copied from no one"`
+	Workflows int       `json:"workflows" jsonschema:"that copy them in the mode"`
+	Profit    string    `json:"profit" jsonschema:"dollars, realized and unrealized together"`
+	Realized  string    `json:"realized"`
+	Positions int       `json:"positions"`
+	Volume    string    `json:"volume"`
+	Orders    int       `json:"orders"`
+	Wins      int       `json:"wins"`
+	Closed    int       `json:"closed"`
+	Untrusted Untrusted `json:"untrusted,omitempty" jsonschema:"label: the name the trader goes by, as the workflow took it"`
+}
+
 type statsOut struct {
 	Workflows []workflowStatsOut `json:"workflows"`
+	Traders   []traderStatsOut   `json:"traders,omitempty" jsonschema:"on the first page: what copying each trader came to across the workflows, the 50 most profitable first"`
+	Notice    string             `json:"notice,omitempty"`
 	Next      string             `json:"next,omitempty" jsonschema:"the cursor for the page after; absent at the end"`
 	Paper     totalsOut          `json:"paper" jsonschema:"all the workflows trading on paper; never added to live"`
 	Live      totalsOut          `json:"live" jsonschema:"all those trading live"`
@@ -87,7 +106,8 @@ func (s *Server) addStatsTools(srv *mcp.Server) {
 		Description: "How the user's workflows are doing, as the Workflows page and its dashboard show it: for each, what it " +
 			"made in the mode it trades in now, its profit realized and unrealized, open positions, volume and wins, and " +
 			"its runs and failures in the last day and week, with its latest run. Paper and live totals come apart, " +
-			"never added together. A page of workflows at a time, by name; or one workflow by its ID.",
+			"never added together. The first page also gives what copying each trader came to across the workflows. " +
+			"A page of workflows at a time, by name; or one workflow by its ID. Traders' labels are under untrusted.",
 		Handle: s.getWorkflowStats,
 	})
 }
@@ -118,6 +138,23 @@ func (s *Server) getWorkflowStats(ctx context.Context, p auth.Principal, in stat
 		if len(list) == 0 {
 			return statsOut{}, domain.ErrNotFound
 		}
+	}
+
+	if in.Cursor == "" && in.Workflow == "" && len(o.Traders) > 0 {
+		for _, t := range o.Traders[:min(len(o.Traders), tradersShown)] {
+			tr := traderStatsOut{
+				Mode: string(t.Mode), Trader: string(t.Trader), Workflows: t.Workflows, Profit: t.Profit.String(),
+				Realized: t.Realized.String(), Positions: t.Positions, Volume: t.Volume.String(), Orders: t.Orders,
+				Wins: t.Wins, Closed: t.Closed,
+			}
+			if t.Label != "" {
+				tr.Untrusted = Untrusted{"label": t.Label}
+			}
+
+			out.Traders = append(out.Traders, tr)
+		}
+
+		out.Notice = Notice
 	}
 
 	from, limit := min(in.offset(), len(list)), in.filter().Limit

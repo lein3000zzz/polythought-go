@@ -54,6 +54,22 @@ func TestUsers(t *testing.T) {
 			require.NoError(t, err)
 			assert.Nil(t, got.Shortcuts, "all back to their keys")
 		}},
+		{"the dashboard's hidden parts, kept as set (D429)", func(t *testing.T, db *postgres.DB, users *postgres.Users) {
+			u := seedUser(t, db, "dash@example.com", domain.RoleUser)
+			assert.Empty(t, u.Dashboard.Hidden, "every part shows to start with")
+
+			require.NoError(t, users.SetDashboard(ctx, u.ID, domain.Dashboard{Hidden: []string{"traders"}}))
+
+			got, err := users.ByID(ctx, u.ID)
+			require.NoError(t, err)
+			assert.Equal(t, []string{"traders"}, got.Dashboard.Hidden)
+
+			require.NoError(t, users.Update(ctx, got), "an update leaves it")
+
+			got, err = users.ByID(ctx, u.ID)
+			require.NoError(t, err)
+			assert.Equal(t, []string{"traders"}, got.Dashboard.Hidden)
+		}},
 		{"email lookup ignores case and returns the hash", func(t *testing.T, db *postgres.DB, users *postgres.Users) {
 			u := seedUser(t, db, "Bob@Example.com", domain.RoleUser)
 

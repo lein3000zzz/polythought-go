@@ -64,9 +64,9 @@ func TestResults(t *testing.T) {
 
 		all, err := svc.Results(ctx, "alice")
 		require.NoError(t, err)
-		require.Len(t, all, 1)
+		require.Len(t, all.Workflows, 1)
 
-		r := all["wf"]
+		r := all.Workflows["wf"]
 		assert.Equal(t, domain.ModePaper, r.Mode)
 		assert.Equal(t, summary.Account.Profit.String(), r.Profit.String(), "the same profit as its page")
 		assert.Equal(t, "-0.79984", r.Profit.String())
@@ -76,6 +76,58 @@ func TestResults(t *testing.T) {
 		assert.Equal(t, 0, r.Unpriced)
 		assert.Equal(t, 3, r.Orders)
 		assert.Equal(t, "19.8", r.Volume.String())
+
+		// Each trader as its page's Traders has them, the most profitable first.
+		require.Len(t, all.Traders, 2)
+
+		page := map[domain.WalletAddress]trading.TraderSummary{}
+		for _, tr := range summary.Traders {
+			page[tr.Trader] = tr
+		}
+
+		for _, tr := range all.Traders {
+			want := page[tr.Trader]
+			assert.Equal(t, want.Realized.String(), tr.Realized.String(), tr.Label)
+			assert.Equal(t, want.Unrealized.String(), tr.Unrealized.String(), tr.Label)
+			assert.Equal(t, want.Copies, tr.Orders, tr.Label)
+			assert.Equal(t, want.Volume.String(), tr.Volume.String(), tr.Label)
+			assert.Equal(t, 1, tr.Workflows)
+			assert.Equal(t, domain.ModePaper, tr.Mode)
+		}
+
+		assert.Equal(t, []string{"Bob", "Alice"}, []string{all.Traders[0].Label, all.Traders[1].Label}, "Bob lost less")
+		assert.Equal(t, "-0.59984", all.Traders[1].Profit.String())
+	})
+
+	t.Run("a trader copied by two workflows, summed across them", func(t *testing.T) {
+		l := newLedger()
+		svc := resultsService(l, markets{}, twoSided)
+		copies(t, svc)
+
+		_, err := svc.Place(ctx, domain.OrderRequest{
+			WorkflowID: "wf2", OwnerID: "alice", NodeID: "copy", Mode: domain.ModePaper, Trader: alice, TraderLabel: "Alice",
+			TokenID: "t-yes", Type: domain.OrderFAK, Side: domain.SideBuy, Price: d("0.50"), Shares: d("10"),
+		})
+		require.NoError(t, err)
+
+		now := at
+		all, err := statsService(l, countedBooks{books: books{book: twoSided}, asked: &atomic.Int32{}}, &now, nil).Results(ctx, "alice")
+		require.NoError(t, err)
+		require.Len(t, all.Workflows, 2)
+
+		var found bool
+
+		for _, tr := range all.Traders {
+			if tr.Trader == alice {
+				found = true
+
+				assert.Equal(t, 2, tr.Workflows)
+				assert.Equal(t, 3, tr.Orders, "two in wf, one in wf2")
+				assert.Equal(t, 2, tr.Positions, "one holding in each")
+			}
+		}
+
+		assert.True(t, found)
 	})
 
 	t.Run("one that never traded has none, nor anyone else's", func(t *testing.T) {
@@ -87,7 +139,8 @@ func TestResults(t *testing.T) {
 
 		none, err := svc.Results(ctx, "bob")
 		require.NoError(t, err)
-		assert.Empty(t, none)
+		assert.Empty(t, none.Workflows)
+		assert.Empty(t, none.Traders)
 	})
 
 	t.Run("settled: closed, and won", func(t *testing.T) {
@@ -165,5 +218,5 @@ func results(t *testing.T, svc *trading.Service) map[domain.WorkflowID]trading.R
 	all, err := svc.Results(context.Background(), "alice")
 	require.NoError(t, err)
 
-	return all
+	return all.Workflows
 }

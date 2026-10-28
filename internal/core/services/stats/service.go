@@ -30,7 +30,7 @@ type Runs interface {
 
 // Trading is what they made: the trading service.
 type Trading interface {
-	Results(ctx context.Context, owner domain.UserID) (map[domain.WorkflowID]trading.Result, error)
+	Results(ctx context.Context, owner domain.UserID) (trading.Results, error)
 }
 
 // Workflow is how one workflow is doing.
@@ -64,6 +64,8 @@ type Overview struct {
 	Workflows []Workflow // by name
 	Paper     Totals
 	Live      Totals
+	// Traders are what copying each trader came to, across the workflows, in each mode.
+	Traders []trading.TraderResult
 	// Day and Week are all their runs, started in the last day and the last week.
 	Day, Week domain.RunCounts
 	At        time.Time
@@ -129,13 +131,13 @@ func (s *Service) Overview(ctx context.Context, p auth.Principal) (Overview, err
 		runsOf[r.WorkflowID] = r
 	}
 
-	out := Overview{Workflows: make([]Workflow, 0, len(workflows)), At: now}
+	out := Overview{Workflows: make([]Workflow, 0, len(workflows)), Traders: results.Traders, At: now}
 
 	for _, w := range workflows {
 		st := Workflow{ID: w.ID, Name: w.Name, Active: w.Active, Runs: runsOf[w.ID]}
 		st.Runs.WorkflowID = w.ID
 
-		if r, ok := results[w.ID]; ok {
+		if r, ok := results.Workflows[w.ID]; ok {
 			st.Trading = &r
 
 			switch r.Mode {

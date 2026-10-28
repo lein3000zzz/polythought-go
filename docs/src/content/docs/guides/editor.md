@@ -26,6 +26,17 @@ ago`:
 they cost. The cards ask again each minute. Agents read the same through
 `get_workflow_stats`.
 
+**Dashboard**, at the top of Workflows, shows them all together, on paper or live, with
+**Paper** and **Live**: paper and live are never added together. It has three parts:
+- **Totals:** profit, realized and unrealized, open positions, volume, win rate, and the
+  runs of the last day and week.
+- **Workflows:** a row each, sorted by the column you click, a second click the other way;
+  one that trades links to its **Trading** view.
+- **Traders:** what copying each trader came to, across every workflow that copies them.
+
+**Customize** shows and hides each part, kept with your account, so another browser shows
+the same.
+
 The pin on a card puts it at the top, after the others pinned. Drag a pinned card to
 another place among them, by its handle on a touch screen, and let go: **Escape** while
 dragging puts it back. Or focus the handle and move the card with the arrow keys. The

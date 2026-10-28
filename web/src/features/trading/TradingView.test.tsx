@@ -156,6 +156,14 @@ function trading(setup: Schemas['TradingSetup'] = paperSetup, wallets = [main, w
 }
 
 describe('trading view', () => {
+  it('opens from a link, as the dashboard has them (D429)', async () => {
+    trading()
+    renderApp('/workflows/wf-1?view=trading')
+
+    expect(await screen.findByRole('region', { name: 'Paper account' })).toBeInTheDocument()
+    expect(screen.getByRole('tab', { name: 'Trading' })).toHaveAttribute('aria-selected', 'true')
+  })
+
   it('shows the account, each trader, what is held and the orders (D104)', async () => {
     trading()
     const { user } = renderApp('/workflows/wf-1')

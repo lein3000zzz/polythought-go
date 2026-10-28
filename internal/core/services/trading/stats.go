@@ -1,8 +1,11 @@
 package trading
 
 import (
+	"cmp"
 	"context"
 	"errors"
+	"slices"
+	"strings"
 	"time"
 
 	"github.com/lein3000zzz/the-watchers/pkg/observability/logging"
@@ -42,17 +45,42 @@ type Result struct {
 	Closed     int // holdings sold out of, or settled
 }
 
+// TraderResult is what copying one trader came to across the workflows that copy them, in
+// one mode (D429): the workflows' results as Result has them, by trader. An empty Trader
+// is the orders copied from no one.
+type TraderResult struct {
+	Mode       domain.TradingMode
+	Trader     domain.WalletAddress
+	Label      string // as of their latest holding
+	Workflows  int    // that copy them in the mode
+	Profit     decimal.Decimal
+	Realized   decimal.Decimal
+	Unrealized decimal.Decimal
+	Positions  int
+	Volume     decimal.Decimal
+	Orders     int
+	Wins       int
+	Closed     int
+}
+
+// Results are each workflow's result, and each copied trader's across them.
+type Results struct {
+	Workflows map[domain.WorkflowID]Result
+	Traders   []TraderResult // the most profitable first; copied from no one last
+}
+
 // Results are how each of owner's workflows went that has traded in the mode it trades
-// in now; one that never did has none. The ledger is asked once for all of them, each
-// part, and the market once for each token, its prices kept a minute.
-func (s *Service) Results(ctx context.Context, owner domain.UserID) (map[domain.WorkflowID]Result, error) {
+// in now, one that never did having none, and what copying each trader came to across
+// them, in the same modes. The ledger is asked once for all of them, each part, and the
+// market once for each token, its prices kept a minute.
+func (s *Service) Results(ctx context.Context, owner domain.UserID) (Results, error) {
 	// Without the repository, every workflow trades on paper, as tradingOf has it.
 	modes := map[domain.WorkflowID]domain.TradingMode{}
 
 	if s.d.Trading != nil {
 		setups, err := s.d.Trading.OwnerTrading(ctx, owner)
 		if err != nil {
-			return nil, err
+			return Results{}, err
 		}
 
 		for _, t := range setups {
@@ -70,17 +98,17 @@ func (s *Service) Results(ctx context.Context, owner domain.UserID) (map[domain.
 
 	accounts, err := s.d.Ledger.OwnerPaperAccounts(ctx, owner)
 	if err != nil {
-		return nil, err
+		return Results{}, err
 	}
 
 	holdings, err := s.d.Ledger.OwnerHoldings(ctx, owner)
 	if err != nil {
-		return nil, err
+		return Results{}, err
 	}
 
 	totals, err := s.d.Ledger.OwnerTraderTotals(ctx, owner)
 	if err != nil {
-		return nil, err
+		return Results{}, err
 	}
 
 	var open []domain.Holding
@@ -113,6 +141,7 @@ func (s *Service) Results(ctx context.Context, owner domain.UserID) (map[domain.
 	}
 
 	worth := map[domain.WorkflowID]decimal.Decimal{} // the open holdings', at their marks
+	traders := newTraders()
 
 	for _, h := range holdings {
 		m := mode(h.WorkflowID)
@@ -125,7 +154,13 @@ func (s *Service) Results(ctx context.Context, owner domain.UserID) (map[domain.
 			continue
 		}
 
+		t := traders.of(h.WorkflowID, m, h.Trader)
+		if h.TraderLabel != "" && !h.UpdatedAt.Before(t.labelled) {
+			t.Label, t.labelled = h.TraderLabel, h.UpdatedAt
+		}
+
 		r.Realized = r.Realized.Add(h.Realized)
+		t.Realized = t.Realized.Add(h.Realized)
 
 		if h.Shares.IsPositive() {
 			value := h.Cost
@@ -136,33 +171,41 @@ func (s *Service) Results(ctx context.Context, owner domain.UserID) (map[domain.
 			}
 
 			r.Unrealized = r.Unrealized.Add(value.Sub(h.Cost))
+			t.Unrealized = t.Unrealized.Add(value.Sub(h.Cost))
 			r.Positions++
+			t.Positions++
 			worth[h.WorkflowID] = worth[h.WorkflowID].Add(value)
 		} else {
 			r.Closed++
+			t.Closed++
 
 			if h.Realized.IsPositive() {
 				r.Wins++
+				t.Wins++
 			}
 		}
 
 		out[h.WorkflowID] = r
 	}
 
-	for _, t := range totals {
-		m := mode(t.WorkflowID)
-		if t.Mode != m {
+	for _, tt := range totals {
+		m := mode(tt.WorkflowID)
+		if tt.Mode != m {
 			continue
 		}
 
-		r, ok := result(t.WorkflowID, m)
+		r, ok := result(tt.WorkflowID, m)
 		if !ok {
 			continue
 		}
 
-		r.Orders += t.Orders
-		r.Volume = r.Volume.Add(t.Volume)
-		out[t.WorkflowID] = r
+		t := traders.of(tt.WorkflowID, m, tt.Trader)
+
+		r.Orders += tt.Orders
+		t.Orders += tt.Orders
+		r.Volume = r.Volume.Add(tt.Volume)
+		t.Volume = t.Volume.Add(tt.Volume)
+		out[tt.WorkflowID] = r
 	}
 
 	for id, r := range out {
@@ -176,7 +219,66 @@ func (s *Service) Results(ctx context.Context, owner domain.UserID) (map[domain.
 		out[id] = r
 	}
 
-	return out, nil
+	return Results{Workflows: out, Traders: traders.list()}, nil
+}
+
+// traderKey is a trader copied in a mode.
+type traderKey struct {
+	mode   domain.TradingMode
+	trader domain.WalletAddress
+}
+
+// tradersSum adds up each trader's results across the workflows copying them.
+type tradersSum struct {
+	by        map[traderKey]*traderSum
+	workflows map[traderKey]map[domain.WorkflowID]bool
+}
+
+type traderSum struct {
+	TraderResult
+
+	labelled time.Time // when Label was the holding's
+}
+
+func newTraders() *tradersSum {
+	return &tradersSum{by: map[traderKey]*traderSum{}, workflows: map[traderKey]map[domain.WorkflowID]bool{}}
+}
+
+// of is trader's sum in mode, counting the workflow as one copying them.
+func (ts *tradersSum) of(w domain.WorkflowID, mode domain.TradingMode, trader domain.WalletAddress) *traderSum {
+	k := traderKey{mode, trader}
+
+	t, ok := ts.by[k]
+	if !ok {
+		t = &traderSum{TraderResult: TraderResult{Mode: mode, Trader: trader}}
+		ts.by[k], ts.workflows[k] = t, map[domain.WorkflowID]bool{}
+	}
+
+	ts.workflows[k][w] = true
+
+	return t
+}
+
+// list is the sums, the most profitable first, copied from no one last.
+func (ts *tradersSum) list() []TraderResult {
+	out := make([]TraderResult, 0, len(ts.by))
+
+	for k, t := range ts.by {
+		r := t.TraderResult
+		r.Workflows = len(ts.workflows[k])
+		r.Profit = r.Realized.Add(r.Unrealized)
+		out = append(out, r)
+	}
+
+	slices.SortFunc(out, func(a, b TraderResult) int {
+		if (a.Trader == "") != (b.Trader == "") {
+			return cmp.Compare(boolInt(a.Trader == ""), boolInt(b.Trader == ""))
+		}
+
+		return cmp.Or(b.Profit.Cmp(a.Profit), strings.Compare(string(a.Mode), string(b.Mode)), strings.Compare(string(a.Trader), string(b.Trader)))
+	})
+
+	return out
 }
 
 // marks prices the holdings' tokens as mark does, kept a minute: the books' midpoints,

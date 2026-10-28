@@ -77,8 +77,27 @@ type statsTotalsDTO struct {
 	Closed     int    `json:"closed"`
 } // @name StatsTotals
 
+type traderResultDTO struct {
+	Mode string `json:"mode" enums:"paper,live"`
+	// Trader is the wallet copied; absent for the orders copied from no one.
+	Trader     string `json:"trader,omitempty" validate:"optional"`
+	Label      string `json:"label,omitempty" validate:"optional"`
+	Workflows  int    `json:"workflows"` // that copy them in the mode
+	Profit     string `json:"profit"`
+	Realized   string `json:"realized"`
+	Unrealized string `json:"unrealized"`
+	Positions  int    `json:"positions"`
+	Volume     string `json:"volume"`
+	Orders     int    `json:"orders"`
+	Wins       int    `json:"wins"`
+	Closed     int    `json:"closed"`
+} // @name TraderResult
+
 type workflowsOverviewDTO struct {
 	Workflows []workflowStatsDTO `json:"workflows"`
+	// Traders are what copying each trader came to across the workflows, in each mode,
+	// the most profitable first, copied from no one last.
+	Traders []traderResultDTO `json:"traders"`
 	// Paper and Live add up the workflows trading in each mode, never one into the other.
 	Paper statsTotalsDTO `json:"paper"`
 	Live  statsTotalsDTO `json:"live"`
@@ -102,7 +121,16 @@ func toTotals(t stats.Totals) statsTotalsDTO {
 func toOverviewDTO(o stats.Overview) workflowsOverviewDTO {
 	out := workflowsOverviewDTO{
 		Workflows: make([]workflowStatsDTO, len(o.Workflows)),
+		Traders:   make([]traderResultDTO, len(o.Traders)),
 		Paper:     toTotals(o.Paper), Live: toTotals(o.Live), Day: toRunCounts(o.Day), Week: toRunCounts(o.Week), At: o.At,
+	}
+
+	for i, t := range o.Traders {
+		out.Traders[i] = traderResultDTO{
+			Mode: string(t.Mode), Trader: string(t.Trader), Label: t.Label, Workflows: t.Workflows,
+			Profit: t.Profit.String(), Realized: t.Realized.String(), Unrealized: t.Unrealized.String(), Positions: t.Positions,
+			Volume: t.Volume.String(), Orders: t.Orders, Wins: t.Wins, Closed: t.Closed,
+		}
 	}
 
 	for i, w := range o.Workflows {

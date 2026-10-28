@@ -1191,6 +1191,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/me/dashboard": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Set your dashboard */
+        put: operations["setDashboard"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/me/grants": {
         parameters: {
             query?: never;
@@ -2773,6 +2790,13 @@ export interface components {
             options?: string[];
             required?: boolean;
         };
+        Dashboard: {
+            /**
+             * @description Hidden are the parts you hid, by the app's names for them, such as traders; the
+             *     rest show.
+             */
+            hidden: string[];
+        };
         Error: {
             error: components["schemas"]["ErrorDetail"];
         };
@@ -4026,6 +4050,23 @@ export interface components {
             /** @description To is the address the test email goes to. */
             to: string;
         };
+        TraderResult: {
+            closed: number;
+            label?: string;
+            /** @enum {string} */
+            mode: "paper" | "live";
+            orders: number;
+            positions: number;
+            profit: string;
+            realized: string;
+            /** @description Trader is the wallet copied; absent for the orders copied from no one. */
+            trader?: string;
+            unrealized: string;
+            volume: string;
+            wins: number;
+            /** @description that copy them in the mode */
+            workflows: number;
+        };
         TraderSummary: {
             /** @description holdings sold out of, or settled */
             closed: number;
@@ -4253,6 +4294,8 @@ export interface components {
             codeChosen: boolean;
             /** Format: date-time */
             createdAt: string;
+            /** @description Dashboard is how you set the workflows' dashboard (D429): yours, in /me only. */
+            dashboard?: components["schemas"]["Dashboard"];
             disabled: boolean;
             email: string;
             emailVerified: boolean;
@@ -4396,6 +4439,11 @@ export interface components {
             live: components["schemas"]["StatsTotals"];
             /** @description Paper and Live add up the workflows trading in each mode, never one into the other. */
             paper: components["schemas"]["StatsTotals"];
+            /**
+             * @description Traders are what copying each trader came to across the workflows, in each mode,
+             *     the most profitable first, copied from no one last.
+             */
+            traders: components["schemas"]["TraderResult"][];
             week: components["schemas"]["RunCounts"];
             workflows: components["schemas"]["WorkflowStats"][];
         };
@@ -8229,6 +8277,47 @@ export interface operations {
             };
             /** @description conflict: refused, expired or confirmed already */
             409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    setDashboard: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description The parts you hid */
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["Dashboard"];
+            };
+        };
+        responses: {
+            /** @description No Content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description not a part of the dashboard */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description unauthenticated */
+            401: {
                 headers: {
                     [name: string]: unknown;
                 };
