@@ -5,11 +5,35 @@ import { setupServer } from 'msw/node'
  * Stands in for the API. Tests add handlers with server.use(...). The top bar asks for
  * the wallets on every page, for the kill switch: none, unless a test says otherwise.
  */
+const emptyTotals = {
+  workflows: 0,
+  profit: '0',
+  realized: '0',
+  unrealized: '0',
+  positions: 0,
+  unpriced: 0,
+  volume: '0',
+  orders: 0,
+  wins: 0,
+  closed: 0,
+}
+
 export const server = setupServer(
   http.get('/api/v1/wallets', () => HttpResponse.json({ wallets: [] })),
   // Every page asks for the repository's stars: GitHub has not said, unless a test says.
   http.get('/api/v1/meta', () =>
     HttpResponse.json({ repo: 'https://github.com/lein3000zzz/polythought-go' }),
+  ),
+  // The Workflows page asks how they are doing (D429): nothing to say, unless a test says.
+  http.get('/api/v1/workflows/stats', () =>
+    HttpResponse.json({
+      workflows: [],
+      paper: emptyTotals,
+      live: emptyTotals,
+      day: { runs: 0, failed: 0 },
+      week: { runs: 0, failed: 0 },
+      at: '2026-10-28T12:00:00Z',
+    }),
   ),
   // The admin pages count the requests to join waiting: none, unless a test says.
   http.get('/api/v1/admin/requests', () => HttpResponse.json({ requests: [], pending: 0 })),

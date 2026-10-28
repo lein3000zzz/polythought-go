@@ -170,6 +170,8 @@ type Services struct {
 	// Updates says whether a newer Polythought is out, and updates the server (D424,
 	// D425); nil: no such pages.
 	Updates UpdateService
+	// Stats is how the user's workflows are doing, together (D429); nil: no such page.
+	Stats StatsService
 	// CodeRunners says where user code runs, and how its runners are (D357); nil: in
 	// the server's process.
 	CodeRunners func() ports.CodeRunners
@@ -226,6 +228,7 @@ type Server struct {
 	spend         SpendService
 	plugins       PluginService
 	updates       UpdateService
+	stats         StatsService
 
 	codeRunnersStatus func() ports.CodeRunners
 	log               logging.Logger
@@ -314,6 +317,7 @@ func New(cfg Config, util *observability.Utility, services Services) (*Server, e
 		spend:         services.Spend,
 		plugins:       services.Plugins,
 		updates:       services.Updates,
+		stats:         services.Stats,
 
 		codeRunnersStatus: services.CodeRunners,
 		log:               log,
@@ -479,6 +483,7 @@ func (s *Server) routes() {
 
 	wf := v1.Group("/workflows", s.requireAuth)
 	wf.GET("", s.listWorkflows)
+	wf.GET("/stats", s.hasStats, s.workflowsStats)
 	wf.PUT("/pins", s.orderPins)
 	wf.PUT("/:id/pin", s.pinWorkflow)
 	wf.POST("", s.createWorkflow)

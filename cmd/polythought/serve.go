@@ -76,6 +76,7 @@ func serve(ctx context.Context) error {
 		Geoblock: a.geoblock, Tasks: a.tasks, TaskAgents: a.taskAgents,
 		Meta:    a.meta,
 		Updates: a.updates,
+		Stats:   a.stats,
 		OAuth:   a.oauth, Confirmations: a.confirmations,
 		MCP:     mcp,
 		Plugins: a.plugins,

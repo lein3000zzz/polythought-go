@@ -16,6 +16,8 @@ type WorkflowTradingRepository interface {
 	SetTrading(ctx context.Context, t domain.WorkflowTrading) error
 	// TradingFrom are the workflows whose wallet is this one, whatever their mode.
 	TradingFrom(ctx context.Context, wallet domain.WalletID) ([]domain.WorkflowTrading, error)
+	// OwnerTrading is how each of an owner's workflows that said trades (D429).
+	OwnerTrading(ctx context.Context, owner domain.UserID) ([]domain.WorkflowTrading, error)
 }
 
 // OrderKey is what signs and sends a wallet's orders: its API credentials, and its

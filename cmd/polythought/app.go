@@ -55,6 +55,7 @@ import (
 	"github.com/lein3000zzz/polythought-go/internal/core/services/plugins"
 	"github.com/lein3000zzz/polythought-go/internal/core/services/settings"
 	"github.com/lein3000zzz/polythought-go/internal/core/services/spend"
+	"github.com/lein3000zzz/polythought-go/internal/core/services/stats"
 	"github.com/lein3000zzz/polythought-go/internal/core/services/tasks"
 	"github.com/lein3000zzz/polythought-go/internal/core/services/telegram"
 	"github.com/lein3000zzz/polythought-go/internal/core/services/traders"
@@ -147,6 +148,7 @@ type app struct {
 	geoblock        *geoblock.Service
 	meta            *meta.Service
 	updates         *updates.Service
+	stats           *stats.Service
 	oauth           *oauth.Service
 	markets         *pmadapter.Reader
 	waits           *waits.Service
@@ -425,6 +427,7 @@ func (a *app) newMCP() (*mcpserver.Server, error) {
 		}},
 		Wallets:     a.wallets,
 		Trades:      a.trading,
+		Stats:       a.stats,
 		Admin:       a.auth,
 		Settings:    a.settings,
 		Mail:        a.mail,
@@ -1050,6 +1053,10 @@ func (a *app) initEngine(ctx context.Context, pmc polymarket) error {
 		Notices:     a.notify,
 		Caps:        a.liveCaps,
 	})
+
+	// How the workflows are doing together, for their cards, the dashboard and agents
+	// (D429).
+	a.stats = stats.New(postgres.NewWorkflows(a.db), postgres.NewExecutions(a.db), a.trading)
 
 	a.taskAgents = tasks.NewPresence(func() time.Duration { return a.settings.Current().Duration(config.KeyMCPTaskSeen) }, time.Now)
 

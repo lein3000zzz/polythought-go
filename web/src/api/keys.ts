@@ -49,6 +49,7 @@ export const keys = {
   sharedCopy: (workflowId: string) => ['library', 'shared', workflowId],
   workflows: ['workflows'],
   workflowList: ['workflows', 'list'],
+  workflowStats: ['workflows', 'stats'],
   workflowPins: ['workflows', 'list', 'pinned'], // under the list: what refreshes it does these
   workflow: (id: string) => ['workflows', 'detail', id],
   workflowProblems: (id: string) => ['workflows', 'problems', id],

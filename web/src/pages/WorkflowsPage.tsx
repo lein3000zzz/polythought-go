@@ -13,9 +13,11 @@ import { toast } from 'sonner'
 import { errorMessage, type Workflow } from '@/api/client'
 import {
   type WorkflowFilter,
+  type WorkflowStats,
   useOrderPins,
   usePinWorkflow,
   usePinnedWorkflows,
+  useWorkflowStats,
   useWorkflows,
 } from '@/api/workflows'
 import { ErrorAlert } from '@/components/ErrorAlert'
@@ -31,7 +33,8 @@ import {
 } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Skeleton } from '@/components/ui/skeleton'
-import { formatDateTime } from '@/lib/format'
+import { Profit } from '@/features/trading/Profit'
+import { formatAgo, formatDateTime } from '@/lib/format'
 
 type Shown = 'all' | 'on' | 'off'
 
@@ -463,6 +466,8 @@ type CardProps = {
 function WorkflowCard({ workflow: w, handle }: CardProps) {
   const pin = usePinWorkflow()
   const pinned = (w.pin ?? 0) > 0
+  // One request for every card: they share the query.
+  const stats = useWorkflowStats().data?.workflows.find((s) => s.id === w.id)
 
   return (
     <Card className="relative h-full transition-colors hover:bg-muted/40">
@@ -504,6 +509,7 @@ function WorkflowCard({ workflow: w, handle }: CardProps) {
         <Badge variant={w.active ? 'default' : 'secondary'}>
           {w.active ? 'Active' : 'Inactive'}
         </Badge>
+        {stats && <StatsLine stats={stats} />}
         <span>
           {w.nodes.length} {w.nodes.length === 1 ? 'node' : 'nodes'}
         </span>
@@ -511,4 +517,56 @@ function WorkflowCard({ workflow: w, handle }: CardProps) {
       </CardFooter>
     </Card>
   )
+}
+
+/**
+ * What a workflow made in the mode it trades in now, and its last run (D429): +$12.40
+ * paper · ran 5 min ago, the run in red where it failed. Only the run where it does not
+ * trade.
+ */
+function StatsLine({ stats: s }: { stats: WorkflowStats }) {
+  const t = s.trading
+  const last = s.runs.last
+
+  // Spaces between the parts, for screen readers; the row's gap lays them out.
+  return (
+    <span className="flex items-center gap-1">
+      {t && (
+        <>
+          {t.unpriced > 0 && (
+            <span
+              title={`${t.unpriced} open ${t.unpriced === 1 ? 'position has' : 'positions have'} no price now: at cost`}
+            >
+              ≈
+            </span>
+          )}{' '}
+          <Profit text={t.profit} className="font-medium" /> <span>{t.mode}</span>{' '}
+          <span aria-hidden>·</span>{' '}
+        </>
+      )}
+      {last ? <LastRun run={last} /> : <span>never ran</span>}
+    </span>
+  )
+}
+
+function LastRun({ run }: { run: NonNullable<WorkflowStats['runs']['last']> }) {
+  const ago = formatAgo(run.finishedAt ?? run.startedAt)
+
+  switch (run.status) {
+    case 'running':
+      return <span>running now</span>
+    case 'waiting':
+      return <span>waiting, from {ago}</span>
+    case 'cancelled':
+      return <span>cancelled {ago}</span>
+    case 'failed':
+      return (
+        <span className="flex items-center gap-1 text-destructive" title="The last run failed">
+          <span aria-hidden className="size-1.5 rounded-full bg-destructive" />
+          failed {ago}
+        </span>
+      )
+    default:
+      return <span>ran {ago}</span>
+  }
 }

@@ -6,10 +6,12 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"slices"
 	"strings"
 	"time"
 
 	jet "github.com/go-jet/jet/v2/postgres"
+	"github.com/go-jet/jet/v2/qrm"
 	"github.com/google/uuid"
 
 	"github.com/lein3000zzz/polythought-go/internal/adapters/postgres/gen/public/model"
@@ -659,6 +661,96 @@ func (r *Executions) Save(ctx context.Context, e domain.Execution) error {
 		ExecContext(ctx, r.db.conn(ctx))
 
 	return err
+}
+
+func (r *Executions) RunStats(ctx context.Context, owner domain.UserID, day, week time.Time) ([]domain.RunStats, error) {
+	oid, err := parseID(owner)
+	if err != nil {
+		return nil, nil
+	}
+
+	e, w := table.Executions, table.Workflows
+	theirs := w.OwnerID.EQ(jet.UUID(oid))
+	failed := e.Status.EQ(jet.String(string(domain.ExecutionFailed)))
+	inDay := e.StartedAt.GT_EQ(jet.TimestampzT(day))
+	// The rows where cond holds: CASE gives null elsewhere, which COUNT passes over. A
+	// column, not a literal, as a parameter there would have no type to count.
+	counted := func(cond jet.BoolExpression) jet.Expression {
+		return jet.COUNT(jet.CASE().WHEN(cond).THEN(e.ID))
+	}
+
+	var counts []struct {
+		Workflow   uuid.UUID `alias:"workflow"`
+		DayRuns    int64     `alias:"day_runs"`
+		DayFailed  int64     `alias:"day_failed"`
+		WeekRuns   int64     `alias:"week_runs"`
+		WeekFailed int64     `alias:"week_failed"`
+	}
+
+	err = jet.SELECT(e.WorkflowID.AS("workflow"),
+		counted(inDay).AS("day_runs"), counted(inDay.AND(failed)).AS("day_failed"),
+		jet.COUNT(jet.STAR).AS("week_runs"), counted(failed).AS("week_failed")).
+		FROM(e.INNER_JOIN(w, w.ID.EQ(e.WorkflowID))).
+		WHERE(theirs.AND(e.StartedAt.GT_EQ(jet.TimestampzT(week)))).
+		GROUP_BY(e.WorkflowID).
+		QueryContext(ctx, r.db.conn(ctx), &counts)
+	if err != nil && !errors.Is(err, qrm.ErrNoRows) {
+		return nil, err
+	}
+
+	// Each workflow's latest, by its ID, which grows with time (UUIDv7).
+	var last []struct {
+		Workflow   uuid.UUID  `alias:"workflow"`
+		ID         uuid.UUID  `alias:"id"`
+		Status     string     `alias:"status"`
+		StartedAt  time.Time  `alias:"started_at"`
+		FinishedAt *time.Time `alias:"finished_at"`
+	}
+
+	err = jet.SELECT(e.WorkflowID.AS("workflow"), e.ID.AS("id"), e.Status.AS("status"), e.StartedAt.AS("started_at"),
+		e.FinishedAt.AS("finished_at")).
+		DISTINCT(e.WorkflowID).
+		FROM(e.INNER_JOIN(w, w.ID.EQ(e.WorkflowID))).
+		WHERE(theirs).
+		ORDER_BY(e.WorkflowID, e.ID.DESC()).
+		QueryContext(ctx, r.db.conn(ctx), &last)
+	if err != nil && !errors.Is(err, qrm.ErrNoRows) {
+		return nil, err
+	}
+
+	by := make(map[uuid.UUID]*domain.RunStats, len(last))
+	for _, l := range last {
+		finished := l.FinishedAt
+		if finished != nil {
+			t := finished.UTC()
+			finished = &t
+		}
+
+		by[l.Workflow] = &domain.RunStats{WorkflowID: domain.WorkflowID(l.Workflow.String()), Last: &domain.LastRun{
+			ID: domain.ExecutionID(l.ID.String()), Status: domain.ExecutionStatus(l.Status), StartedAt: l.StartedAt.UTC(),
+			FinishedAt: finished,
+		}}
+	}
+
+	for _, c := range counts {
+		st, ok := by[c.Workflow]
+		if !ok { // deleted between the queries, or kept no latest
+			st = &domain.RunStats{WorkflowID: domain.WorkflowID(c.Workflow.String())}
+			by[c.Workflow] = st
+		}
+
+		st.Day = domain.RunCounts{Runs: int(c.DayRuns), Failed: int(c.DayFailed)}
+		st.Week = domain.RunCounts{Runs: int(c.WeekRuns), Failed: int(c.WeekFailed)}
+	}
+
+	out := make([]domain.RunStats, 0, len(by))
+	for _, st := range by {
+		out = append(out, *st)
+	}
+
+	slices.SortFunc(out, func(a, b domain.RunStats) int { return strings.Compare(string(a.WorkflowID), string(b.WorkflowID)) })
+
+	return out, nil
 }
 
 // List returns the newest executions first.

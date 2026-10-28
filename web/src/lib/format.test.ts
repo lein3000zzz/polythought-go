@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { formatBytes, formatCount, formatDuration } from './format'
+import { formatAgo, formatBytes, formatCount, formatDuration } from './format'
 
 describe('formatDuration', () => {
   it.each([
@@ -42,5 +42,20 @@ describe('formatCount', () => {
     { n: 1_234_567, want: '1.2m' },
   ])('$n', ({ n, want }) => {
     expect(formatCount(n)).toBe(want)
+  })
+})
+
+describe('formatAgo', () => {
+  const now = Date.parse('2026-10-28T12:00:00Z')
+
+  it('says how long ago, coarser as it goes', () => {
+    expect(formatAgo('2026-10-28T11:59:30Z', now)).toBe('just now')
+    expect(formatAgo('2026-10-28T11:55:00Z', now)).toBe('5 min ago')
+    expect(formatAgo('2026-10-28T09:00:00Z', now)).toBe('3 h ago')
+    expect(formatAgo('2026-10-26T12:00:00Z', now)).toBe('2 d ago')
+  })
+
+  it('gives the date past a week', () => {
+    expect(formatAgo('2026-10-01T12:00:00Z', now)).not.toMatch(/ago/)
   })
 })

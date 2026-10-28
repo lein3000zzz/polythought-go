@@ -183,6 +183,77 @@ func (l *ledger) OpenHoldings(_ context.Context, mode domain.TradingMode) ([]dom
 	return out, nil
 }
 
+func (l *ledger) OwnerPaperAccounts(_ context.Context, owner domain.UserID) ([]domain.PaperAccount, error) {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+
+	var out []domain.PaperAccount
+
+	for _, a := range l.accounts {
+		if a.OwnerID == owner {
+			out = append(out, a)
+		}
+	}
+
+	return out, nil
+}
+
+func (l *ledger) OwnerHoldings(_ context.Context, owner domain.UserID) ([]domain.Holding, error) {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+
+	var out []domain.Holding
+
+	for _, h := range l.holdings {
+		if h.OwnerID == owner {
+			out = append(out, h)
+		}
+	}
+
+	return out, nil
+}
+
+// OwnerTraderTotals has paper orders count since their account's reset, as Postgres does.
+func (l *ledger) OwnerTraderTotals(_ context.Context, owner domain.UserID) ([]domain.TraderTotal, error) {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+
+	type key struct {
+		w      domain.WorkflowID
+		mode   domain.TradingMode
+		trader domain.WalletAddress
+	}
+
+	by := map[key]*domain.TraderTotal{}
+
+	for _, o := range l.orders {
+		reset := l.accounts[o.WorkflowID].ResetAt
+		if o.OwnerID != owner || len(o.Fills) == 0 || o.Type == domain.OrderSettle ||
+			(o.Mode == domain.ModePaper && o.CreatedAt.Before(reset)) {
+			continue
+		}
+
+		k := key{o.WorkflowID, o.Mode, o.Trader}
+
+		t, ok := by[k]
+		if !ok {
+			t = &domain.TraderTotal{WorkflowID: o.WorkflowID, Mode: o.Mode, Trader: o.Trader}
+			by[k] = t
+		}
+
+		_, dollars, _ := o.Totals()
+		t.Orders++
+		t.Volume = t.Volume.Add(dollars)
+	}
+
+	var out []domain.TraderTotal
+	for _, t := range by {
+		out = append(out, *t)
+	}
+
+	return out, nil
+}
+
 func (l *ledger) TraderTotals(_ context.Context, _ domain.WorkflowID, _ domain.TradingMode, since time.Time) ([]domain.TraderTotal, error) {
 	l.mu.Lock()
 	defer l.mu.Unlock()

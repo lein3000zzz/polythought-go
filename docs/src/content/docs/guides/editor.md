@@ -15,6 +15,17 @@ active, how many nodes it has and when it last changed. The search finds them by
 description, `/` jumps to it, and **All**, **Active** and **Inactive** narrow the
 cards to those switched on or off.
 
+Beside **Active**, a card says how the workflow is doing, such as `+$12.40 paper · ran 5 min
+ago`:
+- **What it made** in the mode it trades in now, as its **Trading** view says: on paper its
+  worth less what it started with, live what its holdings made. Only once it has traded in
+  that mode.
+- **Its last run,** in red where it failed.
+
+`≈` before the amount means some open positions have no price now, so they count at what
+they cost. The cards ask again each minute. Agents read the same through
+`get_workflow_stats`.
+
 The pin on a card puts it at the top, after the others pinned. Drag a pinned card to
 another place among them, by its handle on a touch screen, and let go: **Escape** while
 dragging puts it back. Or focus the handle and move the card with the arrow keys. The

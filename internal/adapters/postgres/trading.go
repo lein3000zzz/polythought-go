@@ -99,6 +99,31 @@ func (r *WorkflowTrading) TradingFrom(ctx context.Context, wallet domain.WalletI
 	return out, nil
 }
 
+func (r *WorkflowTrading) OwnerTrading(ctx context.Context, owner domain.UserID) ([]domain.WorkflowTrading, error) {
+	oid, err := parseID(owner)
+	if err != nil {
+		return nil, nil
+	}
+
+	t, w := table.WorkflowTrading, table.Workflows
+
+	var rows []model.WorkflowTrading
+
+	err = jet.SELECT(t.AllColumns).FROM(t.INNER_JOIN(w, w.ID.EQ(t.WorkflowID))).
+		WHERE(w.OwnerID.EQ(jet.UUID(oid))).ORDER_BY(t.WorkflowID).
+		QueryContext(ctx, r.db.conn(ctx), &rows)
+	if err != nil && !errors.Is(err, qrm.ErrNoRows) {
+		return nil, err
+	}
+
+	out := make([]domain.WorkflowTrading, len(rows))
+	for i, m := range rows {
+		out[i] = toWorkflowTrading(m)
+	}
+
+	return out, nil
+}
+
 func toWorkflowTrading(m model.WorkflowTrading) domain.WorkflowTrading {
 	t := domain.WorkflowTrading{
 		WorkflowID: domain.WorkflowID(m.WorkflowID.String()), Mode: domain.TradingMode(m.Mode), UpdatedAt: m.UpdatedAt.UTC(),

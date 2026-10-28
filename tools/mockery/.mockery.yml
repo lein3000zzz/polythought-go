@@ -146,6 +146,7 @@ packages:
       MailService: {}
       GeoblockService: {}
       UpdateService: {}
+      StatsService: {}
       MetaService: {}
       OAuthService: {}
       ConfirmationService: {}

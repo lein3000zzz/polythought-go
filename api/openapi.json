@@ -2168,6 +2168,37 @@
                 ],
                 "type": "object"
             },
+            "LastRun": {
+                "properties": {
+                    "finishedAt": {
+                        "format": "date-time",
+                        "type": "string"
+                    },
+                    "id": {
+                        "type": "string"
+                    },
+                    "startedAt": {
+                        "format": "date-time",
+                        "type": "string"
+                    },
+                    "status": {
+                        "enum": [
+                            "running",
+                            "waiting",
+                            "succeeded",
+                            "failed",
+                            "cancelled"
+                        ],
+                        "type": "string"
+                    }
+                },
+                "required": [
+                    "id",
+                    "startedAt",
+                    "status"
+                ],
+                "type": "object"
+            },
             "LeftPluginData": {
                 "properties": {
                     "files": {
@@ -4027,6 +4058,21 @@
                 ],
                 "type": "object"
             },
+            "RunCounts": {
+                "properties": {
+                    "failed": {
+                        "type": "integer"
+                    },
+                    "runs": {
+                        "type": "integer"
+                    }
+                },
+                "required": [
+                    "failed",
+                    "runs"
+                ],
+                "type": "object"
+            },
             "RunRequest": {
                 "properties": {
                     "trigger": {
@@ -4034,6 +4080,26 @@
                         "type": "string"
                     }
                 },
+                "type": "object"
+            },
+            "RunStats": {
+                "properties": {
+                    "day": {
+                        "$ref": "#/components/schemas/RunCounts",
+                        "description": "Day and Week are the runs started in the last day and the last week, by hand too."
+                    },
+                    "last": {
+                        "$ref": "#/components/schemas/LastRun",
+                        "description": "Last is the latest run; absent when none is kept."
+                    },
+                    "week": {
+                        "$ref": "#/components/schemas/RunCounts"
+                    }
+                },
+                "required": [
+                    "day",
+                    "week"
+                ],
                 "type": "object"
             },
             "ServerVersion": {
@@ -4409,6 +4475,54 @@
                 ],
                 "type": "object"
             },
+            "StatsTotals": {
+                "properties": {
+                    "closed": {
+                        "type": "integer"
+                    },
+                    "orders": {
+                        "type": "integer"
+                    },
+                    "positions": {
+                        "type": "integer"
+                    },
+                    "profit": {
+                        "type": "string"
+                    },
+                    "realized": {
+                        "type": "string"
+                    },
+                    "unpriced": {
+                        "type": "integer"
+                    },
+                    "unrealized": {
+                        "type": "string"
+                    },
+                    "volume": {
+                        "type": "string"
+                    },
+                    "wins": {
+                        "type": "integer"
+                    },
+                    "workflows": {
+                        "description": "that have traded in the mode",
+                        "type": "integer"
+                    }
+                },
+                "required": [
+                    "closed",
+                    "orders",
+                    "positions",
+                    "profit",
+                    "realized",
+                    "unpriced",
+                    "unrealized",
+                    "volume",
+                    "wins",
+                    "workflows"
+                ],
+                "type": "object"
+            },
             "TaskItem": {
                 "properties": {
                     "item": {
@@ -4700,6 +4814,66 @@
                     "closed",
                     "copies",
                     "realized",
+                    "unrealized",
+                    "volume",
+                    "wins"
+                ],
+                "type": "object"
+            },
+            "TradingResult": {
+                "properties": {
+                    "closed": {
+                        "description": "holdings sold out of, or settled",
+                        "type": "integer"
+                    },
+                    "mode": {
+                        "description": "Mode is the one it trades in now, which these are about.",
+                        "enum": [
+                            "paper",
+                            "live"
+                        ],
+                        "type": "string"
+                    },
+                    "orders": {
+                        "description": "that filled",
+                        "type": "integer"
+                    },
+                    "positions": {
+                        "description": "open holdings",
+                        "type": "integer"
+                    },
+                    "profit": {
+                        "description": "Profit is as its trading page has it: on paper its worth less what it started\nwith, live what its holdings made, Realized of those sold and Unrealized of those\nheld, at their marks. Dollars.",
+                        "example": "12.4",
+                        "type": "string"
+                    },
+                    "realized": {
+                        "type": "string"
+                    },
+                    "unpriced": {
+                        "description": "Unpriced are those of them at their cost: no price is known for them now.",
+                        "type": "integer"
+                    },
+                    "unrealized": {
+                        "type": "string"
+                    },
+                    "volume": {
+                        "description": "the dollars its filled orders traded",
+                        "type": "string"
+                    },
+                    "wins": {
+                        "description": "closed holdings that made money",
+                        "type": "integer"
+                    }
+                },
+                "required": [
+                    "closed",
+                    "mode",
+                    "orders",
+                    "positions",
+                    "profit",
+                    "realized",
+                    "unpriced",
                     "unrealized",
                     "volume",
                     "wins"
@@ -5435,6 +5609,71 @@
                 },
                 "required": [
                     "problems"
+                ],
+                "type": "object"
+            },
+            "WorkflowStats": {
+                "properties": {
+                    "active": {
+                        "type": "boolean"
+                    },
+                    "id": {
+                        "type": "string"
+                    },
+                    "name": {
+                        "type": "string"
+                    },
+                    "runs": {
+                        "$ref": "#/components/schemas/RunStats"
+                    },
+                    "trading": {
+                        "$ref": "#/components/schemas/TradingResult",
+                        "description": "Trading is what it made in the mode it trades in now; absent until it has traded in it."
+                    }
+                },
+                "required": [
+                    "active",
+                    "id",
+                    "name",
+                    "runs"
+                ],
+                "type": "object"
+            },
+            "WorkflowsOverview": {
+                "properties": {
+                    "at": {
+                        "format": "date-time",
+                        "type": "string"
+                    },
+                    "day": {
+                        "$ref": "#/components/schemas/RunCounts",
+                        "description": "Day and Week are all their runs, started in the last day and the last week."
+                    },
+                    "live": {
+                        "$ref": "#/components/schemas/StatsTotals"
+                    },
+                    "paper": {
+                        "$ref": "#/components/schemas/StatsTotals",
+                        "description": "Paper and Live add up the workflows trading in each mode, never one into the other."
+                    },
+                    "week": {
+                        "$ref": "#/components/schemas/RunCounts"
+                    },
+                    "workflows": {
+                        "items": {
+                            "$ref": "#/components/schemas/WorkflowStats"
+                        },
+                        "type": "array",
+                        "uniqueItems": false
+                    }
+                },
+                "required": [
+                    "at",
+                    "day",
+                    "live",
+                    "paper",
+                    "week",
+                    "workflows"
                 ],
                 "type": "object"
             },
@@ -13793,6 +14032,45 @@
                     }
                 ],
                 "summary": "Order the pinned workflows",
+                "tags": [
+                    "workflows"
+                ]
+            }
+        },
+        "/workflows/stats": {
+            "get": {
+                "operationId": "getWorkflowsStats",
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/WorkflowsOverview"
+                                }
+                            }
+                        },
+                        "description": "OK"
+                    },
+                    "401": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "unauthenticated"
+                    }
+                },
+                "security": [
+                    {
+                        "SessionCookie": []
+                    },
+                    {
+                        "APIToken": []
+                    }
+                ],
+                "summary": "How the workflows are doing",
                 "tags": [
                     "workflows"
                 ]

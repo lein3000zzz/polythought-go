@@ -19,6 +19,7 @@ import (
 	"github.com/lein3000zzz/polythought-go/internal/core/domain"
 	"github.com/lein3000zzz/polythought-go/internal/core/ports"
 	"github.com/lein3000zzz/polythought-go/internal/core/services/auth"
+	"github.com/lein3000zzz/polythought-go/internal/lru"
 )
 
 var _ ports.OrderPlacer = (*Service)(nil)
@@ -98,6 +99,8 @@ type Service struct {
 	inFlight  map[domain.OrderID]struct{}                               // live orders on their way (D233)
 
 	nudges chan struct{} // a live order now rests: WatchLive looks at once
+
+	prices *lru.Cache[domain.TokenID, price] // the stats' marks, kept a little (D429)
 }
 
 func New(d Deps) *Service {
@@ -113,7 +116,10 @@ func New(d Deps) *Service {
 		d.Patience = defaultPatience
 	}
 
-	return &Service{d: d, locks: make(map[domain.WorkflowID]*sync.Mutex), nudges: make(chan struct{}, 1)}
+	return &Service{
+		d: d, locks: make(map[domain.WorkflowID]*sync.Mutex), nudges: make(chan struct{}, 1),
+		prices: lru.New[domain.TokenID, price](pricesKept),
+	}
 }
 
 // Place tries an order, in the mode the workflow trades in now, and records how it went.

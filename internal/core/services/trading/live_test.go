@@ -250,6 +250,19 @@ func (r *tradingRepo) TradingFrom(_ context.Context, w domain.WalletID) ([]domai
 	return out, nil
 }
 
+// OwnerTrading is every workflow's: the tests' are all alice's.
+func (r *tradingRepo) OwnerTrading(context.Context, domain.UserID) ([]domain.WorkflowTrading, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	var out []domain.WorkflowTrading
+	for _, t := range r.m {
+		out = append(out, t)
+	}
+
+	return out, nil
+}
+
 // walletDir has alice's wallets: w-1 with a key, w-2 also, w-3 without.
 type walletDir struct{}
 

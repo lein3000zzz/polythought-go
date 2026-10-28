@@ -49,6 +49,12 @@ type Ledger interface {
 	// TraderTotals are a workflow's filled orders in a mode since then, by trader;
 	// settlements are not orders.
 	TraderTotals(ctx context.Context, workflow domain.WorkflowID, mode domain.TradingMode, since time.Time) ([]domain.TraderTotal, error)
+	// OwnerPaperAccounts are the paper accounts of an owner's workflows; OwnerHoldings
+	// their holdings, open and closed, in both modes; OwnerTraderTotals their filled orders
+	// by workflow, mode and trader, on paper since each account's reset (D429).
+	OwnerPaperAccounts(ctx context.Context, owner domain.UserID) ([]domain.PaperAccount, error)
+	OwnerHoldings(ctx context.Context, owner domain.UserID) ([]domain.Holding, error)
+	OwnerTraderTotals(ctx context.Context, owner domain.UserID) ([]domain.TraderTotal, error)
 	// ResetPaperAccount starts a's workflow's account over as a has it, its paper
 	// holdings emptied; its orders stay (D107).
 	ResetPaperAccount(ctx context.Context, a domain.PaperAccount) error

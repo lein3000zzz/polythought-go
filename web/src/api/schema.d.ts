@@ -1879,6 +1879,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/workflows/stats": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** How the workflows are doing */
+        get: operations["getWorkflowsStats"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/workflows/{id}": {
         parameters: {
             query?: never;
@@ -3053,6 +3070,15 @@ export interface components {
         KillSwitchRequest: {
             on: boolean;
         };
+        LastRun: {
+            /** Format: date-time */
+            finishedAt?: string;
+            id: string;
+            /** Format: date-time */
+            startedAt: string;
+            /** @enum {string} */
+            status: "running" | "waiting" | "succeeded" | "failed" | "cancelled";
+        };
         LeftPluginData: {
             /** @description its directory's */
             files: number;
@@ -3736,9 +3762,20 @@ export interface components {
             /** @description Revoked says the Relayer took the revocation; the key is removed here either way. */
             revoked: boolean;
         };
+        RunCounts: {
+            failed: number;
+            runs: number;
+        };
         RunRequest: {
             /** @description Trigger is the trigger node to start from; left out means the manual trigger. */
             trigger?: string;
+        };
+        RunStats: {
+            /** @description Day and Week are the runs started in the last day and the last week, by hand too. */
+            day: components["schemas"]["RunCounts"];
+            /** @description Last is the latest run; absent when none is kept. */
+            last?: components["schemas"]["LastRun"];
+            week: components["schemas"]["RunCounts"];
         };
         ServerVersion: {
             /** @description Commit is the full hash it was built from; empty where unknown. */
@@ -3889,6 +3926,19 @@ export interface components {
             /** @description Owner is the browser wallet's account, which must control the Deposit Wallet. */
             owner: string;
         };
+        StatsTotals: {
+            closed: number;
+            orders: number;
+            positions: number;
+            profit: string;
+            realized: string;
+            unpriced: number;
+            unrealized: string;
+            volume: string;
+            wins: number;
+            /** @description that have traded in the mode */
+            workflows: number;
+        };
         TaskItem: {
             item: {
                 [key: string]: unknown;
@@ -3987,6 +4037,34 @@ export interface components {
             trader?: string;
             unrealized: string;
             /** @description the dollars they traded */
+            volume: string;
+            /** @description closed holdings that made money */
+            wins: number;
+        };
+        TradingResult: {
+            /** @description holdings sold out of, or settled */
+            closed: number;
+            /**
+             * @description Mode is the one it trades in now, which these are about.
+             * @enum {string}
+             */
+            mode: "paper" | "live";
+            /** @description that filled */
+            orders: number;
+            /** @description open holdings */
+            positions: number;
+            /**
+             * @description Profit is as its trading page has it: on paper its worth less what it started
+             *     with, live what its holdings made, Realized of those sold and Unrealized of those
+             *     held, at their marks. Dollars.
+             * @example 12.4
+             */
+            profit: string;
+            realized: string;
+            /** @description Unpriced are those of them at their cost: no price is known for them now. */
+            unpriced: number;
+            unrealized: string;
+            /** @description the dollars its filled orders traded */
             volume: string;
             /** @description closed holdings that made money */
             wins: number;
@@ -4301,6 +4379,25 @@ export interface components {
         WorkflowProblems: {
             /** @description Problems are what saving the workflow as it is would refuse; empty when none. */
             problems: components["schemas"]["Problem"][];
+        };
+        WorkflowStats: {
+            active: boolean;
+            id: string;
+            name: string;
+            runs: components["schemas"]["RunStats"];
+            /** @description Trading is what it made in the mode it trades in now; absent until it has traded in it. */
+            trading?: components["schemas"]["TradingResult"];
+        };
+        WorkflowsOverview: {
+            /** Format: date-time */
+            at: string;
+            /** @description Day and Week are all their runs, started in the last day and the last week. */
+            day: components["schemas"]["RunCounts"];
+            live: components["schemas"]["StatsTotals"];
+            /** @description Paper and Live add up the workflows trading in each mode, never one into the other. */
+            paper: components["schemas"]["StatsTotals"];
+            week: components["schemas"]["RunCounts"];
+            workflows: components["schemas"]["WorkflowStats"][];
         };
         "httpapi.oauthRegistrationDTO": {
             client_id: string;
@@ -10392,6 +10489,35 @@ export interface operations {
             };
             /** @description conflict: the pinned workflows changed; read them again */
             409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    getWorkflowsStats: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WorkflowsOverview"];
+                };
+            };
+            /** @description unauthenticated */
+            401: {
                 headers: {
                     [name: string]: unknown;
                 };

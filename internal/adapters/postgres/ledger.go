@@ -143,6 +143,99 @@ func (r *Ledger) OpenHoldings(ctx context.Context, mode domain.TradingMode) ([]d
 	return out, nil
 }
 
+func (r *Ledger) OwnerPaperAccounts(ctx context.Context, owner domain.UserID) ([]domain.PaperAccount, error) {
+	oid, err := parseID(owner)
+	if err != nil {
+		return nil, nil
+	}
+
+	pa := table.PaperAccounts
+
+	var rows []model.PaperAccounts
+
+	err = jet.SELECT(pa.AllColumns).FROM(pa).WHERE(pa.OwnerID.EQ(jet.UUID(oid))).ORDER_BY(pa.WorkflowID).
+		QueryContext(ctx, r.db.conn(ctx), &rows)
+	if err != nil && !errors.Is(err, qrm.ErrNoRows) {
+		return nil, err
+	}
+
+	out := make([]domain.PaperAccount, len(rows))
+	for i, m := range rows {
+		out[i] = toPaperAccount(m)
+	}
+
+	return out, nil
+}
+
+func (r *Ledger) OwnerHoldings(ctx context.Context, owner domain.UserID) ([]domain.Holding, error) {
+	oid, err := parseID(owner)
+	if err != nil {
+		return nil, nil
+	}
+
+	h := table.Holdings
+
+	var rows []model.Holdings
+
+	err = jet.SELECT(h.AllColumns).FROM(h).WHERE(h.OwnerID.EQ(jet.UUID(oid))).
+		ORDER_BY(h.WorkflowID, h.Mode, h.Trader, h.TokenID).
+		QueryContext(ctx, r.db.conn(ctx), &rows)
+	if err != nil && !errors.Is(err, qrm.ErrNoRows) {
+		return nil, err
+	}
+
+	out := make([]domain.Holding, len(rows))
+	for i, m := range rows {
+		out[i] = toHolding(m)
+	}
+
+	return out, nil
+}
+
+func (r *Ledger) OwnerTraderTotals(ctx context.Context, owner domain.UserID) ([]domain.TraderTotal, error) {
+	oid, err := parseID(owner)
+	if err != nil {
+		return nil, nil
+	}
+
+	o, f, pa := table.Orders, table.OrderFills, table.PaperAccounts
+
+	var rows []struct {
+		Workflow uuid.UUID       `alias:"workflow"`
+		Mode     string          `alias:"mode"`
+		Trader   string          `alias:"trader"`
+		Orders   int64           `alias:"orders"`
+		Volume   decimal.Decimal `alias:"volume"`
+	}
+
+	// On paper, since the account's reset, as TraderTotals has it for each workflow.
+	since := o.Mode.EQ(jet.String(string(domain.ModeLive))).OR(pa.ResetAt.IS_NULL()).OR(o.CreatedAt.GT_EQ(pa.ResetAt))
+
+	err = jet.SELECT(o.WorkflowID.AS("workflow"), o.Mode.AS("mode"), o.Trader.AS("trader"),
+		jet.COUNT(jet.DISTINCT(o.ID)).AS("orders"), jet.SUM(f.Dollars).AS("volume")).
+		FROM(o.INNER_JOIN(f, f.OrderID.EQ(o.ID)).LEFT_JOIN(pa, pa.WorkflowID.EQ(o.WorkflowID))).
+		WHERE(o.OwnerID.EQ(jet.UUID(oid)).
+			AND(o.OrderType.NOT_EQ(jet.String(string(domain.OrderSettle)))).
+			AND(f.Status.NOT_EQ(jet.String(string(domain.FillFailed)))). // undone (D193)
+			AND(since)).
+		GROUP_BY(o.WorkflowID, o.Mode, o.Trader).
+		ORDER_BY(o.WorkflowID, o.Mode, o.Trader).
+		QueryContext(ctx, r.db.conn(ctx), &rows)
+	if err != nil && !errors.Is(err, qrm.ErrNoRows) {
+		return nil, err
+	}
+
+	out := make([]domain.TraderTotal, len(rows))
+	for i, row := range rows {
+		out[i] = domain.TraderTotal{
+			WorkflowID: domain.WorkflowID(row.Workflow.String()), Mode: domain.TradingMode(row.Mode),
+			Trader: domain.WalletAddress(row.Trader), Orders: int(row.Orders), Volume: row.Volume,
+		}
+	}
+
+	return out, nil
+}
+
 func (r *Ledger) TraderTotals(ctx context.Context, workflow domain.WorkflowID, mode domain.TradingMode, since time.Time) ([]domain.TraderTotal, error) {
 	wid, err := parseID(workflow)
 	if err != nil {
