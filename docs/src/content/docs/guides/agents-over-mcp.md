@@ -76,6 +76,10 @@ task with `wait_for_task`, answers it with `answer_task`, and the run goes on. G
 Take tasks scope, and ask it to keep waiting for tasks. With the Claude Code plugin, run
 `/polythought:work-tasks`.
 
+An agent's subagents may share its session, each numbering its requests from 0. Polythought
+keeps their requests apart, so one waiting for a task holds up no other. Still, an agent
+that can give each subagent a session of its own had best do so.
+
 ## The Claude Code plugin
 
 The repository is a Claude Code plugin marketplace. In Claude Code:

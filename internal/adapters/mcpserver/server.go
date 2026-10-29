@@ -291,7 +291,7 @@ func New(cfg Config, d Deps) (*Server, error) {
 		ResourceMetadataURL: ResourceMetadataURL(cfg.PublicURL),
 		// API tokens may never expire; agents' always do, and are checked as they come.
 		AllowMissingExpiration: true,
-	})(s.limitOpening(stream))
+	})(s.limitOpening(newRequestIDs().wrap(stream)))
 
 	return s, nil
 }
