@@ -12,6 +12,7 @@ import (
 
 	"github.com/lein3000zzz/polythought-go/internal/core/domain"
 	"github.com/lein3000zzz/polythought-go/internal/core/services/auth"
+	"github.com/lein3000zzz/polythought-go/internal/core/services/history"
 )
 
 // Safety (3q1): a user's kill switch (D220, D221) and an admin's caps on their live buys
@@ -91,7 +92,7 @@ func (s *Service) sendingOf(u domain.UserID) *sending {
 func (s *Service) SetKillSwitch(ctx context.Context, p auth.Principal, on bool) (KillSwitch, error) {
 	// Any scope may stop live trading; only live starts it again (D399).
 	if on {
-		return s.StopLive(ctx, p.User.ID, whyKillSwitch)
+		return s.stopLive(ctx, p.User.ID, whyKillSwitch, history.By(p, "", domain.SwitchKillOn))
 	}
 
 	if err := p.Need(domain.ScopeLive); err != nil {
@@ -106,8 +107,17 @@ func (s *Service) SetKillSwitch(ctx context.Context, p auth.Principal, on bool) 
 		return KillSwitch{}, nil
 	}
 
+	u, err := s.d.Users.ByID(ctx, p.User.ID)
+	if err != nil {
+		return KillSwitch{}, err
+	}
+
 	if err := s.d.Users.SetLiveStopped(ctx, p.User.ID, time.Time{}); err != nil {
 		return KillSwitch{}, err
+	}
+
+	if u.LiveStopped() {
+		s.switchedLive(ctx, p.User.ID, history.By(p, "", domain.SwitchKillOff))
 	}
 
 	s.d.Logger.Info(ctx, "Kill switch off", "user_id", p.User.ID)
@@ -116,8 +126,13 @@ func (s *Service) SetKillSwitch(ctx context.Context, p auth.Principal, on bool) 
 }
 
 // StopLive turns the user's kill switch on, if it is not on already, and cancels their
-// orders resting on the book: their own doing, or an admin disabling them (D226).
+// orders resting on the book: an admin disabling them (D226), why says.
 func (s *Service) StopLive(ctx context.Context, owner domain.UserID, why string) (KillSwitch, error) {
+	return s.stopLive(ctx, owner, why, history.Itself("", domain.SwitchKillOn, "an admin disabled the account"))
+}
+
+// stopLive is StopLive, sw what the history of each workflow trading live keeps of it.
+func (s *Service) stopLive(ctx context.Context, owner domain.UserID, why string, sw domain.Switch) (KillSwitch, error) {
 	if s.d.Users == nil {
 		return KillSwitch{}, errors.New("no kill switch on this server")
 	}
@@ -135,6 +150,8 @@ func (s *Service) StopLive(ctx context.Context, owner domain.UserID, why string)
 		if err := s.d.Users.SetLiveStopped(ctx, owner, ks.Since); err != nil {
 			return KillSwitch{}, err
 		}
+
+		s.switchedLive(ctx, owner, sw)
 	}
 
 	open, err := s.ownerResting(ctx, owner)
@@ -147,6 +164,27 @@ func (s *Service) StopLive(ctx context.Context, owner domain.UserID, why string)
 	s.d.Logger.Warn(ctx, "Kill switch on", "user_id", owner, "cancelled", ks.Cancelled, "left", ks.Left, logging.Err(err))
 
 	return ks, err
+}
+
+// switchedLive keeps sw in the history of each of the owner's workflows trading live: the
+// kill switch stopped or started them.
+func (s *Service) switchedLive(ctx context.Context, owner domain.UserID, sw domain.Switch) {
+	if s.d.History == nil || s.d.Trading == nil {
+		return
+	}
+
+	setups, err := s.d.Trading.OwnerTrading(ctx, owner)
+	if err != nil {
+		s.d.Logger.Warn(ctx, "Kill switch not kept in the workflows' history", "user_id", owner, logging.Err(err))
+		return
+	}
+
+	for _, t := range setups {
+		if t.Mode == domain.ModeLive {
+			sw.WorkflowID = t.WorkflowID
+			s.switched(ctx, sw)
+		}
+	}
 }
 
 // CancelAllLive cancels every live order resting on the book, every user's: an admin

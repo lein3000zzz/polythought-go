@@ -21,6 +21,7 @@ import (
 	"github.com/lein3000zzz/polythought-go/internal/core/nodes/triggers"
 	"github.com/lein3000zzz/polythought-go/internal/core/ports"
 	"github.com/lein3000zzz/polythought-go/internal/core/services/auth"
+	"github.com/lein3000zzz/polythought-go/internal/core/services/history"
 )
 
 const (
@@ -89,6 +90,7 @@ type Service struct {
 	personal   Personal            // optional: without it, nothing is hidden from tokens and agents
 	creds      Credentials         // optional: without it, tokens and agents use credentials freely
 	confirm    Confirmer           // optional: without it, tokens' and agents' live actions go ahead at once
+	history    History             // optional: without it, no switch is kept
 	limits     func() Limits
 	log        logging.Logger
 	now        func() time.Time
@@ -378,6 +380,22 @@ func (s *Service) mayTrade(ctx context.Context, p auth.Principal, w domain.Workf
 	return p.Need(sc)
 }
 
+// History keeps who switched a workflow and why (D433): the history service.
+type History interface {
+	Switched(ctx context.Context, sw domain.Switch)
+}
+
+// WithHistory keeps each switch on and off in the workflow's history.
+func WithHistory(h History) Option {
+	return func(s *Service) { s.history = h }
+}
+
+func (s *Service) switched(ctx context.Context, sw domain.Switch) {
+	if s.history != nil {
+		s.history.Switched(ctx, sw)
+	}
+}
+
 // WithRestingOrders cancels a workflow's live resting orders when it is deleted, and when
 // it is switched off and its owner asks.
 func WithRestingOrders(o RestingOrders) Option {
@@ -662,6 +680,10 @@ func (s *Service) Activate(ctx context.Context, p auth.Principal, id domain.Work
 		return domain.Workflow{}, err
 	}
 
+	if !w.Active {
+		s.switched(ctx, history.By(p, id, domain.SwitchOn))
+	}
+
 	w.Active = true
 	s.supervisor.Start(w)
 
@@ -676,6 +698,10 @@ func (s *Service) Deactivate(ctx context.Context, p auth.Principal, id domain.Wo
 
 	if err := s.repo.SetActive(ctx, p.User.ID, id, false, s.now(), domain.Actor{}); err != nil {
 		return domain.Workflow{}, err
+	}
+
+	if w.Active {
+		s.switched(ctx, history.By(p, id, domain.SwitchOff))
 	}
 
 	s.supervisor.Stop(id)
@@ -716,6 +742,7 @@ func (s *Service) StopAll(ctx context.Context, owner domain.UserID) error {
 	}
 
 	for _, id := range ids {
+		s.switched(ctx, history.Itself(id, domain.SwitchOff, "an admin disabled the account"))
 		s.supervisor.Stop(id)
 
 		if s.waits != nil {
@@ -762,6 +789,7 @@ func (s *Service) Pause(ctx context.Context, why func(w domain.Workflow) string)
 			return paused, err
 		}
 
+		s.switched(ctx, history.Itself(w.ID, domain.SwitchOff, reason))
 		s.supervisor.Stop(w.ID)
 
 		if s.waits != nil {

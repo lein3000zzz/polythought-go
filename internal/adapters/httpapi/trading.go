@@ -387,15 +387,16 @@ func (s *Server) getTradingSummary(ctx context.Context, c *app.RequestContext) {
 //	@Summary	Reset the paper account
 //	@ID			resetPaperAccount
 //	@Tags		trading
-//	@Param		id	path		string	true	"Workflow ID"
-//	@Success	200	{object}	paperAccountDTO
-//	@Failure	401	{object}	errorBody	"unauthenticated"
-//	@Failure	404	{object}	errorBody	"not_found"
+//	@Param		id		path		string	true	"Workflow ID"
+//	@Param		reason	query		string	false	"Why, kept in the workflow's history (D433): a token's words, shown as such"
+//	@Success	200		{object}	paperAccountDTO
+//	@Failure	401		{object}	errorBody	"unauthenticated"
+//	@Failure	404		{object}	errorBody	"not_found"
 //	@Security	SessionCookie
 //	@Security	APIToken
 //	@Router		/workflows/{id}/paper-account/reset [post]
 func (s *Server) resetPaperAccount(ctx context.Context, c *app.RequestContext) {
-	p, _ := principal(c)
+	p := reasoned(c)
 
 	a, err := s.trading.Reset(ctx, p, domain.WorkflowID(c.Param("id")))
 	if err != nil {
@@ -476,6 +477,7 @@ func (s *Server) getTradingSetup(ctx context.Context, c *app.RequestContext) {
 //	@Tags		trading
 //	@Param		id		path		string				true	"Workflow ID"
 //	@Param		body	body		tradingSetupRequest	true	"Its mode and wallet"
+//	@Param		reason	query		string	false	"Why, kept in the workflow's history (D433): a token's words, shown as such"
 //	@Success	200		{object}	tradingSetupDTO
 //	@Failure	400		{object}	errorBody	"invalid_input, not_confirmed or wallet_cannot_trade"
 //	@Failure	401		{object}	errorBody	"unauthenticated"
@@ -493,7 +495,7 @@ func (s *Server) setTradingSetup(ctx context.Context, c *app.RequestContext) {
 		return
 	}
 
-	p, _ := principal(c)
+	p := reasoned(c)
 
 	t, err := s.trading.SetSetup(ctx, p, domain.WorkflowID(c.Param("id")), trading.SetupChange{
 		Mode: domain.TradingMode(req.Mode), WalletID: domain.WalletID(req.WalletID), Confirmed: req.Confirm,
@@ -587,6 +589,7 @@ type killSwitchDTO struct {
 //	@ID			setKillSwitch
 //	@Tags		me
 //	@Param		body	body		killSwitchRequest	true	"On or off"
+//	@Param		reason	query		string	false	"Why, kept in the workflow's history (D433): a token's words, shown as such"
 //	@Success	200		{object}	killSwitchDTO
 //	@Failure	400		{object}	errorBody	"invalid_input"
 //	@Failure	401		{object}	errorBody	"unauthenticated"
@@ -602,7 +605,7 @@ func (s *Server) setKillSwitch(ctx context.Context, c *app.RequestContext) {
 		return
 	}
 
-	p, _ := principal(c)
+	p := reasoned(c)
 
 	ks, err := s.trading.SetKillSwitch(ctx, p, req.On)
 	if err != nil {

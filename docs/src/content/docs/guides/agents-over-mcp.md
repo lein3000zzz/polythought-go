@@ -68,6 +68,14 @@ compromised could give it for you; leave the switch off if that worries you. API
 the link only. Confirmed, Polythought carries it out as the agent asked. Your own actions
 never wait, and neither does turning the kill switch on.
 
+## Who switched it
+
+Each workflow keeps who switched it and when: on and off, paper or live and from which
+wallet, its paper account reset, and your kill switch as it traded live. An agent or token
+may say why, in a sentence it passes as `reason`; what Polythought switched itself says why
+too, such as a plugin it uses being disabled. Agents read it with `get_workflow_history`;
+another agent's reason comes to them marked as that agent's words.
+
 ## Tasks for your agents
 
 A workflow hands work to one of your agents with the **Local agent** node, as
@@ -75,6 +83,10 @@ A workflow hands work to one of your agents with the **Local agent** node, as
 task with `wait_for_task`, answers it with `answer_task`, and the run goes on. Give it the
 Take tasks scope, and ask it to keep waiting for tasks. With the Claude Code plugin, run
 `/polythought:work-tasks`.
+
+An agent's subagents may share its session, each numbering its requests from 0. Polythought
+keeps their requests apart, so one waiting for a task holds up no other. Still, an agent
+that can give each subagent a session of its own had best do so.
 
 ## The Claude Code plugin
 

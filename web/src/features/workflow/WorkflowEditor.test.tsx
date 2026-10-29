@@ -578,8 +578,8 @@ describe('running and inspecting', () => {
     )
     const { user } = renderApp('/workflows/wf-1')
 
-    await user.click(await screen.findByRole('button', { name: 'Executions' }))
-    const list = within(await screen.findByRole('region', { name: 'Executions' }))
+    await user.click(await screen.findByRole('button', { name: 'History' }))
+    const list = within(await screen.findByRole('tabpanel', { name: 'Executions' }))
     // Its workflow was switched on by an agent, so the agent is behind its runs (D407).
     expect(
       await list.findByText('switched on by Claude Code, confirmed by you'),
@@ -674,7 +674,7 @@ describe('following live runs', () => {
     )
     const { user } = renderApp('/workflows/wf-1')
 
-    await user.click(await screen.findByRole('button', { name: 'Executions' }))
+    await user.click(await screen.findByRole('button', { name: 'History' }))
     await user.click(await screen.findByLabelText('Show new runs as they finish'))
 
     await waitFor(() =>
@@ -691,12 +691,12 @@ describe('following live runs', () => {
     expect(await within(canvasNode('tight')).findByLabelText('Failed')).toBeInTheDocument()
     expect(screen.getAllByText('node "tight": boom')).toHaveLength(2) // the bar and the list
     expect(
-      within(screen.getByRole('region', { name: 'Executions' })).getAllByRole('listitem'),
+      within(screen.getByRole('tabpanel', { name: 'Executions' })).getAllByRole('listitem'),
     ).toHaveLength(2)
 
     // Picking an execution stops following.
     await user.click(
-      within(screen.getByRole('region', { name: 'Executions' })).getAllByRole('button')[2],
+      within(screen.getByRole('tabpanel', { name: 'Executions' })).getAllByRole('button')[1],
     )
     expect(screen.getByLabelText('Show new runs as they finish')).not.toBeChecked()
   })
@@ -858,15 +858,13 @@ describe('settings panel (D390)', () => {
     expect(settings().getByRole('heading', { name: 'If' })).toBeInTheDocument()
   })
 
-  it('keeps the Executions button before the views, so nothing moves as it goes', async () => {
+  it('keeps the History button before the views, so nothing moves as it goes', async () => {
     editing(branching())
     renderApp('/workflows/wf-1')
 
-    const executions = await screen.findByRole('button', { name: 'Executions' })
+    const history = await screen.findByRole('button', { name: 'History' })
     const views = screen.getByRole('tablist', { name: 'View' })
-    expect(
-      executions.compareDocumentPosition(views) & Node.DOCUMENT_POSITION_FOLLOWING,
-    ).toBeTruthy()
+    expect(history.compareDocumentPosition(views) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
   })
 })
 
@@ -1085,10 +1083,10 @@ describe('waiting executions', () => {
     )
     const { user } = renderApp('/workflows/wf-1')
 
-    await user.click(await screen.findByRole('button', { name: 'Executions' }))
-    const list = within(await screen.findByRole('region', { name: 'Executions' }))
+    await user.click(await screen.findByRole('button', { name: 'History' }))
+    const list = within(await screen.findByRole('tabpanel', { name: 'Executions' }))
     expect(await list.findByText(/^till /)).toBeInTheDocument()
-    await user.click(list.getAllByRole('button')[1])
+    await user.click(list.getAllByRole('button')[0])
 
     expect(await screen.findByText(/Waiting at tight until/)).toBeInTheDocument()
     expect(within(canvasNode('tight')).getByLabelText('Waiting')).toBeInTheDocument()
@@ -1172,9 +1170,9 @@ describe('a run waiting on a Local agent node (D413)', () => {
     )
     const { user } = renderApp('/workflows/wf-1')
 
-    await user.click(await screen.findByRole('button', { name: 'Executions' }))
-    const list = within(await screen.findByRole('region', { name: 'Executions' }))
-    await user.click((await list.findAllByRole('button'))[1])
+    await user.click(await screen.findByRole('button', { name: 'History' }))
+    const list = within(await screen.findByRole('tabpanel', { name: 'Executions' }))
+    await user.click((await list.findAllByRole('button'))[0])
 
     expect(await screen.findByText(/Claude Code has the task until/)).toBeInTheDocument()
 

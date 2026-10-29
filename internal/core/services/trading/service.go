@@ -72,6 +72,22 @@ type Deps struct {
 	// Confirm holds tokens' and agents' going live and turning the kill switch off for
 	// their users, where the users say so (D406); optional.
 	Confirm Confirmer
+
+	// History keeps who switched a workflow to paper or live or another wallet, reset its
+	// paper account or turned the kill switch on or off as it traded live, and why
+	// (D433); optional.
+	History History
+}
+
+// History keeps a workflow's switches: the history service.
+type History interface {
+	Switched(ctx context.Context, sw domain.Switch)
+}
+
+func (s *Service) switched(ctx context.Context, sw domain.Switch) {
+	if s.d.History != nil {
+		s.d.History.Switched(ctx, sw)
+	}
 }
 
 // Confirmer holds a token's or an agent's live action for its user to confirm (D406): nil to

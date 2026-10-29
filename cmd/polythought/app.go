@@ -45,6 +45,7 @@ import (
 	"github.com/lein3000zzz/polythought-go/internal/core/services/events"
 	"github.com/lein3000zzz/polythought-go/internal/core/services/feed"
 	"github.com/lein3000zzz/polythought-go/internal/core/services/geoblock"
+	"github.com/lein3000zzz/polythought-go/internal/core/services/history"
 	"github.com/lein3000zzz/polythought-go/internal/core/services/library"
 	"github.com/lein3000zzz/polythought-go/internal/core/services/mail"
 	"github.com/lein3000zzz/polythought-go/internal/core/services/memory"
@@ -132,6 +133,7 @@ type app struct {
 	traders         *traders.Hub
 	trading         *trading.Service
 	confirmations   *confirmations.Service
+	history         *history.Service
 	workflowTrading *postgres.WorkflowTrading
 	nodeMemory      *postgres.NodeMemory
 	memory          *memory.Service
@@ -428,6 +430,7 @@ func (a *app) newMCP() (*mcpserver.Server, error) {
 		Wallets:     a.wallets,
 		Trades:      a.trading,
 		Stats:       a.stats,
+		History:     a.history,
 		Admin:       a.auth,
 		Settings:    a.settings,
 		Mail:        a.mail,
@@ -1042,6 +1045,9 @@ func (a *app) initEngine(ctx context.Context, pmc polymarket) error {
 		confirmations.WithNotifier(a.notify))
 	a.util.OnShutdown(a.confirmations.Wait)
 
+	// Who switched each workflow and why (D433).
+	a.history = history.New(postgres.NewWorkflowHistory(a.db), a.util.Logger)
+
 	a.trading = trading.New(trading.Deps{
 		Ledger: ledger, Books: pmc.reader, Rules: pmc.reader, Markets: pmc.reader,
 		Workflows: laterWorkflows{a}, Logger: a.util.Logger, PaperBalance: paperBalance,
@@ -1052,6 +1058,7 @@ func (a *app) initEngine(ctx context.Context, pmc polymarket) error {
 		Users:       postgres.NewUsers(a.db),
 		Notices:     a.notify,
 		Caps:        a.liveCaps,
+		History:     a.history,
 	})
 
 	// How the workflows are doing together, for their cards, the dashboard and agents
@@ -1166,7 +1173,7 @@ func (a *app) initEngine(ctx context.Context, pmc polymarket) error {
 		workflows.WithCredentials(paramsWhere(a.registry, func(p engine.ParamSpec) bool { return p.Kind == engine.ParamCredential })),
 		// A workflow that places orders needs its mode's scope too (D399).
 		workflows.WithTradeScope(tradeScope),
-		workflows.WithConfirmations(a.confirmations))
+		workflows.WithConfirmations(a.confirmations), workflows.WithHistory(a.history))
 	// A change to a custom node a live workflow that is on uses waits like one to the
 	// workflow (A5).
 	a.customNodes.UseConfirmations(a.confirmations, func(ctx context.Context, w domain.Workflow) (bool, error) {

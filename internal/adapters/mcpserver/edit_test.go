@@ -87,11 +87,14 @@ func (e *editing) Activate(_ context.Context, _ auth.Principal, id domain.Workfl
 	return w, nil
 }
 
-func (e *editing) SwitchOff(_ context.Context, _ auth.Principal, id domain.WorkflowID, cancelOrders bool) (domain.Workflow, error) {
+func (e *editing) SwitchOff(_ context.Context, p auth.Principal, id domain.WorkflowID, cancelOrders bool) (domain.Workflow, error) {
 	e.mu.Lock()
 	defer e.mu.Unlock()
 
 	e.switched = fmt.Sprintf("off, cancelling orders: %v", cancelOrders)
+	if p.Reason != "" {
+		e.switched += ", because " + p.Reason
+	}
 	w := flow
 	w.ID, w.Active = id, false
 
@@ -281,13 +284,13 @@ func TestEditTools(t *testing.T) {
 		on, _ := call(t, agent, "switch_workflow", map[string]any{"id": "wf-1", "on": true})
 		assert.Equal(t, true, on["active"])
 
-		off, _ := call(t, agent, "switch_workflow", map[string]any{"id": "wf-1", "on": false, "cancelOrders": true})
+		off, _ := call(t, agent, "switch_workflow", map[string]any{"id": "wf-1", "on": false, "cancelOrders": true, "reason": "it lost too much"})
 		assert.Equal(t, false, off["active"])
 
 		e.mu.Lock()
 		defer e.mu.Unlock()
 
-		assert.Equal(t, "off, cancelling orders: true", e.switched)
+		assert.Equal(t, "off, cancelling orders: true, because it lost too much", e.switched, "why, for its history (D433)")
 	})
 
 	t.Run("run", func(t *testing.T) {

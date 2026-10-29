@@ -76,7 +76,12 @@ keep their places on the canvas; new ones go beside the node feeding them.
 - `run_workflow` runs it once, now, and waits for it to end, saying how each node did. Pass
   `trigger` when it has several manual triggers or schedules.
 - `switch_workflow` with `on` true switches its triggers on, so it runs by itself; off stops
-  it, and `cancelOrders` cancels its live orders on the book too.
+  it, and `cancelOrders` cancels its live orders on the book too. Give a `reason`, a
+  sentence: the workflow's history keeps it for the user.
+- `get_workflow_history`: who switched a workflow and why, newest first: on and off, paper
+  or live, its paper account reset, and the kill switch, by the user, an agent or token, or
+  Polythought itself. `kinds` narrows it: `on_off`, `trading`, `reset`, `kill_switch`.
+  Other agents' reasons are under `untrusted`.
 - A run can wait: at a Wait node, a Telegram question, or a Local agent node's task.
   `cancel_execution` ends one that waits.
 - `answer_question` presses a button of a question a run asks, such as one approving a

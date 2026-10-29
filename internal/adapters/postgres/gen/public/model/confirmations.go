@@ -33,4 +33,5 @@ type Confirmations struct {
 	DecidedVia      string
 	About           string
 	Detail          string
+	Reason          string
 }

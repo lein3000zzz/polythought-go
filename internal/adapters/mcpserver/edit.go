@@ -71,6 +71,7 @@ type switchIn struct {
 	ID           string `json:"id" jsonschema:"the workflow's ID"`
 	On           bool   `json:"on" jsonschema:"true switches its triggers on, false off"`
 	CancelOrders bool   `json:"cancelOrders,omitempty" jsonschema:"switching off, cancel its live orders resting on the book too"`
+	Reason       string `json:"reason,omitempty" jsonschema:"why you do it, in a sentence: the workflow's history keeps it, for your user to see"`
 }
 
 type runIn struct {
@@ -255,6 +256,8 @@ func (s *Server) deleteWorkflow(ctx context.Context, p auth.Principal, in idIn) 
 }
 
 func (s *Server) switchWorkflow(ctx context.Context, p auth.Principal, in switchIn) (workflowSummary, error) {
+	p.Reason = in.Reason
+
 	var (
 		w   domain.Workflow
 		err error

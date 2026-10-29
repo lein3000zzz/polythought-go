@@ -28,11 +28,13 @@ type setTradingIn struct {
 	Mode     string `json:"mode" jsonschema:"paper or live"`
 	Wallet   string `json:"wallet,omitempty" jsonschema:"live: the wallet it trades from, by its ID, as list_wallets gives it"`
 	// Confirmed is the user's yes to real money (D201), as the app's dialog asks it.
-	Confirmed bool `json:"confirmed,omitempty" jsonschema:"live: the user said yes to its orders spending real money from this wallet; set it only as the user told you"`
+	Confirmed bool   `json:"confirmed,omitempty" jsonschema:"live: the user said yes to its orders spending real money from this wallet; set it only as the user told you"`
+	Reason    string `json:"reason,omitempty" jsonschema:"why you do it, in a sentence: the workflow's history keeps it, for your user to see"`
 }
 
 type killSwitchIn struct {
-	On bool `json:"on" jsonschema:"true stops live trading at once; false lets it go on again"`
+	On     bool   `json:"on" jsonschema:"true stops live trading at once; false lets it go on again"`
+	Reason string `json:"reason,omitempty" jsonschema:"why you do it, in a sentence: the workflow's history keeps it, for your user to see"`
 }
 
 type killSwitchOut struct {
@@ -42,8 +44,9 @@ type killSwitchOut struct {
 	Left      int        `json:"left,omitempty" jsonschema:"those that still rest, Polymarket not cancelling them"`
 }
 
-type workflowRef struct {
+type resetIn struct {
 	Workflow string `json:"workflow" jsonschema:"the workflow's ID"`
+	Reason   string `json:"reason,omitempty" jsonschema:"why you do it, in a sentence: the workflow's history keeps it, for your user to see"`
 }
 
 type paperOut struct {
@@ -75,7 +78,7 @@ func (s *Server) addTradeTools(srv *mcp.Server) {
 		Handle: s.setKillSwitch,
 	})
 
-	add(s, srv, Tool[workflowRef, paperOut]{
+	add(s, srv, Tool[resetIn, paperOut]{
 		Name: "reset_paper_account", Title: "Reset a paper account", Scope: domain.ScopePaper, Destructive: true,
 		Description: "Start a workflow's paper account again: its paper orders, holdings and results are gone, its cash back " +
 			"to what an account starts with. Its resting paper orders are cancelled. It cannot be undone.",
@@ -91,6 +94,8 @@ func (s *Server) addTradeTools(srv *mcp.Server) {
 }
 
 func (s *Server) setTrading(ctx context.Context, p auth.Principal, in setTradingIn) (setupOut, error) {
+	p.Reason = in.Reason
+
 	setup, err := s.trader.SetSetup(ctx, p, domain.WorkflowID(in.Workflow), trading.SetupChange{
 		Mode: domain.TradingMode(in.Mode), WalletID: domain.WalletID(in.Wallet), Confirmed: in.Confirmed,
 	})
@@ -110,6 +115,8 @@ func (s *Server) setTrading(ctx context.Context, p auth.Principal, in setTrading
 }
 
 func (s *Server) setKillSwitch(ctx context.Context, p auth.Principal, in killSwitchIn) (killSwitchOut, error) {
+	p.Reason = in.Reason
+
 	ks, err := s.trader.SetKillSwitch(ctx, p, in.On)
 	if err != nil {
 		return killSwitchOut{}, err
@@ -118,7 +125,9 @@ func (s *Server) setKillSwitch(ctx context.Context, p auth.Principal, in killSwi
 	return killSwitchOut{On: ks.On, Since: optionalTime(ks.Since), Cancelled: ks.Cancelled, Left: ks.Left}, nil
 }
 
-func (s *Server) resetPaper(ctx context.Context, p auth.Principal, in workflowRef) (paperOut, error) {
+func (s *Server) resetPaper(ctx context.Context, p auth.Principal, in resetIn) (paperOut, error) {
+	p.Reason = in.Reason
+
 	a, err := s.trader.Reset(ctx, p, domain.WorkflowID(in.Workflow))
 	if err != nil {
 		return paperOut{}, err

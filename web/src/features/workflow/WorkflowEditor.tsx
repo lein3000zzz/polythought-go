@@ -106,7 +106,7 @@ import {
   type FlowNode,
   type NodeSpec,
 } from './graph'
-import { ExecutionsPanel } from './ExecutionsPanel'
+import { HistoryPanel } from './HistoryPanel'
 import { clipText, copyOf, fromClip, placed, type Copied } from './clipboard'
 import { UndoHistory } from './history'
 import { actionOf, inField, keymapOf, shown, type Keymap } from './shortcuts'
@@ -981,7 +981,7 @@ function Editor({ workflow, types, onReload }: Props) {
                   <>
                     <ResizeHandle
                       panel="below"
-                      label="Resize the executions"
+                      label="Resize the history"
                       size={executionsShown}
                       min={panels.executions.min}
                       max={executionsMax}
@@ -989,7 +989,7 @@ function Editor({ workflow, types, onReload }: Props) {
                       onReset={() => setExecutionsHeight(panels.executions.initial)}
                     />
                     <div className="shrink-0" style={{ height: executionsShown }}>
-                      <ExecutionsPanel
+                      <HistoryPanel
                         workflowId={workflow.id}
                         selected={shownId}
                         onSelect={(id) => {
@@ -1353,7 +1353,7 @@ function Header({
             onClick={onToggleExecutions}
           >
             <History />
-            Executions
+            History
           </Button>
         )}
 

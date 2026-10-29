@@ -68,3 +68,19 @@ type ExecutionRepository interface {
 	// the latest of each, for each workflow that has any (D429).
 	RunStats(ctx context.Context, owner domain.UserID, day, week time.Time) ([]domain.RunStats, error)
 }
+
+// SwitchFilter narrows a workflow's history to some kinds, newest first; none, every kind.
+type SwitchFilter struct {
+	Kinds []domain.SwitchKind
+	PageFilter
+}
+
+// WorkflowHistory keeps who switched each workflow and why (D433), going with the
+// workflow.
+type WorkflowHistory interface {
+	Record(ctx context.Context, s domain.Switch) error
+	// List is an owner's workflow's, newest first; ErrNotFound for a workflow not theirs.
+	List(ctx context.Context, owner domain.UserID, workflow domain.WorkflowID, f SwitchFilter) (Page[domain.Switch], error)
+	// DeleteBefore forgets the switches before a time: how many.
+	DeleteBefore(ctx context.Context, before time.Time) (int64, error)
+}

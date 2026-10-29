@@ -10,11 +10,11 @@ test('runs of an active workflow appear as they finish', async ({ page }) => {
   await page.getByLabel('Active').click()
   await expect(page.getByText('Workflow activated')).toBeVisible()
 
-  await page.getByRole('button', { name: 'Executions' }).click()
+  await page.getByRole('button', { name: 'History' }).click()
   await page.getByLabel('Show new runs as they finish').click()
 
   // New runs arrive over the event stream; nothing reloads the list.
-  const runs = page.getByRole('region', { name: 'Executions' }).getByRole('listitem')
+  const runs = page.getByRole('tabpanel', { name: 'Executions' }).getByRole('listitem')
   await expect(runs.first()).toBeVisible()
   const seen = await runs.count()
   await expect.poll(() => runs.count(), { timeout: 10_000 }).toBeGreaterThanOrEqual(seen + 2)

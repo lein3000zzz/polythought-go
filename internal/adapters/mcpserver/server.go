@@ -120,6 +120,8 @@ type Deps struct {
 	Trades  Trades
 	// How the workflows are doing, together (D429); without it, its tool is not offered.
 	Stats Stats
+	// Who switched each workflow and why (D433); without it, its tool is not offered.
+	History History
 }
 
 type Server struct {
@@ -158,6 +160,7 @@ type Server struct {
 	wallets      Wallets
 	trades       Trades
 	stats        Stats
+	history      History
 
 	sessions ports.MCPSessionRepository
 	boot     string        // this run of the server, its sessions kept with it
@@ -191,6 +194,7 @@ func New(cfg Config, d Deps) (*Server, error) {
 		window: d.Window, windowWait: d.WindowWait, publicURL: strings.TrimRight(cfg.PublicURL, "/"),
 		admin: d.Admin, config: d.Settings, mail: d.Mail, geoblock: d.Geoblock, plugins: d.Plugins, tasks: d.Tasks,
 		markets: d.Markets.Sources, marketReader: d.Markets.Reader, wallets: d.Wallets, trades: d.Trades, stats: d.Stats,
+		history:  d.History,
 		scope:    tracing.Scope{Manager: d.Util.TracerManager, TracerName: tracerName},
 		sessions: d.Sessions, boot: newBoot(), idle: d.SessionIdle, tracked: map[string]*opened{},
 		limits: d.SessionLimits, opening: d.NewSessions,
@@ -278,6 +282,10 @@ func New(cfg Config, d Deps) (*Server, error) {
 		s.addStatsTools(srv)
 	}
 
+	if s.history != nil {
+		s.addHistoryTools(srv)
+	}
+
 	stream := mcp.NewStreamableHTTPHandler(func(*http.Request) *mcp.Server { return srv }, &mcp.StreamableHTTPOptions{
 		SessionTimeout:      s.idle,
 		MaxRequestBodyBytes: maxBody,
@@ -291,7 +299,7 @@ func New(cfg Config, d Deps) (*Server, error) {
 		ResourceMetadataURL: ResourceMetadataURL(cfg.PublicURL),
 		// API tokens may never expire; agents' always do, and are checked as they come.
 		AllowMissingExpiration: true,
-	})(s.limitOpening(stream))
+	})(s.limitOpening(newRequestIDs().wrap(stream)))
 
 	return s, nil
 }

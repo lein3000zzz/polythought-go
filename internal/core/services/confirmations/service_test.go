@@ -335,8 +335,11 @@ func TestConfirm(t *testing.T) {
 		return "", errors.New("no kill switch here")
 	})
 
-	t.Run("carried out as the agent asked", func(t *testing.T) {
-		c := held(t, svc.Hold(ctx, agent, domain.Ask{Kind: domain.ConfirmRun, WorkflowID: "wf-1", What: "Run it", Payload: map[string]string{"trigger": "manual"}}))
+	t.Run("carried out as the agent asked, why it said kept (D433)", func(t *testing.T) {
+		asking := agent
+		asking.Reason = "the weather subagent asked"
+
+		c := held(t, svc.Hold(ctx, asking, domain.Ask{Kind: domain.ConfirmRun, WorkflowID: "wf-1", What: "Run it", Payload: map[string]string{"trigger": "manual"}}))
 
 		_, err := svc.Confirm(ctx, agent, c.ID)
 		require.ErrorIs(t, err, domain.ErrForbidden, "never by the agent itself")
@@ -356,7 +359,9 @@ func TestConfirm(t *testing.T) {
 		require.NotNil(t, got.Confirming, "what it carries out, to hold it to (A4)")
 		assert.Equal(t, domain.ConfirmRun, got.Confirming.Kind)
 		got.Confirming = nil
-		assert.Equal(t, auth.Principal{User: alice, GrantID: "g-1", Agent: "Claude Code", Scopes: agent.Scopes, Confirmed: true}, got)
+		assert.Equal(t, auth.Principal{
+			User: alice, GrantID: "g-1", Agent: "Claude Code", Scopes: agent.Scopes, Reason: "the weather subagent asked", Confirmed: true,
+		}, got)
 
 		_, err = svc.Confirm(ctx, atDesk, c.ID)
 		require.ErrorIs(t, err, domain.ErrConflict, "once")

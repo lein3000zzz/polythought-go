@@ -288,6 +288,24 @@ func TestAgentSignsInOverMCP(t *testing.T) {
 	assert.Equal(t, "paper", tool(ctx, t, agent, "set_trading", map[string]any{"workflow": made.ID, "mode": "paper"})["mode"])
 	assert.Equal(t, "1000", tool(ctx, t, agent, "reset_paper_account", map[string]any{"workflow": made.ID})["cash"])
 
+	// Who switched it and why (D433): the account reset again, the agent's reason kept as
+	// its own words; the first only opened it.
+	tool(ctx, t, agent, "reset_paper_account", map[string]any{"workflow": made.ID, "reason": "starting the test over"})
+
+	hist := tool(ctx, t, agent, "get_workflow_history", map[string]any{"workflow": made.ID})
+	require.Len(t, hist["switches"], 1)
+	reset := hist["switches"].([]any)[0].(map[string]any)
+	assert.Equal(t, "reset", reset["kind"])
+	assert.Equal(t, "Go SDK e2e", reset["by"].(map[string]any)["name"])
+	assert.Equal(t, map[string]any{"reason": "starting the test over"}, reset["untrusted"])
+
+	var page struct {
+		Switches []struct{ Kind, Reason string }
+	}
+	b.call(http.MethodGet, "/api/v1/workflows/"+made.ID+"/history?kinds=reset", nil, http.StatusOK, &page)
+	require.Len(t, page.Switches, 1)
+	assert.Equal(t, "starting the test over", page.Switches[0].Reason)
+
 	assert.Equal(t, true, tool(ctx, t, agent, "set_kill_switch", map[string]any{"on": true})["on"])
 
 	off, err := agent.CallTool(ctx, &mcp.CallToolParams{Name: "set_kill_switch", Arguments: map[string]any{"on": false}})

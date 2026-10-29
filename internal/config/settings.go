@@ -39,6 +39,7 @@ const (
 	KeyFeedMaxTokens       = "workflows.feed_max_tokens"
 	KeyPnLSampleEvery      = "workflows.pnl_sample_every"
 	KeyExecutionRetention  = "executions.retention"
+	KeyHistoryRetention    = "executions.history_retention"
 	KeyMaxWaiting          = "executions.max_waiting_per_user"
 	KeyMaxWait             = "executions.max_wait"
 	KeyCodeAccess          = "code.access"
@@ -265,6 +266,12 @@ func Settings() (*settings.Registry, error) {
 			Description: "Finished executions older than this are deleted, at start and then daily.",
 			Kind:        settings.KindDuration, Default: 30 * 24 * time.Hour, Check: atLeast(time.Hour),
 			Env: prefix + "EXECUTION_RETENTION",
+		},
+		settings.Spec{
+			Key: KeyHistoryRetention, Group: groupExecutions, Label: "Keep workflow history for",
+			Description: "Who switched each workflow on or off, to paper or live, reset its paper account or turned the kill switch, " +
+				"and why: kept this long, then deleted daily. A workflow's history goes with it.",
+			Kind: settings.KindDuration, Default: 90 * 24 * time.Hour, Check: atLeast(24 * time.Hour),
 		},
 		settings.Spec{
 			Key: KeyMaxWaiting, Group: groupExecutions, Label: "Waiting executions per user",

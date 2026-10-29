@@ -2102,6 +2102,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/workflows/{id}/history": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** A workflow's history */
+        get: operations["getWorkflowHistory"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/workflows/{id}/holdings": {
         parameters: {
             query?: never;
@@ -4014,6 +4031,20 @@ export interface components {
             /** @description that have traded in the mode */
             workflows: number;
         };
+        SwitchWallet: {
+            /** @description kept, though the wallet go */
+            address: string;
+            id: string;
+        };
+        Switcher: {
+            /** @description Confirmed says you confirmed it first, as it waited for you (D406). */
+            confirmed?: boolean;
+            /** @description ID is the agent's grant, or the token. */
+            id: string;
+            /** @enum {string} */
+            kind: "agent" | "token";
+            name: string;
+        };
         TaskItem: {
             item: {
                 [key: string]: unknown;
@@ -4485,6 +4516,10 @@ export interface components {
             name: string;
             nodes: components["schemas"]["Node"][];
         };
+        WorkflowHistoryPage: {
+            nextCursor?: string;
+            switches: components["schemas"]["WorkflowSwitch"][];
+        };
         WorkflowPage: {
             /** @description NextCursor is absent on the last page. */
             nextCursor?: string;
@@ -4507,6 +4542,28 @@ export interface components {
             runs: components["schemas"]["RunStats"];
             /** @description Trading is what it made in the mode it trades in now; absent until it has traded in it. */
             trading?: components["schemas"]["TradingResult"];
+        };
+        WorkflowSwitch: {
+            /** Format: date-time */
+            at: string;
+            /** @description By is the agent or token that did it; absent when you did, or Polythought. */
+            by?: components["schemas"]["Switcher"];
+            id: string;
+            /**
+             * @description Kind is what it did: on or off; paper, live or another wallet (wallet); reset, its
+             *     paper account; kill_on or kill_off, your kill switch, as it traded live.
+             * @enum {string}
+             */
+            kind: "on" | "off" | "paper" | "live" | "wallet" | "reset" | "kill_on" | "kill_off";
+            /** @description Polythought says Polythought did it itself, Reason saying why. */
+            polythought: boolean;
+            /**
+             * @description Reason is why: the agent's or token's own words, as it gave them, or Polythought's;
+             *     absent when none was given.
+             */
+            reason?: string;
+            /** @description Wallet is the one it trades live from, for live and wallet. */
+            wallet?: components["schemas"]["SwitchWallet"];
         };
         WorkflowsOverview: {
             /** Format: date-time */
@@ -8562,7 +8619,10 @@ export interface operations {
     };
     setKillSwitch: {
         parameters: {
-            query?: never;
+            query?: {
+                /** @description Why, kept in the workflow's history (D433): a token's words, shown as such */
+                reason?: string;
+            };
             header?: never;
             path?: never;
             cookie?: never;
@@ -10927,7 +10987,10 @@ export interface operations {
     };
     activateWorkflow: {
         parameters: {
-            query?: never;
+            query?: {
+                /** @description Why, kept in the workflow's history (D433): a token's words, shown as such */
+                reason?: string;
+            };
             header?: never;
             path: {
                 /** @description Workflow ID */
@@ -10989,6 +11052,8 @@ export interface operations {
             query?: {
                 /** @description Also cancel its live resting orders */
                 cancelOrders?: boolean;
+                /** @description Why, kept in the workflow's history (D433): a token's words, shown as such */
+                reason?: string;
             };
             header?: never;
             path: {
@@ -11335,6 +11400,63 @@ export interface operations {
             };
         };
     };
+    getWorkflowHistory: {
+        parameters: {
+            query?: {
+                /** @description Some kinds alone, comma-separated: on_off, trading, reset, kill_switch */
+                kinds?: string;
+                /** @description Page size */
+                limit?: number;
+                /** @description nextCursor of the previous page */
+                cursor?: string;
+            };
+            header?: never;
+            path: {
+                /** @description Workflow ID */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WorkflowHistoryPage"];
+                };
+            };
+            /** @description invalid_input */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description unauthenticated */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description not_found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
     listHoldings: {
         parameters: {
             query?: never;
@@ -11619,7 +11741,10 @@ export interface operations {
     };
     resetPaperAccount: {
         parameters: {
-            query?: never;
+            query?: {
+                /** @description Why, kept in the workflow's history (D433): a token's words, shown as such */
+                reason?: string;
+            };
             header?: never;
             path: {
                 /** @description Workflow ID */
@@ -11999,7 +12124,10 @@ export interface operations {
     };
     setTradingSetup: {
         parameters: {
-            query?: never;
+            query?: {
+                /** @description Why, kept in the workflow's history (D433): a token's words, shown as such */
+                reason?: string;
+            };
             header?: never;
             path: {
                 /** @description Workflow ID */

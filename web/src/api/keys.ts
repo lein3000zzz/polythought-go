@@ -73,6 +73,14 @@ export const keys = {
     mode ?? 'now',
   ],
   tradingSetup: (workflowId: string) => ['workflows', 'trading', workflowId, 'setup'],
+  // Under its trading: what refreshes that, switching it on or off too, refreshes this.
+  workflowHistory: (workflowId: string, kinds: string[]) => [
+    'workflows',
+    'trading',
+    workflowId,
+    'history',
+    kinds,
+  ],
   walletCash: (walletId: string) => ['wallets', 'cash', walletId],
   orders: (workflowId: string) => ['workflows', 'trading', workflowId, 'orders'],
   // Under workflows too, so what refreshes a workflow's trading refreshes the log.

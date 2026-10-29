@@ -224,6 +224,9 @@ type Principal struct {
 	// carried out can be held to what was confirmed (A4).
 	Confirmed  bool
 	Confirming *domain.Confirmation
+	// Reason is why a token or an agent says it does what it asks (D433), kept in the
+	// workflow's history with what it switched; empty when it gave none.
+	Reason string
 }
 
 func (p Principal) ViaSession() bool { return p.SessionID != "" }

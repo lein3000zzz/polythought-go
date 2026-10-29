@@ -49,3 +49,31 @@ export function useStoredNumber(key: string, initial: number): [number, (value: 
 
   return [value, setValue]
 }
+
+/**
+ * A list of words that survives reloads, as useStoredFlag's boolean does, for choices
+ * like the kinds a list shows. One saved that is not such a list reads as the initial one.
+ */
+export function useStoredList(
+  key: string,
+  initial: string[],
+): [string[], (value: string[]) => void] {
+  const [value, setValue] = useState(() => {
+    try {
+      const saved: unknown = JSON.parse(localStorage.getItem(key) ?? 'null')
+      return Array.isArray(saved) && saved.every((s) => typeof s === 'string') ? saved : initial
+    } catch {
+      return initial
+    }
+  })
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(key, JSON.stringify(value))
+    } catch {
+      // not remembered
+    }
+  }, [key, value])
+
+  return [value, setValue]
+}
