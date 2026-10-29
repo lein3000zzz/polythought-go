@@ -76,8 +76,8 @@ func serve(ctx context.Context) error {
 		Geoblock: a.geoblock, Tasks: a.tasks, TaskAgents: a.taskAgents,
 		Meta:    a.meta,
 		Updates: a.updates,
-		Stats:   a.stats,
-		OAuth:   a.oauth, Confirmations: a.confirmations,
+		Stats:   a.stats, History: a.history,
+		OAuth: a.oauth, Confirmations: a.confirmations,
 		MCP:     mcp,
 		Plugins: a.plugins,
 		AgentSetup: func() httpapi.AgentSetup {
@@ -277,6 +277,14 @@ func pruneExecutions(ctx context.Context, a *app, log logging.Logger) {
 		}
 
 		log.Info(ctx, "Old executions pruned", "count", n, "retention", retention)
+
+		// And the workflows' history, kept as long as its own setting says (D433).
+		keep := a.settings.Current().Duration(config.KeyHistoryRetention)
+		if n, err := a.history.Forget(ctx, keep); err != nil {
+			log.Warn(ctx, "Workflow history not pruned", logging.Err(err))
+		} else if n > 0 {
+			log.Info(ctx, "Old workflow history pruned", "count", n, "retention", keep)
+		}
 	}
 
 	prune()

@@ -136,7 +136,7 @@ func (s *Service) Hold(ctx context.Context, p auth.Principal, a domain.Ask) erro
 
 	c := domain.Confirmation{
 		ID: domain.ConfirmationID(uuid.Must(uuid.NewV7()).String()), OwnerID: p.User.ID, Kind: kind, WorkflowID: wf,
-		GrantID: p.GrantID, TokenID: p.TokenID, Agent: p.Actor("").Name, Scopes: p.Scopes, What: what, About: a.About, Detail: detailOf(a.Detail), Payload: data,
+		GrantID: p.GrantID, TokenID: p.TokenID, Agent: p.Actor("").Name, Scopes: p.Scopes, Reason: p.Reason, What: what, About: a.About, Detail: detailOf(a.Detail), Payload: data,
 		Status: domain.ConfirmPending, CreatedAt: now, ExpiresAt: now.Add(s.expiry()),
 	}
 
@@ -259,7 +259,9 @@ func (s *Service) Confirm(ctx context.Context, p auth.Principal, id domain.Confi
 	s.mu.Unlock()
 
 	// As it was asked: the user now, the token's or the agent's name and scopes then.
-	asker := auth.Principal{User: p.User, GrantID: c.GrantID, TokenID: c.TokenID, Scopes: c.Scopes, Confirmed: true, Confirming: &c}
+	asker := auth.Principal{
+		User: p.User, GrantID: c.GrantID, TokenID: c.TokenID, Scopes: c.Scopes, Reason: c.Reason, Confirmed: true, Confirming: &c,
+	}
 	if c.GrantID != "" {
 		asker.Agent = c.Agent
 	} else {

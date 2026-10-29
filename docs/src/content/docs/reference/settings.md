@@ -217,6 +217,18 @@ Finished executions older than this are deleted, at start and then daily.
 | Default | `720h` |
 | Applies | at once |
 
+### Keep workflow history for
+
+Who switched each workflow on or off, to paper or live, reset its paper account or turned the kill switch, and why: kept this long, then deleted daily. A workflow's history goes with it.
+
+| | |
+|---|---|
+| Key | `executions.history_retention` |
+| Environment variable | `POLYTHOUGHT_EXECUTIONS_HISTORY_RETENTION` |
+| Kind | duration, e.g. `30s`, `5m`, `168h` |
+| Default | `2160h` |
+| Applies | at once |
+
 ### Waiting executions per user
 
 The most executions of one user that may wait at once, such as at a Wait node. Past it, a node that would wait fails.

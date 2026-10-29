@@ -39,6 +39,9 @@ orders resting on the book are cancelled.
 Switching on or running a workflow that trades live, and changing one that is on, may wait
 for the user too (the `workflows` skill).
 
+`set_trading`, `reset_paper_account` and `set_kill_switch` take a `reason`, a sentence on
+why: the workflow's history keeps it, and `get_workflow_history` reads it back.
+
 ## Orders and accounts
 
 - `cancel_order`: cancel one of a workflow's orders resting on the book, paper with the paper

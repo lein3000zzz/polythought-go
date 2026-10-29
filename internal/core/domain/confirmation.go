@@ -79,6 +79,8 @@ type Confirmation struct {
 	TokenID APITokenID
 	Agent   string // the agent's name, or the token's
 	Scopes  []Scope
+	// Reason is why it said it asked (D433), for the workflow's history once carried out.
+	Reason string
 
 	What    string          // what it does, said for the user
 	About   string          // whom it is about, for the user only: never the agent's to see

@@ -30,7 +30,7 @@ func TestMigrate(t *testing.T) {
 		name        string
 		wantApplied []int64
 	}{
-		{name: "fresh database gets every migration", wantApplied: []int64{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60}},
+		{name: "fresh database gets every migration", wantApplied: []int64{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60, 61}},
 		{name: "second run is a no-op", wantApplied: []int64{}},
 	}
 
@@ -56,7 +56,7 @@ func TestMigrate(t *testing.T) {
 
 		require.NoError(t, rows.Err())
 		assert.Equal(t, []string{
-			"agent_usage", "api_tokens", "approval_setups", "confirmations", "credentials", "custom_nodes", "email_tokens", "executions", "goose_db_version", "holdings", "invite_uses", "invites", "join_requests", "mcp_sessions", "node_memory", "notification_prefs", "oauth_clients", "oauth_codes", "oauth_grants", "oauth_tokens", "order_fills", "orders", "paper_accounts", "plugin_audit", "plugin_keys", "plugin_settings", "plugin_store", "plugin_users", "plugin_versions", "plugins", "pnl_extremes", "polymarket_credentials", "release_notices", "session_keys", "sessions", "settings", "settings_audit", "telegram_link_codes", "telegram_links", "templates", "users", "waits", "wallets", "workflow_trading", "workflows",
+			"agent_usage", "api_tokens", "approval_setups", "confirmations", "credentials", "custom_nodes", "email_tokens", "executions", "goose_db_version", "holdings", "invite_uses", "invites", "join_requests", "mcp_sessions", "node_memory", "notification_prefs", "oauth_clients", "oauth_codes", "oauth_grants", "oauth_tokens", "order_fills", "orders", "paper_accounts", "plugin_audit", "plugin_keys", "plugin_settings", "plugin_store", "plugin_users", "plugin_versions", "plugins", "pnl_extremes", "polymarket_credentials", "release_notices", "session_keys", "sessions", "settings", "settings_audit", "telegram_link_codes", "telegram_links", "templates", "users", "waits", "wallets", "workflow_switches", "workflow_trading", "workflows",
 		}, tables)
 	})
 

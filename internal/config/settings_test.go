@@ -65,6 +65,7 @@ func TestSettingsDefaults(t *testing.T) {
 		config.KeyFeedMaxTokens:       100,
 		config.KeyPnLSampleEvery:      10 * time.Minute,
 		config.KeyExecutionRetention:  30 * 24 * time.Hour,
+		config.KeyHistoryRetention:    90 * 24 * time.Hour,
 		config.KeyMaxWaiting:          50,
 		config.KeyMaxWait:             7 * 24 * time.Hour,
 		config.KeyCodeAccess:          string(authCfg.CodeAccess),
@@ -144,7 +145,7 @@ func TestSettingsDefaults(t *testing.T) {
 		assert.Equal(t, want, spec(t, key).Default, key)
 	}
 
-	assert.Len(t, registry(t).Specs(), 92, "every setting has a default checked above")
+	assert.Len(t, registry(t).Specs(), 93, "every setting has a default checked above")
 
 	for _, key := range []string{
 		config.KeyTelegramToken, config.KeyBuilderAPIKey, config.KeyBuilderSecret, config.KeyBuilderPassphrase, config.KeyPolygonRPC,

@@ -68,6 +68,14 @@ compromised could give it for you; leave the switch off if that worries you. API
 the link only. Confirmed, Polythought carries it out as the agent asked. Your own actions
 never wait, and neither does turning the kill switch on.
 
+## Who switched it
+
+Each workflow keeps who switched it and when: on and off, paper or live and from which
+wallet, its paper account reset, and your kill switch as it traded live. An agent or token
+may say why, in a sentence it passes as `reason`; what Polythought switched itself says why
+too, such as a plugin it uses being disabled. Agents read it with `get_workflow_history`;
+another agent's reason comes to them marked as that agent's words.
+
 ## Tasks for your agents
 
 A workflow hands work to one of your agents with the **Local agent** node, as

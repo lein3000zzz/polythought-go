@@ -4594,6 +4594,50 @@
                 ],
                 "type": "object"
             },
+            "SwitchWallet": {
+                "properties": {
+                    "address": {
+                        "description": "kept, though the wallet go",
+                        "type": "string"
+                    },
+                    "id": {
+                        "type": "string"
+                    }
+                },
+                "required": [
+                    "address",
+                    "id"
+                ],
+                "type": "object"
+            },
+            "Switcher": {
+                "properties": {
+                    "confirmed": {
+                        "description": "Confirmed says you confirmed it first, as it waited for you (D406).",
+                        "type": "boolean"
+                    },
+                    "id": {
+                        "description": "ID is the agent's grant, or the token.",
+                        "type": "string"
+                    },
+                    "kind": {
+                        "enum": [
+                            "agent",
+                            "token"
+                        ],
+                        "type": "string"
+                    },
+                    "name": {
+                        "type": "string"
+                    }
+                },
+                "required": [
+                    "id",
+                    "kind",
+                    "name"
+                ],
+                "type": "object"
+            },
             "TaskItem": {
                 "properties": {
                     "item": {
@@ -5783,6 +5827,24 @@
                 ],
                 "type": "object"
             },
+            "WorkflowHistoryPage": {
+                "properties": {
+                    "nextCursor": {
+                        "type": "string"
+                    },
+                    "switches": {
+                        "items": {
+                            "$ref": "#/components/schemas/WorkflowSwitch"
+                        },
+                        "type": "array",
+                        "uniqueItems": false
+                    }
+                },
+                "required": [
+                    "switches"
+                ],
+                "type": "object"
+            },
             "WorkflowPage": {
                 "properties": {
                     "nextCursor": {
@@ -5849,6 +5911,54 @@
                     "id",
                     "name",
                     "runs"
+                ],
+                "type": "object"
+            },
+            "WorkflowSwitch": {
+                "properties": {
+                    "at": {
+                        "format": "date-time",
+                        "type": "string"
+                    },
+                    "by": {
+                        "$ref": "#/components/schemas/Switcher",
+                        "description": "By is the agent or token that did it; absent when you did, or Polythought."
+                    },
+                    "id": {
+                        "type": "string"
+                    },
+                    "kind": {
+                        "description": "Kind is what it did: on or off; paper, live or another wallet (wallet); reset, its\npaper account; kill_on or kill_off, your kill switch, as it traded live.",
+                        "enum": [
+                            "on",
+                            "off",
+                            "paper",
+                            "live",
+                            "wallet",
+                            "reset",
+                            "kill_on",
+                            "kill_off"
+                        ],
+                        "type": "string"
+                    },
+                    "polythought": {
+                        "description": "Polythought says Polythought did it itself, Reason saying why.",
+                        "type": "boolean"
+                    },
+                    "reason": {
+                        "description": "Reason is why: the agent's or token's own words, as it gave them, or Polythought's;\nabsent when none was given.",
+                        "type": "string"
+                    },
+                    "wallet": {
+                        "$ref": "#/components/schemas/SwitchWallet",
+                        "description": "Wallet is the one it trades live from, for live and wallet."
+                    }
+                },
+                "required": [
+                    "at",
+                    "id",
+                    "kind",
+                    "polythought"
                 ],
                 "type": "object"
             },
@@ -11365,6 +11475,16 @@
         "/me/kill-switch": {
             "put": {
                 "operationId": "setKillSwitch",
+                "parameters": [
+                    {
+                        "description": "Why, kept in the workflow's history (D433): a token's words, shown as such",
+                        "in": "query",
+                        "name": "reason",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
                 "requestBody": {
                     "content": {
                         "application/json": {
@@ -14686,6 +14806,14 @@
                         "schema": {
                             "type": "string"
                         }
+                    },
+                    {
+                        "description": "Why, kept in the workflow's history (D433): a token's words, shown as such",
+                        "in": "query",
+                        "name": "reason",
+                        "schema": {
+                            "type": "string"
+                        }
                     }
                 ],
                 "responses": {
@@ -14773,6 +14901,14 @@
                         "name": "cancelOrders",
                         "schema": {
                             "type": "boolean"
+                        }
+                    },
+                    {
+                        "description": "Why, kept in the workflow's history (D433): a token's words, shown as such",
+                        "in": "query",
+                        "name": "reason",
+                        "schema": {
+                            "type": "string"
                         }
                     }
                 ],
@@ -15287,6 +15423,101 @@
                 ]
             }
         },
+        "/workflows/{id}/history": {
+            "get": {
+                "operationId": "getWorkflowHistory",
+                "parameters": [
+                    {
+                        "description": "Workflow ID",
+                        "in": "path",
+                        "name": "id",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "description": "Some kinds alone, comma-separated: on_off, trading, reset, kill_switch",
+                        "in": "query",
+                        "name": "kinds",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "description": "Page size",
+                        "in": "query",
+                        "name": "limit",
+                        "schema": {
+                            "minimum": 1,
+                            "type": "integer"
+                        }
+                    },
+                    {
+                        "description": "nextCursor of the previous page",
+                        "in": "query",
+                        "name": "cursor",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/WorkflowHistoryPage"
+                                }
+                            }
+                        },
+                        "description": "OK"
+                    },
+                    "400": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "invalid_input"
+                    },
+                    "401": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "unauthenticated"
+                    },
+                    "404": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "not_found"
+                    }
+                },
+                "security": [
+                    {
+                        "SessionCookie": []
+                    },
+                    {
+                        "APIToken": []
+                    }
+                ],
+                "summary": "A workflow's history",
+                "tags": [
+                    "workflows"
+                ]
+            }
+        },
         "/workflows/{id}/holdings": {
             "get": {
                 "operationId": "listHoldings",
@@ -15721,6 +15952,14 @@
                         "in": "path",
                         "name": "id",
                         "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "description": "Why, kept in the workflow's history (D433): a token's words, shown as such",
+                        "in": "query",
+                        "name": "reason",
                         "schema": {
                             "type": "string"
                         }
@@ -16280,6 +16519,14 @@
                         "in": "path",
                         "name": "id",
                         "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "description": "Why, kept in the workflow's history (D433): a token's words, shown as such",
+                        "in": "query",
+                        "name": "reason",
                         "schema": {
                             "type": "string"
                         }

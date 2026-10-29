@@ -16,6 +16,7 @@ import (
 	"github.com/lein3000zzz/polythought-go/internal/core/domain"
 	"github.com/lein3000zzz/polythought-go/internal/core/ports"
 	"github.com/lein3000zzz/polythought-go/internal/core/services/auth"
+	"github.com/lein3000zzz/polythought-go/internal/core/services/history"
 )
 
 // Summary is how a workflow's trading went in one mode (D104): its paper account or its
@@ -367,6 +368,7 @@ func (s *Service) Reset(ctx context.Context, p auth.Principal, id domain.Workflo
 		return domain.PaperAccount{}, err
 	}
 
+	s.switched(ctx, history.By(p, id, domain.SwitchReset))
 	s.d.Logger.Info(ctx, "Paper account reset", "workflow_id", id, "balance", balance)
 
 	return a, nil

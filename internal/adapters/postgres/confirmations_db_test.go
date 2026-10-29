@@ -28,7 +28,7 @@ func TestConfirmations(t *testing.T) {
 	ask := func(kind domain.ConfirmKind, wf domain.WorkflowID, created time.Time) domain.Confirmation {
 		c := domain.Confirmation{
 			ID: domain.ConfirmationID(newID()), OwnerID: alice.ID, Kind: kind, WorkflowID: wf, GrantID: "g-1", Agent: "Claude Code",
-			Scopes: []domain.Scope{domain.ScopeBuild, domain.ScopeLive}, What: "Run it", About: "bob@example.com",
+			Scopes: []domain.Scope{domain.ScopeBuild, domain.ScopeLive}, Reason: "the weather subagent asked", What: "Run it", About: "bob@example.com",
 			Detail: "~ node gate (logic.if): limit 1 → 2", Payload: json.RawMessage(`{"trigger":"manual"}`),
 			Status: domain.ConfirmPending, CreatedAt: created, ExpiresAt: created.Add(time.Hour),
 		}

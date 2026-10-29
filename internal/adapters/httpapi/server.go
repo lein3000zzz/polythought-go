@@ -173,6 +173,8 @@ type Services struct {
 	Updates UpdateService
 	// Stats is how the user's workflows are doing, together (D429); nil: no such page.
 	Stats StatsService
+	// History is who switched each workflow and why (D433); nil: none kept.
+	History HistoryService
 	// CodeRunners says where user code runs, and how its runners are (D357); nil: in
 	// the server's process.
 	CodeRunners func() ports.CodeRunners
@@ -230,6 +232,7 @@ type Server struct {
 	plugins       PluginService
 	updates       UpdateService
 	stats         StatsService
+	history       HistoryService
 
 	codeRunnersStatus func() ports.CodeRunners
 	log               logging.Logger
@@ -319,6 +322,7 @@ func New(cfg Config, util *observability.Utility, services Services) (*Server, e
 		plugins:       services.Plugins,
 		updates:       services.Updates,
 		stats:         services.Stats,
+		history:       services.History,
 
 		codeRunnersStatus: services.CodeRunners,
 		log:               log,
@@ -497,6 +501,7 @@ func (s *Server) routes() {
 	wf.POST("/:id/deactivate", s.deactivateWorkflow)
 	wf.POST("/:id/run", s.runWorkflow)
 	wf.GET("/:id/executions", s.listExecutions)
+	wf.GET("/:id/history", s.hasHistory, s.workflowHistory)
 	wf.GET("/:id/executions/:eid", s.getExecution)
 	wf.POST("/:id/executions/:eid/cancel", s.cancelExecution)
 	wf.GET("/:id/executions/:eid/task", s.getExecutionTask)

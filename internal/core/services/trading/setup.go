@@ -12,6 +12,7 @@ import (
 	"github.com/lein3000zzz/polythought-go/internal/core/domain"
 	"github.com/lein3000zzz/polythought-go/internal/core/ports"
 	"github.com/lein3000zzz/polythought-go/internal/core/services/auth"
+	"github.com/lein3000zzz/polythought-go/internal/core/services/history"
 )
 
 // Setup is how a workflow trades, for its owner (D191): paper or live, from which
@@ -215,6 +216,19 @@ func (s *Service) setSetup(ctx context.Context, p auth.Principal, id domain.Work
 		return err
 	}
 
+	switch {
+	case current.Mode != c.Mode && c.Mode == domain.ModeLive:
+		sw := history.By(p, id, domain.SwitchLive)
+		sw.WalletID, sw.WalletAddress = w.ID, w.Address
+		s.switched(ctx, sw)
+	case current.Mode != c.Mode:
+		s.switched(ctx, history.By(p, id, domain.SwitchPaper))
+	case c.Mode == domain.ModeLive && current.WalletID != c.WalletID:
+		sw := history.By(p, id, domain.SwitchWallet)
+		sw.WalletID, sw.WalletAddress = w.ID, w.Address
+		s.switched(ctx, sw)
+	}
+
 	s.d.Logger.Info(ctx, "Workflow's trading changed", "workflow_id", id, "user_id", p.User.ID,
 		"mode", t.Mode, "wallet_id", t.WalletID, "was", current.Mode)
 
@@ -270,6 +284,7 @@ func (s *Service) ReleaseWallet(ctx context.Context, owner domain.UserID, wallet
 			return err
 		}
 
+		s.switched(ctx, history.Itself(t.WorkflowID, domain.SwitchPaper, "its wallet was unlinked"))
 		s.d.Logger.Info(ctx, "Workflow back to paper: its wallet was unlinked", "workflow_id", t.WorkflowID, "user_id", owner)
 	}
 

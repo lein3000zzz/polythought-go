@@ -667,12 +667,13 @@ func (s *Server) deleteWorkflow(ctx context.Context, c *app.RequestContext) {
 //	@Summary	Activate a workflow
 //	@ID			activateWorkflow
 //	@Tags		workflows
-//	@Param		id	path		string	true	"Workflow ID"
-//	@Success	200	{object}	workflowDTO
-//	@Failure	400	{object}	errorBody	"invalid_workflow"
-//	@Failure	401	{object}	errorBody	"unauthenticated"
-//	@Failure	404	{object}	errorBody	"not_found"
-//	@Failure	409	{object}	errorBody	"awaits_confirmation: a token's live action waits for its user to confirm it (D406)"
+//	@Param		id		path		string	true	"Workflow ID"
+//	@Param		reason	query		string	false	"Why, kept in the workflow's history (D433): a token's words, shown as such"
+//	@Success	200		{object}	workflowDTO
+//	@Failure	400		{object}	errorBody	"invalid_workflow"
+//	@Failure	401		{object}	errorBody	"unauthenticated"
+//	@Failure	404		{object}	errorBody	"not_found"
+//	@Failure	409		{object}	errorBody	"awaits_confirmation: a token's live action waits for its user to confirm it (D406)"
 //	@Security	SessionCookie
 //	@Security	APIToken
 //	@Router		/workflows/{id}/activate [post]
@@ -688,6 +689,7 @@ func (s *Server) activateWorkflow(ctx context.Context, c *app.RequestContext) {
 //	@Tags		workflows
 //	@Param		id				path		string	true	"Workflow ID"
 //	@Param		cancelOrders	query		bool	false	"Also cancel its live resting orders"
+//	@Param		reason	query		string	false	"Why, kept in the workflow's history (D433): a token's words, shown as such"
 //	@Success	200				{object}	workflowDTO
 //	@Failure	401				{object}	errorBody	"unauthenticated"
 //	@Failure	404				{object}	errorBody	"not_found"
@@ -707,7 +709,7 @@ func (s *Server) setActive(
 	c *app.RequestContext,
 	change func(context.Context, auth.Principal, domain.WorkflowID) (domain.Workflow, error),
 ) {
-	p, _ := principal(c)
+	p := reasoned(c)
 
 	w, err := change(ctx, p, domain.WorkflowID(c.Param("id")))
 	if err != nil {
