@@ -147,10 +147,14 @@ Switch **Active** on to let the workflow's Schedule and Market activity triggers
 their own. Save your changes first: an active workflow always runs its saved version. Switch
 it off to stop it.
 
-## Executions
+## History
 
-**Executions** lists past runs, newest first, with how each ended, in a panel under the
-canvas that drags taller by its top edge, up to half the editor. Turn on **Show new runs as
+**History** opens a panel under the canvas that drags taller by its top edge, up to half the
+editor. It has two pages: **Executions**, where it opens, and **History**.
+
+### Executions
+
+**Executions** lists past runs, newest first, with how each ended. Turn on **Show new runs as
 they finish** to watch an active workflow. Select a run to see it on the canvas: each node
 shows what it did in that run, and a note says when the run used an older version of the
 workflow.
@@ -160,6 +164,25 @@ which: run by it by hand; or started by its trigger while the workflow is on, th
 having switched it on or changed it while on, until it is switched on or off again by
 anyone. Tokens go by their names; **confirmed by you** says the agent's asking waited for
 your yes.
+
+### Who switched it
+
+**History** lists who switched the workflow and when, newest first:
+
+- switched on or off;
+- back to paper, live, or live from another wallet;
+- its paper account reset;
+- your kill switch on or off, while it traded live.
+
+Each says who did it: you, an agent or API token by name, or Polythought itself. An agent or
+token may say why, shown in quotes as its own words. Polythought always says why, such as
+an admin disabling the account, a plugin the workflow uses being disabled, or its wallet
+being unlinked.
+
+The buttons at the top pick which kinds show, and stay as you leave them. **Show older**
+loads more. Entries are kept 90 days unless an admin
+[changes it](/docs/reference/settings/#keep-workflow-history-for), and go with the
+workflow.
 
 ## More actions
 
