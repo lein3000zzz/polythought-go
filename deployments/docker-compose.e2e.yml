@@ -17,7 +17,7 @@ services:
       - "3100:80"
 
   mailpit:
-    image: axllent/mailpit:v1.31.6
+    image: axllent/mailpit:v1.32.0
     profiles: [app]
     ports:
       - "3125:8025"
