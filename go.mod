@@ -11,7 +11,7 @@ require (
 	github.com/cloudwego/hertz v0.10.6
 	github.com/coder/websocket v1.8.15
 	github.com/elastic/go-seccomp-bpf v1.6.0
-	github.com/ethereum/go-ethereum v1.17.9
+	github.com/ethereum/go-ethereum v1.17.10
 	github.com/evanw/esbuild v0.28.2
 	github.com/go-jet/jet/v2 v2.16.1
 	github.com/go-telegram/bot v1.27.0
@@ -25,11 +25,11 @@ require (
 	github.com/knadh/koanf/providers/confmap v1.0.1
 	github.com/knadh/koanf/providers/rawbytes v1.0.1
 	github.com/knadh/koanf/v2 v2.4.1
-	github.com/landlock-lsm/go-landlock v0.10.1
+	github.com/landlock-lsm/go-landlock v0.11.0
 	github.com/lein3000zzz/the-watchers v0.0.0
 	github.com/lib/pq v1.12.3
 	github.com/modelcontextprotocol/go-sdk v1.8.0
-	github.com/openai/openai-go/v3 v3.85.1
+	github.com/openai/openai-go/v3 v3.90.0
 	github.com/pressly/goose/v3 v3.29.0
 	github.com/shopspring/decimal v1.6.0
 	github.com/stretchr/testify v1.12.1
@@ -42,13 +42,13 @@ require (
 	go.opentelemetry.io/otel/sdk v1.47.0
 	go.opentelemetry.io/otel/trace v1.47.0
 	golang.org/x/crypto v0.58.0
-	golang.org/x/net v0.61.0
+	golang.org/x/net v0.62.0
 	golang.org/x/sync v0.24.0
 	golang.org/x/sys v0.49.0
 	golang.org/x/text v0.43.0
 	golang.org/x/time v0.16.0
-	google.golang.org/genai v1.75.0
-	google.golang.org/grpc v1.84.0
+	google.golang.org/genai v1.77.0
+	google.golang.org/grpc v1.85.0
 	google.golang.org/protobuf v1.36.12
 )
 
