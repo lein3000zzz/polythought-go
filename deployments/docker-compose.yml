@@ -14,7 +14,7 @@ name: polythought
 
 services:
   postgres:
-    image: postgres:17-alpine
+    image: postgres:18-alpine
     environment:
       POSTGRES_USER: polythought
       # Set in .env before the first start: the database keeps the one it began with. Hex,
