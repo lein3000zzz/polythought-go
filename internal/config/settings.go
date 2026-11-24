@@ -107,6 +107,8 @@ const (
 	KeyTrustedProxies      = "http.trusted_proxies"
 	KeyWebhookAllowPrivate = "webhook.allow_private"
 	KeyOutboundProxy       = "outbound.proxy"
+	KeyOpenMeteoKey        = "weather.open_meteo_key"
+	KeyForecastFor         = "weather.forecast_for"
 	KeyGitHubStars         = "github.stars"
 	KeyUpdateCheck         = "updates.check"
 	KeyUpdatePrereleases   = "updates.prereleases"
@@ -165,6 +167,7 @@ const (
 	groupAgents     = "AI agents"
 	groupMCP        = "Agents over MCP"
 	groupNetwork    = "Network"
+	groupWeather    = "Weather"
 	groupUpdates    = "Updates"
 	groupLogging    = "Logging"
 	groupTelegram   = "Telegram"
@@ -639,6 +642,20 @@ func Settings() (*settings.Registry, error) {
 				"in the app and the docs. Off, the server never calls GitHub, and the link shows no count.",
 			Kind: settings.KindBool, Default: true,
 			Env: prefix + "GITHUB_STARS",
+		},
+		settings.Spec{
+			Key: KeyOpenMeteoKey, Group: groupWeather, Label: "Open-Meteo key",
+			Description: "A key for Open-Meteo's customer API, which the Weather forecast node then calls. Its free API, " +
+				"used without one, is for non-commercial use only: an instance used commercially needs a subscription. " +
+				"Empty for the free API.",
+			Kind: settings.KindString, Secret: true, Default: "",
+			Env: prefix + "OPEN_METEO_KEY",
+		},
+		settings.Spec{
+			Key: KeyForecastFor, Group: groupWeather, Label: "Forecasts kept for",
+			Description: "How long a forecast is kept before it is asked for again: every workflow asking for the same " +
+				"place and models within it shares one answer. Models update every few hours.",
+			Kind: settings.KindDuration, Default: 10 * time.Minute, Check: within(time.Minute, 6*time.Hour),
 		},
 		settings.Spec{
 			Key: KeyUpdateCheck, Group: groupUpdates, Label: "Check for updates",

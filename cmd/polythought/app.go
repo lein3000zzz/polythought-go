@@ -29,6 +29,7 @@ import (
 	"github.com/lein3000zzz/polythought-go/internal/adapters/sandbox"
 	tgadapter "github.com/lein3000zzz/polythought-go/internal/adapters/telegram"
 	"github.com/lein3000zzz/polythought-go/internal/adapters/tscompiler"
+	weatheradapter "github.com/lein3000zzz/polythought-go/internal/adapters/weather"
 	"github.com/lein3000zzz/polythought-go/internal/adapters/webhook"
 	"github.com/lein3000zzz/polythought-go/internal/buildinfo"
 	"github.com/lein3000zzz/polythought-go/internal/config"
@@ -1034,6 +1035,17 @@ func (a *app) initEngine(ctx context.Context, pmc polymarket) error {
 		return err
 	}
 
+	// Forecasts and airports' observations for the weather nodes (D441), kept a while,
+	// through the outbound proxy; Open-Meteo's customer API with an admin's key.
+	forecasts, err := weatheradapter.New(a.util, weatheradapter.Config{
+		Key:         func() string { return a.settings.Current().String(config.KeyOpenMeteoKey) },
+		ForecastFor: func() time.Duration { return a.settings.Current().Duration(config.KeyForecastFor) },
+		Proxy:       proxy,
+	})
+	if err != nil {
+		return err
+	}
+
 	// HTTP request nodes' requests (D438), guarded as webhooks are.
 	requests, err := webhook.NewRequester(a.util, webhook.Config{AllowPrivate: allowPrivate, Proxy: proxy})
 	if err != nil {
@@ -1125,6 +1137,7 @@ func (a *app) initEngine(ctx context.Context, pmc polymarket) error {
 		HTTP:         requests,
 		Hooks:        a.hooks,
 		Fires:        postgres.NewScheduleFires(a.db),
+		Weather:      forecasts,
 		MaxHTTPRequests: func() int {
 			return a.settings.Current().Int(config.KeyMaxHTTPRequests)
 		},

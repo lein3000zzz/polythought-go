@@ -11,6 +11,7 @@ export const nodeTypeMime = 'application/x-polythought-node-type'
 const groupNames: Record<string, string> = {
   polymarket: 'Polymarket',
   http: 'HTTP',
+  weather: 'Weather',
   logic: 'Logic',
   transform: 'Transform',
   output: 'Output',
@@ -26,6 +27,7 @@ const groupOrder = [
   'Triggers',
   'Polymarket',
   'HTTP',
+  'Weather',
   'Logic',
   'Transform',
   'Code',

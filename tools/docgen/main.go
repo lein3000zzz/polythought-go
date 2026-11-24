@@ -78,14 +78,16 @@ func build() (Pages, map[string]string, error) {
 	// Only the types are read, so the nodes get no real dependencies; the market and
 	// wallet triggers register only with a feed, the Telegram nodes only with the bot, the
 	// providers' credential types only with an LLM, the Local agent only with agents, and
-	// the HTTP request node only with a requester and the Inbound webhook only with hooks.
+	// the HTTP request node only with a requester the Inbound webhook only with hooks, and the weather nodes only with a
+	// weather reader.
 	err := nodes.Register(registry, nodes.Deps{
 		Feed: noFeed{}, Traders: noTraders{}, Messenger: noTelegram{}, TelegramInbox: noTelegram{}, Asker: noTelegram{}, Code: noCode{},
 		Orders: noOrders{}, Books: noBooks{}, Accounts: noAccounts{}, Memory: noMemory{},
 		Canceller: noOrders{}, OrderEvents: noOrders{}, Batches: noOrders{}, LLM: noLLM{}, TaskAgents: noAgents{},
-		HTTP:   noHTTP{},
-		Hooks:  noHooks{},
-		Logger: logging.Noop(),
+		HTTP:    noHTTP{},
+		Hooks:   noHooks{},
+		Weather: noWeather{},
+		Logger:  logging.Noop(),
 	})
 	if err != nil {
 		return nil, nil, err
@@ -221,6 +223,16 @@ type noCode struct{}
 
 func (noCode) Call(context.Context, ports.CodeCall) (ports.CodeResult, error) {
 	return ports.CodeResult{}, nil
+}
+
+type noWeather struct{}
+
+func (noWeather) Forecast(context.Context, ports.ForecastQuery) (ports.Forecast, error) {
+	return ports.Forecast{}, nil
+}
+
+func (noWeather) Observations(context.Context, string, int) ([]ports.Observation, error) {
+	return nil, nil
 }
 
 type noHooks struct{}

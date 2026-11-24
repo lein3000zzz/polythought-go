@@ -25,6 +25,7 @@ var groups = []struct{ dir, label, prefix string }{
 	{"triggers", "Triggers", ""},
 	{"polymarket", "Polymarket", "polymarket"},
 	{"http", "HTTP", "http"},
+	{"weather", "Weather", "weather"},
 	{"logic", "Logic", "logic"},
 	{"transform", "Transform", "transform"},
 	{"output", "Output", "output"},

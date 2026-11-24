@@ -97,6 +97,17 @@ func TestScheduleAtTimes(t *testing.T) {
 	assert.Equal(t, 1, rec.count(), "the next is at 18:00")
 }
 
+func TestScheduleByACitysZone(t *testing.T) {
+	// A second before 06:30 in Chicago, Austin's zone.
+	s := triggers.NewSchedule(time.Second, triggers.WithClock(running(chicago(t, "2026-11-24 06:29:59"))))
+
+	rec, stop := start(t, s, map[string]any{"mode": "at", "times": []any{"06:30"}, "city": "Austin", "zone": "Asia/Tokyo"}, false)
+	defer stop()
+
+	require.Eventually(t, func() bool { return rec.count() == 1 }, waitFor, 10*time.Millisecond)
+	assert.True(t, chicago(t, "2026-11-24 06:30:00").Equal(item(rec.first())["due"].(time.Time)), "the city's, over the zone's")
+}
+
 func TestScheduleMakesUpAMissedRun(t *testing.T) {
 	at := map[string]any{"mode": "at", "times": []any{"06:30"}, "zone": "America/Chicago", "catchUp": true}
 
@@ -187,6 +198,8 @@ func TestScheduleChecksItsSettings(t *testing.T) {
 
 	require.NoError(t, check(map[string]any{"interval": "5m"}), "every, as saved before modes")
 	require.NoError(t, check(map[string]any{"mode": "at", "times": []any{"06:30"}, "days": []any{"mon", "fri"}, "zone": "Europe/London"}))
+	require.NoError(t, check(map[string]any{"mode": "at", "times": []any{"06:30"}, "city": "NYC"}), "a weather city's zone (D441)")
+	require.ErrorContains(t, check(map[string]any{"mode": "at", "times": []any{"06:30"}, "city": "Atlantis"}), "Atlantis")
 
 	for _, tc := range []struct {
 		name   string

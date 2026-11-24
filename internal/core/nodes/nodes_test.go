@@ -24,6 +24,7 @@ func TestRegister(t *testing.T) {
 		Memory:     memoryStub{},
 		HTTP:       httpStub{},
 		Hooks:      hooksStub{},
+		Weather:    weatherStub{},
 		Logger:     logging.Noop(),
 	}
 
@@ -51,6 +52,8 @@ func TestRegister(t *testing.T) {
 		{name: "webhook", typ: "output.webhook"},
 		{name: "http request", typ: "http.request"},
 		{name: "inbound webhook", typ: "trigger.webhook", wantTrigger: true},
+		{name: "weather forecast", typ: "weather.forecast"},
+		{name: "airport reading", typ: "weather.airport"},
 		{name: "wait", typ: "logic.wait"},
 	}
 
@@ -73,11 +76,11 @@ func TestRegister(t *testing.T) {
 			Orders: ordersStub{}, Books: booksStub{}, Accounts: accountsStub{},
 			Canceller: cancellerStub{}, OrderEvents: eventsStub{},
 			Messenger: telegramStub{}, TelegramInbox: telegramStub{}, Asker: telegramStub{}, Code: codeStub{},
-			Memory: memoryStub{}, HTTP: httpStub{}, Hooks: hooksStub{},
+			Memory: memoryStub{}, HTTP: httpStub{}, Hooks: hooksStub{}, Weather: weatherStub{},
 		}))
 
 		types := all.Types()
-		assert.Len(t, types, 41)
+		assert.Len(t, types, 43)
 
 		for _, typ := range types {
 			if typ.Name == "code.transform" || typ.Name == "code.aggregate" {
@@ -110,6 +113,16 @@ func (telegramStub) CloseQuestion(context.Context, domain.UserID, int, string) e
 
 func (telegramStub) Subscribe(domain.UserID, func(string) bool) (<-chan ports.TelegramInboxMessage, func()) {
 	return nil, func() {}
+}
+
+type weatherStub struct{}
+
+func (weatherStub) Forecast(context.Context, ports.ForecastQuery) (ports.Forecast, error) {
+	return ports.Forecast{}, nil
+}
+
+func (weatherStub) Observations(context.Context, string, int) ([]ports.Observation, error) {
+	return nil, nil
 }
 
 type hooksStub struct{}

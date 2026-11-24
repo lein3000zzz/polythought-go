@@ -17,6 +17,7 @@ import (
 	"github.com/lein3000zzz/polythought-go/internal/core/nodes/trading"
 	"github.com/lein3000zzz/polythought-go/internal/core/nodes/transform"
 	"github.com/lein3000zzz/polythought-go/internal/core/nodes/triggers"
+	"github.com/lein3000zzz/polythought-go/internal/core/nodes/weather"
 	"github.com/lein3000zzz/the-watchers/pkg/observability/logging"
 
 	"github.com/lein3000zzz/polythought-go/internal/core/engine"
@@ -42,6 +43,7 @@ type Deps struct {
 	Feed            ports.MarketFeed       // optional: without it, trigger.market is not available
 	Traders         ports.TraderFeed       // optional: without it, trigger.walletActivity is not available
 	Hooks           ports.HookInbox        // optional: without it, trigger.webhook is not available
+	Weather         ports.WeatherReader    // optional: without it, the weather nodes are not available
 	Memory          ports.NodeMemory       // optional: without it, Only new, Throttle and Consensus are not available
 	Logger          logging.Logger
 
@@ -161,6 +163,12 @@ func Register(r *engine.Registry, d Deps) error {
 		hook = r.RegisterTrigger(triggers.NewWebhook(d.Hooks))
 	}
 
+	var forecast, airport error
+	if d.Weather != nil {
+		forecast = r.RegisterNode(weather.NewForecast(d.Weather))
+		airport = r.RegisterNode(weather.NewAirport(d.Weather, time.Now))
+	}
+
 	var telegramSend, telegramTrigger, telegramAsk error
 	if d.Messenger != nil {
 		telegramSend = r.RegisterNode(telegram.NewSend(d.Messenger))
@@ -214,6 +222,8 @@ func Register(r *engine.Registry, d Deps) error {
 		market,
 		wallet,
 		hook,
+		forecast,
+		airport,
 		dedupe,
 		throttle,
 		consensus,
