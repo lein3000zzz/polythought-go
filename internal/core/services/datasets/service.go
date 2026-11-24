@@ -19,6 +19,7 @@ import (
 	"github.com/lein3000zzz/polythought-go/internal/core/domain"
 	"github.com/lein3000zzz/polythought-go/internal/core/engine"
 	"github.com/lein3000zzz/polythought-go/internal/core/ports"
+	"github.com/lein3000zzz/polythought-go/internal/core/services/usage"
 )
 
 const (
@@ -58,9 +59,7 @@ type Service struct {
 	deps Deps
 	log  logging.Logger
 
-	// Set by UseWorkflows.
-	workflows Workflows
-	params    Params
+	usage usage.Finder // set by UseWorkflows
 }
 
 func New(deps Deps) *Service {

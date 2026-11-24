@@ -79,7 +79,7 @@ func build() (Pages, map[string]string, error) {
 	// wallet triggers register only with a feed, the Telegram nodes only with the bot, the
 	// providers' credential types only with an LLM, the Local agent only with agents, and
 	// the HTTP request node only with a requester, the Inbound webhook only with hooks, the weather nodes only with a
-	// weather reader, and Record and Read dataset only with datasets.
+	// weather reader, Record and Read dataset only with datasets, and Ask a model only with models.
 	err := nodes.Register(registry, nodes.Deps{
 		Feed: noFeed{}, Traders: noTraders{}, Messenger: noTelegram{}, TelegramInbox: noTelegram{}, Asker: noTelegram{}, Code: noCode{},
 		Orders: noOrders{}, Books: noBooks{}, Accounts: noAccounts{}, Memory: noMemory{},
@@ -87,8 +87,8 @@ func build() (Pages, map[string]string, error) {
 		HTTP:     noHTTP{},
 		Hooks:    noHooks{},
 		Weather:  noWeather{},
-		Datasets: noDatasets{},
-		Logger:   logging.Noop(),
+		Datasets: noDatasets{}, Models: noModels{},
+		Logger: logging.Noop(),
 	})
 	if err != nil {
 		return nil, nil, err
@@ -236,8 +236,12 @@ func (noWeather) Observations(context.Context, string, int) ([]ports.Observation
 	return nil, nil
 }
 
-// noDatasets stands in for the datasets: only the node types are read.
-type noDatasets struct{ ports.DatasetStore }
+// noDatasets and noModels stand in for the datasets and models: only the node types are
+// read.
+type (
+	noDatasets struct{ ports.DatasetStore }
+	noModels   struct{ ports.ModelAsker }
+)
 
 type noHooks struct{}
 

@@ -50,6 +50,7 @@ Each node has a page with its settings. In the editor, the node list on the left
 
 | Node | Type | What it does |
 |---|---|---|
+| [Ask a model](/docs/reference/nodes/data/ask/) | `data.ask` | Asks one of your models about the items it receives, all together, and puts each item's answer on it, with the model's name, its version and the worker. |
 | [Read dataset](/docs/reference/nodes/data/read/) | `data.read` | Reads one of your datasets: for each item, the row whose key is the item's, put on it, items with none going out of missing; or every row, the newest 1,000 at most, an item each. |
 | [Record](/docs/reference/nodes/data/record/) | `data.record` | Adds a row to one of your datasets for each item: the fields chosen, or the whole item, with when (_at), the workflow (_workflow), its run (_execution) and whether it trades on paper or live (_mode). |
 

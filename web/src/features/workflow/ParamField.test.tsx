@@ -454,3 +454,73 @@ describe('dataset field', () => {
     expect(screen.getByRole('combobox', { name: /Dataset/ })).toBeDisabled()
   })
 })
+
+describe('own model field', () => {
+  const modelSpec: ParamSpec = { name: 'model', label: 'Model', kind: 'model', required: true }
+
+  function models(list: { name: string; kind: 'worker' | 'url'; workers: number }[]) {
+    server.use(
+      http.get('/api/v1/models', () =>
+        HttpResponse.json({
+          models: list.map((m) => ({
+            name: m.name,
+            kind: m.kind,
+            workers: Array.from({ length: m.workers }, (_, i) => ({
+              name: `w-${i}`,
+              since: '2026-11-24T12:00:00Z',
+              seen: '2026-11-24T12:00:00Z',
+              holding: 0,
+            })),
+            createdAt: '2026-11-24T12:00:00Z',
+            updatedAt: '2026-11-24T12:00:00Z',
+          })),
+          limits: {
+            models: 20,
+            workers: 10,
+            items: 1000,
+            requestBytes: 1048576,
+            answerBytes: 1048576,
+            maxWaitSeconds: 300,
+            pollSeconds: 50,
+          },
+        }),
+      ),
+    )
+  }
+
+  it('offers yours, saying who serves each now', async () => {
+    models([
+      { name: 'temps', kind: 'worker', workers: 2 },
+      { name: 'idle', kind: 'worker', workers: 0 },
+      { name: 'hosted', kind: 'url', workers: 0 },
+    ])
+    const { user, onChange } = renderField(undefined, vi.fn(), modelSpec)
+
+    const select = await screen.findByRole('combobox', { name: /Model/ })
+    await screen.findByRole('option', { name: 'temps (2 workers)' })
+    expect(screen.getByRole('option', { name: 'idle (no worker connected)' })).toBeInTheDocument()
+    expect(screen.getByRole('option', { name: 'hosted (at a URL)' })).toBeInTheDocument()
+
+    await user.selectOptions(select, 'temps')
+    expect(onChange).toHaveBeenLastCalledWith('temps')
+  })
+
+  it('shows one deleted as missing, and says where to make one', async () => {
+    models([])
+    renderField('gone', vi.fn(), modelSpec)
+
+    expect(await screen.findByText(/make one on Data → Models/)).toBeInTheDocument()
+    expect(screen.getByRole('option', { name: 'Missing model (gone)' })).toBeInTheDocument()
+  })
+
+  it('says when an admin keeps models from you', async () => {
+    server.use(
+      http.get('/api/v1/models', () =>
+        HttpResponse.json({ error: { code: 'data_off', message: 'off' } }, { status: 403 }),
+      ),
+    )
+    renderField(undefined, vi.fn(), modelSpec)
+
+    expect(await screen.findByText(/Models are not open to you here/)).toBeInTheDocument()
+  })
+})

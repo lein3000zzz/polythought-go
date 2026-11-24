@@ -458,3 +458,115 @@ func TestURLModels(t *testing.T) {
 		require.True(t, errors.Is(err, domain.ErrNotFound))
 	})
 }
+
+// flows are users' workflows, those switched off kept with why.
+type flows struct {
+	all []domain.Workflow
+	off map[domain.WorkflowID]string
+}
+
+func (f *flows) Of(_ context.Context, owner domain.UserID) ([]domain.Workflow, error) {
+	var out []domain.Workflow
+
+	for _, w := range f.all {
+		if w.OwnerID == owner {
+			out = append(out, w)
+		}
+	}
+
+	return out, nil
+}
+
+func (f *flows) Pause(_ context.Context, why func(w domain.Workflow) string) (int, error) {
+	n := 0
+
+	for _, w := range f.all {
+		if reason := why(w); w.Active && reason != "" {
+			f.off[w.ID] = reason
+			n++
+		}
+	}
+
+	return n, nil
+}
+
+func asking(id domain.WorkflowID, owner domain.UserID, active bool, models ...string) domain.Workflow {
+	w := domain.Workflow{ID: id, OwnerID: owner, Active: active, Nodes: []domain.NodeSpec{{ID: "manual", Type: "trigger.manual"}}}
+	for i, name := range models {
+		w.Nodes = append(w.Nodes, domain.NodeSpec{ID: domain.NodeID("ask" + string(rune('a'+i))), Type: "data.ask", Params: map[string]any{"model": name}})
+	}
+
+	return w
+}
+
+type perUser map[domain.UserID]bool
+
+func (g perUser) DataAllowed(_ context.Context, u domain.UserID) (bool, error) { return g[u], nil }
+
+func TestWorkflowsNamingModels(t *testing.T) {
+	ctx := context.Background()
+	const bob = domain.UserID("u-2")
+
+	params := func(typ string) []string {
+		if typ == "data.ask" {
+			return []string{"model"}
+		}
+
+		return nil
+	}
+
+	setupFlows := func(t *testing.T, g mlmodels.Gate) (fixture, *flows) {
+		t.Helper()
+
+		f := setup(t, func(d *mlmodels.Deps) { d.Gate = g })
+		w := &flows{off: map[domain.WorkflowID]string{}, all: []domain.Workflow{
+			asking("bets", alice, true, "temps"),
+			asking("idle", alice, false, "temps", "hosted"),
+			asking("plain", alice, true),
+			asking("bobs", bob, true, "temps"),
+		}}
+		f.svc.UseWorkflows(w, params)
+
+		return f, w
+	}
+
+	t.Run("the owner's workflows naming each", func(t *testing.T) {
+		f, _ := setupFlows(t, gate(true))
+
+		used, err := f.svc.UsedBy(ctx, alice)
+		require.NoError(t, err)
+		assert.Len(t, used["temps"], 2)
+		assert.Len(t, used["hosted"], 1)
+	})
+
+	t.Run("switched on only while its models are there and its owner may use them", func(t *testing.T) {
+		f, w := setupFlows(t, gate(true))
+		f.repo.EXPECT().List(mock.Anything, alice).Return([]domain.Model{temps}, nil).Twice()
+
+		require.NoError(t, f.svc.CheckWorkflow(ctx, w.all[0]))
+		require.NoError(t, f.svc.CheckWorkflow(ctx, w.all[2]), "naming none")
+
+		err := f.svc.CheckWorkflow(ctx, w.all[1])
+		require.ErrorIs(t, err, domain.ErrInvalidInput)
+		assert.ErrorContains(t, err, `names the model "hosted", which you do not have`)
+
+		f, w = setupFlows(t, gate(false))
+		require.ErrorIs(t, f.svc.CheckWorkflow(ctx, w.all[0]), domain.ErrDataOff)
+	})
+
+	t.Run("deleting one switches off the owner's workflows on naming it, saying why", func(t *testing.T) {
+		f, w := setupFlows(t, gate(true))
+		f.repo.EXPECT().Get(mock.Anything, alice, "temps").Return(temps, nil).Once()
+		f.repo.EXPECT().Delete(mock.Anything, temps.ID).Return(nil).Once()
+
+		require.NoError(t, f.svc.Delete(ctx, alice, "temps"))
+		assert.Equal(t, map[domain.WorkflowID]string{"bets": "the model temps is deleted"}, w.off, "not bob's, nor those off")
+	})
+
+	t.Run("a user kept from models has their workflows naming one switched off", func(t *testing.T) {
+		f, w := setupFlows(t, perUser{bob: true})
+
+		f.svc.SwitchOffLost(ctx)
+		assert.Equal(t, map[domain.WorkflowID]string{"bets": "you may no longer use models"}, w.off)
+	})
+}

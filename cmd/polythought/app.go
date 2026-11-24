@@ -355,8 +355,11 @@ func (a *app) init(ctx context.Context) error {
 		ratelimit.NewMemory(30*time.Second, 10), // 10 attempts, then one every 30 s per key
 		a.util.Logger,
 		auth.WithWorkflowStopper(a.workflows),
-		// Kept from datasets, a user's workflows naming one go off.
-		auth.WithDataLeave(a.datasets.SwitchOffLost),
+		// Kept from datasets and models, a user's workflows naming one go off.
+		auth.WithDataLeave(func(ctx context.Context) {
+			a.datasets.SwitchOffLost(ctx)
+			a.mlModels.SwitchOffLost(ctx)
+		}),
 		auth.WithLiveStopper(laterTrading{a}),
 		auth.WithAccountLimiter(ratelimit.NewMemory(6*time.Second, 50)), // per address, from every IP
 		auth.WithLiveConfig(func() auth.Config { return authConfig(a.settings.Current()) }),
@@ -885,8 +888,8 @@ func paramsWhere(r *engine.Registry, match func(engine.ParamSpec) bool) func(nod
 	}
 }
 
-// datasetWorkflows are the workflows the datasets service looks through for those naming a
-// dataset, and switches off.
+// datasetWorkflows are the workflows the datasets and models services look through for
+// those naming one, and switch off.
 type datasetWorkflows struct {
 	repo    ports.WorkflowRepository
 	service *workflows.Service
@@ -1216,6 +1219,7 @@ func (a *app) initEngine(ctx context.Context, pmc polymarket) error {
 		Fires:        postgres.NewScheduleFires(a.db),
 		Weather:      forecasts,
 		Datasets:     a.datasets,
+		Models:       a.mlModels,
 		MaxHTTPRequests: func() int {
 			return a.settings.Current().Int(config.KeyMaxHTTPRequests)
 		},
@@ -1316,12 +1320,13 @@ func (a *app) initEngine(ctx context.Context, pmc polymarket) error {
 		workflows.WithConfirmations(a.confirmations), workflows.WithHistory(a.history),
 		// A workflow whose triggers start it too often is paused (D435).
 		workflows.WithRunCap(func() int { return a.settings.Current().Int(config.KeyMaxRunsPerHour) }),
-		// One naming a dataset gone, or whose owner may not use datasets, stays off.
-		workflows.WithDatasets(a.datasets.CheckWorkflow))
+		// One naming a dataset or model gone, or whose owner may not use them, stays off.
+		workflows.WithSwitchOnChecks(a.datasets.CheckWorkflow, a.mlModels.CheckWorkflow))
 	triggers.Gate(a.workflows.RunCap())
-	// A dataset deleted, or datasets lost, switches off the workflows naming them.
-	a.datasets.UseWorkflows(datasetWorkflows{repo: postgres.NewWorkflows(a.db), service: a.workflows},
-		paramsWhere(a.registry, func(p engine.ParamSpec) bool { return p.Kind == engine.ParamDataset }))
+	// A dataset or model deleted, or them lost, switches off the workflows naming it.
+	named := datasetWorkflows{repo: postgres.NewWorkflows(a.db), service: a.workflows}
+	a.datasets.UseWorkflows(named, paramsWhere(a.registry, func(p engine.ParamSpec) bool { return p.Kind == engine.ParamDataset }))
+	a.mlModels.UseWorkflows(named, paramsWhere(a.registry, func(p engine.ParamSpec) bool { return p.Kind == engine.ParamModel }))
 	// A change to a custom node a live workflow that is on uses waits like one to the
 	// workflow (A5).
 	a.customNodes.UseConfirmations(a.confirmations, func(ctx context.Context, w domain.Workflow) (bool, error) {

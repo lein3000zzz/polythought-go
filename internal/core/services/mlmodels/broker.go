@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/lein3000zzz/polythought-go/internal/core/domain"
+	"github.com/lein3000zzz/polythought-go/internal/core/ports"
 )
 
 // Request is a batch of items asked of a model, as a worker takes it: each item an object
@@ -23,15 +24,8 @@ type Request struct {
 	Deadline time.Time         `json:"deadline"`
 }
 
-// Answer is a model's answer to a request, one per item, with the version that answered
-// and the worker, for a worker model. Refused are the answers, by index, that do not keep
-// to the schema asked for.
-type Answer struct {
-	Answers []json.RawMessage
-	Version string
-	Worker  string
-	Refused map[int]error
-}
+// Answer is a model's answer to a request.
+type Answer = ports.ModelAnswer
 
 // Worker is one taking a model's requests: the name its SDK gives it, unique among the
 // model's, and the version it serves.

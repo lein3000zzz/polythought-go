@@ -2,6 +2,7 @@ package ports
 
 import (
 	"context"
+	"encoding/json"
 	"time"
 
 	"github.com/lein3000zzz/polythought-go/internal/core/domain"
@@ -32,4 +33,21 @@ type ModelRepository interface {
 	KeyByHash(ctx context.Context, hash []byte) (domain.WorkerKey, domain.Model, error)
 	KeyUsed(ctx context.Context, id domain.WorkerKeyID, at time.Time) error
 	DeleteKey(ctx context.Context, model domain.ModelID, id domain.WorkerKeyID) error
+}
+
+// ModelAnswer is a model's answer to a batch of items, one per item, with the version that
+// answered and the worker, for a worker model. Refused are the answers, by index, that do
+// not keep to the schema asked for.
+type ModelAnswer struct {
+	Answers []json.RawMessage
+	Version string
+	Worker  string
+	Refused map[int]error
+}
+
+// ModelAsker asks the owner's model about items, each a JSON object, waiting up to wait for
+// its answers: what the Ask a model node needs. A model gone, or kept from its owner, is an
+// error before anything is asked.
+type ModelAsker interface {
+	Ask(ctx context.Context, owner domain.UserID, name string, items []json.RawMessage, schema json.RawMessage, wait time.Duration) (ModelAnswer, error)
 }

@@ -46,6 +46,7 @@ type Deps struct {
 	Hooks           ports.HookInbox        // optional: without it, trigger.webhook is not available
 	Weather         ports.WeatherReader    // optional: without it, the weather nodes are not available
 	Datasets        ports.DatasetStore     // optional: without it, Record and Read dataset are not available
+	Models          ports.ModelAsker       // optional: without it, Ask a model is not available
 	Memory          ports.NodeMemory       // optional: without it, Only new, Throttle and Consensus are not available
 	Logger          logging.Logger
 
@@ -183,6 +184,11 @@ func Register(r *engine.Registry, d Deps) error {
 		read = r.RegisterNode(data.NewRead(d.Datasets))
 	}
 
+	var askModel error
+	if d.Models != nil {
+		askModel = r.RegisterNode(data.NewAsk(d.Models))
+	}
+
 	var telegramSend, telegramTrigger, telegramAsk error
 	if d.Messenger != nil {
 		telegramSend = r.RegisterNode(telegram.NewSend(d.Messenger))
@@ -240,6 +246,7 @@ func Register(r *engine.Registry, d Deps) error {
 		airport,
 		record,
 		read,
+		askModel,
 		dedupe,
 		throttle,
 		consensus,

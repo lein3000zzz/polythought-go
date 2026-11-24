@@ -52,14 +52,15 @@ type datasetDTO struct {
 	UpdatedAt time.Time `json:"updatedAt" format:"date-time"`
 	// Workflows are yours whose nodes name it: deleting it switches those on off. Listing
 	// datasets, or getting one, says; other answers leave it out.
-	Workflows []datasetWorkflowDTO `json:"workflows,omitempty" validate:"optional"`
+	Workflows []usingWorkflowDTO `json:"workflows,omitempty" validate:"optional"`
 } // @name Dataset
 
-type datasetWorkflowDTO struct {
+// usingWorkflowDTO is one of your workflows using a dataset or a model.
+type usingWorkflowDTO struct {
 	ID     string `json:"id"`
 	Name   string `json:"name"`
 	Active bool   `json:"active"`
-} // @name DatasetWorkflow
+} // @name UsingWorkflow
 
 type datasetListDTO struct {
 	Datasets []datasetDTO     `json:"datasets"`
@@ -129,13 +130,19 @@ func toDatasetDTO(d domain.Dataset) datasetDTO {
 	}
 }
 
-// withWorkflows is d with the workflows naming it.
-func withWorkflows(d datasetDTO, used []domain.Workflow) datasetDTO {
-	d.Workflows = make([]datasetWorkflowDTO, len(used))
+// usingWorkflows are the workflows naming a dataset or a model.
+func usingWorkflows(used []domain.Workflow) []usingWorkflowDTO {
+	out := make([]usingWorkflowDTO, len(used))
 	for i, w := range used {
-		d.Workflows[i] = datasetWorkflowDTO{ID: string(w.ID), Name: w.Name, Active: w.Active}
+		out[i] = usingWorkflowDTO{ID: string(w.ID), Name: w.Name, Active: w.Active}
 	}
 
+	return out
+}
+
+// withWorkflows is d with the workflows naming it.
+func withWorkflows(d datasetDTO, used []domain.Workflow) datasetDTO {
+	d.Workflows = usingWorkflows(used)
 	return d
 }
 

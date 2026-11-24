@@ -89,7 +89,7 @@ type Service struct {
 	tradeScope TradeScope          // optional: without it, a workflow's orders need no scope of their own
 	personal   Personal            // optional: without it, nothing is hidden from tokens and agents
 	creds      Credentials         // optional: without it, tokens and agents use credentials freely
-	datasets   DatasetCheck        // optional: without it, a workflow naming a dataset gone fails as it runs
+	switchOn   []SwitchOnCheck     // optional: without them, a workflow naming a dataset or model gone fails as it runs
 	confirm    Confirmer           // optional: without it, tokens' and agents' live actions go ahead at once
 	history    History             // optional: without it, no switch is kept
 	runCap     *RunCap             // optional: without it, triggers run as often as they fire
@@ -292,13 +292,13 @@ func WithCredentials(f Credentials) Option {
 	return func(s *Service) { s.creds = f }
 }
 
-// DatasetCheck refuses to switch on a workflow whose nodes name a dataset its owner does
-// not have, or that uses datasets an admin keeps from them.
-type DatasetCheck func(ctx context.Context, w domain.Workflow) error
+// SwitchOnCheck refuses to switch on a workflow its owner may not have on: one whose nodes
+// name a dataset or a model they do not have, or use what an admin keeps from them.
+type SwitchOnCheck func(ctx context.Context, w domain.Workflow) error
 
-// WithDatasets checks a workflow's datasets as it is switched on.
-func WithDatasets(f DatasetCheck) Option {
-	return func(s *Service) { s.datasets = f }
+// WithSwitchOnChecks checks a workflow so as it is switched on, each in turn.
+func WithSwitchOnChecks(checks ...SwitchOnCheck) Option {
+	return func(s *Service) { s.switchOn = append(s.switchOn, checks...) }
 }
 
 // allowed is nil when the principal may save, switch on or run the workflow: its
@@ -683,9 +683,9 @@ func (s *Service) Activate(ctx context.Context, p auth.Principal, id domain.Work
 		return domain.Workflow{}, err
 	}
 
-	// A dataset it names may be gone since, or its owner kept from them.
-	if s.datasets != nil {
-		if err := s.datasets(ctx, w); err != nil {
+	// A dataset or model it names may be gone since, or its owner kept from them.
+	for _, check := range s.switchOn {
+		if err := check(ctx, w); err != nil {
 			return domain.Workflow{}, err
 		}
 	}

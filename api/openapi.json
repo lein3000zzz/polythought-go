@@ -1740,7 +1740,7 @@
                     "workflows": {
                         "description": "Workflows are yours whose nodes name it: deleting it switches those on off. Listing\ndatasets, or getting one, says; other answers leave it out.",
                         "items": {
-                            "$ref": "#/components/schemas/DatasetWorkflow"
+                            "$ref": "#/components/schemas/UsingWorkflow"
                         },
                         "type": "array",
                         "uniqueItems": false
@@ -1921,25 +1921,6 @@
                 "required": [
                     "bytes",
                     "limit"
-                ],
-                "type": "object"
-            },
-            "DatasetWorkflow": {
-                "properties": {
-                    "active": {
-                        "type": "boolean"
-                    },
-                    "id": {
-                        "type": "string"
-                    },
-                    "name": {
-                        "type": "string"
-                    }
-                },
-                "required": [
-                    "active",
-                    "id",
-                    "name"
                 ],
                 "type": "object"
             },
@@ -3200,6 +3181,14 @@
                         "description": "Workers are a worker model's workers connected now, by name.",
                         "items": {
                             "$ref": "#/components/schemas/ConnectedWorker"
+                        },
+                        "type": "array",
+                        "uniqueItems": false
+                    },
+                    "workflows": {
+                        "description": "Workflows are yours whose nodes ask it: deleting it switches those on off. Listing\nmodels, or getting one, says; other answers leave it out.",
+                        "items": {
+                            "$ref": "#/components/schemas/UsingWorkflow"
                         },
                         "type": "array",
                         "uniqueItems": false
@@ -4529,7 +4518,8 @@
                             "table",
                             "credential",
                             "code",
-                            "dataset"
+                            "dataset",
+                            "model"
                         ],
                         "type": "string"
                     },
@@ -6697,6 +6687,25 @@
                     "role",
                     "week",
                     "workflows"
+                ],
+                "type": "object"
+            },
+            "UsingWorkflow": {
+                "properties": {
+                    "active": {
+                        "type": "boolean"
+                    },
+                    "id": {
+                        "type": "string"
+                    },
+                    "name": {
+                        "type": "string"
+                    }
+                },
+                "required": [
+                    "active",
+                    "id",
+                    "name"
                 ],
                 "type": "object"
             },

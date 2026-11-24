@@ -155,11 +155,7 @@ export function ModelsPage() {
       <ConfirmDialog
         open={deleting !== undefined}
         title={`Delete ${deleting?.name}?`}
-        description={
-          deleting?.kind === 'worker'
-            ? 'Its keys go with it, and its workers are refused from their next call.'
-            : 'Workflows can no longer ask it.'
-        }
+        description={deleting ? deleteNote(deleting) : ''}
         confirm="Delete"
         destructive
         onCancel={() => setDeleting(undefined)}
@@ -178,6 +174,23 @@ export function ModelsPage() {
       />
     </div>
   )
+}
+
+/** What deleting a model takes with it, and the workflows it switches off. */
+function deleteNote(m: Model): string {
+  const gone =
+    m.kind === 'worker'
+      ? 'Its keys go with it, and its workers are refused from their next call.'
+      : 'Workflows can no longer ask it.'
+  const using = m.workflows ?? []
+  if (using.length === 0) return gone
+
+  const names = using.map((w) => `“${w.name}”${w.active ? ' (on)' : ''}`)
+  const listed =
+    names.length === 1 ? names[0] : `${names.slice(0, -1).join(', ')} and ${names.at(-1)}`
+  const on = using.some((w) => w.active)
+
+  return `${gone} ${listed} ${using.length === 1 ? 'asks' : 'ask'} it${on ? ': those on are switched off' : ''}.`
 }
 
 /** Who serves a model: its workers connected now, or its URL's host. */

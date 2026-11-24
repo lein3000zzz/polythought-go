@@ -28,6 +28,8 @@ type MLModelService interface {
 	DeleteKey(ctx context.Context, owner domain.UserID, name string, id domain.WorkerKeyID) error
 	Ask(ctx context.Context, owner domain.UserID, name string, items []json.RawMessage, schema json.RawMessage, wait time.Duration) (mlmodels.Answer, error)
 	Limits() mlmodels.Limits
+	// UsedBy are the owner's workflows naming each of their models, by its name.
+	UsedBy(ctx context.Context, owner domain.UserID) (map[string][]domain.Workflow, error)
 
 	// A worker's: the model its key serves, the next request, and its answer or failure.
 	Worker(ctx context.Context, secret, address string) (domain.Model, error)
@@ -52,6 +54,9 @@ type mlModelDTO struct {
 	LastErrorAt  *time.Time           `json:"lastErrorAt,omitempty" validate:"optional" format:"date-time"`
 	CreatedAt    time.Time            `json:"createdAt" format:"date-time"`
 	UpdatedAt    time.Time            `json:"updatedAt" format:"date-time"`
+	// Workflows are yours whose nodes ask it: deleting it switches those on off. Listing
+	// models, or getting one, says; other answers leave it out.
+	Workflows []usingWorkflowDTO `json:"workflows,omitempty" validate:"optional"`
 } // @name MLModel
 
 type connectedWorkerDTO struct {
@@ -276,8 +281,15 @@ func (s *Server) listMLModels(ctx context.Context, c *app.RequestContext) {
 		},
 	}
 
+	used, err := s.mlModels.UsedBy(ctx, p.User.ID)
+	if err != nil {
+		s.fail(ctx, c, err)
+		return
+	}
+
 	for i, v := range list {
 		out.Models[i] = toMLModelDTO(v)
+		out.Models[i].Workflows = usingWorkflows(used[v.Name])
 	}
 
 	c.JSON(http.StatusOK, out)
@@ -335,7 +347,16 @@ func (s *Server) getMLModel(ctx context.Context, c *app.RequestContext) {
 		return
 	}
 
-	c.JSON(http.StatusOK, toMLModelDTO(v))
+	used, err := s.mlModels.UsedBy(ctx, p.User.ID)
+	if err != nil {
+		s.fail(ctx, c, err)
+		return
+	}
+
+	out := toMLModelDTO(v)
+	out.Workflows = usingWorkflows(used[v.Name])
+
+	c.JSON(http.StatusOK, out)
 }
 
 // setMLModelURL changes where a URL model is called, and with what credential.
@@ -369,7 +390,8 @@ func (s *Server) setMLModelURL(ctx context.Context, c *app.RequestContext) {
 	c.JSON(http.StatusOK, toMLModelDTO(v))
 }
 
-// deleteMLModel deletes a model and its keys: its workers are refused from then on.
+// deleteMLModel deletes a model and its keys: its workers are refused from then on, and
+// your workflows on naming it are switched off.
 //
 //	@Summary	Delete a model
 //	@ID			deleteMLModel

@@ -999,6 +999,74 @@ func (_c *MockMLModelService_Take_Call) RunAndReturn(run func(ctx context.Contex
 	return _c
 }
 
+// UsedBy provides a mock function for the type MockMLModelService
+func (_mock *MockMLModelService) UsedBy(ctx context.Context, owner domain.UserID) (map[string][]domain.Workflow, error) {
+	ret := _mock.Called(ctx, owner)
+
+	if len(ret) == 0 {
+		panic("no return value specified for UsedBy")
+	}
+
+	var r0 map[string][]domain.Workflow
+	var r1 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context, domain.UserID) (map[string][]domain.Workflow, error)); ok {
+		return returnFunc(ctx, owner)
+	}
+	if returnFunc, ok := ret.Get(0).(func(context.Context, domain.UserID) map[string][]domain.Workflow); ok {
+		r0 = returnFunc(ctx, owner)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(map[string][]domain.Workflow)
+		}
+	}
+	if returnFunc, ok := ret.Get(1).(func(context.Context, domain.UserID) error); ok {
+		r1 = returnFunc(ctx, owner)
+	} else {
+		r1 = ret.Error(1)
+	}
+	return r0, r1
+}
+
+// MockMLModelService_UsedBy_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'UsedBy'
+type MockMLModelService_UsedBy_Call struct {
+	*mock.Call
+}
+
+// UsedBy is a helper method to define mock.On call
+//   - ctx context.Context
+//   - owner domain.UserID
+func (_e *MockMLModelService_Expecter) UsedBy(ctx any, owner any) *MockMLModelService_UsedBy_Call {
+	return &MockMLModelService_UsedBy_Call{Call: _e.mock.On("UsedBy", ctx, owner)}
+}
+
+func (_c *MockMLModelService_UsedBy_Call) Run(run func(ctx context.Context, owner domain.UserID)) *MockMLModelService_UsedBy_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		var arg1 domain.UserID
+		if args[1] != nil {
+			arg1 = args[1].(domain.UserID)
+		}
+		run(
+			arg0,
+			arg1,
+		)
+	})
+	return _c
+}
+
+func (_c *MockMLModelService_UsedBy_Call) Return(stringToWorkflows map[string][]domain.Workflow, err error) *MockMLModelService_UsedBy_Call {
+	_c.Call.Return(stringToWorkflows, err)
+	return _c
+}
+
+func (_c *MockMLModelService_UsedBy_Call) RunAndReturn(run func(ctx context.Context, owner domain.UserID) (map[string][]domain.Workflow, error)) *MockMLModelService_UsedBy_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // Worker provides a mock function for the type MockMLModelService
 func (_mock *MockMLModelService) Worker(ctx context.Context, secret string, address string) (domain.Model, error) {
 	ret := _mock.Called(ctx, secret, address)

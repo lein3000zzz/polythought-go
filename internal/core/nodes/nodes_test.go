@@ -26,6 +26,7 @@ func TestRegister(t *testing.T) {
 		Hooks:      hooksStub{},
 		Weather:    weatherStub{},
 		Datasets:   datasetsStub{},
+		Models:     modelsStub{},
 		Logger:     logging.Noop(),
 	}
 
@@ -57,6 +58,7 @@ func TestRegister(t *testing.T) {
 		{name: "airport reading", typ: "weather.airport"},
 		{name: "record", typ: "data.record"},
 		{name: "read dataset", typ: "data.read"},
+		{name: "ask a model", typ: "data.ask"},
 		{name: "wait", typ: "logic.wait"},
 	}
 
@@ -79,11 +81,11 @@ func TestRegister(t *testing.T) {
 			Orders: ordersStub{}, Books: booksStub{}, Accounts: accountsStub{},
 			Canceller: cancellerStub{}, OrderEvents: eventsStub{},
 			Messenger: telegramStub{}, TelegramInbox: telegramStub{}, Asker: telegramStub{}, Code: codeStub{},
-			Memory: memoryStub{}, HTTP: httpStub{}, Hooks: hooksStub{}, Weather: weatherStub{}, Datasets: datasetsStub{},
+			Memory: memoryStub{}, HTTP: httpStub{}, Hooks: hooksStub{}, Weather: weatherStub{}, Datasets: datasetsStub{}, Models: modelsStub{},
 		}))
 
 		types := all.Types()
-		assert.Len(t, types, 45)
+		assert.Len(t, types, 46)
 
 		for _, typ := range types {
 			if typ.Name == "code.transform" || typ.Name == "code.aggregate" {
@@ -128,8 +130,12 @@ func (weatherStub) Observations(context.Context, string, int) ([]ports.Observati
 	return nil, nil
 }
 
-// datasetsStub stands in for the datasets: only the node types are read.
-type datasetsStub struct{ ports.DatasetStore }
+// datasetsStub and modelsStub stand in for the datasets and models: only the node types
+// are read.
+type (
+	datasetsStub struct{ ports.DatasetStore }
+	modelsStub   struct{ ports.ModelAsker }
+)
 
 type hooksStub struct{}
 

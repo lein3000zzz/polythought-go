@@ -144,14 +144,17 @@ func serve(ctx context.Context) error {
 	// Datasets' rows past what each keeps, and replaces left unfinished a day.
 	go a.datasets.RunSweeper(ctx, time.Hour)
 
-	// Who may use datasets changed: the workflows naming one of those who may no longer go
-	// off, saying why.
+	// Who may use datasets and models changed: the workflows naming one of those who may no
+	// longer go off, saying why.
 	var dataAccessNow atomic.Value
 
 	dataAccessNow.Store(dataAccess(a.settings.Current()))
 	a.settings.Subscribe(func(s *settings.Snapshot) {
 		if now := dataAccess(s); dataAccessNow.Swap(now) != now {
-			go a.datasets.SwitchOffLost(ctx)
+			go func() {
+				a.datasets.SwitchOffLost(ctx)
+				a.mlModels.SwitchOffLost(ctx)
+			}()
 		}
 	})
 
