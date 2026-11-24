@@ -2048,6 +2048,40 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/sdk/python/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The Python SDK, for pip */
+        get: operations["pythonSDKIndex"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/sdk/python/{file}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The Python SDK's wheel */
+        get: operations["pythonSDKWheel"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/telegram": {
         parameters: {
             query?: never;
@@ -11875,6 +11909,67 @@ export interface operations {
                 };
                 content: {
                     "text/csv": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    pythonSDKIndex: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description a page linking the wheel */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "text/html": string;
+                };
+            };
+            /** @description not_found: this server was built without it */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "text/html": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    pythonSDKWheel: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The wheel's file name, as the index links it */
+                file: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description the wheel */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/octet-stream": Record<string, never>;
+                };
+            };
+            /** @description not_found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/octet-stream": components["schemas"]["Error"];
                 };
             };
         };

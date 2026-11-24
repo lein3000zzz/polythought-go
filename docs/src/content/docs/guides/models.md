@@ -57,6 +57,25 @@ while true; do
 done
 ```
 
+From Python, the SDK runs this loop for you. Your Polythought serves the SDK of its own
+version:
+
+```sh
+pip install "polythought[pandas]" --find-links https://polythought.example.com/api/v1/sdk/python/
+```
+
+```python
+from polythought import serve
+
+def predict(items):
+    # one answer per item, in their order
+    return [{"high": model.predict(item)} for item in items]
+
+serve(predict, key="pw_…", url="https://polythought.example.com", version="1.2.0")
+```
+
+An exception in `predict` fails that request, saying why, and the worker carries on.
+
 A worker counts as connected while it calls for requests, and 30 seconds after, or while it
 holds one. Any of a model's connected workers takes the next request. One that holds a
 request a minute without answering loses it to another worker, and the first answer counts.

@@ -222,6 +222,25 @@ web-api: ## Regenerate the UI's API types from api/openapi.json
 web-check: sdk-types-check ## UI typecheck, lint, format, API and SDK types up to date, tests
 	$(PNPM) --dir web check
 
+PYTHON ?= python3
+SDK_PY := sdk/python
+
+.PHONY: sdk-python-check
+sdk-python-check: ## The Python SDK: lint, format, types and tests, in sdk/python/.venv (PYTHON: 3.10 or newer)
+	test -x $(SDK_PY)/.venv/bin/pip || $(PYTHON) -m venv $(SDK_PY)/.venv
+	$(SDK_PY)/.venv/bin/pip install --quiet -e '$(SDK_PY)[pandas]' -r $(SDK_PY)/requirements-dev.txt
+	cd $(SDK_PY) && .venv/bin/ruff check . && .venv/bin/ruff format --check . && .venv/bin/mypy && .venv/bin/python -m pytest -q
+
+.PHONY: sdk-python-wheel
+sdk-python-wheel: ## Build the Python SDK's wheel into sdk/python/dist, for the server to embed
+	test -x $(SDK_PY)/.venv/bin/pip || $(PYTHON) -m venv $(SDK_PY)/.venv
+	rm -f $(SDK_PY)/dist/*.whl
+	$(SDK_PY)/.venv/bin/pip wheel --quiet --no-deps -w $(SDK_PY)/dist $(SDK_PY)
+
+.PHONY: sdk-python-types
+sdk-python-types: ## Regenerate the Python SDK's types from api/openapi.json
+	$(GO) run ./tools/pytypes
+
 SDK_DIR := sdk/typescript
 
 .PHONY: sdk-types

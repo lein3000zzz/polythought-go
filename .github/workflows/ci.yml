@@ -197,6 +197,26 @@ jobs:
         run: make docs-build
 
   # What is generated and committed, generated again: a difference fails.
+  python:
+    name: Python SDK
+    if: >-
+      github.event_name != 'pull_request' ||
+      (github.event.action == 'labeled' && github.event.label.name == 'ci') ||
+      (github.event.action != 'labeled' && contains(github.event.pull_request.labels.*.name, 'ci'))
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      # The SDK takes 3.10 and newer, which ruff and mypy check it against; it runs here on
+      # the oldest.
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: "3.10"
+      - name: Lint, format, types and tests
+        run: make sdk-python-check PYTHON=python
+
   generated:
     name: Generated code
     if: >-

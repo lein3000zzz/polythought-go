@@ -16142,6 +16142,79 @@
                 ]
             }
         },
+        "/sdk/python/": {
+            "get": {
+                "operationId": "pythonSDKIndex",
+                "responses": {
+                    "200": {
+                        "content": {
+                            "text/html": {
+                                "schema": {
+                                    "type": "string"
+                                }
+                            }
+                        },
+                        "description": "a page linking the wheel"
+                    },
+                    "404": {
+                        "content": {
+                            "text/html": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "not_found: this server was built without it"
+                    }
+                },
+                "summary": "The Python SDK, for pip",
+                "tags": [
+                    "sdk"
+                ]
+            }
+        },
+        "/sdk/python/{file}": {
+            "get": {
+                "operationId": "pythonSDKWheel",
+                "parameters": [
+                    {
+                        "description": "The wheel's file name, as the index links it",
+                        "in": "path",
+                        "name": "file",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/octet-stream": {
+                                "schema": {
+                                    "type": "file"
+                                }
+                            }
+                        },
+                        "description": "the wheel"
+                    },
+                    "404": {
+                        "content": {
+                            "application/octet-stream": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "not_found"
+                    }
+                },
+                "summary": "The Python SDK's wheel",
+                "tags": [
+                    "sdk"
+                ]
+            }
+        },
         "/telegram": {
             "get": {
                 "operationId": "getTelegram",
