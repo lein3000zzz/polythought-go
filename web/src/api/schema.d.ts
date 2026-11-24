@@ -638,6 +638,91 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/admin/users/{id}/workflows/{wid}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** A user's workflow */
+        get: operations["getAdminWorkflow"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/users/{id}/workflows/{wid}/executions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** A user's workflow's runs */
+        get: operations["listAdminWorkflowExecutions"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/users/{id}/workflows/{wid}/history": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** A user's workflow's history */
+        get: operations["getAdminWorkflowHistory"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/users/{id}/workflows/{wid}/release": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Release a user's workflow */
+        post: operations["adminReleaseWorkflow"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/users/{id}/workflows/{wid}/switch-off": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Switch off a user's workflow */
+        post: operations["adminSwitchOffWorkflow"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/admin/version": {
         parameters: {
             query?: never;
@@ -647,6 +732,23 @@ export interface paths {
         };
         /** The server's version */
         get: operations["getServerVersion"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/workflows": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Every user's workflows */
+        get: operations["listAdminWorkflows"];
         put?: never;
         post?: never;
         delete?: never;
@@ -2406,6 +2508,35 @@ export interface components {
         ActorList: {
             actors: components["schemas"]["OrderActor"][];
         };
+        AdminSwitchOffRequest: {
+            /** @description Hold keeps it off until an admin releases it. */
+            hold?: boolean;
+            /** @description Reason is why, for its owner, who is told. */
+            reason: string;
+        };
+        AdminWorkflow: {
+            active: boolean;
+            day: components["schemas"]["RunCounts"];
+            /** @description Hold is an admin's holding it off; absent while none does. */
+            hold?: components["schemas"]["WorkflowHold"];
+            /** @description Hour, Day and Week are its runs started in the last hour, day and week. */
+            hour: components["schemas"]["RunCounts"];
+            id: string;
+            /** @description Last is its latest run; absent when none is kept. */
+            last?: components["schemas"]["LastRun"];
+            name: string;
+            ownerEmail: string;
+            ownerId: string;
+            /** @description Triggers are its triggers' node types, each once. */
+            triggers: string[];
+            week: components["schemas"]["RunCounts"];
+        };
+        AdminWorkflows: {
+            /** Format: date-time */
+            at: string;
+            /** @description Workflows are every user's, the busiest first: by runs in the last hour, day, week. */
+            workflows: components["schemas"]["AdminWorkflow"][];
+        };
         AgentAccessRequest: {
             /** @description Answer lets them answer the questions the user's workflows ask (D405). */
             answer?: boolean;
@@ -2651,7 +2782,7 @@ export interface components {
             expiresAt: string;
             id: string;
             /** @enum {string} */
-            kind: "go_live" | "switch_on" | "run" | "change" | "custom_node" | "kill_off" | "admin_role" | "admin_disable" | "admin_caps" | "admin_code" | "admin_config" | "admin_restart" | "admin_plugin_approve" | "admin_plugin";
+            kind: "go_live" | "switch_on" | "run" | "change" | "custom_node" | "kill_off" | "admin_role" | "admin_disable" | "admin_caps" | "admin_code" | "admin_workflow" | "admin_config" | "admin_restart" | "admin_plugin_approve" | "admin_plugin";
             /** @description Result is what came of it: an execution, or why it failed. */
             result?: string;
             /** @enum {string} */
@@ -4486,6 +4617,11 @@ export interface components {
             createdAt: string;
             /** @description Description is what it does, in your words; searched with its name. */
             description: string;
+            /**
+             * @description Hold is an admin's holding it off (D435): it is switched on again once they release
+             *     it. Absent while none does.
+             */
+            hold?: components["schemas"]["WorkflowHold"];
             id: string;
             name: string;
             nodes: components["schemas"]["Node"][];
@@ -4520,6 +4656,11 @@ export interface components {
             nextCursor?: string;
             switches: components["schemas"]["WorkflowSwitch"][];
         };
+        WorkflowHold: {
+            /** Format: date-time */
+            at: string;
+            reason: string;
+        };
         WorkflowPage: {
             /** @description NextCursor is absent on the last page. */
             nextCursor?: string;
@@ -4544,17 +4685,20 @@ export interface components {
             trading?: components["schemas"]["TradingResult"];
         };
         WorkflowSwitch: {
+            /** @description Admin says an admin did it, Reason saying why (D435). */
+            admin: boolean;
             /** Format: date-time */
             at: string;
-            /** @description By is the agent or token that did it; absent when you did, or Polythought. */
+            /** @description By is the agent or token that did it; absent when you did, an admin or Polythought. */
             by?: components["schemas"]["Switcher"];
             id: string;
             /**
-             * @description Kind is what it did: on or off; paper, live or another wallet (wallet); reset, its
+             * @description Kind is what it did: on or off; hold, an admin holding it off, or release, letting
+             *     it be switched on again (D435); paper, live or another wallet (wallet); reset, its
              *     paper account; kill_on or kill_off, your kill switch, as it traded live.
              * @enum {string}
              */
-            kind: "on" | "off" | "paper" | "live" | "wallet" | "reset" | "kill_on" | "kill_off";
+            kind: "on" | "off" | "hold" | "release" | "paper" | "live" | "wallet" | "reset" | "kill_on" | "kill_off";
             /** @description Polythought says Polythought did it itself, Reason saying why. */
             polythought: boolean;
             /**
@@ -6767,6 +6911,319 @@ export interface operations {
             };
         };
     };
+    getAdminWorkflow: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The owner's ID */
+                id: string;
+                /** @description Workflow ID */
+                wid: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Workflow"];
+                };
+            };
+            /** @description unauthenticated */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description not an admin */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description not_found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    listAdminWorkflowExecutions: {
+        parameters: {
+            query?: {
+                /** @description Page size */
+                limit?: number;
+                /** @description nextCursor of the previous page */
+                cursor?: string;
+            };
+            header?: never;
+            path: {
+                /** @description The owner's ID */
+                id: string;
+                /** @description Workflow ID */
+                wid: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ExecutionPage"];
+                };
+            };
+            /** @description unauthenticated */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description not an admin */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description not_found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    getAdminWorkflowHistory: {
+        parameters: {
+            query?: {
+                /** @description Some kinds alone, comma-separated: on_off, trading, reset, kill_switch */
+                kinds?: string;
+                /** @description Page size */
+                limit?: number;
+                /** @description nextCursor of the previous page */
+                cursor?: string;
+            };
+            header?: never;
+            path: {
+                /** @description The owner's ID */
+                id: string;
+                /** @description Workflow ID */
+                wid: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WorkflowHistoryPage"];
+                };
+            };
+            /** @description invalid_input */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description unauthenticated */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description not an admin */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description not_found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    adminReleaseWorkflow: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The owner's ID */
+                id: string;
+                /** @description Workflow ID */
+                wid: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Workflow"];
+                };
+            };
+            /** @description unauthenticated */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description not an admin */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description not_found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description awaits_confirmation: an admin's token's work waits for the admin to confirm it (D410) */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    adminSwitchOffWorkflow: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The owner's ID */
+                id: string;
+                /** @description Workflow ID */
+                wid: string;
+            };
+            cookie?: never;
+        };
+        /** @description Why, and whether to hold it off */
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AdminSwitchOffRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Workflow"];
+                };
+            };
+            /** @description invalid_input */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description unauthenticated */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description not an admin */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description not_found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description awaits_confirmation: an admin's token's work waits for the admin to confirm it (D410) */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
     getServerVersion: {
         parameters: {
             query?: never;
@@ -6795,6 +7252,44 @@ export interface operations {
                 };
             };
             /** @description forbidden: not an admin */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    listAdminWorkflows: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminWorkflows"];
+                };
+            };
+            /** @description unauthenticated */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description not an admin */
             403: {
                 headers: {
                     [name: string]: unknown;

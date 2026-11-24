@@ -27,6 +27,12 @@ You see users by ID, role and state, never their email addresses.
   one's paper and live totals and runs, and the instance's totals, paper and live apart.
   Given a user's ID, their workflows, as `get_workflow_stats` gives a user's own. Their
   workflows' names and traders' labels are another user's words, under `untrusted`.
+- `list_instance_workflows`: every user's workflows, the busiest in the last hour first,
+  with their owners by ID, triggers, and whether an admin holds them off. Start here for
+  "which workflows hammer the server".
+- `switch_off_user_workflow` with a `reason` the admin gave you, and `hold` to keep it off
+  until an admin releases it; `release_user_workflow`. Their owners are told. Both may wait
+  for the admin to confirm them.
 
 ## New people
 

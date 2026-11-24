@@ -431,6 +431,7 @@ func (a *app) newMCP() (*mcpserver.Server, error) {
 		Trades:      a.trading,
 		Stats:       a.stats,
 		History:     a.history,
+		Oversight:   a.workflows,
 		Admin:       a.auth,
 		Settings:    a.settings,
 		Mail:        a.mail,
@@ -697,6 +698,23 @@ func (l laterWorkflows) Get(ctx context.Context, p auth.Principal, id domain.Wor
 // handleConfirmed carries out what users confirm of their tokens' and agents' live
 // actions, as each asked (D406).
 func (a *app) handleConfirmed() {
+	// An admin's agent's work on a user's workflow (D435), as it asked.
+	a.confirmations.Handle(domain.ConfirmAdminWorkflow, func(ctx context.Context, p auth.Principal, c domain.Confirmation) (string, error) {
+		var in workflows.AdminAsked
+		if err := json.Unmarshal(c.Payload, &in); err != nil {
+			return "", err
+		}
+
+		if in.Release {
+			_, err := a.workflows.AdminRelease(ctx, p, in.Owner, c.WorkflowID)
+			return "released", err
+		}
+
+		_, err := a.workflows.AdminSwitchOff(ctx, p, in.Owner, c.WorkflowID, in.Reason, in.Hold)
+
+		return "switched off", err
+	})
+
 	a.confirmations.Handle(domain.ConfirmRun, func(ctx context.Context, p auth.Principal, c domain.Confirmation) (string, error) {
 		var in workflows.RunAsked
 		if err := json.Unmarshal(c.Payload, &in); err != nil {
@@ -1066,6 +1084,10 @@ func (a *app) initEngine(ctx context.Context, pmc polymarket) error {
 	a.stats = stats.New(stats.Deps{
 		Workflows: postgres.NewWorkflows(a.db), Runs: postgres.NewExecutions(a.db), Trading: a.trading,
 		Extremes: postgres.NewPnLExtremes(a.db), Owners: ledger, Users: postgres.NewUsers(a.db), Logger: a.util.Logger,
+		IsTrigger: func(nodeType string) bool {
+			_, ok := a.registry.Trigger(nodeType)
+			return ok
+		},
 	})
 
 	a.taskAgents = tasks.NewPresence(func() time.Duration { return a.settings.Current().Duration(config.KeyMCPTaskSeen) }, time.Now)
@@ -1145,7 +1167,8 @@ func (a *app) initEngine(ctx context.Context, pmc polymarket) error {
 		return tasks.Config{Wait: cur.Duration(config.KeyMCPTaskWait), Lease: cur.Duration(config.KeyMCPTaskLease)}
 	})
 
-	a.supervisor = engine.NewSupervisor(ctx, engine.NewRunner(a.util, a.customNodes, executor), a.util.Logger)
+	triggers := engine.NewRunner(a.util, a.customNodes, executor)
+	a.supervisor = engine.NewSupervisor(ctx, triggers, a.util.Logger)
 	a.util.OnShutdown(a.supervisor.Shutdown)
 
 	checks := workflowChecks{types: a.customNodes, compiler: compiler, gate: codeGate, plugins: a.plugins}
@@ -1173,7 +1196,10 @@ func (a *app) initEngine(ctx context.Context, pmc polymarket) error {
 		workflows.WithCredentials(paramsWhere(a.registry, func(p engine.ParamSpec) bool { return p.Kind == engine.ParamCredential })),
 		// A workflow that places orders needs its mode's scope too (D399).
 		workflows.WithTradeScope(tradeScope),
-		workflows.WithConfirmations(a.confirmations), workflows.WithHistory(a.history))
+		workflows.WithConfirmations(a.confirmations), workflows.WithHistory(a.history),
+		// A workflow whose triggers start it too often is paused (D435).
+		workflows.WithRunCap(func() int { return a.settings.Current().Int(config.KeyMaxRunsPerHour) }))
+	triggers.Gate(a.workflows.RunCap())
 	// A change to a custom node a live workflow that is on uses waits like one to the
 	// workflow (A5).
 	a.customNodes.UseConfirmations(a.confirmations, func(ctx context.Context, w domain.Workflow) (bool, error) {

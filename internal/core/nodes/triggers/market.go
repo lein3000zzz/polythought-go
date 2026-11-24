@@ -141,11 +141,13 @@ func (m *Market) config(p engine.Params) ([]domain.TokenID, map[string]bool, tim
 	}
 
 	batch, err := time.ParseDuration(rawBatch)
-	if err != nil || batch < m.minBatch {
-		return nil, nil, 0, fmt.Errorf("%w %q: want a duration of at least %s", engine.ErrInvalidParam, "batch", m.minBatch)
+	if err != nil || batch <= 0 {
+		return nil, nil, 0, fmt.Errorf("%w %q: want a duration above zero", engine.ErrInvalidParam, "batch")
 	}
 
-	return tokens, on, batch, nil
+	// One saved under a lower minimum, as an admin raised it since, batches by the minimum
+	// rather than not at all (D435).
+	return tokens, on, max(batch, m.minBatch), nil
 }
 
 // toItems turns an update into items, one per changed level for book changes.

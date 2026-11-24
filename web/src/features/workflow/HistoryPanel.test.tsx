@@ -17,6 +17,7 @@ const newest: Switch[] = [
     id: 'sw-4',
     kind: 'off',
     polythought: true,
+    admin: false,
     reason: 'the plugin weather is disabled',
     at: '2026-10-29T12:00:00Z',
   },
@@ -25,18 +26,27 @@ const newest: Switch[] = [
     kind: 'live',
     by: { kind: 'agent', id: 'g-1', name: 'Claude Code', confirmed: true },
     polythought: false,
+    admin: false,
     reason: 'the user asked',
     wallet: { id: 'w-1', address: '0x5f3C00000000000000000000000000000000A1b2' },
     at: '2026-10-29T11:00:00Z',
   },
-  { id: 'sw-2', kind: 'kill_on', polythought: false, at: '2026-10-29T10:00:00Z' },
+  { id: 'sw-2', kind: 'kill_on', polythought: false, admin: false, at: '2026-10-29T10:00:00Z' },
 ]
 const older: Switch[] = [
+  {
+    id: 'sw-0',
+    kind: 'release',
+    polythought: false,
+    admin: true,
+    at: '2026-10-28T11:00:00Z',
+  },
   {
     id: 'sw-1',
     kind: 'wallet',
     by: { kind: 'token', id: 't-1', name: 'cron' },
     polythought: false,
+    admin: false,
     wallet: { id: 'w-9', address: '0x00000000000000000000000000000000000000b2' },
     at: '2026-10-28T10:00:00Z',
   },
@@ -120,6 +130,8 @@ describe('history panel (D433)', () => {
     await user.click(screen.getByRole('button', { name: 'Show older' }))
     expect(await screen.findByText('Live from another wallet, 0x0000…00b2')).toBeInTheDocument()
     expect(screen.getByText(/by the API token “cron”/)).toBeInTheDocument()
+    expect(screen.getByText('Released')).toBeInTheDocument()
+    expect(screen.getByText('by an admin')).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Show older' })).not.toBeInTheDocument()
   })
 

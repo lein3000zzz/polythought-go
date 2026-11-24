@@ -1,7 +1,10 @@
 package stats
 
 import (
+	"cmp"
 	"context"
+	"slices"
+	"strings"
 	"time"
 
 	"golang.org/x/sync/errgroup"
@@ -53,21 +56,9 @@ func (s *Service) Instance(ctx context.Context, p auth.Principal) (Instance, err
 		return Instance{}, domain.ErrNotFound
 	}
 
-	var users []domain.User
-
-	for f := (ports.PageFilter{Limit: 100}); ; {
-		page, err := s.d.Users.List(ctx, f)
-		if err != nil {
-			return Instance{}, err
-		}
-
-		users = append(users, page.Items...)
-
-		if page.NextCursor == "" {
-			break
-		}
-
-		f.Cursor = page.NextCursor
+	users, err := s.users(ctx)
+	if err != nil {
+		return Instance{}, err
 	}
 
 	each := make([]UserTotals, len(users))
@@ -153,4 +144,123 @@ func sum(t *Totals, more Totals) {
 	t.Orders += more.Orders
 	t.Wins += more.Wins
 	t.Closed += more.Closed
+}
+
+// AdminWorkflow is one of a user's workflows, for an admin's oversight (D435).
+type AdminWorkflow struct {
+	Owner    domain.User
+	ID       domain.WorkflowID
+	Name     string
+	Active   bool
+	Hold     *domain.Hold
+	Triggers []string // its triggers' node types, each once
+	Runs     domain.RunStats
+}
+
+// Workflows are every user's workflows for an admin, the busiest first: by their runs in
+// the last hour, then day, then week.
+func (s *Service) Workflows(ctx context.Context, p auth.Principal) ([]AdminWorkflow, time.Time, error) {
+	if !p.User.IsAdmin() {
+		return nil, time.Time{}, domain.ErrForbidden
+	}
+
+	if s.d.Users == nil {
+		return nil, time.Time{}, domain.ErrNotFound
+	}
+
+	users, err := s.users(ctx)
+	if err != nil {
+		return nil, time.Time{}, err
+	}
+
+	now := s.d.Now()
+	each := make([][]AdminWorkflow, len(users))
+	g, gctx := errgroup.WithContext(ctx)
+	g.SetLimit(summed)
+
+	for i, u := range users {
+		g.Go(func() error {
+			ws, err := s.workflowsOf(gctx, u.ID)
+			if err != nil || len(ws) == 0 {
+				return err
+			}
+
+			runs, err := s.d.Runs.RunStats(gctx, u.ID, now.Add(-time.Hour), now.Add(-24*time.Hour), now.Add(-7*24*time.Hour))
+			if err != nil {
+				return err
+			}
+
+			runsOf := make(map[domain.WorkflowID]domain.RunStats, len(runs))
+			for _, r := range runs {
+				runsOf[r.WorkflowID] = r
+			}
+
+			for _, w := range ws {
+				st := runsOf[w.ID]
+				st.WorkflowID = w.ID
+				each[i] = append(each[i], AdminWorkflow{
+					Owner: u, ID: w.ID, Name: w.Name, Active: w.Active, Hold: w.Hold, Triggers: s.triggersOf(w), Runs: st,
+				})
+			}
+
+			return nil
+		})
+	}
+
+	if err := g.Wait(); err != nil {
+		return nil, time.Time{}, err
+	}
+
+	out := []AdminWorkflow{}
+	for _, ws := range each {
+		out = append(out, ws...)
+	}
+
+	slices.SortStableFunc(out, func(a, b AdminWorkflow) int {
+		return cmp.Or(
+			cmp.Compare(b.Runs.Hour.Runs, a.Runs.Hour.Runs),
+			cmp.Compare(b.Runs.Day.Runs, a.Runs.Day.Runs),
+			cmp.Compare(b.Runs.Week.Runs, a.Runs.Week.Runs),
+			strings.Compare(strings.ToLower(a.Name), strings.ToLower(b.Name)),
+		)
+	})
+
+	return out, now, nil
+}
+
+func (s *Service) triggersOf(w domain.Workflow) []string {
+	var out []string
+
+	for _, n := range w.Nodes {
+		trigger := strings.HasPrefix(n.Type, "trigger.")
+		if s.d.IsTrigger != nil {
+			trigger = s.d.IsTrigger(n.Type)
+		}
+
+		if trigger && !slices.Contains(out, n.Type) {
+			out = append(out, n.Type)
+		}
+	}
+
+	return out
+}
+
+// users are every user, all their pages.
+func (s *Service) users(ctx context.Context) ([]domain.User, error) {
+	var users []domain.User
+
+	for f := (ports.PageFilter{Limit: 100}); ; {
+		page, err := s.d.Users.List(ctx, f)
+		if err != nil {
+			return nil, err
+		}
+
+		users = append(users, page.Items...)
+
+		if page.NextCursor == "" {
+			return users, nil
+		}
+
+		f.Cursor = page.NextCursor
+	}
 }

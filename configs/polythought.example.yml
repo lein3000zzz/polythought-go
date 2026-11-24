@@ -123,9 +123,15 @@ workflows:
   # max_nodes: 200
 
   # The shortest interval a schedule or market trigger may use, to spare the APIs
-  # workflows call.
+  # workflows call. One set shorter, as this was raised since, runs at this.
   # Environment: POLYTHOUGHT_WORKFLOWS_SCHEDULE_MIN_INTERVAL.
-  # schedule_min_interval: "1s"
+  # schedule_min_interval: "5s"
+
+  # The most runs a workflow's triggers may start in an hour. The one past it does not
+  # start, and the workflow is switched off, its owner told why. Runs started by hand do
+  # not count. 0 for no limit.
+  # Environment: POLYTHOUGHT_WORKFLOWS_MAX_RUNS_PER_HOUR.
+  # max_runs_per_hour: 1000
 
   # The most outcome tokens one market trigger may watch.
   # Environment: POLYTHOUGHT_WORKFLOWS_FEED_MAX_TOKENS.

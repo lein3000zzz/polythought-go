@@ -44,6 +44,8 @@ type WorkflowRepository interface {
 	// ListActive returns the active workflows of every enabled user, for starting them
 	// on boot.
 	ListActive(ctx context.Context) ([]domain.Workflow, error)
+	// SetHold holds it off for an admin, or releases it with nil (D435).
+	SetHold(ctx context.Context, owner domain.UserID, id domain.WorkflowID, hold *domain.Hold) error
 }
 
 // ExecutionRecorder keeps finished executions.
@@ -64,9 +66,9 @@ type ExecutionRepository interface {
 	List(ctx context.Context, workflowID domain.WorkflowID, f PageFilter) (Page[domain.Execution], error)
 	Get(ctx context.Context, workflowID domain.WorkflowID, id domain.ExecutionID) (domain.Execution, error)
 	DeleteFinishedBefore(ctx context.Context, before time.Time) (int64, error)
-	// RunStats are the runs of an owner's workflows started since day and since week, and
-	// the latest of each, for each workflow that has any (D429).
-	RunStats(ctx context.Context, owner domain.UserID, day, week time.Time) ([]domain.RunStats, error)
+	// RunStats are the runs of an owner's workflows started since hour, since day and since
+	// week, and the latest of each, for each workflow that has any (D429, D435).
+	RunStats(ctx context.Context, owner domain.UserID, hour, day, week time.Time) ([]domain.RunStats, error)
 }
 
 // SwitchFilter narrows a workflow's history to some kinds, newest first; none, every kind.

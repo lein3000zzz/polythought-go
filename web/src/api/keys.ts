@@ -30,6 +30,18 @@ export const keys = {
   settingHistory: ['admin', 'settings', 'history'],
   codeRunners: ['admin', 'code-runners'],
   instanceStats: ['admin', 'stats'],
+  // Every user's workflows (D435): an admin's work on one refreshes them all.
+  adminWorkflows: ['admin', 'workflows'],
+  adminWorkflow: (owner: string, id: string) => ['admin', 'workflows', owner, id],
+  adminExecutions: (owner: string, id: string) => ['admin', 'workflows', owner, id, 'executions'],
+  adminHistory: (owner: string, id: string, kinds: string[]) => [
+    'admin',
+    'workflows',
+    owner,
+    id,
+    'history',
+    kinds,
+  ],
   userStats: (id: string) => ['admin', 'stats', id],
   plugins: ['admin', 'plugins'],
   pluginList: ['admin', 'plugins', 'list'],

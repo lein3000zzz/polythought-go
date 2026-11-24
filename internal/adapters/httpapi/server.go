@@ -117,6 +117,12 @@ type WorkflowService interface {
 	Executions(ctx context.Context, p auth.Principal, id domain.WorkflowID, f ports.PageFilter) (ports.Page[domain.Execution], error)
 	Execution(ctx context.Context, p auth.Principal, id domain.WorkflowID, execID domain.ExecutionID) (domain.Execution, error)
 	CancelExecution(ctx context.Context, p auth.Principal, id domain.WorkflowID, execID domain.ExecutionID) (domain.Execution, error)
+
+	// An admin's oversight of a user's workflows (D435).
+	AdminGet(ctx context.Context, p auth.Principal, owner domain.UserID, id domain.WorkflowID) (domain.Workflow, error)
+	AdminExecutions(ctx context.Context, p auth.Principal, owner domain.UserID, id domain.WorkflowID, f ports.PageFilter) (ports.Page[domain.Execution], error)
+	AdminSwitchOff(ctx context.Context, p auth.Principal, owner domain.UserID, id domain.WorkflowID, reason string, hold bool) (domain.Workflow, error)
+	AdminRelease(ctx context.Context, p auth.Principal, owner domain.UserID, id domain.WorkflowID) (domain.Workflow, error)
 }
 
 // NodeTypes lists what the editor can place in a user's workflow: the built-in types and
@@ -533,6 +539,12 @@ func (s *Server) routes() {
 	admin.POST("/users/:id/verification", s.sendVerificationLink)
 	admin.GET("/users/:id/agent-spend", s.userAgentSpend)
 	admin.GET("/stats", s.hasStats, s.instanceStats)
+	admin.GET("/workflows", s.hasStats, s.adminWorkflows)
+	admin.GET("/users/:id/workflows/:wid", s.adminWorkflow)
+	admin.GET("/users/:id/workflows/:wid/executions", s.adminWorkflowExecutions)
+	admin.GET("/users/:id/workflows/:wid/history", s.hasHistory, s.adminWorkflowHistory)
+	admin.POST("/users/:id/workflows/:wid/switch-off", s.adminSwitchOff)
+	admin.POST("/users/:id/workflows/:wid/release", s.adminRelease)
 	admin.GET("/stats/users/:id", s.hasStats, s.userStats)
 	admin.GET("/invites", s.listInvites)
 	admin.POST("/invites", s.createInvite)

@@ -174,10 +174,14 @@ your yes.
 - its paper account reset;
 - your kill switch on or off, while it traded live.
 
-Each says who did it: you, an agent or API token by name, or Polythought itself. An agent or
-token may say why, shown in quotes as its own words. Polythought always says why, such as
-an admin disabling the account, a plugin the workflow uses being disabled, or its wallet
-being unlinked.
+Each says who did it: you, an agent or API token by name, an admin, or Polythought itself.
+An agent or token may say why, shown in quotes as its own words. Polythought always says
+why, such as an admin disabling the account, a plugin the workflow uses being disabled,
+its wallet being unlinked, or its triggers starting it more often in an hour than the
+instance allows. An admin says why too.
+
+An admin may hold a workflow off: **Held by an admin** shows beside **Active**, which stays
+off until an admin releases it. You are told when it is held off and when it is released.
 
 The buttons at the top pick which kinds show, and stay as you leave them. **Show older**
 loads more. Entries are kept 90 days unless an admin

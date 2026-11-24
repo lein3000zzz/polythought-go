@@ -3,8 +3,9 @@ module github.com/lein3000zzz/polythought-go
 go 1.27.0
 
 // 1.27.2 fixes net/http, HTTP/2, crypto/tls and net/textproto vulnerabilities (R22);
-// 1.27.3, crypto/x509's trust in compromised intermediates (GO-2026-6809).
-toolchain go1.27.3
+// 1.27.3, crypto/x509's trust in compromised intermediates (GO-2026-6809); 1.27.4, net/http
+// (GO-2026-6859).
+toolchain go1.27.4
 
 require (
 	github.com/anthropics/anthropic-sdk-go v1.84.0
@@ -104,7 +105,7 @@ require (
 	github.com/jackc/pgpassfile v1.0.0 // indirect
 	github.com/jackc/pgservicefile v0.0.0-20240606120523-5a60cdf6a761 // indirect
 	github.com/jackc/puddle/v2 v2.2.3 // indirect
-	github.com/klauspost/compress v1.20.1 // indirect
+	github.com/klauspost/compress v1.20.2 // indirect
 	github.com/klauspost/cpuid/v2 v2.3.0 // indirect
 	github.com/knadh/koanf/maps v0.1.2 // indirect
 	github.com/lufia/plan9stats v0.0.0-20260330125221-c963978e514e // indirect

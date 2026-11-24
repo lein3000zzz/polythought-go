@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -831,10 +832,36 @@ func TestRestingOrders(t *testing.T) {
 
 // pauses keeps what owners were told of their workflows paused.
 type pauses struct {
-	told map[domain.WorkflowID]string
+	mu       sync.Mutex
+	told     map[domain.WorkflowID]string
+	held     map[domain.WorkflowID]string
+	released []domain.WorkflowID
 }
 
-func (p *pauses) WorkflowPaused(_ domain.UserID, w domain.Workflow, why string) { p.told[w.ID] = why }
+func (p *pauses) WorkflowPaused(_ domain.UserID, w domain.Workflow, why string) {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+
+	p.told[w.ID] = why
+}
+
+func (p *pauses) WorkflowHeld(_ domain.UserID, w domain.Workflow, why string) {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+
+	if p.held == nil {
+		p.held = map[domain.WorkflowID]string{}
+	}
+
+	p.held[w.ID] = why
+}
+
+func (p *pauses) WorkflowReleased(_ domain.UserID, w domain.Workflow) {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+
+	p.released = append(p.released, w.ID)
+}
 
 func TestPause(t *testing.T) {
 	d := deps{

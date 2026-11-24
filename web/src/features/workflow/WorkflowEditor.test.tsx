@@ -483,6 +483,22 @@ describe('running and inspecting', () => {
     ],
   }
 
+  it('cannot be switched on while an admin holds it off, saying why (D435)', async () => {
+    editing({
+      ...branching(),
+      hold: { reason: 'it ran 3,000 times in an hour', at: '2026-11-24T12:00:00Z' },
+    })
+    renderApp('/workflows/wf-1')
+
+    const active = await screen.findByRole('switch', { name: 'Active' })
+    expect(active).toBeDisabled()
+    expect(screen.getByText('Held by an admin')).toBeInTheDocument()
+    expect(active.closest('[title]')).toHaveAttribute(
+      'title',
+      'An admin holds it off: it ran 3,000 times in an hour',
+    )
+  })
+
   it('asks, switching off, whether to cancel its resting live orders (D217)', async () => {
     editing({ ...branching(), active: true })
     let asked: string | null = ''

@@ -514,9 +514,15 @@ function WorkflowCard({ workflow: w, handle }: CardProps) {
         </CardDescription>
       </CardHeader>
       <CardFooter className="mt-auto flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-        <Badge variant={w.active ? 'default' : 'secondary'}>
-          {w.active ? 'Active' : 'Inactive'}
-        </Badge>
+        {w.hold ? (
+          <Badge variant="destructive" title={`An admin holds it off: ${w.hold.reason}`}>
+            Held by an admin
+          </Badge>
+        ) : (
+          <Badge variant={w.active ? 'default' : 'secondary'}>
+            {w.active ? 'Active' : 'Inactive'}
+          </Badge>
+        )}
         {stats && <StatsLine stats={stats} />}
         <span>
           {w.nodes.length} {w.nodes.length === 1 ? 'node' : 'nodes'}

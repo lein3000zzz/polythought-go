@@ -29,8 +29,8 @@ import {
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Skeleton } from '@/components/ui/skeleton'
+import { NodeSettings } from '@/features/workflow/NodeSettings'
 import { ParamField } from '@/features/workflow/ParamField'
-import { textOf } from '@/features/workflow/params'
 import { fieldMessage } from '@/features/workflow/problems'
 import { TemplateCanvas } from '@/features/workflow/TemplateCanvas'
 
@@ -244,8 +244,6 @@ function NodeAbout({
   brought?: TemplateCustomNode
   onBack: () => void
 }) {
-  const params = node.params ?? {}
-
   return (
     <div className="flex flex-col gap-4 text-sm">
       <button
@@ -263,23 +261,12 @@ function NodeAbout({
       {type?.description && <p className="text-muted-foreground">{type.description}</p>}
       {brought && <CustomNodeAbout node={brought} open />}
 
-      {type && type.params.length > 0 && (
-        <dl className="flex flex-col gap-2">
-          {type.params.map((p) => (
-            <div key={p.name}>
-              <dt className="text-xs text-muted-foreground">{p.label ?? p.name}</dt>
-              <dd className="font-mono text-xs break-words">
-                {p.name in params
-                  ? textOf(params[p.name]).replace(/\n/g, ', ')
-                  : p.default !== undefined
-                    ? `${textOf(p.default)} (default)`
-                    : p.required
-                      ? 'You fill this in'
-                      : '—'}
-              </dd>
-            </div>
-          ))}
-        </dl>
+      {type && (
+        <NodeSettings
+          node={node}
+          type={type}
+          unset={(p) => (p.required ? 'You fill this in' : '—')}
+        />
       )}
     </div>
   )

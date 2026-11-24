@@ -1,3 +1,4 @@
+import { useAdminHistory } from '@/api/admin'
 import {
   type SwitchKind,
   switchKinds,
@@ -10,16 +11,19 @@ import { Button } from '@/components/ui/button'
 import { actorName } from '@/lib/actors'
 import { formatDateTime, shortAddress } from '@/lib/format'
 
-type Props = { workflowId: string; kinds: SwitchKind[] }
+// owner: another user's workflow, read by an admin (D435).
+type Props = { workflowId: string; kinds: SwitchKind[]; owner?: string }
 
 /**
  * Who switched the workflow and why (D433), newest first: on and off, paper or live and
  * from which wallet, its paper account reset, and the kill switch as it traded live.
  */
-export function SwitchList({ workflowId, kinds }: Props) {
+export function SwitchList({ workflowId, kinds, owner }: Props) {
   // All of them asked as none: one list in the cache, however they were ticked.
   const asked = kinds.length === switchKinds.length ? [] : kinds
-  const history = useWorkflowHistory(workflowId, asked)
+  const own = useWorkflowHistory(workflowId, asked, owner === undefined)
+  const theirs = useAdminHistory(owner ?? '', workflowId, asked, owner !== undefined)
+  const history = owner === undefined ? own : theirs
   const wallets = useWallets()
   const switches = history.data?.pages.flatMap((p) => p.switches) ?? []
 
@@ -55,7 +59,7 @@ export function SwitchList({ workflowId, kinds }: Props) {
             <span className="min-w-0 truncate text-muted-foreground" title={sw.reason}>
               {who(sw)}
               {sw.reason &&
-                (sw.polythought ? (
+                (sw.polythought || sw.admin ? (
                   `: ${sw.reason}`
                 ) : (
                   // An agent's or a token's own words, as it gave them.
@@ -93,6 +97,10 @@ function what(
       return 'Switched on'
     case 'off':
       return 'Switched off'
+    case 'hold':
+      return 'Held off'
+    case 'release':
+      return 'Released'
     case 'paper':
       return 'Back to paper'
     case 'live':
@@ -110,6 +118,7 @@ function what(
 
 function who(sw: WorkflowSwitch): string {
   if (sw.polythought) return 'by Polythought'
+  if (sw.admin) return 'by an admin'
   if (!sw.by) return 'by you'
 
   return `by ${actorName(sw.by)}${sw.by.confirmed ? ', confirmed by you' : ''}`

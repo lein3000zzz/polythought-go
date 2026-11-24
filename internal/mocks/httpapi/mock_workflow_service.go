@@ -122,6 +122,336 @@ func (_c *MockWorkflowService_Activate_Call) RunAndReturn(run func(ctx context.C
 	return _c
 }
 
+// AdminExecutions provides a mock function for the type MockWorkflowService
+func (_mock *MockWorkflowService) AdminExecutions(ctx context.Context, p auth.Principal, owner domain.UserID, id domain.WorkflowID, f ports.PageFilter) (ports.Page[domain.Execution], error) {
+	ret := _mock.Called(ctx, p, owner, id, f)
+
+	if len(ret) == 0 {
+		panic("no return value specified for AdminExecutions")
+	}
+
+	var r0 ports.Page[domain.Execution]
+	var r1 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context, auth.Principal, domain.UserID, domain.WorkflowID, ports.PageFilter) (ports.Page[domain.Execution], error)); ok {
+		return returnFunc(ctx, p, owner, id, f)
+	}
+	if returnFunc, ok := ret.Get(0).(func(context.Context, auth.Principal, domain.UserID, domain.WorkflowID, ports.PageFilter) ports.Page[domain.Execution]); ok {
+		r0 = returnFunc(ctx, p, owner, id, f)
+	} else {
+		r0 = ret.Get(0).(ports.Page[domain.Execution])
+	}
+	if returnFunc, ok := ret.Get(1).(func(context.Context, auth.Principal, domain.UserID, domain.WorkflowID, ports.PageFilter) error); ok {
+		r1 = returnFunc(ctx, p, owner, id, f)
+	} else {
+		r1 = ret.Error(1)
+	}
+	return r0, r1
+}
+
+// MockWorkflowService_AdminExecutions_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'AdminExecutions'
+type MockWorkflowService_AdminExecutions_Call struct {
+	*mock.Call
+}
+
+// AdminExecutions is a helper method to define mock.On call
+//   - ctx context.Context
+//   - p auth.Principal
+//   - owner domain.UserID
+//   - id domain.WorkflowID
+//   - f ports.PageFilter
+func (_e *MockWorkflowService_Expecter) AdminExecutions(ctx any, p any, owner any, id any, f any) *MockWorkflowService_AdminExecutions_Call {
+	return &MockWorkflowService_AdminExecutions_Call{Call: _e.mock.On("AdminExecutions", ctx, p, owner, id, f)}
+}
+
+func (_c *MockWorkflowService_AdminExecutions_Call) Run(run func(ctx context.Context, p auth.Principal, owner domain.UserID, id domain.WorkflowID, f ports.PageFilter)) *MockWorkflowService_AdminExecutions_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		var arg1 auth.Principal
+		if args[1] != nil {
+			arg1 = args[1].(auth.Principal)
+		}
+		var arg2 domain.UserID
+		if args[2] != nil {
+			arg2 = args[2].(domain.UserID)
+		}
+		var arg3 domain.WorkflowID
+		if args[3] != nil {
+			arg3 = args[3].(domain.WorkflowID)
+		}
+		var arg4 ports.PageFilter
+		if args[4] != nil {
+			arg4 = args[4].(ports.PageFilter)
+		}
+		run(
+			arg0,
+			arg1,
+			arg2,
+			arg3,
+			arg4,
+		)
+	})
+	return _c
+}
+
+func (_c *MockWorkflowService_AdminExecutions_Call) Return(page ports.Page[domain.Execution], err error) *MockWorkflowService_AdminExecutions_Call {
+	_c.Call.Return(page, err)
+	return _c
+}
+
+func (_c *MockWorkflowService_AdminExecutions_Call) RunAndReturn(run func(ctx context.Context, p auth.Principal, owner domain.UserID, id domain.WorkflowID, f ports.PageFilter) (ports.Page[domain.Execution], error)) *MockWorkflowService_AdminExecutions_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// AdminGet provides a mock function for the type MockWorkflowService
+func (_mock *MockWorkflowService) AdminGet(ctx context.Context, p auth.Principal, owner domain.UserID, id domain.WorkflowID) (domain.Workflow, error) {
+	ret := _mock.Called(ctx, p, owner, id)
+
+	if len(ret) == 0 {
+		panic("no return value specified for AdminGet")
+	}
+
+	var r0 domain.Workflow
+	var r1 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context, auth.Principal, domain.UserID, domain.WorkflowID) (domain.Workflow, error)); ok {
+		return returnFunc(ctx, p, owner, id)
+	}
+	if returnFunc, ok := ret.Get(0).(func(context.Context, auth.Principal, domain.UserID, domain.WorkflowID) domain.Workflow); ok {
+		r0 = returnFunc(ctx, p, owner, id)
+	} else {
+		r0 = ret.Get(0).(domain.Workflow)
+	}
+	if returnFunc, ok := ret.Get(1).(func(context.Context, auth.Principal, domain.UserID, domain.WorkflowID) error); ok {
+		r1 = returnFunc(ctx, p, owner, id)
+	} else {
+		r1 = ret.Error(1)
+	}
+	return r0, r1
+}
+
+// MockWorkflowService_AdminGet_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'AdminGet'
+type MockWorkflowService_AdminGet_Call struct {
+	*mock.Call
+}
+
+// AdminGet is a helper method to define mock.On call
+//   - ctx context.Context
+//   - p auth.Principal
+//   - owner domain.UserID
+//   - id domain.WorkflowID
+func (_e *MockWorkflowService_Expecter) AdminGet(ctx any, p any, owner any, id any) *MockWorkflowService_AdminGet_Call {
+	return &MockWorkflowService_AdminGet_Call{Call: _e.mock.On("AdminGet", ctx, p, owner, id)}
+}
+
+func (_c *MockWorkflowService_AdminGet_Call) Run(run func(ctx context.Context, p auth.Principal, owner domain.UserID, id domain.WorkflowID)) *MockWorkflowService_AdminGet_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		var arg1 auth.Principal
+		if args[1] != nil {
+			arg1 = args[1].(auth.Principal)
+		}
+		var arg2 domain.UserID
+		if args[2] != nil {
+			arg2 = args[2].(domain.UserID)
+		}
+		var arg3 domain.WorkflowID
+		if args[3] != nil {
+			arg3 = args[3].(domain.WorkflowID)
+		}
+		run(
+			arg0,
+			arg1,
+			arg2,
+			arg3,
+		)
+	})
+	return _c
+}
+
+func (_c *MockWorkflowService_AdminGet_Call) Return(workflow domain.Workflow, err error) *MockWorkflowService_AdminGet_Call {
+	_c.Call.Return(workflow, err)
+	return _c
+}
+
+func (_c *MockWorkflowService_AdminGet_Call) RunAndReturn(run func(ctx context.Context, p auth.Principal, owner domain.UserID, id domain.WorkflowID) (domain.Workflow, error)) *MockWorkflowService_AdminGet_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// AdminRelease provides a mock function for the type MockWorkflowService
+func (_mock *MockWorkflowService) AdminRelease(ctx context.Context, p auth.Principal, owner domain.UserID, id domain.WorkflowID) (domain.Workflow, error) {
+	ret := _mock.Called(ctx, p, owner, id)
+
+	if len(ret) == 0 {
+		panic("no return value specified for AdminRelease")
+	}
+
+	var r0 domain.Workflow
+	var r1 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context, auth.Principal, domain.UserID, domain.WorkflowID) (domain.Workflow, error)); ok {
+		return returnFunc(ctx, p, owner, id)
+	}
+	if returnFunc, ok := ret.Get(0).(func(context.Context, auth.Principal, domain.UserID, domain.WorkflowID) domain.Workflow); ok {
+		r0 = returnFunc(ctx, p, owner, id)
+	} else {
+		r0 = ret.Get(0).(domain.Workflow)
+	}
+	if returnFunc, ok := ret.Get(1).(func(context.Context, auth.Principal, domain.UserID, domain.WorkflowID) error); ok {
+		r1 = returnFunc(ctx, p, owner, id)
+	} else {
+		r1 = ret.Error(1)
+	}
+	return r0, r1
+}
+
+// MockWorkflowService_AdminRelease_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'AdminRelease'
+type MockWorkflowService_AdminRelease_Call struct {
+	*mock.Call
+}
+
+// AdminRelease is a helper method to define mock.On call
+//   - ctx context.Context
+//   - p auth.Principal
+//   - owner domain.UserID
+//   - id domain.WorkflowID
+func (_e *MockWorkflowService_Expecter) AdminRelease(ctx any, p any, owner any, id any) *MockWorkflowService_AdminRelease_Call {
+	return &MockWorkflowService_AdminRelease_Call{Call: _e.mock.On("AdminRelease", ctx, p, owner, id)}
+}
+
+func (_c *MockWorkflowService_AdminRelease_Call) Run(run func(ctx context.Context, p auth.Principal, owner domain.UserID, id domain.WorkflowID)) *MockWorkflowService_AdminRelease_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		var arg1 auth.Principal
+		if args[1] != nil {
+			arg1 = args[1].(auth.Principal)
+		}
+		var arg2 domain.UserID
+		if args[2] != nil {
+			arg2 = args[2].(domain.UserID)
+		}
+		var arg3 domain.WorkflowID
+		if args[3] != nil {
+			arg3 = args[3].(domain.WorkflowID)
+		}
+		run(
+			arg0,
+			arg1,
+			arg2,
+			arg3,
+		)
+	})
+	return _c
+}
+
+func (_c *MockWorkflowService_AdminRelease_Call) Return(workflow domain.Workflow, err error) *MockWorkflowService_AdminRelease_Call {
+	_c.Call.Return(workflow, err)
+	return _c
+}
+
+func (_c *MockWorkflowService_AdminRelease_Call) RunAndReturn(run func(ctx context.Context, p auth.Principal, owner domain.UserID, id domain.WorkflowID) (domain.Workflow, error)) *MockWorkflowService_AdminRelease_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// AdminSwitchOff provides a mock function for the type MockWorkflowService
+func (_mock *MockWorkflowService) AdminSwitchOff(ctx context.Context, p auth.Principal, owner domain.UserID, id domain.WorkflowID, reason string, hold bool) (domain.Workflow, error) {
+	ret := _mock.Called(ctx, p, owner, id, reason, hold)
+
+	if len(ret) == 0 {
+		panic("no return value specified for AdminSwitchOff")
+	}
+
+	var r0 domain.Workflow
+	var r1 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context, auth.Principal, domain.UserID, domain.WorkflowID, string, bool) (domain.Workflow, error)); ok {
+		return returnFunc(ctx, p, owner, id, reason, hold)
+	}
+	if returnFunc, ok := ret.Get(0).(func(context.Context, auth.Principal, domain.UserID, domain.WorkflowID, string, bool) domain.Workflow); ok {
+		r0 = returnFunc(ctx, p, owner, id, reason, hold)
+	} else {
+		r0 = ret.Get(0).(domain.Workflow)
+	}
+	if returnFunc, ok := ret.Get(1).(func(context.Context, auth.Principal, domain.UserID, domain.WorkflowID, string, bool) error); ok {
+		r1 = returnFunc(ctx, p, owner, id, reason, hold)
+	} else {
+		r1 = ret.Error(1)
+	}
+	return r0, r1
+}
+
+// MockWorkflowService_AdminSwitchOff_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'AdminSwitchOff'
+type MockWorkflowService_AdminSwitchOff_Call struct {
+	*mock.Call
+}
+
+// AdminSwitchOff is a helper method to define mock.On call
+//   - ctx context.Context
+//   - p auth.Principal
+//   - owner domain.UserID
+//   - id domain.WorkflowID
+//   - reason string
+//   - hold bool
+func (_e *MockWorkflowService_Expecter) AdminSwitchOff(ctx any, p any, owner any, id any, reason any, hold any) *MockWorkflowService_AdminSwitchOff_Call {
+	return &MockWorkflowService_AdminSwitchOff_Call{Call: _e.mock.On("AdminSwitchOff", ctx, p, owner, id, reason, hold)}
+}
+
+func (_c *MockWorkflowService_AdminSwitchOff_Call) Run(run func(ctx context.Context, p auth.Principal, owner domain.UserID, id domain.WorkflowID, reason string, hold bool)) *MockWorkflowService_AdminSwitchOff_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		var arg1 auth.Principal
+		if args[1] != nil {
+			arg1 = args[1].(auth.Principal)
+		}
+		var arg2 domain.UserID
+		if args[2] != nil {
+			arg2 = args[2].(domain.UserID)
+		}
+		var arg3 domain.WorkflowID
+		if args[3] != nil {
+			arg3 = args[3].(domain.WorkflowID)
+		}
+		var arg4 string
+		if args[4] != nil {
+			arg4 = args[4].(string)
+		}
+		var arg5 bool
+		if args[5] != nil {
+			arg5 = args[5].(bool)
+		}
+		run(
+			arg0,
+			arg1,
+			arg2,
+			arg3,
+			arg4,
+			arg5,
+		)
+	})
+	return _c
+}
+
+func (_c *MockWorkflowService_AdminSwitchOff_Call) Return(workflow domain.Workflow, err error) *MockWorkflowService_AdminSwitchOff_Call {
+	_c.Call.Return(workflow, err)
+	return _c
+}
+
+func (_c *MockWorkflowService_AdminSwitchOff_Call) RunAndReturn(run func(ctx context.Context, p auth.Principal, owner domain.UserID, id domain.WorkflowID, reason string, hold bool) (domain.Workflow, error)) *MockWorkflowService_AdminSwitchOff_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // CancelExecution provides a mock function for the type MockWorkflowService
 func (_mock *MockWorkflowService) CancelExecution(ctx context.Context, p auth.Principal, id domain.WorkflowID, execID domain.ExecutionID) (domain.Execution, error) {
 	ret := _mock.Called(ctx, p, id, execID)

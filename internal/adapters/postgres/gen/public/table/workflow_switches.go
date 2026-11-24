@@ -29,6 +29,7 @@ type workflowSwitchesTable struct {
 	WalletID      postgres.ColumnString
 	WalletAddress postgres.ColumnString
 	At            postgres.ColumnTimestampz
+	ByAdmin       postgres.ColumnBool
 
 	AllColumns     postgres.ColumnList
 	MutableColumns postgres.ColumnList
@@ -82,9 +83,10 @@ func newWorkflowSwitchesTableImpl(schemaName, tableName, alias string) workflowS
 		WalletIDColumn      = postgres.StringColumn("wallet_id")
 		WalletAddressColumn = postgres.StringColumn("wallet_address")
 		AtColumn            = postgres.TimestampzColumn("at")
-		allColumns          = postgres.ColumnList{IDColumn, WorkflowIDColumn, KindColumn, ByGrantColumn, ByTokenColumn, ByNameColumn, ByConfirmedColumn, PolythoughtColumn, ReasonColumn, WalletIDColumn, WalletAddressColumn, AtColumn}
-		mutableColumns      = postgres.ColumnList{WorkflowIDColumn, KindColumn, ByGrantColumn, ByTokenColumn, ByNameColumn, ByConfirmedColumn, PolythoughtColumn, ReasonColumn, WalletIDColumn, WalletAddressColumn, AtColumn}
-		defaultColumns      = postgres.ColumnList{ByGrantColumn, ByTokenColumn, ByNameColumn, ByConfirmedColumn, PolythoughtColumn, ReasonColumn, WalletIDColumn, WalletAddressColumn}
+		ByAdminColumn       = postgres.BoolColumn("by_admin")
+		allColumns          = postgres.ColumnList{IDColumn, WorkflowIDColumn, KindColumn, ByGrantColumn, ByTokenColumn, ByNameColumn, ByConfirmedColumn, PolythoughtColumn, ReasonColumn, WalletIDColumn, WalletAddressColumn, AtColumn, ByAdminColumn}
+		mutableColumns      = postgres.ColumnList{WorkflowIDColumn, KindColumn, ByGrantColumn, ByTokenColumn, ByNameColumn, ByConfirmedColumn, PolythoughtColumn, ReasonColumn, WalletIDColumn, WalletAddressColumn, AtColumn, ByAdminColumn}
+		defaultColumns      = postgres.ColumnList{ByGrantColumn, ByTokenColumn, ByNameColumn, ByConfirmedColumn, PolythoughtColumn, ReasonColumn, WalletIDColumn, WalletAddressColumn, ByAdminColumn}
 	)
 
 	return workflowSwitchesTable{
@@ -103,6 +105,7 @@ func newWorkflowSwitchesTableImpl(schemaName, tableName, alias string) workflowS
 		WalletID:      WalletIDColumn,
 		WalletAddress: WalletAddressColumn,
 		At:            AtColumn,
+		ByAdmin:       ByAdminColumn,
 
 		AllColumns:     allColumns,
 		MutableColumns: mutableColumns,

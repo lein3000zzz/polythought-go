@@ -156,7 +156,7 @@ describe('admin stats (D431)', () => {
     expect(within(users).getByRole('row', { name: /root@example.com/ })).toHaveTextContent('—')
   })
 
-  it("opens a user's dashboard, their workflows not linked", async () => {
+  it("opens a user's dashboard, their workflows opened read-only", async () => {
     stats()
     const { user, router } = renderApp('/admin/stats')
 
@@ -168,7 +168,10 @@ describe('admin stats (D431)', () => {
     ).toBeInTheDocument()
     const workflows = screen.getByRole('table', { name: 'Workflows' })
     expect(within(workflows).getByText('Copy Alice')).toBeInTheDocument()
-    expect(within(workflows).queryByRole('link'), "another user's: not opened").toBeNull()
+    expect(
+      within(workflows).getByRole('link', { name: 'Copy Alice' }),
+      "another user's: opened read-only (D435)",
+    ).toHaveAttribute('href', '/admin/users/u-1/workflows/wf-1')
     expect(screen.getByRole('region', { name: 'Traders' })).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Customize' })).not.toBeInTheDocument()
 

@@ -92,7 +92,9 @@ func TestList(t *testing.T) {
 
 	_, err := svc.List(context.Background(), alice, "wf-1", []domain.SwitchGroup{domain.GroupOnOff, domain.GroupKillSwitch}, ports.PageFilter{Limit: 5})
 	require.NoError(t, err)
-	assert.Equal(t, []domain.SwitchKind{domain.SwitchOn, domain.SwitchOff, domain.SwitchKillOn, domain.SwitchKillOff}, repo.filter.Kinds)
+	assert.Equal(t, []domain.SwitchKind{
+		domain.SwitchOn, domain.SwitchOff, domain.SwitchHold, domain.SwitchRelease, domain.SwitchKillOn, domain.SwitchKillOff,
+	}, repo.filter.Kinds, "an admin's holds and releases with on and off")
 	assert.Equal(t, 5, repo.filter.Limit)
 
 	_, err = svc.List(context.Background(), alice, "wf-1", nil, ports.PageFilter{})

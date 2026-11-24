@@ -6,6 +6,7 @@ package httpapimocks
 
 import (
 	"context"
+	"time"
 
 	"github.com/lein3000zzz/polythought-go/internal/core/domain"
 	"github.com/lein3000zzz/polythought-go/internal/core/services/auth"
@@ -255,6 +256,80 @@ func (_c *MockStatsService_OverviewOf_Call) Return(user domain.User, overview st
 }
 
 func (_c *MockStatsService_OverviewOf_Call) RunAndReturn(run func(ctx context.Context, p auth.Principal, id domain.UserID) (domain.User, stats.Overview, error)) *MockStatsService_OverviewOf_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// Workflows provides a mock function for the type MockStatsService
+func (_mock *MockStatsService) Workflows(ctx context.Context, p auth.Principal) ([]stats.AdminWorkflow, time.Time, error) {
+	ret := _mock.Called(ctx, p)
+
+	if len(ret) == 0 {
+		panic("no return value specified for Workflows")
+	}
+
+	var r0 []stats.AdminWorkflow
+	var r1 time.Time
+	var r2 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context, auth.Principal) ([]stats.AdminWorkflow, time.Time, error)); ok {
+		return returnFunc(ctx, p)
+	}
+	if returnFunc, ok := ret.Get(0).(func(context.Context, auth.Principal) []stats.AdminWorkflow); ok {
+		r0 = returnFunc(ctx, p)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).([]stats.AdminWorkflow)
+		}
+	}
+	if returnFunc, ok := ret.Get(1).(func(context.Context, auth.Principal) time.Time); ok {
+		r1 = returnFunc(ctx, p)
+	} else {
+		r1 = ret.Get(1).(time.Time)
+	}
+	if returnFunc, ok := ret.Get(2).(func(context.Context, auth.Principal) error); ok {
+		r2 = returnFunc(ctx, p)
+	} else {
+		r2 = ret.Error(2)
+	}
+	return r0, r1, r2
+}
+
+// MockStatsService_Workflows_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'Workflows'
+type MockStatsService_Workflows_Call struct {
+	*mock.Call
+}
+
+// Workflows is a helper method to define mock.On call
+//   - ctx context.Context
+//   - p auth.Principal
+func (_e *MockStatsService_Expecter) Workflows(ctx any, p any) *MockStatsService_Workflows_Call {
+	return &MockStatsService_Workflows_Call{Call: _e.mock.On("Workflows", ctx, p)}
+}
+
+func (_c *MockStatsService_Workflows_Call) Run(run func(ctx context.Context, p auth.Principal)) *MockStatsService_Workflows_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		var arg1 auth.Principal
+		if args[1] != nil {
+			arg1 = args[1].(auth.Principal)
+		}
+		run(
+			arg0,
+			arg1,
+		)
+	})
+	return _c
+}
+
+func (_c *MockStatsService_Workflows_Call) Return(adminWorkflows []stats.AdminWorkflow, time1 time.Time, err error) *MockStatsService_Workflows_Call {
+	_c.Call.Return(adminWorkflows, time1, err)
+	return _c
+}
+
+func (_c *MockStatsService_Workflows_Call) RunAndReturn(run func(ctx context.Context, p auth.Principal) ([]stats.AdminWorkflow, time.Time, error)) *MockStatsService_Workflows_Call {
 	_c.Call.Return(run)
 	return _c
 }

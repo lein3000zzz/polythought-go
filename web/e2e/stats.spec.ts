@@ -74,6 +74,49 @@ test("an admin sees every user's workflows, and opens one user's (D431)", async 
   await expect(page.getByRole('heading', { name: `${admin.email}'s workflows` })).toBeVisible()
 
   const workflows = page.getByRole('table', { name: 'Workflows' })
-  await expect(workflows.getByText(name, { exact: true })).toBeVisible()
-  await expect(workflows.getByRole('link', { name })).toHaveCount(0)
+  // Another user's workflow opens read-only, for an admin (D435).
+  await expect(workflows.getByRole('link', { name })).toHaveAttribute(
+    'href',
+    new RegExp(`/admin/users/[^/]+/workflows/${id}$`),
+  )
+})
+
+test('an admin switches off a busy workflow and holds it off, then releases it (D435)', async ({
+  page,
+}) => {
+  const name = unique('busy')
+  const id = await createWorkflow(page, name, [
+    { id: 'every', type: 'trigger.schedule', params: { interval: '1h', runOnStart: false } },
+    { id: 'log', type: 'output.log' },
+  ])
+  expect((await page.request.post(`/api/v1/workflows/${id}/activate`)).status()).toBe(200)
+
+  await page.goto('/admin/stats?tab=workflows')
+  const table = page.getByRole('table', { name: "Every user's workflows" })
+  const row = table.getByRole('row').filter({ has: page.getByRole('link', { name, exact: true }) })
+  await row.getByRole('button', { name: 'Switch off' }).click()
+
+  const dialog = page.getByRole('dialog')
+  await dialog.getByLabel('Why').fill('It ran too often.')
+  await dialog.getByRole('button', { name: 'Switch off' }).click()
+  await expect(row.getByText('Held')).toBeVisible()
+
+  // Its owner cannot switch it on again, and is told why.
+  await page.goto(`/workflows/${id}`)
+  await expect(page.getByText('Held by an admin')).toBeVisible()
+  await expect(page.getByRole('switch', { name: 'Active' })).toBeDisabled()
+  const refused = await page.request.post(`/api/v1/workflows/${id}/activate`)
+  expect(refused.status()).toBe(409)
+
+  await page.getByRole('button', { name: 'History' }).click()
+  const panel = page.getByRole('region', { name: 'History' })
+  await panel.getByRole('tab', { name: 'History' }).click()
+  await expect(panel.getByText('Held off')).toBeVisible()
+  await expect(panel.getByText(/by an admin: It ran too often\./)).toBeVisible()
+
+  // Released, it switches on again.
+  await page.goto('/admin/stats?tab=workflows')
+  await row.getByRole('button', { name: 'Release' }).click()
+  await expect(row.getByRole('button', { name: 'Hold off' })).toBeVisible()
+  expect((await page.request.post(`/api/v1/workflows/${id}/activate`)).status()).toBe(200)
 })

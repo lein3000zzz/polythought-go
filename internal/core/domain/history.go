@@ -12,6 +12,8 @@ type SwitchKind string
 const (
 	SwitchOn      SwitchKind = "on"       // its triggers switched on
 	SwitchOff     SwitchKind = "off"      // and off
+	SwitchHold    SwitchKind = "hold"     // held off by an admin, switched off if it was on (D435)
+	SwitchRelease SwitchKind = "release"  // released by an admin, to be switched on again
 	SwitchPaper   SwitchKind = "paper"    // back to trading on paper
 	SwitchLive    SwitchKind = "live"     // to trading live, from Wallet
 	SwitchWallet  SwitchKind = "wallet"   // trading live from another wallet, Wallet
@@ -21,7 +23,7 @@ const (
 )
 
 // SwitchKinds are every kind.
-var SwitchKinds = []SwitchKind{SwitchOn, SwitchOff, SwitchPaper, SwitchLive, SwitchWallet, SwitchReset, SwitchKillOn, SwitchKillOff}
+var SwitchKinds = []SwitchKind{SwitchOn, SwitchOff, SwitchHold, SwitchRelease, SwitchPaper, SwitchLive, SwitchWallet, SwitchReset, SwitchKillOn, SwitchKillOff}
 
 // SwitchGroup is kinds together, as the history is narrowed by.
 type SwitchGroup string
@@ -35,7 +37,7 @@ const (
 
 // SwitchGroups are every group, each with its kinds.
 var SwitchGroups = map[SwitchGroup][]SwitchKind{
-	GroupOnOff:      {SwitchOn, SwitchOff},
+	GroupOnOff:      {SwitchOn, SwitchOff, SwitchHold, SwitchRelease},
 	GroupTrading:    {SwitchPaper, SwitchLive, SwitchWallet},
 	GroupReset:      {SwitchReset},
 	GroupKillSwitch: {SwitchKillOn, SwitchKillOff},
@@ -50,9 +52,10 @@ type Switch struct {
 	WorkflowID WorkflowID
 	Kind       SwitchKind
 	// By is the agent or token that switched it, its How unused; zero, the user, unless
-	// Polythought did.
+	// Polythought did, or an admin (D435).
 	By          Actor
 	Polythought bool
+	Admin       bool
 	// Reason is why: the agent's or token's own words, as it gave them, or Polythought's;
 	// empty when none was given.
 	Reason string

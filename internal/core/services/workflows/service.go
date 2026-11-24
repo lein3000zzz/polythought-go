@@ -91,6 +91,7 @@ type Service struct {
 	creds      Credentials         // optional: without it, tokens and agents use credentials freely
 	confirm    Confirmer           // optional: without it, tokens' and agents' live actions go ahead at once
 	history    History             // optional: without it, no switch is kept
+	runCap     *RunCap             // optional: without it, triggers run as often as they fire
 	limits     func() Limits
 	log        logging.Logger
 	now        func() time.Time
@@ -182,7 +183,17 @@ func WithPersonal(f Personal) Option {
 // forCaller is the workflow as the caller may see it: a copy with its personal settings
 // hidden, for a token or an agent whose user has not let them see those.
 func (s *Service) forCaller(p auth.Principal, w domain.Workflow) domain.Workflow {
-	if s.personal == nil || p.SeesPersonal() {
+	if p.SeesPersonal() {
+		return w
+	}
+
+	return s.hidePersonal(w)
+}
+
+// hidePersonal is w with its personal settings hidden (D402): for tokens and agents that
+// may not see them, and for admins looking at another user's (D435).
+func (s *Service) hidePersonal(w domain.Workflow) domain.Workflow {
+	if s.personal == nil {
 		return w
 	}
 
@@ -637,6 +648,11 @@ func (s *Service) Activate(ctx context.Context, p auth.Principal, id domain.Work
 		return domain.Workflow{}, err
 	}
 
+	// An admin holds it off until they release it (D435).
+	if w.Hold != nil {
+		return domain.Workflow{}, fmt.Errorf("%w, saying %q: it is switched on again once an admin releases it", domain.ErrHeld, w.Hold.Reason)
+	}
+
 	if !w.Active {
 		_, active, err := s.repo.Count(ctx, p.User.ID)
 		if err != nil {
@@ -682,6 +698,11 @@ func (s *Service) Activate(ctx context.Context, p auth.Principal, id domain.Work
 
 	if !w.Active {
 		s.switched(ctx, history.By(p, id, domain.SwitchOn))
+
+		// Its runs in the last hour counted before it was off count no more (D435).
+		if s.runCap != nil {
+			s.runCap.Forget(id)
+		}
 	}
 
 	w.Active = true
@@ -759,9 +780,12 @@ func (s *Service) StopAll(ctx context.Context, owner domain.UserID) error {
 	return nil
 }
 
-// Pauser tells a workflow's owner why it was paused (D319).
+// Pauser tells a workflow's owner why it was paused (D319), or held off by an admin, or
+// released (D435).
 type Pauser interface {
 	WorkflowPaused(owner domain.UserID, w domain.Workflow, why string)
+	WorkflowHeld(owner domain.UserID, w domain.Workflow, why string)
+	WorkflowReleased(owner domain.UserID, w domain.Workflow)
 }
 
 // WithPauser tells owners why their workflows were paused.
@@ -785,29 +809,38 @@ func (s *Service) Pause(ctx context.Context, why func(w domain.Workflow) string)
 			continue
 		}
 
-		if err := s.repo.SetActive(ctx, w.OwnerID, w.ID, false, s.now(), domain.Actor{}); err != nil {
+		if err := s.pause(ctx, w, reason); err != nil {
 			return paused, err
 		}
-
-		s.switched(ctx, history.Itself(w.ID, domain.SwitchOff, reason))
-		s.supervisor.Stop(w.ID)
-
-		if s.waits != nil {
-			if err := s.waits.CancelWorkflow(ctx, w.OwnerID, w.ID, "cancelled: the workflow was paused: "+reason); err != nil {
-				s.log.Warn(ctx, "Waiting executions not cancelled", "workflow_id", w.ID, "error", err.Error())
-			}
-		}
-
-		if s.pauser != nil {
-			s.pauser.WorkflowPaused(w.OwnerID, w, reason)
-		}
-
-		s.log.Info(ctx, "Workflow paused", "workflow_id", w.ID, "owner_id", w.OwnerID, "why", reason)
 
 		paused++
 	}
 
 	return paused, nil
+}
+
+// pause switches one workflow off for Polythought, its history and its owner told why.
+func (s *Service) pause(ctx context.Context, w domain.Workflow, reason string) error {
+	if err := s.repo.SetActive(ctx, w.OwnerID, w.ID, false, s.now(), domain.Actor{}); err != nil {
+		return err
+	}
+
+	s.switched(ctx, history.Itself(w.ID, domain.SwitchOff, reason))
+	s.supervisor.Stop(w.ID)
+
+	if s.waits != nil {
+		if err := s.waits.CancelWorkflow(ctx, w.OwnerID, w.ID, "cancelled: the workflow was paused: "+reason); err != nil {
+			s.log.Warn(ctx, "Waiting executions not cancelled", "workflow_id", w.ID, "error", err.Error())
+		}
+	}
+
+	if s.pauser != nil {
+		s.pauser.WorkflowPaused(w.OwnerID, w, reason)
+	}
+
+	s.log.Info(ctx, "Workflow paused", "workflow_id", w.ID, "owner_id", w.OwnerID, "why", reason)
+
+	return nil
 }
 
 // Run executes the workflow once, by hand, from the trigger named or else its only

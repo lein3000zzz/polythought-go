@@ -5,7 +5,7 @@
 # The image's GOTOOLCHAIN is local, so go.mod's toolchain line does not reach it: the patch
 # release is pinned here too, to build with the same Go.
 # On the builder's own platform, Go cross-compiling for the image's (D373): no emulation.
-FROM --platform=$BUILDPLATFORM golang:1.27.3-alpine AS build
+FROM --platform=$BUILDPLATFORM golang:1.27.4-alpine AS build
 
 ARG TARGETOS TARGETARCH
 
