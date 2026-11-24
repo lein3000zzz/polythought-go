@@ -203,6 +203,30 @@ The most requests an HTTP request node makes in a run, one an item. The items pa
 | Default | `100` |
 | Applies | at once |
 
+### Inbound webhooks
+
+Let workflows start from a call to their Inbound webhook's secret address, /hooks/…, by any service on the internet. Off, those addresses answer 503 and no workflow starts from one.
+
+| | |
+|---|---|
+| Key | `workflows.inbound_webhooks` |
+| Environment variable | `POLYTHOUGHT_WORKFLOWS_INBOUND_WEBHOOKS` |
+| Kind | `true` or `false` |
+| Default | `false` |
+| Applies | at once |
+
+### Calls a minute per inbound webhook
+
+The most calls one Inbound webhook takes in a minute; past it, a call is answered 429. Their runs count toward Runs per workflow per hour too.
+
+| | |
+|---|---|
+| Key | `workflows.inbound_webhook_rate` |
+| Environment variable | `POLYTHOUGHT_WORKFLOWS_INBOUND_WEBHOOK_RATE` |
+| Kind | whole number |
+| Default | `60` |
+| Applies | at once |
+
 ### Tokens per market trigger
 
 The most outcome tokens one market trigger may watch.

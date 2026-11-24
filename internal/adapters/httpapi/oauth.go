@@ -53,9 +53,11 @@ var oauthEndpoints = map[string]bool{
 	"/mcp": true,
 }
 
-// selfAuthenticating says the request is to one of those.
+// selfAuthenticating says the request is to one of those, or to an inbound webhook, whose
+// secret is its only proof (D439): never a session's, and from any origin.
 func selfAuthenticating(c *app.RequestContext) bool {
-	return oauthEndpoints[string(c.Path())]
+	path := string(c.Path())
+	return oauthEndpoints[path] || strings.HasPrefix(path, "/hooks/")
 }
 
 // oauthMetadata is the authorization server's metadata (RFC 8414), at the server's root;

@@ -141,6 +141,7 @@ packages:
       CredentialService: {}
       TelegramService: {}
       TelegramWebhook: {}
+      HookService: {}
       NotificationService: {}
       CustomNodeService: {}
       MailService: {}

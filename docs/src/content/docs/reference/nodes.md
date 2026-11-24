@@ -17,6 +17,7 @@ Each node has a page with its settings. In the editor, the node list on the left
 | [Schedule](/docs/reference/nodes/triggers/schedule/) | `trigger.schedule` | Starts the workflow at a fixed interval. |
 | [Telegram message](/docs/reference/nodes/triggers/telegram/) | `trigger.telegram` | Starts the workflow when you send the instance's bot a message, one item per message. |
 | [Wallet activity](/docs/reference/nodes/triggers/wallet-activity/) | `trigger.walletActivity` | Starts the workflow on the trades of the traders you follow as they happen, about two seconds after: a trade each item, its fills summed. |
+| [Inbound webhook](/docs/reference/nodes/triggers/webhook/) | `trigger.webhook` | Starts the workflow when a service calls its secret address with a POST, the call's body and query on the item. |
 
 ## Polymarket
 

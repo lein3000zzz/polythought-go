@@ -2238,6 +2238,40 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/workflows/{id}/hooks/{node}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Inbound webhook address */
+        get: operations["getHook"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/workflows/{id}/hooks/{node}/renew": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Renew an inbound webhook address */
+        post: operations["renewHook"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/workflows/{id}/nodes/{node}/memory": {
         parameters: {
             query?: never;
@@ -3142,6 +3176,18 @@ export interface components {
             /** Format: date-time */
             updatedAt: string;
             value: string;
+        };
+        Hook: {
+            createdAt: string;
+            /** @description Enabled says an admin lets inbound webhooks take calls on this instance. */
+            enabled: boolean;
+            /** @description Listening says the workflow is on, taking calls. */
+            listening: boolean;
+            /**
+             * @description URL is the secret address a service calls with a POST: whoever has it can start
+             *     the workflow.
+             */
+            url: string;
         };
         ImportKeyRequest: {
             /** @description PrivateKey is 64 hex digits, with 0x or without. */
@@ -11977,6 +12023,92 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HoldingList"];
+                };
+            };
+            /** @description unauthenticated */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description not_found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    getHook: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Workflow ID */
+                id: string;
+                /** @description Node ID of an Inbound webhook trigger, as saved */
+                node: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Hook"];
+                };
+            };
+            /** @description unauthenticated */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description not_found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    renewHook: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Workflow ID */
+                id: string;
+                /** @description Node ID of an Inbound webhook trigger, as saved */
+                node: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Hook"];
                 };
             };
             /** @description unauthenticated */

@@ -1907,6 +1907,32 @@
                 ],
                 "type": "object"
             },
+            "Hook": {
+                "properties": {
+                    "createdAt": {
+                        "type": "string"
+                    },
+                    "enabled": {
+                        "description": "Enabled says an admin lets inbound webhooks take calls on this instance.",
+                        "type": "boolean"
+                    },
+                    "listening": {
+                        "description": "Listening says the workflow is on, taking calls.",
+                        "type": "boolean"
+                    },
+                    "url": {
+                        "description": "URL is the secret address a service calls with a POST: whoever has it can start\nthe workflow.",
+                        "type": "string"
+                    }
+                },
+                "required": [
+                    "createdAt",
+                    "enabled",
+                    "listening",
+                    "url"
+                ],
+                "type": "object"
+            },
             "ImportKeyRequest": {
                 "properties": {
                     "privateKey": {
@@ -16245,6 +16271,138 @@
                 "summary": "List holdings",
                 "tags": [
                     "trading"
+                ]
+            }
+        },
+        "/workflows/{id}/hooks/{node}": {
+            "get": {
+                "operationId": "getHook",
+                "parameters": [
+                    {
+                        "description": "Workflow ID",
+                        "in": "path",
+                        "name": "id",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "description": "Node ID of an Inbound webhook trigger, as saved",
+                        "in": "path",
+                        "name": "node",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Hook"
+                                }
+                            }
+                        },
+                        "description": "OK"
+                    },
+                    "401": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "unauthenticated"
+                    },
+                    "404": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "not_found"
+                    }
+                },
+                "security": [
+                    {
+                        "SessionCookie": []
+                    }
+                ],
+                "summary": "Inbound webhook address",
+                "tags": [
+                    "workflows"
+                ]
+            }
+        },
+        "/workflows/{id}/hooks/{node}/renew": {
+            "post": {
+                "operationId": "renewHook",
+                "parameters": [
+                    {
+                        "description": "Workflow ID",
+                        "in": "path",
+                        "name": "id",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "description": "Node ID of an Inbound webhook trigger, as saved",
+                        "in": "path",
+                        "name": "node",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Hook"
+                                }
+                            }
+                        },
+                        "description": "OK"
+                    },
+                    "401": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "unauthenticated"
+                    },
+                    "404": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "not_found"
+                    }
+                },
+                "security": [
+                    {
+                        "SessionCookie": []
+                    }
+                ],
+                "summary": "Renew an inbound webhook address",
+                "tags": [
+                    "workflows"
                 ]
             }
         },

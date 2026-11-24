@@ -31,6 +31,7 @@ export default defineConfig({
             'guides/library',
             'guides/credentials',
             'guides/http-requests',
+            'guides/inbound-webhooks',
             'guides/agents',
             'guides/agents-over-mcp',
             'guides/telegram',
