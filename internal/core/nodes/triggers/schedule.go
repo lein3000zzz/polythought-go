@@ -103,7 +103,7 @@ func (*Schedule) Type() engine.NodeType {
 			{
 				Name: "city", Label: "City's time zone", Kind: engine.ParamString, Options: cities.Names(),
 				Description: "With at: a city Polymarket lists temperature markets for, whose time zone it takes in place " +
-					"of Time zone (D441).",
+					"of Time zone.",
 			},
 			{
 				Name: "catchUp", Label: "Make up a missed run", Kind: engine.ParamBool, Default: false,

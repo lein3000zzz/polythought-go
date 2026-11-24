@@ -1144,7 +1144,7 @@ export interface TriggerScheduleSettings {
      * @default "UTC"
      */
     zone?: string;
-    /** With at: a city Polymarket lists temperature markets for, whose time zone it takes in place of Time zone (D441). */
+    /** With at: a city Polymarket lists temperature markets for, whose time zone it takes in place of Time zone. */
     city?: "Amsterdam" | "Ankara" | "Atlanta" | "Austin" | "Beijing" | "Buenos Aires" | "Busan" | "Cape Town" | "Chengdu" | "Chicago" | "Chongqing" | "Dallas" | "Denver" | "Guangzhou" | "Helsinki" | "Hong Kong" | "Houston" | "Istanbul" | "Jeddah" | "Jinan" | "Karachi" | "Kuala Lumpur" | "London" | "Los Angeles" | "Lucknow" | "Madrid" | "Manila" | "Mexico City" | "Miami" | "Milan" | "Moscow" | "Munich" | "NYC" | "Panama City" | "Paris" | "Qingdao" | "San Francisco" | "Sao Paulo" | "Seattle" | "Seoul (Incheon)" | "Shanghai" | "Shenzhen" | "Singapore" | "Taipei" | "Tel Aviv" | "Tokyo" | "Toronto" | "Warsaw" | "Wellington" | "Wuhan" | "Zhengzhou";
     /**
      * When Polythought was down as a run fell due, run once as it starts again, for the latest time missed; its item says missed: true. With every, only when Run on start is off.
@@ -1854,7 +1854,7 @@ export declare const positions: {
         limit?: number;
     }): Promise<Position[]>;
 };
-/** A moment by a time zone's clock (D440). */
+/** A moment by a time zone's clock. */
 export interface ZoneTime {
     /** The zone, as the IANA database names it, like America/Chicago. */
     zone: string;

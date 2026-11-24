@@ -35,7 +35,7 @@ type Settings<T extends TypeName> = NodeTypes[T]['settings']
 
 /**
  * A node's name, notes about it, whether failed items go out of its error port, and how
- * many more times it tries what failed, 0 to 5, left out for its type's default (D440).
+ * many more times it tries what failed, 0 to 5, left out for its type's default.
  */
 export interface NodeOptions {
   name?: string
