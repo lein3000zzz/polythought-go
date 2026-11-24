@@ -64,7 +64,7 @@ func TestScheduleConfig(t *testing.T) {
 	}{
 		{name: "missing interval", params: nil, wantErr: engine.ErrMissingParam},
 		{name: "not a duration", params: map[string]any{"interval": "soon"}, wantErr: engine.ErrInvalidParam},
-		{name: "below the minimum", params: map[string]any{"interval": "1ms"}, wantErr: engine.ErrInvalidParam},
+		{name: "not above zero", params: map[string]any{"interval": "0s"}, wantErr: engine.ErrInvalidParam},
 		{name: "runOnStart not a bool", params: map[string]any{"interval": "1h", "runOnStart": "yes"}, wantErr: engine.ErrInvalidParam},
 	}
 
@@ -90,6 +90,8 @@ func TestScheduleFires(t *testing.T) {
 	}{
 		{name: "runs on start before the first tick", params: map[string]any{"interval": "1h"}, wantFires: 1},
 		{name: "fires every interval", params: map[string]any{"interval": "20ms", "runOnStart": false}, wantFires: 3},
+		// Saved under a lower minimum: at the minimum, not at all (D435).
+		{name: "below the minimum, at the minimum", params: map[string]any{"interval": "1ms", "runOnStart": false}, wantFires: 3},
 		{name: "keeps firing after a failed emit", params: map[string]any{"interval": "20ms"}, emitErr: errors.New("invalid workflow"), wantFires: 3},
 	}
 

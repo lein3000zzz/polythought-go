@@ -40,7 +40,22 @@ type Workflow struct {
 	// Borrowed is what of it another user wrote, kept from their library entry it was made
 	// from until its user changes it (A21).
 	Borrowed Borrowed
+
+	// Hold is an admin's holding it off (D435): nil while none does. Held, it cannot be
+	// switched on until an admin releases it.
+	Hold *Hold
 }
+
+// Hold is an admin's holding a workflow off, saying why (D435).
+type Hold struct {
+	By     UserID // the admin; empty once their account is gone
+	Reason string
+	At     time.Time
+}
+
+// ErrHeld means an admin holds the workflow off: it is switched on again once they release
+// it (D435).
+var ErrHeld = errors.New("an admin holds the workflow off")
 
 // Borrowed is the text of a workflow another user wrote: its name, and the nodes whose
 // names and notes are theirs. Agents get it as others' words, never the user's (A21).

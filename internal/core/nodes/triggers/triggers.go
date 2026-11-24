@@ -48,8 +48,8 @@ func ScheduleOutput(at time.Time) engine.Ports {
 	return engine.Ports{engine.DefaultPort: {{JSON: map[string]any{"firedAt": at.UTC()}}}}
 }
 
-// DefaultMinInterval keeps schedules from hammering the APIs they feed.
-const DefaultMinInterval = time.Second
+// DefaultMinInterval keeps schedules from hammering the APIs they feed (D435).
+const DefaultMinInterval = 5 * time.Second
 
 // Schedule fires every interval, emitting one item with the fire time.
 type Schedule struct {
@@ -120,9 +120,11 @@ func (s *Schedule) interval(p engine.Params) (time.Duration, error) {
 		return 0, fmt.Errorf("%w %q: %w", engine.ErrInvalidParam, "interval", err)
 	}
 
-	if interval < s.minInterval {
-		return 0, fmt.Errorf("%w %q: %s is below the minimum of %s", engine.ErrInvalidParam, "interval", interval, s.minInterval)
+	if interval <= 0 {
+		return 0, fmt.Errorf("%w %q: want a duration above zero", engine.ErrInvalidParam, "interval")
 	}
 
-	return interval, nil
+	// One saved under a lower minimum, as an admin raised it since, fires at the minimum
+	// rather than not at all (D435).
+	return max(interval, s.minInterval), nil
 }

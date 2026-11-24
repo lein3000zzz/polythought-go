@@ -396,6 +396,37 @@ func (r *Workflows) SetActive(ctx context.Context, owner domain.UserID, id domai
 		ExecContext(ctx, r.db.conn(ctx)))
 }
 
+func (r *Workflows) SetHold(ctx context.Context, owner domain.UserID, id domain.WorkflowID, hold *domain.Hold) error {
+	where, err := ownedWorkflow(owner, id)
+	if err != nil {
+		return err
+	}
+
+	t := table.Workflows
+
+	if hold == nil {
+		return affectedOne(t.UPDATE(t.HeldAt, t.HeldBy, t.HeldReason).SET(jet.NULL, jet.NULL, "").WHERE(where).
+			ExecContext(ctx, r.db.conn(ctx)))
+	}
+
+	// The admin, while their account lasts.
+	var by *uuid.UUID
+
+	if hold.By != "" {
+		admin, err := uuid.Parse(string(hold.By))
+		if err != nil {
+			return domain.ErrInvalidInput
+		}
+
+		by = &admin
+	}
+
+	at := hold.At.UTC()
+
+	return affectedOne(t.UPDATE(t.HeldAt, t.HeldBy, t.HeldReason).MODEL(model.Workflows{HeldAt: &at, HeldBy: by, HeldReason: hold.Reason}).
+		WHERE(where).ExecContext(ctx, r.db.conn(ctx)))
+}
+
 func (r *Workflows) Delete(ctx context.Context, owner domain.UserID, id domain.WorkflowID) error {
 	where, err := ownedWorkflow(owner, id)
 	if err != nil {
@@ -528,6 +559,20 @@ func toWorkflowModel(w domain.Workflow) (model.Workflows, error) {
 	}, nil
 }
 
+// holdOf is a hold as kept: none while held_at is null (D435).
+func holdOf(m model.Workflows) *domain.Hold {
+	if m.HeldAt == nil {
+		return nil
+	}
+
+	h := &domain.Hold{Reason: m.HeldReason, At: m.HeldAt.UTC()}
+	if m.HeldBy != nil {
+		h.By = domain.UserID(m.HeldBy.String())
+	}
+
+	return h
+}
+
 func toWorkflow(m model.Workflows) (domain.Workflow, error) {
 	nodes, conns, borrowed, err := decodeWorkflowDefinition(m.Definition)
 	if err != nil {
@@ -556,6 +601,7 @@ func toWorkflow(m model.Workflows) (domain.Workflow, error) {
 			GrantID: domain.GrantID(m.ActedGrant), TokenID: domain.APITokenID(m.ActedToken), Name: m.ActedName,
 			How: domain.ActorHow(m.ActedHow), Confirmed: m.ActedConfirmed,
 		},
+		Hold: holdOf(m),
 	}, nil
 }
 
@@ -663,7 +709,7 @@ func (r *Executions) Save(ctx context.Context, e domain.Execution) error {
 	return err
 }
 
-func (r *Executions) RunStats(ctx context.Context, owner domain.UserID, day, week time.Time) ([]domain.RunStats, error) {
+func (r *Executions) RunStats(ctx context.Context, owner domain.UserID, hour, day, week time.Time) ([]domain.RunStats, error) {
 	oid, err := parseID(owner)
 	if err != nil {
 		return nil, nil
@@ -672,7 +718,7 @@ func (r *Executions) RunStats(ctx context.Context, owner domain.UserID, day, wee
 	e, w := table.Executions, table.Workflows
 	theirs := w.OwnerID.EQ(jet.UUID(oid))
 	failed := e.Status.EQ(jet.String(string(domain.ExecutionFailed)))
-	inDay := e.StartedAt.GT_EQ(jet.TimestampzT(day))
+	inHour, inDay := e.StartedAt.GT_EQ(jet.TimestampzT(hour)), e.StartedAt.GT_EQ(jet.TimestampzT(day))
 	// The rows where cond holds: CASE gives null elsewhere, which COUNT passes over. A
 	// column, not a literal, as a parameter there would have no type to count.
 	counted := func(cond jet.BoolExpression) jet.Expression {
@@ -681,6 +727,8 @@ func (r *Executions) RunStats(ctx context.Context, owner domain.UserID, day, wee
 
 	var counts []struct {
 		Workflow   uuid.UUID `alias:"workflow"`
+		HourRuns   int64     `alias:"hour_runs"`
+		HourFailed int64     `alias:"hour_failed"`
 		DayRuns    int64     `alias:"day_runs"`
 		DayFailed  int64     `alias:"day_failed"`
 		WeekRuns   int64     `alias:"week_runs"`
@@ -688,6 +736,7 @@ func (r *Executions) RunStats(ctx context.Context, owner domain.UserID, day, wee
 	}
 
 	err = jet.SELECT(e.WorkflowID.AS("workflow"),
+		counted(inHour).AS("hour_runs"), counted(inHour.AND(failed)).AS("hour_failed"),
 		counted(inDay).AS("day_runs"), counted(inDay.AND(failed)).AS("day_failed"),
 		jet.COUNT(jet.STAR).AS("week_runs"), counted(failed).AS("week_failed")).
 		FROM(e.INNER_JOIN(w, w.ID.EQ(e.WorkflowID))).
@@ -739,6 +788,7 @@ func (r *Executions) RunStats(ctx context.Context, owner domain.UserID, day, wee
 			by[c.Workflow] = st
 		}
 
+		st.Hour = domain.RunCounts{Runs: int(c.HourRuns), Failed: int(c.HourFailed)}
 		st.Day = domain.RunCounts{Runs: int(c.DayRuns), Failed: int(c.DayFailed)}
 		st.Week = domain.RunCounts{Runs: int(c.WeekRuns), Failed: int(c.WeekFailed)}
 	}

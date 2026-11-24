@@ -140,3 +140,102 @@ export function useUserStats(id: string) {
     retry: false,
   })
 }
+
+/** Every user's workflows, the busiest first (D435), asked again each minute. */
+export function useAdminWorkflows() {
+  return useQuery({
+    queryKey: keys.adminWorkflows,
+    queryFn: () => call(api.GET('/admin/workflows')),
+    refetchInterval: 60_000,
+  })
+}
+
+/** One of a user's workflows, read-only, its personal settings hidden (D435). */
+export function useAdminWorkflow(owner: string, id: string) {
+  return useQuery({
+    queryKey: keys.adminWorkflow(owner, id),
+    queryFn: () =>
+      call(
+        api.GET('/admin/users/{id}/workflows/{wid}', { params: { path: { id: owner, wid: id } } }),
+      ),
+    retry: false,
+  })
+}
+
+/** Its latest runs, without the items they carried. */
+export function useAdminExecutions(owner: string, id: string) {
+  return useQuery({
+    queryKey: keys.adminExecutions(owner, id),
+    queryFn: async () =>
+      (
+        await call(
+          api.GET('/admin/users/{id}/workflows/{wid}/executions', {
+            params: { path: { id: owner, wid: id }, query: { limit: 50 } },
+          }),
+        )
+      ).executions,
+  })
+}
+
+/** Who switched it and why, a page at a time, of the kinds asked; none, every kind. */
+export function useAdminHistory(owner: string, id: string, kinds: string[], enabled = true) {
+  return useInfiniteQuery({
+    queryKey: keys.adminHistory(owner, id, kinds),
+    queryFn: ({ pageParam }) =>
+      call(
+        api.GET('/admin/users/{id}/workflows/{wid}/history', {
+          params: {
+            path: { id: owner, wid: id },
+            query: {
+              limit: 50,
+              cursor: pageParam || undefined,
+              kinds: kinds.length > 0 ? kinds.join(',') : undefined,
+            },
+          },
+        }),
+      ),
+    initialPageParam: '',
+    getNextPageParam: (page) => page.nextCursor || undefined,
+    enabled,
+  })
+}
+
+/** Switches a user's workflow off, saying why, and with hold keeps it off (D435). */
+export function useAdminSwitchOff() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: ({
+      owner,
+      id,
+      ...body
+    }: {
+      owner: string
+      id: string
+      reason: string
+      hold: boolean
+    }) =>
+      call(
+        api.POST('/admin/users/{id}/workflows/{wid}/switch-off', {
+          params: { path: { id: owner, wid: id } },
+          body,
+        }),
+      ),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: keys.adminWorkflows }),
+  })
+}
+
+/** Lets a user's workflow an admin held off be switched on again (D435). */
+export function useAdminRelease() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: ({ owner, id }: { owner: string; id: string }) =>
+      call(
+        api.POST('/admin/users/{id}/workflows/{wid}/release', {
+          params: { path: { id: owner, wid: id } },
+        }),
+      ),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: keys.adminWorkflows }),
+  })
+}

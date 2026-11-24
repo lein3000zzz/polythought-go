@@ -71,7 +71,15 @@ type workflowDTO struct {
 	// ActedBy is the agent or token that switched it on, or changed it while on, named on
 	// its runs until it is switched again (D407); absent for you.
 	ActedBy *actorDTO `json:"actedBy,omitempty" validate:"optional"`
+	// Hold is an admin's holding it off (D435): it is switched on again once they release
+	// it. Absent while none does.
+	Hold *holdDTO `json:"hold,omitempty" validate:"optional"`
 } // @name Workflow
+
+type holdDTO struct {
+	Reason string    `json:"reason"`
+	At     time.Time `json:"at" format:"date-time"`
+} // @name WorkflowHold
 
 // actorDTO is an agent or an API token that acted for you (D407), named as it was then.
 type actorDTO struct {
@@ -105,6 +113,10 @@ func toWorkflowDTO(w domain.Workflow) workflowDTO {
 		Nodes:       make([]nodeDTO, len(w.Nodes)),
 		Connections: make([]connectionDTO, len(w.Connections)),
 		CreatedAt:   w.CreatedAt, UpdatedAt: w.UpdatedAt, ActedBy: toActorDTO(w.ActedBy),
+	}
+
+	if h := w.Hold; h != nil {
+		out.Hold = &holdDTO{Reason: h.Reason, At: h.At}
 	}
 
 	for i, n := range w.Nodes {

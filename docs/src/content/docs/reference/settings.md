@@ -169,15 +169,27 @@ The most nodes a workflow may have. Applies when a workflow is saved.
 
 ### Fastest schedule
 
-The shortest interval a schedule or market trigger may use, to spare the APIs workflows call.
+The shortest interval a schedule or market trigger may use, to spare the APIs workflows call. One set shorter, as this was raised since, runs at this.
 
 | | |
 |---|---|
 | Key | `workflows.schedule_min_interval` |
 | Environment variable | `POLYTHOUGHT_WORKFLOWS_SCHEDULE_MIN_INTERVAL` |
 | Kind | duration, e.g. `30s`, `5m`, `168h` |
-| Default | `1s` |
+| Default | `5s` |
 | Applies | after a restart |
+
+### Runs per workflow per hour
+
+The most runs a workflow's triggers may start in an hour. The one past it does not start, and the workflow is switched off, its owner told why. Runs started by hand do not count. 0 for no limit.
+
+| | |
+|---|---|
+| Key | `workflows.max_runs_per_hour` |
+| Environment variable | `POLYTHOUGHT_WORKFLOWS_MAX_RUNS_PER_HOUR` |
+| Kind | whole number |
+| Default | `1000` |
+| Applies | at once |
 
 ### Tokens per market trigger
 

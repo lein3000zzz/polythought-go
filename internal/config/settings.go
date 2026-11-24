@@ -36,6 +36,7 @@ const (
 	KeyMaxActiveWorkflows  = "workflows.max_active_per_user"
 	KeyMaxNodes            = "workflows.max_nodes"
 	KeyScheduleMinInterval = "workflows.schedule_min_interval"
+	KeyMaxRunsPerHour      = "workflows.max_runs_per_hour"
 	KeyFeedMaxTokens       = "workflows.feed_max_tokens"
 	KeyPnLSampleEvery      = "workflows.pnl_sample_every"
 	KeyExecutionRetention  = "executions.retention"
@@ -245,9 +246,16 @@ func Settings() (*settings.Registry, error) {
 		},
 		settings.Spec{
 			Key: KeyScheduleMinInterval, Group: groupWorkflows, Label: "Fastest schedule",
-			Description: "The shortest interval a schedule or market trigger may use, to spare the APIs workflows call.",
-			Kind:        settings.KindDuration, Default: time.Second, Check: atLeast(100 * time.Millisecond),
+			Description: "The shortest interval a schedule or market trigger may use, to spare the APIs workflows call. " +
+				"One set shorter, as this was raised since, runs at this.",
+			Kind: settings.KindDuration, Default: 5 * time.Second, Check: atLeast(100 * time.Millisecond),
 			Apply: settings.ApplyRestart,
+		},
+		settings.Spec{
+			Key: KeyMaxRunsPerHour, Group: groupWorkflows, Label: "Runs per workflow per hour",
+			Description: "The most runs a workflow's triggers may start in an hour. The one past it does not start, and the " +
+				"workflow is switched off, its owner told why. Runs started by hand do not count. 0 for no limit.",
+			Kind: settings.KindInt, Default: 1000, Check: between(0, 1_000_000),
 		},
 		settings.Spec{
 			Key: KeyFeedMaxTokens, Group: groupWorkflows, Label: "Tokens per market trigger",

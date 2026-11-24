@@ -73,6 +73,19 @@ func (s *Service) Switched(ctx context.Context, sw domain.Switch) {
 // List is a workflow's history, newest first, narrowed to some groups of kinds; none,
 // every kind.
 func (s *Service) List(ctx context.Context, p auth.Principal, workflow domain.WorkflowID, groups []domain.SwitchGroup, page ports.PageFilter) (ports.Page[domain.Switch], error) {
+	return s.list(ctx, p.User.ID, workflow, groups, page)
+}
+
+// AdminList is one of owner's workflows' history, for an admin (D435).
+func (s *Service) AdminList(ctx context.Context, p auth.Principal, owner domain.UserID, workflow domain.WorkflowID, groups []domain.SwitchGroup, page ports.PageFilter) (ports.Page[domain.Switch], error) {
+	if !p.User.IsAdmin() {
+		return ports.Page[domain.Switch]{}, domain.ErrForbidden
+	}
+
+	return s.list(ctx, owner, workflow, groups, page)
+}
+
+func (s *Service) list(ctx context.Context, owner domain.UserID, workflow domain.WorkflowID, groups []domain.SwitchGroup, page ports.PageFilter) (ports.Page[domain.Switch], error) {
 	f := ports.SwitchFilter{PageFilter: page}
 
 	for _, g := range groups {
@@ -84,7 +97,7 @@ func (s *Service) List(ctx context.Context, p auth.Principal, workflow domain.Wo
 		f.Kinds = append(f.Kinds, kinds...)
 	}
 
-	return s.repo.List(ctx, p.User.ID, workflow, f)
+	return s.repo.List(ctx, owner, workflow, f)
 }
 
 // Forget forgets the switches older than keep: how many.

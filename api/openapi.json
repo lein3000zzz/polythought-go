@@ -188,6 +188,100 @@
                 ],
                 "type": "object"
             },
+            "AdminSwitchOffRequest": {
+                "properties": {
+                    "hold": {
+                        "description": "Hold keeps it off until an admin releases it.",
+                        "type": "boolean"
+                    },
+                    "reason": {
+                        "description": "Reason is why, for its owner, who is told.",
+                        "type": "string"
+                    }
+                },
+                "required": [
+                    "reason"
+                ],
+                "type": "object"
+            },
+            "AdminWorkflow": {
+                "properties": {
+                    "active": {
+                        "type": "boolean"
+                    },
+                    "day": {
+                        "$ref": "#/components/schemas/RunCounts"
+                    },
+                    "hold": {
+                        "$ref": "#/components/schemas/WorkflowHold",
+                        "description": "Hold is an admin's holding it off; absent while none does."
+                    },
+                    "hour": {
+                        "$ref": "#/components/schemas/RunCounts",
+                        "description": "Hour, Day and Week are its runs started in the last hour, day and week."
+                    },
+                    "id": {
+                        "type": "string"
+                    },
+                    "last": {
+                        "$ref": "#/components/schemas/LastRun",
+                        "description": "Last is its latest run; absent when none is kept."
+                    },
+                    "name": {
+                        "type": "string"
+                    },
+                    "ownerEmail": {
+                        "type": "string"
+                    },
+                    "ownerId": {
+                        "type": "string"
+                    },
+                    "triggers": {
+                        "description": "Triggers are its triggers' node types, each once.",
+                        "items": {
+                            "type": "string"
+                        },
+                        "type": "array",
+                        "uniqueItems": false
+                    },
+                    "week": {
+                        "$ref": "#/components/schemas/RunCounts"
+                    }
+                },
+                "required": [
+                    "active",
+                    "day",
+                    "hour",
+                    "id",
+                    "name",
+                    "ownerEmail",
+                    "ownerId",
+                    "triggers",
+                    "week"
+                ],
+                "type": "object"
+            },
+            "AdminWorkflows": {
+                "properties": {
+                    "at": {
+                        "format": "date-time",
+                        "type": "string"
+                    },
+                    "workflows": {
+                        "description": "Workflows are every user's, the busiest first: by runs in the last hour, day, week.",
+                        "items": {
+                            "$ref": "#/components/schemas/AdminWorkflow"
+                        },
+                        "type": "array",
+                        "uniqueItems": false
+                    }
+                },
+                "required": [
+                    "at",
+                    "workflows"
+                ],
+                "type": "object"
+            },
             "AgentAccessRequest": {
                 "properties": {
                     "answer": {
@@ -814,6 +908,7 @@
                             "admin_disable",
                             "admin_caps",
                             "admin_code",
+                            "admin_workflow",
                             "admin_config",
                             "admin_restart",
                             "admin_plugin_approve",
@@ -5734,6 +5829,10 @@
                         "description": "Description is what it does, in your words; searched with its name.",
                         "type": "string"
                     },
+                    "hold": {
+                        "$ref": "#/components/schemas/WorkflowHold",
+                        "description": "Hold is an admin's holding it off (D435): it is switched on again once they release\nit. Absent while none does."
+                    },
                     "id": {
                         "type": "string"
                     },
@@ -5845,6 +5944,22 @@
                 ],
                 "type": "object"
             },
+            "WorkflowHold": {
+                "properties": {
+                    "at": {
+                        "format": "date-time",
+                        "type": "string"
+                    },
+                    "reason": {
+                        "type": "string"
+                    }
+                },
+                "required": [
+                    "at",
+                    "reason"
+                ],
+                "type": "object"
+            },
             "WorkflowPage": {
                 "properties": {
                     "nextCursor": {
@@ -5916,22 +6031,28 @@
             },
             "WorkflowSwitch": {
                 "properties": {
+                    "admin": {
+                        "description": "Admin says an admin did it, Reason saying why (D435).",
+                        "type": "boolean"
+                    },
                     "at": {
                         "format": "date-time",
                         "type": "string"
                     },
                     "by": {
                         "$ref": "#/components/schemas/Switcher",
-                        "description": "By is the agent or token that did it; absent when you did, or Polythought."
+                        "description": "By is the agent or token that did it; absent when you did, an admin or Polythought."
                     },
                     "id": {
                         "type": "string"
                     },
                     "kind": {
-                        "description": "Kind is what it did: on or off; paper, live or another wallet (wallet); reset, its\npaper account; kill_on or kill_off, your kill switch, as it traded live.",
+                        "description": "Kind is what it did: on or off; hold, an admin holding it off, or release, letting\nit be switched on again (D435); paper, live or another wallet (wallet); reset, its\npaper account; kill_on or kill_off, your kill switch, as it traded live.",
                         "enum": [
                             "on",
                             "off",
+                            "hold",
+                            "release",
                             "paper",
                             "live",
                             "wallet",
@@ -5955,6 +6076,7 @@
                     }
                 },
                 "required": [
+                    "admin",
                     "at",
                     "id",
                     "kind",
@@ -9020,6 +9142,496 @@
                 ]
             }
         },
+        "/admin/users/{id}/workflows/{wid}": {
+            "get": {
+                "operationId": "getAdminWorkflow",
+                "parameters": [
+                    {
+                        "description": "The owner's ID",
+                        "in": "path",
+                        "name": "id",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "description": "Workflow ID",
+                        "in": "path",
+                        "name": "wid",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Workflow"
+                                }
+                            }
+                        },
+                        "description": "OK"
+                    },
+                    "401": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "unauthenticated"
+                    },
+                    "403": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "not an admin"
+                    },
+                    "404": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "not_found"
+                    }
+                },
+                "security": [
+                    {
+                        "SessionCookie": []
+                    },
+                    {
+                        "APIToken": []
+                    }
+                ],
+                "summary": "A user's workflow",
+                "tags": [
+                    "admin"
+                ]
+            }
+        },
+        "/admin/users/{id}/workflows/{wid}/executions": {
+            "get": {
+                "operationId": "listAdminWorkflowExecutions",
+                "parameters": [
+                    {
+                        "description": "The owner's ID",
+                        "in": "path",
+                        "name": "id",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "description": "Workflow ID",
+                        "in": "path",
+                        "name": "wid",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "description": "Page size",
+                        "in": "query",
+                        "name": "limit",
+                        "schema": {
+                            "minimum": 1,
+                            "type": "integer"
+                        }
+                    },
+                    {
+                        "description": "nextCursor of the previous page",
+                        "in": "query",
+                        "name": "cursor",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ExecutionPage"
+                                }
+                            }
+                        },
+                        "description": "OK"
+                    },
+                    "401": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "unauthenticated"
+                    },
+                    "403": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "not an admin"
+                    },
+                    "404": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "not_found"
+                    }
+                },
+                "security": [
+                    {
+                        "SessionCookie": []
+                    },
+                    {
+                        "APIToken": []
+                    }
+                ],
+                "summary": "A user's workflow's runs",
+                "tags": [
+                    "admin"
+                ]
+            }
+        },
+        "/admin/users/{id}/workflows/{wid}/history": {
+            "get": {
+                "operationId": "getAdminWorkflowHistory",
+                "parameters": [
+                    {
+                        "description": "The owner's ID",
+                        "in": "path",
+                        "name": "id",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "description": "Workflow ID",
+                        "in": "path",
+                        "name": "wid",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "description": "Some kinds alone, comma-separated: on_off, trading, reset, kill_switch",
+                        "in": "query",
+                        "name": "kinds",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "description": "Page size",
+                        "in": "query",
+                        "name": "limit",
+                        "schema": {
+                            "minimum": 1,
+                            "type": "integer"
+                        }
+                    },
+                    {
+                        "description": "nextCursor of the previous page",
+                        "in": "query",
+                        "name": "cursor",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/WorkflowHistoryPage"
+                                }
+                            }
+                        },
+                        "description": "OK"
+                    },
+                    "400": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "invalid_input"
+                    },
+                    "401": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "unauthenticated"
+                    },
+                    "403": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "not an admin"
+                    },
+                    "404": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "not_found"
+                    }
+                },
+                "security": [
+                    {
+                        "SessionCookie": []
+                    },
+                    {
+                        "APIToken": []
+                    }
+                ],
+                "summary": "A user's workflow's history",
+                "tags": [
+                    "admin"
+                ]
+            }
+        },
+        "/admin/users/{id}/workflows/{wid}/release": {
+            "post": {
+                "operationId": "adminReleaseWorkflow",
+                "parameters": [
+                    {
+                        "description": "The owner's ID",
+                        "in": "path",
+                        "name": "id",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "description": "Workflow ID",
+                        "in": "path",
+                        "name": "wid",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Workflow"
+                                }
+                            }
+                        },
+                        "description": "OK"
+                    },
+                    "401": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "unauthenticated"
+                    },
+                    "403": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "not an admin"
+                    },
+                    "404": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "not_found"
+                    },
+                    "409": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "awaits_confirmation: an admin's token's work waits for the admin to confirm it (D410)"
+                    }
+                },
+                "security": [
+                    {
+                        "SessionCookie": []
+                    },
+                    {
+                        "APIToken": []
+                    }
+                ],
+                "summary": "Release a user's workflow",
+                "tags": [
+                    "admin"
+                ]
+            }
+        },
+        "/admin/users/{id}/workflows/{wid}/switch-off": {
+            "post": {
+                "operationId": "adminSwitchOffWorkflow",
+                "parameters": [
+                    {
+                        "description": "The owner's ID",
+                        "in": "path",
+                        "name": "id",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "description": "Workflow ID",
+                        "in": "path",
+                        "name": "wid",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/AdminSwitchOffRequest",
+                                "summary": "body",
+                                "description": "Why, and whether to hold it off"
+                            }
+                        }
+                    },
+                    "description": "Why, and whether to hold it off",
+                    "required": true
+                },
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Workflow"
+                                }
+                            }
+                        },
+                        "description": "OK"
+                    },
+                    "400": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "invalid_input"
+                    },
+                    "401": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "unauthenticated"
+                    },
+                    "403": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "not an admin"
+                    },
+                    "404": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "not_found"
+                    },
+                    "409": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "awaits_confirmation: an admin's token's work waits for the admin to confirm it (D410)"
+                    }
+                },
+                "security": [
+                    {
+                        "SessionCookie": []
+                    },
+                    {
+                        "APIToken": []
+                    }
+                ],
+                "summary": "Switch off a user's workflow",
+                "tags": [
+                    "admin"
+                ]
+            }
+        },
         "/admin/version": {
             "get": {
                 "operationId": "getServerVersion",
@@ -9064,6 +9676,55 @@
                     }
                 ],
                 "summary": "The server's version",
+                "tags": [
+                    "admin"
+                ]
+            }
+        },
+        "/admin/workflows": {
+            "get": {
+                "operationId": "listAdminWorkflows",
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/AdminWorkflows"
+                                }
+                            }
+                        },
+                        "description": "OK"
+                    },
+                    "401": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "unauthenticated"
+                    },
+                    "403": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "not an admin"
+                    }
+                },
+                "security": [
+                    {
+                        "SessionCookie": []
+                    },
+                    {
+                        "APIToken": []
+                    }
+                ],
+                "summary": "Every user's workflows",
                 "tags": [
                     "admin"
                 ]

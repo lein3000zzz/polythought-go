@@ -22,6 +22,7 @@ type Stats interface {
 	Overview(ctx context.Context, p auth.Principal) (stats.Overview, error)
 	Instance(ctx context.Context, p auth.Principal) (stats.Instance, error)
 	OverviewOf(ctx context.Context, p auth.Principal, id domain.UserID) (domain.User, stats.Overview, error)
+	Workflows(ctx context.Context, p auth.Principal) ([]stats.AdminWorkflow, time.Time, error)
 }
 
 type statsIn struct {

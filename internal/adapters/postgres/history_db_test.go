@@ -94,3 +94,52 @@ func TestWorkflowHistory(t *testing.T) {
 		assert.Zero(t, n, "gone with it")
 	})
 }
+
+// An admin's holding a workflow off, kept on it and in its history (D435).
+func TestWorkflowHold(t *testing.T) {
+	ctx := context.Background()
+
+	db := fresh(t)
+	repo := postgres.NewWorkflows(db)
+	alice := seedUser(t, db, "alice@example.com", domain.RoleUser)
+	root := seedUser(t, db, "root@example.com", domain.RoleAdmin)
+
+	w := newWorkflow(alice.ID, "busy")
+	require.NoError(t, repo.Create(ctx, w))
+
+	hold := &domain.Hold{By: root.ID, Reason: "3,000 runs an hour", At: at}
+	require.NoError(t, repo.SetHold(ctx, alice.ID, w.ID, hold))
+
+	got, err := repo.Get(ctx, alice.ID, w.ID)
+	require.NoError(t, err)
+	require.NotNil(t, got.Hold)
+	assert.Equal(t, *hold, *got.Hold)
+
+	// Saving it keeps the hold: only an admin releases it.
+	got.Name, got.Version = "busy, fixed", got.Version+1
+	require.NoError(t, repo.Update(ctx, got, got.Version-1))
+	again, err := repo.Get(ctx, alice.ID, w.ID)
+	require.NoError(t, err)
+	require.NotNil(t, again.Hold, "kept through a save")
+
+	require.ErrorIs(t, repo.SetHold(ctx, root.ID, w.ID, nil), domain.ErrNotFound, "the owner's alone")
+
+	history := postgres.NewWorkflowHistory(db)
+	require.NoError(t, history.Record(ctx, domain.Switch{
+		ID: domain.SwitchID(newID()), WorkflowID: w.ID, Kind: domain.SwitchHold, Admin: true, Reason: "3,000 runs an hour", At: at,
+	}))
+	require.NoError(t, repo.SetHold(ctx, alice.ID, w.ID, nil))
+	require.NoError(t, history.Record(ctx, domain.Switch{
+		ID: domain.SwitchID(newID()), WorkflowID: w.ID, Kind: domain.SwitchRelease, Admin: true, At: at.Add(time.Hour),
+	}))
+
+	released, err := repo.Get(ctx, alice.ID, w.ID)
+	require.NoError(t, err)
+	assert.Nil(t, released.Hold)
+
+	page, err := history.List(ctx, alice.ID, w.ID, ports.SwitchFilter{Kinds: domain.SwitchGroups[domain.GroupOnOff]})
+	require.NoError(t, err)
+	require.Len(t, page.Items, 2)
+	assert.Equal(t, domain.SwitchRelease, page.Items[0].Kind)
+	assert.True(t, page.Items[1].Admin, "an admin did it")
+}

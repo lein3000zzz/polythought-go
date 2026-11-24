@@ -16,6 +16,7 @@ import (
 // HistoryService is who switched each workflow and why (D433).
 type HistoryService interface {
 	List(ctx context.Context, p auth.Principal, workflow domain.WorkflowID, groups []domain.SwitchGroup, page ports.PageFilter) (ports.Page[domain.Switch], error)
+	AdminList(ctx context.Context, p auth.Principal, owner domain.UserID, workflow domain.WorkflowID, groups []domain.SwitchGroup, page ports.PageFilter) (ports.Page[domain.Switch], error)
 }
 
 type switcherDTO struct {
@@ -34,13 +35,16 @@ type switchWalletDTO struct {
 
 type switchDTO struct {
 	ID string `json:"id"`
-	// Kind is what it did: on or off; paper, live or another wallet (wallet); reset, its
+	// Kind is what it did: on or off; hold, an admin holding it off, or release, letting
+	// it be switched on again (D435); paper, live or another wallet (wallet); reset, its
 	// paper account; kill_on or kill_off, your kill switch, as it traded live.
-	Kind string `json:"kind" enums:"on,off,paper,live,wallet,reset,kill_on,kill_off"`
-	// By is the agent or token that did it; absent when you did, or Polythought.
+	Kind string `json:"kind" enums:"on,off,hold,release,paper,live,wallet,reset,kill_on,kill_off"`
+	// By is the agent or token that did it; absent when you did, an admin or Polythought.
 	By *switcherDTO `json:"by,omitempty" validate:"optional"`
 	// Polythought says Polythought did it itself, Reason saying why.
 	Polythought bool `json:"polythought"`
+	// Admin says an admin did it, Reason saying why (D435).
+	Admin bool `json:"admin"`
 	// Reason is why: the agent's or token's own words, as it gave them, or Polythought's;
 	// absent when none was given.
 	Reason string `json:"reason,omitempty" validate:"optional"`
@@ -55,7 +59,7 @@ type historyPage struct {
 } // @name WorkflowHistoryPage
 
 func toSwitchDTO(sw domain.Switch) switchDTO {
-	out := switchDTO{ID: string(sw.ID), Kind: string(sw.Kind), Polythought: sw.Polythought, Reason: sw.Reason, At: sw.At}
+	out := switchDTO{ID: string(sw.ID), Kind: string(sw.Kind), Polythought: sw.Polythought, Admin: sw.Admin, Reason: sw.Reason, At: sw.At}
 
 	if !sw.By.IsUser() {
 		kind, id := "agent", string(sw.By.GrantID)
@@ -106,6 +110,19 @@ func (s *Server) workflowHistory(ctx context.Context, c *app.RequestContext) {
 		return
 	}
 
+	p, _ := principal(c)
+
+	page, err := s.history.List(ctx, p, domain.WorkflowID(c.Param("id")), kindsOf(c), f)
+	if err != nil {
+		s.fail(ctx, c, err)
+		return
+	}
+
+	c.JSON(http.StatusOK, toHistoryPage(page))
+}
+
+// kindsOf are the groups of kinds the history asks for; none, every kind.
+func kindsOf(c *app.RequestContext) []domain.SwitchGroup {
 	var groups []domain.SwitchGroup
 
 	for g := range strings.SplitSeq(c.Query("kinds"), ",") {
@@ -114,20 +131,16 @@ func (s *Server) workflowHistory(ctx context.Context, c *app.RequestContext) {
 		}
 	}
 
-	p, _ := principal(c)
+	return groups
+}
 
-	page, err := s.history.List(ctx, p, domain.WorkflowID(c.Param("id")), groups, f)
-	if err != nil {
-		s.fail(ctx, c, err)
-		return
-	}
-
+func toHistoryPage(page ports.Page[domain.Switch]) historyPage {
 	out := historyPage{Switches: make([]switchDTO, len(page.Items)), NextCursor: page.NextCursor}
 	for i, sw := range page.Items {
 		out.Switches[i] = toSwitchDTO(sw)
 	}
 
-	c.JSON(http.StatusOK, out)
+	return out
 }
 
 func (s *Server) hasHistory(ctx context.Context, c *app.RequestContext) {

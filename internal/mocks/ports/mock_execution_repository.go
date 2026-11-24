@@ -260,8 +260,8 @@ func (_c *MockExecutionRepository_List_Call) RunAndReturn(run func(ctx context.C
 }
 
 // RunStats provides a mock function for the type MockExecutionRepository
-func (_mock *MockExecutionRepository) RunStats(ctx context.Context, owner domain.UserID, day time.Time, week time.Time) ([]domain.RunStats, error) {
-	ret := _mock.Called(ctx, owner, day, week)
+func (_mock *MockExecutionRepository) RunStats(ctx context.Context, owner domain.UserID, hour time.Time, day time.Time, week time.Time) ([]domain.RunStats, error) {
+	ret := _mock.Called(ctx, owner, hour, day, week)
 
 	if len(ret) == 0 {
 		panic("no return value specified for RunStats")
@@ -269,18 +269,18 @@ func (_mock *MockExecutionRepository) RunStats(ctx context.Context, owner domain
 
 	var r0 []domain.RunStats
 	var r1 error
-	if returnFunc, ok := ret.Get(0).(func(context.Context, domain.UserID, time.Time, time.Time) ([]domain.RunStats, error)); ok {
-		return returnFunc(ctx, owner, day, week)
+	if returnFunc, ok := ret.Get(0).(func(context.Context, domain.UserID, time.Time, time.Time, time.Time) ([]domain.RunStats, error)); ok {
+		return returnFunc(ctx, owner, hour, day, week)
 	}
-	if returnFunc, ok := ret.Get(0).(func(context.Context, domain.UserID, time.Time, time.Time) []domain.RunStats); ok {
-		r0 = returnFunc(ctx, owner, day, week)
+	if returnFunc, ok := ret.Get(0).(func(context.Context, domain.UserID, time.Time, time.Time, time.Time) []domain.RunStats); ok {
+		r0 = returnFunc(ctx, owner, hour, day, week)
 	} else {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).([]domain.RunStats)
 		}
 	}
-	if returnFunc, ok := ret.Get(1).(func(context.Context, domain.UserID, time.Time, time.Time) error); ok {
-		r1 = returnFunc(ctx, owner, day, week)
+	if returnFunc, ok := ret.Get(1).(func(context.Context, domain.UserID, time.Time, time.Time, time.Time) error); ok {
+		r1 = returnFunc(ctx, owner, hour, day, week)
 	} else {
 		r1 = ret.Error(1)
 	}
@@ -295,13 +295,14 @@ type MockExecutionRepository_RunStats_Call struct {
 // RunStats is a helper method to define mock.On call
 //   - ctx context.Context
 //   - owner domain.UserID
+//   - hour time.Time
 //   - day time.Time
 //   - week time.Time
-func (_e *MockExecutionRepository_Expecter) RunStats(ctx any, owner any, day any, week any) *MockExecutionRepository_RunStats_Call {
-	return &MockExecutionRepository_RunStats_Call{Call: _e.mock.On("RunStats", ctx, owner, day, week)}
+func (_e *MockExecutionRepository_Expecter) RunStats(ctx any, owner any, hour any, day any, week any) *MockExecutionRepository_RunStats_Call {
+	return &MockExecutionRepository_RunStats_Call{Call: _e.mock.On("RunStats", ctx, owner, hour, day, week)}
 }
 
-func (_c *MockExecutionRepository_RunStats_Call) Run(run func(ctx context.Context, owner domain.UserID, day time.Time, week time.Time)) *MockExecutionRepository_RunStats_Call {
+func (_c *MockExecutionRepository_RunStats_Call) Run(run func(ctx context.Context, owner domain.UserID, hour time.Time, day time.Time, week time.Time)) *MockExecutionRepository_RunStats_Call {
 	_c.Call.Run(func(args mock.Arguments) {
 		var arg0 context.Context
 		if args[0] != nil {
@@ -319,11 +320,16 @@ func (_c *MockExecutionRepository_RunStats_Call) Run(run func(ctx context.Contex
 		if args[3] != nil {
 			arg3 = args[3].(time.Time)
 		}
+		var arg4 time.Time
+		if args[4] != nil {
+			arg4 = args[4].(time.Time)
+		}
 		run(
 			arg0,
 			arg1,
 			arg2,
 			arg3,
+			arg4,
 		)
 	})
 	return _c
@@ -334,7 +340,7 @@ func (_c *MockExecutionRepository_RunStats_Call) Return(runStatss []domain.RunSt
 	return _c
 }
 
-func (_c *MockExecutionRepository_RunStats_Call) RunAndReturn(run func(ctx context.Context, owner domain.UserID, day time.Time, week time.Time) ([]domain.RunStats, error)) *MockExecutionRepository_RunStats_Call {
+func (_c *MockExecutionRepository_RunStats_Call) RunAndReturn(run func(ctx context.Context, owner domain.UserID, hour time.Time, day time.Time, week time.Time) ([]domain.RunStats, error)) *MockExecutionRepository_RunStats_Call {
 	_c.Call.Return(run)
 	return _c
 }

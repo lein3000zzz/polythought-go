@@ -13,5 +13,16 @@ export function useMode(anyLive: boolean) {
   const asked = params.get('mode')
   const mode: Mode = asked === 'paper' || asked === 'live' ? asked : anyLive ? 'live' : 'paper'
 
-  return [mode, (m: Mode) => setParams({ mode: m }, { replace: true })] as const
+  // The page's other parameters, such as its tab, kept.
+  const set = (m: Mode) =>
+    setParams(
+      (prev) => {
+        const next = new URLSearchParams(prev)
+        next.set('mode', m)
+        return next
+      },
+      { replace: true },
+    )
+
+  return [mode, set] as const
 }

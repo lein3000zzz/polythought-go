@@ -42,7 +42,7 @@ func TestMarketConfig(t *testing.T) {
 		{name: "tokens are required", params: map[string]any{}, wantErr: engine.ErrMissingParam},
 		{name: "empty token list", params: map[string]any{"tokens": []any{}}, wantErr: engine.ErrInvalidParam},
 		{name: "unknown kind", params: map[string]any{"tokens": []any{"t1"}, "on": []any{"gossip"}}, wantErr: engine.ErrInvalidParam},
-		{name: "batch below the minimum", params: map[string]any{"tokens": []any{"t1"}, "batch": "1ms"}, wantErr: engine.ErrInvalidParam},
+		{name: "batch not above zero", params: map[string]any{"tokens": []any{"t1"}, "batch": "0s"}, wantErr: engine.ErrInvalidParam},
 	}
 
 	for _, tt := range tests {

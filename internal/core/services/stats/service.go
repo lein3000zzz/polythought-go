@@ -26,7 +26,7 @@ type Workflows interface {
 
 // Runs counts their runs: the execution repository.
 type Runs interface {
-	RunStats(ctx context.Context, owner domain.UserID, day, week time.Time) ([]domain.RunStats, error)
+	RunStats(ctx context.Context, owner domain.UserID, hour, day, week time.Time) ([]domain.RunStats, error)
 }
 
 // Trading is what they made: the trading service.
@@ -94,6 +94,9 @@ type Deps struct {
 	Extremes  ports.PnLExtremes
 	Owners    Owners
 	Users     Users // nil: no admin's view
+	// IsTrigger says a node type starts runs, to name each workflow's triggers for admins;
+	// nil: those named trigger.*.
+	IsTrigger func(nodeType string) bool
 	Logger    logging.Logger
 	Now       func() time.Time // nil: the clock
 }
@@ -124,24 +127,12 @@ func (s *Service) Overview(ctx context.Context, p auth.Principal) (Overview, err
 func (s *Service) overview(ctx context.Context, owner domain.UserID) (Overview, error) {
 	now := s.d.Now()
 
-	var workflows []domain.Workflow
-
-	for f := (ports.WorkflowFilter{PageFilter: ports.PageFilter{Limit: 100}}); ; {
-		page, err := s.d.Workflows.List(ctx, owner, f)
-		if err != nil {
-			return Overview{}, err
-		}
-
-		workflows = append(workflows, page.Items...)
-
-		if page.NextCursor == "" {
-			break
-		}
-
-		f.Cursor = page.NextCursor
+	workflows, err := s.workflowsOf(ctx, owner)
+	if err != nil {
+		return Overview{}, err
 	}
 
-	runs, err := s.d.Runs.RunStats(ctx, owner, now.Add(-24*time.Hour), now.Add(-7*24*time.Hour))
+	runs, err := s.d.Runs.RunStats(ctx, owner, now.Add(-time.Hour), now.Add(-24*time.Hour), now.Add(-7*24*time.Hour))
 	if err != nil {
 		return Overview{}, err
 	}
@@ -203,6 +194,26 @@ func (s *Service) overview(ctx context.Context, owner domain.UserID) (Overview, 
 	})
 
 	return out, nil
+}
+
+// workflowsOf are every workflow of owner, all their pages.
+func (s *Service) workflowsOf(ctx context.Context, owner domain.UserID) ([]domain.Workflow, error) {
+	var workflows []domain.Workflow
+
+	for f := (ports.WorkflowFilter{PageFilter: ports.PageFilter{Limit: 100}}); ; {
+		page, err := s.d.Workflows.List(ctx, owner, f)
+		if err != nil {
+			return nil, err
+		}
+
+		workflows = append(workflows, page.Items...)
+
+		if page.NextCursor == "" {
+			return workflows, nil
+		}
+
+		f.Cursor = page.NextCursor
+	}
 }
 
 func add(t *Totals, r trading.Result) {

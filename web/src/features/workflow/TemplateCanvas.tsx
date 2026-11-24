@@ -15,12 +15,13 @@ const nodeTypes = { workflow: WorkflowNodeView }
 const fitViewOptions = { padding: 0.15, maxZoom: 1 }
 
 type Props = {
-  template: Template
+  // A library entry's graph, or a user's workflow an admin looks at (D435).
+  template: Pick<Template, 'nodes' | 'connections'>
   types: readonly NodeType[]
   onSelect: (nodeId: string | undefined) => void
 }
 
-/** A template's graph to look at: nodes can be selected, not moved or connected. */
+/** A graph to look at: nodes can be selected, not moved or connected. */
 export function TemplateCanvas({ template, types, onSelect }: Props) {
   const { theme } = useTheme()
   const { nodes, edges } = useMemo(

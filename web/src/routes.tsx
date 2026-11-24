@@ -10,6 +10,7 @@ import { AdminPluginsPage } from '@/pages/AdminPluginsPage'
 import { AdminPage } from '@/pages/AdminPage'
 import { AdminStatsPage } from '@/pages/AdminStatsPage'
 import { AdminUserStatsPage } from '@/pages/AdminUserStatsPage'
+import { AdminWorkflowPage } from '@/pages/AdminWorkflowPage'
 import { ConfirmationPage } from '@/pages/ConfirmationPage'
 import { CustomNodePage } from '@/pages/CustomNodePage'
 import { DashboardPage } from '@/pages/DashboardPage'
@@ -85,6 +86,7 @@ export const routes: RouteObject[] = [
               { index: true, element: <AdminPage /> },
               { path: 'stats', element: <AdminStatsPage /> },
               { path: 'stats/:id', element: <AdminUserStatsPage /> },
+              { path: 'users/:uid/workflows/:id', element: <AdminWorkflowPage /> },
               { path: 'invites', element: <AdminInvitesPage /> },
               { path: 'config/:page?', element: <AdminConfigPage /> },
               { path: 'plugins', element: <AdminPluginsPage /> },

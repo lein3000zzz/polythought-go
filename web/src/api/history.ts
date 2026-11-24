@@ -15,7 +15,7 @@ const pageSize = 50
  * Who switched a workflow and why (D433), newest first, a page at a time, of the kinds
  * asked; none, every kind. Asked again every 30 seconds, as agents switch it too.
  */
-export function useWorkflowHistory(workflowId: string, kinds: SwitchKind[]) {
+export function useWorkflowHistory(workflowId: string, kinds: SwitchKind[], enabled = true) {
   return useInfiniteQuery({
     queryKey: keys.workflowHistory(workflowId, kinds),
     queryFn: ({ pageParam }) =>
@@ -34,5 +34,6 @@ export function useWorkflowHistory(workflowId: string, kinds: SwitchKind[]) {
     initialPageParam: '',
     getNextPageParam: (page) => page.nextCursor || undefined,
     refetchInterval: 30_000,
+    enabled,
   })
 }

@@ -33,6 +33,9 @@ const (
 	ConfirmDisable ConfirmKind = "admin_disable" // disabling a user, or enabling one again
 	ConfirmCaps    ConfirmKind = "admin_caps"    // raising, or removing, a user's own caps
 	ConfirmCode    ConfirmKind = "admin_code"    // letting a user write code
+	// Switching off a user's workflow, holding it off or releasing it (D435); it waits
+	// where disabling a user does.
+	ConfirmAdminWorkflow ConfirmKind = "admin_workflow"
 
 	// An admin's work on the instance (D411).
 	ConfirmConfig        ConfirmKind = "admin_config"         // changing the Config settings
@@ -166,7 +169,7 @@ func (u Unconfirmed) Waits(kind ConfirmKind) bool {
 		return !u.KillOff
 	case ConfirmRole:
 		return !u.Role
-	case ConfirmDisable:
+	case ConfirmDisable, ConfirmAdminWorkflow:
 		return !u.Disable
 	case ConfirmCaps:
 		return !u.Caps

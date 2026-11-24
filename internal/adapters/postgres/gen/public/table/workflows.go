@@ -32,6 +32,9 @@ type workflowsTable struct {
 	ActedConfirmed postgres.ColumnBool
 	Description    postgres.ColumnString
 	Pin            postgres.ColumnInteger
+	HeldAt         postgres.ColumnTimestampz
+	HeldBy         postgres.ColumnString
+	HeldReason     postgres.ColumnString
 
 	AllColumns     postgres.ColumnList
 	MutableColumns postgres.ColumnList
@@ -88,9 +91,12 @@ func newWorkflowsTableImpl(schemaName, tableName, alias string) workflowsTable {
 		ActedConfirmedColumn = postgres.BoolColumn("acted_confirmed")
 		DescriptionColumn    = postgres.StringColumn("description")
 		PinColumn            = postgres.IntegerColumn("pin")
-		allColumns           = postgres.ColumnList{IDColumn, OwnerIDColumn, NameColumn, ActiveColumn, DefinitionColumn, VersionColumn, CreatedAtColumn, UpdatedAtColumn, ActedHowColumn, ActedGrantColumn, ActedTokenColumn, ActedNameColumn, ActedConfirmedColumn, DescriptionColumn, PinColumn}
-		mutableColumns       = postgres.ColumnList{OwnerIDColumn, NameColumn, ActiveColumn, DefinitionColumn, VersionColumn, CreatedAtColumn, UpdatedAtColumn, ActedHowColumn, ActedGrantColumn, ActedTokenColumn, ActedNameColumn, ActedConfirmedColumn, DescriptionColumn, PinColumn}
-		defaultColumns       = postgres.ColumnList{ActiveColumn, ActedHowColumn, ActedGrantColumn, ActedTokenColumn, ActedNameColumn, ActedConfirmedColumn, DescriptionColumn}
+		HeldAtColumn         = postgres.TimestampzColumn("held_at")
+		HeldByColumn         = postgres.StringColumn("held_by")
+		HeldReasonColumn     = postgres.StringColumn("held_reason")
+		allColumns           = postgres.ColumnList{IDColumn, OwnerIDColumn, NameColumn, ActiveColumn, DefinitionColumn, VersionColumn, CreatedAtColumn, UpdatedAtColumn, ActedHowColumn, ActedGrantColumn, ActedTokenColumn, ActedNameColumn, ActedConfirmedColumn, DescriptionColumn, PinColumn, HeldAtColumn, HeldByColumn, HeldReasonColumn}
+		mutableColumns       = postgres.ColumnList{OwnerIDColumn, NameColumn, ActiveColumn, DefinitionColumn, VersionColumn, CreatedAtColumn, UpdatedAtColumn, ActedHowColumn, ActedGrantColumn, ActedTokenColumn, ActedNameColumn, ActedConfirmedColumn, DescriptionColumn, PinColumn, HeldAtColumn, HeldByColumn, HeldReasonColumn}
+		defaultColumns       = postgres.ColumnList{ActiveColumn, ActedHowColumn, ActedGrantColumn, ActedTokenColumn, ActedNameColumn, ActedConfirmedColumn, DescriptionColumn, HeldReasonColumn}
 	)
 
 	return workflowsTable{
@@ -112,6 +118,9 @@ func newWorkflowsTableImpl(schemaName, tableName, alias string) workflowsTable {
 		ActedConfirmed: ActedConfirmedColumn,
 		Description:    DescriptionColumn,
 		Pin:            PinColumn,
+		HeldAt:         HeldAtColumn,
+		HeldBy:         HeldByColumn,
+		HeldReason:     HeldReasonColumn,
 
 		AllColumns:     allColumns,
 		MutableColumns: mutableColumns,

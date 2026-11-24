@@ -25,4 +25,5 @@ type WorkflowSwitches struct {
 	WalletID      string
 	WalletAddress string
 	At            time.Time
+	ByAdmin       bool
 }
