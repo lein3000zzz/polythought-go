@@ -66,7 +66,10 @@ var responseField = engine.Field{Name: "response", Kind: engine.FieldObject, Des
 
 func (*Request) Type() engine.NodeType {
 	return engine.NodeType{
-		Name:  RequestType,
+		Name: RequestType,
+		// A GET only reads: retried 3 times to begin with; the others act, retried only when
+		// asked (D440).
+		Reads: true, ReadsWhen: &engine.Choice{Param: "method", Value: "GET"},
 		Label: "HTTP request",
 		Description: "Asks any web API for data, or sends it some: a GET, POST, PUT, PATCH or DELETE, the answer put " +
 			"on each item, JSON read as such. An answer not 2xx fails the item, the answer on it still.",
@@ -175,7 +178,7 @@ func (n *Request) Run(ctx context.Context, rc engine.RunContext, in engine.Ports
 
 		c, err := n.prepare(rc, item, src, a)
 		if err != nil {
-			out.Fail(item, src, err)
+			out.Fail(item, src, engine.Final(err)) // its settings: no wait mends them
 			continue
 		}
 
@@ -254,7 +257,7 @@ func answer(out engine.Ports, item engine.Item, src engine.ItemRef, c call, res 
 
 	body, err := read(res, c.read, ok)
 	if err != nil {
-		out.Fail(item, src, fmt.Errorf("%s %s answered %d: %w", c.req.Method, c.host, res.Status, err))
+		out.Fail(item, src, engine.Final(fmt.Errorf("%s %s answered %d: %w", c.req.Method, c.host, res.Status, err)))
 		return
 	}
 
@@ -273,6 +276,10 @@ func answer(out engine.Ports, item engine.Item, src engine.ItemRef, c call, res 
 	why := fmt.Errorf("%s %s answered %d", c.req.Method, c.host, res.Status)
 	if text := strings.TrimSpace(string(res.Body)); text != "" && utf8.ValidString(text) {
 		why = fmt.Errorf("%w: %s", why, clip(text))
+	}
+
+	if !transient(res.Status) {
+		why = engine.Final(why)
 	}
 
 	out.Add(engine.ErrorPort, engine.Item{JSON: j, Source: []engine.ItemRef{src}, Err: why})
@@ -557,6 +564,17 @@ func lowered(h map[string][]string) map[string]any {
 	}
 
 	return out
+}
+
+// transient says an answer may differ a moment later: the server's trouble, or asking too
+// soon; any other 4xx will not (D440).
+func transient(status int) bool {
+	switch status {
+	case 408, 425, 429:
+		return true
+	default:
+		return status >= 500
+	}
 }
 
 func clip(s string) string {

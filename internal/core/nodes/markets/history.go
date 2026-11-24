@@ -43,6 +43,7 @@ func (n *PriceChange) WithClock(now func() time.Time) *PriceChange {
 func (*PriceChange) Type() engine.NodeType {
 	return engine.NodeType{
 		Name:  PriceChangeType,
+		Reads: true, // retried 3 times to begin with (D440)
 		Label: "Price change",
 		Description: "Compares each outcome's price now with its price a while ago: the change in " +
 			"cents and in percent, for spotting markets on the move.",

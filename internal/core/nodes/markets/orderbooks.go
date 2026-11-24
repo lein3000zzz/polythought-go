@@ -29,6 +29,7 @@ func NewOrderBooks(reader ports.OrderBookReader) *OrderBooks {
 func (*OrderBooks) Type() engine.NodeType {
 	return engine.NodeType{
 		Name:        OrderBooksType,
+		Reads:       true, // retried 3 times to begin with (D440)
 		Label:       "Order books",
 		Description: "Adds the current order book of each outcome to market items: best prices, spread and depth.",
 		Inputs:      []string{engine.DefaultPort},

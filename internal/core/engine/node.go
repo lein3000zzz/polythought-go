@@ -222,6 +222,16 @@ type NodeType struct {
 	// Trades says a plugin's node places orders (D309), which the editor marks.
 	Trades bool
 
+	// Reads says the node only reads, so a failure is retried by default, as a node's Retry
+	// setting does (D440); ReadsWhen, when set, says it reads only with that setting's
+	// value, an HTTP request's GET, say. A node that acts is retried only when asked.
+	Reads     bool
+	ReadsWhen *Choice
+
+	// NoRetry refuses a Retry setting: what the node does, a retry could do twice, as
+	// placing an order, which resends by itself where it is safe to (D194).
+	NoRetry bool
+
 	// SeesItems lets its settings' expressions see items, every item it receives on main,
 	// beside each one's fields by name: for a node that takes them together (D257). A
 	// field named items is then item.items.

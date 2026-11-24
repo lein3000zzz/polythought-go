@@ -168,6 +168,7 @@ func (r *Registry) Validate(w domain.Workflow) error {
 		checkParams(&v, n, typ, trigger)
 		checkParamPorts(&v, n, typ)
 		checkTogether(&v, n, typ, trigger)
+		checkRetry(&v, n, typ, trigger)
 	}
 
 	if triggers == 0 {

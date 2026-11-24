@@ -3504,6 +3504,11 @@ export interface components {
             };
             /** @description Position is where the editor draws the node; it never affects execution. */
             position?: components["schemas"]["CanvasPosition"];
+            /**
+             * @description Retry is how many more times the node tries what failed, 0 to 5, waiting 1, 2, 4…
+             *     seconds; left out for its type's default: 3 for one that only reads, else none.
+             */
+            retry?: number;
             type: string;
         };
         NodeItems: {
@@ -3547,6 +3552,8 @@ export interface components {
             startedAt: string;
             /** @enum {string} */
             status: "succeeded" | "failed" | "skipped" | "waiting" | "cancelled";
+            /** @description Tries is how many times the node ran, its retries counted; absent for once. */
+            tries?: number;
         };
         NodeType: {
             /**
@@ -3560,6 +3567,7 @@ export interface components {
             items?: components["schemas"]["NodeItems"];
             label?: string;
             name: string;
+            noRetry?: boolean;
             outputs: string[];
             outputsColumn?: string;
             /**
@@ -3574,6 +3582,13 @@ export interface components {
              */
             plugin?: string;
             pluginName?: string;
+            /**
+             * @description Reads says it only reads, so a failure is tried again 3 more times unless its
+             *     retry says otherwise; readsWhen, that it reads only with that param's value.
+             *     NoRetry says it is never retried: a retry could do what it does twice.
+             */
+            reads?: boolean;
+            readsWhen?: components["schemas"]["ParamChoice"];
             /**
              * @description Remembers says it keeps what it saw across runs; /workflows/{id}/nodes/{node}/memory
              *     says how much, and forgets it.

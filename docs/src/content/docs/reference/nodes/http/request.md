@@ -16,7 +16,7 @@ Asks any web API for data, or sends it some: a GET, POST, PUT, PATCH or DELETE, 
 | Inputs | `main` |
 | Outputs | `main` |
 
-Items that fail stop the execution, unless **Continue on failure** is on: then they leave on the `error` port instead.
+Items that fail stop the execution, unless **Continue on failure** is on: then they leave on the `error` port instead. With **Method** (`method`) `GET` it only reads, so what fails is tried again 3 more times to begin with, as **Retry** says; otherwise only when Retry asks.
 
 ## Settings
 

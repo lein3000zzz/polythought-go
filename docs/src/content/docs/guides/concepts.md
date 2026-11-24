@@ -196,6 +196,23 @@ in the node's settings, and failed items leave on the node's `error` port instea
 reason. Connect that port to handle them, say with a Webhook node that tells you, or leave
 it unconnected to ignore them.
 
+### Trying again
+
+A node can try again what failed, before it counts as failed: an API that was busy for a
+moment, a book that did not load. Its **Retry** setting says how many more times, up to 5,
+waiting 1, 2, 4, 8 and 16 seconds between them, at most 2 minutes in all. A node that
+failed as a whole runs again; one that failed some items tries those items again, the
+others going on as they were, and those that pass on a later try come after them. What no
+wait mends is not tried again: a setting that is wrong, a market that is not there, an
+answer such as `404`; a `429` or a `503` is.
+
+Nodes that only read, such as Markets, Order books and an HTTP request's `GET`, try 3
+more times unless you say otherwise. Nodes that act, such as Webhook, Telegram, AI agent
+or an HTTP request's `POST`, try again only when you set Retry, since a retry may do what
+they do twice. Place order and Place orders are never retried: an order sent half-way is
+looked up and sent once more by itself, where that is safe. A run says how many tries a
+node took, such as `Succeeded in 3.2s, after 2 tries`.
+
 ## Wallets
 
 Some nodes read your own Polymarket account: [Positions](/docs/reference/nodes/polymarket/positions/),

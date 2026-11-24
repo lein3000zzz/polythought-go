@@ -51,8 +51,9 @@ var orderColumns = []engine.ParamSpec{
 
 func (*PlaceOrders) Type() engine.NodeType {
 	return engine.NodeType{
-		Name:  PlaceOrdersType,
-		Label: "Place orders",
+		Name:    PlaceOrdersType,
+		NoRetry: true, // its orders resend where that is safe (D194), never twice (D440)
+		Label:   "Place orders",
 		Description: "Places a list of orders for each item, together, on paper or live as the workflow trades: live, " +
 			"they reach Polymarket in one request, 15 at a time. Each is checked on its own; an item comes out per " +
 			"order, filled ones out of main, resting ones out of resting, the rest out of missed.",

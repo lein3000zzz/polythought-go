@@ -16,7 +16,7 @@ Lets an item on once enough different traders agreed within a while: at 2 in 6h,
 | Inputs | `main` |
 | Outputs | `main`, `alone` |
 
-Items that fail stop the execution, unless **Continue on failure** is on: then they leave on the `error` port instead.
+Items that fail stop the execution, unless **Continue on failure** is on: then they leave on the `error` port instead. What fails is tried again only when **Retry** asks.
 
 ## Settings
 

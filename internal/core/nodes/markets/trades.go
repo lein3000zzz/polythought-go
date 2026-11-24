@@ -43,6 +43,7 @@ func (n *Trades) WithClock(now func() time.Time) *Trades {
 func (*Trades) Type() engine.NodeType {
 	return engine.NodeType{
 		Name:  TradesType,
+		Reads: true, // retried 3 times to begin with (D440)
 		Label: "Recent trades",
 		Description: "Lists the recent trades of each market, one item per trade, with its value in " +
 			"dollars: for spotting large buyers and sellers.",

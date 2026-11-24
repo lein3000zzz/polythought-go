@@ -16,7 +16,7 @@ Writes a line to the server log for each item and passes the items on. The run's
 | Inputs | `main` |
 | Outputs | `main` |
 
-Items that fail stop the execution, unless **Continue on failure** is on: then they leave on the `error` port instead.
+Items that fail stop the execution, unless **Continue on failure** is on: then they leave on the `error` port instead. What fails is tried again only when **Retry** asks.
 
 ## Settings
 

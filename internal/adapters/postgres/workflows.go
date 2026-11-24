@@ -45,6 +45,7 @@ type nodeDoc struct {
 	Name           string         `json:"name,omitempty"`
 	Params         map[string]any `json:"params,omitempty"`
 	ContinueOnFail bool           `json:"continueOnFail,omitempty"`
+	Retry          *int           `json:"retry,omitempty"`
 	Position       positionDoc    `json:"position,omitzero"`
 	Notes          string         `json:"notes,omitempty"`
 }
@@ -75,7 +76,7 @@ func encodeWorkflowDefinition(nodes []domain.NodeSpec, connections []domain.Conn
 
 	for i, n := range nodes {
 		doc.Nodes[i] = nodeDoc{
-			ID: string(n.ID), Type: n.Type, Name: n.Name, Params: n.Params, ContinueOnFail: n.ContinueOnFail,
+			ID: string(n.ID), Type: n.Type, Name: n.Name, Params: n.Params, ContinueOnFail: n.ContinueOnFail, Retry: n.Retry,
 			Position: positionDoc{X: n.Position.X, Y: n.Position.Y}, Notes: n.Notes,
 		}
 	}
@@ -125,7 +126,7 @@ func decodeWorkflowDefinition(raw string) ([]domain.NodeSpec, []domain.Connectio
 	for i, n := range doc.Nodes {
 		nodes[i] = domain.NodeSpec{
 			ID: domain.NodeID(n.ID), Type: n.Type, Name: n.Name, Params: n.Params, ContinueOnFail: n.ContinueOnFail,
-			Position: domain.CanvasPosition{X: n.Position.X, Y: n.Position.Y}, Notes: n.Notes,
+			Retry: n.Retry, Position: domain.CanvasPosition{X: n.Position.X, Y: n.Position.Y}, Notes: n.Notes,
 		}
 	}
 
@@ -633,6 +634,7 @@ type runDoc struct {
 	Input      map[string]int `json:"input,omitempty"`
 	Output     map[string]int `json:"output,omitempty"`
 	Error      string         `json:"error,omitempty"`
+	Tries      int            `json:"tries,omitempty"`
 
 	Samples map[string][]sampleDoc `json:"samples,omitempty"`
 }
@@ -665,7 +667,7 @@ func (r *Executions) Save(ctx context.Context, e domain.Execution) error {
 	for i, run := range e.Runs {
 		runs[i] = runDoc{
 			NodeID: string(run.NodeID), Status: string(run.Status), StartedAt: run.StartedAt, FinishedAt: run.FinishedAt,
-			Input: run.Input, Output: run.Output, Error: run.Error, Samples: toSampleDocs(run.Samples),
+			Input: run.Input, Output: run.Output, Error: run.Error, Tries: run.Tries, Samples: toSampleDocs(run.Samples),
 		}
 	}
 
@@ -912,7 +914,7 @@ func toExecution(m model.Executions) (domain.Execution, error) {
 		e.Runs[i] = domain.NodeRun{
 			NodeID: domain.NodeID(r.NodeID), Status: domain.NodeRunStatus(r.Status),
 			StartedAt: r.StartedAt.UTC(), FinishedAt: r.FinishedAt.UTC(),
-			Input: r.Input, Output: r.Output, Error: r.Error, Samples: fromSampleDocs(r.Samples),
+			Input: r.Input, Output: r.Output, Error: r.Error, Tries: r.Tries, Samples: fromSampleDocs(r.Samples),
 		}
 	}
 

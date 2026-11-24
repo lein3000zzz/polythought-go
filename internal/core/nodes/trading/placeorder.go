@@ -50,8 +50,9 @@ func (*PlaceOrder) Type() engine.NodeType {
 	sides := []string{string(domain.SideBuy), string(domain.SideSell)}
 
 	return engine.NodeType{
-		Name:  PlaceOrderType,
-		Label: "Place order",
+		Name:    PlaceOrderType,
+		NoRetry: true, // its orders resend where that is safe (D194), never twice (D440)
+		Label:   "Place order",
 		Description: "Places an order for each item, on paper or live as the workflow trades: the copy Copy sizing " +
 			"worked out, or one of its own settings, at once or resting on the book. Filled orders go out of main, " +
 			"those left resting out of resting, those that did not fill out of missed.",

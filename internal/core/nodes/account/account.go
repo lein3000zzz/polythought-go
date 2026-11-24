@@ -86,6 +86,7 @@ func NewPositions(wallets ports.WalletDirectory, positions ports.PositionReader)
 func (*Positions) Type() engine.NodeType {
 	return engine.NodeType{
 		Name:        PositionsType,
+		Reads:       true, // retried 3 times to begin with (D440)
 		Label:       "Positions",
 		Description: "Lists the open positions of one of your wallets, one item per position.",
 		Inputs:      []string{engine.DefaultPort},
@@ -172,6 +173,7 @@ func NewOrders(wallets ports.WalletDirectory, account ports.AccountReader) *Orde
 func (*Orders) Type() engine.NodeType {
 	return engine.NodeType{
 		Name:        OrdersType,
+		Reads:       true, // retried 3 times to begin with (D440)
 		Label:       "Open orders",
 		Description: "Lists the open orders of one of your wallets. Needs API credentials on the wallet.",
 		Inputs:      []string{engine.DefaultPort},
@@ -257,6 +259,7 @@ func NewBalance(wallets ports.WalletDirectory, account ports.AccountReader) *Bal
 func (*Balance) Type() engine.NodeType {
 	return engine.NodeType{
 		Name:        BalanceType,
+		Reads:       true, // retried 3 times to begin with (D440)
 		Label:       "Balance",
 		Description: "Reads the USDC collateral balance of one of your wallets. Needs API credentials on the wallet.",
 		Inputs:      []string{engine.DefaultPort},

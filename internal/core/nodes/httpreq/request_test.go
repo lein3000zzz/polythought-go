@@ -171,6 +171,16 @@ func TestRequest(t *testing.T) {
 		assert.Equal(t, map[string]any{"error": "slow down"}, res["body"])
 	})
 
+	t.Run("a 4xx is final, a 5xx or 429 may be tried again (D440)", func(t *testing.T) {
+		for status, final := range map[int]bool{400: true, 404: true, 422: true, 408: false, 429: false, 500: false, 503: false} {
+			f := &fake{answer: func(ports.HTTPRequest) (ports.HTTPResponse, error) { return jsonAnswer(status, `{}`), nil }}
+			out := run(t, httpreq.New(f, nil, nil), map[string]any{"url": "https://api.example.com/"}, markets(1))
+
+			require.Len(t, out[engine.ErrorPort], 1)
+			assert.Equal(t, final, engine.IsFinal(out[engine.ErrorPort][0].Err), status)
+		}
+	})
+
 	t.Run("a request that fails fails its item", func(t *testing.T) {
 		f := &fake{answer: func(ports.HTTPRequest) (ports.HTTPResponse, error) {
 			return ports.HTTPResponse{}, errors.New("GET api.example.com: no answer in time")

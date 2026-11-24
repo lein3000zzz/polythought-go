@@ -16,7 +16,7 @@ Holds copies of buys to the workflow's limits: caps a copy, a market and a day, 
 | Inputs | `main` |
 | Outputs | `main`, `blocked` |
 
-Items that fail stop the execution, unless **Continue on failure** is on: then they leave on the `error` port instead.
+Items that fail stop the execution, unless **Continue on failure** is on: then they leave on the `error` port instead. What fails is tried again only when **Retry** asks.
 
 ## Settings
 

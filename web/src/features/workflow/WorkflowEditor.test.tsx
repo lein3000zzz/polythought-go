@@ -1666,3 +1666,89 @@ describe('an Inbound webhook (D439)', () => {
     ).toBeInTheDocument()
   })
 })
+
+describe('a node’s Retry (D440)', () => {
+  const reader: Schemas['NodeType'] = {
+    name: 'polymarket.orderbook',
+    label: 'Order books',
+    trigger: false,
+    code: false,
+    reads: true,
+    inputs: ['main'],
+    outputs: ['main'],
+    params: [],
+  }
+  const request: Schemas['NodeType'] = {
+    name: 'http.request',
+    label: 'HTTP request',
+    trigger: false,
+    code: false,
+    reads: true,
+    readsWhen: { param: 'method', value: 'GET' },
+    inputs: ['main'],
+    outputs: ['main'],
+    params: [{ name: 'method', label: 'Method', kind: 'string', required: false, default: 'GET' }],
+  }
+  const order: Schemas['NodeType'] = {
+    name: 'trading.placeOrder',
+    label: 'Place order',
+    trigger: false,
+    code: false,
+    noRetry: true,
+    inputs: ['main'],
+    outputs: ['main'],
+    params: [],
+  }
+
+  function serve() {
+    const saves = editing(
+      workflow({
+        nodes: [
+          { id: 'manual', type: 'trigger.manual', position: { x: 0, y: 0 } },
+          { id: 'books', type: 'polymarket.orderbook', position: { x: 300, y: 0 } },
+          {
+            id: 'post',
+            type: 'http.request',
+            params: { method: 'POST' },
+            position: { x: 600, y: 0 },
+          },
+          { id: 'buy', type: 'trading.placeOrder', position: { x: 900, y: 0 } },
+        ],
+        connections: [{ from: 'manual', fromPort: 'main', to: 'books', toPort: 'main' }],
+      }),
+    )
+    server.use(
+      http.get('/api/v1/node-types', () =>
+        HttpResponse.json({ nodeTypes: [...nodeTypes, reader, request, order] }),
+      ),
+    )
+
+    return saves
+  }
+
+  it('shows its default, 3 for a node that only reads, and saves what is set', async () => {
+    const saves = serve()
+    const { user } = renderApp('/workflows/wf-1')
+
+    await selectNode('books')
+    const retry = await settings().findByRole('spinbutton', { name: 'Retry' })
+    expect(retry).toHaveAttribute('placeholder', '3 (default)')
+
+    await user.type(retry, '1')
+    await user.click(screen.getByRole('button', { name: 'Save' }))
+    await waitFor(() => expect(saves).toHaveLength(1))
+    expect(saves[0].nodes.find((n) => n.id === 'books')?.retry).toBe(1)
+
+    await selectNode('post')
+    expect(await settings().findByRole('spinbutton', { name: 'Retry' })).toHaveAttribute(
+      'placeholder',
+      '0 (default)',
+    )
+    expect(settings().getByText(/a retry may do what it does twice/)).toBeInTheDocument()
+
+    await selectNode('buy')
+    await waitFor(() =>
+      expect(settings().queryByRole('spinbutton', { name: 'Retry' })).not.toBeInTheDocument(),
+    )
+  })
+})

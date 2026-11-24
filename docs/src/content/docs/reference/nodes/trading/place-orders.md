@@ -16,7 +16,7 @@ Places a list of orders for each item, together, on paper or live as the workflo
 | Inputs | `main` |
 | Outputs | `main`, `resting`, `missed` |
 
-Items that fail stop the execution, unless **Continue on failure** is on: then they leave on the `error` port instead.
+Items that fail stop the execution, unless **Continue on failure** is on: then they leave on the `error` port instead. It is never tried again: a retry could do what it does twice.
 
 ## Settings
 

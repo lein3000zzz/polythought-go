@@ -2787,6 +2787,12 @@
                         "$ref": "#/components/schemas/CanvasPosition",
                         "description": "Position is where the editor draws the node; it never affects execution."
                     },
+                    "retry": {
+                        "description": "Retry is how many more times the node tries what failed, 0 to 5, waiting 1, 2, 4…\nseconds; left out for its type's default: 3 for one that only reads, else none.",
+                        "maximum": 5,
+                        "minimum": 0,
+                        "type": "integer"
+                    },
                     "type": {
                         "type": "string"
                     }
@@ -2896,6 +2902,10 @@
                             "cancelled"
                         ],
                         "type": "string"
+                    },
+                    "tries": {
+                        "description": "Tries is how many times the node ran, its retries counted; absent for once.",
+                        "type": "integer"
                     }
                 },
                 "required": [
@@ -2931,6 +2941,9 @@
                     "name": {
                         "type": "string"
                     },
+                    "noRetry": {
+                        "type": "boolean"
+                    },
                     "outputs": {
                         "items": {
                             "type": "string"
@@ -2958,6 +2971,13 @@
                     },
                     "pluginName": {
                         "type": "string"
+                    },
+                    "reads": {
+                        "description": "Reads says it only reads, so a failure is tried again 3 more times unless its\nretry says otherwise; readsWhen, that it reads only with that param's value.\nNoRetry says it is never retried: a retry could do what it does twice.",
+                        "type": "boolean"
+                    },
+                    "readsWhen": {
+                        "$ref": "#/components/schemas/ParamChoice"
                     },
                     "remembers": {
                         "description": "Remembers says it keeps what it saw across runs; /workflows/{id}/nodes/{node}/memory\nsays how much, and forgets it.",

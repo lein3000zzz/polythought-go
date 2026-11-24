@@ -16,7 +16,7 @@ Takes about a share of the items, each the same way every time: at 30, about 3 i
 | Inputs | `main` |
 | Outputs | `main`, `rest` |
 
-Items that fail stop the execution, unless **Continue on failure** is on: then they leave on the `error` port instead.
+Items that fail stop the execution, unless **Continue on failure** is on: then they leave on the `error` port instead. What fails is tried again only when **Retry** asks.
 
 ## Settings
 

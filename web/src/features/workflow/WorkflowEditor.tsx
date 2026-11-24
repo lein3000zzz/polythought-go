@@ -639,7 +639,7 @@ function Editor({ workflow, types, onReload }: Props) {
 
   function changeNode(
     id: string,
-    patch: Partial<Pick<NodeSpec, 'name' | 'continueOnFail' | 'notes'>>,
+    patch: Partial<Pick<NodeSpec, 'name' | 'continueOnFail' | 'retry' | 'notes'>>,
   ) {
     record(`node:${id}:${Object.keys(patch).join(',')}`)
     updateSpec(id, (spec) => ({ ...spec, ...patch }))

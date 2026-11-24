@@ -56,6 +56,7 @@ var eventPricesField = engine.Field{Name: "prices", Kind: engine.FieldObject, De
 func (*EventPrices) Type() engine.NodeType {
 	return engine.NodeType{
 		Name:  EventPricesType,
+		Reads: true, // retried 3 times to begin with (D440)
 		Label: "Event prices",
 		Description: "Adds up the Yes prices of every outcome of an event that still takes orders: the best asks, what " +
 			"buying one of each costs, the best bids and the midpoints, from their order books now. Above 1, a set of " +

@@ -16,7 +16,7 @@ Sends each item down the route TypeScript picks: route(item, ctx) is called for 
 | Inputs | `main` |
 | Outputs | none, and one per value of **Routes** (`routes`) |
 
-Items that fail stop the execution, unless **Continue on failure** is on: then they leave on the `error` port instead.
+Items that fail stop the execution, unless **Continue on failure** is on: then they leave on the `error` port instead. What fails is tried again only when **Retry** asks.
 
 ## Settings
 

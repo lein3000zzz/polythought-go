@@ -33,11 +33,15 @@ export type StepType = Exclude<TypeName, TriggerType>
 
 type Settings<T extends TypeName> = NodeTypes[T]['settings']
 
-/** A node's name, notes about it, and whether failed items go out of its error port. */
+/**
+ * A node's name, notes about it, whether failed items go out of its error port, and how
+ * many more times it tries what failed, 0 to 5, left out for its type's default (D440).
+ */
 export interface NodeOptions {
   name?: string
   notes?: string
   continueOnFail?: boolean
+  retry?: number
 }
 
 // The settings may be left out when the type needs none of them (D72).
@@ -92,6 +96,7 @@ export interface Workflow {
     notes?: string
     params?: Record<string, unknown>
     continueOnFail?: boolean
+    retry?: number
   }[]
   connections: { from: string; fromPort: string; to: string; toPort: string }[]
 }
@@ -133,6 +138,7 @@ export function workflow(name: string, build: (w: Builder) => void): Workflow {
     if (options?.notes) node.notes = options.notes
     if (settings && Object.keys(settings).length > 0) node.params = { ...settings }
     if (options?.continueOnFail) node.continueOnFail = true
+    if (options?.retry !== undefined) node.retry = options.retry
     out.nodes.push(node)
 
     return {
