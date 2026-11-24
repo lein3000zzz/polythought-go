@@ -31,6 +31,31 @@ Type `gemini.apiKey`. It can be tested from the Credentials page.
 
 Used by: [AI agent](/docs/reference/nodes/ai/agent/).
 
+## Username and password
+
+Sent as HTTP basic authentication, which some APIs take, a key as the username for some.
+
+Type `http.basic`.
+
+| Field | Required | Secret | Description |
+|---|---|---|---|
+| Username (`username`) | yes | no |  |
+| Password (`password`) | no | yes | Empty, if the service wants none. |
+
+Used by: [HTTP request](/docs/reference/nodes/http/request/).
+
+## Bearer token
+
+A token sent as Authorization: Bearer &lt;token&gt;, as most APIs take one.
+
+Type `http.bearer`.
+
+| Field | Required | Secret | Description |
+|---|---|---|---|
+| Token (`token`) | yes | yes | Without Bearer before it. |
+
+Used by: [HTTP request](/docs/reference/nodes/http/request/).
+
 ## HTTP header
 
 A header sent with each request, for services that want a key or token, e.g. Authorization: Bearer &lt;token&gt;.
@@ -42,7 +67,20 @@ Type `http.header`.
 | Header (`header`) | yes | no | Its name, e.g. Authorization or X-Api-Key. |
 | Value (`value`) | yes | yes | e.g. Bearer &lt;token&gt;. |
 
-Used by: [Webhook](/docs/reference/nodes/output/webhook/).
+Used by: [HTTP request](/docs/reference/nodes/http/request/), [Webhook](/docs/reference/nodes/output/webhook/).
+
+## Key in the URL
+
+A key some APIs take in the address, e.g. ?apikey=&lt;key&gt;, added to each request's URL.
+
+Type `http.query`.
+
+| Field | Required | Secret | Description |
+|---|---|---|---|
+| Name (`name`) | yes | no | The query parameter's name, e.g. apikey or appid. |
+| Value (`value`) | yes | yes |  |
+
+Used by: [HTTP request](/docs/reference/nodes/http/request/).
 
 ## OpenAI-compatible API key
 

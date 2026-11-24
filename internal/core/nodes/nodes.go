@@ -9,6 +9,7 @@ import (
 	"github.com/lein3000zzz/polythought-go/internal/core/nodes/ai"
 	"github.com/lein3000zzz/polythought-go/internal/core/nodes/codenodes"
 	"github.com/lein3000zzz/polythought-go/internal/core/nodes/credtypes"
+	"github.com/lein3000zzz/polythought-go/internal/core/nodes/httpreq"
 	"github.com/lein3000zzz/polythought-go/internal/core/nodes/logic"
 	markets2 "github.com/lein3000zzz/polythought-go/internal/core/nodes/markets"
 	"github.com/lein3000zzz/polythought-go/internal/core/nodes/output"
@@ -33,11 +34,15 @@ type Deps struct {
 	Account      ports.AccountReader
 	Wallets      ports.WalletDirectory
 	Webhooks     ports.WebhookSender
-	Credentials  ports.CredentialReader // optional: without it, nodes cannot use credentials
-	Feed         ports.MarketFeed       // optional: without it, trigger.market is not available
-	Traders      ports.TraderFeed       // optional: without it, trigger.walletActivity is not available
-	Memory       ports.NodeMemory       // optional: without it, Only new, Throttle and Consensus are not available
-	Logger       logging.Logger
+	// HTTP makes the HTTP request node's requests (D438), at most MaxHTTPRequests a run
+	// (nil, or 0, for the default); optional: without it, the node is not available.
+	HTTP            ports.HTTPRequester
+	MaxHTTPRequests func() int
+	Credentials     ports.CredentialReader // optional: without it, nodes cannot use credentials
+	Feed            ports.MarketFeed       // optional: without it, trigger.market is not available
+	Traders         ports.TraderFeed       // optional: without it, trigger.walletActivity is not available
+	Memory          ports.NodeMemory       // optional: without it, Only new, Throttle and Consensus are not available
+	Logger          logging.Logger
 
 	// Messenger, TelegramInbox and Asker are optional: without them the Telegram nodes
 	// are not available. Without Reminder, questions get no reminders.
@@ -88,6 +93,17 @@ func Register(r *engine.Registry, d Deps) error {
 	// Credential types first: nodes asking for one are checked against them.
 	if err := r.RegisterCredentialType(credtypes.HTTPHeaderType()); err != nil {
 		return err
+	}
+
+	var request error
+	if d.HTTP != nil {
+		for _, t := range []engine.CredentialType{credtypes.HTTPBearerType(), credtypes.HTTPBasicType(), credtypes.HTTPQueryType()} {
+			if err := r.RegisterCredentialType(t); err != nil {
+				return err
+			}
+		}
+
+		request = r.RegisterNode(httpreq.New(d.HTTP, d.Credentials, d.MaxHTTPRequests))
 	}
 
 	var agent error
@@ -189,6 +205,7 @@ func Register(r *engine.Registry, d Deps) error {
 		telegramAsk,
 		agent,
 		local,
+		request,
 		r.RegisterTrigger(triggers.Manual{}),
 		r.RegisterTrigger(triggers.NewSchedule(minInterval)),
 		r.RegisterNode(markets2.NewMarkets(d.Markets)),

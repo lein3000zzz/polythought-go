@@ -191,6 +191,18 @@ The most runs a workflow's triggers may start in an hour. The one past it does n
 | Default | `1000` |
 | Applies | at once |
 
+### HTTP requests per node per run
+
+The most requests an HTTP request node makes in a run, one an item. The items past it fail, saying why.
+
+| | |
+|---|---|
+| Key | `workflows.max_http_requests` |
+| Environment variable | `POLYTHOUGHT_WORKFLOWS_MAX_HTTP_REQUESTS` |
+| Kind | whole number |
+| Default | `100` |
+| Applies | at once |
+
 ### Tokens per market trigger
 
 The most outcome tokens one market trigger may watch.

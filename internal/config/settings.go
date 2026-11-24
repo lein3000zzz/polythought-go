@@ -37,6 +37,7 @@ const (
 	KeyMaxNodes            = "workflows.max_nodes"
 	KeyScheduleMinInterval = "workflows.schedule_min_interval"
 	KeyMaxRunsPerHour      = "workflows.max_runs_per_hour"
+	KeyMaxHTTPRequests     = "workflows.max_http_requests"
 	KeyFeedMaxTokens       = "workflows.feed_max_tokens"
 	KeyPnLSampleEvery      = "workflows.pnl_sample_every"
 	KeyExecutionRetention  = "executions.retention"
@@ -256,6 +257,12 @@ func Settings() (*settings.Registry, error) {
 			Description: "The most runs a workflow's triggers may start in an hour. The one past it does not start, and the " +
 				"workflow is switched off, its owner told why. Runs started by hand do not count. 0 for no limit.",
 			Kind: settings.KindInt, Default: 1000, Check: between(0, 1_000_000),
+		},
+		settings.Spec{
+			Key: KeyMaxHTTPRequests, Group: groupWorkflows, Label: "HTTP requests per node per run",
+			Description: "The most requests an HTTP request node makes in a run, one an item. The items past it fail, " +
+				"saying why.",
+			Kind: settings.KindInt, Default: 100, Check: between(1, 10_000),
 		},
 		settings.Spec{
 			Key: KeyFeedMaxTokens, Group: groupWorkflows, Label: "Tokens per market trigger",

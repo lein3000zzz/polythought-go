@@ -24,6 +24,7 @@ const base = "/docs"
 var groups = []struct{ dir, label, prefix string }{
 	{"triggers", "Triggers", ""},
 	{"polymarket", "Polymarket", "polymarket"},
+	{"http", "HTTP", "http"},
 	{"logic", "Logic", "logic"},
 	{"transform", "Transform", "transform"},
 	{"output", "Output", "output"},

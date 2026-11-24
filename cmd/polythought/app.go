@@ -1032,6 +1032,12 @@ func (a *app) initEngine(ctx context.Context, pmc polymarket) error {
 		return err
 	}
 
+	// HTTP request nodes' requests (D438), guarded as webhooks are.
+	requests, err := webhook.NewRequester(a.util, webhook.Config{AllowPrivate: allowPrivate, Proxy: proxy})
+	if err != nil {
+		return err
+	}
+
 	// Language models, each call with its user's own key (D243); an OpenAI-compatible base
 	// URL keeps to public addresses as webhooks do.
 	llmClient, err := llm.New(a.util, llm.Config{AllowPrivate: allowPrivate, Proxy: proxy})
@@ -1093,15 +1099,19 @@ func (a *app) initEngine(ctx context.Context, pmc polymarket) error {
 	a.taskAgents = tasks.NewPresence(func() time.Duration { return a.settings.Current().Duration(config.KeyMCPTaskSeen) }, time.Now)
 
 	err = nodes.Register(a.registry, nodes.Deps{
-		Markets:       pmc.reader,
-		Events:        pmc.reader,
-		OrderBooks:    pmc.reader,
-		PriceHistory:  pmc.reader,
-		Trades:        pmc.reader,
-		Positions:     pmc.reader,
-		Account:       pmc.account,
-		Wallets:       a.wallets,
-		Webhooks:      webhooks,
+		Markets:      pmc.reader,
+		Events:       pmc.reader,
+		OrderBooks:   pmc.reader,
+		PriceHistory: pmc.reader,
+		Trades:       pmc.reader,
+		Positions:    pmc.reader,
+		Account:      pmc.account,
+		Wallets:      a.wallets,
+		Webhooks:     webhooks,
+		HTTP:         requests,
+		MaxHTTPRequests: func() int {
+			return a.settings.Current().Int(config.KeyMaxHTTPRequests)
+		},
 		Credentials:   a.credentials,
 		Messenger:     a.telegram,
 		TelegramInbox: a.telegram,
