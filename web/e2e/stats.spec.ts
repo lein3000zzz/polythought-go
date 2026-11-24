@@ -74,8 +74,11 @@ test("an admin sees every user's workflows, and opens one user's (D431)", async 
   await expect(page.getByRole('heading', { name: `${admin.email}'s workflows` })).toBeVisible()
 
   const workflows = page.getByRole('table', { name: 'Workflows' })
-  await expect(workflows.getByText(name, { exact: true })).toBeVisible()
-  await expect(workflows.getByRole('link', { name })).toHaveCount(0)
+  // Another user's workflow opens read-only, for an admin (D435).
+  await expect(workflows.getByRole('link', { name })).toHaveAttribute(
+    'href',
+    new RegExp(`/admin/users/[^/]+/workflows/${id}$`),
+  )
 })
 
 test('an admin switches off a busy workflow and holds it off, then releases it (D435)', async ({
