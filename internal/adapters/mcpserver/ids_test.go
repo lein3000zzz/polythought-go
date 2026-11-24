@@ -18,6 +18,7 @@ import (
 
 	"github.com/lein3000zzz/polythought-go/internal/adapters/mcpserver"
 	"github.com/lein3000zzz/polythought-go/internal/core/domain"
+	"github.com/lein3000zzz/polythought-go/internal/core/ports"
 	"github.com/lein3000zzz/polythought-go/internal/core/services/auth"
 	"github.com/lein3000zzz/polythought-go/internal/core/services/tasks"
 )
@@ -41,11 +42,17 @@ func (d *slowDesk) Wait(ctx context.Context, _ auth.Principal) (tasks.Task, bool
 	}
 }
 
-func (*slowDesk) Answer(context.Context, auth.Principal, domain.ExecutionID, any, []any) error {
+func (*slowDesk) Answer(context.Context, auth.Principal, domain.ExecutionID, int, any, []any) (int, error) {
+	return 0, nil
+}
+
+func (*slowDesk) Fail(context.Context, auth.Principal, domain.ExecutionID, int, string) error {
 	return nil
 }
 
-func (*slowDesk) Fail(context.Context, auth.Principal, domain.ExecutionID, string) error { return nil }
+func (*slowDesk) Page(context.Context, auth.Principal, domain.ExecutionID, int) ([]ports.TaskItem, int, error) {
+	return nil, 0, domain.ErrNotFound
+}
 
 // rawAgent posts to /mcp as the bare protocol has it, the session's ID on each.
 type rawAgent struct {

@@ -412,8 +412,10 @@ func TestConfiguredLimits(t *testing.T) {
 	ce = codeErr(t, loop(ports.CodeLimits{}), domain.CodeOutOfTime)
 	assert.Contains(t, ce.Message, "150ms", "changes apply to the next run")
 
+	// A minute, so the memory runs out first however slow the machine: with the race
+	// detector on a shared runner, filling 16 MiB has taken longer than the 5s default.
 	mu.Lock()
-	most.Time = 0 // the default
+	most.Time = time.Minute
 	mu.Unlock()
 
 	_, err = r.Run(ctx, ports.CodeJob{
@@ -421,7 +423,11 @@ func TestConfiguredLimits(t *testing.T) {
 		Limits: ports.CodeLimits{Memory: 1 << 30},
 	})
 	ce = codeErr(t, err, domain.CodeOutOfMemory)
-	assert.Contains(t, ce.Message, "16 MiB")
+	assert.Contains(t, ce.Message, "16 MiB", "a job cannot ask for more")
+
+	mu.Lock()
+	most.Time = 0 // the default
+	mu.Unlock()
 
 	res, err := r.Run(ctx, ports.CodeJob{Source: `function run() { return 1 }`, Entry: "run"})
 	require.NoError(t, err, "unset limits are the defaults")

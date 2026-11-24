@@ -3,9 +3,12 @@ package postgres
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"time"
 
 	jet "github.com/go-jet/jet/v2/postgres"
+	"github.com/go-jet/jet/v2/qrm"
+	"github.com/google/uuid"
 
 	"github.com/lein3000zzz/polythought-go/internal/adapters/postgres/gen/public/model"
 	"github.com/lein3000zzz/polythought-go/internal/adapters/postgres/gen/public/table"
@@ -61,12 +64,44 @@ func (r *Waits) Add(ctx context.Context, w ports.WaitRecord) error {
 		task = new(string(data))
 	}
 
-	_, err = table.Waits.INSERT(table.Waits.AllColumns).MODEL(model.Waits{
-		ExecutionID: eid, WorkflowID: wid, OwnerID: oid, NodeID: string(w.NodeID),
-		Until: w.Until, Key: w.Key, Question: question, Task: task, State: string(w.State), CreatedAt: w.CreatedAt,
-	}).ExecContext(ctx, r.db.conn(ctx))
+	return r.db.WithinTx(ctx, func(ctx context.Context) error {
+		_, err := table.Waits.INSERT(table.Waits.AllColumns).MODEL(model.Waits{
+			ExecutionID: eid, WorkflowID: wid, OwnerID: oid, NodeID: string(w.NodeID),
+			Until: w.Until, Key: w.Key, Question: question, Task: task, State: string(w.State), CreatedAt: w.CreatedAt,
+		}).ExecContext(ctx, r.db.conn(ctx))
+		if err != nil || w.Task == nil {
+			return err
+		}
 
-	return err
+		parts := partsOf(*w.Task)
+		rows := make([]model.TaskParts, len(parts))
+
+		for i, p := range parts {
+			rows[i] = model.TaskParts{ExecutionID: eid, Part: int32(p.Index), FirstItem: int32(p.First), Items: int32(p.Items)}
+		}
+
+		t := table.TaskParts
+		_, err = t.INSERT(t.ExecutionID, t.Part, t.FirstItem, t.Items).MODELS(rows).ExecContext(ctx, r.db.conn(ctx))
+
+		return err
+	})
+}
+
+// partsOf are a task's parts as its splits have them (D436): one for a task not split.
+func partsOf(t ports.WaitTask) []ports.TaskPart {
+	starts := append([]int{0}, t.Splits...)
+	parts := make([]ports.TaskPart, len(starts))
+
+	for i, first := range starts {
+		end := len(t.Items)
+		if i+1 < len(starts) {
+			end = starts[i+1]
+		}
+
+		parts[i] = ports.TaskPart{Index: i, First: first, Items: end - first}
+	}
+
+	return parts
 }
 
 func (r *Waits) Get(ctx context.Context, owner domain.UserID, id domain.ExecutionID) (ports.WaitRecord, error) {
@@ -89,7 +124,59 @@ func (r *Waits) Get(ctx context.Context, owner domain.UserID, id domain.Executio
 		return ports.WaitRecord{}, notFound(err)
 	}
 
-	return waitOf(m)
+	w, err := waitOf(m)
+	if err != nil || w.Task == nil {
+		return w, err
+	}
+
+	w.Parts, err = r.parts(ctx, eid)
+
+	return w, err
+}
+
+// parts are a task's parts, in order.
+func (r *Waits) parts(ctx context.Context, eid uuid.UUID) ([]ports.TaskPart, error) {
+	t := table.TaskParts
+
+	var rows []model.TaskParts
+
+	err := t.SELECT(t.AllColumns).WHERE(t.ExecutionID.EQ(jet.UUID(eid))).ORDER_BY(t.Part.ASC()).
+		QueryContext(ctx, r.db.conn(ctx), &rows)
+	if err != nil && !errors.Is(err, qrm.ErrNoRows) {
+		return nil, err
+	}
+
+	out := make([]ports.TaskPart, len(rows))
+	for i, m := range rows {
+		if out[i], err = partOf(m); err != nil {
+			return nil, err
+		}
+	}
+
+	return out, nil
+}
+
+func partOf(m model.TaskParts) (ports.TaskPart, error) {
+	p := ports.TaskPart{Index: int(m.Part), First: int(m.FirstItem), Items: int(m.Items), AnsweredBy: m.AnsweredBy}
+
+	if m.LeaseHolder != nil && m.LeaseUntil != nil {
+		p.Lease = &ports.TaskLease{Holder: *m.LeaseHolder, Until: m.LeaseUntil.UTC()}
+		if m.LeaseName != nil {
+			p.Lease.Name = *m.LeaseName
+		}
+	}
+
+	if m.Answers != nil {
+		if err := json.Unmarshal([]byte(*m.Answers), &p.Answers); err != nil {
+			return ports.TaskPart{}, err
+		}
+
+		if p.Answers == nil {
+			p.Answers = []any{} // answered, if with nothing
+		}
+	}
+
+	return p, nil
 }
 
 func (r *Waits) CountForOwner(ctx context.Context, owner domain.UserID) (int, error) {
@@ -162,41 +249,61 @@ func (r *Waits) TakeDue(ctx context.Context, now time.Time, limit int) ([]ports.
 	return r.take(ctx, w.ExecutionID.IN(due))
 }
 
-func (r *Waits) LeaseTask(ctx context.Context, owner domain.UserID, lease ports.TaskLease, now time.Time) (ports.WaitRecord, error) {
+func (r *Waits) LeaseTask(ctx context.Context, owner domain.UserID, lease ports.TaskLease, now time.Time) (ports.WaitRecord, int, error) {
 	oid, err := parseID(owner)
 	if err != nil {
-		return ports.WaitRecord{}, err
+		return ports.WaitRecord{}, 0, err
 	}
 
-	w := table.Waits
+	var (
+		got  ports.WaitRecord
+		part int
+	)
 
-	// The oldest first, and one another taker is handing out is skipped rather than waited
-	// for, as it is about to be held.
-	free := jet.SELECT(w.ExecutionID).
-		FROM(w).
-		WHERE(w.OwnerID.EQ(jet.UUID(oid)).
-			AND(w.Task.IS_NOT_NULL()).
-			AND(w.LeaseHolder.IS_NULL().OR(w.LeaseUntil.LT_EQ(jet.TimestampzT(now))))).
-		ORDER_BY(w.CreatedAt.ASC()).
-		LIMIT(1).
-		FOR(jet.UPDATE().SKIP_LOCKED())
+	err = r.db.WithinTx(ctx, func(ctx context.Context) error {
+		p, w := table.TaskParts, table.Waits
 
-	var rows []model.Waits
+		// The oldest task's first part free, and one another taker is handing out is
+		// skipped rather than waited for, as it is about to be held.
+		var free []model.TaskParts
 
-	err = w.UPDATE(w.LeaseHolder, w.LeaseName, w.LeaseUntil).
-		SET(jet.String(lease.Holder), jet.String(lease.Name), jet.TimestampzT(lease.Until)).
-		WHERE(w.ExecutionID.IN(free)).
-		RETURNING(w.AllColumns).
-		QueryContext(ctx, r.db.conn(ctx), &rows)
+		err := jet.SELECT(p.ExecutionID, p.Part).
+			FROM(p.INNER_JOIN(w, w.ExecutionID.EQ(p.ExecutionID))).
+			WHERE(w.OwnerID.EQ(jet.UUID(oid)).
+				AND(p.Answers.IS_NULL()).
+				AND(p.LeaseHolder.IS_NULL().OR(p.LeaseUntil.LT_EQ(jet.TimestampzT(now))))).
+			ORDER_BY(w.CreatedAt.ASC(), p.Part.ASC()).
+			LIMIT(1).
+			FOR(jet.UPDATE().OF(p).SKIP_LOCKED()).
+			QueryContext(ctx, r.db.conn(ctx), &free)
+		if err != nil && !errors.Is(err, qrm.ErrNoRows) {
+			return err
+		}
+
+		if len(free) == 0 {
+			return domain.ErrNotFound
+		}
+
+		eid := free[0].ExecutionID
+		part = int(free[0].Part)
+
+		_, err = p.UPDATE(p.LeaseHolder, p.LeaseName, p.LeaseUntil).
+			SET(jet.String(lease.Holder), jet.String(lease.Name), jet.TimestampzT(lease.Until)).
+			WHERE(p.ExecutionID.EQ(jet.UUID(eid)).AND(p.Part.EQ(jet.Int32(int32(part))))).
+			ExecContext(ctx, r.db.conn(ctx))
+		if err != nil {
+			return err
+		}
+
+		got, err = r.Get(ctx, owner, domain.ExecutionID(eid.String()))
+
+		return err
+	})
 	if err != nil {
-		return ports.WaitRecord{}, err
+		return ports.WaitRecord{}, 0, err
 	}
 
-	if len(rows) == 0 {
-		return ports.WaitRecord{}, domain.ErrNotFound
-	}
-
-	return waitOf(rows[0])
+	return got, part, nil
 }
 
 func (r *Waits) RenewLeases(ctx context.Context, owner domain.UserID, holder string, until time.Time) error {
@@ -205,20 +312,25 @@ func (r *Waits) RenewLeases(ctx context.Context, owner domain.UserID, holder str
 		return err
 	}
 
-	w := table.Waits
+	p, w := table.TaskParts, table.Waits
 
-	_, err = w.UPDATE(w.LeaseUntil).
+	_, err = p.UPDATE(p.LeaseUntil).
 		SET(jet.TimestampzT(until)).
-		WHERE(w.OwnerID.EQ(jet.UUID(oid)).AND(w.LeaseHolder.EQ(jet.String(holder)))).
+		WHERE(p.LeaseHolder.EQ(jet.String(holder)).AND(p.Answers.IS_NULL()).
+			AND(p.ExecutionID.IN(jet.SELECT(w.ExecutionID).FROM(w).WHERE(w.OwnerID.EQ(jet.UUID(oid)))))).
 		ExecContext(ctx, r.db.conn(ctx))
 
 	return err
 }
 
 func (r *Waits) ReleaseTask(ctx context.Context, owner domain.UserID, id domain.ExecutionID) error {
-	oid, err := parseID(owner)
+	rec, err := r.Get(ctx, owner, id)
 	if err != nil {
 		return err
+	}
+
+	if rec.Task == nil {
+		return domain.ErrNotFound
 	}
 
 	eid, err := parseID(id)
@@ -226,24 +338,75 @@ func (r *Waits) ReleaseTask(ctx context.Context, owner domain.UserID, id domain.
 		return err
 	}
 
-	w := table.Waits
+	p := table.TaskParts
 
-	var rows []model.Waits
-
-	err = w.UPDATE(w.LeaseHolder, w.LeaseName, w.LeaseUntil).
+	_, err = p.UPDATE(p.LeaseHolder, p.LeaseName, p.LeaseUntil).
 		SET(jet.NULL, jet.NULL, jet.NULL).
-		WHERE(w.ExecutionID.EQ(jet.UUID(eid)).AND(w.OwnerID.EQ(jet.UUID(oid))).AND(w.Task.IS_NOT_NULL())).
-		RETURNING(w.ExecutionID).
-		QueryContext(ctx, r.db.conn(ctx), &rows)
+		WHERE(p.ExecutionID.EQ(jet.UUID(eid)).AND(p.Answers.IS_NULL())).
+		ExecContext(ctx, r.db.conn(ctx))
+
+	return err
+}
+
+func (r *Waits) AnswerPart(ctx context.Context, owner domain.UserID, id domain.ExecutionID, part int, holder string, answers []any, by string) ([]ports.TaskPart, error) {
+	if holder == "" {
+		return nil, domain.ErrNotFound
+	}
+
+	oid, err := parseID(owner)
 	if err != nil {
+		return nil, err
+	}
+
+	eid, err := parseID(id)
+	if err != nil {
+		return nil, err
+	}
+
+	if answers == nil {
+		answers = []any{}
+	}
+
+	data, err := json.Marshal(answers)
+	if err != nil {
+		return nil, err
+	}
+
+	var parts []ports.TaskPart
+
+	err = r.db.WithinTx(ctx, func(ctx context.Context) error {
+		w, p := table.Waits, table.TaskParts
+
+		// The wait first, so that the parts answered at once see each other's answers.
+		var locked []model.Waits
+
+		err := jet.SELECT(w.ExecutionID).FROM(w).
+			WHERE(w.ExecutionID.EQ(jet.UUID(eid)).AND(w.OwnerID.EQ(jet.UUID(oid))).AND(w.Task.IS_NOT_NULL())).
+			FOR(jet.UPDATE()).
+			QueryContext(ctx, r.db.conn(ctx), &locked)
+		if err != nil && !errors.Is(err, qrm.ErrNoRows) {
+			return err
+		}
+
+		if len(locked) == 0 {
+			return domain.ErrNotFound
+		}
+
+		err = affectedOne(p.UPDATE(p.Answers, p.AnsweredBy).
+			SET(jet.Json(string(data)), jet.String(by)).
+			WHERE(p.ExecutionID.EQ(jet.UUID(eid)).AND(p.Part.EQ(jet.Int32(int32(part)))).
+				AND(p.LeaseHolder.EQ(jet.String(holder))).AND(p.Answers.IS_NULL())).
+			ExecContext(ctx, r.db.conn(ctx)))
+		if err != nil {
+			return err
+		}
+
+		parts, err = r.parts(ctx, eid)
+
 		return err
-	}
+	})
 
-	if len(rows) == 0 {
-		return domain.ErrNotFound
-	}
-
-	return nil
+	return parts, err
 }
 
 func (r *Waits) TakeTask(ctx context.Context, owner domain.UserID, id domain.ExecutionID, holder string) (ports.WaitRecord, error) {
@@ -251,7 +414,11 @@ func (r *Waits) TakeTask(ctx context.Context, owner domain.UserID, id domain.Exe
 		return ports.WaitRecord{}, domain.ErrNotFound
 	}
 
-	return r.takeOne(ctx, owner, id, table.Waits.Task.IS_NOT_NULL().AND(table.Waits.LeaseHolder.EQ(jet.String(holder))))
+	p := table.TaskParts
+
+	return r.takeOne(ctx, owner, id, table.Waits.Task.IS_NOT_NULL().AND(jet.EXISTS(
+		jet.SELECT(p.Part).FROM(p).WHERE(p.ExecutionID.EQ(table.Waits.ExecutionID).AND(p.LeaseHolder.EQ(jet.String(holder)))),
+	)))
 }
 
 func (r *Waits) TakeForWorkflow(ctx context.Context, owner domain.UserID, id domain.WorkflowID) ([]ports.WaitRecord, error) {
@@ -308,13 +475,6 @@ func waitOf(m model.Waits) (ports.WaitRecord, error) {
 		w.Task = &ports.WaitTask{}
 		if err := json.Unmarshal([]byte(*m.Task), w.Task); err != nil {
 			return ports.WaitRecord{}, err
-		}
-	}
-
-	if m.LeaseHolder != nil && m.LeaseUntil != nil {
-		w.Lease = &ports.TaskLease{Holder: *m.LeaseHolder, Until: m.LeaseUntil.UTC()}
-		if m.LeaseName != nil {
-			w.Lease.Name = *m.LeaseName
 		}
 	}
 

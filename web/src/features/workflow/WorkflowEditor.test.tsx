@@ -1149,7 +1149,46 @@ describe('a run waiting on a Local agent node (D413)', () => {
     until: '2026-10-09T13:00:00Z',
     heldBy: 'Claude Code',
     heldUntil: '2026-10-09T12:10:00Z',
+    parts: 1,
+    answered: 0,
   }
+
+  it('says, for a task in parts, who has them and how many are answered (D436)', async () => {
+    editing(
+      workflow({
+        nodes: [
+          { id: 'manual', type: 'trigger.manual', position: { x: 0, y: 0 } },
+          {
+            id: 'ask',
+            type: 'ai.localAgent',
+            params: { prompt: 'Look into it' },
+            position: { x: 300, y: 0 },
+          },
+        ],
+        connections: [{ from: 'manual', fromPort: 'main', to: 'ask', toPort: 'main' }],
+      }),
+    )
+    server.use(
+      http.get('/api/v1/workflows/wf-1/executions', () =>
+        HttpResponse.json({ executions: [onTask] }),
+      ),
+      http.get('/api/v1/workflows/wf-1/executions/ex-7', () => HttpResponse.json(onTask)),
+      http.get('/api/v1/workflows/wf-1/executions/ex-7/task', () =>
+        HttpResponse.json({ ...held, heldBy: 'Claude Code, Codex', parts: 5, answered: 2 }),
+      ),
+    )
+    const { user } = renderApp('/workflows/wf-1')
+
+    await user.click(await screen.findByRole('button', { name: 'History' }))
+    const list = within(await screen.findByRole('tabpanel', { name: 'Executions' }))
+    await user.click((await list.findAllByRole('button'))[0])
+
+    expect(
+      await screen.findByText(
+        /Claude Code, Codex have parts of the task until .*; 2 of 5 parts answered/,
+      ),
+    ).toBeInTheDocument()
+  })
 
   it('says who has its task, hands it back, and answers it', async () => {
     let task = held

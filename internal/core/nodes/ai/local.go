@@ -18,9 +18,13 @@ import (
 
 const LocalAgentType = "ai.localAgent"
 
-// maxTask is the most a task may be, as JSON: an agent takes it in one tool call's answer,
-// which is held to 32 KiB, with room for what the call adds.
-const maxTask = 24 << 10
+// MaxTask is the most of a task an agent takes at once, as JSON: in one tool call's answer,
+// which is held to 32 KiB, with room for what the call adds. A bigger task goes in parts,
+// or pages (D436).
+const MaxTask = 24 << 10
+
+// maxTotal is the most a task may be in all, its parts or pages together.
+const maxTotal = 1 << 20
 
 // What a local agent's answer brings back, as the waits service gives it to Resume.
 const (
@@ -51,6 +55,7 @@ func (*LocalAgent) Type() engine.NodeType {
 		Label: "Local agent",
 		Description: "Hands a task to one of your own agents, such as Claude Code or Codex connected with the tasks scope, " +
 			"and waits for its answer: for each item or once for all of them, as text or as JSON in the shape you give. " +
+			"One too big to take at once goes in parts, several agents sharing it, or, taken together, in pages. " +
 			"Fails at once when none of your agents is waiting for tasks.",
 		Inputs:    []string{engine.DefaultPort},
 		Outputs:   []string{engine.DefaultPort},
@@ -170,9 +175,20 @@ func (n *LocalAgent) Run(_ context.Context, rc engine.RunContext, in engine.Port
 
 	if data, err := json.Marshal(task); err != nil {
 		return nil, err
-	} else if len(data) > maxTask {
-		return nil, fmt.Errorf("the task is %d KiB, more than an agent takes at once (%d KiB): send fewer items, or fewer fields of each",
-			len(data)>>10, maxTask>>10)
+	} else if len(data) > maxTotal {
+		return nil, fmt.Errorf("the task is %d KiB, more than a task may be in all (%d KiB): send fewer items, or fewer fields of each",
+			len(data)>>10, maxTotal>>10)
+	}
+
+	// Too big to take at once, it goes in parts, each answered on its own; taken together,
+	// in pages its agent reads before it answers (D436).
+	splits, err := Splits(*task)
+	if err != nil {
+		return nil, err
+	}
+
+	if st.Call != CallTogether {
+		task.Splits = splits
 	}
 
 	key, err := taskKey()
@@ -412,4 +428,52 @@ func fromMap(m map[string]any, v any) error {
 	}
 
 	return json.Unmarshal(data, v)
+}
+
+// Splits are where a task's items go into parts, or pages, each at most MaxTask as JSON
+// with the rest of the task (D436): the first item of each after the first; none when it
+// fits at once. An item too big for any fails, naming it.
+func Splits(t ports.WaitTask) ([]int, error) {
+	head := t
+	head.Items, head.Splits = nil, nil
+
+	data, err := json.Marshal(head)
+	if err != nil {
+		return nil, err
+	}
+
+	// The rest of the task, and the brackets and key its items go under.
+	base := len(data) + len(`,"items":[]`)
+
+	if base > MaxTask {
+		return nil, fmt.Errorf("the task's prompt is %d KiB, more than an agent takes at once (%d KiB): taking the items "+
+			"together, leave {{ items }} out of it and turn Include the items on, which hands them over in pages", base>>10, MaxTask>>10)
+	}
+
+	var (
+		splits []int
+		size   = base
+	)
+
+	for i, it := range t.Items {
+		item, err := json.Marshal(it)
+		if err != nil {
+			return nil, err
+		}
+
+		n := len(item) + 1 // and the comma before the next
+
+		if base+n > MaxTask {
+			return nil, fmt.Errorf("item %d is %d KiB, more than an agent takes at once (%d KiB) with the task: send fewer fields of it",
+				i+1, (base+n)>>10, MaxTask>>10)
+		}
+
+		if size+n > MaxTask {
+			splits, size = append(splits, i), base
+		}
+
+		size += n
+	}
+
+	return splits, nil
 }

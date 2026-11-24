@@ -2,6 +2,7 @@ package tasks_test
 
 import (
 	"context"
+	"slices"
 	"sync"
 	"testing"
 	"time"
@@ -55,6 +56,19 @@ func (m *memWaits) Add(_ context.Context, w ports.WaitRecord) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
+	// Its task's parts, as the database keeps them (D436).
+	if w.Task != nil {
+		starts := append([]int{0}, w.Task.Splits...)
+		for i, first := range starts {
+			end := len(w.Task.Items)
+			if i+1 < len(starts) {
+				end = starts[i+1]
+			}
+
+			w.Parts = append(w.Parts, ports.TaskPart{Index: i, First: first, Items: end - first})
+		}
+	}
+
 	m.recs[w.ExecutionID] = w
 
 	return nil
@@ -75,6 +89,8 @@ func (m *memWaits) Get(_ context.Context, o domain.UserID, id domain.ExecutionID
 	if !ok || w.OwnerID != o {
 		return ports.WaitRecord{}, domain.ErrNotFound
 	}
+
+	w.Parts = slices.Clone(w.Parts)
 
 	return w, nil
 }
@@ -121,27 +137,57 @@ func (m *memWaits) TakeForWorkflow(context.Context, domain.UserID, domain.Workfl
 	return nil, nil
 }
 
-func (m *memWaits) LeaseTask(_ context.Context, o domain.UserID, lease ports.TaskLease, now time.Time) (ports.WaitRecord, error) {
+func (m *memWaits) LeaseTask(_ context.Context, o domain.UserID, lease ports.TaskLease, now time.Time) (ports.WaitRecord, int, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
-	var oldest *ports.WaitRecord
+	var (
+		oldest *ports.WaitRecord
+		part   int
+	)
 
 	for _, w := range m.recs {
-		free := w.Lease == nil || !w.Lease.Until.After(now)
-		if w.OwnerID == o && w.Task != nil && free && (oldest == nil || w.CreatedAt.Before(oldest.CreatedAt)) {
-			oldest = &w
+		if w.OwnerID != o || w.Task == nil || (oldest != nil && !w.CreatedAt.Before(oldest.CreatedAt)) {
+			continue
+		}
+
+		for _, p := range w.Parts {
+			if p.Answers == nil && (p.Lease == nil || !p.Lease.Until.After(now)) {
+				oldest, part = &w, p.Index
+				break
+			}
 		}
 	}
 
 	if oldest == nil {
-		return ports.WaitRecord{}, domain.ErrNotFound
+		return ports.WaitRecord{}, 0, domain.ErrNotFound
 	}
 
-	oldest.Lease = &lease
+	parts := slices.Clone(oldest.Parts)
+	parts[part].Lease = &lease
+	oldest.Parts = parts
 	m.recs[oldest.ExecutionID] = *oldest
 
-	return *oldest, nil
+	return *oldest, part, nil
+}
+
+// each changes the parts of the owner's waits that keep to ok.
+func (m *memWaits) each(o domain.UserID, ok func(ports.TaskPart) bool, change func(*ports.TaskPart)) {
+	for id, w := range m.recs {
+		if w.OwnerID != o {
+			continue
+		}
+
+		parts := slices.Clone(w.Parts)
+		for i := range parts {
+			if ok(parts[i]) {
+				change(&parts[i])
+			}
+		}
+
+		w.Parts = parts
+		m.recs[id] = w
+	}
 }
 
 func (m *memWaits) ReleaseTask(_ context.Context, o domain.UserID, id domain.ExecutionID) error {
@@ -153,7 +199,14 @@ func (m *memWaits) ReleaseTask(_ context.Context, o domain.UserID, id domain.Exe
 		return domain.ErrNotFound
 	}
 
-	w.Lease = nil
+	parts := slices.Clone(w.Parts)
+	for i := range parts {
+		if parts[i].Answers == nil {
+			parts[i].Lease = nil
+		}
+	}
+
+	w.Parts = parts
 	m.recs[id] = w
 
 	return nil
@@ -163,27 +216,52 @@ func (m *memWaits) RenewLeases(_ context.Context, o domain.UserID, holder string
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
-	for id, w := range m.recs {
-		if w.OwnerID == o && w.Lease != nil && w.Lease.Holder == holder {
-			w.Lease = &ports.TaskLease{Holder: holder, Name: w.Lease.Name, Until: until}
-			m.recs[id] = w
-		}
-	}
+	m.each(o, func(p ports.TaskPart) bool { return p.Answers == nil && p.Lease != nil && p.Lease.Holder == holder },
+		func(p *ports.TaskPart) { p.Lease = &ports.TaskLease{Holder: holder, Name: p.Lease.Name, Until: until} })
 
 	return nil
 }
 
+func (m *memWaits) AnswerPart(_ context.Context, o domain.UserID, id domain.ExecutionID, part int, holder string, answers []any, by string) ([]ports.TaskPart, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	w, ok := m.recs[id]
+	if !ok || w.OwnerID != o || w.Task == nil || part >= len(w.Parts) {
+		return nil, domain.ErrNotFound
+	}
+
+	p := w.Parts[part]
+	if p.Lease == nil || p.Lease.Holder != holder || p.Answers != nil {
+		return nil, domain.ErrNotFound
+	}
+
+	parts := slices.Clone(w.Parts)
+	parts[part].Answers, parts[part].AnsweredBy = answers, by
+	w.Parts = parts
+	m.recs[id] = w
+
+	return slices.Clone(parts), nil
+}
+
 func (m *memWaits) TakeTask(_ context.Context, o domain.UserID, id domain.ExecutionID, holder string) (ports.WaitRecord, error) {
 	return m.take(id, func(w ports.WaitRecord) bool {
-		return w.OwnerID == o && w.Task != nil && w.Lease != nil && w.Lease.Holder == holder
+		return w.OwnerID == o && w.Task != nil && slices.ContainsFunc(w.Parts, func(p ports.TaskPart) bool {
+			return p.Lease != nil && p.Lease.Holder == holder
+		})
 	})
 }
 
+// lease is who has a task's first part.
 func (m *memWaits) lease(id domain.ExecutionID) *ports.TaskLease {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
-	return m.recs[id].Lease
+	if parts := m.recs[id].Parts; len(parts) > 0 {
+		return parts[0].Lease
+	}
+
+	return nil
 }
 
 // capture keeps what reaches it.
@@ -341,15 +419,15 @@ func TestTaskFlow(t *testing.T) {
 		assert.Equal(t, start.Add(10*time.Minute), task.Until, "its timeout, 10 minutes unless said")
 		assert.Equal(t, start.Add(10*time.Minute), task.LeaseUntil)
 
-		err := f.tasks.Answer(ctx, claude, task.ID, nil, []any{"Likely"})
+		err := answered(f.tasks.Answer(ctx, claude, task.ID, 0, nil, []any{"Likely"}))
 		require.ErrorIs(t, err, domain.ErrInvalidInput)
 		assert.Contains(t, err.Error(), "one for each of the 2 items")
 
-		err = f.tasks.Answer(ctx, claude, task.ID, nil, []any{"Likely", 3})
+		err = answered(f.tasks.Answer(ctx, claude, task.ID, 0, nil, []any{"Likely", 3}))
 		require.ErrorIs(t, err, domain.ErrInvalidInput)
 		assert.Contains(t, err.Error(), "the answer is text")
 
-		require.NoError(t, f.tasks.Answer(ctx, claude, task.ID, nil, []any{"Likely", "Unlikely"}))
+		require.NoError(t, answered(f.tasks.Answer(ctx, claude, task.ID, 0, nil, []any{"Likely", "Unlikely"})))
 
 		require.Eventually(t, func() bool { return len(f.captured.items()) == 2 }, time.Second, time.Millisecond)
 		answer := f.captured.items()[1].JSON["answer"].(map[string]any)
@@ -357,7 +435,7 @@ func TestTaskFlow(t *testing.T) {
 		assert.Equal(t, "Claude Code", answer["by"])
 		assert.Equal(t, "Snow?", f.captured.items()[1].JSON["question"], "the item kept")
 
-		require.ErrorIs(t, f.tasks.Answer(ctx, claude, task.ID, nil, []any{"a", "b"}), tasks.ErrNoTask, "once")
+		require.ErrorIs(t, answered(f.tasks.Answer(ctx, claude, task.ID, 0, nil, []any{"a", "b"})), tasks.ErrNoTask, "once")
 	})
 
 	t.Run("together, in fields", func(t *testing.T) {
@@ -376,10 +454,10 @@ func TestTaskFlow(t *testing.T) {
 		assert.Len(t, task.Task.Items, 2, "the items included")
 		assert.Contains(t, string(task.Task.Schema), `"pick"`)
 
-		err := f.tasks.Answer(ctx, claude, task.ID, map[string]any{"pick": "Rain?"}, nil)
+		err := answered(f.tasks.Answer(ctx, claude, task.ID, 0, map[string]any{"pick": "Rain?"}, nil))
 		require.ErrorIs(t, err, domain.ErrInvalidInput, "sure is missing")
 
-		require.NoError(t, f.tasks.Answer(ctx, claude, task.ID, `{"pick": "Rain?", "sure": true}`, nil), "JSON as text too")
+		require.NoError(t, answered(f.tasks.Answer(ctx, claude, task.ID, 0, `{"pick": "Rain?", "sure": true}`, nil)), "JSON as text too")
 
 		require.Eventually(t, func() bool { return len(f.captured.items()) == 1 }, time.Second, time.Millisecond)
 		answer := f.captured.items()[0].JSON["answer"].(map[string]any)
@@ -397,7 +475,7 @@ func TestTaskFlow(t *testing.T) {
 		_, ok, err := f.tasks.Wait(ctx, codex)
 		require.NoError(t, err)
 		assert.False(t, ok, "Claude Code has it")
-		require.ErrorIs(t, f.tasks.Answer(ctx, codex, task.ID, nil, []any{"No"}), tasks.ErrNoTask)
+		require.ErrorIs(t, answered(f.tasks.Answer(ctx, codex, task.ID, 0, nil, []any{"No"})), tasks.ErrNoTask)
 
 		f.clock.pass(5 * time.Minute)
 		_, _, _ = f.tasks.Wait(ctx, claude) // waiting again holds on to it
@@ -410,8 +488,8 @@ func TestTaskFlow(t *testing.T) {
 		require.True(t, ok, "Claude Code let it go")
 		assert.Equal(t, task.ID, again.ID)
 
-		require.ErrorIs(t, f.tasks.Answer(ctx, claude, task.ID, nil, []any{"Yes"}), tasks.ErrNoTask, "Codex has it now")
-		require.NoError(t, f.tasks.Answer(ctx, codex, task.ID, nil, []any{"No"}))
+		require.ErrorIs(t, answered(f.tasks.Answer(ctx, claude, task.ID, 0, nil, []any{"Yes"})), tasks.ErrNoTask, "Codex has it now")
+		require.NoError(t, answered(f.tasks.Answer(ctx, codex, task.ID, 0, nil, []any{"No"})))
 
 		require.Eventually(t, func() bool { return len(f.captured.items()) == 1 }, time.Second, time.Millisecond)
 		assert.Equal(t, "Codex", f.captured.items()[0].JSON["answer"].(map[string]any)["by"])
@@ -425,8 +503,8 @@ func TestTaskFlow(t *testing.T) {
 		res := f.run(t, map[string]any{"prompt": "Look into it"}, map[string]any{"question": "Rain?"})
 		task := <-got
 
-		require.ErrorIs(t, f.tasks.Fail(ctx, claude, task.ID, " "), domain.ErrInvalidInput)
-		require.NoError(t, f.tasks.Fail(ctx, claude, task.ID, "I cannot reach the forecast"))
+		require.ErrorIs(t, f.tasks.Fail(ctx, claude, task.ID, 0, " "), domain.ErrInvalidInput)
+		require.NoError(t, f.tasks.Fail(ctx, claude, task.ID, 0, "I cannot reach the forecast"))
 
 		require.Eventually(t, func() bool {
 			_, err := f.repo.Get(ctx, owner, res.Execution.ID)
@@ -506,7 +584,7 @@ func TestTaskFlow(t *testing.T) {
 
 		require.Eventually(t, func() bool { return len(f.captured.items()) == 1 }, time.Second, time.Millisecond)
 		assert.Equal(t, tasks.ByYou, f.captured.items()[0].JSON["answer"].(map[string]any)["by"])
-		require.ErrorIs(t, f.tasks.Answer(ctx, codex, res.Execution.ID, nil, []any{"No"}), tasks.ErrNoTask, "answered already")
+		require.ErrorIs(t, answered(f.tasks.Answer(ctx, codex, res.Execution.ID, 0, nil, []any{"No"})), tasks.ErrNoTask, "answered already")
 	})
 
 	t.Run("the tasks scope, and agents and tokens only", func(t *testing.T) {
@@ -524,3 +602,6 @@ func TestTaskFlow(t *testing.T) {
 		assert.False(t, ok)
 	})
 }
+
+// answered is the error of an answer, whatever parts it left.
+func answered(_ int, err error) error { return err }
