@@ -32,6 +32,12 @@ Each node has a page with its settings. In the editor, the node list on the left
 | [Search markets](/docs/reference/nodes/polymarket/search/) | `polymarket.search` | Finds markets by words in their title, e.g. bitcoin or election, one item per market. |
 | [Recent trades](/docs/reference/nodes/polymarket/trades/) | `polymarket.trades` | Lists the recent trades of each market, one item per trade, with its value in dollars: for spotting large buyers and sellers. |
 
+## HTTP
+
+| Node | Type | What it does |
+|---|---|---|
+| [HTTP request](/docs/reference/nodes/http/request/) | `http.request` | Asks any web API for data, or sends it some: a GET, POST, PUT, PATCH or DELETE, the answer put on each item, JSON read as such. |
+
 ## Logic
 
 | Node | Type | What it does |

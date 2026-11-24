@@ -1,9 +1,10 @@
-// Package webhook posts JSON to addresses users put in their workflows.
+// Package webhook posts JSON to addresses users put in their workflows, and makes the
+// HTTP request node's requests (D438).
 //
-// Those addresses are untrusted. Unless the operator allows it, the sender refuses to
-// connect to loopback, private, link-local and other internal addresses. It checks the
-// address actually dialled, after DNS, so a name that resolves inside the network is
-// refused too, on redirects as well.
+// Those addresses are untrusted. Unless the operator allows it, the sender and the
+// requester refuse to connect to loopback, private, link-local and other internal
+// addresses. They check the address actually dialled, after DNS, so a name that resolves
+// inside the network is refused too, on redirects as well.
 //
 // Extra headers, usually a credential, go only to the host the user named: a redirect to
 // another host loses them.

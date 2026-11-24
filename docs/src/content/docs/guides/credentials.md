@@ -32,15 +32,30 @@ there are, with their fields, are listed in [Credential types](/docs/reference/c
 ### HTTP header
 
 One header sent with each request, for services that want an `Authorization` header or an
-API key. The [Webhook](/docs/reference/nodes/output/webhook/) node uses it:
+API key. The [Webhook](/docs/reference/nodes/output/webhook/) and
+[HTTP request](/docs/guides/http-requests/) nodes use it:
 
 1. On **Credentials**, press **New credential**, pick the kind **HTTP header**, and give it
    a name. Enter the header's name, such as `Authorization`, and its value, such as
    `Bearer` followed by your token.
-2. In the editor, select the Webhook node and choose the credential under **Credential**.
+2. In the editor, select the node and choose the credential under **Credential**.
 
 The header goes only to the address in the node. If that address redirects elsewhere, to
 another host, the header is not sent there.
+
+### Bearer token, username and password, key in the URL
+
+The other ways an API may want a key, for the [HTTP request](/docs/guides/http-requests/)
+node:
+
+- **Bearer token**: sent as `Authorization: Bearer <token>`, as most APIs take one.
+- **Username and password**: HTTP basic authentication. Some APIs take a key as the
+  username and no password.
+- **Key in the URL**: a query parameter added to each request's address, such as
+  `?apikey=<key>` or `?appid=<key>`.
+
+Like a header, none of them follows a redirect to another host: a redirect gets a new
+address, without the key in it.
 
 ### Language model keys
 

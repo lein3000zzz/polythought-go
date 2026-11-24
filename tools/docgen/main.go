@@ -77,11 +77,13 @@ func build() (Pages, map[string]string, error) {
 
 	// Only the types are read, so the nodes get no real dependencies; the market and
 	// wallet triggers register only with a feed, the Telegram nodes only with the bot, the
-	// providers' credential types only with an LLM, and the Local agent only with agents.
+	// providers' credential types only with an LLM, the Local agent only with agents, and
+	// the HTTP request node only with a requester.
 	err := nodes.Register(registry, nodes.Deps{
 		Feed: noFeed{}, Traders: noTraders{}, Messenger: noTelegram{}, TelegramInbox: noTelegram{}, Asker: noTelegram{}, Code: noCode{},
 		Orders: noOrders{}, Books: noBooks{}, Accounts: noAccounts{}, Memory: noMemory{},
 		Canceller: noOrders{}, OrderEvents: noOrders{}, Batches: noOrders{}, LLM: noLLM{}, TaskAgents: noAgents{},
+		HTTP:   noHTTP{},
 		Logger: logging.Noop(),
 	})
 	if err != nil {
@@ -218,6 +220,12 @@ type noCode struct{}
 
 func (noCode) Call(context.Context, ports.CodeCall) (ports.CodeResult, error) {
 	return ports.CodeResult{}, nil
+}
+
+type noHTTP struct{}
+
+func (noHTTP) Do(context.Context, ports.HTTPRequest) (ports.HTTPResponse, error) {
+	return ports.HTTPResponse{}, nil
 }
 
 type noAgents struct{}

@@ -87,3 +87,22 @@ func TestLiteralTemplate(t *testing.T) {
 	_, err = Params{"m": 3}.Template("m")
 	require.ErrorIs(t, err, ErrInvalidParam)
 }
+
+func TestTemplateFill(t *testing.T) {
+	t.Parallel()
+
+	item := map[string]any{"question": "Rain?", "id": "m1"}
+
+	tmpl, err := Params{"m": `{"q": "{{ question }}", "id": {{ id }}}`}.Template("m")
+	require.NoError(t, err)
+
+	var told []string
+
+	got := tmpl.Fill(item, func(sofar string, v any) string {
+		told = append(told, sofar)
+		return "<" + Format(v) + ">"
+	})
+
+	assert.Equal(t, `{"q": "<Rain?>", "id": <m1>}`, got)
+	assert.Equal(t, []string{`{"q": "`, `{"q": "<Rain?>", "id": `}, told, "each value told the text before it")
+}

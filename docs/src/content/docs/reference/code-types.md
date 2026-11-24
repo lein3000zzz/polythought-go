@@ -219,6 +219,49 @@ export interface CodeTransformSettings {
     source?: string;
 }
 
+/** The settings of HTTP request (http.request). */
+export interface HttpRequestSettings {
+    /**
+     * @default "GET"
+     */
+    method?: "GET" | "POST" | "PUT" | "PATCH" | "DELETE" | Expression;
+    /** https://… and any {{ field }}, e.g. https://api.example.com/markets/{{ id }}. A key belongs in a credential, below: sharing the workflow keeps the URL. */
+    url: string;
+    /** name=value, one per line, added to the URL, each encoded for you: q={{ question }}. */
+    query?: string[] | Expression;
+    /** Name: value, one per line, e.g. Accept: application/json. */
+    headers?: string[] | Expression;
+    /** Sent with the request, empty for none. As json, a {{ }} inside quotes is written as text, and anywhere else as JSON: {"question": "{{ question }}", "item": {{ item }}}. */
+    body?: string;
+    /**
+     * json, checked as such; form, name=value&… with each value encoded; or text as it is. Its Content-Type, unless Headers give one.
+     * @default "json"
+     */
+    bodyAs?: "json" | "form" | "text" | Expression;
+    /** Optional. A header, a bearer token, a username and password, or a key in the URL, from your Credentials page. The ID of one of your credentials of type http.header or http.bearer or http.basic or http.query. */
+    credential?: string;
+    /**
+     * each: a request for each item, up to 100 a run unless an admin says otherwise. once: one request with the first item's values, its answer on every item.
+     * @default "each"
+     */
+    send?: "each" | "once" | Expression;
+    /**
+     * auto: JSON when it says it is, text otherwise. json: JSON, failing the item if it is not.
+     * @default "auto"
+     */
+    response?: "auto" | "json" | "text" | Expression;
+    /**
+     * Where the answer goes on the item.
+     * @default "response"
+     */
+    field?: string;
+    /**
+     * How long a request may take, redirects and all; at most a minute.
+     * @default "10s"
+     */
+    timeout?: DurationText | Expression;
+}
+
 /** The settings of Consensus (logic.consensus). */
 export interface LogicConsensusSettings {
     /**
@@ -1240,6 +1283,13 @@ export interface NodeTypes {
     "code.transform": {
         settings: CodeTransformSettings;
         items: Json;
+        trigger: false;
+        inputs: "main";
+        outputs: "main";
+    };
+    "http.request": {
+        settings: HttpRequestSettings;
+        items: "received";
         trigger: false;
         inputs: "main";
         outputs: "main";

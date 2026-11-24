@@ -133,6 +133,11 @@ workflows:
   # Environment: POLYTHOUGHT_WORKFLOWS_MAX_RUNS_PER_HOUR.
   # max_runs_per_hour: 1000
 
+  # The most requests an HTTP request node makes in a run, one an item. The items past
+  # it fail, saying why.
+  # Environment: POLYTHOUGHT_WORKFLOWS_MAX_HTTP_REQUESTS.
+  # max_http_requests: 100
+
   # The most outcome tokens one market trigger may watch.
   # Environment: POLYTHOUGHT_WORKFLOWS_FEED_MAX_TOKENS.
   # feed_max_tokens: 100
