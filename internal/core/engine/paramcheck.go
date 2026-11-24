@@ -42,7 +42,7 @@ func checkKind(spec ParamSpec, value any) string {
 	p := Params{spec.Name: value}
 
 	switch spec.Kind {
-	case ParamString, ParamWallet, ParamCredential, ParamCode:
+	case ParamString, ParamWallet, ParamCredential, ParamCode, ParamDataset:
 		read, want := p.String, "must be a string"
 		if spec.Numbers && spec.Kind == ParamString {
 			read, want = p.Text, "must be text or a number"

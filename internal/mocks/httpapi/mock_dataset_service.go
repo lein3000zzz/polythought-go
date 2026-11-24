@@ -482,46 +482,46 @@ func (_c *MockDatasetService_Get_Call) RunAndReturn(run func(ctx context.Context
 	return _c
 }
 
-// Limit provides a mock function for the type MockDatasetService
-func (_mock *MockDatasetService) Limit() int64 {
+// Limits provides a mock function for the type MockDatasetService
+func (_mock *MockDatasetService) Limits() datasets.Limits {
 	ret := _mock.Called()
 
 	if len(ret) == 0 {
-		panic("no return value specified for Limit")
+		panic("no return value specified for Limits")
 	}
 
-	var r0 int64
-	if returnFunc, ok := ret.Get(0).(func() int64); ok {
+	var r0 datasets.Limits
+	if returnFunc, ok := ret.Get(0).(func() datasets.Limits); ok {
 		r0 = returnFunc()
 	} else {
-		r0 = ret.Get(0).(int64)
+		r0 = ret.Get(0).(datasets.Limits)
 	}
 	return r0
 }
 
-// MockDatasetService_Limit_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'Limit'
-type MockDatasetService_Limit_Call struct {
+// MockDatasetService_Limits_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'Limits'
+type MockDatasetService_Limits_Call struct {
 	*mock.Call
 }
 
-// Limit is a helper method to define mock.On call
-func (_e *MockDatasetService_Expecter) Limit() *MockDatasetService_Limit_Call {
-	return &MockDatasetService_Limit_Call{Call: _e.mock.On("Limit")}
+// Limits is a helper method to define mock.On call
+func (_e *MockDatasetService_Expecter) Limits() *MockDatasetService_Limits_Call {
+	return &MockDatasetService_Limits_Call{Call: _e.mock.On("Limits")}
 }
 
-func (_c *MockDatasetService_Limit_Call) Run(run func()) *MockDatasetService_Limit_Call {
+func (_c *MockDatasetService_Limits_Call) Run(run func()) *MockDatasetService_Limits_Call {
 	_c.Call.Run(func(args mock.Arguments) {
 		run()
 	})
 	return _c
 }
 
-func (_c *MockDatasetService_Limit_Call) Return(n int64) *MockDatasetService_Limit_Call {
-	_c.Call.Return(n)
+func (_c *MockDatasetService_Limits_Call) Return(limits datasets.Limits) *MockDatasetService_Limits_Call {
+	_c.Call.Return(limits)
 	return _c
 }
 
-func (_c *MockDatasetService_Limit_Call) RunAndReturn(run func() int64) *MockDatasetService_Limit_Call {
+func (_c *MockDatasetService_Limits_Call) RunAndReturn(run func() datasets.Limits) *MockDatasetService_Limits_Call {
 	_c.Call.Return(run)
 	return _c
 }
@@ -1056,6 +1056,74 @@ func (_c *MockDatasetService_Usage_Call) Return(userIDToInt64 map[domain.UserID]
 }
 
 func (_c *MockDatasetService_Usage_Call) RunAndReturn(run func(ctx context.Context) (map[domain.UserID]int64, error)) *MockDatasetService_Usage_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// UsedBy provides a mock function for the type MockDatasetService
+func (_mock *MockDatasetService) UsedBy(ctx context.Context, owner domain.UserID) (map[string][]domain.Workflow, error) {
+	ret := _mock.Called(ctx, owner)
+
+	if len(ret) == 0 {
+		panic("no return value specified for UsedBy")
+	}
+
+	var r0 map[string][]domain.Workflow
+	var r1 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context, domain.UserID) (map[string][]domain.Workflow, error)); ok {
+		return returnFunc(ctx, owner)
+	}
+	if returnFunc, ok := ret.Get(0).(func(context.Context, domain.UserID) map[string][]domain.Workflow); ok {
+		r0 = returnFunc(ctx, owner)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(map[string][]domain.Workflow)
+		}
+	}
+	if returnFunc, ok := ret.Get(1).(func(context.Context, domain.UserID) error); ok {
+		r1 = returnFunc(ctx, owner)
+	} else {
+		r1 = ret.Error(1)
+	}
+	return r0, r1
+}
+
+// MockDatasetService_UsedBy_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'UsedBy'
+type MockDatasetService_UsedBy_Call struct {
+	*mock.Call
+}
+
+// UsedBy is a helper method to define mock.On call
+//   - ctx context.Context
+//   - owner domain.UserID
+func (_e *MockDatasetService_Expecter) UsedBy(ctx any, owner any) *MockDatasetService_UsedBy_Call {
+	return &MockDatasetService_UsedBy_Call{Call: _e.mock.On("UsedBy", ctx, owner)}
+}
+
+func (_c *MockDatasetService_UsedBy_Call) Run(run func(ctx context.Context, owner domain.UserID)) *MockDatasetService_UsedBy_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		var arg1 domain.UserID
+		if args[1] != nil {
+			arg1 = args[1].(domain.UserID)
+		}
+		run(
+			arg0,
+			arg1,
+		)
+	})
+	return _c
+}
+
+func (_c *MockDatasetService_UsedBy_Call) Return(stringToWorkflows map[string][]domain.Workflow, err error) *MockDatasetService_UsedBy_Call {
+	_c.Call.Return(stringToWorkflows, err)
+	return _c
+}
+
+func (_c *MockDatasetService_UsedBy_Call) RunAndReturn(run func(ctx context.Context, owner domain.UserID) (map[string][]domain.Workflow, error)) *MockDatasetService_UsedBy_Call {
 	_c.Call.Return(run)
 	return _c
 }

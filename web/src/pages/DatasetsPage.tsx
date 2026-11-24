@@ -56,7 +56,8 @@ export function DatasetsPage() {
 
       {list.isSuccess && datasets.length === 0 && (
         <p className="text-sm text-muted-foreground">
-          None yet. A notebook makes one through the API, with a token that may write datasets.
+          None yet. A notebook makes one through the API, with a token that may write datasets, and
+          a Record node&apos;s New dataset… makes one too.
         </p>
       )}
 
@@ -121,7 +122,7 @@ export function DatasetsPage() {
       <ConfirmDialog
         open={deleting !== undefined}
         title={`Delete ${deleting?.name}?`}
-        description={`Its ${deleting?.rows.toLocaleString('en-US') ?? 0} rows go with it, for good.`}
+        description={deleting ? deleteNote(deleting) : ''}
         confirm="Delete"
         destructive
         onCancel={() => setDeleting(undefined)}
@@ -140,6 +141,20 @@ export function DatasetsPage() {
       />
     </div>
   )
+}
+
+/** What deleting a dataset takes with it, and the workflows it switches off. */
+function deleteNote(d: Dataset): string {
+  const rows = `Its ${d.rows.toLocaleString('en-US')} rows go with it, for good.`
+  const using = d.workflows ?? []
+  if (using.length === 0) return rows
+
+  const names = using.map((w) => `“${w.name}”${w.active ? ' (on)' : ''}`)
+  const listed =
+    names.length === 1 ? names[0] : `${names.slice(0, -1).join(', ')} and ${names.at(-1)}`
+  const on = using.some((w) => w.active)
+
+  return `${rows} ${listed} ${using.length === 1 ? 'uses' : 'use'} it${on ? ': those on are switched off' : ''}.`
 }
 
 /** What a dataset keeps: so many days, so many rows, or everything. */

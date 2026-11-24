@@ -125,6 +125,23 @@ func (r *Datasets) Rows(ctx context.Context, id domain.DatasetID, after int64, l
 		SELECT seq, key, at, row FROM dataset_rows
 		WHERE dataset_id = $1 AND stage_id IS NULL AND seq > $2
 		ORDER BY seq LIMIT $3`, id, after, limit)
+
+	return scanRows(rows, err)
+}
+
+func (r *Datasets) Newest(ctx context.Context, id domain.DatasetID, n int) ([]domain.DatasetRow, error) {
+	rows, err := r.db.conn(ctx).QueryContext(ctx, `
+		SELECT seq, key, at, row FROM (
+			SELECT seq, key, at, row FROM dataset_rows
+			WHERE dataset_id = $1 AND stage_id IS NULL
+			ORDER BY seq DESC LIMIT $2
+		) newest ORDER BY seq`, id, n)
+
+	return scanRows(rows, err)
+}
+
+// scanRows reads the rows a query gave, as seq, key, at and row.
+func scanRows(rows *sql.Rows, err error) ([]domain.DatasetRow, error) {
 	if err != nil {
 		return nil, err
 	}

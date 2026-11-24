@@ -1015,7 +1015,7 @@ How long a forecast is kept before it is asked for again: every workflow asking 
 
 ### Who may use models and datasets
 
-Datasets, and the nodes that record and read them, and models: everyone may (everyone), admins and the users switched on for them on the Users page (chosen), or no one, admins included (off). A workflow using them whose owner may not fails at once.
+Datasets, and the nodes that record and read them, and models: everyone may (everyone), admins and the users switched on for them on the Users page (chosen), or no one, admins included (off). The workflows using them of a user who may no longer are switched off, saying why.
 
 | | |
 |---|---|
@@ -1071,6 +1071,18 @@ The most one user's datasets may take together, rows waiting for a replace count
 | Environment variable | `POLYTHOUGHT_DATA_MAX_MIB` |
 | Kind | whole number |
 | Default | `100` |
+| Applies | at once |
+
+### Days a recorded dataset keeps
+
+What a dataset made in the Record node keeps to begin with: rows older than so many days go. Its owner may choose otherwise as they make it, and change it after.
+
+| | |
+|---|---|
+| Key | `data.keep_days` |
+| Environment variable | `POLYTHOUGHT_DATA_KEEP_DAYS` |
+| Kind | whole number |
+| Default | `90` |
 | Applies | at once |
 
 ## Updates

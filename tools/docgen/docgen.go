@@ -26,6 +26,7 @@ var groups = []struct{ dir, label, prefix string }{
 	{"polymarket", "Polymarket", "polymarket"},
 	{"http", "HTTP", "http"},
 	{"weather", "Weather", "weather"},
+	{"data", "Data", "data"},
 	{"logic", "Logic", "logic"},
 	{"transform", "Transform", "transform"},
 	{"output", "Output", "output"},
@@ -286,7 +287,7 @@ func writeItems(b *strings.Builder, t engine.NodeType) {
 		}
 
 		if it.Alone.Param != "" {
-			fmt.Fprintf(b, "; with %s `%s`, one item instead, with only these", paramLabel(t, it.Alone.Param), it.Alone.Value)
+			fmt.Fprintf(b, "; with %s `%s`, items with only these instead", paramLabel(t, it.Alone.Param), it.Alone.Value)
 		}
 
 		b.WriteString(". Decimals are text, so they stay exact; times are RFC 3339 text.\n\n" +

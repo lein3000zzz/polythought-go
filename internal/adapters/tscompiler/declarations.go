@@ -142,6 +142,8 @@ func writeSettings(b *strings.Builder, t engine.TypeInfo) {
 			doc = append(doc, "The ID of one of your wallets.")
 		case p.Kind == engine.ParamCredential:
 			doc = append(doc, fmt.Sprintf("The ID of one of your credentials of type %s.", strings.Join(p.CredentialTypes, " or ")))
+		case p.Kind == engine.ParamDataset:
+			doc = append(doc, "The name of one of your datasets.")
 		case p.Kind == engine.ParamTokens:
 			doc = append(doc, "Outcome token IDs.")
 		case p.Kind == engine.ParamAddress:
@@ -234,7 +236,7 @@ func paramType(p engine.ParamSpec) string {
 		return "string[]"
 	case engine.ParamTable:
 		return rowType(p)
-	default: // code, addresses, and wallets and credentials by ID
+	default: // code, addresses, wallets and credentials by ID, and datasets by name
 		return "string"
 	}
 }

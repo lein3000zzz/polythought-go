@@ -93,7 +93,7 @@ export function hasExpressions(value: unknown): boolean {
 
 /**
  * Whether a setting of a node takes expressions, as the server says: not a trigger's,
- * nor wallets, credentials, field settings or the one that gives ports.
+ * nor wallets, credentials, datasets, field settings or the one that gives ports.
  */
 export function takesExpressions(type: NodeType | undefined, spec: ParamSpec): boolean {
   return (
@@ -101,6 +101,7 @@ export function takesExpressions(type: NodeType | undefined, spec: ParamSpec): b
     !type.trigger &&
     spec.kind !== 'wallet' &&
     spec.kind !== 'credential' &&
+    spec.kind !== 'dataset' &&
     !spec.field &&
     spec.name !== type.outputsParam
   )

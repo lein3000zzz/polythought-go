@@ -78,16 +78,17 @@ func build() (Pages, map[string]string, error) {
 	// Only the types are read, so the nodes get no real dependencies; the market and
 	// wallet triggers register only with a feed, the Telegram nodes only with the bot, the
 	// providers' credential types only with an LLM, the Local agent only with agents, and
-	// the HTTP request node only with a requester the Inbound webhook only with hooks, and the weather nodes only with a
-	// weather reader.
+	// the HTTP request node only with a requester, the Inbound webhook only with hooks, the weather nodes only with a
+	// weather reader, and Record and Read dataset only with datasets.
 	err := nodes.Register(registry, nodes.Deps{
 		Feed: noFeed{}, Traders: noTraders{}, Messenger: noTelegram{}, TelegramInbox: noTelegram{}, Asker: noTelegram{}, Code: noCode{},
 		Orders: noOrders{}, Books: noBooks{}, Accounts: noAccounts{}, Memory: noMemory{},
 		Canceller: noOrders{}, OrderEvents: noOrders{}, Batches: noOrders{}, LLM: noLLM{}, TaskAgents: noAgents{},
-		HTTP:    noHTTP{},
-		Hooks:   noHooks{},
-		Weather: noWeather{},
-		Logger:  logging.Noop(),
+		HTTP:     noHTTP{},
+		Hooks:    noHooks{},
+		Weather:  noWeather{},
+		Datasets: noDatasets{},
+		Logger:   logging.Noop(),
 	})
 	if err != nil {
 		return nil, nil, err
@@ -234,6 +235,9 @@ func (noWeather) Forecast(context.Context, ports.ForecastQuery) (ports.Forecast,
 func (noWeather) Observations(context.Context, string, int) ([]ports.Observation, error) {
 	return nil, nil
 }
+
+// noDatasets stands in for the datasets: only the node types are read.
+type noDatasets struct{ ports.DatasetStore }
 
 type noHooks struct{}
 

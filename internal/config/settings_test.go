@@ -73,6 +73,7 @@ func TestSettingsDefaults(t *testing.T) {
 		config.KeyDataRows:            100_000,
 		config.KeyDataRowBytes:        16 << 10,
 		config.KeyDataMiB:             100,
+		config.KeyDataKeepDays:        90,
 		config.KeyFeedMaxTokens:       100,
 		config.KeyPnLSampleEvery:      10 * time.Minute,
 		config.KeyExecutionRetention:  30 * 24 * time.Hour,
@@ -156,7 +157,7 @@ func TestSettingsDefaults(t *testing.T) {
 		assert.Equal(t, want, spec(t, key).Default, key)
 	}
 
-	assert.Len(t, registry(t).Specs(), 104, "every setting has a default checked above")
+	assert.Len(t, registry(t).Specs(), 105, "every setting has a default checked above")
 
 	for _, key := range []string{
 		config.KeyTelegramToken, config.KeyBuilderAPIKey, config.KeyBuilderSecret, config.KeyBuilderPassphrase, config.KeyPolygonRPC,

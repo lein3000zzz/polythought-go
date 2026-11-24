@@ -272,6 +272,12 @@ func (s *Service) UpdateUser(ctx context.Context, actor Principal, id domain.Use
 		}
 	}
 
+	// Kept from datasets now, their workflows naming one go off, saying why: after the
+	// answer, for it looks through every workflow on.
+	if (upd.DataChosen != nil && !*upd.DataChosen || upd.Role != nil) && s.dataLeave != nil {
+		s.background(ctx, s.dataLeave)
+	}
+
 	// Their kill switch goes on, cancelling what rests on the book; enabled again, it
 	// stays on until they turn it off (D226).
 	if upd.Disabled != nil && *upd.Disabled && s.live != nil {

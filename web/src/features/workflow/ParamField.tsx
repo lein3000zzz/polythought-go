@@ -1,6 +1,7 @@
 import { useState, type ReactNode } from 'react'
 
-import { errorMessage, type ParamSpec } from '@/api/client'
+import { ApiError, errorMessage, type ParamSpec } from '@/api/client'
+import { useDatasets } from '@/api/datasets'
 import { useCredentialList, useCredentialTypes, useModels } from '@/api/vault'
 import { useWallets } from '@/api/wallets'
 import { CodeEditor } from '@/components/code/CodeEditor'
@@ -14,6 +15,7 @@ import { Switch } from '@/components/ui/switch'
 import { Textarea } from '@/components/ui/textarea'
 import { shortAddress } from '@/lib/format'
 
+import { NewDatasetDialog } from './NewDatasetDialog'
 import { chosen, hasExpressions, parseText, textOf } from './params'
 import type { FieldChoice } from './shapes'
 import { rowsOf } from './table'
@@ -75,6 +77,7 @@ function Control(props: Props) {
   if (spec.kind === 'bool') return <BoolField {...props} />
   if (spec.kind === 'wallet') return <WalletField {...props} />
   if (spec.kind === 'credential') return <CredentialField {...props} />
+  if (spec.kind === 'dataset') return <DatasetField {...props} />
   if (spec.options?.length && spec.kind === 'list') return <ChecklistField {...props} />
   if (spec.options?.length) return <SelectField {...props} />
   if (spec.kind === 'list' || spec.kind === 'tokens') return <TextField {...props} multiline />
@@ -445,6 +448,62 @@ function CredentialField({ spec, value, onChange, problem, scope }: Props) {
           <NativeSelectOption value={current}>Missing credential ({current})</NativeSelectOption>
         )}
       </NativeSelect>
+    </Field>
+  )
+}
+
+// No dataset's name starts with _, so the choice to make one cannot be taken for one.
+const newDataset = '__new__'
+
+// DatasetField picks one of the owner's datasets, or makes one there and then.
+function DatasetField({ spec, value, onChange, problem, scope }: Props) {
+  const list = useDatasets()
+  const [making, setMaking] = useState(false)
+  const current = typeof value === 'string' ? value : ''
+  const datasets = list.data?.datasets ?? []
+  const known = datasets.some((d) => d.name === current)
+  const off = list.error instanceof ApiError && list.error.code === 'data_off'
+
+  let hint: string | undefined
+  if (off) hint = 'Datasets are not open to you here: an admin decides who may use them.'
+  else if (list.isSuccess && datasets.length === 0) hint = 'You have none yet: make one here.'
+
+  return (
+    <Field spec={spec} scope={scope} problem={problem} hint={hint}>
+      <NativeSelect
+        id={fieldId(spec, scope)}
+        className="w-full"
+        value={current}
+        disabled={list.isPending || off}
+        aria-invalid={Boolean(problem) || undefined}
+        onChange={(e) => {
+          if (e.target.value === newDataset) setMaking(true)
+          else onChange(e.target.value === '' ? undefined : e.target.value)
+        }}
+      >
+        <NativeSelectOption value="">
+          {list.isPending ? 'Loading datasets…' : 'Choose a dataset'}
+        </NativeSelectOption>
+        {datasets.map((d) => (
+          <NativeSelectOption key={d.name} value={d.name}>
+            {d.keyField ? `${d.name} (by ${d.keyField})` : d.name}
+          </NativeSelectOption>
+        ))}
+        {current && list.isSuccess && !known && (
+          <NativeSelectOption value={current}>Missing dataset ({current})</NativeSelectOption>
+        )}
+        {list.isSuccess && <NativeSelectOption value={newDataset}>New dataset…</NativeSelectOption>}
+      </NativeSelect>
+      {making && list.data && (
+        <NewDatasetDialog
+          limits={list.data.limits}
+          onClose={() => setMaking(false)}
+          onMade={(name) => {
+            onChange(name)
+            setMaking(false)
+          }}
+        />
+      )}
     </Field>
   )
 }

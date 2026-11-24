@@ -285,7 +285,7 @@ type paramDTO struct {
 	Name        string `json:"name"`
 	Label       string `json:"label,omitempty" validate:"optional"`
 	Description string `json:"description,omitempty" validate:"optional"`
-	Kind        string `json:"kind" enums:"string,number,decimal,bool,list,duration,wallet,tokens,address,table,credential,code"`
+	Kind        string `json:"kind" enums:"string,number,decimal,bool,list,duration,wallet,tokens,address,table,credential,code,dataset"`
 	Required    bool   `json:"required"`
 	Default     any    `json:"default,omitempty" validate:"optional"`
 	// Options are the allowed values of a string, or of each element of a list.
@@ -355,7 +355,7 @@ type nodeTypeDTO struct {
 // the param saying how a node combines its two inputs (both, either, onlyA, onlyOne or
 // join), joinedAs the one naming the field that holds the second's item in a join. Named
 // names the text param holding the name of its one field; alone is the value of a param
-// under which a node passing items sends one item of its fields alone. The error port
+// under which a node passing items sends items of its fields alone. The error port
 // carries the items received.
 type itemsDTO struct {
 	Fields   []fieldDTO `json:"fields"`

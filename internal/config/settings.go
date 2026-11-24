@@ -113,6 +113,7 @@ const (
 	KeyDataRows            = "data.max_rows"
 	KeyDataRowBytes        = "data.max_row_bytes"
 	KeyDataMiB             = "data.max_mib"
+	KeyDataKeepDays        = "data.keep_days"
 	KeyForecastFor         = "weather.forecast_for"
 	KeyGitHubStars         = "github.stars"
 	KeyUpdateCheck         = "updates.check"
@@ -666,8 +667,8 @@ func Settings() (*settings.Registry, error) {
 		settings.Spec{
 			Key: KeyDataAccess, Group: groupData, Label: "Who may use models and datasets",
 			Description: "Datasets, and the nodes that record and read them, and models: everyone may (everyone), admins " +
-				"and the users switched on for them on the Users page (chosen), or no one, admins included (off). A " +
-				"workflow using them whose owner may not fails at once.",
+				"and the users switched on for them on the Users page (chosen), or no one, admins included (off). The " +
+				"workflows using them of a user who may no longer are switched off, saying why.",
 			Kind: settings.KindEnum, Default: string(domain.DataEveryone),
 			Options: []string{string(domain.DataEveryone), string(domain.DataChosen), string(domain.DataOff)},
 		},
@@ -691,6 +692,12 @@ func Settings() (*settings.Registry, error) {
 			Key: KeyDataMiB, Group: groupData, Label: "Storage per user (MiB)",
 			Description: "The most one user's datasets may take together, rows waiting for a replace counted.",
 			Kind:        settings.KindInt, Default: 100, Check: between(1, 100_000),
+		},
+		settings.Spec{
+			Key: KeyDataKeepDays, Group: groupData, Label: "Days a recorded dataset keeps",
+			Description: "What a dataset made in the Record node keeps to begin with: rows older than so many days go. " +
+				"Its owner may choose otherwise as they make it, and change it after.",
+			Kind: settings.KindInt, Default: 90, Check: between(1, 3650),
 		},
 		settings.Spec{
 			Key: KeyUpdateCheck, Group: groupUpdates, Label: "Check for updates",

@@ -25,6 +25,7 @@ func TestRegister(t *testing.T) {
 		HTTP:       httpStub{},
 		Hooks:      hooksStub{},
 		Weather:    weatherStub{},
+		Datasets:   datasetsStub{},
 		Logger:     logging.Noop(),
 	}
 
@@ -54,6 +55,8 @@ func TestRegister(t *testing.T) {
 		{name: "inbound webhook", typ: "trigger.webhook", wantTrigger: true},
 		{name: "weather forecast", typ: "weather.forecast"},
 		{name: "airport reading", typ: "weather.airport"},
+		{name: "record", typ: "data.record"},
+		{name: "read dataset", typ: "data.read"},
 		{name: "wait", typ: "logic.wait"},
 	}
 
@@ -76,11 +79,11 @@ func TestRegister(t *testing.T) {
 			Orders: ordersStub{}, Books: booksStub{}, Accounts: accountsStub{},
 			Canceller: cancellerStub{}, OrderEvents: eventsStub{},
 			Messenger: telegramStub{}, TelegramInbox: telegramStub{}, Asker: telegramStub{}, Code: codeStub{},
-			Memory: memoryStub{}, HTTP: httpStub{}, Hooks: hooksStub{}, Weather: weatherStub{},
+			Memory: memoryStub{}, HTTP: httpStub{}, Hooks: hooksStub{}, Weather: weatherStub{}, Datasets: datasetsStub{},
 		}))
 
 		types := all.Types()
-		assert.Len(t, types, 43)
+		assert.Len(t, types, 45)
 
 		for _, typ := range types {
 			if typ.Name == "code.transform" || typ.Name == "code.aggregate" {
@@ -124,6 +127,9 @@ func (weatherStub) Forecast(context.Context, ports.ForecastQuery) (ports.Forecas
 func (weatherStub) Observations(context.Context, string, int) ([]ports.Observation, error) {
 	return nil, nil
 }
+
+// datasetsStub stands in for the datasets: only the node types are read.
+type datasetsStub struct{ ports.DatasetStore }
 
 type hooksStub struct{}
 

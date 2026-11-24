@@ -939,3 +939,48 @@ func TestDescription(t *testing.T) {
 		require.ErrorIs(t, err, domain.ErrInvalidInput)
 	})
 }
+
+// A workflow naming a dataset its owner no longer has, or whose owner may not use datasets,
+// stays off.
+func TestActivateChecksDatasets(t *testing.T) {
+	ctx := context.Background()
+
+	service := func(t *testing.T, check error) (*workflows.Service, deps) {
+		t.Helper()
+
+		d := deps{
+			repo: portsmocks.NewMockWorkflowRepository(t), executions: portsmocks.NewMockExecutionRepository(t),
+			validator: workflowsmocks.NewMockValidator(t), executor: workflowsmocks.NewMockExecutor(t),
+			supervisor: workflowsmocks.NewMockSupervisor(t),
+		}
+
+		d.repo.EXPECT().Get(mock.Anything, domain.UserID("u-1"), domain.WorkflowID("wf-1")).Return(stored, nil)
+		d.repo.EXPECT().Count(mock.Anything, domain.UserID("u-1")).Return(1, 0, nil)
+		d.validator.EXPECT().Validate(mock.Anything, mock.Anything).Return(nil)
+
+		return workflows.New(d.repo, d.executions, d.validator, d.executor, d.supervisor, logging.Noop(),
+			workflows.WithClock(func() time.Time { return now }), workflows.WithLimits(workflows.DefaultLimits()),
+			workflows.WithDatasets(func(_ context.Context, w domain.Workflow) error {
+				assert.Equal(t, domain.WorkflowID("wf-1"), w.ID)
+				return check
+			})), d
+	}
+
+	t.Run("refused, saying why", func(t *testing.T) {
+		gone := errors.Join(domain.ErrInvalidInput, errors.New(`node "record" names the dataset "forecasts", which you do not have`))
+		s, _ := service(t, gone)
+
+		_, err := s.Activate(ctx, alice, "wf-1")
+		require.ErrorIs(t, err, domain.ErrInvalidInput)
+		assert.ErrorContains(t, err, `the dataset "forecasts"`)
+	})
+
+	t.Run("its datasets there, on", func(t *testing.T) {
+		s, d := service(t, nil)
+		d.repo.EXPECT().SetActive(mock.Anything, domain.UserID("u-1"), domain.WorkflowID("wf-1"), true, now, mock.Anything).Return(nil)
+		d.supervisor.EXPECT().Start(mock.Anything).Once()
+
+		_, err := s.Activate(ctx, alice, "wf-1")
+		require.NoError(t, err)
+	})
+}

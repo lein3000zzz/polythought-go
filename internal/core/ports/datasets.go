@@ -2,6 +2,7 @@ package ports
 
 import (
 	"context"
+	"encoding/json"
 	"time"
 
 	"github.com/lein3000zzz/polythought-go/internal/core/domain"
@@ -27,9 +28,10 @@ type DatasetRepository interface {
 	SetKeep(ctx context.Context, id domain.DatasetID, days, rows int, at time.Time) error
 	Delete(ctx context.Context, id domain.DatasetID) error
 
-	// Rows are a page of rows after seq, ascending; Latest, the row with the key last
-	// appended, domain.ErrNotFound for none.
+	// Rows are a page of rows after seq, ascending; Newest, the last n appended, ascending
+	// too; Latest, the row with the key last appended, domain.ErrNotFound for none.
 	Rows(ctx context.Context, id domain.DatasetID, after int64, limit int) ([]domain.DatasetRow, error)
+	Newest(ctx context.Context, id domain.DatasetID, n int) ([]domain.DatasetRow, error)
 	Latest(ctx context.Context, id domain.DatasetID, key string) (domain.DatasetRow, error)
 
 	// Append adds rows, then drops the oldest past keep, when keep is above zero.
@@ -51,4 +53,18 @@ type DatasetRepository interface {
 	// Sweep drops rows older than their dataset keeps and stages started before staleStage,
 	// saying how many rows went.
 	Sweep(ctx context.Context, now, staleStage time.Time) (int64, error)
+}
+
+// DatasetStore is what the dataset nodes need: the owner's dataset by name, refused with
+// domain.ErrDataOff when an admin keeps datasets from them, rows recorded into it, and rows
+// read from it.
+type DatasetStore interface {
+	Get(ctx context.Context, owner domain.UserID, name string) (domain.Dataset, error)
+	// Record appends rows, each checked alone: those the dataset refuses come back by their
+	// index, the rest go in together. An error refuses them all.
+	Record(ctx context.Context, d domain.Dataset, rows []json.RawMessage) (refused map[int]error, err error)
+	// Latest is the row last appended with the key, domain.ErrNotFound for none; Newest,
+	// the last n appended, oldest first.
+	Latest(ctx context.Context, d domain.Dataset, key string) (domain.DatasetRow, error)
+	Newest(ctx context.Context, d domain.Dataset, n int) ([]domain.DatasetRow, error)
 }

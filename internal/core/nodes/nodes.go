@@ -9,6 +9,7 @@ import (
 	"github.com/lein3000zzz/polythought-go/internal/core/nodes/ai"
 	"github.com/lein3000zzz/polythought-go/internal/core/nodes/codenodes"
 	"github.com/lein3000zzz/polythought-go/internal/core/nodes/credtypes"
+	"github.com/lein3000zzz/polythought-go/internal/core/nodes/data"
 	"github.com/lein3000zzz/polythought-go/internal/core/nodes/httpreq"
 	"github.com/lein3000zzz/polythought-go/internal/core/nodes/logic"
 	markets2 "github.com/lein3000zzz/polythought-go/internal/core/nodes/markets"
@@ -44,6 +45,7 @@ type Deps struct {
 	Traders         ports.TraderFeed       // optional: without it, trigger.walletActivity is not available
 	Hooks           ports.HookInbox        // optional: without it, trigger.webhook is not available
 	Weather         ports.WeatherReader    // optional: without it, the weather nodes are not available
+	Datasets        ports.DatasetStore     // optional: without it, Record and Read dataset are not available
 	Memory          ports.NodeMemory       // optional: without it, Only new, Throttle and Consensus are not available
 	Logger          logging.Logger
 
@@ -169,6 +171,18 @@ func Register(r *engine.Registry, d Deps) error {
 		airport = r.RegisterNode(weather.NewAirport(d.Weather, time.Now))
 	}
 
+	var record, read error
+	if d.Datasets != nil {
+		// A row says whether its workflow trades on paper or live, where the instance trades.
+		var modes data.Modes
+		if d.Accounts != nil {
+			modes = d.Accounts.Mode
+		}
+
+		record = r.RegisterNode(data.NewRecord(d.Datasets, modes, time.Now))
+		read = r.RegisterNode(data.NewRead(d.Datasets))
+	}
+
 	var telegramSend, telegramTrigger, telegramAsk error
 	if d.Messenger != nil {
 		telegramSend = r.RegisterNode(telegram.NewSend(d.Messenger))
@@ -224,6 +238,8 @@ func Register(r *engine.Registry, d Deps) error {
 		hook,
 		forecast,
 		airport,
+		record,
+		read,
 		dedupe,
 		throttle,
 		consensus,

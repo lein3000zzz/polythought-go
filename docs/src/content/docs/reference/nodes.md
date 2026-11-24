@@ -46,6 +46,13 @@ Each node has a page with its settings. In the editor, the node list on the left
 | [Airport reading](/docs/reference/nodes/weather/airport/) | `weather.airport` | Puts an airport's latest observation on each item, its METAR from aviationweather.gov, with the day's high and low so far as the temperature markets count them: routine reports only, in the local day. |
 | [Weather forecast](/docs/reference/nodes/weather/forecast/) | `weather.forecast` | Puts a forecast on each item: the daily highs and lows of several weather models side by side, from Open-Meteo, for a city Polymarket lists temperature markets for or any place. |
 
+## Data
+
+| Node | Type | What it does |
+|---|---|---|
+| [Read dataset](/docs/reference/nodes/data/read/) | `data.read` | Reads one of your datasets: for each item, the row whose key is the item's, put on it, items with none going out of missing; or every row, the newest 1,000 at most, an item each. |
+| [Record](/docs/reference/nodes/data/record/) | `data.record` | Adds a row to one of your datasets for each item: the fields chosen, or the whole item, with when (_at), the workflow (_workflow), its run (_execution) and whether it trades on paper or live (_mode). |
+
 ## Logic
 
 | Node | Type | What it does |
