@@ -305,7 +305,7 @@ describe('admin page', () => {
       await screen.findByText(/Admins may write code, and the users switched on below\./),
     ).toBeInTheDocument()
     await screen.findByText('alice@example.com')
-    expect(within(userRow('root@example.com')).getByText('Yes')).toBeInTheDocument()
+    expect(within(userRow('root@example.com')).getAllByRole('cell')[3]).toHaveTextContent('Yes')
     expect(within(userRow('root@example.com')).queryByRole('switch')).not.toBeInTheDocument()
 
     const chosen = within(userRow('alice@example.com')).getByRole('switch', {
@@ -364,5 +364,20 @@ describe('admin page', () => {
     expect(
       await screen.findByText('The last admin cannot be demoted or disabled'),
     ).toBeInTheDocument()
+  })
+  it("shows each user's datasets' storage against what each may have", async () => {
+    admin([root, alice])
+    server.use(
+      http.get('/api/v1/admin/datasets/usage', () =>
+        HttpResponse.json({ bytes: { [alice.id]: 2048 }, limit: 100 * 1024 * 1024 }),
+      ),
+    )
+    renderApp('/admin')
+
+    await screen.findByText('alice@example.com')
+    expect(
+      await within(userRow('alice@example.com')).findByText('2 KiB of 100 MiB'),
+    ).toBeInTheDocument()
+    expect(within(userRow('root@example.com')).getByText('0 B of 100 MiB')).toBeInTheDocument()
   })
 })

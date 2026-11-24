@@ -18,6 +18,11 @@ export const scopeInfo: Record<string, { title: string; detail: string; risky?: 
     detail:
       "Take and answer the tasks your workflows' Local agent nodes ask of your agents. A task's text comes from the workflow and its items, which can hold others' words.",
   },
+  data: {
+    title: 'Write datasets',
+    detail:
+      'Make your datasets, add rows to them, replace and delete them, as a notebook publishing its results does. Reading them takes Read alone.',
+  },
   settings: {
     title: 'Change settings',
     detail:

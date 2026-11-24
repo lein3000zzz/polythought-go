@@ -547,6 +547,32 @@ weather:
   # Environment: POLYTHOUGHT_WEATHER_FORECAST_FOR.
   # forecast_for: "10m"
 
+data:
+
+  # Datasets, and the nodes that record and read them, and models: everyone may
+  # (everyone), admins and the users switched on for them on the Users page (chosen), or
+  # no one, admins included (off). A workflow using them whose owner may not fails at
+  # once. One of everyone, chosen, off.
+  # Environment: POLYTHOUGHT_DATA_ACCESS.
+  # access: "everyone"
+
+  # The most datasets one user may have.
+  # Environment: POLYTHOUGHT_DATA_MAX_DATASETS.
+  # max_datasets: 100
+
+  # The most rows a dataset may hold. Appending past it drops the oldest where the
+  # dataset keeps a number of rows, and is refused otherwise.
+  # Environment: POLYTHOUGHT_DATA_MAX_ROWS.
+  # max_rows: 100000
+
+  # The most a row's JSON may take.
+  # Environment: POLYTHOUGHT_DATA_MAX_ROW_BYTES.
+  # max_row_bytes: 16384
+
+  # The most one user's datasets may take together, rows waiting for a replace counted.
+  # Environment: POLYTHOUGHT_DATA_MAX_MIB.
+  # max_mib: 100
+
 updates:
 
   # Ask GitHub once a day for Polythought's newest release, to show on the Config page

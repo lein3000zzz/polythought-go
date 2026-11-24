@@ -9,6 +9,8 @@ export const alice: Schemas['User'] = {
   emailVerified: true,
   disabled: false,
   codeChosen: false,
+  dataChosen: false,
+  mayUseData: true,
   mayWriteCode: true,
   liveStopped: false,
   liveCaps: {},

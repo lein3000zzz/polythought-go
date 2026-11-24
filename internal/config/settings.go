@@ -108,6 +108,11 @@ const (
 	KeyWebhookAllowPrivate = "webhook.allow_private"
 	KeyOutboundProxy       = "outbound.proxy"
 	KeyOpenMeteoKey        = "weather.open_meteo_key"
+	KeyDataAccess          = "data.access"
+	KeyDataSets            = "data.max_datasets"
+	KeyDataRows            = "data.max_rows"
+	KeyDataRowBytes        = "data.max_row_bytes"
+	KeyDataMiB             = "data.max_mib"
 	KeyForecastFor         = "weather.forecast_for"
 	KeyGitHubStars         = "github.stars"
 	KeyUpdateCheck         = "updates.check"
@@ -168,6 +173,7 @@ const (
 	groupMCP        = "Agents over MCP"
 	groupNetwork    = "Network"
 	groupWeather    = "Weather"
+	groupData       = "Models and datasets"
 	groupUpdates    = "Updates"
 	groupLogging    = "Logging"
 	groupTelegram   = "Telegram"
@@ -656,6 +662,35 @@ func Settings() (*settings.Registry, error) {
 			Description: "How long a forecast is kept before it is asked for again: every workflow asking for the same " +
 				"place and models within it shares one answer. Models update every few hours.",
 			Kind: settings.KindDuration, Default: 10 * time.Minute, Check: within(time.Minute, 6*time.Hour),
+		},
+		settings.Spec{
+			Key: KeyDataAccess, Group: groupData, Label: "Who may use models and datasets",
+			Description: "Datasets, and the nodes that record and read them, and models: everyone may (everyone), admins " +
+				"and the users switched on for them on the Users page (chosen), or no one, admins included (off). A " +
+				"workflow using them whose owner may not fails at once.",
+			Kind: settings.KindEnum, Default: string(domain.DataEveryone),
+			Options: []string{string(domain.DataEveryone), string(domain.DataChosen), string(domain.DataOff)},
+		},
+		settings.Spec{
+			Key: KeyDataSets, Group: groupData, Label: "Datasets per user",
+			Description: "The most datasets one user may have.",
+			Kind:        settings.KindInt, Default: 100, Check: between(1, 10_000),
+		},
+		settings.Spec{
+			Key: KeyDataRows, Group: groupData, Label: "Rows per dataset",
+			Description: "The most rows a dataset may hold. Appending past it drops the oldest where the dataset keeps " +
+				"a number of rows, and is refused otherwise.",
+			Kind: settings.KindInt, Default: 100_000, Check: between(1, 10_000_000),
+		},
+		settings.Spec{
+			Key: KeyDataRowBytes, Group: groupData, Label: "Bytes per row",
+			Description: "The most a row's JSON may take.",
+			Kind:        settings.KindInt, Default: 16 << 10, Check: between(256, 1<<20),
+		},
+		settings.Spec{
+			Key: KeyDataMiB, Group: groupData, Label: "Storage per user (MiB)",
+			Description: "The most one user's datasets may take together, rows waiting for a replace counted.",
+			Kind:        settings.KindInt, Default: 100, Check: between(1, 100_000),
 		},
 		settings.Spec{
 			Key: KeyUpdateCheck, Group: groupUpdates, Label: "Check for updates",

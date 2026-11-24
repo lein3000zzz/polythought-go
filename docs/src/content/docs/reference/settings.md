@@ -1011,6 +1011,68 @@ How long a forecast is kept before it is asked for again: every workflow asking 
 | Default | `10m` |
 | Applies | at once |
 
+## Models and datasets
+
+### Who may use models and datasets
+
+Datasets, and the nodes that record and read them, and models: everyone may (everyone), admins and the users switched on for them on the Users page (chosen), or no one, admins included (off). A workflow using them whose owner may not fails at once.
+
+| | |
+|---|---|
+| Key | `data.access` |
+| Environment variable | `POLYTHOUGHT_DATA_ACCESS` |
+| Kind | one of `everyone`, `chosen`, `off` |
+| Default | `everyone` |
+| Applies | at once |
+
+### Datasets per user
+
+The most datasets one user may have.
+
+| | |
+|---|---|
+| Key | `data.max_datasets` |
+| Environment variable | `POLYTHOUGHT_DATA_MAX_DATASETS` |
+| Kind | whole number |
+| Default | `100` |
+| Applies | at once |
+
+### Rows per dataset
+
+The most rows a dataset may hold. Appending past it drops the oldest where the dataset keeps a number of rows, and is refused otherwise.
+
+| | |
+|---|---|
+| Key | `data.max_rows` |
+| Environment variable | `POLYTHOUGHT_DATA_MAX_ROWS` |
+| Kind | whole number |
+| Default | `100000` |
+| Applies | at once |
+
+### Bytes per row
+
+The most a row's JSON may take.
+
+| | |
+|---|---|
+| Key | `data.max_row_bytes` |
+| Environment variable | `POLYTHOUGHT_DATA_MAX_ROW_BYTES` |
+| Kind | whole number |
+| Default | `16384` |
+| Applies | at once |
+
+### Storage per user (MiB)
+
+The most one user's datasets may take together, rows waiting for a replace counted.
+
+| | |
+|---|---|
+| Key | `data.max_mib` |
+| Environment variable | `POLYTHOUGHT_DATA_MAX_MIB` |
+| Kind | whole number |
+| Default | `100` |
+| Applies | at once |
+
 ## Updates
 
 ### Check for updates
