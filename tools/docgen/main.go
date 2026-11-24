@@ -68,7 +68,7 @@ func exampleFile() (string, error) {
 }
 
 // typesDir is where the SDK's declarations are, from the repository's root.
-const typesDir = "internal/adapters/tscompiler/sdk/types"
+const typesDir = "sdk/typescript/types"
 
 // build generates the pages and the declarations from the node types and settings the
 // server registers.

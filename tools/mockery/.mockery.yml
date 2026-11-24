@@ -142,6 +142,7 @@ packages:
       TelegramService: {}
       TelegramWebhook: {}
       HookService: {}
+      MarketDataService: {}
       NotificationService: {}
       CustomNodeService: {}
       MailService: {}

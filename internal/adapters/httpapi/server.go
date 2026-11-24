@@ -151,7 +151,9 @@ type Services struct {
 	// TelegramWebhook takes updates in webhook mode; nil when there is no bot.
 	TelegramWebhook TelegramWebhook
 	// Hooks is inbound webhooks (D439); nil for none.
-	Hooks         HookService
+	Hooks HookService
+	// MarketData is Polymarket's data over REST (D442); nil for none.
+	MarketData    MarketDataService
 	Notifications NotificationService
 	CustomNodes   CustomNodeService
 	Mail          MailService
@@ -225,6 +227,7 @@ type Server struct {
 	telegram      TelegramService
 	telegramHook  TelegramWebhook
 	hooks         HookService
+	marketData    MarketDataService
 	notifications NotificationService
 	mail          MailService
 	geoblock      GeoblockService
@@ -316,6 +319,7 @@ func New(cfg Config, util *observability.Utility, services Services) (*Server, e
 		telegram:      services.Telegram,
 		telegramHook:  services.TelegramWebhook,
 		hooks:         services.Hooks,
+		marketData:    services.MarketData,
 		notifications: services.Notifications,
 		mail:          services.Mail,
 		geoblock:      services.Geoblock,
@@ -499,6 +503,15 @@ func (s *Server) routes() {
 	v1.GET("/code/types", s.requireAuth, s.getCodeTypes)
 	v1.POST("/code/workflow", s.requireAuth, s.postWorkflowCode)
 	v1.GET("/events", s.requireAuth, s.streamEvents)
+
+	// Polymarket's data, as agents have it over MCP (D442): read scope, every user.
+	md := v1.Group("/market-data", s.requireAuth, s.hasMarketData)
+	md.GET("/search", s.searchMarketData)
+	md.GET("/markets/:market", s.getMarketData)
+	md.GET("/markets/:market/trades", s.getMarketTrades)
+	md.GET("/books", s.getOrderBooks)
+	md.GET("/history/:token", s.getPriceHistory)
+	md.GET("/traders/:address/positions", s.getAddressPositions)
 
 	wf := v1.Group("/workflows", s.requireAuth)
 	wf.GET("", s.listWorkflows)

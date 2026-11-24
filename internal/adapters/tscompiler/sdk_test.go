@@ -225,7 +225,7 @@ var (
 func declaredFields(t *testing.T) map[string][]string {
 	t.Helper()
 
-	f, err := os.Open("sdk/types/sdk.d.ts")
+	f, err := os.Open("../../../sdk/typescript/types/sdk.d.ts")
 	require.NoError(t, err)
 	t.Cleanup(func() { _ = f.Close() })
 
