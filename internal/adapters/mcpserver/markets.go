@@ -48,6 +48,8 @@ type marketDetails struct {
 	MinOrderSize    string       `json:"minOrderSize" jsonschema:"the fewest shares an order may be for"`
 	Volume24h       string       `json:"volume24h"`
 	Liquidity       string       `json:"liquidity"`
+	CreatedAt       *time.Time   `json:"createdAt,omitempty" jsonschema:"when Polymarket listed it"`
+	StartsAt        *time.Time   `json:"startsAt,omitempty" jsonschema:"when it opens, as Polymarket has it"`
 	EndsAt          *time.Time   `json:"endsAt,omitempty"`
 	Tags            []string     `json:"tags,omitempty"`
 }
@@ -114,7 +116,7 @@ func (s *Server) getMarket(ctx context.Context, _ auth.Principal, in marketIn) (
 		ID: string(m.ID), Slug: m.Slug, Question: m.Question, Description: m.Description, Outcomes: []outcomeOut{},
 		Status: string(m.Status), AcceptingOrders: m.AcceptingOrders, NegRisk: m.NegRisk, TickSize: m.TickSize.String(),
 		MinOrderSize: m.MinOrderSize.String(), Volume24h: m.Volume24h.String(), Liquidity: m.Liquidity.String(),
-		EndsAt: optionalTime(m.EndsAt), Tags: m.Tags,
+		CreatedAt: optionalTime(m.CreatedAt), StartsAt: optionalTime(m.StartsAt), EndsAt: optionalTime(m.EndsAt), Tags: m.Tags,
 	}
 
 	for _, o := range m.Outcomes {

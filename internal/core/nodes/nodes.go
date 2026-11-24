@@ -194,6 +194,7 @@ func Register(r *engine.Registry, d Deps) error {
 		r.RegisterNode(markets2.NewMarkets(d.Markets)),
 		r.RegisterNode(markets2.NewSearch(d.Events)),
 		r.RegisterNode(markets2.NewOrderBooks(d.OrderBooks)),
+		r.RegisterNode(markets2.NewEventPrices(d.Events, d.OrderBooks)),
 		r.RegisterNode(markets2.NewPriceChange(d.PriceHistory)),
 		r.RegisterNode(markets2.NewTrades(d.Trades)),
 		r.RegisterNode(logic.If{}),

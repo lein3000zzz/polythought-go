@@ -198,6 +198,8 @@ message Market {
   repeated string tags = 14;
   string event = 15; // its event's title
   string event_slug = 16;
+  string created_at = 17; // when Polymarket listed it
+  string starts_at = 18; // when it opens, as Polymarket has it
 }
 
 message Outcome {

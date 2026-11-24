@@ -1168,6 +1168,8 @@ type Market struct {
 	Tags            []string               `protobuf:"bytes,14,rep,name=tags,proto3" json:"tags,omitempty"`
 	Event           string                 `protobuf:"bytes,15,opt,name=event,proto3" json:"event,omitempty"` // its event's title
 	EventSlug       string                 `protobuf:"bytes,16,opt,name=event_slug,json=eventSlug,proto3" json:"event_slug,omitempty"`
+	CreatedAt       string                 `protobuf:"bytes,17,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"` // when Polymarket listed it
+	StartsAt        string                 `protobuf:"bytes,18,opt,name=starts_at,json=startsAt,proto3" json:"starts_at,omitempty"`    // when it opens, as Polymarket has it
 	unknownFields   protoimpl.UnknownFields
 	sizeCache       protoimpl.SizeCache
 }
@@ -1310,6 +1312,20 @@ func (x *Market) GetEvent() string {
 func (x *Market) GetEventSlug() string {
 	if x != nil {
 		return x.EventSlug
+	}
+	return ""
+}
+
+func (x *Market) GetCreatedAt() string {
+	if x != nil {
+		return x.CreatedAt
+	}
+	return ""
+}
+
+func (x *Market) GetStartsAt() string {
+	if x != nil {
+		return x.StartsAt
 	}
 	return ""
 }
@@ -3437,7 +3453,7 @@ const file_plugin_v1_host_proto_rawDesc = "" +
 	"\x05after\x18\x03 \x01(\tR\x05after\x12\x14\n" +
 	"\x05limit\x18\x04 \x01(\x05R\x05limit\"&\n" +
 	"\x10ListKeysResponse\x12\x12\n" +
-	"\x04keys\x18\x01 \x03(\tR\x04keys\"\xda\x03\n" +
+	"\x04keys\x18\x01 \x03(\tR\x04keys\"\x96\x04\n" +
 	"\x06Market\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x12\n" +
 	"\x04slug\x18\x02 \x01(\tR\x04slug\x12\x1a\n" +
@@ -3457,7 +3473,10 @@ const file_plugin_v1_host_proto_rawDesc = "" +
 	"\x04tags\x18\x0e \x03(\tR\x04tags\x12\x14\n" +
 	"\x05event\x18\x0f \x01(\tR\x05event\x12\x1d\n" +
 	"\n" +
-	"event_slug\x18\x10 \x01(\tR\teventSlug\"P\n" +
+	"event_slug\x18\x10 \x01(\tR\teventSlug\x12\x1d\n" +
+	"\n" +
+	"created_at\x18\x11 \x01(\tR\tcreatedAt\x12\x1b\n" +
+	"\tstarts_at\x18\x12 \x01(\tR\bstartsAt\"P\n" +
 	"\aOutcome\x12\x19\n" +
 	"\btoken_id\x18\x01 \x01(\tR\atokenId\x12\x14\n" +
 	"\x05label\x18\x02 \x01(\tR\x05label\x12\x14\n" +

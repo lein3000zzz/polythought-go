@@ -36,6 +36,8 @@ func MarketItem(m domain.Market) map[string]any {
 		"minOrderSize":    m.MinOrderSize,
 		"volume24h":       m.Volume24h,
 		"liquidity":       m.Liquidity,
+		"createdAt":       m.CreatedAt,
+		"startsAt":        m.StartsAt,
 		"endsAt":          m.EndsAt,
 		"outcomes":        outcomes,
 	}
@@ -101,6 +103,8 @@ func MarketFields() []engine.Field {
 		shape.Decimal("minOrderSize", "The smallest order, in shares."),
 		shape.Decimal("volume24h", "Dollars traded in the last 24 hours."),
 		shape.Decimal("liquidity", "Dollars on its order books."),
+		shape.Time("createdAt", "When Polymarket listed it."),
+		shape.Time("startsAt", "When it opens, as Polymarket has it."),
 		shape.Time("endsAt", "When it is expected to settle."),
 		shape.ListOf("outcomes", "What it can settle as, such as Yes and No.",
 			shape.Text("tokenId", "The outcome's token ID."),

@@ -24,6 +24,7 @@ type Market struct {
 	ResolutionStatus      string                       `json:"resolutionStatus"`    // v2: inactive, active, resolved
 	StartDate             string                       `json:"startDate"`
 	EndDate               string                       `json:"endDate"`
+	CreatedAt             string                       `json:"createdAt"`
 	Volume                decimal.Decimal              `json:"volume"`
 	Liquidity             decimal.Decimal              `json:"liquidity"`
 	VolumeNum             decimal.Decimal              `json:"volumeNum"`

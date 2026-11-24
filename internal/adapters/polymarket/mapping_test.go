@@ -179,6 +179,7 @@ func TestToMarketAndEvent(t *testing.T) {
 		Active: true, AcceptingOrders: true, NegRisk: true,
 		OrderPriceMinTickSize: dec("0.001"), OrderMinSize: dec("5"),
 		Volume24hr: dec("100.5"), LiquidityNum: dec("2000"), EndDate: "2027-01-01T00:00:00Z",
+		CreatedAt: "2026-11-20T09:30:00.123456Z", StartDate: "2026-11-21T00:00:00Z",
 	}
 
 	wantMarket := domain.Market{
@@ -189,6 +190,7 @@ func TestToMarketAndEvent(t *testing.T) {
 		},
 		Status: domain.MarketOpen, AcceptingOrders: true, NegRisk: true,
 		TickSize: dec("0.001"), MinOrderSize: dec("5"), Volume24h: dec("100.5"), Liquidity: dec("2000"),
+		CreatedAt: time.Date(2026, 11, 20, 9, 30, 0, 123456000, time.UTC), StartsAt: time.Date(2026, 11, 21, 0, 0, 0, 0, time.UTC),
 		EndsAt: time.Date(2027, 1, 1, 0, 0, 0, 0, time.UTC),
 	}
 
