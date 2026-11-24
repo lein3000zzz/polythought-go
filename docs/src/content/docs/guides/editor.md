@@ -87,6 +87,8 @@ first, then the list, so the canvas keeps some room.
 - **Notes** on a node are for you: they show on the canvas and never change what it does.
 - **Continue on failure** sends items the node fails on to its `error` port instead of
   failing the execution; see [When items fail](/docs/guides/concepts/#when-items-fail).
+- **Retry** is how many more times the node tries what fails, empty for its default; see
+  [Trying again](/docs/guides/concepts/#trying-again).
 
 ## Shortcuts
 

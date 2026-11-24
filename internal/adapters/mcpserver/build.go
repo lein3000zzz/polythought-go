@@ -96,6 +96,7 @@ type nodeOut struct {
 	Name           string         `json:"name,omitempty"`
 	Notes          string         `json:"notes,omitempty"`
 	ContinueOnFail bool           `json:"continueOnFail,omitempty"`
+	Retry          *int           `json:"retry,omitempty"`
 	Params         map[string]any `json:"params,omitempty"`
 }
 
@@ -174,7 +175,8 @@ func graphOf(nodes []domain.NodeSpec, conns []domain.Connection) *graph {
 
 	for i, n := range nodes {
 		g.Nodes[i] = nodeOut{
-			ID: string(n.ID), Type: n.Type, Name: n.Name, Notes: n.Notes, ContinueOnFail: n.ContinueOnFail, Params: n.Params,
+			ID: string(n.ID), Type: n.Type, Name: n.Name, Notes: n.Notes, ContinueOnFail: n.ContinueOnFail, Retry: n.Retry,
+			Params: n.Params,
 		}
 	}
 

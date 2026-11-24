@@ -19,6 +19,7 @@ type built struct {
 		Notes          string         `json:"notes"`
 		Params         map[string]any `json:"params"`
 		ContinueOnFail bool           `json:"continueOnFail"`
+		Retry          *int           `json:"retry"`
 	} `json:"nodes"`
 	Connections *[]struct {
 		From     string `json:"from"`
@@ -71,6 +72,7 @@ func (s *Service) Workflow(ctx context.Context, source string) (domain.Workflow,
 	for i, n := range *b.Nodes {
 		w.Nodes[i] = domain.NodeSpec{
 			ID: domain.NodeID(n.ID), Type: n.Type, Name: n.Name, Notes: n.Notes, Params: n.Params, ContinueOnFail: n.ContinueOnFail,
+			Retry: n.Retry,
 		}
 	}
 

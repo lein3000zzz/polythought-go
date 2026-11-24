@@ -115,5 +115,8 @@ function runSummary(run: NodeRun): string {
 
   const took = run.finishedAt ? Date.parse(run.finishedAt) - Date.parse(run.startedAt) : 0
 
-  return `${run.status === 'failed' ? 'Failed' : 'Succeeded'} in ${formatDuration(took)}.`
+  // Retried, it says how many times it ran (D440).
+  const tries = run.tries && run.tries > 1 ? `, after ${run.tries} tries` : ''
+
+  return `${run.status === 'failed' ? 'Failed' : 'Succeeded'} in ${formatDuration(took)}${tries}.`
 }

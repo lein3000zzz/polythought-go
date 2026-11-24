@@ -89,7 +89,14 @@ type NodeSpec struct {
 	// ContinueOnFail routes items that failed to the node's error port instead of
 	// failing the execution.
 	ContinueOnFail bool
+
+	// Retry is how many more times the node tries what failed (D440), 0 to 5; nil for
+	// its type's default.
+	Retry *int
 }
+
+// MaxRetry is the most a node's Retry setting may be.
+const MaxRetry = 5
 
 // HiddenPersonal stands for the value of a personal setting, such as a webhook's URL, that
 // a token or an agent may not see (D401, D402): a workflow saved with it keeps the value

@@ -167,7 +167,8 @@ func (s *Server) definitionOf(ctx context.Context, p auth.Principal, in writeIn,
 
 	for _, n := range in.Workflow.Nodes {
 		def.Nodes = append(def.Nodes, domain.NodeSpec{
-			ID: domain.NodeID(n.ID), Type: n.Type, Name: n.Name, Notes: n.Notes, ContinueOnFail: n.ContinueOnFail, Params: n.Params,
+			ID: domain.NodeID(n.ID), Type: n.Type, Name: n.Name, Notes: n.Notes, ContinueOnFail: n.ContinueOnFail, Retry: n.Retry,
+			Params: n.Params,
 		})
 	}
 

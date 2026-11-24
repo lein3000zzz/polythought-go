@@ -27,6 +27,7 @@ type scenarioDoc struct {
 		Name           string         `json:"name"`
 		Params         map[string]any `json:"params"`
 		ContinueOnFail bool           `json:"continueOnFail"`
+		Retry          *int           `json:"retry"`
 		Notes          string         `json:"notes"`
 		Position       struct {
 			X float64 `json:"x"`
@@ -85,7 +86,7 @@ func ParseScenario(raw []byte) (domain.Template, error) {
 	for _, n := range doc.Nodes {
 		t.Nodes = append(t.Nodes, domain.NodeSpec{
 			ID: domain.NodeID(n.ID), Type: n.Type, Name: n.Name, Params: n.Params,
-			ContinueOnFail: n.ContinueOnFail, Notes: n.Notes,
+			ContinueOnFail: n.ContinueOnFail, Retry: n.Retry, Notes: n.Notes,
 			Position: domain.CanvasPosition{X: n.Position.X, Y: n.Position.Y},
 		})
 	}

@@ -52,7 +52,9 @@ export default workflow("Spread watch", (w) => {
 ```
 
 - `w.trigger(id, type, settings)` and `w.node(id, type, settings)` declare nodes; a fourth
-  argument takes `{ name, notes, continueOnFail }`.
+  argument takes `{ name, notes, continueOnFail, retry }`. `retry` is how many more times a
+  node tries what failed, 0 to 5; left out, nodes that only read try 3 more times and those
+  that act none. Place order nodes take none.
 - `a.to(b)` connects a's main output to b; `a.port("true").to(b)` another output, such as
   If's `true`, a Telegram question's button, or `error` on a node that continues on failure.
 - Settings take expressions in `{{ }}`, such as `{{ question }}` for an item's field.

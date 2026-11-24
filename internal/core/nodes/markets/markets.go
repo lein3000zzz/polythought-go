@@ -24,6 +24,7 @@ func NewMarkets(reader ports.MarketReader) *Markets {
 func (*Markets) Type() engine.NodeType {
 	return engine.NodeType{
 		Name:        MarketsType,
+		Reads:       true, // retried 3 times to begin with (D440)
 		Label:       "Markets",
 		Description: "Looks up markets, one item per market.",
 		Inputs:      []string{engine.DefaultPort},

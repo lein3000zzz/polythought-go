@@ -15,6 +15,7 @@ import { Textarea } from '@/components/ui/textarea'
 
 import type { FlowNode, NodeSpec } from './graph'
 import { ParamField } from './ParamField'
+import { maxRetry, retriesByDefault } from './retry'
 import { expressionProblem, takesExpressions } from './params'
 import { fieldMessage, useNodeProblems } from './problems'
 import { fieldChoices, fieldProblem, type Shape } from './shapes'
@@ -24,7 +25,7 @@ type Props = {
   workflowId?: string // once saved
   received?: Shape // what its main input's items look like, when known
   inputs?: ReadonlyMap<string, Shape> // what each input's look like
-  onChange: (patch: Partial<Pick<NodeSpec, 'name' | 'continueOnFail' | 'notes'>>) => void
+  onChange: (patch: Partial<Pick<NodeSpec, 'name' | 'continueOnFail' | 'retry' | 'notes'>>) => void
   onParam: (name: string, value: unknown) => void
   onDelete: () => void
 }
@@ -173,6 +174,52 @@ export function NodePanel({
           </p>
         </div>
       )}
+
+      {type && !type.trigger && !type.noRetry && (
+        <RetrySetting
+          value={spec.retry}
+          fallback={retriesByDefault(type, params)}
+          onChange={(retry) => onChange({ retry })}
+        />
+      )}
+    </div>
+  )
+}
+
+/** The node's Retry setting, empty for its type's default. */
+function RetrySetting({
+  value,
+  fallback,
+  onChange,
+}: {
+  value?: number
+  fallback: number
+  onChange: (retry: number | undefined) => void
+}) {
+  return (
+    <div className="flex flex-col gap-1">
+      <div className="flex items-center justify-between gap-2">
+        <Label htmlFor="node-retry">Retry</Label>
+        <Input
+          id="node-retry"
+          type="number"
+          min={0}
+          max={maxRetry}
+          className="w-28"
+          value={value ?? ''}
+          placeholder={`${fallback} (default)`}
+          onChange={(e) => {
+            const n = e.target.valueAsNumber
+            onChange(Number.isNaN(n) ? undefined : Math.min(Math.max(Math.trunc(n), 0), maxRetry))
+          }}
+        />
+      </div>
+      <p className="text-xs text-muted-foreground">
+        More tries for what fails, up to {maxRetry}, waiting 1, 2, 4… seconds between them.
+        {fallback > 0
+          ? ' It only reads, so it tries again to begin with.'
+          : ' A node that acts tries again only when you say: a retry may do what it does twice.'}
+      </p>
     </div>
   )
 }

@@ -16,7 +16,7 @@ Cancels the workflow's own orders resting on the book, for each item: the item's
 | Inputs | `main` |
 | Outputs | `main`, `missed` |
 
-Items that fail stop the execution, unless **Continue on failure** is on: then they leave on the `error` port instead.
+Items that fail stop the execution, unless **Continue on failure** is on: then they leave on the `error` port instead. What fails is tried again only when **Retry** asks.
 
 ## Settings
 

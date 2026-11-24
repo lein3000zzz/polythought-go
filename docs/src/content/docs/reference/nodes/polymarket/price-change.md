@@ -16,7 +16,7 @@ Compares each outcome's price now with its price a while ago: the change in cent
 | Inputs | `main` |
 | Outputs | `main` |
 
-Items that fail stop the execution, unless **Continue on failure** is on: then they leave on the `error` port instead.
+Items that fail stop the execution, unless **Continue on failure** is on: then they leave on the `error` port instead. It only reads, so what fails is tried again 3 more times to begin with, as **Retry** says.
 
 ## Settings
 

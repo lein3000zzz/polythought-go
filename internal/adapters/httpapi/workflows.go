@@ -28,6 +28,9 @@ type nodeDTO struct {
 	Name           string         `json:"name,omitempty" validate:"optional"`
 	Params         map[string]any `json:"params,omitempty" validate:"optional"`
 	ContinueOnFail bool           `json:"continueOnFail,omitempty" validate:"optional"`
+	// Retry is how many more times the node tries what failed, 0 to 5, waiting 1, 2, 4…
+	// seconds; left out for its type's default: 3 for one that only reads, else none.
+	Retry *int `json:"retry,omitempty" validate:"optional" minimum:"0" maximum:"5"`
 	// Position is where the editor draws the node; it never affects execution.
 	Position positionDTO `json:"position" validate:"optional"`
 	// Notes explain the node to whoever reads the workflow; they never affect execution.
@@ -36,14 +39,14 @@ type nodeDTO struct {
 
 func toNodeDTO(n domain.NodeSpec) nodeDTO {
 	return nodeDTO{
-		ID: string(n.ID), Type: n.Type, Name: n.Name, Params: n.Params, ContinueOnFail: n.ContinueOnFail,
+		ID: string(n.ID), Type: n.Type, Name: n.Name, Params: n.Params, ContinueOnFail: n.ContinueOnFail, Retry: n.Retry,
 		Position: positionDTO{X: n.Position.X, Y: n.Position.Y}, Notes: n.Notes,
 	}
 }
 
 func (n nodeDTO) spec() domain.NodeSpec {
 	return domain.NodeSpec{
-		ID: domain.NodeID(n.ID), Type: n.Type, Name: n.Name, Params: n.Params, ContinueOnFail: n.ContinueOnFail,
+		ID: domain.NodeID(n.ID), Type: n.Type, Name: n.Name, Params: n.Params, ContinueOnFail: n.ContinueOnFail, Retry: n.Retry,
 		Position: domain.CanvasPosition{X: n.Position.X, Y: n.Position.Y}, Notes: n.Notes,
 	}
 }
@@ -184,6 +187,8 @@ type nodeRunDTO struct {
 	Input      map[string]int `json:"input,omitempty" validate:"optional"`                         // items per input port
 	Output     map[string]int `json:"output,omitempty" validate:"optional"`                        // items per output port
 	Error      string         `json:"error,omitempty" validate:"optional"`
+	// Tries is how many times the node ran, its retries counted; absent for once.
+	Tries int `json:"tries,omitempty" validate:"optional"`
 	// Samples are the first items of each output port. Only runs started by hand keep
 	// them, and execution lists leave them out.
 	Samples map[string][]itemSampleDTO `json:"samples,omitempty" validate:"optional"`
@@ -225,7 +230,7 @@ func toExecutionDTO(e domain.Execution, withSamples bool) executionDTO {
 	for i, r := range e.Runs {
 		out.Runs[i] = nodeRunDTO{
 			NodeID: string(r.NodeID), Status: string(r.Status), StartedAt: r.StartedAt, FinishedAt: optionalTime(r.FinishedAt),
-			Input: r.Input, Output: r.Output, Error: r.Error,
+			Input: r.Input, Output: r.Output, Error: r.Error, Tries: r.Tries,
 		}
 
 		if withSamples {
@@ -336,6 +341,12 @@ type nodeTypeDTO struct {
 	Plugin     string `json:"plugin,omitempty" validate:"optional"`
 	PluginName string `json:"pluginName,omitempty" validate:"optional"`
 	Trades     bool   `json:"trades,omitempty" validate:"optional"`
+	// Reads says it only reads, so a failure is tried again 3 more times unless its
+	// retry says otherwise; readsWhen, that it reads only with that param's value.
+	// NoRetry says it is never retried: a retry could do what it does twice.
+	Reads     bool       `json:"reads,omitempty" validate:"optional"`
+	ReadsWhen *choiceDTO `json:"readsWhen,omitempty" validate:"optional"`
+	NoRetry   bool       `json:"noRetry,omitempty" validate:"optional"`
 } // @name NodeType
 
 // itemsDTO describes the items a node emits on every output port: fields of its own, or
@@ -416,6 +427,7 @@ func toNodeTypeDTO(t engine.TypeInfo) nodeTypeDTO {
 		Params: make([]paramDTO, len(t.Params)), OutputsParam: t.OutputsParam, OutputsColumn: t.OutputsColumn,
 		Items: toItemsDTO(t.Items), Code: t.Code, Remembers: t.Remembers, SeesItems: t.SeesItems,
 		Plugin: t.Plugin, PluginName: t.PluginName, Trades: t.Trades,
+		Reads: t.Reads, ReadsWhen: toChoiceDTO(t.ReadsWhen), NoRetry: t.NoRetry || t.Trades,
 	}
 
 	for j, p := range t.Params {
@@ -930,4 +942,12 @@ func (s *Server) orderPins(ctx context.Context, c *app.RequestContext) {
 	}
 
 	c.Status(http.StatusNoContent)
+}
+
+func toChoiceDTO(c *engine.Choice) *choiceDTO {
+	if c == nil {
+		return nil
+	}
+
+	return &choiceDTO{Param: c.Param, Value: c.Value}
 }

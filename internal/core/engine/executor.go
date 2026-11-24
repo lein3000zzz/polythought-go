@@ -52,6 +52,7 @@ type Executor struct {
 	log       logging.Logger
 	now       func() time.Time
 	newExecID func() domain.ExecutionID
+	retryWait func(n int) time.Duration
 	recorder  ports.ExecutionRecorder
 	notifiers []ports.ExecutionNotifier
 
@@ -119,6 +120,7 @@ func NewExecutor(util *observability.Utility, registry *Registry, opts ...Execut
 		log:       log,
 		now:       time.Now,
 		newExecID: func() domain.ExecutionID { return domain.ExecutionID(uuid.Must(uuid.NewV7()).String()) },
+		retryWait: RetryWait,
 	}
 
 	for _, opt := range opts {
@@ -505,14 +507,14 @@ func (x *execution) runFrom(ctx context.Context, order []domain.NodeID) error {
 }
 
 func (x *execution) runNode(ctx context.Context, id domain.NodeID, in Ports) error {
-	return x.step(ctx, id, in, func(ctx context.Context, node Node, rc RunContext, given Ports) (Ports, error) {
+	return x.step(ctx, id, in, true, func(ctx context.Context, node Node, rc RunContext, given Ports) (Ports, error) {
 		return node.Run(ctx, rc, given)
 	})
 }
 
 // resumeNode finishes the run of a node that waited.
 func (x *execution) resumeNode(ctx context.Context, id domain.NodeID, in Ports, r Resumption) error {
-	return x.step(ctx, id, in, func(ctx context.Context, node Node, rc RunContext, given Ports) (Ports, error) {
+	return x.step(ctx, id, in, false, func(ctx context.Context, node Node, rc RunContext, given Ports) (Ports, error) {
 		resumer, ok := node.(Resumer)
 		if !ok {
 			return nil, ErrCannotWait
@@ -522,12 +524,14 @@ func (x *execution) resumeNode(ctx context.Context, id domain.NodeID, in Ports, 
 	})
 }
 
-// step runs one node through call and records how it went. A node that waits gives a
-// pause instead of an error.
+// step runs one node through call and records how it went, trying again what failed as
+// its Retry setting says when retry is on (D440). A node that waits gives a pause instead
+// of an error.
 func (x *execution) step(
 	ctx context.Context,
 	id domain.NodeID,
 	in Ports,
+	retry bool,
 	call func(context.Context, Node, RunContext, Ports) (Ports, error),
 ) (err error) {
 	spec, _ := x.workflow.Node(id)
@@ -566,7 +570,17 @@ func (x *execution) step(
 		// Items whose expressions fail go to the error port, as if the node failed them.
 		given, screened := screen(&rc, in)
 
-		out, err := x.safeCall(ctx, id, func(ctx context.Context) (Ports, error) { return call(ctx, node, rc, given) })
+		try := func(ctx context.Context, rc RunContext, given Ports) (Ports, error) {
+			return x.safeCall(ctx, id, func(ctx context.Context) (Ports, error) { return call(ctx, node, rc, given) })
+		}
+
+		out, err := try(ctx, rc, given)
+
+		if retries := Retries(typ, spec); retry && retries > 0 {
+			out, run.Tries, err = x.retried(ctx, id, retries, rc, given, out, err, try)
+			span.SetAttributes(attribute.Int("node.tries", run.Tries))
+		}
+
 		if err == nil {
 			out = screened.restore(out)
 		}

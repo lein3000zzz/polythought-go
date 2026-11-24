@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"maps"
 	"slices"
+	"strconv"
 	"strings"
 
 	"github.com/lein3000zzz/polythought-go/internal/core/domain"
@@ -55,6 +56,10 @@ func (s *Service) changes(before, after domain.Workflow) string {
 
 		if old.ContinueOnFail != n.ContinueOnFail {
 			what = append(what, fmt.Sprintf("continue on failure %t → %t", old.ContinueOnFail, n.ContinueOnFail))
+		}
+
+		if retryOf(old) != retryOf(n) {
+			what = append(what, fmt.Sprintf("retry %s → %s", retryOf(old), retryOf(n)))
 		}
 
 		if changed := s.settingsOf(n, &old); changed != "" {
@@ -179,4 +184,13 @@ func shown(v any) string {
 	}
 
 	return text
+}
+
+// retryOf is a node's Retry setting as a change shows it.
+func retryOf(n domain.NodeSpec) string {
+	if n.Retry == nil {
+		return "default"
+	}
+
+	return strconv.Itoa(*n.Retry)
 }
