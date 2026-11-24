@@ -745,6 +745,33 @@
                 ],
                 "type": "object"
             },
+            "AskModelRequest": {
+                "properties": {
+                    "items": {
+                        "description": "Items are JSON objects, one per answer wanted.",
+                        "items": {
+                            "additionalProperties": {},
+                            "type": "object"
+                        },
+                        "type": "array",
+                        "uniqueItems": false
+                    },
+                    "schema": {
+                        "additionalProperties": {},
+                        "description": "Schema is a JSON Schema each answer is to keep to; the model is told it.",
+                        "type": "object"
+                    },
+                    "waitSeconds": {
+                        "description": "WaitSeconds is how long to wait for the answers: 30 unless said, up to the instance's\nmost.",
+                        "minimum": 1,
+                        "type": "integer"
+                    }
+                },
+                "required": [
+                    "items"
+                ],
+                "type": "object"
+            },
             "AuthConfig": {
                 "properties": {
                     "minPasswordLength": {
@@ -1051,6 +1078,36 @@
                 ],
                 "type": "object"
             },
+            "ConnectedWorker": {
+                "properties": {
+                    "holding": {
+                        "description": "Holding is how many requests it holds now.",
+                        "type": "integer"
+                    },
+                    "name": {
+                        "type": "string"
+                    },
+                    "seen": {
+                        "format": "date-time",
+                        "type": "string"
+                    },
+                    "since": {
+                        "description": "Since is when it connected, this time; Seen when it last called for a request.",
+                        "format": "date-time",
+                        "type": "string"
+                    },
+                    "version": {
+                        "type": "string"
+                    }
+                },
+                "required": [
+                    "holding",
+                    "name",
+                    "seen",
+                    "since"
+                ],
+                "type": "object"
+            },
             "Connection": {
                 "properties": {
                     "from": {
@@ -1141,6 +1198,33 @@
                 },
                 "type": "object"
             },
+            "CreateMLModelRequest": {
+                "properties": {
+                    "credentialId": {
+                        "type": "string"
+                    },
+                    "kind": {
+                        "enum": [
+                            "worker",
+                            "url"
+                        ],
+                        "type": "string"
+                    },
+                    "name": {
+                        "description": "Name is lower-case letters, digits, - and _, up to 64; unique among yours, and fixed.",
+                        "type": "string"
+                    },
+                    "url": {
+                        "description": "URL and CredentialID are a URL model's; a worker model has neither.",
+                        "type": "string"
+                    }
+                },
+                "required": [
+                    "kind",
+                    "name"
+                ],
+                "type": "object"
+            },
             "CreateTokenRequest": {
                 "properties": {
                     "expiresAt": {
@@ -1196,6 +1280,17 @@
                 "required": [
                     "email",
                     "password"
+                ],
+                "type": "object"
+            },
+            "CreateWorkerKeyRequest": {
+                "properties": {
+                    "name": {
+                        "type": "string"
+                    }
+                },
+                "required": [
+                    "name"
                 ],
                 "type": "object"
             },
@@ -3062,6 +3157,137 @@
                 ],
                 "type": "object"
             },
+            "MLModel": {
+                "properties": {
+                    "createdAt": {
+                        "format": "date-time",
+                        "type": "string"
+                    },
+                    "credentialId": {
+                        "type": "string"
+                    },
+                    "kind": {
+                        "description": "Kind is worker, for a model whose workers take its requests, or url, for one called\nat a URL.",
+                        "enum": [
+                            "worker",
+                            "url"
+                        ],
+                        "type": "string"
+                    },
+                    "lastAnswerAt": {
+                        "format": "date-time",
+                        "type": "string"
+                    },
+                    "lastError": {
+                        "type": "string"
+                    },
+                    "lastErrorAt": {
+                        "format": "date-time",
+                        "type": "string"
+                    },
+                    "name": {
+                        "type": "string"
+                    },
+                    "updatedAt": {
+                        "format": "date-time",
+                        "type": "string"
+                    },
+                    "url": {
+                        "description": "URL and CredentialID are a URL model's: where it is called, and the http.header\ncredential sent with each call.",
+                        "type": "string"
+                    },
+                    "workers": {
+                        "description": "Workers are a worker model's workers connected now, by name.",
+                        "items": {
+                            "$ref": "#/components/schemas/ConnectedWorker"
+                        },
+                        "type": "array",
+                        "uniqueItems": false
+                    }
+                },
+                "required": [
+                    "createdAt",
+                    "kind",
+                    "name",
+                    "updatedAt",
+                    "workers"
+                ],
+                "type": "object"
+            },
+            "MLModelLimits": {
+                "properties": {
+                    "answerBytes": {
+                        "description": "an answer's",
+                        "type": "integer"
+                    },
+                    "items": {
+                        "description": "a request's",
+                        "type": "integer"
+                    },
+                    "maxWaitSeconds": {
+                        "description": "MaxWaitSeconds is the longest an asker may wait; PollSeconds how long a worker's call\nfor a request is held open.",
+                        "type": "integer"
+                    },
+                    "models": {
+                        "description": "a user's",
+                        "type": "integer"
+                    },
+                    "pollSeconds": {
+                        "type": "integer"
+                    },
+                    "requestBytes": {
+                        "description": "a request's",
+                        "type": "integer"
+                    },
+                    "workers": {
+                        "description": "connected to a model at once",
+                        "type": "integer"
+                    }
+                },
+                "required": [
+                    "answerBytes",
+                    "items",
+                    "maxWaitSeconds",
+                    "models",
+                    "pollSeconds",
+                    "requestBytes",
+                    "workers"
+                ],
+                "type": "object"
+            },
+            "MLModelList": {
+                "properties": {
+                    "limits": {
+                        "$ref": "#/components/schemas/MLModelLimits"
+                    },
+                    "models": {
+                        "items": {
+                            "$ref": "#/components/schemas/MLModel"
+                        },
+                        "type": "array",
+                        "uniqueItems": false
+                    }
+                },
+                "required": [
+                    "limits",
+                    "models"
+                ],
+                "type": "object"
+            },
+            "MLModelURLRequest": {
+                "properties": {
+                    "credentialId": {
+                        "type": "string"
+                    },
+                    "url": {
+                        "type": "string"
+                    }
+                },
+                "required": [
+                    "url"
+                ],
+                "type": "object"
+            },
             "Market": {
                 "properties": {
                     "acceptingOrders": {
@@ -3296,6 +3522,34 @@
                 ],
                 "type": "object"
             },
+            "ModelAnswers": {
+                "properties": {
+                    "answers": {
+                        "description": "Answers are one per item, in their order.",
+                        "items": {},
+                        "type": "array",
+                        "uniqueItems": false
+                    },
+                    "refused": {
+                        "additionalProperties": {
+                            "type": "string"
+                        },
+                        "description": "Refused are the answers that do not keep to the schema, by index, saying why.",
+                        "type": "object"
+                    },
+                    "version": {
+                        "description": "Version is what the worker or the URL said it was; Worker the worker that answered.",
+                        "type": "string"
+                    },
+                    "worker": {
+                        "type": "string"
+                    }
+                },
+                "required": [
+                    "answers"
+                ],
+                "type": "object"
+            },
             "ModelList": {
                 "properties": {
                     "models": {
@@ -3308,6 +3562,22 @@
                 },
                 "required": [
                     "models"
+                ],
+                "type": "object"
+            },
+            "NewWorkerKey": {
+                "properties": {
+                    "key": {
+                        "$ref": "#/components/schemas/WorkerKey"
+                    },
+                    "secret": {
+                        "description": "Secret is the key itself, shown this once.",
+                        "type": "string"
+                    }
+                },
+                "required": [
+                    "key",
+                    "secret"
                 ],
                 "type": "object"
             },
@@ -6535,6 +6805,149 @@
                 ],
                 "type": "object"
             },
+            "WorkerAnswer": {
+                "properties": {
+                    "answers": {
+                        "description": "Answers are one per item, in their order: any JSON.",
+                        "items": {},
+                        "type": "array",
+                        "uniqueItems": false
+                    },
+                    "version": {
+                        "type": "string"
+                    },
+                    "worker": {
+                        "type": "string"
+                    }
+                },
+                "required": [
+                    "answers",
+                    "worker"
+                ],
+                "type": "object"
+            },
+            "WorkerFail": {
+                "properties": {
+                    "reason": {
+                        "description": "Reason is why, up to 500 characters: each item fails with it.",
+                        "type": "string"
+                    },
+                    "version": {
+                        "type": "string"
+                    },
+                    "worker": {
+                        "type": "string"
+                    }
+                },
+                "required": [
+                    "reason",
+                    "worker"
+                ],
+                "type": "object"
+            },
+            "WorkerKey": {
+                "properties": {
+                    "createdAt": {
+                        "format": "date-time",
+                        "type": "string"
+                    },
+                    "id": {
+                        "type": "string"
+                    },
+                    "lastUsedAt": {
+                        "format": "date-time",
+                        "type": "string"
+                    },
+                    "name": {
+                        "type": "string"
+                    },
+                    "prefix": {
+                        "description": "Prefix is the key's start, to tell it apart.",
+                        "type": "string"
+                    }
+                },
+                "required": [
+                    "createdAt",
+                    "id",
+                    "name",
+                    "prefix"
+                ],
+                "type": "object"
+            },
+            "WorkerKeyList": {
+                "properties": {
+                    "keys": {
+                        "items": {
+                            "$ref": "#/components/schemas/WorkerKey"
+                        },
+                        "type": "array",
+                        "uniqueItems": false
+                    }
+                },
+                "required": [
+                    "keys"
+                ],
+                "type": "object"
+            },
+            "WorkerRequest": {
+                "properties": {
+                    "model": {
+                        "description": "Model is the model the key serves.",
+                        "type": "string"
+                    },
+                    "request": {
+                        "$ref": "#/components/schemas/WorkerTask"
+                    }
+                },
+                "required": [
+                    "model",
+                    "request"
+                ],
+                "type": "object"
+            },
+            "WorkerTake": {
+                "properties": {
+                    "version": {
+                        "description": "Version is the model's version it serves, which each answer carries.",
+                        "type": "string"
+                    },
+                    "worker": {
+                        "description": "Worker is this worker's name, unique among the model's, like gpu-box-1.",
+                        "type": "string"
+                    }
+                },
+                "required": [
+                    "worker"
+                ],
+                "type": "object"
+            },
+            "WorkerTask": {
+                "properties": {
+                    "deadline": {
+                        "description": "Deadline is when its asker stops waiting.",
+                        "format": "date-time",
+                        "type": "string"
+                    },
+                    "id": {
+                        "type": "string"
+                    },
+                    "items": {
+                        "description": "Items are the asker's, one answer each.",
+                        "items": {},
+                        "type": "array",
+                        "uniqueItems": false
+                    },
+                    "schema": {
+                        "description": "Schema is what each answer is to keep to, if any."
+                    }
+                },
+                "required": [
+                    "deadline",
+                    "id",
+                    "items"
+                ],
+                "type": "object"
+            },
             "Workflow": {
                 "properties": {
                     "actedBy": {
@@ -6947,6 +7360,11 @@
                 "in": "cookie",
                 "name": "polythought_session",
                 "type": "apiKey"
+            },
+            "WorkerKey": {
+                "description": "A model's worker key, for its workers alone: Authorization: Bearer pw_...",
+                "scheme": "bearer",
+                "type": "http"
             }
         }
     },
@@ -14445,6 +14863,520 @@
                 ]
             }
         },
+        "/models": {
+            "get": {
+                "operationId": "listMLModels",
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/MLModelList"
+                                }
+                            }
+                        },
+                        "description": "OK"
+                    },
+                    "403": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "data_off: an admin keeps models from you"
+                    }
+                },
+                "security": [
+                    {
+                        "SessionCookie": []
+                    },
+                    {
+                        "APIToken": []
+                    }
+                ],
+                "summary": "List models",
+                "tags": [
+                    "models"
+                ]
+            },
+            "post": {
+                "operationId": "createMLModel",
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/CreateMLModelRequest",
+                                "summary": "body",
+                                "description": "The model"
+                            }
+                        }
+                    },
+                    "description": "The model",
+                    "required": true
+                },
+                "responses": {
+                    "201": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/MLModel"
+                                }
+                            }
+                        },
+                        "description": "Created"
+                    },
+                    "400": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "invalid_input"
+                    },
+                    "409": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "model_exists; model_limit: as many as you may have"
+                    }
+                },
+                "security": [
+                    {
+                        "SessionCookie": []
+                    },
+                    {
+                        "APIToken": []
+                    }
+                ],
+                "summary": "Make a model",
+                "tags": [
+                    "models"
+                ]
+            }
+        },
+        "/models/{name}": {
+            "delete": {
+                "operationId": "deleteMLModel",
+                "parameters": [
+                    {
+                        "description": "Its name",
+                        "in": "path",
+                        "name": "name",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "No Content"
+                    },
+                    "404": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "not_found"
+                    }
+                },
+                "security": [
+                    {
+                        "SessionCookie": []
+                    },
+                    {
+                        "APIToken": []
+                    }
+                ],
+                "summary": "Delete a model",
+                "tags": [
+                    "models"
+                ]
+            },
+            "get": {
+                "operationId": "getMLModel",
+                "parameters": [
+                    {
+                        "description": "Its name",
+                        "in": "path",
+                        "name": "name",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/MLModel"
+                                }
+                            }
+                        },
+                        "description": "OK"
+                    },
+                    "404": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "not_found"
+                    }
+                },
+                "security": [
+                    {
+                        "SessionCookie": []
+                    },
+                    {
+                        "APIToken": []
+                    }
+                ],
+                "summary": "Get a model",
+                "tags": [
+                    "models"
+                ]
+            },
+            "put": {
+                "operationId": "setMLModelURL",
+                "parameters": [
+                    {
+                        "description": "Its name",
+                        "in": "path",
+                        "name": "name",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/MLModelURLRequest",
+                                "summary": "body",
+                                "description": "Its URL and credential"
+                            }
+                        }
+                    },
+                    "description": "Its URL and credential",
+                    "required": true
+                },
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/MLModel"
+                                }
+                            }
+                        },
+                        "description": "OK"
+                    },
+                    "400": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "invalid_input"
+                    },
+                    "404": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "not_found"
+                    }
+                },
+                "security": [
+                    {
+                        "SessionCookie": []
+                    },
+                    {
+                        "APIToken": []
+                    }
+                ],
+                "summary": "Set a URL model's address",
+                "tags": [
+                    "models"
+                ]
+            }
+        },
+        "/models/{name}/ask": {
+            "post": {
+                "operationId": "askMLModel",
+                "parameters": [
+                    {
+                        "description": "Its name",
+                        "in": "path",
+                        "name": "name",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/AskModelRequest",
+                                "summary": "body",
+                                "description": "The items"
+                            }
+                        }
+                    },
+                    "description": "The items",
+                    "required": true
+                },
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ModelAnswers"
+                                }
+                            }
+                        },
+                        "description": "OK"
+                    },
+                    "400": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "invalid_input"
+                    },
+                    "409": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "model_offline: no worker connected"
+                    },
+                    "504": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "model_timeout: no answer in time"
+                    }
+                },
+                "security": [
+                    {
+                        "SessionCookie": []
+                    },
+                    {
+                        "APIToken": []
+                    }
+                ],
+                "summary": "Ask a model",
+                "tags": [
+                    "models"
+                ]
+            }
+        },
+        "/models/{name}/keys": {
+            "get": {
+                "operationId": "listWorkerKeys",
+                "parameters": [
+                    {
+                        "description": "Its name",
+                        "in": "path",
+                        "name": "name",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/WorkerKeyList"
+                                }
+                            }
+                        },
+                        "description": "OK"
+                    },
+                    "404": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "not_found"
+                    }
+                },
+                "security": [
+                    {
+                        "SessionCookie": []
+                    },
+                    {
+                        "APIToken": []
+                    }
+                ],
+                "summary": "List a model's worker keys",
+                "tags": [
+                    "models"
+                ]
+            },
+            "post": {
+                "operationId": "createWorkerKey",
+                "parameters": [
+                    {
+                        "description": "Its model's name",
+                        "in": "path",
+                        "name": "name",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/CreateWorkerKeyRequest",
+                                "summary": "body",
+                                "description": "The key's name"
+                            }
+                        }
+                    },
+                    "description": "The key's name",
+                    "required": true
+                },
+                "responses": {
+                    "201": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/NewWorkerKey"
+                                }
+                            }
+                        },
+                        "description": "Created"
+                    },
+                    "400": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "invalid_input"
+                    },
+                    "403": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "forbidden: at a browser only"
+                    }
+                },
+                "security": [
+                    {
+                        "SessionCookie": []
+                    }
+                ],
+                "summary": "Make a worker key",
+                "tags": [
+                    "models"
+                ]
+            }
+        },
+        "/models/{name}/keys/{id}": {
+            "delete": {
+                "operationId": "deleteWorkerKey",
+                "parameters": [
+                    {
+                        "description": "Its model's name",
+                        "in": "path",
+                        "name": "name",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "description": "The key's ID",
+                        "in": "path",
+                        "name": "id",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "No Content"
+                    },
+                    "404": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "not_found"
+                    }
+                },
+                "security": [
+                    {
+                        "SessionCookie": []
+                    },
+                    {
+                        "APIToken": []
+                    }
+                ],
+                "summary": "Revoke a worker key",
+                "tags": [
+                    "models"
+                ]
+            }
+        },
         "/node-types": {
             "get": {
                 "operationId": "listNodeTypes",
@@ -17051,6 +17983,184 @@
                 "summary": "Authorise a session key",
                 "tags": [
                     "wallets"
+                ]
+            }
+        },
+        "/worker/next": {
+            "post": {
+                "operationId": "workerNext",
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/WorkerTake",
+                                "summary": "body",
+                                "description": "The worker"
+                            }
+                        }
+                    },
+                    "description": "The worker",
+                    "required": true
+                },
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/WorkerRequest"
+                                }
+                            }
+                        },
+                        "description": "OK"
+                    },
+                    "204": {
+                        "description": "none came: call again"
+                    },
+                    "401": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "unauthenticated: not a worker key"
+                    },
+                    "409": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "model_limit: as many workers connected as the model may have"
+                    }
+                },
+                "security": [
+                    {
+                        "WorkerKey": []
+                    }
+                ],
+                "summary": "Take the next request (a worker's)",
+                "tags": [
+                    "workers"
+                ]
+            }
+        },
+        "/worker/requests/{id}/answer": {
+            "post": {
+                "operationId": "workerAnswer",
+                "parameters": [
+                    {
+                        "description": "The request's ID",
+                        "in": "path",
+                        "name": "id",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/WorkerAnswer",
+                                "summary": "body",
+                                "description": "The answers"
+                            }
+                        }
+                    },
+                    "description": "The answers",
+                    "required": true
+                },
+                "responses": {
+                    "204": {
+                        "description": "No Content"
+                    },
+                    "400": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "invalid_input: not one answer an item"
+                    },
+                    "404": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "not_found: answered already, or its asker stopped waiting"
+                    }
+                },
+                "security": [
+                    {
+                        "WorkerKey": []
+                    }
+                ],
+                "summary": "Answer a request (a worker's)",
+                "tags": [
+                    "workers"
+                ]
+            }
+        },
+        "/worker/requests/{id}/fail": {
+            "post": {
+                "operationId": "workerFail",
+                "parameters": [
+                    {
+                        "description": "The request's ID",
+                        "in": "path",
+                        "name": "id",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/WorkerFail",
+                                "summary": "body",
+                                "description": "Why"
+                            }
+                        }
+                    },
+                    "description": "Why",
+                    "required": true
+                },
+                "responses": {
+                    "204": {
+                        "description": "No Content"
+                    },
+                    "404": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "not_found: answered already, or its asker stopped waiting"
+                    }
+                },
+                "security": [
+                    {
+                        "WorkerKey": []
+                    }
+                ],
+                "summary": "Fail a request (a worker's)",
+                "tags": [
+                    "workers"
                 ]
             }
         },

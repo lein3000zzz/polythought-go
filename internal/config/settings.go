@@ -114,6 +114,14 @@ const (
 	KeyDataRowBytes        = "data.max_row_bytes"
 	KeyDataMiB             = "data.max_mib"
 	KeyDataKeepDays        = "data.keep_days"
+	KeyModels              = "models.max_models"
+	KeyModelWorkers        = "models.max_workers"
+	KeyModelItems          = "models.max_items"
+	KeyModelRequestBytes   = "models.max_request_bytes"
+	KeyModelAnswerBytes    = "models.max_answer_bytes"
+	KeyModelMaxWait        = "models.max_wait"
+	KeyModelPoll           = "models.poll_wait"
+	KeyModelLease          = "models.lease"
 	KeyForecastFor         = "weather.forecast_for"
 	KeyGitHubStars         = "github.stars"
 	KeyUpdateCheck         = "updates.check"
@@ -698,6 +706,49 @@ func Settings() (*settings.Registry, error) {
 			Description: "What a dataset made in the Record node keeps to begin with: rows older than so many days go. " +
 				"Its owner may choose otherwise as they make it, and change it after.",
 			Kind: settings.KindInt, Default: 90, Check: between(1, 3650),
+		},
+		settings.Spec{
+			Key: KeyModels, Group: groupData, Label: "Models per user",
+			Description: "The most models one user may have.",
+			Kind:        settings.KindInt, Default: 20, Check: between(1, 1000),
+		},
+		settings.Spec{
+			Key: KeyModelWorkers, Group: groupData, Label: "Workers per model",
+			Description: "The most workers connected to one model at once. Another is refused until one goes.",
+			Kind:        settings.KindInt, Default: 10, Check: between(1, 1000),
+		},
+		settings.Spec{
+			Key: KeyModelItems, Group: groupData, Label: "Items per request",
+			Description: "The most items a workflow asks a model about at once.",
+			Kind:        settings.KindInt, Default: 1000, Check: between(1, 100_000),
+		},
+		settings.Spec{
+			Key: KeyModelRequestBytes, Group: groupData, Label: "Bytes per request",
+			Description: "The most a request to a model may take: its items' JSON, and its schema.",
+			Kind:        settings.KindInt, Default: 1 << 20, Check: between(1<<10, 64<<20),
+		},
+		settings.Spec{
+			Key: KeyModelAnswerBytes, Group: groupData, Label: "Bytes per answer",
+			Description: "The most a model's answers to one request may take together.",
+			Kind:        settings.KindInt, Default: 1 << 20, Check: between(1<<10, 64<<20),
+		},
+		settings.Spec{
+			Key: KeyModelMaxWait, Group: groupData, Label: "Longest wait for a model",
+			Description: "The longest a workflow may wait for a model's answers. Each node waits 30 seconds unless its " +
+				"setting says otherwise.",
+			Kind: settings.KindDuration, Default: 5 * time.Minute, Check: within(time.Second, time.Hour),
+		},
+		settings.Spec{
+			Key: KeyModelPoll, Group: groupData, Label: "Workers wait for requests",
+			Description: "How long a worker's call for the next request is held open before it says none came, and the " +
+				"worker calls again. A worker counts as connected for this long after its last call, and 30 seconds more.",
+			Kind: settings.KindDuration, Default: 50 * time.Second, Check: within(5*time.Second, 10*time.Minute),
+		},
+		settings.Spec{
+			Key: KeyModelLease, Group: groupData, Label: "Workers hold a request",
+			Description: "How long a worker that took a request holds it: past that with no answer, another worker may " +
+				"take it, and the first answer counts.",
+			Kind: settings.KindDuration, Default: time.Minute, Check: within(5*time.Second, time.Hour),
 		},
 		settings.Spec{
 			Key: KeyUpdateCheck, Group: groupUpdates, Label: "Check for updates",

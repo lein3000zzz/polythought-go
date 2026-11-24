@@ -14,7 +14,7 @@ the Users page, or no one.
 
 ## Making one
 
-A notebook makes one with an API token that may **Write datasets**. Reading them takes
+A notebook makes one with an API token that may **Write datasets and models**. Reading them takes
 **Read** alone. Make the token under **Settings → API tokens**.
 
 ```sh

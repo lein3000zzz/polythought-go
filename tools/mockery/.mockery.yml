@@ -69,6 +69,7 @@ packages:
       PriceHistoryReader: {}
       WebhookSender: {}
       DatasetRepository: {}
+      ModelRepository: {}
       CredentialRepository: {}
       CredentialReader: {}
       NodeMemory: {}
@@ -145,6 +146,7 @@ packages:
       HookService: {}
       MarketDataService: {}
       DatasetService: {}
+      MLModelService: {}
       NotificationService: {}
       CustomNodeService: {}
       MailService: {}

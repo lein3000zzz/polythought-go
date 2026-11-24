@@ -578,6 +578,44 @@ data:
   # Environment: POLYTHOUGHT_DATA_KEEP_DAYS.
   # keep_days: 90
 
+models:
+
+  # The most models one user may have.
+  # Environment: POLYTHOUGHT_MODELS_MAX_MODELS.
+  # max_models: 20
+
+  # The most workers connected to one model at once. Another is refused until one goes.
+  # Environment: POLYTHOUGHT_MODELS_MAX_WORKERS.
+  # max_workers: 10
+
+  # The most items a workflow asks a model about at once.
+  # Environment: POLYTHOUGHT_MODELS_MAX_ITEMS.
+  # max_items: 1000
+
+  # The most a request to a model may take: its items' JSON, and its schema.
+  # Environment: POLYTHOUGHT_MODELS_MAX_REQUEST_BYTES.
+  # max_request_bytes: 1048576
+
+  # The most a model's answers to one request may take together.
+  # Environment: POLYTHOUGHT_MODELS_MAX_ANSWER_BYTES.
+  # max_answer_bytes: 1048576
+
+  # The longest a workflow may wait for a model's answers. Each node waits 30 seconds
+  # unless its setting says otherwise.
+  # Environment: POLYTHOUGHT_MODELS_MAX_WAIT.
+  # max_wait: "5m"
+
+  # How long a worker's call for the next request is held open before it says none came,
+  # and the worker calls again. A worker counts as connected for this long after its
+  # last call, and 30 seconds more.
+  # Environment: POLYTHOUGHT_MODELS_POLL_WAIT.
+  # poll_wait: "50s"
+
+  # How long a worker that took a request holds it: past that with no answer, another
+  # worker may take it, and the first answer counts.
+  # Environment: POLYTHOUGHT_MODELS_LEASE.
+  # lease: "1m"
+
 updates:
 
   # Ask GitHub once a day for Polythought's newest release, to show on the Config page

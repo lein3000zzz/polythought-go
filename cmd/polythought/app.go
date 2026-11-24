@@ -53,6 +53,7 @@ import (
 	"github.com/lein3000zzz/polythought-go/internal/core/services/mail"
 	"github.com/lein3000zzz/polythought-go/internal/core/services/memory"
 	"github.com/lein3000zzz/polythought-go/internal/core/services/meta"
+	"github.com/lein3000zzz/polythought-go/internal/core/services/mlmodels"
 	"github.com/lein3000zzz/polythought-go/internal/core/services/models"
 	"github.com/lein3000zzz/polythought-go/internal/core/services/notify"
 	"github.com/lein3000zzz/polythought-go/internal/core/services/oauth"
@@ -160,6 +161,7 @@ type app struct {
 	taskAgents      *tasks.Presence // which owners have an agent taking tasks (D386)
 	hooks           *hooks.Service  // inbound webhooks
 	datasets        *datasets.Service
+	mlModels        *mlmodels.Service
 	tasks           *tasks.Service
 	code            *code.Service
 	codeRunners     func() ports.CodeRunners
@@ -558,6 +560,14 @@ func datasetLimits(s *settings.Snapshot) datasets.Limits {
 	return datasets.Limits{
 		Datasets: s.Int(config.KeyDataSets), Rows: s.Int(config.KeyDataRows), RowBytes: s.Int(config.KeyDataRowBytes),
 		Bytes: int64(s.Int(config.KeyDataMiB)) << 20, KeepDays: s.Int(config.KeyDataKeepDays),
+	}
+}
+
+func modelLimits(s *settings.Snapshot) mlmodels.Limits {
+	return mlmodels.Limits{
+		Models: s.Int(config.KeyModels), Workers: s.Int(config.KeyModelWorkers), Items: s.Int(config.KeyModelItems),
+		RequestBytes: s.Int(config.KeyModelRequestBytes), AnswerBytes: s.Int(config.KeyModelAnswerBytes),
+		MaxWait: s.Duration(config.KeyModelMaxWait), Poll: s.Duration(config.KeyModelPoll), Lease: s.Duration(config.KeyModelLease),
 	}
 }
 
@@ -1178,6 +1188,17 @@ func (a *app) initEngine(ctx context.Context, pmc polymarket) error {
 		Gate:   auth.DataGate{Users: postgres.NewUsers(a.db), Mode: func() domain.DataAccess { return dataAccess(a.settings.Current()) }},
 		Limits: func() datasets.Limits { return datasetLimits(a.settings.Current()) },
 		Logger: a.util.Logger,
+	})
+
+	// Users' own models, reached by their workers or at a URL, as an admin lets them.
+	a.mlModels = mlmodels.New(mlmodels.Deps{
+		Repo:        postgres.NewModels(a.db),
+		Gate:        auth.DataGate{Users: postgres.NewUsers(a.db), Mode: func() domain.DataAccess { return dataAccess(a.settings.Current()) }},
+		Limits:      func() mlmodels.Limits { return modelLimits(a.settings.Current()) },
+		HTTP:        requests,
+		Credentials: a.credentials,
+		Misses:      ratelimit.NewMemory(30*time.Second, 10), // per address: 10 wrong keys, then one every 30 s
+		Logger:      a.util.Logger,
 	})
 
 	err = nodes.Register(a.registry, nodes.Deps{

@@ -118,6 +118,17 @@ var routeScopes = map[string]access{
 	"POST /api/v1/datasets/:name/replace/:stage/rows":   need(domain.ScopeData),
 	"POST /api/v1/datasets/:name/replace/:stage/finish": need(domain.ScopeData),
 	"DELETE /api/v1/datasets/:name/replace/:stage":      need(domain.ScopeData),
+	// Models: written and asked with the data scope.
+	"POST /api/v1/models":                  need(domain.ScopeData),
+	"PUT /api/v1/models/:name":             need(domain.ScopeData),
+	"DELETE /api/v1/models/:name":          need(domain.ScopeData),
+	"POST /api/v1/models/:name/ask":        need(domain.ScopeData),
+	"POST /api/v1/models/:name/keys":       browserOnly, // a worker key is made at a browser
+	"DELETE /api/v1/models/:name/keys/:id": need(domain.ScopeData),
+	// A model's workers sign in with its worker key, never a token.
+	"POST /api/v1/worker/next":                anyToken,
+	"POST /api/v1/worker/requests/:id/answer": anyToken,
+	"POST /api/v1/worker/requests/:id/fail":   anyToken,
 	// An inbound webhook's secret address starts the workflow for whoever has it:
 	// its owner's, at a browser, read and renewed.
 	"GET /api/v1/workflows/:id/hooks/:node":        browserOnly,

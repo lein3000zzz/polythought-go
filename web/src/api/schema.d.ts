@@ -1755,6 +1755,95 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/models": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List models */
+        get: operations["listMLModels"];
+        put?: never;
+        /** Make a model */
+        post: operations["createMLModel"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/models/{name}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get a model */
+        get: operations["getMLModel"];
+        /** Set a URL model's address */
+        put: operations["setMLModelURL"];
+        post?: never;
+        /** Delete a model */
+        delete: operations["deleteMLModel"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/models/{name}/ask": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Ask a model */
+        post: operations["askMLModel"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/models/{name}/keys": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List a model's worker keys */
+        get: operations["listWorkerKeys"];
+        put?: never;
+        /** Make a worker key */
+        post: operations["createWorkerKey"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/models/{name}/keys/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Revoke a worker key */
+        delete: operations["deleteWorkerKey"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/node-types": {
         parameters: {
             query?: never;
@@ -2283,6 +2372,57 @@ export interface paths {
         put?: never;
         /** Authorise a session key */
         post: operations["signSessionKey"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/worker/next": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Take the next request (a worker's) */
+        post: operations["workerNext"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/worker/requests/{id}/answer": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Answer a request (a worker's) */
+        post: operations["workerAnswer"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/worker/requests/{id}/fail": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Fail a request (a worker's) */
+        post: operations["workerFail"];
         delete?: never;
         options?: never;
         head?: never;
@@ -3040,6 +3180,21 @@ export interface components {
              */
             permissions: string[];
         };
+        AskModelRequest: {
+            /** @description Items are JSON objects, one per answer wanted. */
+            items: {
+                [key: string]: unknown;
+            }[];
+            /** @description Schema is a JSON Schema each answer is to keep to; the model is told it. */
+            schema?: {
+                [key: string]: unknown;
+            };
+            /**
+             * @description WaitSeconds is how long to wait for the answers: 30 unless said, up to the instance's
+             *     most.
+             */
+            waitSeconds?: number;
+        };
         AuthConfig: {
             /** @description MinPasswordLength is the fewest characters a new password may have. */
             minPasswordLength: number;
@@ -3141,6 +3296,19 @@ export interface components {
         ConfirmationList: {
             confirmations: components["schemas"]["Confirmation"][];
         };
+        ConnectedWorker: {
+            /** @description Holding is how many requests it holds now. */
+            holding: number;
+            name: string;
+            /** Format: date-time */
+            seen: string;
+            /**
+             * Format: date-time
+             * @description Since is when it connected, this time; Seen when it last called for a request.
+             */
+            since: string;
+            version?: string;
+        };
         Connection: {
             from: string;
             fromPort: string;
@@ -3178,6 +3346,15 @@ export interface components {
             /** @description MaxUses is how many sign-ups it admits, 1 to 1000; 1 when absent. */
             maxUses?: number;
         };
+        CreateMLModelRequest: {
+            credentialId?: string;
+            /** @enum {string} */
+            kind: "worker" | "url";
+            /** @description Name is lower-case letters, digits, - and _, up to 64; unique among yours, and fixed. */
+            name: string;
+            /** @description URL and CredentialID are a URL model's; a worker model has neither. */
+            url?: string;
+        };
         CreateTokenRequest: {
             /**
              * Format: date-time
@@ -3196,6 +3373,9 @@ export interface components {
              * @enum {string}
              */
             role: "admin" | "user";
+        };
+        CreateWorkerKeyRequest: {
+            name: string;
         };
         Credential: {
             /** Format: date-time */
@@ -3878,6 +4058,58 @@ export interface components {
             email: string;
             password: string;
         };
+        MLModel: {
+            /** Format: date-time */
+            createdAt: string;
+            credentialId?: string;
+            /**
+             * @description Kind is worker, for a model whose workers take its requests, or url, for one called
+             *     at a URL.
+             * @enum {string}
+             */
+            kind: "worker" | "url";
+            /** Format: date-time */
+            lastAnswerAt?: string;
+            lastError?: string;
+            /** Format: date-time */
+            lastErrorAt?: string;
+            name: string;
+            /** Format: date-time */
+            updatedAt: string;
+            /**
+             * @description URL and CredentialID are a URL model's: where it is called, and the http.header
+             *     credential sent with each call.
+             */
+            url?: string;
+            /** @description Workers are a worker model's workers connected now, by name. */
+            workers: components["schemas"]["ConnectedWorker"][];
+        };
+        MLModelLimits: {
+            /** @description an answer's */
+            answerBytes: number;
+            /** @description a request's */
+            items: number;
+            /**
+             * @description MaxWaitSeconds is the longest an asker may wait; PollSeconds how long a worker's call
+             *     for a request is held open.
+             */
+            maxWaitSeconds: number;
+            /** @description a user's */
+            models: number;
+            pollSeconds: number;
+            /** @description a request's */
+            requestBytes: number;
+            /** @description connected to a model at once */
+            workers: number;
+        };
+        MLModelList: {
+            limits: components["schemas"]["MLModelLimits"];
+            models: components["schemas"]["MLModel"][];
+        };
+        MLModelURLRequest: {
+            credentialId?: string;
+            url: string;
+        };
         Market: {
             acceptingOrders: boolean;
             /** Format: date-time */
@@ -3950,8 +4182,24 @@ export interface components {
             /** @description Name is for people: the ID when the provider gives none. */
             name: string;
         };
+        ModelAnswers: {
+            /** @description Answers are one per item, in their order. */
+            answers: unknown[];
+            /** @description Refused are the answers that do not keep to the schema, by index, saying why. */
+            refused?: {
+                [key: string]: string;
+            };
+            /** @description Version is what the worker or the URL said it was; Worker the worker that answered. */
+            version?: string;
+            worker?: string;
+        };
         ModelList: {
             models: components["schemas"]["Model"][];
+        };
+        NewWorkerKey: {
+            key: components["schemas"]["WorkerKey"];
+            /** @description Secret is the key itself, shown this once. */
+            secret: string;
         };
         Node: {
             continueOnFail?: boolean;
@@ -5171,6 +5419,54 @@ export interface components {
              */
             takesSessionKeys: boolean;
             wallets: components["schemas"]["Wallet"][];
+        };
+        WorkerAnswer: {
+            /** @description Answers are one per item, in their order: any JSON. */
+            answers: unknown[];
+            version?: string;
+            worker: string;
+        };
+        WorkerFail: {
+            /** @description Reason is why, up to 500 characters: each item fails with it. */
+            reason: string;
+            version?: string;
+            worker: string;
+        };
+        WorkerKey: {
+            /** Format: date-time */
+            createdAt: string;
+            id: string;
+            /** Format: date-time */
+            lastUsedAt?: string;
+            name: string;
+            /** @description Prefix is the key's start, to tell it apart. */
+            prefix: string;
+        };
+        WorkerKeyList: {
+            keys: components["schemas"]["WorkerKey"][];
+        };
+        WorkerRequest: {
+            /** @description Model is the model the key serves. */
+            model: string;
+            request: components["schemas"]["WorkerTask"];
+        };
+        WorkerTake: {
+            /** @description Version is the model's version it serves, which each answer carries. */
+            version?: string;
+            /** @description Worker is this worker's name, unique among the model's, like gpu-box-1. */
+            worker: string;
+        };
+        WorkerTask: {
+            /**
+             * Format: date-time
+             * @description Deadline is when its asker stops waiting.
+             */
+            deadline: string;
+            id: string;
+            /** @description Items are the asker's, one answer each. */
+            items: unknown[];
+            /** @description Schema is what each answer is to keep to, if any. */
+            schema?: unknown;
         };
         Workflow: {
             /**
@@ -10743,6 +11039,351 @@ export interface operations {
             };
         };
     };
+    listMLModels: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MLModelList"];
+                };
+            };
+            /** @description data_off: an admin keeps models from you */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    createMLModel: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description The model */
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateMLModelRequest"];
+            };
+        };
+        responses: {
+            /** @description Created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MLModel"];
+                };
+            };
+            /** @description invalid_input */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description model_exists; model_limit: as many as you may have */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    getMLModel: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Its name */
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MLModel"];
+                };
+            };
+            /** @description not_found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    setMLModelURL: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Its name */
+                name: string;
+            };
+            cookie?: never;
+        };
+        /** @description Its URL and credential */
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MLModelURLRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MLModel"];
+                };
+            };
+            /** @description invalid_input */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description not_found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    deleteMLModel: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Its name */
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No Content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description not_found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    askMLModel: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Its name */
+                name: string;
+            };
+            cookie?: never;
+        };
+        /** @description The items */
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AskModelRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ModelAnswers"];
+                };
+            };
+            /** @description invalid_input */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description model_offline: no worker connected */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description model_timeout: no answer in time */
+            504: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    listWorkerKeys: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Its name */
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WorkerKeyList"];
+                };
+            };
+            /** @description not_found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    createWorkerKey: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Its model's name */
+                name: string;
+            };
+            cookie?: never;
+        };
+        /** @description The key's name */
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateWorkerKeyRequest"];
+            };
+        };
+        responses: {
+            /** @description Created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NewWorkerKey"];
+                };
+            };
+            /** @description invalid_input */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description forbidden: at a browser only */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    deleteWorkerKey: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Its model's name */
+                name: string;
+                /** @description The key's ID */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No Content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description not_found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
     listNodeTypes: {
         parameters: {
             query?: never;
@@ -12598,6 +13239,135 @@ export interface operations {
             };
             /** @description upstream_unavailable: send the signature again */
             503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    workerNext: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description The worker */
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["WorkerTake"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WorkerRequest"];
+                };
+            };
+            /** @description none came: call again */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description unauthenticated: not a worker key */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description model_limit: as many workers connected as the model may have */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    workerAnswer: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The request's ID */
+                id: string;
+            };
+            cookie?: never;
+        };
+        /** @description The answers */
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["WorkerAnswer"];
+            };
+        };
+        responses: {
+            /** @description No Content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description invalid_input: not one answer an item */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description not_found: answered already, or its asker stopped waiting */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    workerFail: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The request's ID */
+                id: string;
+            };
+            cookie?: never;
+        };
+        /** @description Why */
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["WorkerFail"];
+            };
+        };
+        responses: {
+            /** @description No Content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description not_found: answered already, or its asker stopped waiting */
+            404: {
                 headers: {
                     [name: string]: unknown;
                 };
