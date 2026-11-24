@@ -108,15 +108,15 @@ func (s scope) lookup(path string) any {
 }
 
 // TakesExpressions reports whether a setting of a node, not a trigger, may hold
-// expressions: all but wallets, credentials, datasets, field settings and the one that
-// gives ports.
+// expressions: all but wallets, credentials, datasets, models, field settings and the one
+// that gives ports.
 func TakesExpressions(typ NodeType, spec ParamSpec) bool {
 	return takesExpressions(typ, spec)
 }
 
 func takesExpressions(typ NodeType, spec ParamSpec) bool {
 	switch spec.Kind {
-	case ParamWallet, ParamCredential, ParamDataset, ParamCode: // code's own {{ }} is code
+	case ParamWallet, ParamCredential, ParamDataset, ParamModel, ParamCode: // code's own {{ }} is code
 		return false
 	default:
 		return !spec.Field && spec.Name != typ.OutputsParam

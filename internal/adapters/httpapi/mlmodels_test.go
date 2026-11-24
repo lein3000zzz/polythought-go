@@ -47,6 +47,9 @@ func TestMLModels(t *testing.T) {
 		ml := httpapimocks.NewMockMLModelService(t)
 		ml.EXPECT().Create(mock.Anything, alice.ID, mlmodels.Spec{Name: "temps", Kind: domain.ModelWorker}).Return(mlmodels.View{Model: temps}, nil).Once()
 		ml.EXPECT().List(mock.Anything, alice.ID).Return([]mlmodels.View{view}, nil).Once()
+		ml.EXPECT().UsedBy(mock.Anything, alice.ID).Return(map[string][]domain.Workflow{
+			"temps": {{ID: "wf-1", Name: "Weather bets", Active: true}},
+		}, nil).Once()
 		ml.EXPECT().Limits().Return(mlmodels.Limits{
 			Models: 20, Workers: 10, Items: 1000, RequestBytes: 1 << 20, AnswerBytes: 1 << 20, MaxWait: 5 * time.Minute, Poll: 50 * time.Second,
 		}).Once()
@@ -60,7 +63,8 @@ func TestMLModels(t *testing.T) {
 		require.Equal(t, http.StatusOK, w.Code, w.Body.String())
 		assert.JSONEq(t, `{"models": [{"name": "temps", "kind": "worker", "lastAnswerAt": "2026-11-24T12:00:00Z",
 			"workers": [{"name": "gpu-1", "version": "1.2.0", "since": "2026-11-24T12:00:00Z", "seen": "2026-11-24T12:00:00Z", "holding": 1}],
-			"createdAt": "2026-11-24T12:00:00Z", "updatedAt": "2026-11-24T12:00:00Z"}],
+			"createdAt": "2026-11-24T12:00:00Z", "updatedAt": "2026-11-24T12:00:00Z",
+			"workflows": [{"id": "wf-1", "name": "Weather bets", "active": true}]}],
 			"limits": {"models": 20, "workers": 10, "items": 1000, "requestBytes": 1048576, "answerBytes": 1048576,
 			"maxWaitSeconds": 300, "pollSeconds": 50}}`, w.Body.String())
 	})
@@ -120,6 +124,7 @@ func TestMLModels(t *testing.T) {
 	t.Run("a read token reads them but writes, asks and makes none", func(t *testing.T) {
 		ml := httpapimocks.NewMockMLModelService(t)
 		ml.EXPECT().Get(mock.Anything, alice.ID, "temps").Return(view, nil).Once()
+		ml.EXPECT().UsedBy(mock.Anything, alice.ID).Return(nil, nil).Once()
 
 		srv := server(t, withScopes(t, domain.ScopeRead, domain.ScopeBuild), ml)
 

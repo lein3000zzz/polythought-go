@@ -3533,7 +3533,7 @@ export interface components {
              * @description Workflows are yours whose nodes name it: deleting it switches those on off. Listing
              *     datasets, or getting one, says; other answers leave it out.
              */
-            workflows?: components["schemas"]["DatasetWorkflow"][];
+            workflows?: components["schemas"]["UsingWorkflow"][];
         };
         DatasetKeepRequest: {
             keepDays: number;
@@ -3590,11 +3590,6 @@ export interface components {
             };
             /** @description Limit is what each may take. */
             limit: number;
-        };
-        DatasetWorkflow: {
-            active: boolean;
-            id: string;
-            name: string;
         };
         Error: {
             error: components["schemas"]["ErrorDetail"];
@@ -4083,6 +4078,11 @@ export interface components {
             url?: string;
             /** @description Workers are a worker model's workers connected now, by name. */
             workers: components["schemas"]["ConnectedWorker"][];
+            /**
+             * @description Workflows are yours whose nodes ask it: deleting it switches those on off. Listing
+             *     models, or getting one, says; other answers leave it out.
+             */
+            workflows?: components["schemas"]["UsingWorkflow"][];
         };
         MLModelLimits: {
             /** @description an answer's */
@@ -4568,7 +4568,7 @@ export interface components {
             /** @description Input, for a field, is the input port whose items it names; absent for main. */
             input?: string;
             /** @enum {string} */
-            kind: "string" | "number" | "decimal" | "bool" | "list" | "duration" | "wallet" | "tokens" | "address" | "table" | "credential" | "code" | "dataset";
+            kind: "string" | "number" | "decimal" | "bool" | "list" | "duration" | "wallet" | "tokens" | "address" | "table" | "credential" | "code" | "dataset" | "model";
             label?: string;
             /**
              * @description ModelsOf, on text, names the credential param whose key's models it suggests:
@@ -5380,6 +5380,11 @@ export interface components {
             week: components["schemas"]["RunCounts"];
             /** @description all they have */
             workflows: number;
+        };
+        UsingWorkflow: {
+            active: boolean;
+            id: string;
+            name: string;
         };
         Verified: {
             /** @description Email is the account's address, now verified, for the sign-in form. */

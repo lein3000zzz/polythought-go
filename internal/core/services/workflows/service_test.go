@@ -940,8 +940,8 @@ func TestDescription(t *testing.T) {
 	})
 }
 
-// A workflow naming a dataset its owner no longer has, or whose owner may not use datasets,
-// stays off.
+// A workflow naming a dataset or model its owner no longer has, or whose owner may not use
+// them, stays off: each check is asked in turn.
 func TestActivateChecksDatasets(t *testing.T) {
 	ctx := context.Background()
 
@@ -960,10 +960,13 @@ func TestActivateChecksDatasets(t *testing.T) {
 
 		return workflows.New(d.repo, d.executions, d.validator, d.executor, d.supervisor, logging.Noop(),
 			workflows.WithClock(func() time.Time { return now }), workflows.WithLimits(workflows.DefaultLimits()),
-			workflows.WithDatasets(func(_ context.Context, w domain.Workflow) error {
-				assert.Equal(t, domain.WorkflowID("wf-1"), w.ID)
-				return check
-			})), d
+			workflows.WithSwitchOnChecks(
+				func(context.Context, domain.Workflow) error { return nil },
+				func(_ context.Context, w domain.Workflow) error {
+					assert.Equal(t, domain.WorkflowID("wf-1"), w.ID)
+					return check
+				},
+			)), d
 	}
 
 	t.Run("refused, saying why", func(t *testing.T) {

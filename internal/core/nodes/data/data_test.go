@@ -16,6 +16,7 @@ import (
 	"github.com/lein3000zzz/polythought-go/internal/core/engine"
 	"github.com/lein3000zzz/polythought-go/internal/core/nodes/data"
 	"github.com/lein3000zzz/polythought-go/internal/core/nodes/triggers"
+	"github.com/lein3000zzz/polythought-go/internal/core/ports"
 )
 
 // store keeps datasets in memory, as the datasets service does: rows over maxRow bytes
@@ -311,5 +312,133 @@ func TestReadRefuses(t *testing.T) {
 		require.NoError(t, err)
 		require.Len(t, out[engine.ErrorPort], 1)
 		assert.True(t, errors.Is(out[engine.ErrorPort][0].Err, engine.ErrInvalidParam))
+	})
+}
+
+// asker answers as its model would, keeping what it was asked.
+type asker struct {
+	asked  [][]json.RawMessage
+	schema json.RawMessage
+	wait   time.Duration
+	answer ports.ModelAnswer
+	err    error
+}
+
+func (a *asker) Ask(_ context.Context, owner domain.UserID, name string, items []json.RawMessage, schema json.RawMessage, wait time.Duration) (ports.ModelAnswer, error) {
+	if owner != "u-1" || name != "temps" {
+		return ports.ModelAnswer{}, fmt.Errorf("%w: you have no model %q", domain.ErrNotFound, name)
+	}
+
+	a.asked, a.schema, a.wait = append(a.asked, items), schema, wait
+
+	return a.answer, a.err
+}
+
+func TestAsk(t *testing.T) {
+	run := func(a *asker, params map[string]any, items ...map[string]any) (engine.Ports, error) {
+		node := data.NewAsk(a)
+		in := engine.Ports{}
+
+		for _, j := range items {
+			in.Add(main, engine.Item{JSON: j})
+		}
+
+		return node.Run(context.Background(), engine.RunContext{OwnerID: "u-1", Params: engine.LiteralParams(node.Type(), params)}, in)
+	}
+
+	nyc := map[string]any{"city": "NYC", "price": json.Number("0.53"), "models": map[string]any{"gfs": 50}}
+	ldn := map[string]any{"city": "LDN", "price": json.Number("0.20")}
+
+	t.Run("one batch a run; each answer on its item, with the model, its version and the worker", func(t *testing.T) {
+		a := &asker{answer: ports.ModelAnswer{
+			Answers: []json.RawMessage{json.RawMessage(`{"high": 51.25}`), json.RawMessage(`{"high": 9}`)}, Version: "1.2.0", Worker: "gpu-1",
+		}}
+
+		out, err := run(a, map[string]any{"model": "temps"}, nyc, ldn)
+		require.NoError(t, err)
+
+		require.Len(t, a.asked, 1, "one batch")
+		assert.JSONEq(t, `{"city": "NYC", "price": 0.53, "models": {"gfs": 50}}`, string(a.asked[0][0]), "the whole item")
+		assert.Equal(t, data.DefaultWait, a.wait)
+		assert.Nil(t, a.schema)
+
+		require.Len(t, out[main], 2)
+		assert.Equal(t, map[string]any{
+			"answer": map[string]any{"high": json.Number("51.25")}, "model": "temps", "version": "1.2.0", "worker": "gpu-1",
+		}, out[main][0].JSON["prediction"])
+		assert.Equal(t, "LDN", out[main][1].JSON["city"], "its fields kept")
+	})
+
+	t.Run("only the fields chosen, a schema and a wait of its own, the answer where it says", func(t *testing.T) {
+		a := &asker{answer: ports.ModelAnswer{Answers: []json.RawMessage{json.RawMessage(`"buy"`)}}}
+		schema := `{"type": "string", "enum": ["buy", "sell"]}`
+
+		out, err := run(a, map[string]any{"model": "temps", "fields": []any{"city", "models.gfs"}, "schema": schema, "wait": "2m", "field": "call"}, nyc)
+		require.NoError(t, err)
+
+		assert.JSONEq(t, `{"city": "NYC", "models.gfs": 50}`, string(a.asked[0][0]))
+		assert.JSONEq(t, schema, string(a.schema))
+		assert.Equal(t, 2*time.Minute, a.wait)
+		assert.Equal(t, map[string]any{"answer": "buy", "model": "temps"}, out[main][0].JSON["call"], "a URL model says no worker")
+	})
+
+	t.Run("an answer off the schema fails its item alone", func(t *testing.T) {
+		a := &asker{answer: ports.ModelAnswer{
+			Answers: []json.RawMessage{json.RawMessage(`"buy"`), json.RawMessage(`"maybe"`)},
+			Refused: map[int]error{1: errors.New("the answer does not keep to the schema")},
+		}}
+
+		out, err := run(a, map[string]any{"model": "temps"}, nyc, ldn)
+		require.NoError(t, err)
+
+		require.Len(t, out[main], 1)
+		require.Len(t, out[engine.ErrorPort], 1)
+		assert.Equal(t, "LDN", out[engine.ErrorPort][0].JSON["city"])
+		assert.ErrorContains(t, out[engine.ErrorPort][0].Err, "does not keep to the schema")
+	})
+
+	t.Run("no worker, or no answer in time: every item fails saying so", func(t *testing.T) {
+		for _, failing := range []error{domain.ErrModelOffline, domain.ErrModelTimeout, errors.New("the model's worker gpu-1 failed: out of memory")} {
+			out, err := run(&asker{err: failing}, map[string]any{"model": "temps"}, nyc, ldn)
+			require.NoError(t, err)
+
+			assert.Empty(t, out[main])
+			require.Len(t, out[engine.ErrorPort], 2)
+			assert.ErrorIs(t, out[engine.ErrorPort][1].Err, failing)
+		}
+	})
+
+	t.Run("a model gone, kept from its owner, or past the limits, fails the run", func(t *testing.T) {
+		_, err := run(&asker{}, map[string]any{"model": "gone"}, nyc)
+		require.ErrorIs(t, err, domain.ErrNotFound)
+
+		_, err = run(&asker{err: domain.ErrDataOff}, map[string]any{"model": "temps"}, nyc)
+		require.ErrorIs(t, err, domain.ErrDataOff)
+
+		_, err = run(&asker{err: fmt.Errorf("%w: 1001 items", domain.ErrInvalidInput)}, map[string]any{"model": "temps"}, nyc)
+		require.ErrorIs(t, err, domain.ErrInvalidInput)
+	})
+
+	t.Run("its settings checked", func(t *testing.T) {
+		typ := data.NewAsk(nil).Type()
+
+		var schema, wait engine.ParamSpec
+
+		for _, p := range typ.Params {
+			switch p.Name {
+			case "schema":
+				schema = p
+			case "wait":
+				wait = p
+			}
+		}
+
+		assert.NoError(t, schema.Check(""))
+		assert.NoError(t, schema.Check(`{"type": "object"}`))
+		assert.Error(t, schema.Check(`{"type": 7}`))
+		assert.Error(t, schema.Check(`not json`))
+
+		assert.NoError(t, wait.Check("5m"))
+		assert.Error(t, wait.Check("2h"))
 	})
 }

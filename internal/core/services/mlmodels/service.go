@@ -26,6 +26,7 @@ import (
 	"github.com/lein3000zzz/polythought-go/internal/core/nodes/credtypes"
 	"github.com/lein3000zzz/polythought-go/internal/core/ports"
 	"github.com/lein3000zzz/polythought-go/internal/core/services/auth"
+	"github.com/lein3000zzz/polythought-go/internal/core/services/usage"
 )
 
 const (
@@ -82,6 +83,8 @@ type Service struct {
 
 	mu      sync.Mutex
 	blocked map[string]time.Time // addresses with too many wrong keys, until when
+
+	usage usage.Finder // set by UseWorkflows
 }
 
 func New(deps Deps) *Service {
@@ -290,7 +293,8 @@ func (s *Service) SetURL(ctx context.Context, owner domain.UserID, name, address
 	return s.Get(ctx, owner, name)
 }
 
-// Delete deletes a model and its keys: its workers are refused from then on.
+// Delete deletes a model and its keys: its workers are refused from then on, and the
+// owner's workflows on naming it are switched off.
 func (s *Service) Delete(ctx context.Context, owner domain.UserID, name string) error {
 	m, err := s.model(ctx, owner, name)
 	if err != nil {
@@ -302,6 +306,13 @@ func (s *Service) Delete(ctx context.Context, owner domain.UserID, name string) 
 	}
 
 	s.log.Info(ctx, "Model deleted", "owner_id", owner, "model", m.Name)
+
+	// Those naming it would fail as they run: off, saying why.
+	n, err := s.usage.SwitchOffNaming(ctx, owner, m.Name, fmt.Sprintf("the model %s is deleted", m.Name))
+	if err != nil {
+		s.log.Warn(ctx, "Workflows naming a model deleted not all switched off", "owner_id", owner, "model", m.Name,
+			"switched_off", n, logging.Err(err))
+	}
 
 	return nil
 }

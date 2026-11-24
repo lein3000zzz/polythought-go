@@ -82,6 +82,38 @@ curl -X POST -H 'Authorization: Bearer pt_…' -H 'Content-Type: application/jso
 It gives `{"answers": […], "version": "…", "worker": "…"}`. With a `schema`, the answers
 that don't keep to it are listed under `refused`, each with why.
 
+## In workflows
+
+The **Ask a model** node, in the editor's **Data** group, asks one of your models about the
+items it receives, all of them in one request a run. Each item sends the **Fields** you
+choose, like `city` or `outcomes.0.price`, each under its name as written, or the whole item
+if you choose none.
+
+Each answer goes on its item under **Answer field**, `prediction` to begin with:
+
+```json
+{"answer": {"high": 51.25}, "model": "temperature-model", "version": "1.2.0", "worker": "gpu-box-1"}
+```
+
+- **Answer schema**, a JSON Schema, is passed to the model, and an answer that doesn't keep to
+  it fails its item alone.
+- **Wait** is how long the node waits for the answers: 30 seconds to begin with, at most what
+  an admin allows.
+- With no worker connected, no answer in time, or a worker's failure, every item fails, saying
+  why. Turn on **Continue on failure** and they take the error port instead.
+
+The model a node names is yours alone. Sharing a workflow, or copying its nodes, leaves it
+out, the same as credentials.
+
+## Deleting one, or losing them
+
+Deleting a model takes its keys with it and switches off your running workflows that ask it,
+and they say why. The Data page lists them before you confirm. Switching one back on is
+refused while a node names a model you no longer have.
+
+If an admin keeps models from you, Polythought switches off your running workflows that ask
+one the same way, and a run of one fails at once.
+
 ## Limits
 
 An admin sets them under **Config → Models and datasets**:

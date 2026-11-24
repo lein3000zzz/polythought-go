@@ -34,7 +34,8 @@ export function copyOf(
                   p.sensitive ||
                   p.kind === 'wallet' ||
                   p.kind === 'credential' ||
-                  p.kind === 'dataset',
+                  p.kind === 'dataset' ||
+                  p.kind === 'model',
               )
               .map((p) => p.name),
       )

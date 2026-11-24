@@ -30,6 +30,7 @@ const temps: Schemas['MLModel'] = {
     },
   ],
   lastAnswerAt: '2026-11-24T12:00:00Z',
+  workflows: [{ id: 'wf-1', name: 'Weather bets', active: true }],
   lastError: 'no answer within 30s',
   lastErrorAt: '2026-11-24T11:00:00Z',
   createdAt: '2026-11-24T10:00:00Z',
@@ -147,7 +148,7 @@ describe('models', () => {
     )
   })
 
-  it('deletes one, saying its workers are refused', async () => {
+  it('deletes one, naming the workflows it switches off', async () => {
     const calls = serve()
     const { user } = renderApp('/data/models')
 
@@ -155,7 +156,9 @@ describe('models', () => {
     await user.click(within(table).getByRole('button', { name: 'Delete temps' }))
 
     const confirm = await screen.findByRole('alertdialog')
-    expect(confirm).toHaveTextContent('its workers are refused from their next call')
+    expect(confirm).toHaveTextContent(
+      'Its keys go with it, and its workers are refused from their next call. “Weather bets” (on) asks it: those on are switched off.',
+    )
     await user.click(within(confirm).getByRole('button', { name: 'Delete' }))
 
     await waitFor(() => expect(calls.deleted).toEqual(['temps']))

@@ -482,10 +482,11 @@ func TestRegistryCredentialTypes(t *testing.T) {
 		assert.Equal(t, []string{"test.key", "z.last"}, names)
 	})
 
-	t.Run("credential, wallet and dataset params are personal", func(t *testing.T) {
+	t.Run("credential, wallet, dataset and model params are personal", func(t *testing.T) {
 		assert.True(t, engine.ParamSpec{Kind: engine.ParamCredential}.Personal())
 		assert.True(t, engine.ParamSpec{Kind: engine.ParamWallet}.Personal())
 		assert.True(t, engine.ParamSpec{Kind: engine.ParamDataset}.Personal(), "sharing leaves the dataset out")
+		assert.True(t, engine.ParamSpec{Kind: engine.ParamModel}.Personal(), "and the model")
 		assert.False(t, engine.ParamSpec{Kind: engine.ParamString}.Personal())
 	})
 }

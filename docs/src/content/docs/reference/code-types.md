@@ -219,6 +219,26 @@ export interface CodeTransformSettings {
     source?: string;
 }
 
+/** The settings of Ask a model (data.ask). */
+export interface DataAskSettings {
+    /** The model asked: one of yours, on Data → Models. The name of one of your models. */
+    model: string;
+    /** The fields each item sends, like city or outcomes.0.price, each under its name as written; none for the whole item. A field of the items it receives. */
+    fields?: string[];
+    /** A JSON Schema each answer keeps to, which the model is told: an answer that does not fails its item. Empty for any JSON. */
+    schema?: string;
+    /**
+     * Where the answer goes on the item.
+     * @default "prediction"
+     */
+    field?: string;
+    /**
+     * How long to wait for the answers, up to the instance's most: 5 minutes unless an admin says.
+     * @default "30s"
+     */
+    wait?: DurationText | Expression;
+}
+
 /** The settings of Read dataset (data.read). */
 export interface DataReadSettings {
     /** The dataset read: one of yours. The name of one of your datasets. */
@@ -1417,6 +1437,13 @@ export interface NodeTypes {
     "code.transform": {
         settings: CodeTransformSettings;
         items: Json;
+        trigger: false;
+        inputs: "main";
+        outputs: "main";
+    };
+    "data.ask": {
+        settings: DataAskSettings;
+        items: "received";
         trigger: false;
         inputs: "main";
         outputs: "main";

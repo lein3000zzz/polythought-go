@@ -2,6 +2,7 @@ import { useState, type ReactNode } from 'react'
 
 import { ApiError, errorMessage, type ParamSpec } from '@/api/client'
 import { useDatasets } from '@/api/datasets'
+import { useMLModels } from '@/api/mlmodels'
 import { useCredentialList, useCredentialTypes, useModels } from '@/api/vault'
 import { useWallets } from '@/api/wallets'
 import { CodeEditor } from '@/components/code/CodeEditor'
@@ -78,6 +79,7 @@ function Control(props: Props) {
   if (spec.kind === 'wallet') return <WalletField {...props} />
   if (spec.kind === 'credential') return <CredentialField {...props} />
   if (spec.kind === 'dataset') return <DatasetField {...props} />
+  if (spec.kind === 'model') return <OwnModelField {...props} />
   if (spec.options?.length && spec.kind === 'list') return <ChecklistField {...props} />
   if (spec.options?.length) return <SelectField {...props} />
   if (spec.kind === 'list' || spec.kind === 'tokens') return <TextField {...props} multiline />
@@ -506,6 +508,53 @@ function DatasetField({ spec, value, onChange, problem, scope }: Props) {
       )}
     </Field>
   )
+}
+
+// OwnModelField picks one of the owner's own models, saying who serves each now: not a
+// language model's, which ModelField suggests.
+function OwnModelField({ spec, value, onChange, problem, scope }: Props) {
+  const list = useMLModels()
+  const current = typeof value === 'string' ? value : ''
+  const models = list.data?.models ?? []
+  const known = models.some((m) => m.name === current)
+  const off = list.error instanceof ApiError && list.error.code === 'data_off'
+
+  let hint: string | undefined
+  if (off) hint = 'Models are not open to you here: an admin decides who may use them.'
+  else if (list.isSuccess && models.length === 0)
+    hint = 'You have none yet: make one on Data → Models.'
+
+  return (
+    <Field spec={spec} scope={scope} problem={problem} hint={hint}>
+      <NativeSelect
+        id={fieldId(spec, scope)}
+        className="w-full"
+        value={current}
+        disabled={list.isPending || off}
+        aria-invalid={Boolean(problem) || undefined}
+        onChange={(e) => onChange(e.target.value === '' ? undefined : e.target.value)}
+      >
+        <NativeSelectOption value="">
+          {list.isPending ? 'Loading models…' : 'Choose a model'}
+        </NativeSelectOption>
+        {models.map((m) => (
+          <NativeSelectOption key={m.name} value={m.name}>
+            {m.name} ({servedNow(m)})
+          </NativeSelectOption>
+        ))}
+        {current && list.isSuccess && !known && (
+          <NativeSelectOption value={current}>Missing model ({current})</NativeSelectOption>
+        )}
+      </NativeSelect>
+    </Field>
+  )
+}
+
+function servedNow(m: { kind: 'worker' | 'url'; workers: unknown[] }): string {
+  if (m.kind === 'url') return 'at a URL'
+  if (m.workers.length === 0) return 'no worker connected'
+
+  return m.workers.length === 1 ? '1 worker' : `${m.workers.length} workers`
 }
 
 function fieldId(spec: ParamSpec, scope?: string) {
