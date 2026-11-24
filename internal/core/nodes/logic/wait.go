@@ -7,6 +7,7 @@ import (
 
 	"github.com/lein3000zzz/polythought-go/internal/core/engine"
 	"github.com/lein3000zzz/polythought-go/internal/core/nodes/shape"
+	"github.com/lein3000zzz/polythought-go/internal/core/nodes/zones"
 )
 
 const WaitType = "logic.wait"
@@ -43,7 +44,12 @@ func (*Wait) Type() engine.NodeType {
 			},
 			{
 				Name: "until", Label: "Until", Kind: engine.ParamString,
-				Description: "A time of day in UTC, as HH:MM, e.g. 09:30. With mode until.",
+				Description: "A time of day, as HH:MM, e.g. 09:30, by the clock of the time zone below. With mode until.",
+			},
+			{
+				Name: "zone", Label: "Time zone", Kind: engine.ParamString, Default: "UTC", Check: zones.Check,
+				Description: "With until: whose clock, as the IANA database names it, e.g. America/Chicago. Daylight " +
+					"saving is followed.",
 			},
 		},
 	}
@@ -68,7 +74,19 @@ func (n *Wait) Run(_ context.Context, rc engine.RunContext, _ engine.Ports) (eng
 			return nil, err
 		}
 
-		until, err := nextTimeOfDay(now, at)
+		zone := ""
+		if p["zone"] != nil {
+			if zone, err = p.String("zone"); err != nil {
+				return nil, err
+			}
+		}
+
+		loc, err := zones.Load(zone)
+		if err != nil {
+			return nil, fmt.Errorf("%w %q: %w", engine.ErrInvalidParam, "zone", err)
+		}
+
+		until, err := nextTimeOfDay(now, at, loc)
 		if err != nil {
 			return nil, fmt.Errorf("%w %q: %w", engine.ErrInvalidParam, "until", err)
 		}
@@ -95,19 +113,12 @@ func (*Wait) Resume(_ context.Context, _ engine.RunContext, in engine.Ports, _ e
 	return out, nil
 }
 
-// nextTimeOfDay is the first time after now that the clock shows hh:mm in UTC.
-func nextTimeOfDay(now time.Time, hhmm string) (time.Time, error) {
-	t, err := time.Parse("15:04", hhmm)
+// nextTimeOfDay is the first time after now that loc's clock shows hh:mm.
+func nextTimeOfDay(now time.Time, hhmm string, loc *time.Location) (time.Time, error) {
+	c, err := zones.ParseClock(hhmm)
 	if err != nil {
-		return time.Time{}, fmt.Errorf("%q is not a time of day like 09:30", hhmm)
+		return time.Time{}, err
 	}
 
-	now = now.UTC()
-	at := time.Date(now.Year(), now.Month(), now.Day(), t.Hour(), t.Minute(), 0, 0, time.UTC)
-
-	if !at.After(now) {
-		at = at.AddDate(0, 0, 1)
-	}
-
-	return at, nil
+	return zones.Times{Clocks: []zones.Clock{c}, Loc: loc}.Next(now), nil
 }

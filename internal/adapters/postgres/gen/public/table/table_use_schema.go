@@ -42,6 +42,7 @@ func UseSchema(schema string) {
 	PnlExtremes = PnlExtremes.FromSchema(schema)
 	PolymarketCredentials = PolymarketCredentials.FromSchema(schema)
 	ReleaseNotices = ReleaseNotices.FromSchema(schema)
+	ScheduleFires = ScheduleFires.FromSchema(schema)
 	SessionKeys = SessionKeys.FromSchema(schema)
 	Sessions = Sessions.FromSchema(schema)
 	Settings = Settings.FromSchema(schema)

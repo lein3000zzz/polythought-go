@@ -372,8 +372,12 @@ func TestRun(t *testing.T) {
 	live := stored
 	live.Nodes = []domain.NodeSpec{{ID: "trades", Type: "trigger.market"}}
 
+	hooked := stored
+	hooked.Nodes = []domain.NodeSpec{{ID: "hook", Type: "trigger.webhook"}}
+
 	manualItem := engine.Ports{engine.DefaultPort: {{JSON: map[string]any{}}}}
-	tick := engine.Ports{engine.DefaultPort: {{JSON: map[string]any{"firedAt": now}}}}
+	tick := engine.Ports{engine.DefaultPort: {{JSON: map[string]any{"firedAt": now, "due": now, "missed": false}}}}
+	call := engine.Ports{engine.DefaultPort: {{JSON: map[string]any{"body": nil, "query": map[string]any{}, "receivedAt": now}}}}
 
 	tests := []struct {
 		name        string
@@ -390,6 +394,7 @@ func TestRun(t *testing.T) {
 		{name: "a schedule fires as if its time had come", workflow: scheduled, wantTrigger: "every", wantOutput: tick},
 		{name: "a manual trigger comes before a schedule", workflow: both, wantTrigger: "manual", wantOutput: manualItem},
 		{name: "a named schedule", workflow: both, trigger: "every", wantTrigger: "every", wantOutput: tick},
+		{name: "an inbound webhook, as if called with nothing (D439)", workflow: hooked, wantTrigger: "hook", wantOutput: call},
 		{name: "market activity cannot be imitated", workflow: live, wantErr: domain.ErrInvalidInput},
 		{name: "nor named", workflow: live, trigger: "trades", wantErr: domain.ErrInvalidInput},
 		{

@@ -24,7 +24,8 @@ Items that fail stop the execution, unless **Continue on failure** is on: then t
 |---|---|---|---|---|
 | Wait (`mode`) | text | no | `for` | for: a while. until: the next time the clock shows a time of day. One of `for`, `until`. |
 | For (`for`) | duration, e.g. `30s`, `5m`, `1h` | no | `10m` | How long, e.g. 30s, 10m or 2h. |
-| Until (`until`) | text | no |  | A time of day in UTC, as HH:MM, e.g. 09:30. With mode until. |
+| Until (`until`) | text | no |  | A time of day, as HH:MM, e.g. 09:30, by the clock of the time zone below. With mode until. |
+| Time zone (`zone`) | text | no | `UTC` | With until: whose clock, as the IANA database names it, e.g. America/Chicago. Daylight saving is followed. |
 
 ## Items
 
