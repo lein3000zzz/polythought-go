@@ -33,6 +33,7 @@ export default defineConfig({
             'guides/http-requests',
             'guides/inbound-webhooks',
             'guides/weather',
+            'guides/market-data',
             'guides/agents',
             'guides/agents-over-mcp',
             'guides/telegram',

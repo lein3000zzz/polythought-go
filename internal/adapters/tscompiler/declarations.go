@@ -1,7 +1,6 @@
 package tscompiler
 
 import (
-	_ "embed"
 	"encoding/json"
 	"fmt"
 	"regexp"
@@ -11,12 +10,11 @@ import (
 
 	"github.com/lein3000zzz/polythought-go/internal/core/engine"
 	"github.com/lein3000zzz/polythought-go/internal/core/ports"
+	"github.com/lein3000zzz/polythought-go/sdk"
 )
 
 // The SDK's declarations, as tsc makes them (make sdk-types).
-//
-//go:embed sdk/types/sdk.d.ts
-var sdkDeclarations string
+var sdkDeclarations = sdk.Declarations
 
 // indexDeclarations is the package's entry: what code imports from @polythought/sdk.
 const indexDeclarations = `// The types of @polythought/sdk: the SDK's, and every node type's settings and items.

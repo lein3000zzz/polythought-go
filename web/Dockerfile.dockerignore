@@ -3,7 +3,7 @@
 *
 !web
 !docs
-!internal/adapters/tscompiler/sdk/workflow.ts
+!sdk/typescript/workflow.ts
 web/node_modules
 web/dist
 web/test-results

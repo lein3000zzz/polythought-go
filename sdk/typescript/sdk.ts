@@ -223,7 +223,7 @@ export const positions = {
   },
 }
 
-/** A moment by a time zone's clock (D440). */
+/** A moment by a time zone's clock. */
 export interface ZoneTime {
   /** The zone, as the IANA database names it, like America/Chicago. */
   zone: string

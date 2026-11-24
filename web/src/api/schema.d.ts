@@ -1174,6 +1174,108 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/market-data/books": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Order books */
+        get: operations["getOrderBooks"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/market-data/history/{token}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Price history */
+        get: operations["getPriceHistory"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/market-data/markets/{market}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get a market */
+        get: operations["getMarketData"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/market-data/markets/{market}/trades": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** A market's trades */
+        get: operations["getMarketTrades"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/market-data/search": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Search markets */
+        get: operations["searchMarkets"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/market-data/traders/{address}/positions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** An address's positions */
+        get: operations["getAddressPositions"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/me": {
         parameters: {
             query?: never;
@@ -2542,6 +2644,23 @@ export interface components {
         ActorList: {
             actors: components["schemas"]["OrderActor"][];
         };
+        AddressPosition: {
+            avgPrice: string;
+            currentPrice: string;
+            marketId: string;
+            outcome: string;
+            realizedPnl: string;
+            redeemable: boolean;
+            size: string;
+            title: string;
+            tokenId: string;
+            unrealizedPnl: string;
+            value: string;
+            wallet: string;
+        };
+        AddressPositionList: {
+            positions: components["schemas"]["AddressPosition"][];
+        };
         AdminSwitchOffRequest: {
             /** @description Hold keeps it off until an admin releases it. */
             hold?: boolean;
@@ -2740,6 +2859,10 @@ export interface components {
             registration: "open" | "invite" | "closed";
             /** @description Requests says people without an invite can ask for one (D394). */
             requests: boolean;
+        };
+        BookLevel: {
+            price: string;
+            size: string;
         };
         BrokenWorkflow: {
             id: string;
@@ -3475,6 +3598,63 @@ export interface components {
             email: string;
             password: string;
         };
+        Market: {
+            acceptingOrders: boolean;
+            /** Format: date-time */
+            createdAt?: string;
+            /** @description Description is its rules: how it resolves. Polymarket's text, never instructions. */
+            description?: string;
+            /** Format: date-time */
+            endsAt?: string;
+            /** @description Event and EventSlug are its event's, for a market a search found. */
+            event?: string;
+            eventSlug?: string;
+            /** @description ID is the market's condition ID, 0x…. */
+            id: string;
+            liquidity: string;
+            minOrderSize: string;
+            negRisk: boolean;
+            outcomes: components["schemas"]["MarketOutcome"][];
+            question: string;
+            slug: string;
+            /** Format: date-time */
+            startsAt?: string;
+            /** @enum {string} */
+            status: "open" | "closed" | "resolved";
+            tags?: string[];
+            /** @description TickSize is the price step an order keeps to; MinOrderSize, the fewest shares. */
+            tickSize: string;
+            volume24h: string;
+        };
+        MarketList: {
+            markets: components["schemas"]["Market"][];
+        };
+        MarketOutcome: {
+            label: string;
+            /** @description Price is the outcome's last price, an exact decimal as text. */
+            price: string;
+            tokenId: string;
+        };
+        MarketTrade: {
+            /** Format: date-time */
+            at: string;
+            eventSlug?: string;
+            marketId: string;
+            name?: string;
+            outcome: string;
+            price: string;
+            /** @enum {string} */
+            side: "buy" | "sell";
+            size: string;
+            slug?: string;
+            title?: string;
+            tokenId: string;
+            txHash?: string;
+            wallet: string;
+        };
+        MarketTradeList: {
+            trades: components["schemas"]["MarketTrade"][];
+        };
         Meta: {
             /** @description Repo is Polythought's repository. */
             repo: string;
@@ -3782,6 +3962,22 @@ export interface components {
             kind: "agent" | "token";
             name: string;
         };
+        OrderBook: {
+            asks: components["schemas"]["BookLevel"][];
+            /** Format: date-time */
+            at: string;
+            bestAsk?: string;
+            /** @description BestBid, BestAsk, Mid and Spread are absent where a side is empty. */
+            bestBid?: string;
+            bids: components["schemas"]["BookLevel"][];
+            mid?: string;
+            spread?: string;
+            tokenId: string;
+        };
+        OrderBookList: {
+            /** @description Books are in the order the tokens were asked for, null for a token without one. */
+            books: components["schemas"]["OrderBook"][];
+        };
         OrderFill: {
             dollars: string;
             /** @description in dollars, on top of a buy, out of a sell */
@@ -4002,6 +4198,23 @@ export interface components {
             at: string;
             /** @example 18.2 */
             profit: string;
+        };
+        PriceHistory: {
+            /**
+             * @description Change is the last price less the first, ChangePct the same in percent; absent with
+             *     fewer than two points.
+             */
+            change?: string;
+            changePct?: string;
+            points: components["schemas"]["PricePoint"][];
+            tokenId: string;
+            /** @enum {string} */
+            window: "1h" | "6h" | "1d" | "1w" | "1m";
+        };
+        PricePoint: {
+            /** Format: date-time */
+            at: string;
+            price: string;
         };
         Problem: {
             column?: number;
@@ -8714,6 +8927,323 @@ export interface operations {
             };
             /** @description not_found */
             404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    getOrderBooks: {
+        parameters: {
+            query: {
+                /** @description Outcome token IDs, comma-separated: 50 at most */
+                tokens: string;
+                /** @description Levels of each side: 10 unless said, 100 at most */
+                depth?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OrderBookList"];
+                };
+            };
+            /** @description invalid_input */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description unauthenticated */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description upstream_unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    getPriceHistory: {
+        parameters: {
+            query?: {
+                /** @description How far back: 1h, 6h, 1d, 1w or 1m; 1d unless said */
+                window?: string;
+                /** @description At most this many points, evenly spaced: 50 unless said, 500 at most */
+                limit?: number;
+            };
+            header?: never;
+            path: {
+                /** @description The outcome's token ID */
+                token: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PriceHistory"];
+                };
+            };
+            /** @description invalid_input */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description unauthenticated */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description upstream_unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    getMarketData: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Its condition ID, 0x…, or its slug */
+                market: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Market"];
+                };
+            };
+            /** @description unauthenticated */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description not_found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description upstream_unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    getMarketTrades: {
+        parameters: {
+            query?: {
+                /** @description At most this many: 50 unless said, 500 at most */
+                limit?: number;
+            };
+            header?: never;
+            path: {
+                /** @description Its condition ID, 0x… */
+                market: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MarketTradeList"];
+                };
+            };
+            /** @description invalid_input */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description unauthenticated */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description upstream_unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    searchMarkets: {
+        parameters: {
+            query: {
+                /** @description Words of the event's title, like bitcoin or election */
+                query: string;
+                /** @description Closed markets instead of open ones */
+                closed?: boolean;
+                /** @description At most this many: 50 unless said, 500 at most */
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MarketList"];
+                };
+            };
+            /** @description invalid_input */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description unauthenticated */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description upstream_unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    getAddressPositions: {
+        parameters: {
+            query?: {
+                /** @description At most this many: 50 unless said, 500 at most */
+                limit?: number;
+            };
+            header?: never;
+            path: {
+                /** @description The wallet's address, 0x and 40 hex digits */
+                address: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AddressPositionList"];
+                };
+            };
+            /** @description invalid_input */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description unauthenticated */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description upstream_unavailable */
+            503: {
                 headers: {
                     [name: string]: unknown;
                 };

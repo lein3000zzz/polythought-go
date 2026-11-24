@@ -222,7 +222,7 @@ web-api: ## Regenerate the UI's API types from api/openapi.json
 web-check: sdk-types-check ## UI typecheck, lint, format, API and SDK types up to date, tests
 	$(PNPM) --dir web check
 
-SDK_DIR := internal/adapters/tscompiler/sdk
+SDK_DIR := sdk/typescript
 
 .PHONY: sdk-types
 sdk-types: ## Type-check the code SDK and regenerate its declarations (sdk/types/sdk.d.ts)

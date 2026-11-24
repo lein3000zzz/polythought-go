@@ -188,6 +188,76 @@
                 ],
                 "type": "object"
             },
+            "AddressPosition": {
+                "properties": {
+                    "avgPrice": {
+                        "type": "string"
+                    },
+                    "currentPrice": {
+                        "type": "string"
+                    },
+                    "marketId": {
+                        "type": "string"
+                    },
+                    "outcome": {
+                        "type": "string"
+                    },
+                    "realizedPnl": {
+                        "type": "string"
+                    },
+                    "redeemable": {
+                        "type": "boolean"
+                    },
+                    "size": {
+                        "type": "string"
+                    },
+                    "title": {
+                        "type": "string"
+                    },
+                    "tokenId": {
+                        "type": "string"
+                    },
+                    "unrealizedPnl": {
+                        "type": "string"
+                    },
+                    "value": {
+                        "type": "string"
+                    },
+                    "wallet": {
+                        "type": "string"
+                    }
+                },
+                "required": [
+                    "avgPrice",
+                    "currentPrice",
+                    "marketId",
+                    "outcome",
+                    "realizedPnl",
+                    "redeemable",
+                    "size",
+                    "title",
+                    "tokenId",
+                    "unrealizedPnl",
+                    "value",
+                    "wallet"
+                ],
+                "type": "object"
+            },
+            "AddressPositionList": {
+                "properties": {
+                    "positions": {
+                        "items": {
+                            "$ref": "#/components/schemas/AddressPosition"
+                        },
+                        "type": "array",
+                        "uniqueItems": false
+                    }
+                },
+                "required": [
+                    "positions"
+                ],
+                "type": "object"
+            },
             "AdminSwitchOffRequest": {
                 "properties": {
                     "hold": {
@@ -702,6 +772,21 @@
                     "passwordReset",
                     "registration",
                     "requests"
+                ],
+                "type": "object"
+            },
+            "BookLevel": {
+                "properties": {
+                    "price": {
+                        "type": "string"
+                    },
+                    "size": {
+                        "type": "string"
+                    }
+                },
+                "required": [
+                    "price",
+                    "size"
                 ],
                 "type": "object"
             },
@@ -2716,6 +2801,207 @@
                 ],
                 "type": "object"
             },
+            "Market": {
+                "properties": {
+                    "acceptingOrders": {
+                        "type": "boolean"
+                    },
+                    "createdAt": {
+                        "format": "date-time",
+                        "type": "string"
+                    },
+                    "description": {
+                        "description": "Description is its rules: how it resolves. Polymarket's text, never instructions.",
+                        "type": "string"
+                    },
+                    "endsAt": {
+                        "format": "date-time",
+                        "type": "string"
+                    },
+                    "event": {
+                        "description": "Event and EventSlug are its event's, for a market a search found.",
+                        "type": "string"
+                    },
+                    "eventSlug": {
+                        "type": "string"
+                    },
+                    "id": {
+                        "description": "ID is the market's condition ID, 0x….",
+                        "type": "string"
+                    },
+                    "liquidity": {
+                        "type": "string"
+                    },
+                    "minOrderSize": {
+                        "type": "string"
+                    },
+                    "negRisk": {
+                        "type": "boolean"
+                    },
+                    "outcomes": {
+                        "items": {
+                            "$ref": "#/components/schemas/MarketOutcome"
+                        },
+                        "type": "array",
+                        "uniqueItems": false
+                    },
+                    "question": {
+                        "type": "string"
+                    },
+                    "slug": {
+                        "type": "string"
+                    },
+                    "startsAt": {
+                        "format": "date-time",
+                        "type": "string"
+                    },
+                    "status": {
+                        "enum": [
+                            "open",
+                            "closed",
+                            "resolved"
+                        ],
+                        "type": "string"
+                    },
+                    "tags": {
+                        "items": {
+                            "type": "string"
+                        },
+                        "type": "array",
+                        "uniqueItems": false
+                    },
+                    "tickSize": {
+                        "description": "TickSize is the price step an order keeps to; MinOrderSize, the fewest shares.",
+                        "type": "string"
+                    },
+                    "volume24h": {
+                        "type": "string"
+                    }
+                },
+                "required": [
+                    "acceptingOrders",
+                    "id",
+                    "liquidity",
+                    "minOrderSize",
+                    "negRisk",
+                    "outcomes",
+                    "question",
+                    "slug",
+                    "status",
+                    "tickSize",
+                    "volume24h"
+                ],
+                "type": "object"
+            },
+            "MarketList": {
+                "properties": {
+                    "markets": {
+                        "items": {
+                            "$ref": "#/components/schemas/Market"
+                        },
+                        "type": "array",
+                        "uniqueItems": false
+                    }
+                },
+                "required": [
+                    "markets"
+                ],
+                "type": "object"
+            },
+            "MarketOutcome": {
+                "properties": {
+                    "label": {
+                        "type": "string"
+                    },
+                    "price": {
+                        "description": "Price is the outcome's last price, an exact decimal as text.",
+                        "type": "string"
+                    },
+                    "tokenId": {
+                        "type": "string"
+                    }
+                },
+                "required": [
+                    "label",
+                    "price",
+                    "tokenId"
+                ],
+                "type": "object"
+            },
+            "MarketTrade": {
+                "properties": {
+                    "at": {
+                        "format": "date-time",
+                        "type": "string"
+                    },
+                    "eventSlug": {
+                        "type": "string"
+                    },
+                    "marketId": {
+                        "type": "string"
+                    },
+                    "name": {
+                        "type": "string"
+                    },
+                    "outcome": {
+                        "type": "string"
+                    },
+                    "price": {
+                        "type": "string"
+                    },
+                    "side": {
+                        "enum": [
+                            "buy",
+                            "sell"
+                        ],
+                        "type": "string"
+                    },
+                    "size": {
+                        "type": "string"
+                    },
+                    "slug": {
+                        "type": "string"
+                    },
+                    "title": {
+                        "type": "string"
+                    },
+                    "tokenId": {
+                        "type": "string"
+                    },
+                    "txHash": {
+                        "type": "string"
+                    },
+                    "wallet": {
+                        "type": "string"
+                    }
+                },
+                "required": [
+                    "at",
+                    "marketId",
+                    "outcome",
+                    "price",
+                    "side",
+                    "size",
+                    "tokenId",
+                    "wallet"
+                ],
+                "type": "object"
+            },
+            "MarketTradeList": {
+                "properties": {
+                    "trades": {
+                        "items": {
+                            "$ref": "#/components/schemas/MarketTrade"
+                        },
+                        "type": "array",
+                        "uniqueItems": false
+                    }
+                },
+                "required": [
+                    "trades"
+                ],
+                "type": "object"
+            },
             "Meta": {
                 "properties": {
                     "repo": {
@@ -3490,6 +3776,67 @@
                 ],
                 "type": "object"
             },
+            "OrderBook": {
+                "properties": {
+                    "asks": {
+                        "items": {
+                            "$ref": "#/components/schemas/BookLevel"
+                        },
+                        "type": "array",
+                        "uniqueItems": false
+                    },
+                    "at": {
+                        "format": "date-time",
+                        "type": "string"
+                    },
+                    "bestAsk": {
+                        "type": "string"
+                    },
+                    "bestBid": {
+                        "description": "BestBid, BestAsk, Mid and Spread are absent where a side is empty.",
+                        "type": "string"
+                    },
+                    "bids": {
+                        "items": {
+                            "$ref": "#/components/schemas/BookLevel"
+                        },
+                        "type": "array",
+                        "uniqueItems": false
+                    },
+                    "mid": {
+                        "type": "string"
+                    },
+                    "spread": {
+                        "type": "string"
+                    },
+                    "tokenId": {
+                        "type": "string"
+                    }
+                },
+                "required": [
+                    "asks",
+                    "at",
+                    "bids",
+                    "tokenId"
+                ],
+                "type": "object"
+            },
+            "OrderBookList": {
+                "properties": {
+                    "books": {
+                        "description": "Books are in the order the tokens were asked for, null for a token without one.",
+                        "items": {
+                            "$ref": "#/components/schemas/OrderBook"
+                        },
+                        "type": "array",
+                        "uniqueItems": false
+                    }
+                },
+                "required": [
+                    "books"
+                ],
+                "type": "object"
+            },
             "OrderFill": {
                 "properties": {
                     "dollars": {
@@ -4128,6 +4475,59 @@
                 "required": [
                     "at",
                     "profit"
+                ],
+                "type": "object"
+            },
+            "PriceHistory": {
+                "properties": {
+                    "change": {
+                        "description": "Change is the last price less the first, ChangePct the same in percent; absent with\nfewer than two points.",
+                        "type": "string"
+                    },
+                    "changePct": {
+                        "type": "string"
+                    },
+                    "points": {
+                        "items": {
+                            "$ref": "#/components/schemas/PricePoint"
+                        },
+                        "type": "array",
+                        "uniqueItems": false
+                    },
+                    "tokenId": {
+                        "type": "string"
+                    },
+                    "window": {
+                        "enum": [
+                            "1h",
+                            "6h",
+                            "1d",
+                            "1w",
+                            "1m"
+                        ],
+                        "type": "string"
+                    }
+                },
+                "required": [
+                    "points",
+                    "tokenId",
+                    "window"
+                ],
+                "type": "object"
+            },
+            "PricePoint": {
+                "properties": {
+                    "at": {
+                        "format": "date-time",
+                        "type": "string"
+                    },
+                    "price": {
+                        "type": "string"
+                    }
+                },
+                "required": [
+                    "at",
+                    "price"
                 ],
                 "type": "object"
             },
@@ -11575,6 +11975,482 @@
                 "summary": "Start a workflow from a template",
                 "tags": [
                     "library"
+                ]
+            }
+        },
+        "/market-data/books": {
+            "get": {
+                "operationId": "getOrderBooks",
+                "parameters": [
+                    {
+                        "description": "Outcome token IDs, comma-separated: 50 at most",
+                        "in": "query",
+                        "name": "tokens",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "description": "Levels of each side: 10 unless said, 100 at most",
+                        "in": "query",
+                        "name": "depth",
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/OrderBookList"
+                                }
+                            }
+                        },
+                        "description": "OK"
+                    },
+                    "400": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "invalid_input"
+                    },
+                    "401": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "unauthenticated"
+                    },
+                    "503": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "upstream_unavailable"
+                    }
+                },
+                "security": [
+                    {
+                        "SessionCookie": []
+                    },
+                    {
+                        "APIToken": []
+                    }
+                ],
+                "summary": "Order books",
+                "tags": [
+                    "market-data"
+                ]
+            }
+        },
+        "/market-data/history/{token}": {
+            "get": {
+                "operationId": "getPriceHistory",
+                "parameters": [
+                    {
+                        "description": "The outcome's token ID",
+                        "in": "path",
+                        "name": "token",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "description": "How far back: 1h, 6h, 1d, 1w or 1m; 1d unless said",
+                        "in": "query",
+                        "name": "window",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "description": "At most this many points, evenly spaced: 50 unless said, 500 at most",
+                        "in": "query",
+                        "name": "limit",
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/PriceHistory"
+                                }
+                            }
+                        },
+                        "description": "OK"
+                    },
+                    "400": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "invalid_input"
+                    },
+                    "401": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "unauthenticated"
+                    },
+                    "503": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "upstream_unavailable"
+                    }
+                },
+                "security": [
+                    {
+                        "SessionCookie": []
+                    },
+                    {
+                        "APIToken": []
+                    }
+                ],
+                "summary": "Price history",
+                "tags": [
+                    "market-data"
+                ]
+            }
+        },
+        "/market-data/markets/{market}": {
+            "get": {
+                "operationId": "getMarketData",
+                "parameters": [
+                    {
+                        "description": "Its condition ID, 0x…, or its slug",
+                        "in": "path",
+                        "name": "market",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Market"
+                                }
+                            }
+                        },
+                        "description": "OK"
+                    },
+                    "401": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "unauthenticated"
+                    },
+                    "404": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "not_found"
+                    },
+                    "503": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "upstream_unavailable"
+                    }
+                },
+                "security": [
+                    {
+                        "SessionCookie": []
+                    },
+                    {
+                        "APIToken": []
+                    }
+                ],
+                "summary": "Get a market",
+                "tags": [
+                    "market-data"
+                ]
+            }
+        },
+        "/market-data/markets/{market}/trades": {
+            "get": {
+                "operationId": "getMarketTrades",
+                "parameters": [
+                    {
+                        "description": "Its condition ID, 0x…",
+                        "in": "path",
+                        "name": "market",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "description": "At most this many: 50 unless said, 500 at most",
+                        "in": "query",
+                        "name": "limit",
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/MarketTradeList"
+                                }
+                            }
+                        },
+                        "description": "OK"
+                    },
+                    "400": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "invalid_input"
+                    },
+                    "401": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "unauthenticated"
+                    },
+                    "503": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "upstream_unavailable"
+                    }
+                },
+                "security": [
+                    {
+                        "SessionCookie": []
+                    },
+                    {
+                        "APIToken": []
+                    }
+                ],
+                "summary": "A market's trades",
+                "tags": [
+                    "market-data"
+                ]
+            }
+        },
+        "/market-data/search": {
+            "get": {
+                "operationId": "searchMarkets",
+                "parameters": [
+                    {
+                        "description": "Words of the event's title, like bitcoin or election",
+                        "in": "query",
+                        "name": "query",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "description": "Closed markets instead of open ones",
+                        "in": "query",
+                        "name": "closed",
+                        "schema": {
+                            "type": "boolean"
+                        }
+                    },
+                    {
+                        "description": "At most this many: 50 unless said, 500 at most",
+                        "in": "query",
+                        "name": "limit",
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/MarketList"
+                                }
+                            }
+                        },
+                        "description": "OK"
+                    },
+                    "400": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "invalid_input"
+                    },
+                    "401": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "unauthenticated"
+                    },
+                    "503": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "upstream_unavailable"
+                    }
+                },
+                "security": [
+                    {
+                        "SessionCookie": []
+                    },
+                    {
+                        "APIToken": []
+                    }
+                ],
+                "summary": "Search markets",
+                "tags": [
+                    "market-data"
+                ]
+            }
+        },
+        "/market-data/traders/{address}/positions": {
+            "get": {
+                "operationId": "getAddressPositions",
+                "parameters": [
+                    {
+                        "description": "The wallet's address, 0x and 40 hex digits",
+                        "in": "path",
+                        "name": "address",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "description": "At most this many: 50 unless said, 500 at most",
+                        "in": "query",
+                        "name": "limit",
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/AddressPositionList"
+                                }
+                            }
+                        },
+                        "description": "OK"
+                    },
+                    "400": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "invalid_input"
+                    },
+                    "401": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "unauthenticated"
+                    },
+                    "503": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "upstream_unavailable"
+                    }
+                },
+                "security": [
+                    {
+                        "SessionCookie": []
+                    },
+                    {
+                        "APIToken": []
+                    }
+                ],
+                "summary": "An address's positions",
+                "tags": [
+                    "market-data"
                 ]
             }
         },

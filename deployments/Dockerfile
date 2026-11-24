@@ -17,6 +17,7 @@ RUN --mount=type=cache,target=/go/pkg/mod go mod download
 COPY cmd ./cmd
 COPY internal ./internal
 COPY pkg ./pkg
+COPY sdk ./sdk
 
 # The version a release was tagged and the commit it was built from (D425); dev for a
 # build from the code.

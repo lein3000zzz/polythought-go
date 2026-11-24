@@ -8,9 +8,6 @@
     "lib": ["ES2023"],
     "types": []
   },
-  "include": [
-    "../internal/adapters/tscompiler/sdk/workflow.ts",
-    "src/features/workflowcode/workflow.types.ts"
-  ],
+  "include": ["../sdk/typescript/workflow.ts", "src/features/workflowcode/workflow.types.ts"],
   "exclude": []
 }

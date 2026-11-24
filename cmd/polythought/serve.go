@@ -11,6 +11,7 @@ import (
 	"github.com/lein3000zzz/polythought-go/internal/adapters/httpapi"
 	"github.com/lein3000zzz/polythought-go/internal/buildinfo"
 	"github.com/lein3000zzz/polythought-go/internal/config"
+	"github.com/lein3000zzz/polythought-go/internal/core/services/marketdata"
 	"github.com/lein3000zzz/polythought-go/internal/core/services/settings"
 )
 
@@ -73,7 +74,10 @@ func serve(ctx context.Context) error {
 		Trading:  a.trading,
 		Memory:   a.memory,
 		Telegram: a.telegram, TelegramWebhook: a.telegramBot, Notifications: a.notify, Mail: a.mail,
-		Hooks:    a.hooks,
+		Hooks: a.hooks,
+		MarketData: marketdata.New(marketdata.Deps{
+			Events: a.markets, Markets: a.markets, Books: a.markets, History: a.markets, Trades: a.markets, Positions: a.markets,
+		}),
 		Geoblock: a.geoblock, Tasks: a.tasks, TaskAgents: a.taskAgents,
 		Meta:    a.meta,
 		Updates: a.updates,
