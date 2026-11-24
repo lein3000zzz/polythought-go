@@ -109,7 +109,16 @@ var routeScopes = map[string]access{
 	"POST /api/v1/workflows/:id/executions/:eid/task/hand-back": browserOnly,
 	"POST /api/v1/workflows/:id/executions/:eid/task/answer":    browserOnly,
 	"DELETE /api/v1/workflows/:id/nodes/:node/memory":           need(domain.ScopeBuild),
-	// An inbound webhook's secret address starts the workflow for whoever has it (D439):
+	// Datasets: written with the data scope.
+	"POST /api/v1/datasets":                             need(domain.ScopeData),
+	"DELETE /api/v1/datasets/:name":                     need(domain.ScopeData),
+	"PUT /api/v1/datasets/:name/keep":                   need(domain.ScopeData),
+	"POST /api/v1/datasets/:name/rows":                  need(domain.ScopeData),
+	"POST /api/v1/datasets/:name/replace":               need(domain.ScopeData),
+	"POST /api/v1/datasets/:name/replace/:stage/rows":   need(domain.ScopeData),
+	"POST /api/v1/datasets/:name/replace/:stage/finish": need(domain.ScopeData),
+	"DELETE /api/v1/datasets/:name/replace/:stage":      need(domain.ScopeData),
+	// An inbound webhook's secret address starts the workflow for whoever has it:
 	// its owner's, at a browser, read and renewed.
 	"GET /api/v1/workflows/:id/hooks/:node":        browserOnly,
 	"POST /api/v1/workflows/:id/hooks/:node/renew": browserOnly,

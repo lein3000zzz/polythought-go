@@ -11,6 +11,7 @@ import (
 	"github.com/lein3000zzz/polythought-go/internal/adapters/httpapi"
 	"github.com/lein3000zzz/polythought-go/internal/buildinfo"
 	"github.com/lein3000zzz/polythought-go/internal/config"
+	"github.com/lein3000zzz/polythought-go/internal/core/domain"
 	"github.com/lein3000zzz/polythought-go/internal/core/services/marketdata"
 	"github.com/lein3000zzz/polythought-go/internal/core/services/settings"
 )
@@ -74,7 +75,11 @@ func serve(ctx context.Context) error {
 		Trading:  a.trading,
 		Memory:   a.memory,
 		Telegram: a.telegram, TelegramWebhook: a.telegramBot, Notifications: a.notify, Mail: a.mail,
-		Hooks: a.hooks,
+		Hooks:    a.hooks,
+		Datasets: a.datasets,
+		DataAccess: func() domain.DataAccess {
+			return dataAccess(a.settings.Current())
+		},
 		MarketData: marketdata.New(marketdata.Deps{
 			Events: a.markets, Markets: a.markets, Books: a.markets, History: a.markets, Trades: a.markets, Positions: a.markets,
 		}),
@@ -134,6 +139,9 @@ func serve(ctx context.Context) error {
 
 	// What nodes remember goes when it expires (D121).
 	go a.memory.SweepEvery(ctx, 10*time.Minute)
+
+	// Datasets' rows past what each keeps, and replaces left unfinished a day.
+	go a.datasets.RunSweeper(ctx, time.Hour)
 
 	// Session keys and approval setups submitted are followed until confirmed; session
 	// keys' owners are reminded before they expire (D156, D161).

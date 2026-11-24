@@ -5,6 +5,7 @@ import { toast } from 'sonner'
 
 import { useCreateUser, useSendVerificationLink, useUpdateUser, useUsers } from '@/api/admin'
 import { useMe, useMinPasswordLength } from '@/api/auth'
+import { useDatasetUsage } from '@/api/datasets'
 import { errorMessage, type Schemas } from '@/api/client'
 import { useSettings } from '@/api/settings'
 import { type AgentCaps, tokens, useUserAgentSpend } from '@/api/spend'
@@ -34,7 +35,7 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import { configPath } from '@/features/config/pages'
-import { formatDateTime } from '@/lib/format'
+import { formatBytes, formatDateTime } from '@/lib/format'
 
 type User = Schemas['User']
 
@@ -65,6 +66,9 @@ function UsersSection({ me }: { me: User }) {
   const settings = useSettings()
   const codeAccess = settings.data?.settings.find((s) => s.key === 'code.access')?.value as
     CodeAccess | undefined
+  const dataAccess = settings.data?.settings.find((s) => s.key === 'data.access')?.value as
+    CodeAccess | undefined
+  const usage = useDatasetUsage()
   const instanceCaps = {
     perOrder: settings.data?.settings.find((s) => s.key === 'trading.max_live_order')?.value as
       number | undefined,
@@ -86,6 +90,20 @@ function UsersSection({ me }: { me: User }) {
         onSuccess: () =>
           toast.success(
             chosen ? `${user.email} may write code` : `${user.email} may no longer write code`,
+          ),
+        onError: (error) => toast.error(errorMessage(error)),
+      },
+    )
+
+  const chooseForData = (user: User, chosen: boolean) =>
+    update.mutate(
+      { id: user.id, dataChosen: chosen },
+      {
+        onSuccess: () =>
+          toast.success(
+            chosen
+              ? `${user.email} may use datasets and models`
+              : `${user.email} may no longer use datasets and models`,
           ),
         onError: (error) => toast.error(errorMessage(error)),
       },
@@ -152,6 +170,7 @@ function UsersSection({ me }: { me: User }) {
               <TableHead>Role</TableHead>
               <TableHead>Status</TableHead>
               <TableHead>Code</TableHead>
+              <TableHead>Data</TableHead>
               <TableHead>Live caps</TableHead>
               <TableHead>Agent caps</TableHead>
               <TableHead>Created</TableHead>
@@ -186,6 +205,32 @@ function UsersSection({ me }: { me: User }) {
                   ) : (
                     'No'
                   )}
+                </TableCell>
+                <TableCell>
+                  <div className="flex items-center gap-2">
+                    {dataAccess === 'chosen' && u.role !== 'admin' ? (
+                      <Switch
+                        size="sm"
+                        checked={u.dataChosen}
+                        aria-label={`${u.email} may use datasets and models`}
+                        disabled={update.isPending}
+                        onCheckedChange={(chosen) => chooseForData(u, chosen)}
+                      />
+                    ) : u.mayUseData ? (
+                      'Yes'
+                    ) : (
+                      'No'
+                    )}
+                    {usage.data && (
+                      <span
+                        className="text-xs text-muted-foreground tabular-nums"
+                        title="Their datasets' storage, of what each user may have"
+                      >
+                        {formatBytes(usage.data.bytes[u.id] ?? 0)} of{' '}
+                        {formatBytes(usage.data.limit)}
+                      </span>
+                    )}
+                  </div>
                 </TableCell>
                 <TableCell>
                   <Button

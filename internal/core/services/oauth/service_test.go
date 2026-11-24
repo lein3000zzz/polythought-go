@@ -172,7 +172,7 @@ func TestMetadata(t *testing.T) {
 	assert.Equal(t, issuer+"/api/v1/oauth/token", m.TokenEndpoint)
 	assert.Equal(t, issuer+"/api/v1/oauth/register", m.RegistrationEndpoint)
 	assert.Equal(t, issuer+"/api/v1/oauth/revoke", m.RevocationEndpoint)
-	assert.Equal(t, []string{"read", "build", "tasks", "settings", "paper", "live", "admin"}, m.ScopesSupported)
+	assert.Equal(t, []string{"read", "build", "tasks", "data", "settings", "paper", "live", "admin"}, m.ScopesSupported)
 	assert.Equal(t, []string{"S256"}, m.CodeChallengeMethods)
 	assert.Equal(t, []string{"none"}, m.TokenAuthMethods)
 	assert.True(t, m.ClientIDDocuments)
@@ -421,17 +421,17 @@ func TestPrepare(t *testing.T) {
 		user, admin := f.user("u1", domain.RoleUser), f.user("a1", domain.RoleAdmin)
 
 		assert.Equal(t, []Offer{
-			{domain.ScopeRead, true}, {domain.ScopeBuild, true}, {domain.ScopeTasks, false}, {domain.ScopeSettings, false},
+			{domain.ScopeRead, true}, {domain.ScopeBuild, true}, {domain.ScopeTasks, false}, {domain.ScopeData, false}, {domain.ScopeSettings, false},
 			{domain.ScopePaper, true}, {domain.ScopeLive, false},
 		}, offered(user, ""), "everything but tasks, settings and live, no admin for a user")
 
 		assert.Equal(t, []Offer{
-			{domain.ScopeRead, true}, {domain.ScopeBuild, false}, {domain.ScopeTasks, false}, {domain.ScopeSettings, false},
+			{domain.ScopeRead, true}, {domain.ScopeBuild, false}, {domain.ScopeTasks, false}, {domain.ScopeData, false}, {domain.ScopeSettings, false},
 			{domain.ScopePaper, false}, {domain.ScopeLive, false},
 		}, offered(user, "read live settings tasks"), "what it asks for, live, settings and tasks never ticked")
 
 		assert.Equal(t, []Offer{
-			{domain.ScopeRead, false}, {domain.ScopeBuild, false}, {domain.ScopeTasks, false}, {domain.ScopeSettings, false},
+			{domain.ScopeRead, false}, {domain.ScopeBuild, false}, {domain.ScopeTasks, false}, {domain.ScopeData, false}, {domain.ScopeSettings, false},
 			{domain.ScopePaper, false}, {domain.ScopeLive, false}, {domain.ScopeAdmin, false},
 		}, offered(admin, "admin"), "admin offered to an admin, unticked")
 	})

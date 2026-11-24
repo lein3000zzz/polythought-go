@@ -43,6 +43,7 @@ import (
 	"github.com/lein3000zzz/polythought-go/internal/core/services/confirmations"
 	"github.com/lein3000zzz/polythought-go/internal/core/services/credentials"
 	"github.com/lein3000zzz/polythought-go/internal/core/services/customnodes"
+	"github.com/lein3000zzz/polythought-go/internal/core/services/datasets"
 	"github.com/lein3000zzz/polythought-go/internal/core/services/events"
 	"github.com/lein3000zzz/polythought-go/internal/core/services/feed"
 	"github.com/lein3000zzz/polythought-go/internal/core/services/geoblock"
@@ -157,7 +158,8 @@ type app struct {
 	markets         *pmadapter.Reader
 	waits           *waits.Service
 	taskAgents      *tasks.Presence // which owners have an agent taking tasks (D386)
-	hooks           *hooks.Service  // inbound webhooks (D439)
+	hooks           *hooks.Service  // inbound webhooks
+	datasets        *datasets.Service
 	tasks           *tasks.Service
 	code            *code.Service
 	codeRunners     func() ports.CodeRunners
@@ -544,6 +546,17 @@ func oauthPolicy(s *settings.Snapshot) oauth.Policy {
 
 func codeAccess(s *settings.Snapshot) domain.CodeAccess {
 	return domain.CodeAccess(s.String(config.KeyCodeAccess))
+}
+
+func dataAccess(s *settings.Snapshot) domain.DataAccess {
+	return domain.DataAccess(s.String(config.KeyDataAccess))
+}
+
+func datasetLimits(s *settings.Snapshot) datasets.Limits {
+	return datasets.Limits{
+		Datasets: s.Int(config.KeyDataSets), Rows: s.Int(config.KeyDataRows), RowBytes: s.Int(config.KeyDataRowBytes),
+		Bytes: int64(s.Int(config.KeyDataMiB)) << 20,
+	}
 }
 
 func customNodeLimits(s *settings.Snapshot) customnodes.Limits {
@@ -1122,6 +1135,14 @@ func (a *app) initEngine(ctx context.Context, pmc polymarket) error {
 		Misses:    ratelimit.NewMemory(30*time.Second, 10),
 		PublicURL: a.cfg.PublicURL,
 		Logger:    a.util.Logger,
+	})
+
+	// Users' datasets, as an admin lets them, within the admin's limits.
+	a.datasets = datasets.New(datasets.Deps{
+		Repo:   postgres.NewDatasets(a.db),
+		Gate:   auth.DataGate{Users: postgres.NewUsers(a.db), Mode: func() domain.DataAccess { return dataAccess(a.settings.Current()) }},
+		Limits: func() datasets.Limits { return datasetLimits(a.settings.Current()) },
+		Logger: a.util.Logger,
 	})
 
 	err = nodes.Register(a.registry, nodes.Deps{

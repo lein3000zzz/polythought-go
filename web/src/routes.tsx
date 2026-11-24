@@ -20,6 +20,7 @@ import { LoginPage } from '@/pages/LoginPage'
 import { NodesPage } from '@/pages/NodesPage'
 import { NotFoundPage } from '@/pages/NotFoundPage'
 import { OAuthAuthorizePage } from '@/pages/OAuthAuthorizePage'
+import { DatasetsPage } from '@/pages/DatasetsPage'
 import { OrdersPage } from '@/pages/OrdersPage'
 import { RegisterPage } from '@/pages/RegisterPage'
 import { RequestAccessPage } from '@/pages/RequestAccessPage'
@@ -74,6 +75,8 @@ export const routes: RouteObject[] = [
           { path: 'nodes/:id', element: <CustomNodePage /> },
           { path: 'wallets', element: <WalletsPage /> },
           { path: 'orders', element: <OrdersPage /> },
+          { path: 'data', element: <Navigate to="/data/datasets" replace /> },
+          { path: 'data/datasets', element: <DatasetsPage /> },
           // Where an agent's window links, to confirm one of its live actions (D409).
           { path: 'confirmations/:id', element: <ConfirmationPage /> },
           // A page of Settings now (D392): old links still get there.

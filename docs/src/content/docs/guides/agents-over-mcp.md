@@ -38,6 +38,7 @@ works too, sent as `Authorization: Bearer pt_…`, with the scopes it was made w
 | Read | See your workflows and their runs, the node catalog, the library, market data, your wallets' balances and orders. Every scope brings it. |
 | Build | Create, change, check, run and switch workflows; custom nodes and code; credentials you give it; the library. |
 | Take tasks | Take and answer the tasks of your Local agent nodes. |
+| Write datasets | Make your datasets, add rows to them, replace and delete them. |
 | Change settings | Your notifications, and your connected agents. |
 | Trade on paper | Set workflows to trade on paper, and cancel paper orders. |
 | Trade live | Set workflows to trade live from your wallets, and cancel live orders, within your caps and kill switch. |

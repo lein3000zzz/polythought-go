@@ -52,4 +52,5 @@ type Users struct {
 	UnconfirmedPluginChange  bool
 	Shortcuts                string
 	Dashboard                string
+	DataChosen               bool
 }

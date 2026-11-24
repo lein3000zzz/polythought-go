@@ -68,6 +68,7 @@ packages:
       TradeReader: {}
       PriceHistoryReader: {}
       WebhookSender: {}
+      DatasetRepository: {}
       CredentialRepository: {}
       CredentialReader: {}
       NodeMemory: {}
@@ -143,6 +144,7 @@ packages:
       TelegramWebhook: {}
       HookService: {}
       MarketDataService: {}
+      DatasetService: {}
       NotificationService: {}
       CustomNodeService: {}
       MailService: {}

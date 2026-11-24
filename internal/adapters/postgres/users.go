@@ -49,6 +49,7 @@ func (r *Users) Create(ctx context.Context, u domain.User, passwordHash string) 
 		EmailVerifiedAt:          timePtr(u.EmailVerifiedAt),
 		DisabledAt:               timePtr(u.DisabledAt),
 		CodeChosen:               u.CodeChosen,
+		DataChosen:               u.DataChosen,
 		LiveStoppedAt:            timePtr(u.LiveStoppedAt),
 		MaxLiveOrder:             capOf(u.LiveCaps.PerOrder),
 		MaxLiveDay:               capOf(u.LiveCaps.PerDay),
@@ -153,10 +154,10 @@ func (r *Users) Update(ctx context.Context, u domain.User) error {
 	t := table.Users
 
 	return affectedOne(t.
-		UPDATE(t.Role, t.DisabledAt, t.CodeChosen, t.MaxLiveOrder, t.MaxLiveDay,
+		UPDATE(t.Role, t.DisabledAt, t.CodeChosen, t.DataChosen, t.MaxLiveOrder, t.MaxLiveDay,
 			t.MaxAgentDollars, t.MaxAgentInput, t.MaxAgentOutput, t.MaxAgentTotal, t.UpdatedAt).
 		MODEL(model.Users{
-			Role: string(u.Role), DisabledAt: timePtr(u.DisabledAt), CodeChosen: u.CodeChosen,
+			Role: string(u.Role), DisabledAt: timePtr(u.DisabledAt), CodeChosen: u.CodeChosen, DataChosen: u.DataChosen,
 			MaxLiveOrder: capOf(u.LiveCaps.PerOrder), MaxLiveDay: capOf(u.LiveCaps.PerDay),
 			MaxAgentDollars: u.AgentCaps.Dollars, MaxAgentInput: u.AgentCaps.InputTokens,
 			MaxAgentOutput: u.AgentCaps.OutputTokens, MaxAgentTotal: u.AgentCaps.TotalTokens, UpdatedAt: u.UpdatedAt,
@@ -455,6 +456,7 @@ func toUser(m model.Users) domain.User {
 		EmailVerifiedAt: timeOf(m.EmailVerifiedAt),
 		DisabledAt:      timeOf(m.DisabledAt),
 		CodeChosen:      m.CodeChosen,
+		DataChosen:      m.DataChosen,
 		LiveStoppedAt:   timeOf(m.LiveStoppedAt),
 		LiveCaps:        domain.LiveCaps{PerOrder: capFrom(m.MaxLiveOrder), PerDay: capFrom(m.MaxLiveDay)},
 		AgentCaps: domain.AgentCaps{

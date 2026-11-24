@@ -21,6 +21,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/admin/datasets/usage": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Datasets' storage, by user */
+        get: operations["datasetUsage"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/admin/geoblock": {
         parameters: {
             query?: never;
@@ -1097,6 +1114,179 @@ export interface paths {
         post?: never;
         /** Delete a custom node */
         delete: operations["deleteCustomNode"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/datasets": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List datasets */
+        get: operations["listDatasets"];
+        put?: never;
+        /** Make a dataset */
+        post: operations["createDataset"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/datasets/{name}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get a dataset */
+        get: operations["getDataset"];
+        put?: never;
+        post?: never;
+        /** Delete a dataset */
+        delete: operations["deleteDataset"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/datasets/{name}/csv": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** A dataset as CSV */
+        get: operations["exportDataset"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/datasets/{name}/keep": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Set what a dataset keeps */
+        put: operations["setDatasetKeep"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/datasets/{name}/replace": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Start replacing a dataset's rows */
+        post: operations["startDatasetReplace"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/datasets/{name}/replace/{stage}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Drop a replace */
+        delete: operations["dropDatasetReplace"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/datasets/{name}/replace/{stage}/finish": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Finish a replace */
+        post: operations["finishDatasetReplace"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/datasets/{name}/replace/{stage}/rows": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Send rows to a replace */
+        post: operations["stageDatasetRows"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/datasets/{name}/rows": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** A dataset's rows */
+        get: operations["listDatasetRows"];
+        put?: never;
+        /** Add rows to a dataset */
+        post: operations["appendDatasetRows"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/datasets/{name}/rows/{key}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** A dataset's row by its key */
+        get: operations["getDatasetRow"];
+        put?: never;
+        post?: never;
+        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -2582,7 +2772,7 @@ export interface components {
              * @description Scopes are what it may do (D398); absent, for a token made before scopes, it has
              *     every scope its user's role allows.
              */
-            scopes?: ("read" | "build" | "tasks" | "settings" | "paper" | "live" | "admin")[];
+            scopes?: ("read" | "build" | "tasks" | "data" | "settings" | "paper" | "live" | "admin")[];
             /**
              * @description TakingTasks says the token waits for the tasks of your Local agent nodes now, or did
              *     a moment ago (D413).
@@ -2964,6 +3154,13 @@ export interface components {
                 [key: string]: string;
             };
         };
+        CreateDatasetRequest: {
+            keepDays?: number;
+            keepRows?: number;
+            keyField?: string;
+            /** @description Name is lower-case letters, digits, - and _, up to 64; unique among yours, and fixed. */
+            name: string;
+        };
         CreateInviteRequest: {
             /** @description Code is typed (D393): 8 to 64 letters, digits, - and _, any case; made when empty. */
             code?: string;
@@ -2989,7 +3186,7 @@ export interface components {
             expiresAt?: string;
             name: string;
             /** @description Scopes are what it may do (D398): at least one; admin for an admin's token only. */
-            scopes: ("read" | "build" | "tasks" | "settings" | "paper" | "live" | "admin")[];
+            scopes: ("read" | "build" | "tasks" | "data" | "settings" | "paper" | "live" | "admin")[];
         };
         CreateUserRequest: {
             email: string;
@@ -3135,6 +3332,66 @@ export interface components {
              *     rest show.
              */
             hidden: string[];
+        };
+        Dataset: {
+            bytes: number;
+            /** Format: date-time */
+            createdAt: string;
+            /**
+             * @description KeepDays drops rows older than so many days, 0 for none; KeepRows keeps no more than
+             *     so many, the oldest dropped first, 0 for the instance's most.
+             */
+            keepDays: number;
+            keepRows: number;
+            /** @description KeyField is the field rows are looked up by; absent for none. */
+            keyField?: string;
+            name: string;
+            rows: number;
+            /** Format: date-time */
+            updatedAt: string;
+        };
+        DatasetKeepRequest: {
+            keepDays: number;
+            keepRows: number;
+        };
+        DatasetList: {
+            datasets: components["schemas"]["Dataset"][];
+        };
+        DatasetRow: {
+            /** Format: date-time */
+            at: string;
+            key?: string;
+            /** @description Row is the row itself, a JSON object. */
+            row: {
+                [key: string]: unknown;
+            };
+            /** @description Seq is its place, ascending as rows were added: the cursor of the next page. */
+            seq: number;
+        };
+        DatasetRows: {
+            /** @description Next is the after of the next page; absent on the last. */
+            next?: number;
+            rows: components["schemas"]["DatasetRow"][];
+        };
+        DatasetRowsRequest: {
+            /** @description Rows are JSON objects, each at most the size a row may be. */
+            rows: {
+                [key: string]: unknown;
+            }[];
+        };
+        DatasetStage: {
+            /** @description Stage is the replace in progress: send rows to it, then finish it. */
+            stage: string;
+            /** @description Staged is how many rows it holds so far. */
+            staged: number;
+        };
+        DatasetUsage: {
+            /** @description Bytes is what each user's datasets take, by user ID; a user with none is absent. */
+            bytes: {
+                [key: string]: number;
+            };
+            /** @description Limit is what each may take. */
+            limit: number;
         };
         Error: {
             error: components["schemas"]["ErrorDetail"];
@@ -3883,7 +4140,7 @@ export interface components {
         };
         OAuthOffer: {
             /** @enum {string} */
-            scope: "read" | "build" | "tasks" | "settings" | "paper" | "live" | "admin";
+            scope: "read" | "build" | "tasks" | "data" | "settings" | "paper" | "live" | "admin";
             ticked: boolean;
         };
         OAuthProblem: {
@@ -4698,6 +4955,7 @@ export interface components {
              */
             agentCaps?: components["schemas"]["AgentCaps"];
             codeChosen?: boolean;
+            dataChosen?: boolean;
             disabled?: boolean;
             /** @description EmailVerified true marks the address verified; it cannot be made false. */
             emailVerified?: boolean;
@@ -4789,6 +5047,11 @@ export interface components {
             createdAt: string;
             /** @description Dashboard is how you set the workflows' dashboard (D429): yours, in /me only. */
             dashboard?: components["schemas"]["Dashboard"];
+            /**
+             * @description DataChosen says an admin picked them to use datasets and models, which counts while
+             *     data access is "chosen"; MayUseData, whether they may now.
+             */
+            dataChosen: boolean;
             disabled: boolean;
             email: string;
             emailVerified: boolean;
@@ -4806,6 +5069,7 @@ export interface components {
             liveStopped: boolean;
             /** Format: date-time */
             liveStoppedAt?: string;
+            mayUseData: boolean;
             /**
              * @description MayWriteCode says whether they may write code now, as code access and CodeChosen
              *     have it.
@@ -5058,6 +5322,44 @@ export interface operations {
                 };
             };
             /** @description forbidden: not an admin */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    datasetUsage: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DatasetUsage"];
+                };
+            };
+            /** @description unauthenticated */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description forbidden */
             403: {
                 headers: {
                     [name: string]: unknown;
@@ -8711,6 +9013,517 @@ export interface operations {
             };
             /** @description breaks_workflows with the workflows */
             409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    listDatasets: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DatasetList"];
+                };
+            };
+            /** @description unauthenticated */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description data_off: an admin keeps datasets from you */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    createDataset: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description The dataset */
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateDatasetRequest"];
+            };
+        };
+        responses: {
+            /** @description Created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Dataset"];
+                };
+            };
+            /** @description invalid_input */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description dataset_exists; dataset_full: as many as you may have */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    getDataset: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Its name */
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Dataset"];
+                };
+            };
+            /** @description not_found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    deleteDataset: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Its name */
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No Content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description not_found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    exportDataset: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Its name */
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description CSV */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "text/csv": string;
+                };
+            };
+            /** @description not_found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "text/csv": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    setDatasetKeep: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Its name */
+                name: string;
+            };
+            cookie?: never;
+        };
+        /** @description Days and rows: 0 for no limit */
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DatasetKeepRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Dataset"];
+                };
+            };
+            /** @description invalid_input */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description not_found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    startDatasetReplace: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Its name */
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DatasetStage"];
+                };
+            };
+            /** @description not_found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    dropDatasetReplace: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Its name */
+                name: string;
+                /** @description The replace */
+                stage: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No Content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description not_found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    finishDatasetReplace: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Its name */
+                name: string;
+                /** @description The replace */
+                stage: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Dataset"];
+                };
+            };
+            /** @description not_found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    stageDatasetRows: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Its name */
+                name: string;
+                /** @description The replace */
+                stage: string;
+            };
+            cookie?: never;
+        };
+        /** @description The rows: within the request's 1 MiB */
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DatasetRowsRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DatasetStage"];
+                };
+            };
+            /** @description invalid_input */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description not_found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description dataset_full */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    listDatasetRows: {
+        parameters: {
+            query?: {
+                /** @description The seq to start after: the page before's next */
+                after?: number;
+                /** @description At most this many: 1,000 unless said, and at most */
+                limit?: number;
+            };
+            header?: never;
+            path: {
+                /** @description Its name */
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DatasetRows"];
+                };
+            };
+            /** @description not_found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    appendDatasetRows: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Its name */
+                name: string;
+            };
+            cookie?: never;
+        };
+        /** @description The rows: within the request's 1 MiB */
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DatasetRowsRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Dataset"];
+                };
+            };
+            /** @description invalid_input */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description not_found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description dataset_full */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    getDatasetRow: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Its name */
+                name: string;
+                /** @description The key field's value */
+                key: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DatasetRow"];
+                };
+            };
+            /** @description invalid_input: it has no key field */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description not_found */
+            404: {
                 headers: {
                     [name: string]: unknown;
                 };

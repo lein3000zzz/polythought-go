@@ -31,6 +31,7 @@
                                 "read",
                                 "build",
                                 "tasks",
+                                "data",
                                 "settings",
                                 "paper",
                                 "live",
@@ -1095,6 +1096,29 @@
                 ],
                 "type": "object"
             },
+            "CreateDatasetRequest": {
+                "properties": {
+                    "keepDays": {
+                        "minimum": 0,
+                        "type": "integer"
+                    },
+                    "keepRows": {
+                        "minimum": 0,
+                        "type": "integer"
+                    },
+                    "keyField": {
+                        "type": "string"
+                    },
+                    "name": {
+                        "description": "Name is lower-case letters, digits, - and _, up to 64; unique among yours, and fixed.",
+                        "type": "string"
+                    }
+                },
+                "required": [
+                    "name"
+                ],
+                "type": "object"
+            },
             "CreateInviteRequest": {
                 "properties": {
                     "code": {
@@ -1134,6 +1158,7 @@
                                 "read",
                                 "build",
                                 "tasks",
+                                "data",
                                 "settings",
                                 "paper",
                                 "live",
@@ -1584,6 +1609,179 @@
                 },
                 "required": [
                     "hidden"
+                ],
+                "type": "object"
+            },
+            "Dataset": {
+                "properties": {
+                    "bytes": {
+                        "type": "integer"
+                    },
+                    "createdAt": {
+                        "format": "date-time",
+                        "type": "string"
+                    },
+                    "keepDays": {
+                        "description": "KeepDays drops rows older than so many days, 0 for none; KeepRows keeps no more than\nso many, the oldest dropped first, 0 for the instance's most.",
+                        "type": "integer"
+                    },
+                    "keepRows": {
+                        "type": "integer"
+                    },
+                    "keyField": {
+                        "description": "KeyField is the field rows are looked up by; absent for none.",
+                        "type": "string"
+                    },
+                    "name": {
+                        "type": "string"
+                    },
+                    "rows": {
+                        "type": "integer"
+                    },
+                    "updatedAt": {
+                        "format": "date-time",
+                        "type": "string"
+                    }
+                },
+                "required": [
+                    "bytes",
+                    "createdAt",
+                    "keepDays",
+                    "keepRows",
+                    "name",
+                    "rows",
+                    "updatedAt"
+                ],
+                "type": "object"
+            },
+            "DatasetKeepRequest": {
+                "properties": {
+                    "keepDays": {
+                        "minimum": 0,
+                        "type": "integer"
+                    },
+                    "keepRows": {
+                        "minimum": 0,
+                        "type": "integer"
+                    }
+                },
+                "required": [
+                    "keepDays",
+                    "keepRows"
+                ],
+                "type": "object"
+            },
+            "DatasetList": {
+                "properties": {
+                    "datasets": {
+                        "items": {
+                            "$ref": "#/components/schemas/Dataset"
+                        },
+                        "type": "array",
+                        "uniqueItems": false
+                    }
+                },
+                "required": [
+                    "datasets"
+                ],
+                "type": "object"
+            },
+            "DatasetRow": {
+                "properties": {
+                    "at": {
+                        "format": "date-time",
+                        "type": "string"
+                    },
+                    "key": {
+                        "type": "string"
+                    },
+                    "row": {
+                        "additionalProperties": {},
+                        "description": "Row is the row itself, a JSON object.",
+                        "type": "object"
+                    },
+                    "seq": {
+                        "description": "Seq is its place, ascending as rows were added: the cursor of the next page.",
+                        "type": "integer"
+                    }
+                },
+                "required": [
+                    "at",
+                    "row",
+                    "seq"
+                ],
+                "type": "object"
+            },
+            "DatasetRows": {
+                "properties": {
+                    "next": {
+                        "description": "Next is the after of the next page; absent on the last.",
+                        "type": "integer"
+                    },
+                    "rows": {
+                        "items": {
+                            "$ref": "#/components/schemas/DatasetRow"
+                        },
+                        "type": "array",
+                        "uniqueItems": false
+                    }
+                },
+                "required": [
+                    "rows"
+                ],
+                "type": "object"
+            },
+            "DatasetRowsRequest": {
+                "properties": {
+                    "rows": {
+                        "description": "Rows are JSON objects, each at most the size a row may be.",
+                        "items": {
+                            "additionalProperties": {},
+                            "type": "object"
+                        },
+                        "type": "array",
+                        "uniqueItems": false
+                    }
+                },
+                "required": [
+                    "rows"
+                ],
+                "type": "object"
+            },
+            "DatasetStage": {
+                "properties": {
+                    "stage": {
+                        "description": "Stage is the replace in progress: send rows to it, then finish it.",
+                        "type": "string"
+                    },
+                    "staged": {
+                        "description": "Staged is how many rows it holds so far.",
+                        "type": "integer"
+                    }
+                },
+                "required": [
+                    "stage",
+                    "staged"
+                ],
+                "type": "object"
+            },
+            "DatasetUsage": {
+                "properties": {
+                    "bytes": {
+                        "additionalProperties": {
+                            "type": "integer"
+                        },
+                        "description": "Bytes is what each user's datasets take, by user ID; a user with none is absent.",
+                        "type": "object"
+                    },
+                    "limit": {
+                        "description": "Limit is what each may take.",
+                        "type": "integer"
+                    }
+                },
+                "required": [
+                    "bytes",
+                    "limit"
                 ],
                 "type": "object"
             },
@@ -3557,6 +3755,7 @@
                             "read",
                             "build",
                             "tasks",
+                            "data",
                             "settings",
                             "paper",
                             "live",
@@ -5799,6 +5998,9 @@
                     "codeChosen": {
                         "type": "boolean"
                     },
+                    "dataChosen": {
+                        "type": "boolean"
+                    },
                     "disabled": {
                         "type": "boolean"
                     },
@@ -5991,6 +6193,10 @@
                         "$ref": "#/components/schemas/Dashboard",
                         "description": "Dashboard is how you set the workflows' dashboard (D429): yours, in /me only."
                     },
+                    "dataChosen": {
+                        "description": "DataChosen says an admin picked them to use datasets and models, which counts while\ndata access is \"chosen\"; MayUseData, whether they may now.",
+                        "type": "boolean"
+                    },
                     "disabled": {
                         "type": "boolean"
                     },
@@ -6023,6 +6229,9 @@
                         "format": "date-time",
                         "type": "string"
                     },
+                    "mayUseData": {
+                        "type": "boolean"
+                    },
                     "mayWriteCode": {
                         "description": "MayWriteCode says whether they may write code now, as code access and CodeChosen\nhave it.",
                         "type": "boolean"
@@ -6051,6 +6260,7 @@
                     "agentsSeePersonal",
                     "codeChosen",
                     "createdAt",
+                    "dataChosen",
                     "disabled",
                     "email",
                     "emailVerified",
@@ -6059,6 +6269,7 @@
                     "liveCaps",
                     "liveConfirm",
                     "liveStopped",
+                    "mayUseData",
                     "mayWriteCode",
                     "role"
                 ],
@@ -6729,6 +6940,55 @@
                     }
                 ],
                 "summary": "Where user code runs, and how its runners are",
+                "tags": [
+                    "admin"
+                ]
+            }
+        },
+        "/admin/datasets/usage": {
+            "get": {
+                "operationId": "datasetUsage",
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/DatasetUsage"
+                                }
+                            }
+                        },
+                        "description": "OK"
+                    },
+                    "401": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "unauthenticated"
+                    },
+                    "403": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "forbidden"
+                    }
+                },
+                "security": [
+                    {
+                        "SessionCookie": []
+                    },
+                    {
+                        "APIToken": []
+                    }
+                ],
+                "summary": "Datasets' storage, by user",
                 "tags": [
                     "admin"
                 ]
@@ -11663,6 +11923,798 @@
                 "summary": "Change a custom node",
                 "tags": [
                     "custom-nodes"
+                ]
+            }
+        },
+        "/datasets": {
+            "get": {
+                "operationId": "listDatasets",
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/DatasetList"
+                                }
+                            }
+                        },
+                        "description": "OK"
+                    },
+                    "401": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "unauthenticated"
+                    },
+                    "403": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "data_off: an admin keeps datasets from you"
+                    }
+                },
+                "security": [
+                    {
+                        "SessionCookie": []
+                    },
+                    {
+                        "APIToken": []
+                    }
+                ],
+                "summary": "List datasets",
+                "tags": [
+                    "datasets"
+                ]
+            },
+            "post": {
+                "operationId": "createDataset",
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/CreateDatasetRequest",
+                                "summary": "body",
+                                "description": "The dataset"
+                            }
+                        }
+                    },
+                    "description": "The dataset",
+                    "required": true
+                },
+                "responses": {
+                    "201": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Dataset"
+                                }
+                            }
+                        },
+                        "description": "Created"
+                    },
+                    "400": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "invalid_input"
+                    },
+                    "409": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "dataset_exists; dataset_full: as many as you may have"
+                    }
+                },
+                "security": [
+                    {
+                        "SessionCookie": []
+                    },
+                    {
+                        "APIToken": []
+                    }
+                ],
+                "summary": "Make a dataset",
+                "tags": [
+                    "datasets"
+                ]
+            }
+        },
+        "/datasets/{name}": {
+            "delete": {
+                "operationId": "deleteDataset",
+                "parameters": [
+                    {
+                        "description": "Its name",
+                        "in": "path",
+                        "name": "name",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "No Content"
+                    },
+                    "404": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "not_found"
+                    }
+                },
+                "security": [
+                    {
+                        "SessionCookie": []
+                    },
+                    {
+                        "APIToken": []
+                    }
+                ],
+                "summary": "Delete a dataset",
+                "tags": [
+                    "datasets"
+                ]
+            },
+            "get": {
+                "operationId": "getDataset",
+                "parameters": [
+                    {
+                        "description": "Its name",
+                        "in": "path",
+                        "name": "name",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Dataset"
+                                }
+                            }
+                        },
+                        "description": "OK"
+                    },
+                    "404": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "not_found"
+                    }
+                },
+                "security": [
+                    {
+                        "SessionCookie": []
+                    },
+                    {
+                        "APIToken": []
+                    }
+                ],
+                "summary": "Get a dataset",
+                "tags": [
+                    "datasets"
+                ]
+            }
+        },
+        "/datasets/{name}/csv": {
+            "get": {
+                "operationId": "exportDataset",
+                "parameters": [
+                    {
+                        "description": "Its name",
+                        "in": "path",
+                        "name": "name",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "text/csv": {
+                                "schema": {
+                                    "type": "string"
+                                }
+                            }
+                        },
+                        "description": "CSV"
+                    },
+                    "404": {
+                        "content": {
+                            "text/csv": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "not_found"
+                    }
+                },
+                "security": [
+                    {
+                        "SessionCookie": []
+                    },
+                    {
+                        "APIToken": []
+                    }
+                ],
+                "summary": "A dataset as CSV",
+                "tags": [
+                    "datasets"
+                ]
+            }
+        },
+        "/datasets/{name}/keep": {
+            "put": {
+                "operationId": "setDatasetKeep",
+                "parameters": [
+                    {
+                        "description": "Its name",
+                        "in": "path",
+                        "name": "name",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/DatasetKeepRequest",
+                                "summary": "body",
+                                "description": "Days and rows: 0 for no limit"
+                            }
+                        }
+                    },
+                    "description": "Days and rows: 0 for no limit",
+                    "required": true
+                },
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Dataset"
+                                }
+                            }
+                        },
+                        "description": "OK"
+                    },
+                    "400": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "invalid_input"
+                    },
+                    "404": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "not_found"
+                    }
+                },
+                "security": [
+                    {
+                        "SessionCookie": []
+                    },
+                    {
+                        "APIToken": []
+                    }
+                ],
+                "summary": "Set what a dataset keeps",
+                "tags": [
+                    "datasets"
+                ]
+            }
+        },
+        "/datasets/{name}/replace": {
+            "post": {
+                "operationId": "startDatasetReplace",
+                "parameters": [
+                    {
+                        "description": "Its name",
+                        "in": "path",
+                        "name": "name",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/DatasetStage"
+                                }
+                            }
+                        },
+                        "description": "Created"
+                    },
+                    "404": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "not_found"
+                    }
+                },
+                "security": [
+                    {
+                        "SessionCookie": []
+                    },
+                    {
+                        "APIToken": []
+                    }
+                ],
+                "summary": "Start replacing a dataset's rows",
+                "tags": [
+                    "datasets"
+                ]
+            }
+        },
+        "/datasets/{name}/replace/{stage}": {
+            "delete": {
+                "operationId": "dropDatasetReplace",
+                "parameters": [
+                    {
+                        "description": "Its name",
+                        "in": "path",
+                        "name": "name",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "description": "The replace",
+                        "in": "path",
+                        "name": "stage",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "No Content"
+                    },
+                    "404": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "not_found"
+                    }
+                },
+                "security": [
+                    {
+                        "SessionCookie": []
+                    },
+                    {
+                        "APIToken": []
+                    }
+                ],
+                "summary": "Drop a replace",
+                "tags": [
+                    "datasets"
+                ]
+            }
+        },
+        "/datasets/{name}/replace/{stage}/finish": {
+            "post": {
+                "operationId": "finishDatasetReplace",
+                "parameters": [
+                    {
+                        "description": "Its name",
+                        "in": "path",
+                        "name": "name",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "description": "The replace",
+                        "in": "path",
+                        "name": "stage",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Dataset"
+                                }
+                            }
+                        },
+                        "description": "OK"
+                    },
+                    "404": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "not_found"
+                    }
+                },
+                "security": [
+                    {
+                        "SessionCookie": []
+                    },
+                    {
+                        "APIToken": []
+                    }
+                ],
+                "summary": "Finish a replace",
+                "tags": [
+                    "datasets"
+                ]
+            }
+        },
+        "/datasets/{name}/replace/{stage}/rows": {
+            "post": {
+                "operationId": "stageDatasetRows",
+                "parameters": [
+                    {
+                        "description": "Its name",
+                        "in": "path",
+                        "name": "name",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "description": "The replace",
+                        "in": "path",
+                        "name": "stage",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/DatasetRowsRequest",
+                                "summary": "body",
+                                "description": "The rows: within the request's 1 MiB"
+                            }
+                        }
+                    },
+                    "description": "The rows: within the request's 1 MiB",
+                    "required": true
+                },
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/DatasetStage"
+                                }
+                            }
+                        },
+                        "description": "OK"
+                    },
+                    "400": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "invalid_input"
+                    },
+                    "404": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "not_found"
+                    },
+                    "409": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "dataset_full"
+                    }
+                },
+                "security": [
+                    {
+                        "SessionCookie": []
+                    },
+                    {
+                        "APIToken": []
+                    }
+                ],
+                "summary": "Send rows to a replace",
+                "tags": [
+                    "datasets"
+                ]
+            }
+        },
+        "/datasets/{name}/rows": {
+            "get": {
+                "operationId": "listDatasetRows",
+                "parameters": [
+                    {
+                        "description": "Its name",
+                        "in": "path",
+                        "name": "name",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "description": "The seq to start after: the page before's next",
+                        "in": "query",
+                        "name": "after",
+                        "schema": {
+                            "type": "integer"
+                        }
+                    },
+                    {
+                        "description": "At most this many: 1,000 unless said, and at most",
+                        "in": "query",
+                        "name": "limit",
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/DatasetRows"
+                                }
+                            }
+                        },
+                        "description": "OK"
+                    },
+                    "404": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "not_found"
+                    }
+                },
+                "security": [
+                    {
+                        "SessionCookie": []
+                    },
+                    {
+                        "APIToken": []
+                    }
+                ],
+                "summary": "A dataset's rows",
+                "tags": [
+                    "datasets"
+                ]
+            },
+            "post": {
+                "operationId": "appendDatasetRows",
+                "parameters": [
+                    {
+                        "description": "Its name",
+                        "in": "path",
+                        "name": "name",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/DatasetRowsRequest",
+                                "summary": "body",
+                                "description": "The rows: within the request's 1 MiB"
+                            }
+                        }
+                    },
+                    "description": "The rows: within the request's 1 MiB",
+                    "required": true
+                },
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Dataset"
+                                }
+                            }
+                        },
+                        "description": "OK"
+                    },
+                    "400": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "invalid_input"
+                    },
+                    "404": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "not_found"
+                    },
+                    "409": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "dataset_full"
+                    }
+                },
+                "security": [
+                    {
+                        "SessionCookie": []
+                    },
+                    {
+                        "APIToken": []
+                    }
+                ],
+                "summary": "Add rows to a dataset",
+                "tags": [
+                    "datasets"
+                ]
+            }
+        },
+        "/datasets/{name}/rows/{key}": {
+            "get": {
+                "operationId": "getDatasetRow",
+                "parameters": [
+                    {
+                        "description": "Its name",
+                        "in": "path",
+                        "name": "name",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "description": "The key field's value",
+                        "in": "path",
+                        "name": "key",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/DatasetRow"
+                                }
+                            }
+                        },
+                        "description": "OK"
+                    },
+                    "400": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "invalid_input: it has no key field"
+                    },
+                    "404": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "not_found"
+                    }
+                },
+                "security": [
+                    {
+                        "SessionCookie": []
+                    },
+                    {
+                        "APIToken": []
+                    }
+                ],
+                "summary": "A dataset's row by its key",
+                "tags": [
+                    "datasets"
                 ]
             }
         },

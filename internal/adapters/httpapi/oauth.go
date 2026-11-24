@@ -323,7 +323,7 @@ func awayFrom(c oauthClientDTO, redirect *url.URL) bool {
 }
 
 type offerDTO struct {
-	Scope  string `json:"scope" enums:"read,build,tasks,settings,paper,live,admin"`
+	Scope  string `json:"scope" enums:"read,build,tasks,data,settings,paper,live,admin"`
 	Ticked bool   `json:"ticked"`
 } // @name OAuthOffer
 

@@ -22,7 +22,7 @@ type UserRepository interface {
 	ByEmail(ctx context.Context, email string) (domain.User, string, error)
 	PasswordHash(ctx context.Context, id domain.UserID) (string, error)
 	SetPasswordHash(ctx context.Context, id domain.UserID, hash string, at time.Time) error
-	// Update writes Role, DisabledAt, CodeChosen and LiveCaps; not LiveStoppedAt.
+	// Update writes Role, DisabledAt, CodeChosen, DataChosen and LiveCaps; not LiveStoppedAt.
 	Update(ctx context.Context, u domain.User) error
 	// SetLiveStopped turns the user's kill switch on at at, or off with the zero time
 	// (D220).
