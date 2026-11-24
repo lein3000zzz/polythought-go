@@ -4,7 +4,8 @@ Your notebook and Polythought, both ways. Read Polythought's data and Polymarket
 publish datasets your workflows read, read what they recorded, and serve a model your
 workflows ask. Polythought runs none of your code: your notebook calls out to it.
 
-Python 3.10 or newer.
+Python 3.10 or newer. The docs' **Notebooks and models** guide walks the whole loop, from a
+notebook's predictions to the bets a workflow placed on them.
 
 ## Install
 

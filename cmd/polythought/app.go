@@ -444,6 +444,8 @@ func (a *app) newMCP() (*mcpserver.Server, error) {
 		Stats:       a.stats,
 		History:     a.history,
 		Oversight:   a.workflows,
+		Datasets:    a.datasets,
+		Models:      a.mlModels,
 		Admin:       a.auth,
 		Settings:    a.settings,
 		Mail:        a.mail,

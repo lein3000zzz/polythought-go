@@ -298,8 +298,9 @@ e2e: ## Browser and agent tests against a throwaway stack in Docker (UI on :3100
 	@# And the example plugin, as an admin installs it (5f).
 	$(GO) run ./tools/pluginpack -o web/e2e/.plugins/movers.tar.gz -platforms linux_amd64,linux_arm64 \
 		./examples/plugins/movers
-	@# An agent through the Go SDK's client first (D398), then the browser tests; E2E_ONLY=go
-	@# runs the agent's alone, E2E_ONLY=<spec> one browser spec.
+	@# An agent through the Go SDK's client first, and a notebook through the Python SDK
+	@# (PYTHON: 3.10 or newer), then the browser tests; E2E_ONLY=go runs the Go tests alone,
+	@# E2E_ONLY=<spec> one browser spec.
 	@set -e; \
 	export POLYTHOUGHT_SECRET_KEYS="e2e:$$(openssl rand -base64 32)" \
 		POLYTHOUGHT_ADMIN_EMAIL=admin@e2e.test POLYTHOUGHT_ADMIN_PASSWORD=e2e-admin-password \
@@ -308,7 +309,7 @@ e2e: ## Browser and agent tests against a throwaway stack in Docker (UI on :3100
 	$(E2E_COMPOSE) up -d --build --wait; \
 	export E2E_ADMIN_EMAIL=$$POLYTHOUGHT_ADMIN_EMAIL E2E_ADMIN_PASSWORD=$$POLYTHOUGHT_ADMIN_PASSWORD; \
 	if [ -z "$(E2E_ONLY)" ] || [ "$(E2E_ONLY)" = go ]; then \
-		E2E_BASE_URL=http://localhost:3100 $(GO) test -tags $(E2E_TAG) -count=1 ./internal/e2e/...; \
+		E2E_BASE_URL=http://localhost:3100 E2E_PYTHON="$(PYTHON)" $(GO) test -tags $(E2E_TAG) -count=1 ./internal/e2e/...; \
 	fi; \
 	if [ "$(E2E_ONLY)" != go ]; then $(PNPM) --dir web exec playwright test $(E2E_ONLY); fi
 
