@@ -102,7 +102,7 @@ test-sandbox: ## The sandbox's tests on Linux, in Docker, as the server runs the
 	@# No VCS stamps in the test plugins' builds: the mounted checkout's owner may not be the container's.
 	docker run --rm -v "$(CURDIR)":/src -w /src -e GOFLAGS=-buildvcs=false \
 		-v polythought-gomod:/go/pkg/mod -v polythought-gocache:/root/.cache/go-build \
-		golang:1.27.3-bookworm go test -count=1 ./internal/adapters/sandbox/ ./internal/adapters/pluginhost/ \
+		golang:1.27.4-bookworm go test -count=1 ./internal/adapters/sandbox/ ./internal/adapters/pluginhost/ \
 		./internal/adapters/coderunner/
 
 .PHONY: examples

@@ -2,7 +2,7 @@ module github.com/lein3000zzz/polythought-go/examples/plugins/movers
 
 go 1.27.0
 
-toolchain go1.27.3
+toolchain go1.27.4
 
 require github.com/lein3000zzz/polythought-go v0.0.0
 
