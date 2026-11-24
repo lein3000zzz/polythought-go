@@ -1124,6 +1124,7 @@ func (a *app) initEngine(ctx context.Context, pmc polymarket) error {
 		Webhooks:     webhooks,
 		HTTP:         requests,
 		Hooks:        a.hooks,
+		Fires:        postgres.NewScheduleFires(a.db),
 		MaxHTTPRequests: func() int {
 			return a.settings.Current().Int(config.KeyMaxHTTPRequests)
 		},

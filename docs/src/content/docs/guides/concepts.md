@@ -121,15 +121,38 @@ item counts as new again.
 A workflow starts at a **trigger**, a node with no input:
 
 - [Manual](/docs/reference/nodes/triggers/manual/) starts it when you press **Run**.
-- [Schedule](/docs/reference/nodes/triggers/schedule/) starts it at a fixed interval, such as every 15 minutes.
+- [Schedule](/docs/reference/nodes/triggers/schedule/) starts it at a fixed interval, such as every 15 minutes,
+  or at times of day in a time zone; see [Schedules](#schedules).
+- [Inbound webhook](/docs/guides/inbound-webhooks/) starts it when another service calls
+  its secret address.
 - [Market activity](/docs/reference/nodes/triggers/market/) starts it on live trades, order
   book changes or resolutions of the outcomes you choose.
 - [Telegram message](/docs/reference/nodes/triggers/telegram/) starts it when you message the
   instance's bot; see [Telegram](/docs/guides/telegram/).
 
-Schedules, market and Telegram triggers only fire while the workflow is **active**. Switch it on in the
-editor; switch it off to stop it. You can always run a workflow by hand, active or not: Run
-starts from its Manual trigger, or from its Schedule if it has no Manual one.
+Schedules, market, Telegram and webhook triggers only fire while the workflow is **active**. Switch it on
+in the editor; switch it off to stop it. You can always run a workflow by hand, active or not:
+Run starts from its Manual trigger, or else from its Schedule, or else from its Inbound
+webhook, as if called with nothing.
+
+## Schedules
+
+A Schedule **Runs** `every` so often, or `at` times of day:
+
+- **At** lists the times, 24-hour, one per line: `06:30`, `18:00`.
+- **On** ticks the days of the week it runs; none ticked is every day.
+- **Time zone** says whose clock: `America/Chicago`, `Europe/London`, `UTC`, as the IANA
+  database names them. Daylight saving is followed, so `06:30` in Chicago is 06:30 there
+  all year. A time the clocks skip, such as 02:30 the night they go forward, runs at 03:30.
+
+The Wait node's **Until** takes a time zone too.
+
+**Make up a missed run**, off to begin with, covers Polythought being down when a run fell
+due. Starting again, the schedule runs once for the latest time it missed, if that was
+within **Make up within**, an hour unless you set another. That run's item says
+`missed: true`, and `due` is when it was due. A schedule running `every` so often makes up
+only when **Run on start** is off, since the start runs it anyway. Switching a workflow on
+yourself makes up nothing: only Polythought starting again does.
 
 ## Executions
 

@@ -83,6 +83,9 @@ type Deps struct {
 	// MinInterval is the shortest interval schedules and market triggers may use. Zero
 	// means triggers.DefaultMinInterval.
 	MinInterval time.Duration
+	// Fires keeps when schedules last fired, for those making up missed runs (D440);
+	// optional: without it, none does.
+	Fires ports.ScheduleFires
 }
 
 func Register(r *engine.Registry, d Deps) error {
@@ -90,6 +93,13 @@ func Register(r *engine.Registry, d Deps) error {
 	if minInterval <= 0 {
 		minInterval = triggers.DefaultMinInterval
 	}
+
+	var scheduleOpts []triggers.ScheduleOption
+	if d.Fires != nil {
+		scheduleOpts = append(scheduleOpts, triggers.WithFires(d.Fires))
+	}
+
+	schedule := triggers.NewSchedule(minInterval, scheduleOpts...)
 
 	// Credential types first: nodes asking for one are checked against them.
 	if err := r.RegisterCredentialType(credtypes.HTTPHeaderType()); err != nil {
@@ -214,7 +224,7 @@ func Register(r *engine.Registry, d Deps) error {
 		local,
 		request,
 		r.RegisterTrigger(triggers.Manual{}),
-		r.RegisterTrigger(triggers.NewSchedule(minInterval)),
+		r.RegisterTrigger(schedule),
 		r.RegisterNode(markets2.NewMarkets(d.Markets)),
 		r.RegisterNode(markets2.NewSearch(d.Events)),
 		r.RegisterNode(markets2.NewOrderBooks(d.OrderBooks)),

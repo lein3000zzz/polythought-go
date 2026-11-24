@@ -45,6 +45,10 @@ refuses only code that does not compile.
 - **Data**, through the SDK's requests, which you `await`: `markets.search` and
   `markets.get`, `orderBooks.get`, and `positions.list` for one of your own wallets. Each one
   counts against the run's limit.
+- **Time zones**: `zone("America/Chicago")` is the time now by that zone's clock, daylight
+  saving followed: its `date`, `time`, `weekday`, `offset` like `-06:00`, `abbreviation`
+  like `CST`, `dst` and `iso`. `zone(name, at)` reads another moment within a year of now.
+  It asks Polythought once a zone a run, however often you call it.
 - **Types** for every node's items and settings come with the SDK, named after the node:
   `PolymarketMarketsItem`, `PolymarketOrderbookItem`. See [Types for code](/docs/reference/code-types/).
 

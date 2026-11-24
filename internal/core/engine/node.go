@@ -168,6 +168,11 @@ type ParamSpec struct {
 	// is a kind a cell can hold (CellKinds), with Options for one of a few choices.
 	// Cells are plain values: only the whole table takes an expression (D82).
 	Columns []ParamSpec
+
+	// Check, when set, checks a value its kind allows, as saving does and as an
+	// expression's value is: a time zone's name, say (D440). Its error reads after the
+	// setting's name.
+	Check func(value any) error `json:"-"`
 }
 
 // CellKinds are the kinds a table's columns may be (D80).
@@ -221,6 +226,11 @@ type NodeType struct {
 	// beside each one's fields by name: for a node that takes them together (D257). A
 	// field named items is then item.items.
 	SeesItems bool
+
+	// Check, when set, checks its settings together, as saving does, those holding no
+	// expressions with their defaults: a setting one mode needs, say (D440). Its error
+	// reads after the node's name.
+	Check func(p Params) error `json:"-"`
 }
 
 // Node is a step that transforms items. Per-item failures go to ErrorPort via Ports.Fail;

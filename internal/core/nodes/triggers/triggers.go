@@ -3,8 +3,6 @@ package triggers
 
 import (
 	"context"
-	"fmt"
-	"time"
 
 	"github.com/lein3000zzz/polythought-go/internal/core/engine"
 	"github.com/lein3000zzz/polythought-go/internal/core/nodes/shape"
@@ -41,90 +39,4 @@ func (Manual) Start(ctx context.Context, _ engine.TriggerContext, _ engine.Emit)
 // ManualOutput is what a manual trigger emits: one empty item, so the next node runs once.
 func ManualOutput() engine.Ports {
 	return engine.Ports{engine.DefaultPort: {{JSON: map[string]any{}}}}
-}
-
-// ScheduleOutput is what a schedule emits when it fires at at: one item with the time.
-func ScheduleOutput(at time.Time) engine.Ports {
-	return engine.Ports{engine.DefaultPort: {{JSON: map[string]any{"firedAt": at.UTC()}}}}
-}
-
-// DefaultMinInterval keeps schedules from hammering the APIs they feed (D435).
-const DefaultMinInterval = 5 * time.Second
-
-// Schedule fires every interval, emitting one item with the fire time.
-type Schedule struct {
-	minInterval time.Duration
-}
-
-func NewSchedule(minInterval time.Duration) *Schedule {
-	return &Schedule{minInterval: minInterval}
-}
-
-func (*Schedule) Type() engine.NodeType {
-	return engine.NodeType{
-		Name:        ScheduleType,
-		Label:       "Schedule",
-		Description: "Starts the workflow at a fixed interval.",
-		Outputs:     []string{engine.DefaultPort},
-		Items:       shape.Own(shape.Time("firedAt", "When the schedule fired.")),
-		Params: []engine.ParamSpec{
-			{Name: "interval", Label: "Every", Description: "A duration like 30s or 5m.", Kind: engine.ParamDuration, Required: true},
-			{Name: "runOnStart", Label: "Run on start", Description: "Also fire as soon as the workflow is activated.", Kind: engine.ParamBool, Default: true},
-		},
-	}
-}
-
-// Start fires until ctx is done. A tick that comes while the previous execution is still
-// running is dropped, so executions never pile up. Emit errors are logged by the runner
-// and do not stop the schedule.
-func (s *Schedule) Start(ctx context.Context, tc engine.TriggerContext, emit engine.Emit) error {
-	interval, err := s.interval(tc.Params)
-	if err != nil {
-		return err
-	}
-
-	runOnStart, err := tc.Params.Bool("runOnStart")
-	if err != nil {
-		return err
-	}
-
-	fire := func(at time.Time) {
-		_ = emit(ctx, ScheduleOutput(at))
-	}
-
-	if runOnStart {
-		fire(time.Now())
-	}
-
-	ticker := time.NewTicker(interval)
-	defer ticker.Stop()
-
-	for {
-		select {
-		case <-ctx.Done():
-			return nil
-		case at := <-ticker.C:
-			fire(at)
-		}
-	}
-}
-
-func (s *Schedule) interval(p engine.Params) (time.Duration, error) {
-	raw, err := p.String("interval")
-	if err != nil {
-		return 0, err
-	}
-
-	interval, err := time.ParseDuration(raw)
-	if err != nil {
-		return 0, fmt.Errorf("%w %q: %w", engine.ErrInvalidParam, "interval", err)
-	}
-
-	if interval <= 0 {
-		return 0, fmt.Errorf("%w %q: want a duration above zero", engine.ErrInvalidParam, "interval")
-	}
-
-	// One saved under a lower minimum, as an admin raised it since, fires at the minimum
-	// rather than not at all (D435).
-	return max(interval, s.minInterval), nil
 }

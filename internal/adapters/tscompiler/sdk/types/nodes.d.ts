@@ -406,8 +406,13 @@ export interface LogicWaitSettings {
      * @default "10m"
      */
     for?: DurationText | Expression;
-    /** A time of day in UTC, as HH:MM, e.g. 09:30. With mode until. */
+    /** A time of day, as HH:MM, e.g. 09:30, by the clock of the time zone below. With mode until. */
     until?: string;
+    /**
+     * With until: whose clock, as the IANA database names it, e.g. America/Chicago. Daylight saving is followed.
+     * @default "UTC"
+     */
+    zone?: string;
 }
 
 /** The settings of Log (output.log). */
@@ -1097,19 +1102,47 @@ export interface TriggerOrderActivityItem {
 
 /** The settings of Schedule (trigger.schedule). */
 export interface TriggerScheduleSettings {
-    /** A duration like 30s or 5m. */
-    interval: DurationText;
     /**
-     * Also fire as soon as the workflow is activated.
+     * every: at a fixed interval. at: at times of day, on the days ticked, in a time zone.
+     * @default "every"
+     */
+    mode?: "every" | "at";
+    /** With every: a duration like 30s or 5m. */
+    interval?: DurationText;
+    /**
+     * With every: also fire as soon as the workflow is switched on.
      * @default true
      */
     runOnStart?: boolean;
+    /** With at: times of day, 24-hour, one per line, e.g. 06:30. */
+    times?: string[];
+    /** With at: the days it runs; none ticked, every day. */
+    days?: ("mon" | "tue" | "wed" | "thu" | "fri" | "sat" | "sun")[];
+    /**
+     * With at: whose clock the times are, as the IANA database names it, e.g. America/Chicago or Europe/London. Daylight saving is followed.
+     * @default "UTC"
+     */
+    zone?: string;
+    /**
+     * When Polythought was down as a run fell due, run once as it starts again, for the latest time missed; its item says missed: true. With every, only when Run on start is off.
+     * @default false
+     */
+    catchUp?: boolean;
+    /**
+     * How long after its time a missed run is still made up.
+     * @default "1h"
+     */
+    catchUpWithin?: DurationText;
 }
 
 /** An item Schedule (trigger.schedule) sends on. */
 export interface TriggerScheduleItem {
     /** When the schedule fired. */
     firedAt: TimeText;
+    /** When the run was due: the time of day it is for, or the tick. */
+    due: TimeText;
+    /** A run made up, missed while Polythought was down. */
+    missed: boolean;
 }
 
 /** The settings of Telegram message (trigger.telegram). */

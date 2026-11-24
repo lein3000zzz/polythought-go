@@ -223,6 +223,83 @@ export const positions = {
   },
 }
 
+/** A moment by a time zone's clock (D440). */
+export interface ZoneTime {
+  /** The zone, as the IANA database names it, like America/Chicago. */
+  zone: string
+  /** The local date, like 2026-11-24. */
+  date: string
+  /** The local time, like 06:30:00. */
+  time: string
+  /** The local day of the week: mon, tue, wed, thu, fri, sat or sun. */
+  weekday: string
+  /** Its offset from UTC, like -06:00. */
+  offset: string
+  /** The same, in minutes: -360. */
+  offsetMinutes: number
+  /** What the zone calls itself then, like CST or CDT. */
+  abbreviation: string
+  /** Whether daylight saving time is on. */
+  dst: boolean
+  /** The moment as RFC 3339 text with the zone's offset, like 2026-11-24T06:30:00-06:00. */
+  iso: string
+}
+
+interface ZonePeriods {
+  name: string
+  periods: {
+    from: number | null
+    until: number | null
+    offset: number
+    abbreviation: string
+    dst: boolean
+  }[]
+}
+
+// Each zone asked once a run: Polythought answers with its offsets a year either side.
+const zoneCache = new Map<string, ZonePeriods>()
+const weekdays = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat']
+
+/**
+ * The time now, or at at, by a time zone's clock, as the IANA database names the zone
+ * (America/Chicago, Europe/London, UTC), daylight saving followed: zone("America/Chicago").time
+ * is the time in Chicago. at is a Date, RFC 3339 text or milliseconds, within a year of now.
+ */
+export function zone(name: string, at?: Date | string | number): ZoneTime {
+  let z = zoneCache.get(name)
+  if (!z) {
+    z = host('zone', { name }) as ZonePeriods
+    zoneCache.set(name, z)
+  }
+
+  const ms = at === undefined ? Date.now() : new Date(at).getTime()
+  if (Number.isNaN(ms)) throw new Error(`zone: ${String(at)} is not a time`)
+
+  const p = z.periods.find(
+    (p) => (p.from === null || p.from <= ms) && (p.until === null || ms < p.until),
+  )
+  if (!p) throw new Error('zone: give a time within a year of now')
+
+  const local = new Date(ms + p.offset * 1000)
+  const pad = (n: number, width = 2) => String(n).padStart(width, '0')
+  const date = `${pad(local.getUTCFullYear(), 4)}-${pad(local.getUTCMonth() + 1)}-${pad(local.getUTCDate())}`
+  const time = `${pad(local.getUTCHours())}:${pad(local.getUTCMinutes())}:${pad(local.getUTCSeconds())}`
+  const minutes = Math.abs(p.offset) / 60
+  const offset = `${p.offset < 0 ? '-' : '+'}${pad(Math.floor(minutes / 60))}:${pad(minutes % 60)}`
+
+  return {
+    zone: z.name,
+    date,
+    time,
+    weekday: weekdays[local.getUTCDay()],
+    offset,
+    offsetMinutes: p.offset / 60,
+    abbreviation: p.abbreviation,
+    dst: p.dst,
+    iso: `${date}T${time}${offset}`,
+  }
+}
+
 // Running code
 
 declare const console: { log(...values: unknown[]): void }

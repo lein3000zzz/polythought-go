@@ -134,8 +134,8 @@ refused rather than overwriting the other change. Reload to get the latest versi
 
 ## Running
 
-**Run** starts the workflow now, from its Manual trigger, or from its Schedule if it has no
-Manual one. With unsaved changes the button reads **Save and run**.
+**Run** starts the workflow now, from its Manual trigger, or else from its Schedule, or else
+from its Inbound webhook, as if called with nothing. With unsaved changes the button reads **Save and run**.
 
 When the run finishes, each node shows how it went and how many items it sent. Select a
 node and open its **Output** tab to see the items it sent on each port: runs you start by

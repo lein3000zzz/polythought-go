@@ -17,6 +17,7 @@ import (
 	"slices"
 	"strings"
 	"syscall"
+	_ "time/tzdata" // every time zone, whatever the machine has (D440)
 
 	"github.com/lein3000zzz/polythought-go/internal/adapters/coderunner"
 	"github.com/lein3000zzz/polythought-go/internal/adapters/sandbox"

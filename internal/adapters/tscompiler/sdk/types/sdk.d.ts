@@ -174,3 +174,30 @@ export declare const positions: {
         limit?: number;
     }): Promise<Position[]>;
 };
+/** A moment by a time zone's clock (D440). */
+export interface ZoneTime {
+    /** The zone, as the IANA database names it, like America/Chicago. */
+    zone: string;
+    /** The local date, like 2026-11-24. */
+    date: string;
+    /** The local time, like 06:30:00. */
+    time: string;
+    /** The local day of the week: mon, tue, wed, thu, fri, sat or sun. */
+    weekday: string;
+    /** Its offset from UTC, like -06:00. */
+    offset: string;
+    /** The same, in minutes: -360. */
+    offsetMinutes: number;
+    /** What the zone calls itself then, like CST or CDT. */
+    abbreviation: string;
+    /** Whether daylight saving time is on. */
+    dst: boolean;
+    /** The moment as RFC 3339 text with the zone's offset, like 2026-11-24T06:30:00-06:00. */
+    iso: string;
+}
+/**
+ * The time now, or at at, by a time zone's clock, as the IANA database names the zone
+ * (America/Chicago, Europe/London, UTC), daylight saving followed: zone("America/Chicago").time
+ * is the time in Chicago. at is a Date, RFC 3339 text or milliseconds, within a year of now.
+ */
+export declare function zone(name: string, at?: Date | string | number): ZoneTime;

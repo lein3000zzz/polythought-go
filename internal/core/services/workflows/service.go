@@ -844,7 +844,8 @@ func (s *Service) pause(ctx context.Context, w domain.Workflow, reason string) e
 }
 
 // Run executes the workflow once, by hand, from the trigger named or else its only
-// manual trigger, or its only schedule, fired as if its time had come. Market activity
+// manual trigger, or its only schedule, fired as if its time had come, or its only inbound
+// webhook, as if called with nothing. Market activity
 // cannot be imitated, so those workflows run only when active. Run waits for the
 // execution to finish, which keeps samples of each node's output for inspection.
 func (s *Service) Run(ctx context.Context, p auth.Principal, id domain.WorkflowID, trigger domain.NodeID) (domain.Execution, error) {
@@ -869,6 +870,8 @@ func (s *Service) Run(ctx context.Context, p auth.Principal, id domain.WorkflowI
 		output = triggers.ManualOutput()
 	case triggers.ScheduleType:
 		output = triggers.ScheduleOutput(s.now())
+	case triggers.WebhookType:
+		output = triggers.WebhookOutput(ports.HookCall{At: s.now()}) // a call with no body nor query
 	default:
 		return domain.Execution{}, fmt.Errorf("%w: %q starts on market activity, which a run by hand cannot imitate; switch the workflow on instead", domain.ErrInvalidInput, trigger)
 	}
@@ -901,9 +904,9 @@ func (s *Service) Run(ctx context.Context, p auth.Principal, id domain.WorkflowI
 }
 
 // runnableTrigger picks the trigger a run by hand starts from: the only manual trigger,
-// or else the only schedule.
+// or else the only schedule, or else the only inbound webhook.
 func runnableTrigger(w domain.Workflow) (domain.NodeID, error) {
-	for _, typ := range []string{triggers.ManualType, triggers.ScheduleType} {
+	for _, typ := range []string{triggers.ManualType, triggers.ScheduleType, triggers.WebhookType} {
 		var found []domain.NodeID
 
 		for _, n := range w.Nodes {
@@ -922,7 +925,7 @@ func runnableTrigger(w domain.Workflow) (domain.NodeID, error) {
 		}
 	}
 
-	return "", fmt.Errorf("%w: the workflow has no manual or schedule trigger to run it by hand; switch it on instead", domain.ErrInvalidInput)
+	return "", fmt.Errorf("%w: the workflow has no manual, schedule or inbound webhook trigger to run it by hand; switch it on instead", domain.ErrInvalidInput)
 }
 
 func (s *Service) Executions(ctx context.Context, p auth.Principal, id domain.WorkflowID, f ports.PageFilter) (ports.Page[domain.Execution], error) {

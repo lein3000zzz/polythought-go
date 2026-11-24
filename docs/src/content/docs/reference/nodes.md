@@ -14,7 +14,7 @@ Each node has a page with its settings. In the editor, the node list on the left
 | [Manual](/docs/reference/nodes/triggers/manual/) | `trigger.manual` | Starts the workflow when you run it by hand. |
 | [Market activity](/docs/reference/nodes/triggers/market/) | `trigger.market` | Starts the workflow on live trades, book changes or resolutions of the chosen tokens, batched per window. |
 | [Order activity](/docs/reference/nodes/triggers/order-activity/) | `trigger.orderActivity` | Starts the workflow on what happens to its own orders after the runs that placed them: a resting order filling, what is left of it cancelled or expired, a live trade failing on chain. |
-| [Schedule](/docs/reference/nodes/triggers/schedule/) | `trigger.schedule` | Starts the workflow at a fixed interval. |
+| [Schedule](/docs/reference/nodes/triggers/schedule/) | `trigger.schedule` | Starts the workflow at a fixed interval, or at times of day in a time zone. |
 | [Telegram message](/docs/reference/nodes/triggers/telegram/) | `trigger.telegram` | Starts the workflow when you send the instance's bot a message, one item per message. |
 | [Wallet activity](/docs/reference/nodes/triggers/wallet-activity/) | `trigger.walletActivity` | Starts the workflow on the trades of the traders you follow as they happen, about two seconds after: a trade each item, its fills summed. |
 | [Inbound webhook](/docs/reference/nodes/triggers/webhook/) | `trigger.webhook` | Starts the workflow when a service calls its secret address with a POST, the call's body and query on the item. |
