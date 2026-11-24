@@ -39,9 +39,9 @@ func TestWorkflowHistory(t *testing.T) {
 		w := request{method: "GET", path: "/api/v1/workflows/wf-1/history?kinds=on_off,trading&limit=2&cursor=c-1", headers: cookie}.do(t, srv)
 		require.Equal(t, http.StatusOK, w.Code, w.Body.String())
 		assert.JSONEq(t, `{"switches":[
-			{"id":"sw-2","kind":"live","by":{"kind":"agent","id":"g-1","name":"Claude Code","confirmed":true},"polythought":false,
+			{"id":"sw-2","kind":"live","by":{"kind":"agent","id":"g-1","name":"Claude Code","confirmed":true},"polythought":false,"admin":false,
 			 "reason":"the user asked","wallet":{"id":"w-1","address":"0x5f3C00000000000000000000000000000000A1b2"},"at":"2026-10-29T12:00:00Z"},
-			{"id":"sw-1","kind":"off","polythought":true,"reason":"the plugin weather is disabled","at":"2026-10-29T11:00:00Z"}
+			{"id":"sw-1","kind":"off","polythought":true,"admin":false,"reason":"the plugin weather is disabled","at":"2026-10-29T11:00:00Z"}
 		],"nextCursor":"sw-1"}`, w.Body.String())
 	})
 

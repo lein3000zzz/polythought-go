@@ -36,6 +36,10 @@ const (
 	KeyMaxActiveWorkflows  = "workflows.max_active_per_user"
 	KeyMaxNodes            = "workflows.max_nodes"
 	KeyScheduleMinInterval = "workflows.schedule_min_interval"
+	KeyMaxRunsPerHour      = "workflows.max_runs_per_hour"
+	KeyMaxHTTPRequests     = "workflows.max_http_requests"
+	KeyHooksEnabled        = "workflows.inbound_webhooks"
+	KeyHookRate            = "workflows.inbound_webhook_rate"
 	KeyFeedMaxTokens       = "workflows.feed_max_tokens"
 	KeyPnLSampleEvery      = "workflows.pnl_sample_every"
 	KeyExecutionRetention  = "executions.retention"
@@ -103,6 +107,22 @@ const (
 	KeyTrustedProxies      = "http.trusted_proxies"
 	KeyWebhookAllowPrivate = "webhook.allow_private"
 	KeyOutboundProxy       = "outbound.proxy"
+	KeyOpenMeteoKey        = "weather.open_meteo_key"
+	KeyDataAccess          = "data.access"
+	KeyDataSets            = "data.max_datasets"
+	KeyDataRows            = "data.max_rows"
+	KeyDataRowBytes        = "data.max_row_bytes"
+	KeyDataMiB             = "data.max_mib"
+	KeyDataKeepDays        = "data.keep_days"
+	KeyModels              = "models.max_models"
+	KeyModelWorkers        = "models.max_workers"
+	KeyModelItems          = "models.max_items"
+	KeyModelRequestBytes   = "models.max_request_bytes"
+	KeyModelAnswerBytes    = "models.max_answer_bytes"
+	KeyModelMaxWait        = "models.max_wait"
+	KeyModelPoll           = "models.poll_wait"
+	KeyModelLease          = "models.lease"
+	KeyForecastFor         = "weather.forecast_for"
 	KeyGitHubStars         = "github.stars"
 	KeyUpdateCheck         = "updates.check"
 	KeyUpdatePrereleases   = "updates.prereleases"
@@ -161,6 +181,8 @@ const (
 	groupAgents     = "AI agents"
 	groupMCP        = "Agents over MCP"
 	groupNetwork    = "Network"
+	groupWeather    = "Weather"
+	groupData       = "Models and datasets"
 	groupUpdates    = "Updates"
 	groupLogging    = "Logging"
 	groupTelegram   = "Telegram"
@@ -245,9 +267,34 @@ func Settings() (*settings.Registry, error) {
 		},
 		settings.Spec{
 			Key: KeyScheduleMinInterval, Group: groupWorkflows, Label: "Fastest schedule",
-			Description: "The shortest interval a schedule or market trigger may use, to spare the APIs workflows call.",
-			Kind:        settings.KindDuration, Default: time.Second, Check: atLeast(100 * time.Millisecond),
+			Description: "The shortest interval a schedule or market trigger may use, to spare the APIs workflows call. " +
+				"One set shorter, as this was raised since, runs at this.",
+			Kind: settings.KindDuration, Default: 5 * time.Second, Check: atLeast(100 * time.Millisecond),
 			Apply: settings.ApplyRestart,
+		},
+		settings.Spec{
+			Key: KeyMaxRunsPerHour, Group: groupWorkflows, Label: "Runs per workflow per hour",
+			Description: "The most runs a workflow's triggers may start in an hour. The one past it does not start, and the " +
+				"workflow is switched off, its owner told why. Runs started by hand do not count. 0 for no limit.",
+			Kind: settings.KindInt, Default: 1000, Check: between(0, 1_000_000),
+		},
+		settings.Spec{
+			Key: KeyMaxHTTPRequests, Group: groupWorkflows, Label: "HTTP requests per node per run",
+			Description: "The most requests an HTTP request node makes in a run, one an item. The items past it fail, " +
+				"saying why.",
+			Kind: settings.KindInt, Default: 100, Check: between(1, 10_000),
+		},
+		settings.Spec{
+			Key: KeyHooksEnabled, Group: groupWorkflows, Label: "Inbound webhooks",
+			Description: "Let workflows start from a call to their Inbound webhook's secret address, /hooks/…, by any " +
+				"service on the internet. Off, those addresses answer 503 and no workflow starts from one.",
+			Kind: settings.KindBool, Default: false,
+		},
+		settings.Spec{
+			Key: KeyHookRate, Group: groupWorkflows, Label: "Calls a minute per inbound webhook",
+			Description: "The most calls one Inbound webhook takes in a minute; past it, a call is answered 429. Their " +
+				"runs count toward Runs per workflow per hour too.",
+			Kind: settings.KindInt, Default: 60, Check: between(1, 6_000),
 		},
 		settings.Spec{
 			Key: KeyFeedMaxTokens, Group: groupWorkflows, Label: "Tokens per market trigger",
@@ -610,6 +657,98 @@ func Settings() (*settings.Registry, error) {
 				"in the app and the docs. Off, the server never calls GitHub, and the link shows no count.",
 			Kind: settings.KindBool, Default: true,
 			Env: prefix + "GITHUB_STARS",
+		},
+		settings.Spec{
+			Key: KeyOpenMeteoKey, Group: groupWeather, Label: "Open-Meteo key",
+			Description: "A key for Open-Meteo's customer API, which the Weather forecast node then calls. Its free API, " +
+				"used without one, is for non-commercial use only: an instance used commercially needs a subscription. " +
+				"Empty for the free API.",
+			Kind: settings.KindString, Secret: true, Default: "",
+			Env: prefix + "OPEN_METEO_KEY",
+		},
+		settings.Spec{
+			Key: KeyForecastFor, Group: groupWeather, Label: "Forecasts kept for",
+			Description: "How long a forecast is kept before it is asked for again: every workflow asking for the same " +
+				"place and models within it shares one answer. Models update every few hours.",
+			Kind: settings.KindDuration, Default: 10 * time.Minute, Check: within(time.Minute, 6*time.Hour),
+		},
+		settings.Spec{
+			Key: KeyDataAccess, Group: groupData, Label: "Who may use models and datasets",
+			Description: "Datasets, and the nodes that record and read them, and models: everyone may (everyone), admins " +
+				"and the users switched on for them on the Users page (chosen), or no one, admins included (off). The " +
+				"workflows using them of a user who may no longer are switched off, saying why.",
+			Kind: settings.KindEnum, Default: string(domain.DataEveryone),
+			Options: []string{string(domain.DataEveryone), string(domain.DataChosen), string(domain.DataOff)},
+		},
+		settings.Spec{
+			Key: KeyDataSets, Group: groupData, Label: "Datasets per user",
+			Description: "The most datasets one user may have.",
+			Kind:        settings.KindInt, Default: 100, Check: between(1, 10_000),
+		},
+		settings.Spec{
+			Key: KeyDataRows, Group: groupData, Label: "Rows per dataset",
+			Description: "The most rows a dataset may hold. Appending past it drops the oldest where the dataset keeps " +
+				"a number of rows, and is refused otherwise.",
+			Kind: settings.KindInt, Default: 100_000, Check: between(1, 10_000_000),
+		},
+		settings.Spec{
+			Key: KeyDataRowBytes, Group: groupData, Label: "Bytes per row",
+			Description: "The most a row's JSON may take.",
+			Kind:        settings.KindInt, Default: 16 << 10, Check: between(256, 1<<20),
+		},
+		settings.Spec{
+			Key: KeyDataMiB, Group: groupData, Label: "Storage per user (MiB)",
+			Description: "The most one user's datasets may take together, rows waiting for a replace counted.",
+			Kind:        settings.KindInt, Default: 100, Check: between(1, 100_000),
+		},
+		settings.Spec{
+			Key: KeyDataKeepDays, Group: groupData, Label: "Days a recorded dataset keeps",
+			Description: "What a dataset made in the Record node keeps to begin with: rows older than so many days go. " +
+				"Its owner may choose otherwise as they make it, and change it after.",
+			Kind: settings.KindInt, Default: 90, Check: between(1, 3650),
+		},
+		settings.Spec{
+			Key: KeyModels, Group: groupData, Label: "Models per user",
+			Description: "The most models one user may have.",
+			Kind:        settings.KindInt, Default: 20, Check: between(1, 1000),
+		},
+		settings.Spec{
+			Key: KeyModelWorkers, Group: groupData, Label: "Workers per model",
+			Description: "The most workers connected to one model at once. Another is refused until one goes.",
+			Kind:        settings.KindInt, Default: 10, Check: between(1, 1000),
+		},
+		settings.Spec{
+			Key: KeyModelItems, Group: groupData, Label: "Items per request",
+			Description: "The most items a workflow asks a model about at once.",
+			Kind:        settings.KindInt, Default: 1000, Check: between(1, 100_000),
+		},
+		settings.Spec{
+			Key: KeyModelRequestBytes, Group: groupData, Label: "Bytes per request",
+			Description: "The most a request to a model may take: its items' JSON, and its schema.",
+			Kind:        settings.KindInt, Default: 1 << 20, Check: between(1<<10, 64<<20),
+		},
+		settings.Spec{
+			Key: KeyModelAnswerBytes, Group: groupData, Label: "Bytes per answer",
+			Description: "The most a model's answers to one request may take together.",
+			Kind:        settings.KindInt, Default: 1 << 20, Check: between(1<<10, 64<<20),
+		},
+		settings.Spec{
+			Key: KeyModelMaxWait, Group: groupData, Label: "Longest wait for a model",
+			Description: "The longest a workflow may wait for a model's answers. Each node waits 30 seconds unless its " +
+				"setting says otherwise.",
+			Kind: settings.KindDuration, Default: 5 * time.Minute, Check: within(time.Second, time.Hour),
+		},
+		settings.Spec{
+			Key: KeyModelPoll, Group: groupData, Label: "Workers wait for requests",
+			Description: "How long a worker's call for the next request is held open before it says none came, and the " +
+				"worker calls again. A worker counts as connected for this long after its last call, and 30 seconds more.",
+			Kind: settings.KindDuration, Default: 50 * time.Second, Check: within(5*time.Second, 10*time.Minute),
+		},
+		settings.Spec{
+			Key: KeyModelLease, Group: groupData, Label: "Workers hold a request",
+			Description: "How long a worker that took a request holds it: past that with no answer, another worker may " +
+				"take it, and the first answer counts.",
+			Kind: settings.KindDuration, Default: time.Minute, Check: within(5*time.Second, time.Hour),
 		},
 		settings.Spec{
 			Key: KeyUpdateCheck, Group: groupUpdates, Label: "Check for updates",

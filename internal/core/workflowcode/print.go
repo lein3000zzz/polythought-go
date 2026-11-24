@@ -119,6 +119,10 @@ func printNode(n domain.NodeSpec, name string, t Type, known bool) []string {
 		options = append(options, entry{"continueOnFail", true})
 	}
 
+	if n.Retry != nil {
+		options = append(options, entry{"retry", *n.Retry})
+	}
+
 	// Settings are there when options are, if only as {}.
 	var objects [][]entry
 

@@ -18,7 +18,17 @@ type Runner struct {
 	types    Catalog
 	executor *Executor
 	log      logging.Logger
+	gate     RunGate
 }
+
+// RunGate decides whether a trigger may start a workflow's next run, as the cap on its
+// runs an hour has it (D435); one it refuses never starts.
+type RunGate interface {
+	Allow(w domain.Workflow) bool
+}
+
+// Gate has each trigger's run pass g first. Set it before any workflow runs.
+func (r *Runner) Gate(g RunGate) { r.gate = g }
 
 // NewRunner starts triggers as types has them for each workflow's owner; a *Registry
 // gives every owner its own.
@@ -88,6 +98,10 @@ func (r *Runner) Run(ctx context.Context, w domain.Workflow, resumed bool) error
 // failures while running are logged by the executor and kept in the execution record.
 func (r *Runner) emit(w domain.Workflow, trigger domain.NodeID) Emit {
 	return func(ctx context.Context, out Ports) error {
+		if r.gate != nil && !r.gate.Allow(w) {
+			return nil // past its runs an hour: it is being paused
+		}
+
 		_, err := r.executor.Execute(ctx, w, trigger, out)
 		if err != nil {
 			r.log.Error(ctx, "Execution did not start", "workflow_id", w.ID, "node_id", trigger, logging.Err(err))

@@ -29,7 +29,14 @@ export function copyOf(
         keepPersonal
           ? []
           : (n.data.type?.params ?? [])
-              .filter((p) => p.sensitive || p.kind === 'wallet' || p.kind === 'credential')
+              .filter(
+                (p) =>
+                  p.sensitive ||
+                  p.kind === 'wallet' ||
+                  p.kind === 'credential' ||
+                  p.kind === 'dataset' ||
+                  p.kind === 'model',
+              )
               .map((p) => p.name),
       )
       const params = Object.fromEntries(

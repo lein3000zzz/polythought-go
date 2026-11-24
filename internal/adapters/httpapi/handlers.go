@@ -30,6 +30,10 @@ type userDTO struct {
 	// MayWriteCode says whether they may write code now, as code access and CodeChosen
 	// have it.
 	MayWriteCode bool `json:"mayWriteCode"`
+	// DataChosen says an admin picked them to use datasets and models, which counts while
+	// data access is "chosen"; MayUseData, whether they may now.
+	DataChosen bool `json:"dataChosen"`
+	MayUseData bool `json:"mayUseData"`
 	// LiveStopped says their kill switch is on, since LiveStoppedAt: their workflows place
 	// no live orders (D220).
 	LiveStopped   bool       `json:"liveStopped"`
@@ -119,6 +123,8 @@ func (s *Server) userDTO(u domain.User) userDTO {
 		Disabled:                u.Disabled(),
 		CodeChosen:              u.CodeChosen,
 		MayWriteCode:            s.auth.CodeAccess().Allows(u),
+		DataChosen:              u.DataChosen,
+		MayUseData:              s.dataAccessNow().Allows(u),
 		LiveStopped:             u.LiveStopped(),
 		LiveStoppedAt:           optionalTime(u.LiveStoppedAt),
 		LiveCaps:                liveCapsDTO{PerOrder: u.LiveCaps.PerOrder, PerDay: u.LiveCaps.PerDay},
@@ -149,7 +155,7 @@ type tokenDTO struct {
 	LastUsedAt *time.Time `json:"lastUsedAt,omitempty" validate:"optional" format:"date-time"`
 	// Scopes are what it may do (D398); absent, for a token made before scopes, it has
 	// every scope its user's role allows.
-	Scopes []string `json:"scopes,omitempty" validate:"optional" enums:"read,build,tasks,settings,paper,live,admin"`
+	Scopes []string `json:"scopes,omitempty" validate:"optional" enums:"read,build,tasks,data,settings,paper,live,admin"`
 	// Token is the secret, present only in the response that creates it.
 	Token string `json:"token,omitempty" validate:"optional"`
 	// TakingTasks says the token waits for the tasks of your Local agent nodes now, or did
@@ -218,7 +224,7 @@ type createTokenRequest struct {
 	// ExpiresAt left out means the token never expires.
 	ExpiresAt *time.Time `json:"expiresAt" validate:"optional" format:"date-time"`
 	// Scopes are what it may do (D398): at least one; admin for an admin's token only.
-	Scopes []string `json:"scopes" enums:"read,build,tasks,settings,paper,live,admin"`
+	Scopes []string `json:"scopes" enums:"read,build,tasks,data,settings,paper,live,admin"`
 } // @name CreateTokenRequest
 
 type createUserRequest struct {
@@ -232,6 +238,7 @@ type updateUserRequest struct {
 	Role       *string `json:"role" validate:"optional" enums:"admin,user"`
 	Disabled   *bool   `json:"disabled" validate:"optional"`
 	CodeChosen *bool   `json:"codeChosen" validate:"optional"`
+	DataChosen *bool   `json:"dataChosen" validate:"optional"`
 	// EmailVerified true marks the address verified; it cannot be made false.
 	EmailVerified *bool `json:"emailVerified" validate:"optional"`
 	// LiveCaps replace the user's caps; a cap left out is the instance's again.
@@ -869,7 +876,7 @@ func (s *Server) updateUser(ctx context.Context, c *app.RequestContext) {
 		return
 	}
 
-	upd := auth.UserUpdate{Disabled: req.Disabled, CodeChosen: req.CodeChosen, EmailVerified: req.EmailVerified}
+	upd := auth.UserUpdate{Disabled: req.Disabled, CodeChosen: req.CodeChosen, DataChosen: req.DataChosen, EmailVerified: req.EmailVerified}
 	if req.LiveCaps != nil {
 		upd.LiveCaps = &domain.LiveCaps{PerOrder: req.LiveCaps.PerOrder, PerDay: req.LiveCaps.PerDay}
 	}

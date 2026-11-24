@@ -67,6 +67,8 @@ type NodeRun struct {
 	Input      map[string]int
 	Output     map[string]int
 	Error      string
+	// Tries is how many times the node ran, its retries counted (D440); 0 or 1 for once.
+	Tries int
 
 	// Samples are the first items of each output port, for executions that keep them;
 	// Output has the full counts.
@@ -168,9 +170,9 @@ func (e Execution) Duration() time.Duration {
 // RunStats is how a workflow's runs went lately (D429): those started in the last day and
 // in the last week, and its latest. Runs started by hand count too.
 type RunStats struct {
-	WorkflowID WorkflowID
-	Day, Week  RunCounts
-	Last       *LastRun // nil: none kept
+	WorkflowID      WorkflowID
+	Hour, Day, Week RunCounts
+	Last            *LastRun // nil: none kept
 }
 
 // RunCounts counts runs, and those of them that failed.

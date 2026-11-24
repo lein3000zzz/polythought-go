@@ -23,7 +23,7 @@ type ConfirmationService interface {
 // confirmationDTO is a token's or an agent's live action waiting for you, or how it ended.
 type confirmationDTO struct {
 	ID         string `json:"id"`
-	Kind       string `json:"kind" enums:"go_live,switch_on,run,change,custom_node,kill_off,admin_role,admin_disable,admin_caps,admin_code,admin_config,admin_restart,admin_plugin_approve,admin_plugin"`
+	Kind       string `json:"kind" enums:"go_live,switch_on,run,change,custom_node,kill_off,admin_role,admin_disable,admin_caps,admin_code,admin_workflow,admin_config,admin_restart,admin_plugin_approve,admin_plugin"`
 	WorkflowID string `json:"workflowId,omitempty" validate:"optional"`
 	// Asker is who asked: the agent by name, or "an API token".
 	Asker string `json:"asker"`

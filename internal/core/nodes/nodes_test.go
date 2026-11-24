@@ -22,6 +22,11 @@ func TestRegister(t *testing.T) {
 		Markets:    portsmocks.NewMockMarketReader(t),
 		OrderBooks: portsmocks.NewMockOrderBookReader(t),
 		Memory:     memoryStub{},
+		HTTP:       httpStub{},
+		Hooks:      hooksStub{},
+		Weather:    weatherStub{},
+		Datasets:   datasetsStub{},
+		Models:     modelsStub{},
 		Logger:     logging.Noop(),
 	}
 
@@ -47,6 +52,13 @@ func TestRegister(t *testing.T) {
 		{name: "top items", typ: "transform.top"},
 		{name: "keep fields", typ: "transform.pick"},
 		{name: "webhook", typ: "output.webhook"},
+		{name: "http request", typ: "http.request"},
+		{name: "inbound webhook", typ: "trigger.webhook", wantTrigger: true},
+		{name: "weather forecast", typ: "weather.forecast"},
+		{name: "airport reading", typ: "weather.airport"},
+		{name: "record", typ: "data.record"},
+		{name: "read dataset", typ: "data.read"},
+		{name: "ask a model", typ: "data.ask"},
 		{name: "wait", typ: "logic.wait"},
 	}
 
@@ -69,11 +81,11 @@ func TestRegister(t *testing.T) {
 			Orders: ordersStub{}, Books: booksStub{}, Accounts: accountsStub{},
 			Canceller: cancellerStub{}, OrderEvents: eventsStub{},
 			Messenger: telegramStub{}, TelegramInbox: telegramStub{}, Asker: telegramStub{}, Code: codeStub{},
-			Memory: memoryStub{},
+			Memory: memoryStub{}, HTTP: httpStub{}, Hooks: hooksStub{}, Weather: weatherStub{}, Datasets: datasetsStub{}, Models: modelsStub{},
 		}))
 
 		types := all.Types()
-		assert.Len(t, types, 38)
+		assert.Len(t, types, 46)
 
 		for _, typ := range types {
 			if typ.Name == "code.transform" || typ.Name == "code.aggregate" {
@@ -106,6 +118,35 @@ func (telegramStub) CloseQuestion(context.Context, domain.UserID, int, string) e
 
 func (telegramStub) Subscribe(domain.UserID, func(string) bool) (<-chan ports.TelegramInboxMessage, func()) {
 	return nil, func() {}
+}
+
+type weatherStub struct{}
+
+func (weatherStub) Forecast(context.Context, ports.ForecastQuery) (ports.Forecast, error) {
+	return ports.Forecast{}, nil
+}
+
+func (weatherStub) Observations(context.Context, string, int) ([]ports.Observation, error) {
+	return nil, nil
+}
+
+// datasetsStub and modelsStub stand in for the datasets and models: only the node types
+// are read.
+type (
+	datasetsStub struct{ ports.DatasetStore }
+	modelsStub   struct{ ports.ModelAsker }
+)
+
+type hooksStub struct{}
+
+func (hooksStub) Listen(domain.WorkflowID, domain.NodeID) (<-chan ports.HookCall, func()) {
+	return nil, func() {}
+}
+
+type httpStub struct{}
+
+func (httpStub) Do(context.Context, ports.HTTPRequest) (ports.HTTPResponse, error) {
+	return ports.HTTPResponse{}, nil
 }
 
 type codeStub struct{}

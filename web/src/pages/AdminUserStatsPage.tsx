@@ -13,8 +13,8 @@ import { WorkflowsTable } from '@/features/dashboard/WorkflowsTable'
 import { formatDateTime } from '@/lib/format'
 
 /**
- * One user's dashboard, for an admin (D431): every part, read-only, their workflows not
- * opened from here.
+ * One user's dashboard, for an admin (D431): every part, read-only, their workflows opened
+ * read-only too (D435).
  */
 export function AdminUserStatsPage() {
   const { id = '' } = useParams()
@@ -42,7 +42,11 @@ export function AdminUserStatsPage() {
       {s && (
         <>
           <Totals mode={mode} totals={s[mode]} day={s.day} week={s.week} />
-          <WorkflowsTable mode={mode} workflows={s.workflows} linked={false} />
+          <WorkflowsTable
+            mode={mode}
+            workflows={s.workflows}
+            href={(w) => `/admin/users/${id}/workflows/${w.id}`}
+          />
           <TradersTable mode={mode} traders={s.traders} />
           <p className="text-xs text-muted-foreground">
             As of {formatDateTime(s.at)}, asked again each minute.

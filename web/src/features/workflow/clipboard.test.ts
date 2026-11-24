@@ -16,6 +16,8 @@ const hook: NodeType = {
     { name: 'url', kind: 'string', required: true, sensitive: true },
     { name: 'method', kind: 'string', required: false },
     { name: 'credential', kind: 'credential', required: false },
+    { name: 'dataset', kind: 'dataset', required: false },
+    { name: 'model', kind: 'model', required: false },
   ],
 } as unknown as NodeType
 
@@ -39,7 +41,13 @@ function canvas() {
           id: 'hook',
           type: 'output.webhook',
           name: 'Ping',
-          params: { url: 'https://hooks.example/secret', method: 'POST', credential: 'c-1' },
+          params: {
+            url: 'https://hooks.example/secret',
+            method: 'POST',
+            credential: 'c-1',
+            dataset: 'forecasts',
+            model: 'temps',
+          },
           position: { x: 300, y: 10 },
         },
       ],
@@ -71,6 +79,8 @@ describe('nodes on the clipboard (D420)', () => {
       url: 'https://hooks.example/secret',
       method: 'POST',
       credential: 'c-1',
+      dataset: 'forecasts',
+      model: 'temps',
     })
 
     const one = copyOf([nodes[0], { ...nodes[1], selected: false }], edges)

@@ -169,15 +169,63 @@ The most nodes a workflow may have. Applies when a workflow is saved.
 
 ### Fastest schedule
 
-The shortest interval a schedule or market trigger may use, to spare the APIs workflows call.
+The shortest interval a schedule or market trigger may use, to spare the APIs workflows call. One set shorter, as this was raised since, runs at this.
 
 | | |
 |---|---|
 | Key | `workflows.schedule_min_interval` |
 | Environment variable | `POLYTHOUGHT_WORKFLOWS_SCHEDULE_MIN_INTERVAL` |
 | Kind | duration, e.g. `30s`, `5m`, `168h` |
-| Default | `1s` |
+| Default | `5s` |
 | Applies | after a restart |
+
+### Runs per workflow per hour
+
+The most runs a workflow's triggers may start in an hour. The one past it does not start, and the workflow is switched off, its owner told why. Runs started by hand do not count. 0 for no limit.
+
+| | |
+|---|---|
+| Key | `workflows.max_runs_per_hour` |
+| Environment variable | `POLYTHOUGHT_WORKFLOWS_MAX_RUNS_PER_HOUR` |
+| Kind | whole number |
+| Default | `1000` |
+| Applies | at once |
+
+### HTTP requests per node per run
+
+The most requests an HTTP request node makes in a run, one an item. The items past it fail, saying why.
+
+| | |
+|---|---|
+| Key | `workflows.max_http_requests` |
+| Environment variable | `POLYTHOUGHT_WORKFLOWS_MAX_HTTP_REQUESTS` |
+| Kind | whole number |
+| Default | `100` |
+| Applies | at once |
+
+### Inbound webhooks
+
+Let workflows start from a call to their Inbound webhook's secret address, /hooks/…, by any service on the internet. Off, those addresses answer 503 and no workflow starts from one.
+
+| | |
+|---|---|
+| Key | `workflows.inbound_webhooks` |
+| Environment variable | `POLYTHOUGHT_WORKFLOWS_INBOUND_WEBHOOKS` |
+| Kind | `true` or `false` |
+| Default | `false` |
+| Applies | at once |
+
+### Calls a minute per inbound webhook
+
+The most calls one Inbound webhook takes in a minute; past it, a call is answered 429. Their runs count toward Runs per workflow per hour too.
+
+| | |
+|---|---|
+| Key | `workflows.inbound_webhook_rate` |
+| Environment variable | `POLYTHOUGHT_WORKFLOWS_INBOUND_WEBHOOK_RATE` |
+| Kind | whole number |
+| Default | `60` |
+| Applies | at once |
 
 ### Tokens per market trigger
 
@@ -935,6 +983,202 @@ Ask GitHub about once an hour how many stars Polythought's repository has, to sh
 | Environment variable | `POLYTHOUGHT_GITHUB_STARS` |
 | Kind | `true` or `false` |
 | Default | `true` |
+| Applies | at once |
+
+## Weather
+
+### Open-Meteo key
+
+A key for Open-Meteo's customer API, which the Weather forecast node then calls. Its free API, used without one, is for non-commercial use only: an instance used commercially needs a subscription. Empty for the free API.
+
+| | |
+|---|---|
+| Key | `weather.open_meteo_key` |
+| Environment variable | `POLYTHOUGHT_OPEN_METEO_KEY` |
+| Kind | text, secret: stored encrypted and never shown |
+| Default | empty |
+| Applies | at once |
+
+### Forecasts kept for
+
+How long a forecast is kept before it is asked for again: every workflow asking for the same place and models within it shares one answer. Models update every few hours.
+
+| | |
+|---|---|
+| Key | `weather.forecast_for` |
+| Environment variable | `POLYTHOUGHT_WEATHER_FORECAST_FOR` |
+| Kind | duration, e.g. `30s`, `5m`, `168h` |
+| Default | `10m` |
+| Applies | at once |
+
+## Models and datasets
+
+### Who may use models and datasets
+
+Datasets, and the nodes that record and read them, and models: everyone may (everyone), admins and the users switched on for them on the Users page (chosen), or no one, admins included (off). The workflows using them of a user who may no longer are switched off, saying why.
+
+| | |
+|---|---|
+| Key | `data.access` |
+| Environment variable | `POLYTHOUGHT_DATA_ACCESS` |
+| Kind | one of `everyone`, `chosen`, `off` |
+| Default | `everyone` |
+| Applies | at once |
+
+### Datasets per user
+
+The most datasets one user may have.
+
+| | |
+|---|---|
+| Key | `data.max_datasets` |
+| Environment variable | `POLYTHOUGHT_DATA_MAX_DATASETS` |
+| Kind | whole number |
+| Default | `100` |
+| Applies | at once |
+
+### Rows per dataset
+
+The most rows a dataset may hold. Appending past it drops the oldest where the dataset keeps a number of rows, and is refused otherwise.
+
+| | |
+|---|---|
+| Key | `data.max_rows` |
+| Environment variable | `POLYTHOUGHT_DATA_MAX_ROWS` |
+| Kind | whole number |
+| Default | `100000` |
+| Applies | at once |
+
+### Bytes per row
+
+The most a row's JSON may take.
+
+| | |
+|---|---|
+| Key | `data.max_row_bytes` |
+| Environment variable | `POLYTHOUGHT_DATA_MAX_ROW_BYTES` |
+| Kind | whole number |
+| Default | `16384` |
+| Applies | at once |
+
+### Storage per user (MiB)
+
+The most one user's datasets may take together, rows waiting for a replace counted.
+
+| | |
+|---|---|
+| Key | `data.max_mib` |
+| Environment variable | `POLYTHOUGHT_DATA_MAX_MIB` |
+| Kind | whole number |
+| Default | `100` |
+| Applies | at once |
+
+### Days a recorded dataset keeps
+
+What a dataset made in the Record node keeps to begin with: rows older than so many days go. Its owner may choose otherwise as they make it, and change it after.
+
+| | |
+|---|---|
+| Key | `data.keep_days` |
+| Environment variable | `POLYTHOUGHT_DATA_KEEP_DAYS` |
+| Kind | whole number |
+| Default | `90` |
+| Applies | at once |
+
+### Models per user
+
+The most models one user may have.
+
+| | |
+|---|---|
+| Key | `models.max_models` |
+| Environment variable | `POLYTHOUGHT_MODELS_MAX_MODELS` |
+| Kind | whole number |
+| Default | `20` |
+| Applies | at once |
+
+### Workers per model
+
+The most workers connected to one model at once. Another is refused until one goes.
+
+| | |
+|---|---|
+| Key | `models.max_workers` |
+| Environment variable | `POLYTHOUGHT_MODELS_MAX_WORKERS` |
+| Kind | whole number |
+| Default | `10` |
+| Applies | at once |
+
+### Items per request
+
+The most items a workflow asks a model about at once.
+
+| | |
+|---|---|
+| Key | `models.max_items` |
+| Environment variable | `POLYTHOUGHT_MODELS_MAX_ITEMS` |
+| Kind | whole number |
+| Default | `1000` |
+| Applies | at once |
+
+### Bytes per request
+
+The most a request to a model may take: its items' JSON, and its schema.
+
+| | |
+|---|---|
+| Key | `models.max_request_bytes` |
+| Environment variable | `POLYTHOUGHT_MODELS_MAX_REQUEST_BYTES` |
+| Kind | whole number |
+| Default | `1048576` |
+| Applies | at once |
+
+### Bytes per answer
+
+The most a model's answers to one request may take together.
+
+| | |
+|---|---|
+| Key | `models.max_answer_bytes` |
+| Environment variable | `POLYTHOUGHT_MODELS_MAX_ANSWER_BYTES` |
+| Kind | whole number |
+| Default | `1048576` |
+| Applies | at once |
+
+### Longest wait for a model
+
+The longest a workflow may wait for a model's answers. Each node waits 30 seconds unless its setting says otherwise.
+
+| | |
+|---|---|
+| Key | `models.max_wait` |
+| Environment variable | `POLYTHOUGHT_MODELS_MAX_WAIT` |
+| Kind | duration, e.g. `30s`, `5m`, `168h` |
+| Default | `5m` |
+| Applies | at once |
+
+### Workers wait for requests
+
+How long a worker's call for the next request is held open before it says none came, and the worker calls again. A worker counts as connected for this long after its last call, and 30 seconds more.
+
+| | |
+|---|---|
+| Key | `models.poll_wait` |
+| Environment variable | `POLYTHOUGHT_MODELS_POLL_WAIT` |
+| Kind | duration, e.g. `30s`, `5m`, `168h` |
+| Default | `50s` |
+| Applies | at once |
+
+### Workers hold a request
+
+How long a worker that took a request holds it: past that with no answer, another worker may take it, and the first answer counts.
+
+| | |
+|---|---|
+| Key | `models.lease` |
+| Environment variable | `POLYTHOUGHT_MODELS_LEASE` |
+| Kind | duration, e.g. `30s`, `5m`, `168h` |
+| Default | `1m` |
 | Applies | at once |
 
 ## Updates

@@ -49,6 +49,96 @@ func (_m *MockHistoryService) EXPECT() *MockHistoryService_Expecter {
 	return &MockHistoryService_Expecter{mock: &_m.Mock}
 }
 
+// AdminList provides a mock function for the type MockHistoryService
+func (_mock *MockHistoryService) AdminList(ctx context.Context, p auth.Principal, owner domain.UserID, workflow domain.WorkflowID, groups []domain.SwitchGroup, page ports.PageFilter) (ports.Page[domain.Switch], error) {
+	ret := _mock.Called(ctx, p, owner, workflow, groups, page)
+
+	if len(ret) == 0 {
+		panic("no return value specified for AdminList")
+	}
+
+	var r0 ports.Page[domain.Switch]
+	var r1 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context, auth.Principal, domain.UserID, domain.WorkflowID, []domain.SwitchGroup, ports.PageFilter) (ports.Page[domain.Switch], error)); ok {
+		return returnFunc(ctx, p, owner, workflow, groups, page)
+	}
+	if returnFunc, ok := ret.Get(0).(func(context.Context, auth.Principal, domain.UserID, domain.WorkflowID, []domain.SwitchGroup, ports.PageFilter) ports.Page[domain.Switch]); ok {
+		r0 = returnFunc(ctx, p, owner, workflow, groups, page)
+	} else {
+		r0 = ret.Get(0).(ports.Page[domain.Switch])
+	}
+	if returnFunc, ok := ret.Get(1).(func(context.Context, auth.Principal, domain.UserID, domain.WorkflowID, []domain.SwitchGroup, ports.PageFilter) error); ok {
+		r1 = returnFunc(ctx, p, owner, workflow, groups, page)
+	} else {
+		r1 = ret.Error(1)
+	}
+	return r0, r1
+}
+
+// MockHistoryService_AdminList_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'AdminList'
+type MockHistoryService_AdminList_Call struct {
+	*mock.Call
+}
+
+// AdminList is a helper method to define mock.On call
+//   - ctx context.Context
+//   - p auth.Principal
+//   - owner domain.UserID
+//   - workflow domain.WorkflowID
+//   - groups []domain.SwitchGroup
+//   - page ports.PageFilter
+func (_e *MockHistoryService_Expecter) AdminList(ctx any, p any, owner any, workflow any, groups any, page any) *MockHistoryService_AdminList_Call {
+	return &MockHistoryService_AdminList_Call{Call: _e.mock.On("AdminList", ctx, p, owner, workflow, groups, page)}
+}
+
+func (_c *MockHistoryService_AdminList_Call) Run(run func(ctx context.Context, p auth.Principal, owner domain.UserID, workflow domain.WorkflowID, groups []domain.SwitchGroup, page ports.PageFilter)) *MockHistoryService_AdminList_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		var arg1 auth.Principal
+		if args[1] != nil {
+			arg1 = args[1].(auth.Principal)
+		}
+		var arg2 domain.UserID
+		if args[2] != nil {
+			arg2 = args[2].(domain.UserID)
+		}
+		var arg3 domain.WorkflowID
+		if args[3] != nil {
+			arg3 = args[3].(domain.WorkflowID)
+		}
+		var arg4 []domain.SwitchGroup
+		if args[4] != nil {
+			arg4 = args[4].([]domain.SwitchGroup)
+		}
+		var arg5 ports.PageFilter
+		if args[5] != nil {
+			arg5 = args[5].(ports.PageFilter)
+		}
+		run(
+			arg0,
+			arg1,
+			arg2,
+			arg3,
+			arg4,
+			arg5,
+		)
+	})
+	return _c
+}
+
+func (_c *MockHistoryService_AdminList_Call) Return(page1 ports.Page[domain.Switch], err error) *MockHistoryService_AdminList_Call {
+	_c.Call.Return(page1, err)
+	return _c
+}
+
+func (_c *MockHistoryService_AdminList_Call) RunAndReturn(run func(ctx context.Context, p auth.Principal, owner domain.UserID, workflow domain.WorkflowID, groups []domain.SwitchGroup, page ports.PageFilter) (ports.Page[domain.Switch], error)) *MockHistoryService_AdminList_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // List provides a mock function for the type MockHistoryService
 func (_mock *MockHistoryService) List(ctx context.Context, p auth.Principal, workflow domain.WorkflowID, groups []domain.SwitchGroup, page ports.PageFilter) (ports.Page[domain.Switch], error) {
 	ret := _mock.Called(ctx, p, workflow, groups, page)

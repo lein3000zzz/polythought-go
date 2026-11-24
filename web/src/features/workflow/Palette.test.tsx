@@ -20,6 +20,7 @@ const node = (overrides: Partial<NodeType> & Pick<NodeType, 'name'>): NodeType =
 const types = [
   node({ name: 'trigger.manual', label: 'Manual', trigger: true, inputs: [] }),
   node({ name: 'output.log', label: 'Log' }),
+  node({ name: 'http.request', label: 'HTTP request' }),
   node({
     name: 'plugin.weather.forecast',
     label: 'Forecast',
@@ -59,7 +60,8 @@ describe('the node list', () => {
     palette()
 
     const sections = screen.getAllByRole('heading', { level: 2 }).map((h) => h.textContent)
-    expect(sections).toEqual(['Triggers', 'Custom', 'Output', 'Plugins']) // Custom always (D57)
+    // Custom always (D57); HTTP where data comes from (D438).
+    expect(sections).toEqual(['Triggers', 'HTTP', 'Custom', 'Output', 'Plugins'])
 
     const plugins = within(screen.getByRole('heading', { name: 'Plugins' }).closest('section')!)
     expect(plugins.getByText('Forecast')).toBeInTheDocument()

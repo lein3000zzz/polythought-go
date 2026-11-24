@@ -117,6 +117,13 @@ const (
 
 	// ParamCode is TypeScript, the code of a code node.
 	ParamCode ParamKind = "code"
+
+	// ParamDataset is the name of one of the owner's datasets.
+	ParamDataset ParamKind = "dataset"
+
+	// ParamModel is the name of one of the owner's own models, served by their workers or
+	// at a URL: not a language model's, which a text param with ModelsOf suggests.
+	ParamModel ParamKind = "model"
 )
 
 // ParamSpec describes one parameter: how to read it, and how an editor should present it.
@@ -133,7 +140,7 @@ type ParamSpec struct {
 	Options []string
 
 	// Sensitive marks values that are personal, like a webhook URL: sharing a workflow
-	// leaves them out. Wallet and credential params are personal regardless.
+	// leaves them out. Wallet, credential, dataset and model params are personal regardless.
 	Sensitive bool
 
 	// CredentialTypes name the kinds of credential a credential param takes: any one of
@@ -168,6 +175,11 @@ type ParamSpec struct {
 	// is a kind a cell can hold (CellKinds), with Options for one of a few choices.
 	// Cells are plain values: only the whole table takes an expression (D82).
 	Columns []ParamSpec
+
+	// Check, when set, checks a value its kind allows, as saving does and as an
+	// expression's value is: a time zone's name, say (D440). Its error reads after the
+	// setting's name.
+	Check func(value any) error `json:"-"`
 }
 
 // CellKinds are the kinds a table's columns may be (D80).
@@ -179,7 +191,12 @@ const MaxRows = 500
 // Personal reports whether the value belongs to whoever configured it, so sharing must
 // leave it out.
 func (p ParamSpec) Personal() bool {
-	return p.Sensitive || p.Kind == ParamWallet || p.Kind == ParamCredential
+	switch p.Kind {
+	case ParamWallet, ParamCredential, ParamDataset, ParamModel:
+		return true
+	default:
+		return p.Sensitive
+	}
 }
 
 // NodeType describes a kind of node for the registry, the editor and workflow validation.
@@ -217,10 +234,25 @@ type NodeType struct {
 	// Trades says a plugin's node places orders (D309), which the editor marks.
 	Trades bool
 
+	// Reads says the node only reads, so a failure is retried by default, as a node's Retry
+	// setting does (D440); ReadsWhen, when set, says it reads only with that setting's
+	// value, an HTTP request's GET, say. A node that acts is retried only when asked.
+	Reads     bool
+	ReadsWhen *Choice
+
+	// NoRetry refuses a Retry setting: what the node does, a retry could do twice, as
+	// placing an order, which resends by itself where it is safe to (D194).
+	NoRetry bool
+
 	// SeesItems lets its settings' expressions see items, every item it receives on main,
 	// beside each one's fields by name: for a node that takes them together (D257). A
 	// field named items is then item.items.
 	SeesItems bool
+
+	// Check, when set, checks its settings together, as saving does, those holding no
+	// expressions with their defaults: a setting one mode needs, say (D440). Its error
+	// reads after the node's name.
+	Check func(p Params) error `json:"-"`
 }
 
 // Node is a step that transforms items. Per-item failures go to ErrorPort via Ports.Fail;
@@ -232,6 +264,14 @@ type Node interface {
 
 // Emit starts one execution with the trigger's output.
 type Emit func(ctx context.Context, out Ports) error
+
+type executionIDKey struct{}
+
+// WithExecutionID has the execution an emit with ctx starts take id, for a trigger that
+// tells its caller the ID before the run starts, as an inbound webhook does (D439).
+func WithExecutionID(ctx context.Context, id domain.ExecutionID) context.Context {
+	return context.WithValue(ctx, executionIDKey{}, id)
+}
 
 // Trigger starts executions: schedules, market streams, webhooks. Start blocks until ctx is done.
 type Trigger interface {

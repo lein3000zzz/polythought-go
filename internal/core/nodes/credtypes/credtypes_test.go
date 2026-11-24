@@ -49,3 +49,51 @@ func TestHTTPHeader(t *testing.T) {
 
 	assert.Equal(t, []string{"value"}, secret, "the header name is shown, its value never")
 }
+
+func TestHTTPAuthTypes(t *testing.T) {
+	r := engine.NewRegistry()
+
+	for _, typ := range []engine.CredentialType{credtypes.HTTPBearerType(), credtypes.HTTPBasicType(), credtypes.HTTPQueryType()} {
+		require.NoError(t, r.RegisterCredentialType(typ), typ.Name)
+	}
+
+	tests := []struct {
+		name    string
+		typ     engine.CredentialType
+		values  map[string]string
+		wantErr string
+	}{
+		{name: "a token", typ: credtypes.HTTPBearerType(), values: map[string]string{"token": "abc.def"}},
+		{name: "a token over two lines", typ: credtypes.HTTPBearerType(), values: map[string]string{"token": "a\nb"}, wantErr: "the token cannot contain line breaks"},
+		{name: "a username and password", typ: credtypes.HTTPBasicType(), values: map[string]string{"username": "ann", "password": "p:w"}},
+		{name: "a key as the username", typ: credtypes.HTTPBasicType(), values: map[string]string{"username": "sk_live_1"}},
+		{name: "a colon in the username", typ: credtypes.HTTPBasicType(), values: map[string]string{"username": "a:b"}, wantErr: "cannot contain a colon"},
+		{name: "a key in the URL", typ: credtypes.HTTPQueryType(), values: map[string]string{"name": "apikey", "value": "k&1"}},
+		{name: "a line break in its value", typ: credtypes.HTTPQueryType(), values: map[string]string{"name": "apikey", "value": "k\r\n"}, wantErr: "the value cannot contain"},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			err := tc.typ.Check(tc.values)
+			if tc.wantErr == "" {
+				require.NoError(t, err)
+				return
+			}
+
+			assert.ErrorContains(t, err, tc.wantErr)
+		})
+	}
+
+	secret := map[string][]string{}
+	for _, typ := range []engine.CredentialType{credtypes.HTTPBearerType(), credtypes.HTTPBasicType(), credtypes.HTTPQueryType()} {
+		for _, f := range typ.Fields {
+			if f.Secret {
+				secret[typ.Name] = append(secret[typ.Name], f.Name)
+			}
+		}
+	}
+
+	assert.Equal(t, map[string][]string{
+		credtypes.HTTPBearer: {"token"}, credtypes.HTTPBasic: {"password"}, credtypes.HTTPQuery: {"value"},
+	}, secret)
+}

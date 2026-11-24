@@ -26,10 +26,23 @@ func (spec ParamSpec) CheckValue(value any) error {
 // mistyped value is reported when the workflow is saved rather than when it executes.
 // It returns a description of the problem, or "" when the value is fine.
 func checkParam(spec ParamSpec, value any) string {
+	if msg := checkKind(spec, value); msg != "" || spec.Check == nil {
+		return msg
+	}
+
+	if err := spec.Check(value); err != nil {
+		return err.Error()
+	}
+
+	return ""
+}
+
+// checkKind checks a value as its setting's kind has it.
+func checkKind(spec ParamSpec, value any) string {
 	p := Params{spec.Name: value}
 
 	switch spec.Kind {
-	case ParamString, ParamWallet, ParamCredential, ParamCode:
+	case ParamString, ParamWallet, ParamCredential, ParamCode, ParamDataset, ParamModel:
 		read, want := p.String, "must be a string"
 		if spec.Numbers && spec.Kind == ParamString {
 			read, want = p.Text, "must be text or a number"

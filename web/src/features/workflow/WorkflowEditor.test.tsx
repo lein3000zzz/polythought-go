@@ -483,6 +483,22 @@ describe('running and inspecting', () => {
     ],
   }
 
+  it('cannot be switched on while an admin holds it off, saying why (D435)', async () => {
+    editing({
+      ...branching(),
+      hold: { reason: 'it ran 3,000 times in an hour', at: '2026-11-24T12:00:00Z' },
+    })
+    renderApp('/workflows/wf-1')
+
+    const active = await screen.findByRole('switch', { name: 'Active' })
+    expect(active).toBeDisabled()
+    expect(screen.getByText('Held by an admin')).toBeInTheDocument()
+    expect(active.closest('[title]')).toHaveAttribute(
+      'title',
+      'An admin holds it off: it ran 3,000 times in an hour',
+    )
+  })
+
   it('asks, switching off, whether to cancel its resting live orders (D217)', async () => {
     editing({ ...branching(), active: true })
     let asked: string | null = ''
@@ -1133,7 +1149,46 @@ describe('a run waiting on a Local agent node (D413)', () => {
     until: '2026-10-09T13:00:00Z',
     heldBy: 'Claude Code',
     heldUntil: '2026-10-09T12:10:00Z',
+    parts: 1,
+    answered: 0,
   }
+
+  it('says, for a task in parts, who has them and how many are answered (D436)', async () => {
+    editing(
+      workflow({
+        nodes: [
+          { id: 'manual', type: 'trigger.manual', position: { x: 0, y: 0 } },
+          {
+            id: 'ask',
+            type: 'ai.localAgent',
+            params: { prompt: 'Look into it' },
+            position: { x: 300, y: 0 },
+          },
+        ],
+        connections: [{ from: 'manual', fromPort: 'main', to: 'ask', toPort: 'main' }],
+      }),
+    )
+    server.use(
+      http.get('/api/v1/workflows/wf-1/executions', () =>
+        HttpResponse.json({ executions: [onTask] }),
+      ),
+      http.get('/api/v1/workflows/wf-1/executions/ex-7', () => HttpResponse.json(onTask)),
+      http.get('/api/v1/workflows/wf-1/executions/ex-7/task', () =>
+        HttpResponse.json({ ...held, heldBy: 'Claude Code, Codex', parts: 5, answered: 2 }),
+      ),
+    )
+    const { user } = renderApp('/workflows/wf-1')
+
+    await user.click(await screen.findByRole('button', { name: 'History' }))
+    const list = within(await screen.findByRole('tabpanel', { name: 'Executions' }))
+    await user.click((await list.findAllByRole('button'))[0])
+
+    expect(
+      await screen.findByText(
+        /Claude Code, Codex have parts of the task until .*; 2 of 5 parts answered/,
+      ),
+    ).toBeInTheDocument()
+  })
 
   it('says who has its task, hands it back, and answers it', async () => {
     let task = held
@@ -1520,5 +1575,180 @@ describe('workflow editor shortcuts (D420)', () => {
 
     key('u', 'KeyU', { ctrl: true })
     await waitFor(() => expect(onCanvas('log')).toBe(true))
+  })
+})
+
+describe('an Inbound webhook (D439)', () => {
+  const hookType: Schemas['NodeType'] = {
+    name: 'trigger.webhook',
+    label: 'Inbound webhook',
+    trigger: true,
+    code: false,
+    inputs: [],
+    outputs: ['main'],
+    params: [],
+  }
+  const hooked = workflow({
+    nodes: [
+      { id: 'hook', type: 'trigger.webhook', position: { x: 0, y: 0 } },
+      { id: 'log', type: 'output.log', position: { x: 300, y: 0 } },
+    ],
+    connections: [{ from: 'hook', fromPort: 'main', to: 'log', toPort: 'main' }],
+  })
+  const address = (more: Partial<Schemas['Hook']> = {}): Schemas['Hook'] => ({
+    url: 'http://localhost:3000/hooks/s3cr3t',
+    createdAt: '2026-11-24T12:00:00Z',
+    enabled: true,
+    listening: false,
+    ...more,
+  })
+
+  function serve(hook: Schemas['Hook'] | null) {
+    editing(hooked)
+    server.use(
+      http.get('/api/v1/node-types', () =>
+        HttpResponse.json({ nodeTypes: [...nodeTypes, hookType] }),
+      ),
+      http.get('/api/v1/workflows/wf-1/hooks/hook', () =>
+        hook
+          ? HttpResponse.json(hook)
+          : apiError(
+              404,
+              'not_found',
+              'not found: the saved workflow has no Inbound webhook "hook": save it first',
+            ),
+      ),
+    )
+  }
+
+  it('shows its secret address to copy, and renews it', async () => {
+    let renewed = false
+    serve(address())
+    server.use(
+      http.post('/api/v1/workflows/wf-1/hooks/hook/renew', () => {
+        renewed = true
+        return HttpResponse.json(address({ url: 'http://localhost:3000/hooks/n3w' }))
+      }),
+    )
+    const { user } = renderApp('/workflows/wf-1')
+
+    await selectNode('hook')
+    const url = await settings().findByRole('textbox', { name: 'Address' })
+    expect(url).toHaveValue('http://localhost:3000/hooks/s3cr3t')
+    expect(settings().getByRole('button', { name: 'Copy' })).toBeInTheDocument()
+    expect(settings().getByText('Switch the workflow on to take calls.')).toBeInTheDocument()
+
+    await user.click(settings().getByRole('button', { name: 'Renew the address' }))
+    const dialog = await screen.findByRole('alertdialog')
+    expect(within(dialog).getByText(/services calling it get 404/)).toBeInTheDocument()
+    await user.click(within(dialog).getByRole('button', { name: 'Renew' }))
+
+    await waitFor(() => expect(url).toHaveValue('http://localhost:3000/hooks/n3w'))
+    expect(renewed).toBe(true)
+  })
+
+  it('says when an admin keeps them off, and when the trigger is not saved yet', async () => {
+    serve(address({ enabled: false }))
+    renderApp('/workflows/wf-1')
+
+    await selectNode('hook')
+    expect(
+      await settings().findByText(/Inbound webhooks are off on this instance/),
+    ).toBeInTheDocument()
+
+    cleanup()
+    serve(null)
+    renderApp('/workflows/wf-1')
+
+    await selectNode('hook')
+    expect(
+      await settings().findByText("Save the workflow to get this trigger's address."),
+    ).toBeInTheDocument()
+  })
+})
+
+describe('a node’s Retry (D440)', () => {
+  const reader: Schemas['NodeType'] = {
+    name: 'polymarket.orderbook',
+    label: 'Order books',
+    trigger: false,
+    code: false,
+    reads: true,
+    inputs: ['main'],
+    outputs: ['main'],
+    params: [],
+  }
+  const request: Schemas['NodeType'] = {
+    name: 'http.request',
+    label: 'HTTP request',
+    trigger: false,
+    code: false,
+    reads: true,
+    readsWhen: { param: 'method', value: 'GET' },
+    inputs: ['main'],
+    outputs: ['main'],
+    params: [{ name: 'method', label: 'Method', kind: 'string', required: false, default: 'GET' }],
+  }
+  const order: Schemas['NodeType'] = {
+    name: 'trading.placeOrder',
+    label: 'Place order',
+    trigger: false,
+    code: false,
+    noRetry: true,
+    inputs: ['main'],
+    outputs: ['main'],
+    params: [],
+  }
+
+  function serve() {
+    const saves = editing(
+      workflow({
+        nodes: [
+          { id: 'manual', type: 'trigger.manual', position: { x: 0, y: 0 } },
+          { id: 'books', type: 'polymarket.orderbook', position: { x: 300, y: 0 } },
+          {
+            id: 'post',
+            type: 'http.request',
+            params: { method: 'POST' },
+            position: { x: 600, y: 0 },
+          },
+          { id: 'buy', type: 'trading.placeOrder', position: { x: 900, y: 0 } },
+        ],
+        connections: [{ from: 'manual', fromPort: 'main', to: 'books', toPort: 'main' }],
+      }),
+    )
+    server.use(
+      http.get('/api/v1/node-types', () =>
+        HttpResponse.json({ nodeTypes: [...nodeTypes, reader, request, order] }),
+      ),
+    )
+
+    return saves
+  }
+
+  it('shows its default, 3 for a node that only reads, and saves what is set', async () => {
+    const saves = serve()
+    const { user } = renderApp('/workflows/wf-1')
+
+    await selectNode('books')
+    const retry = await settings().findByRole('spinbutton', { name: 'Retry' })
+    expect(retry).toHaveAttribute('placeholder', '3 (default)')
+
+    await user.type(retry, '1')
+    await user.click(screen.getByRole('button', { name: 'Save' }))
+    await waitFor(() => expect(saves).toHaveLength(1))
+    expect(saves[0].nodes.find((n) => n.id === 'books')?.retry).toBe(1)
+
+    await selectNode('post')
+    expect(await settings().findByRole('spinbutton', { name: 'Retry' })).toHaveAttribute(
+      'placeholder',
+      '0 (default)',
+    )
+    expect(settings().getByText(/a retry may do what it does twice/)).toBeInTheDocument()
+
+    await selectNode('buy')
+    await waitFor(() =>
+      expect(settings().queryByRole('spinbutton', { name: 'Retry' })).not.toBeInTheDocument(),
+    )
   })
 })

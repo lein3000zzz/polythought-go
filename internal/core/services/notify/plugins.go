@@ -16,9 +16,10 @@ var _ ports.PluginNotifier = (*Service)(nil)
 
 var WorkflowPaused = Kind{
 	Key: "workflow_paused", Group: groupWorkflows,
-	Label: "A workflow is paused",
-	Description: "One of your active workflows uses a plugin an admin disabled or removed, or no longer lets you use, " +
-		"so it was paused. Turn it on again once it can run.",
+	Label: "A workflow is switched off for you",
+	Description: "One of your active workflows was switched off without you: a plugin it uses was disabled or removed, " +
+		"or is no longer yours to use; its triggers started it more often than the instance allows; or an admin " +
+		"switched it off, or holds it off until they release it. Also when an admin releases it.",
 	Default: true, EmailDefault: true,
 }
 
@@ -53,7 +54,17 @@ type pausedWorkflow struct {
 	owner    domain.UserID
 	workflow domain.Workflow
 	why      string
+	how      pausedHow
 }
+
+// pausedHow is what was done to a workflow: paused, held off by an admin, or released.
+type pausedHow int
+
+const (
+	howPaused pausedHow = iota
+	howHeld
+	howReleased
+)
 
 type crashedPlugin struct {
 	plugin string
@@ -68,10 +79,24 @@ type joinRequest struct {
 // WorkflowPaused queues telling a workflow's owner why it was paused (D319). It never
 // blocks: when the queue is full, it goes untold.
 func (s *Service) WorkflowPaused(owner domain.UserID, w domain.Workflow, why string) {
+	s.queuePaused(pausedWorkflow{owner: owner, workflow: w, why: why, how: howPaused})
+}
+
+// WorkflowHeld queues telling a workflow's owner an admin holds it off, and why (D435).
+func (s *Service) WorkflowHeld(owner domain.UserID, w domain.Workflow, why string) {
+	s.queuePaused(pausedWorkflow{owner: owner, workflow: w, why: why, how: howHeld})
+}
+
+// WorkflowReleased queues telling a workflow's owner an admin released it (D435).
+func (s *Service) WorkflowReleased(owner domain.UserID, w domain.Workflow) {
+	s.queuePaused(pausedWorkflow{owner: owner, workflow: w, how: howReleased})
+}
+
+func (s *Service) queuePaused(p pausedWorkflow) {
 	select {
-	case s.paused <- pausedWorkflow{owner: owner, workflow: w, why: why}:
+	case s.paused <- p:
 	default:
-		s.log.Warn(context.Background(), "Paused workflow notification dropped: too many at once", "workflow_id", w.ID)
+		s.log.Warn(context.Background(), "Paused workflow notification dropped: too many at once", "workflow_id", p.workflow.ID)
 	}
 }
 
@@ -95,10 +120,28 @@ func (s *Service) JoinRequested(email, note string) {
 }
 
 func (s *Service) workflowPaused(ctx context.Context, p pausedWorkflow) {
-	said := "Your workflow “" + p.workflow.Name + "” was paused: " + p.why + ". Turn it on again once it can run."
+	name := "Your workflow “" + p.workflow.Name + "”"
+	subject, said, icon := name+" was paused", name+" was paused: "+p.why+". Turn it on again once it can run.", "⏸ "
 
-	s.tell(ctx, p.owner, WorkflowPaused, "Your workflow “"+p.workflow.Name+"” was paused", said,
-		"Open the workflow", s.publicURL+"/workflows/"+string(p.workflow.ID), "⏸ ")
+	switch p.how {
+	case howHeld:
+		subject = name + " is held off by an admin"
+		said = name + " was switched off, and an admin holds it off, saying “" + p.why + "”. It can be switched on again " +
+			"once an admin releases it."
+	case howReleased:
+		subject, said, icon = name+" was released", "An admin released "+lowerFirst(name)+": you may switch it on again.", "▶️ "
+	}
+
+	s.tell(ctx, p.owner, WorkflowPaused, subject, said, "Open the workflow", s.publicURL+"/workflows/"+string(p.workflow.ID), icon)
+}
+
+// lowerFirst is s with its first letter small: "Your workflow" read mid-sentence.
+func lowerFirst(s string) string {
+	if s == "" {
+		return s
+	}
+
+	return strings.ToLower(s[:1]) + s[1:]
 }
 
 func (s *Service) pluginCrashed(ctx context.Context, c crashedPlugin) {

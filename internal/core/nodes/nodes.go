@@ -9,6 +9,8 @@ import (
 	"github.com/lein3000zzz/polythought-go/internal/core/nodes/ai"
 	"github.com/lein3000zzz/polythought-go/internal/core/nodes/codenodes"
 	"github.com/lein3000zzz/polythought-go/internal/core/nodes/credtypes"
+	"github.com/lein3000zzz/polythought-go/internal/core/nodes/data"
+	"github.com/lein3000zzz/polythought-go/internal/core/nodes/httpreq"
 	"github.com/lein3000zzz/polythought-go/internal/core/nodes/logic"
 	markets2 "github.com/lein3000zzz/polythought-go/internal/core/nodes/markets"
 	"github.com/lein3000zzz/polythought-go/internal/core/nodes/output"
@@ -16,6 +18,7 @@ import (
 	"github.com/lein3000zzz/polythought-go/internal/core/nodes/trading"
 	"github.com/lein3000zzz/polythought-go/internal/core/nodes/transform"
 	"github.com/lein3000zzz/polythought-go/internal/core/nodes/triggers"
+	"github.com/lein3000zzz/polythought-go/internal/core/nodes/weather"
 	"github.com/lein3000zzz/the-watchers/pkg/observability/logging"
 
 	"github.com/lein3000zzz/polythought-go/internal/core/engine"
@@ -33,11 +36,19 @@ type Deps struct {
 	Account      ports.AccountReader
 	Wallets      ports.WalletDirectory
 	Webhooks     ports.WebhookSender
-	Credentials  ports.CredentialReader // optional: without it, nodes cannot use credentials
-	Feed         ports.MarketFeed       // optional: without it, trigger.market is not available
-	Traders      ports.TraderFeed       // optional: without it, trigger.walletActivity is not available
-	Memory       ports.NodeMemory       // optional: without it, Only new, Throttle and Consensus are not available
-	Logger       logging.Logger
+	// HTTP makes the HTTP request node's requests (D438), at most MaxHTTPRequests a run
+	// (nil, or 0, for the default); optional: without it, the node is not available.
+	HTTP            ports.HTTPRequester
+	MaxHTTPRequests func() int
+	Credentials     ports.CredentialReader // optional: without it, nodes cannot use credentials
+	Feed            ports.MarketFeed       // optional: without it, trigger.market is not available
+	Traders         ports.TraderFeed       // optional: without it, trigger.walletActivity is not available
+	Hooks           ports.HookInbox        // optional: without it, trigger.webhook is not available
+	Weather         ports.WeatherReader    // optional: without it, the weather nodes are not available
+	Datasets        ports.DatasetStore     // optional: without it, Record and Read dataset are not available
+	Models          ports.ModelAsker       // optional: without it, Ask a model is not available
+	Memory          ports.NodeMemory       // optional: without it, Only new, Throttle and Consensus are not available
+	Logger          logging.Logger
 
 	// Messenger, TelegramInbox and Asker are optional: without them the Telegram nodes
 	// are not available. Without Reminder, questions get no reminders.
@@ -77,6 +88,9 @@ type Deps struct {
 	// MinInterval is the shortest interval schedules and market triggers may use. Zero
 	// means triggers.DefaultMinInterval.
 	MinInterval time.Duration
+	// Fires keeps when schedules last fired, for those making up missed runs (D440);
+	// optional: without it, none does.
+	Fires ports.ScheduleFires
 }
 
 func Register(r *engine.Registry, d Deps) error {
@@ -85,9 +99,27 @@ func Register(r *engine.Registry, d Deps) error {
 		minInterval = triggers.DefaultMinInterval
 	}
 
+	var scheduleOpts []triggers.ScheduleOption
+	if d.Fires != nil {
+		scheduleOpts = append(scheduleOpts, triggers.WithFires(d.Fires))
+	}
+
+	schedule := triggers.NewSchedule(minInterval, scheduleOpts...)
+
 	// Credential types first: nodes asking for one are checked against them.
 	if err := r.RegisterCredentialType(credtypes.HTTPHeaderType()); err != nil {
 		return err
+	}
+
+	var request error
+	if d.HTTP != nil {
+		for _, t := range []engine.CredentialType{credtypes.HTTPBearerType(), credtypes.HTTPBasicType(), credtypes.HTTPQueryType()} {
+			if err := r.RegisterCredentialType(t); err != nil {
+				return err
+			}
+		}
+
+		request = r.RegisterNode(httpreq.New(d.HTTP, d.Credentials, d.MaxHTTPRequests))
 	}
 
 	var agent error
@@ -127,6 +159,34 @@ func Register(r *engine.Registry, d Deps) error {
 
 	if d.Traders != nil {
 		wallet = r.RegisterTrigger(triggers.NewWalletActivity(d.Traders, d.Logger, time.Now, d.Memory))
+	}
+
+	var hook error
+	if d.Hooks != nil {
+		hook = r.RegisterTrigger(triggers.NewWebhook(d.Hooks))
+	}
+
+	var forecast, airport error
+	if d.Weather != nil {
+		forecast = r.RegisterNode(weather.NewForecast(d.Weather))
+		airport = r.RegisterNode(weather.NewAirport(d.Weather, time.Now))
+	}
+
+	var record, read error
+	if d.Datasets != nil {
+		// A row says whether its workflow trades on paper or live, where the instance trades.
+		var modes data.Modes
+		if d.Accounts != nil {
+			modes = d.Accounts.Mode
+		}
+
+		record = r.RegisterNode(data.NewRecord(d.Datasets, modes, time.Now))
+		read = r.RegisterNode(data.NewRead(d.Datasets))
+	}
+
+	var askModel error
+	if d.Models != nil {
+		askModel = r.RegisterNode(data.NewAsk(d.Models))
 	}
 
 	var telegramSend, telegramTrigger, telegramAsk error
@@ -181,6 +241,12 @@ func Register(r *engine.Registry, d Deps) error {
 		errors.Join(trade...),
 		market,
 		wallet,
+		hook,
+		forecast,
+		airport,
+		record,
+		read,
+		askModel,
 		dedupe,
 		throttle,
 		consensus,
@@ -189,11 +255,13 @@ func Register(r *engine.Registry, d Deps) error {
 		telegramAsk,
 		agent,
 		local,
+		request,
 		r.RegisterTrigger(triggers.Manual{}),
-		r.RegisterTrigger(triggers.NewSchedule(minInterval)),
+		r.RegisterTrigger(schedule),
 		r.RegisterNode(markets2.NewMarkets(d.Markets)),
 		r.RegisterNode(markets2.NewSearch(d.Events)),
 		r.RegisterNode(markets2.NewOrderBooks(d.OrderBooks)),
+		r.RegisterNode(markets2.NewEventPrices(d.Events, d.OrderBooks)),
 		r.RegisterNode(markets2.NewPriceChange(d.PriceHistory)),
 		r.RegisterNode(markets2.NewTrades(d.Trades)),
 		r.RegisterNode(logic.If{}),

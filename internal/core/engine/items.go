@@ -62,8 +62,9 @@ type Items struct {
 	// it adds where its settings say, an answer, say (D256).
 	Named string
 
-	// Alone is a setting's value under which a node passing items sends one item of its
-	// Fields alone instead, for all it received: taking them together, say (D253).
+	// Alone is a setting's value under which a node passing items sends items of its
+	// Fields alone instead: one for all it received, taking them together, say, or
+	// a dataset's rows, one each.
 	Alone Choice
 }
 

@@ -153,6 +153,8 @@ function useSaved() {
   return (w: Workflow) => {
     queryClient.setQueryData(keys.workflow(w.id), w)
     void queryClient.invalidateQueries({ queryKey: keys.workflowList })
+    // Its triggers saved, or switched on or off: their addresses' state with them (D439).
+    void queryClient.invalidateQueries({ queryKey: keys.hooks(w.id) })
   }
 }
 

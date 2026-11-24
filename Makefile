@@ -102,7 +102,7 @@ test-sandbox: ## The sandbox's tests on Linux, in Docker, as the server runs the
 	@# No VCS stamps in the test plugins' builds: the mounted checkout's owner may not be the container's.
 	docker run --rm -v "$(CURDIR)":/src -w /src -e GOFLAGS=-buildvcs=false \
 		-v polythought-gomod:/go/pkg/mod -v polythought-gocache:/root/.cache/go-build \
-		golang:1.27.3-bookworm go test -count=1 ./internal/adapters/sandbox/ ./internal/adapters/pluginhost/ \
+		golang:1.27.4-bookworm go test -count=1 ./internal/adapters/sandbox/ ./internal/adapters/pluginhost/ \
 		./internal/adapters/coderunner/
 
 .PHONY: examples
@@ -222,7 +222,26 @@ web-api: ## Regenerate the UI's API types from api/openapi.json
 web-check: sdk-types-check ## UI typecheck, lint, format, API and SDK types up to date, tests
 	$(PNPM) --dir web check
 
-SDK_DIR := internal/adapters/tscompiler/sdk
+PYTHON ?= python3
+SDK_PY := sdk/python
+
+.PHONY: sdk-python-check
+sdk-python-check: ## The Python SDK: lint, format, types and tests, in sdk/python/.venv (PYTHON: 3.10 or newer)
+	test -x $(SDK_PY)/.venv/bin/pip || $(PYTHON) -m venv $(SDK_PY)/.venv
+	$(SDK_PY)/.venv/bin/pip install --quiet -e '$(SDK_PY)[pandas]' -r $(SDK_PY)/requirements-dev.txt
+	cd $(SDK_PY) && .venv/bin/ruff check . && .venv/bin/ruff format --check . && .venv/bin/mypy && .venv/bin/python -m pytest -q
+
+.PHONY: sdk-python-wheel
+sdk-python-wheel: ## Build the Python SDK's wheel into sdk/python/dist, for the server to embed
+	test -x $(SDK_PY)/.venv/bin/pip || $(PYTHON) -m venv $(SDK_PY)/.venv
+	rm -f $(SDK_PY)/dist/*.whl
+	$(SDK_PY)/.venv/bin/pip wheel --quiet --no-deps -w $(SDK_PY)/dist $(SDK_PY)
+
+.PHONY: sdk-python-types
+sdk-python-types: ## Regenerate the Python SDK's types from api/openapi.json
+	$(GO) run ./tools/pytypes
+
+SDK_DIR := sdk/typescript
 
 .PHONY: sdk-types
 sdk-types: ## Type-check the code SDK and regenerate its declarations (sdk/types/sdk.d.ts)
@@ -279,8 +298,9 @@ e2e: ## Browser and agent tests against a throwaway stack in Docker (UI on :3100
 	@# And the example plugin, as an admin installs it (5f).
 	$(GO) run ./tools/pluginpack -o web/e2e/.plugins/movers.tar.gz -platforms linux_amd64,linux_arm64 \
 		./examples/plugins/movers
-	@# An agent through the Go SDK's client first (D398), then the browser tests; E2E_ONLY=go
-	@# runs the agent's alone, E2E_ONLY=<spec> one browser spec.
+	@# An agent through the Go SDK's client first, and a notebook through the Python SDK
+	@# (PYTHON: 3.10 or newer), then the browser tests; E2E_ONLY=go runs the Go tests alone,
+	@# E2E_ONLY=<spec> one browser spec.
 	@set -e; \
 	export POLYTHOUGHT_SECRET_KEYS="e2e:$$(openssl rand -base64 32)" \
 		POLYTHOUGHT_ADMIN_EMAIL=admin@e2e.test POLYTHOUGHT_ADMIN_PASSWORD=e2e-admin-password \
@@ -289,7 +309,7 @@ e2e: ## Browser and agent tests against a throwaway stack in Docker (UI on :3100
 	$(E2E_COMPOSE) up -d --build --wait; \
 	export E2E_ADMIN_EMAIL=$$POLYTHOUGHT_ADMIN_EMAIL E2E_ADMIN_PASSWORD=$$POLYTHOUGHT_ADMIN_PASSWORD; \
 	if [ -z "$(E2E_ONLY)" ] || [ "$(E2E_ONLY)" = go ]; then \
-		E2E_BASE_URL=http://localhost:3100 $(GO) test -tags $(E2E_TAG) -count=1 ./internal/e2e/...; \
+		E2E_BASE_URL=http://localhost:3100 E2E_PYTHON="$(PYTHON)" $(GO) test -tags $(E2E_TAG) -count=1 ./internal/e2e/...; \
 	fi; \
 	if [ "$(E2E_ONLY)" != go ]; then $(PNPM) --dir web exec playwright test $(E2E_ONLY); fi
 

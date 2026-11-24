@@ -28,4 +28,7 @@ type Workflows struct {
 	ActedConfirmed bool
 	Description    string
 	Pin            *int32
+	HeldAt         *time.Time
+	HeldBy         *uuid.UUID
+	HeldReason     string
 }

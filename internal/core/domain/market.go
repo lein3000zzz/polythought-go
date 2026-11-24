@@ -45,6 +45,8 @@ type Market struct {
 	MinOrderSize    decimal.Decimal
 	Volume24h       decimal.Decimal
 	Liquidity       decimal.Decimal
+	CreatedAt       time.Time // when Polymarket listed it (D437); zero when unknown
+	StartsAt        time.Time // when it opens, as Polymarket has it; zero when unknown
 	EndsAt          time.Time
 	Tags            []string // what it is about, like Politics or Crypto
 }

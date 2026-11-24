@@ -26,6 +26,7 @@ func NewSearch(events ports.EventReader) *Search {
 func (*Search) Type() engine.NodeType {
 	return engine.NodeType{
 		Name:        SearchType,
+		Reads:       true, // retried 3 times to begin with (D440)
 		Label:       "Search markets",
 		Description: "Finds markets by words in their title, e.g. bitcoin or election, one item per market.",
 		Inputs:      []string{engine.DefaultPort},

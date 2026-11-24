@@ -3,6 +3,7 @@ package stats_test
 import (
 	"context"
 	"errors"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -47,17 +48,17 @@ func (w workflows) List(_ context.Context, owner domain.UserID, f ports.Workflow
 }
 
 type runs struct {
-	mu        sync.Mutex
-	day, week time.Time
+	mu              sync.Mutex
+	hour, day, week time.Time
 }
 
-func (r *runs) RunStats(_ context.Context, _ domain.UserID, day, week time.Time) ([]domain.RunStats, error) {
+func (r *runs) RunStats(_ context.Context, _ domain.UserID, hour, day, week time.Time) ([]domain.RunStats, error) {
 	r.mu.Lock()
-	r.day, r.week = day, week
+	r.hour, r.day, r.week = hour, day, week
 	r.mu.Unlock()
 
 	return []domain.RunStats{
-		{WorkflowID: "wf-copy", Day: domain.RunCounts{Runs: 4, Failed: 1}, Week: domain.RunCounts{Runs: 30, Failed: 2},
+		{WorkflowID: "wf-copy", Hour: domain.RunCounts{Runs: 1}, Day: domain.RunCounts{Runs: 4, Failed: 1}, Week: domain.RunCounts{Runs: 30, Failed: 2},
 			Last: &domain.LastRun{ID: "ex-9", Status: domain.ExecutionFailed, StartedAt: now.Add(-5 * time.Minute)}},
 		{WorkflowID: "wf-alert", Day: domain.RunCounts{Runs: 2}, Week: domain.RunCounts{Runs: 9}},
 	}, nil
@@ -124,6 +125,7 @@ func TestOverview(t *testing.T) {
 	o, err := svc.Overview(context.Background(), alice)
 	require.NoError(t, err)
 
+	assert.Equal(t, now.Add(-time.Hour), r.hour)
 	assert.Equal(t, now.Add(-24*time.Hour), r.day)
 	assert.Equal(t, now.Add(-7*24*time.Hour), r.week)
 
@@ -297,4 +299,41 @@ func TestInstance(t *testing.T) {
 
 	_, _, err = svc.OverviewOf(context.Background(), root, "nobody")
 	require.ErrorIs(t, err, domain.ErrNotFound)
+}
+
+// Every user's workflows for an admin, the busiest first, each with its triggers (D435).
+func TestWorkflows(t *testing.T) {
+	root := auth.Principal{User: domain.User{ID: "root", Role: domain.RoleAdmin}}
+	svc := stats.New(stats.Deps{
+		Workflows: workflows{
+			{ID: "wf-alert", Name: "Alert", Nodes: []domain.NodeSpec{{ID: "t", Type: "trigger.market"}, {ID: "l", Type: "output.log"}}},
+			{ID: "wf-copy", Name: "copy Alice", Active: true, Hold: nil,
+				Nodes: []domain.NodeSpec{{ID: "a", Type: "trigger.schedule"}, {ID: "b", Type: "trigger.schedule"}, {ID: "p", Type: "plugin.x.tick"}}},
+			{ID: "wf-quiet", Name: "Quiet", Hold: &domain.Hold{Reason: "it loops"}},
+		},
+		Runs:      &runs{},
+		Users:     users{alice.User, {ID: "bob"}},
+		IsTrigger: func(t string) bool { return strings.HasPrefix(t, "trigger.") || t == "plugin.x.tick" },
+		Now:       func() time.Time { return now },
+	})
+
+	_, _, err := svc.Workflows(context.Background(), alice)
+	require.ErrorIs(t, err, domain.ErrForbidden)
+
+	list, at, err := svc.Workflows(context.Background(), root)
+	require.NoError(t, err)
+	assert.Equal(t, now, at)
+
+	names := make([]string, len(list))
+	for i, w := range list {
+		names[i] = w.Name
+	}
+
+	assert.Equal(t, []string{"copy Alice", "Alert", "Quiet"}, names, "the busiest first: an hour, then a day")
+
+	assert.Equal(t, domain.UserID("alice"), list[0].Owner.ID)
+	assert.Equal(t, []string{"trigger.schedule", "plugin.x.tick"}, list[0].Triggers, "each once, plugins' too")
+	assert.Equal(t, 1, list[0].Runs.Hour.Runs)
+	assert.Equal(t, domain.WorkflowID("wf-quiet"), list[2].Runs.WorkflowID, "no runs: still its own")
+	assert.Equal(t, "it loops", list[2].Hold.Reason)
 }

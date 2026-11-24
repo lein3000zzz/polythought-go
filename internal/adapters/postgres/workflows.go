@@ -45,6 +45,7 @@ type nodeDoc struct {
 	Name           string         `json:"name,omitempty"`
 	Params         map[string]any `json:"params,omitempty"`
 	ContinueOnFail bool           `json:"continueOnFail,omitempty"`
+	Retry          *int           `json:"retry,omitempty"`
 	Position       positionDoc    `json:"position,omitzero"`
 	Notes          string         `json:"notes,omitempty"`
 }
@@ -75,7 +76,7 @@ func encodeWorkflowDefinition(nodes []domain.NodeSpec, connections []domain.Conn
 
 	for i, n := range nodes {
 		doc.Nodes[i] = nodeDoc{
-			ID: string(n.ID), Type: n.Type, Name: n.Name, Params: n.Params, ContinueOnFail: n.ContinueOnFail,
+			ID: string(n.ID), Type: n.Type, Name: n.Name, Params: n.Params, ContinueOnFail: n.ContinueOnFail, Retry: n.Retry,
 			Position: positionDoc{X: n.Position.X, Y: n.Position.Y}, Notes: n.Notes,
 		}
 	}
@@ -125,7 +126,7 @@ func decodeWorkflowDefinition(raw string) ([]domain.NodeSpec, []domain.Connectio
 	for i, n := range doc.Nodes {
 		nodes[i] = domain.NodeSpec{
 			ID: domain.NodeID(n.ID), Type: n.Type, Name: n.Name, Params: n.Params, ContinueOnFail: n.ContinueOnFail,
-			Position: domain.CanvasPosition{X: n.Position.X, Y: n.Position.Y}, Notes: n.Notes,
+			Retry: n.Retry, Position: domain.CanvasPosition{X: n.Position.X, Y: n.Position.Y}, Notes: n.Notes,
 		}
 	}
 
@@ -396,6 +397,37 @@ func (r *Workflows) SetActive(ctx context.Context, owner domain.UserID, id domai
 		ExecContext(ctx, r.db.conn(ctx)))
 }
 
+func (r *Workflows) SetHold(ctx context.Context, owner domain.UserID, id domain.WorkflowID, hold *domain.Hold) error {
+	where, err := ownedWorkflow(owner, id)
+	if err != nil {
+		return err
+	}
+
+	t := table.Workflows
+
+	if hold == nil {
+		return affectedOne(t.UPDATE(t.HeldAt, t.HeldBy, t.HeldReason).SET(jet.NULL, jet.NULL, "").WHERE(where).
+			ExecContext(ctx, r.db.conn(ctx)))
+	}
+
+	// The admin, while their account lasts.
+	var by *uuid.UUID
+
+	if hold.By != "" {
+		admin, err := uuid.Parse(string(hold.By))
+		if err != nil {
+			return domain.ErrInvalidInput
+		}
+
+		by = &admin
+	}
+
+	at := hold.At.UTC()
+
+	return affectedOne(t.UPDATE(t.HeldAt, t.HeldBy, t.HeldReason).MODEL(model.Workflows{HeldAt: &at, HeldBy: by, HeldReason: hold.Reason}).
+		WHERE(where).ExecContext(ctx, r.db.conn(ctx)))
+}
+
 func (r *Workflows) Delete(ctx context.Context, owner domain.UserID, id domain.WorkflowID) error {
 	where, err := ownedWorkflow(owner, id)
 	if err != nil {
@@ -528,6 +560,20 @@ func toWorkflowModel(w domain.Workflow) (model.Workflows, error) {
 	}, nil
 }
 
+// holdOf is a hold as kept: none while held_at is null (D435).
+func holdOf(m model.Workflows) *domain.Hold {
+	if m.HeldAt == nil {
+		return nil
+	}
+
+	h := &domain.Hold{Reason: m.HeldReason, At: m.HeldAt.UTC()}
+	if m.HeldBy != nil {
+		h.By = domain.UserID(m.HeldBy.String())
+	}
+
+	return h
+}
+
 func toWorkflow(m model.Workflows) (domain.Workflow, error) {
 	nodes, conns, borrowed, err := decodeWorkflowDefinition(m.Definition)
 	if err != nil {
@@ -556,6 +602,7 @@ func toWorkflow(m model.Workflows) (domain.Workflow, error) {
 			GrantID: domain.GrantID(m.ActedGrant), TokenID: domain.APITokenID(m.ActedToken), Name: m.ActedName,
 			How: domain.ActorHow(m.ActedHow), Confirmed: m.ActedConfirmed,
 		},
+		Hold: holdOf(m),
 	}, nil
 }
 
@@ -587,6 +634,7 @@ type runDoc struct {
 	Input      map[string]int `json:"input,omitempty"`
 	Output     map[string]int `json:"output,omitempty"`
 	Error      string         `json:"error,omitempty"`
+	Tries      int            `json:"tries,omitempty"`
 
 	Samples map[string][]sampleDoc `json:"samples,omitempty"`
 }
@@ -619,7 +667,7 @@ func (r *Executions) Save(ctx context.Context, e domain.Execution) error {
 	for i, run := range e.Runs {
 		runs[i] = runDoc{
 			NodeID: string(run.NodeID), Status: string(run.Status), StartedAt: run.StartedAt, FinishedAt: run.FinishedAt,
-			Input: run.Input, Output: run.Output, Error: run.Error, Samples: toSampleDocs(run.Samples),
+			Input: run.Input, Output: run.Output, Error: run.Error, Tries: run.Tries, Samples: toSampleDocs(run.Samples),
 		}
 	}
 
@@ -663,7 +711,7 @@ func (r *Executions) Save(ctx context.Context, e domain.Execution) error {
 	return err
 }
 
-func (r *Executions) RunStats(ctx context.Context, owner domain.UserID, day, week time.Time) ([]domain.RunStats, error) {
+func (r *Executions) RunStats(ctx context.Context, owner domain.UserID, hour, day, week time.Time) ([]domain.RunStats, error) {
 	oid, err := parseID(owner)
 	if err != nil {
 		return nil, nil
@@ -672,7 +720,7 @@ func (r *Executions) RunStats(ctx context.Context, owner domain.UserID, day, wee
 	e, w := table.Executions, table.Workflows
 	theirs := w.OwnerID.EQ(jet.UUID(oid))
 	failed := e.Status.EQ(jet.String(string(domain.ExecutionFailed)))
-	inDay := e.StartedAt.GT_EQ(jet.TimestampzT(day))
+	inHour, inDay := e.StartedAt.GT_EQ(jet.TimestampzT(hour)), e.StartedAt.GT_EQ(jet.TimestampzT(day))
 	// The rows where cond holds: CASE gives null elsewhere, which COUNT passes over. A
 	// column, not a literal, as a parameter there would have no type to count.
 	counted := func(cond jet.BoolExpression) jet.Expression {
@@ -681,6 +729,8 @@ func (r *Executions) RunStats(ctx context.Context, owner domain.UserID, day, wee
 
 	var counts []struct {
 		Workflow   uuid.UUID `alias:"workflow"`
+		HourRuns   int64     `alias:"hour_runs"`
+		HourFailed int64     `alias:"hour_failed"`
 		DayRuns    int64     `alias:"day_runs"`
 		DayFailed  int64     `alias:"day_failed"`
 		WeekRuns   int64     `alias:"week_runs"`
@@ -688,6 +738,7 @@ func (r *Executions) RunStats(ctx context.Context, owner domain.UserID, day, wee
 	}
 
 	err = jet.SELECT(e.WorkflowID.AS("workflow"),
+		counted(inHour).AS("hour_runs"), counted(inHour.AND(failed)).AS("hour_failed"),
 		counted(inDay).AS("day_runs"), counted(inDay.AND(failed)).AS("day_failed"),
 		jet.COUNT(jet.STAR).AS("week_runs"), counted(failed).AS("week_failed")).
 		FROM(e.INNER_JOIN(w, w.ID.EQ(e.WorkflowID))).
@@ -739,6 +790,7 @@ func (r *Executions) RunStats(ctx context.Context, owner domain.UserID, day, wee
 			by[c.Workflow] = st
 		}
 
+		st.Hour = domain.RunCounts{Runs: int(c.HourRuns), Failed: int(c.HourFailed)}
 		st.Day = domain.RunCounts{Runs: int(c.DayRuns), Failed: int(c.DayFailed)}
 		st.Week = domain.RunCounts{Runs: int(c.WeekRuns), Failed: int(c.WeekFailed)}
 	}
@@ -862,7 +914,7 @@ func toExecution(m model.Executions) (domain.Execution, error) {
 		e.Runs[i] = domain.NodeRun{
 			NodeID: domain.NodeID(r.NodeID), Status: domain.NodeRunStatus(r.Status),
 			StartedAt: r.StartedAt.UTC(), FinishedAt: r.FinishedAt.UTC(),
-			Input: r.Input, Output: r.Output, Error: r.Error, Samples: fromSampleDocs(r.Samples),
+			Input: r.Input, Output: r.Output, Error: r.Error, Tries: r.Tries, Samples: fromSampleDocs(r.Samples),
 		}
 	}
 

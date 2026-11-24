@@ -16,7 +16,7 @@ Keeps the items TypeScript says to keep: keep(item, ctx) is called for each item
 | Inputs | `main` |
 | Outputs | `main` |
 
-Items that fail stop the execution, unless **Continue on failure** is on: then they leave on the `error` port instead.
+Items that fail stop the execution, unless **Continue on failure** is on: then they leave on the `error` port instead. What fails is tried again only when **Retry** asks.
 
 ## Settings
 

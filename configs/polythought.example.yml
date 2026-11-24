@@ -123,9 +123,31 @@ workflows:
   # max_nodes: 200
 
   # The shortest interval a schedule or market trigger may use, to spare the APIs
-  # workflows call.
+  # workflows call. One set shorter, as this was raised since, runs at this.
   # Environment: POLYTHOUGHT_WORKFLOWS_SCHEDULE_MIN_INTERVAL.
-  # schedule_min_interval: "1s"
+  # schedule_min_interval: "5s"
+
+  # The most runs a workflow's triggers may start in an hour. The one past it does not
+  # start, and the workflow is switched off, its owner told why. Runs started by hand do
+  # not count. 0 for no limit.
+  # Environment: POLYTHOUGHT_WORKFLOWS_MAX_RUNS_PER_HOUR.
+  # max_runs_per_hour: 1000
+
+  # The most requests an HTTP request node makes in a run, one an item. The items past
+  # it fail, saying why.
+  # Environment: POLYTHOUGHT_WORKFLOWS_MAX_HTTP_REQUESTS.
+  # max_http_requests: 100
+
+  # Let workflows start from a call to their Inbound webhook's secret address,
+  # /hooks/…, by any service on the internet. Off, those addresses answer 503 and no
+  # workflow starts from one.
+  # Environment: POLYTHOUGHT_WORKFLOWS_INBOUND_WEBHOOKS.
+  # inbound_webhooks: false
+
+  # The most calls one Inbound webhook takes in a minute; past it, a call is answered
+  # 429. Their runs count toward Runs per workflow per hour too.
+  # Environment: POLYTHOUGHT_WORKFLOWS_INBOUND_WEBHOOK_RATE.
+  # inbound_webhook_rate: 60
 
   # The most outcome tokens one market trigger may watch.
   # Environment: POLYTHOUGHT_WORKFLOWS_FEED_MAX_TOKENS.
@@ -510,6 +532,89 @@ github:
   # link shows no count.
   # Environment: POLYTHOUGHT_GITHUB_STARS.
   # stars: true
+
+weather:
+
+  # A key for Open-Meteo's customer API, which the Weather forecast node then calls. Its
+  # free API, used without one, is for non-commercial use only: an instance used
+  # commercially needs a subscription. Empty for the free API.
+  # Environment: POLYTHOUGHT_OPEN_METEO_KEY.
+  # open_meteo_key: ""
+
+  # How long a forecast is kept before it is asked for again: every workflow asking for
+  # the same place and models within it shares one answer. Models update every few
+  # hours.
+  # Environment: POLYTHOUGHT_WEATHER_FORECAST_FOR.
+  # forecast_for: "10m"
+
+data:
+
+  # Datasets, and the nodes that record and read them, and models: everyone may
+  # (everyone), admins and the users switched on for them on the Users page (chosen), or
+  # no one, admins included (off). The workflows using them of a user who may no longer
+  # are switched off, saying why. One of everyone, chosen, off.
+  # Environment: POLYTHOUGHT_DATA_ACCESS.
+  # access: "everyone"
+
+  # The most datasets one user may have.
+  # Environment: POLYTHOUGHT_DATA_MAX_DATASETS.
+  # max_datasets: 100
+
+  # The most rows a dataset may hold. Appending past it drops the oldest where the
+  # dataset keeps a number of rows, and is refused otherwise.
+  # Environment: POLYTHOUGHT_DATA_MAX_ROWS.
+  # max_rows: 100000
+
+  # The most a row's JSON may take.
+  # Environment: POLYTHOUGHT_DATA_MAX_ROW_BYTES.
+  # max_row_bytes: 16384
+
+  # The most one user's datasets may take together, rows waiting for a replace counted.
+  # Environment: POLYTHOUGHT_DATA_MAX_MIB.
+  # max_mib: 100
+
+  # What a dataset made in the Record node keeps to begin with: rows older than so many
+  # days go. Its owner may choose otherwise as they make it, and change it after.
+  # Environment: POLYTHOUGHT_DATA_KEEP_DAYS.
+  # keep_days: 90
+
+models:
+
+  # The most models one user may have.
+  # Environment: POLYTHOUGHT_MODELS_MAX_MODELS.
+  # max_models: 20
+
+  # The most workers connected to one model at once. Another is refused until one goes.
+  # Environment: POLYTHOUGHT_MODELS_MAX_WORKERS.
+  # max_workers: 10
+
+  # The most items a workflow asks a model about at once.
+  # Environment: POLYTHOUGHT_MODELS_MAX_ITEMS.
+  # max_items: 1000
+
+  # The most a request to a model may take: its items' JSON, and its schema.
+  # Environment: POLYTHOUGHT_MODELS_MAX_REQUEST_BYTES.
+  # max_request_bytes: 1048576
+
+  # The most a model's answers to one request may take together.
+  # Environment: POLYTHOUGHT_MODELS_MAX_ANSWER_BYTES.
+  # max_answer_bytes: 1048576
+
+  # The longest a workflow may wait for a model's answers. Each node waits 30 seconds
+  # unless its setting says otherwise.
+  # Environment: POLYTHOUGHT_MODELS_MAX_WAIT.
+  # max_wait: "5m"
+
+  # How long a worker's call for the next request is held open before it says none came,
+  # and the worker calls again. A worker counts as connected for this long after its
+  # last call, and 30 seconds more.
+  # Environment: POLYTHOUGHT_MODELS_POLL_WAIT.
+  # poll_wait: "50s"
+
+  # How long a worker that took a request holds it: past that with no answer, another
+  # worker may take it, and the first answer counts.
+  # Environment: POLYTHOUGHT_MODELS_LEASE.
+  # lease: "1m"
 
 updates:
 

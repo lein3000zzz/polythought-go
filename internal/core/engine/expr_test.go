@@ -71,6 +71,7 @@ var exprType = NodeType{
 		{Name: "tags", Kind: ParamList},
 		{Name: "mode", Kind: ParamString, Options: []string{"fast", "slow"}},
 		{Name: "wallet", Kind: ParamWallet},
+		{Name: "dataset", Kind: ParamDataset},
 		{Name: "field", Kind: ParamString, Field: true},
 		{Name: "ports", Kind: ParamList},
 		{Name: "rows", Kind: ParamTable, Columns: []ParamSpec{{Name: "label", Kind: ParamString, Required: true}}},
@@ -269,7 +270,7 @@ func TestResolveLeaves(t *testing.T) {
 	r := resolver(t, &fakeEvaluator{}, map[string]any{
 		"text":   "{{ spread * 100 }}",
 		"limit":  "{{ nothing }}",
-		"wallet": "{{ w }}", "field": "{{ f }}", "ports": []any{"{{ p }}"},
+		"wallet": "{{ w }}", "dataset": "{{ d }}", "field": "{{ f }}", "ports": []any{"{{ p }}"},
 		"every": "{{ wait }}s",
 	}, map[string]any{"spread": "1", "wait": 30})
 
@@ -277,7 +278,8 @@ func TestResolveLeaves(t *testing.T) {
 	require.NoError(t, err)
 
 	assert.Equal(t, 10, p["limit"], "an expression giving nothing leaves the default")
-	assert.Equal(t, "{{ w }}", p["wallet"], "wallets, fields and ports take no expressions")
+	assert.Equal(t, "{{ w }}", p["wallet"], "wallets, datasets, fields and ports take no expressions")
+	assert.Equal(t, "{{ d }}", p["dataset"])
 	assert.Equal(t, "{{ f }}", p["field"])
 	assert.Equal(t, []any{"{{ p }}"}, p["ports"])
 	assert.Equal(t, "30s", p["every"])

@@ -8,7 +8,6 @@ package tscompiler
 import (
 	"context"
 	"crypto/sha256"
-	_ "embed"
 	"encoding/hex"
 	"errors"
 	"fmt"
@@ -26,6 +25,7 @@ import (
 	"github.com/lein3000zzz/polythought-go/internal/core/domain"
 	"github.com/lein3000zzz/polythought-go/internal/core/ports"
 	"github.com/lein3000zzz/polythought-go/internal/lru"
+	"github.com/lein3000zzz/polythought-go/sdk"
 )
 
 const (
@@ -62,10 +62,9 @@ const (
 	MaxExpression = 16 << 10
 )
 
-// The builder, sdk/workflow.ts: the editor loads the same file as @polythought/workflow.
-//
-//go:embed sdk/workflow.ts
-var workflowSource string
+// The builder, sdk/typescript/workflow.ts: the editor loads the same file as
+// @polythought/workflow.
+var workflowSource = sdk.Workflow
 
 var _ ports.CodeCompiler = (*Compiler)(nil)
 

@@ -1,26 +1,21 @@
 package tscompiler
 
 import (
-	"embed"
 	"errors"
 	"fmt"
 	"path"
 	"strings"
 
 	"github.com/evanw/esbuild/pkg/api"
-)
 
-// The SDK's source: sdk/sdk.ts, with big.js vendored for decimals. sdk/types/sdk.d.ts is
-// what tsc makes of it, for editors (make sdk-types).
-//
-//go:embed sdk/sdk.ts sdk/big.mjs
-var sdkSource embed.FS
+	"github.com/lein3000zzz/polythought-go/sdk"
+)
 
 // SDK builds the SDK into a script for the runtime's prelude. It sets SDKGlobal, which
 // compiled code imports, and InvokeGlobal.
 func SDK() (string, error) {
 	result := api.Build(api.BuildOptions{
-		EntryPoints:      []string{"sdk/sdk.ts"},
+		EntryPoints:      []string{sdk.TypeScriptEntry},
 		Bundle:           true,
 		Format:           api.FormatIIFE,
 		GlobalName:       SDKGlobal,
@@ -66,7 +61,7 @@ var embedded = api.Plugin{
 		})
 
 		b.OnLoad(api.OnLoadOptions{Filter: ".*", Namespace: "embedded"}, func(args api.OnLoadArgs) (api.OnLoadResult, error) {
-			b, err := sdkSource.ReadFile(args.Path)
+			b, err := sdk.TypeScript.ReadFile(args.Path)
 			if err != nil {
 				return api.OnLoadResult{}, err
 			}

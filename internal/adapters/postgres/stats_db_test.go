@@ -138,12 +138,13 @@ func TestOwnerStats(t *testing.T) {
 		latest := run(paper, time.Hour, domain.ExecutionFailed)
 		run(bobs, time.Hour, domain.ExecutionSucceeded)
 
-		got, err := runs.RunStats(ctx, alice.ID, now.Add(-24*time.Hour), now.Add(-7*24*time.Hour))
+		got, err := runs.RunStats(ctx, alice.ID, now.Add(-2*time.Hour), now.Add(-24*time.Hour), now.Add(-7*24*time.Hour))
 		require.NoError(t, err)
 		require.Len(t, got, 1, "alice's workflow with runs")
 
 		st := got[0]
 		assert.Equal(t, paper.ID, st.WorkflowID)
+		assert.Equal(t, domain.RunCounts{Runs: 1, Failed: 1}, st.Hour, "the last two hours, as asked")
 		assert.Equal(t, domain.RunCounts{Runs: 2, Failed: 1}, st.Day)
 		assert.Equal(t, domain.RunCounts{Runs: 3, Failed: 2}, st.Week, "the one 10 days ago is older")
 		require.NotNil(t, st.Last)

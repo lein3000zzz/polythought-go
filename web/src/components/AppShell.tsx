@@ -26,6 +26,7 @@ const mainLinks = [
   ['/workflows', 'Workflows'],
   ['/library', 'Library'],
   ['/nodes', 'Nodes'],
+  ['/data/datasets', 'Data'],
 ] as const
 
 /** The pages under its Trading menu. */

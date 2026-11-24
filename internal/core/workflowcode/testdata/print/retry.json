@@ -1,0 +1,60 @@
+{
+  "workflow": {
+    "name": "Retried",
+    "nodes": [
+      {
+        "id": "manual",
+        "type": "trigger.manual"
+      },
+      {
+        "id": "books",
+        "type": "polymarket.orderbook",
+        "retry": 0
+      },
+      {
+        "id": "ask",
+        "type": "http.request",
+        "params": {
+          "url": "https://api.example.com/markets",
+          "method": "POST"
+        },
+        "continueOnFail": true,
+        "retry": 2
+      }
+    ],
+    "connections": [
+      {
+        "from": "manual",
+        "fromPort": "main",
+        "to": "books",
+        "toPort": "main"
+      },
+      {
+        "from": "books",
+        "fromPort": "main",
+        "to": "ask",
+        "toPort": "main"
+      }
+    ]
+  },
+  "types": [
+    {
+      "name": "trigger.manual",
+      "trigger": true,
+      "params": []
+    },
+    {
+      "name": "polymarket.orderbook",
+      "trigger": false,
+      "params": []
+    },
+    {
+      "name": "http.request",
+      "trigger": false,
+      "params": [
+        "method",
+        "url"
+      ]
+    }
+  ]
+}

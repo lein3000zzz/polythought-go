@@ -16,7 +16,7 @@ Asks you on Telegram, with a button per answer, and waits. The items go on throu
 | Inputs | `main` |
 | Outputs | `timeout`, and one per value of **Buttons** (`buttons`) |
 
-Items that fail stop the execution, unless **Continue on failure** is on: then they leave on the `error` port instead.
+Items that fail stop the execution, unless **Continue on failure** is on: then they leave on the `error` port instead. What fails is tried again only when **Retry** asks.
 
 ## Settings
 

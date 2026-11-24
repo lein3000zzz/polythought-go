@@ -27,6 +27,8 @@ type Market struct {
 	MinOrderSize    Decimal
 	Volume24h       Decimal
 	Liquidity       Decimal
+	CreatedAt       time.Time // when Polymarket listed it; zero when unknown
+	StartsAt        time.Time // when it opens, as Polymarket has it; zero when unknown
 	EndsAt          time.Time // zero when unknown
 	Tags            []string
 	Event           string // its event's title
@@ -199,7 +201,8 @@ func (h *hostClient) SearchMarkets(ctx context.Context, query string, closed boo
 			ID: m.GetId(), Slug: m.GetSlug(), Question: m.GetQuestion(), Description: m.GetDescription(),
 			Status: m.GetStatus(), AcceptingOrders: m.GetAcceptingOrders(), NegRisk: m.GetNegRisk(),
 			TickSize: Decimal(m.GetTickSize()), MinOrderSize: Decimal(m.GetMinOrderSize()),
-			Volume24h: Decimal(m.GetVolume_24H()), Liquidity: Decimal(m.GetLiquidity()), EndsAt: timeOf(m.GetEndsAt()),
+			Volume24h: Decimal(m.GetVolume_24H()), Liquidity: Decimal(m.GetLiquidity()),
+			CreatedAt: timeOf(m.GetCreatedAt()), StartsAt: timeOf(m.GetStartsAt()), EndsAt: timeOf(m.GetEndsAt()),
 			Tags: m.GetTags(), Event: m.GetEvent(), EventSlug: m.GetEventSlug(),
 		}
 

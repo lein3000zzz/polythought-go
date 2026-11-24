@@ -219,6 +219,100 @@ export interface CodeTransformSettings {
     source?: string;
 }
 
+/** The settings of Ask a model (data.ask). */
+export interface DataAskSettings {
+    /** The model asked: one of yours, on Data → Models. The name of one of your models. */
+    model: string;
+    /** The fields each item sends, like city or outcomes.0.price, each under its name as written; none for the whole item. A field of the items it receives. */
+    fields?: string[];
+    /** A JSON Schema each answer keeps to, which the model is told: an answer that does not fails its item. Empty for any JSON. */
+    schema?: string;
+    /**
+     * Where the answer goes on the item.
+     * @default "prediction"
+     */
+    field?: string;
+    /**
+     * How long to wait for the answers, up to the instance's most: 5 minutes unless an admin says.
+     * @default "30s"
+     */
+    wait?: DurationText | Expression;
+}
+
+/** The settings of Read dataset (data.read). */
+export interface DataReadSettings {
+    /** The dataset read: one of yours. The name of one of your datasets. */
+    dataset: string;
+    /**
+     * By key: for each item, the row last added with its key. Every row: the dataset's rows, an item each, oldest first.
+     * @default "by key"
+     */
+    read?: "by key" | "every row" | Expression;
+    /** By key: each item's key, like {{ city }}, as the dataset's key field has it. */
+    key?: string | number | Expression;
+    /**
+     * Every row: the newest so many, up to 1,000.
+     * @default 1000
+     */
+    limit?: number | Expression;
+    /**
+     * Where the row goes on the item.
+     * @default "row"
+     */
+    field?: string;
+}
+
+/** The settings of Record (data.record). */
+export interface DataRecordSettings {
+    /** The dataset the rows go to: one of yours, or a new one. The name of one of your datasets. */
+    dataset: string;
+    /** The fields recorded, like city or outcomes.0.price, each under its name as written; none for the whole item. A field of the items it receives. */
+    fields?: string[];
+}
+
+/** The settings of HTTP request (http.request). */
+export interface HttpRequestSettings {
+    /**
+     * @default "GET"
+     */
+    method?: "GET" | "POST" | "PUT" | "PATCH" | "DELETE" | Expression;
+    /** https://… and any {{ field }}, e.g. https://api.example.com/markets/{{ id }}. A key belongs in a credential, below: sharing the workflow keeps the URL. */
+    url: string;
+    /** name=value, one per line, added to the URL, each encoded for you: q={{ question }}. */
+    query?: string[] | Expression;
+    /** Name: value, one per line, e.g. Accept: application/json. */
+    headers?: string[] | Expression;
+    /** Sent with the request, empty for none. As json, a {{ }} inside quotes is written as text, and anywhere else as JSON: {"question": "{{ question }}", "item": {{ item }}}. */
+    body?: string;
+    /**
+     * json, checked as such; form, name=value&… with each value encoded; or text as it is. Its Content-Type, unless Headers give one.
+     * @default "json"
+     */
+    bodyAs?: "json" | "form" | "text" | Expression;
+    /** Optional. A header, a bearer token, a username and password, or a key in the URL, from your Credentials page. The ID of one of your credentials of type http.header or http.bearer or http.basic or http.query. */
+    credential?: string;
+    /**
+     * each: a request for each item, up to 100 a run unless an admin says otherwise. once: one request with the first item's values, its answer on every item.
+     * @default "each"
+     */
+    send?: "each" | "once" | Expression;
+    /**
+     * auto: JSON when it says it is, text otherwise. json: JSON, failing the item if it is not.
+     * @default "auto"
+     */
+    response?: "auto" | "json" | "text" | Expression;
+    /**
+     * Where the answer goes on the item.
+     * @default "response"
+     */
+    field?: string;
+    /**
+     * How long a request may take, redirects and all; at most a minute.
+     * @default "10s"
+     */
+    timeout?: DurationText | Expression;
+}
+
 /** The settings of Consensus (logic.consensus). */
 export interface LogicConsensusSettings {
     /**
@@ -384,8 +478,13 @@ export interface LogicWaitSettings {
      * @default "10m"
      */
     for?: DurationText | Expression;
-    /** A time of day in UTC, as HH:MM, e.g. 09:30. With mode until. */
+    /** A time of day, as HH:MM, e.g. 09:30, by the clock of the time zone below. With mode until. */
     until?: string;
+    /**
+     * With until: whose clock, as the IANA database names it, e.g. America/Chicago. Daylight saving is followed.
+     * @default "UTC"
+     */
+    zone?: string;
 }
 
 /** The settings of Log (output.log). */
@@ -438,6 +537,17 @@ export interface PolymarketBalanceItem {
     at: TimeText;
 }
 
+/** The settings of Event prices (polymarket.eventPrices). */
+export interface PolymarketEventPricesSettings {
+    /** Its link, like https://polymarket.com/event/…, its slug or its ID; from a market, {{ eventSlug }}. */
+    event: string;
+    /**
+     * Where the sums go on the item.
+     * @default "prices"
+     */
+    field?: string;
+}
+
 /** The settings of Markets (polymarket.markets). */
 export interface PolymarketMarketsSettings {
     /**
@@ -477,6 +587,10 @@ export interface PolymarketMarketsItem {
     volume24h: DecimalText;
     /** Dollars on its order books. */
     liquidity: DecimalText;
+    /** When Polymarket listed it. */
+    createdAt: TimeText;
+    /** When it opens, as Polymarket has it. */
+    startsAt: TimeText;
     /** When it is expected to settle. */
     endsAt: TimeText;
     /** What it can settle as, such as Yes and No. */
@@ -682,6 +796,10 @@ export interface PolymarketSearchItem {
     volume24h: DecimalText;
     /** Dollars on its order books. */
     liquidity: DecimalText;
+    /** When Polymarket listed it. */
+    createdAt: TimeText;
+    /** When it opens, as Polymarket has it. */
+    startsAt: TimeText;
     /** When it is expected to settle. */
     endsAt: TimeText;
     /** What it can settle as, such as Yes and No. */
@@ -1056,19 +1174,49 @@ export interface TriggerOrderActivityItem {
 
 /** The settings of Schedule (trigger.schedule). */
 export interface TriggerScheduleSettings {
-    /** A duration like 30s or 5m. */
-    interval: DurationText;
     /**
-     * Also fire as soon as the workflow is activated.
+     * every: at a fixed interval. at: at times of day, on the days ticked, in a time zone.
+     * @default "every"
+     */
+    mode?: "every" | "at";
+    /** With every: a duration like 30s or 5m. */
+    interval?: DurationText;
+    /**
+     * With every: also fire as soon as the workflow is switched on.
      * @default true
      */
     runOnStart?: boolean;
+    /** With at: times of day, 24-hour, one per line, e.g. 06:30. */
+    times?: string[];
+    /** With at: the days it runs; none ticked, every day. */
+    days?: ("mon" | "tue" | "wed" | "thu" | "fri" | "sat" | "sun")[];
+    /**
+     * With at: whose clock the times are, as the IANA database names it, e.g. America/Chicago or Europe/London. Daylight saving is followed.
+     * @default "UTC"
+     */
+    zone?: string;
+    /** With at: a city Polymarket lists temperature markets for, whose time zone it takes in place of Time zone. */
+    city?: "Amsterdam" | "Ankara" | "Atlanta" | "Austin" | "Beijing" | "Buenos Aires" | "Busan" | "Cape Town" | "Chengdu" | "Chicago" | "Chongqing" | "Dallas" | "Denver" | "Guangzhou" | "Helsinki" | "Hong Kong" | "Houston" | "Istanbul" | "Jeddah" | "Jinan" | "Karachi" | "Kuala Lumpur" | "London" | "Los Angeles" | "Lucknow" | "Madrid" | "Manila" | "Mexico City" | "Miami" | "Milan" | "Moscow" | "Munich" | "NYC" | "Panama City" | "Paris" | "Qingdao" | "San Francisco" | "Sao Paulo" | "Seattle" | "Seoul (Incheon)" | "Shanghai" | "Shenzhen" | "Singapore" | "Taipei" | "Tel Aviv" | "Tokyo" | "Toronto" | "Warsaw" | "Wellington" | "Wuhan" | "Zhengzhou";
+    /**
+     * When Polythought was down as a run fell due, run once as it starts again, for the latest time missed; its item says missed: true. With every, only when Run on start is off.
+     * @default false
+     */
+    catchUp?: boolean;
+    /**
+     * How long after its time a missed run is still made up.
+     * @default "1h"
+     */
+    catchUpWithin?: DurationText;
 }
 
 /** An item Schedule (trigger.schedule) sends on. */
 export interface TriggerScheduleItem {
     /** When the schedule fired. */
     firedAt: TimeText;
+    /** When the run was due: the time of day it is for, or the tick. */
+    due: TimeText;
+    /** A run made up, missed while Polythought was down. */
+    missed: boolean;
 }
 
 /** The settings of Telegram message (trigger.telegram). */
@@ -1174,6 +1322,74 @@ export interface TriggerWalletActivityItem {
     at: TimeText;
 }
 
+/** The settings of Inbound webhook (trigger.webhook). */
+export type TriggerWebhookSettings = Record<string, never>;
+
+/** An item Inbound webhook (trigger.webhook) sends on. */
+export interface TriggerWebhookItem {
+    /** The call's body: what its JSON holds, read, or else its text; null for none. */
+    body: Json;
+    /** The address's query, by name: ?city=nyc is query.city; a name given more than once, a list. */
+    query: Json;
+    /** When the call came. */
+    receivedAt: TimeText;
+}
+
+/** The settings of Airport reading (weather.airport). */
+export interface WeatherAirportSettings {
+    /** One of the cities Polymarket lists temperature markets for: the station its markets resolve by, its time zone and its unit. Or the place by hand, below. */
+    city?: "Amsterdam" | "Ankara" | "Atlanta" | "Austin" | "Beijing" | "Buenos Aires" | "Busan" | "Cape Town" | "Chengdu" | "Chicago" | "Chongqing" | "Dallas" | "Denver" | "Guangzhou" | "Helsinki" | "Hong Kong" | "Houston" | "Istanbul" | "Jeddah" | "Jinan" | "Karachi" | "Kuala Lumpur" | "London" | "Los Angeles" | "Lucknow" | "Madrid" | "Manila" | "Mexico City" | "Miami" | "Milan" | "Moscow" | "Munich" | "NYC" | "Panama City" | "Paris" | "Qingdao" | "San Francisco" | "Sao Paulo" | "Seattle" | "Seoul (Incheon)" | "Shanghai" | "Shenzhen" | "Singapore" | "Taipei" | "Tel Aviv" | "Tokyo" | "Toronto" | "Warsaw" | "Wellington" | "Wuhan" | "Zhengzhou" | Expression;
+    /** Without a city, or in place of its own: an airport's ICAO code, like KLGA or EGLC. */
+    station?: string;
+    /** Whose day is today, for a station by hand: like America/Chicago; empty for the city's, or UTC. */
+    zone?: string;
+    /**
+     * city: the unit its markets are in, °F in the US, °C elsewhere and by hand. F or C: that one.
+     * @default "city"
+     */
+    unit?: "city" | "F" | "C" | Expression;
+    /**
+     * Where the reading goes on the item.
+     * @default "airport"
+     */
+    field?: string;
+}
+
+/** The settings of Weather forecast (weather.forecast). */
+export interface WeatherForecastSettings {
+    /** One of the cities Polymarket lists temperature markets for: the station its markets resolve by, its time zone and its unit. Or the place by hand, below. */
+    city?: "Amsterdam" | "Ankara" | "Atlanta" | "Austin" | "Beijing" | "Buenos Aires" | "Busan" | "Cape Town" | "Chengdu" | "Chicago" | "Chongqing" | "Dallas" | "Denver" | "Guangzhou" | "Helsinki" | "Hong Kong" | "Houston" | "Istanbul" | "Jeddah" | "Jinan" | "Karachi" | "Kuala Lumpur" | "London" | "Los Angeles" | "Lucknow" | "Madrid" | "Manila" | "Mexico City" | "Miami" | "Milan" | "Moscow" | "Munich" | "NYC" | "Panama City" | "Paris" | "Qingdao" | "San Francisco" | "Sao Paulo" | "Seattle" | "Seoul (Incheon)" | "Shanghai" | "Shenzhen" | "Singapore" | "Taipei" | "Tel Aviv" | "Tokyo" | "Toronto" | "Warsaw" | "Wellington" | "Wuhan" | "Zhengzhou" | Expression;
+    /** Without a city: the place's, like 40.7794. */
+    latitude?: DecimalText | number | Expression;
+    /** Without a city: the place's, like -73.8803. */
+    longitude?: DecimalText | number | Expression;
+    /**
+     * The weather models, side by side: GFS, ECMWF, ICON and more; best is Open-Meteo's own blend. nbm and hrrr cover the US only.
+     * @default ["gfs","ecmwf","icon"]
+     */
+    models?: ("gfs" | "ecmwf" | "icon" | "ecmwf_hres" | "aifs" | "gem" | "jma" | "ukmo" | "meteofrance" | "metno" | "knmi" | "dmi" | "cma" | "nbm" | "hrrr" | "best")[] | Expression;
+    /**
+     * How many days, today first: 1 to 16.
+     * @default 3
+     */
+    days?: number | Expression;
+    /**
+     * Also each hour's temperatures.
+     * @default false
+     */
+    hourly?: boolean | Expression;
+    /**
+     * city: the unit its markets are in, °F in the US, °C elsewhere and by hand. F or C: that one.
+     * @default "city"
+     */
+    unit?: "city" | "F" | "C" | Expression;
+    /**
+     * Where the forecast goes on the item.
+     * @default "forecast"
+     */
+    field?: string;
+}
+
 /**
  * Every node type by name: its settings, and the items it sends on. "received" means
  * the items it was given, as they are; "picked", those with only the fields its
@@ -1221,6 +1437,34 @@ export interface NodeTypes {
     "code.transform": {
         settings: CodeTransformSettings;
         items: Json;
+        trigger: false;
+        inputs: "main";
+        outputs: "main";
+    };
+    "data.ask": {
+        settings: DataAskSettings;
+        items: "received";
+        trigger: false;
+        inputs: "main";
+        outputs: "main";
+    };
+    "data.read": {
+        settings: DataReadSettings;
+        items: "received";
+        trigger: false;
+        inputs: "main";
+        outputs: "main" | "missing";
+    };
+    "data.record": {
+        settings: DataRecordSettings;
+        items: "received";
+        trigger: false;
+        inputs: "main";
+        outputs: "main";
+    };
+    "http.request": {
+        settings: HttpRequestSettings;
+        items: "received";
         trigger: false;
         inputs: "main";
         outputs: "main";
@@ -1305,6 +1549,13 @@ export interface NodeTypes {
     "polymarket.balance": {
         settings: PolymarketBalanceSettings;
         items: PolymarketBalanceItem;
+        trigger: false;
+        inputs: "main";
+        outputs: "main";
+    };
+    "polymarket.eventPrices": {
+        settings: PolymarketEventPricesSettings;
+        items: "received";
         trigger: false;
         inputs: "main";
         outputs: "main";
@@ -1470,6 +1721,27 @@ export interface NodeTypes {
         inputs: never;
         outputs: "main";
     };
+    "trigger.webhook": {
+        settings: TriggerWebhookSettings;
+        items: TriggerWebhookItem;
+        trigger: true;
+        inputs: never;
+        outputs: "main";
+    };
+    "weather.airport": {
+        settings: WeatherAirportSettings;
+        items: "received";
+        trigger: false;
+        inputs: "main";
+        outputs: "main";
+    };
+    "weather.forecast": {
+        settings: WeatherForecastSettings;
+        items: "received";
+        trigger: false;
+        inputs: "main";
+        outputs: "main";
+    };
 }
 ```
 
@@ -1569,6 +1841,10 @@ export interface Market {
     minOrderSize: string;
     volume24h: string;
     liquidity: string;
+    /** When Polymarket listed it, RFC 3339 text. */
+    createdAt: string;
+    /** When it opens, as Polymarket has it, RFC 3339 text. */
+    startsAt: string;
     /** RFC 3339 text. */
     endsAt: string;
     outcomes: Outcome[];
@@ -1650,4 +1926,31 @@ export declare const positions: {
         limit?: number;
     }): Promise<Position[]>;
 };
+/** A moment by a time zone's clock. */
+export interface ZoneTime {
+    /** The zone, as the IANA database names it, like America/Chicago. */
+    zone: string;
+    /** The local date, like 2026-11-24. */
+    date: string;
+    /** The local time, like 06:30:00. */
+    time: string;
+    /** The local day of the week: mon, tue, wed, thu, fri, sat or sun. */
+    weekday: string;
+    /** Its offset from UTC, like -06:00. */
+    offset: string;
+    /** The same, in minutes: -360. */
+    offsetMinutes: number;
+    /** What the zone calls itself then, like CST or CDT. */
+    abbreviation: string;
+    /** Whether daylight saving time is on. */
+    dst: boolean;
+    /** The moment as RFC 3339 text with the zone's offset, like 2026-11-24T06:30:00-06:00. */
+    iso: string;
+}
+/**
+ * The time now, or at at, by a time zone's clock, as the IANA database names the zone
+ * (America/Chicago, Europe/London, UTC), daylight saving followed: zone("America/Chicago").time
+ * is the time in Chicago. at is a Date, RFC 3339 text or milliseconds, within a year of now.
+ */
+export declare function zone(name: string, at?: Date | string | number): ZoneTime;
 ```

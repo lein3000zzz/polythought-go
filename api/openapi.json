@@ -31,6 +31,7 @@
                                 "read",
                                 "build",
                                 "tasks",
+                                "data",
                                 "settings",
                                 "paper",
                                 "live",
@@ -185,6 +186,170 @@
                 },
                 "required": [
                     "actors"
+                ],
+                "type": "object"
+            },
+            "AddressPosition": {
+                "properties": {
+                    "avgPrice": {
+                        "type": "string"
+                    },
+                    "currentPrice": {
+                        "type": "string"
+                    },
+                    "marketId": {
+                        "type": "string"
+                    },
+                    "outcome": {
+                        "type": "string"
+                    },
+                    "realizedPnl": {
+                        "type": "string"
+                    },
+                    "redeemable": {
+                        "type": "boolean"
+                    },
+                    "size": {
+                        "type": "string"
+                    },
+                    "title": {
+                        "type": "string"
+                    },
+                    "tokenId": {
+                        "type": "string"
+                    },
+                    "unrealizedPnl": {
+                        "type": "string"
+                    },
+                    "value": {
+                        "type": "string"
+                    },
+                    "wallet": {
+                        "type": "string"
+                    }
+                },
+                "required": [
+                    "avgPrice",
+                    "currentPrice",
+                    "marketId",
+                    "outcome",
+                    "realizedPnl",
+                    "redeemable",
+                    "size",
+                    "title",
+                    "tokenId",
+                    "unrealizedPnl",
+                    "value",
+                    "wallet"
+                ],
+                "type": "object"
+            },
+            "AddressPositionList": {
+                "properties": {
+                    "positions": {
+                        "items": {
+                            "$ref": "#/components/schemas/AddressPosition"
+                        },
+                        "type": "array",
+                        "uniqueItems": false
+                    }
+                },
+                "required": [
+                    "positions"
+                ],
+                "type": "object"
+            },
+            "AdminSwitchOffRequest": {
+                "properties": {
+                    "hold": {
+                        "description": "Hold keeps it off until an admin releases it.",
+                        "type": "boolean"
+                    },
+                    "reason": {
+                        "description": "Reason is why, for its owner, who is told.",
+                        "type": "string"
+                    }
+                },
+                "required": [
+                    "reason"
+                ],
+                "type": "object"
+            },
+            "AdminWorkflow": {
+                "properties": {
+                    "active": {
+                        "type": "boolean"
+                    },
+                    "day": {
+                        "$ref": "#/components/schemas/RunCounts"
+                    },
+                    "hold": {
+                        "$ref": "#/components/schemas/WorkflowHold",
+                        "description": "Hold is an admin's holding it off; absent while none does."
+                    },
+                    "hour": {
+                        "$ref": "#/components/schemas/RunCounts",
+                        "description": "Hour, Day and Week are its runs started in the last hour, day and week."
+                    },
+                    "id": {
+                        "type": "string"
+                    },
+                    "last": {
+                        "$ref": "#/components/schemas/LastRun",
+                        "description": "Last is its latest run; absent when none is kept."
+                    },
+                    "name": {
+                        "type": "string"
+                    },
+                    "ownerEmail": {
+                        "type": "string"
+                    },
+                    "ownerId": {
+                        "type": "string"
+                    },
+                    "triggers": {
+                        "description": "Triggers are its triggers' node types, each once.",
+                        "items": {
+                            "type": "string"
+                        },
+                        "type": "array",
+                        "uniqueItems": false
+                    },
+                    "week": {
+                        "$ref": "#/components/schemas/RunCounts"
+                    }
+                },
+                "required": [
+                    "active",
+                    "day",
+                    "hour",
+                    "id",
+                    "name",
+                    "ownerEmail",
+                    "ownerId",
+                    "triggers",
+                    "week"
+                ],
+                "type": "object"
+            },
+            "AdminWorkflows": {
+                "properties": {
+                    "at": {
+                        "format": "date-time",
+                        "type": "string"
+                    },
+                    "workflows": {
+                        "description": "Workflows are every user's, the busiest first: by runs in the last hour, day, week.",
+                        "items": {
+                            "$ref": "#/components/schemas/AdminWorkflow"
+                        },
+                        "type": "array",
+                        "uniqueItems": false
+                    }
+                },
+                "required": [
+                    "at",
+                    "workflows"
                 ],
                 "type": "object"
             },
@@ -580,6 +745,33 @@
                 ],
                 "type": "object"
             },
+            "AskModelRequest": {
+                "properties": {
+                    "items": {
+                        "description": "Items are JSON objects, one per answer wanted.",
+                        "items": {
+                            "additionalProperties": {},
+                            "type": "object"
+                        },
+                        "type": "array",
+                        "uniqueItems": false
+                    },
+                    "schema": {
+                        "additionalProperties": {},
+                        "description": "Schema is a JSON Schema each answer is to keep to; the model is told it.",
+                        "type": "object"
+                    },
+                    "waitSeconds": {
+                        "description": "WaitSeconds is how long to wait for the answers: 30 unless said, up to the instance's\nmost.",
+                        "minimum": 1,
+                        "type": "integer"
+                    }
+                },
+                "required": [
+                    "items"
+                ],
+                "type": "object"
+            },
             "AuthConfig": {
                 "properties": {
                     "minPasswordLength": {
@@ -608,6 +800,21 @@
                     "passwordReset",
                     "registration",
                     "requests"
+                ],
+                "type": "object"
+            },
+            "BookLevel": {
+                "properties": {
+                    "price": {
+                        "type": "string"
+                    },
+                    "size": {
+                        "type": "string"
+                    }
+                },
+                "required": [
+                    "price",
+                    "size"
                 ],
                 "type": "object"
             },
@@ -814,6 +1021,7 @@
                             "admin_disable",
                             "admin_caps",
                             "admin_code",
+                            "admin_workflow",
                             "admin_config",
                             "admin_restart",
                             "admin_plugin_approve",
@@ -870,6 +1078,36 @@
                 ],
                 "type": "object"
             },
+            "ConnectedWorker": {
+                "properties": {
+                    "holding": {
+                        "description": "Holding is how many requests it holds now.",
+                        "type": "integer"
+                    },
+                    "name": {
+                        "type": "string"
+                    },
+                    "seen": {
+                        "format": "date-time",
+                        "type": "string"
+                    },
+                    "since": {
+                        "description": "Since is when it connected, this time; Seen when it last called for a request.",
+                        "format": "date-time",
+                        "type": "string"
+                    },
+                    "version": {
+                        "type": "string"
+                    }
+                },
+                "required": [
+                    "holding",
+                    "name",
+                    "seen",
+                    "since"
+                ],
+                "type": "object"
+            },
             "Connection": {
                 "properties": {
                     "from": {
@@ -915,6 +1153,29 @@
                 ],
                 "type": "object"
             },
+            "CreateDatasetRequest": {
+                "properties": {
+                    "keepDays": {
+                        "minimum": 0,
+                        "type": "integer"
+                    },
+                    "keepRows": {
+                        "minimum": 0,
+                        "type": "integer"
+                    },
+                    "keyField": {
+                        "type": "string"
+                    },
+                    "name": {
+                        "description": "Name is lower-case letters, digits, - and _, up to 64; unique among yours, and fixed.",
+                        "type": "string"
+                    }
+                },
+                "required": [
+                    "name"
+                ],
+                "type": "object"
+            },
             "CreateInviteRequest": {
                 "properties": {
                     "code": {
@@ -937,6 +1198,33 @@
                 },
                 "type": "object"
             },
+            "CreateMLModelRequest": {
+                "properties": {
+                    "credentialId": {
+                        "type": "string"
+                    },
+                    "kind": {
+                        "enum": [
+                            "worker",
+                            "url"
+                        ],
+                        "type": "string"
+                    },
+                    "name": {
+                        "description": "Name is lower-case letters, digits, - and _, up to 64; unique among yours, and fixed.",
+                        "type": "string"
+                    },
+                    "url": {
+                        "description": "URL and CredentialID are a URL model's; a worker model has neither.",
+                        "type": "string"
+                    }
+                },
+                "required": [
+                    "kind",
+                    "name"
+                ],
+                "type": "object"
+            },
             "CreateTokenRequest": {
                 "properties": {
                     "expiresAt": {
@@ -954,6 +1242,7 @@
                                 "read",
                                 "build",
                                 "tasks",
+                                "data",
                                 "settings",
                                 "paper",
                                 "live",
@@ -991,6 +1280,17 @@
                 "required": [
                     "email",
                     "password"
+                ],
+                "type": "object"
+            },
+            "CreateWorkerKeyRequest": {
+                "properties": {
+                    "name": {
+                        "type": "string"
+                    }
+                },
+                "required": [
+                    "name"
                 ],
                 "type": "object"
             },
@@ -1407,6 +1707,223 @@
                 ],
                 "type": "object"
             },
+            "Dataset": {
+                "properties": {
+                    "bytes": {
+                        "type": "integer"
+                    },
+                    "createdAt": {
+                        "format": "date-time",
+                        "type": "string"
+                    },
+                    "keepDays": {
+                        "description": "KeepDays drops rows older than so many days, 0 for none; KeepRows keeps no more than\nso many, the oldest dropped first, 0 for the instance's most.",
+                        "type": "integer"
+                    },
+                    "keepRows": {
+                        "type": "integer"
+                    },
+                    "keyField": {
+                        "description": "KeyField is the field rows are looked up by; absent for none.",
+                        "type": "string"
+                    },
+                    "name": {
+                        "type": "string"
+                    },
+                    "rows": {
+                        "type": "integer"
+                    },
+                    "updatedAt": {
+                        "format": "date-time",
+                        "type": "string"
+                    },
+                    "workflows": {
+                        "description": "Workflows are yours whose nodes name it: deleting it switches those on off. Listing\ndatasets, or getting one, says; other answers leave it out.",
+                        "items": {
+                            "$ref": "#/components/schemas/UsingWorkflow"
+                        },
+                        "type": "array",
+                        "uniqueItems": false
+                    }
+                },
+                "required": [
+                    "bytes",
+                    "createdAt",
+                    "keepDays",
+                    "keepRows",
+                    "name",
+                    "rows",
+                    "updatedAt"
+                ],
+                "type": "object"
+            },
+            "DatasetKeepRequest": {
+                "properties": {
+                    "keepDays": {
+                        "minimum": 0,
+                        "type": "integer"
+                    },
+                    "keepRows": {
+                        "minimum": 0,
+                        "type": "integer"
+                    }
+                },
+                "required": [
+                    "keepDays",
+                    "keepRows"
+                ],
+                "type": "object"
+            },
+            "DatasetLimits": {
+                "properties": {
+                    "bytes": {
+                        "description": "a user's storage",
+                        "type": "integer"
+                    },
+                    "datasets": {
+                        "description": "a user's",
+                        "type": "integer"
+                    },
+                    "keepDays": {
+                        "description": "KeepDays is what a dataset made for recording keeps, in days, to begin with.",
+                        "type": "integer"
+                    },
+                    "rowBytes": {
+                        "description": "a row's JSON",
+                        "type": "integer"
+                    },
+                    "rows": {
+                        "description": "a dataset's",
+                        "type": "integer"
+                    }
+                },
+                "required": [
+                    "bytes",
+                    "datasets",
+                    "keepDays",
+                    "rowBytes",
+                    "rows"
+                ],
+                "type": "object"
+            },
+            "DatasetList": {
+                "properties": {
+                    "datasets": {
+                        "items": {
+                            "$ref": "#/components/schemas/Dataset"
+                        },
+                        "type": "array",
+                        "uniqueItems": false
+                    },
+                    "limits": {
+                        "$ref": "#/components/schemas/DatasetLimits"
+                    }
+                },
+                "required": [
+                    "datasets",
+                    "limits"
+                ],
+                "type": "object"
+            },
+            "DatasetRow": {
+                "properties": {
+                    "at": {
+                        "format": "date-time",
+                        "type": "string"
+                    },
+                    "key": {
+                        "type": "string"
+                    },
+                    "row": {
+                        "additionalProperties": {},
+                        "description": "Row is the row itself, a JSON object.",
+                        "type": "object"
+                    },
+                    "seq": {
+                        "description": "Seq is its place, ascending as rows were added: the cursor of the next page.",
+                        "type": "integer"
+                    }
+                },
+                "required": [
+                    "at",
+                    "row",
+                    "seq"
+                ],
+                "type": "object"
+            },
+            "DatasetRows": {
+                "properties": {
+                    "next": {
+                        "description": "Next is the after of the next page; absent on the last.",
+                        "type": "integer"
+                    },
+                    "rows": {
+                        "items": {
+                            "$ref": "#/components/schemas/DatasetRow"
+                        },
+                        "type": "array",
+                        "uniqueItems": false
+                    }
+                },
+                "required": [
+                    "rows"
+                ],
+                "type": "object"
+            },
+            "DatasetRowsRequest": {
+                "properties": {
+                    "rows": {
+                        "description": "Rows are JSON objects, each at most the size a row may be.",
+                        "items": {
+                            "additionalProperties": {},
+                            "type": "object"
+                        },
+                        "type": "array",
+                        "uniqueItems": false
+                    }
+                },
+                "required": [
+                    "rows"
+                ],
+                "type": "object"
+            },
+            "DatasetStage": {
+                "properties": {
+                    "stage": {
+                        "description": "Stage is the replace in progress: send rows to it, then finish it.",
+                        "type": "string"
+                    },
+                    "staged": {
+                        "description": "Staged is how many rows it holds so far.",
+                        "type": "integer"
+                    }
+                },
+                "required": [
+                    "stage",
+                    "staged"
+                ],
+                "type": "object"
+            },
+            "DatasetUsage": {
+                "properties": {
+                    "bytes": {
+                        "additionalProperties": {
+                            "type": "integer"
+                        },
+                        "description": "Bytes is what each user's datasets take, by user ID; a user with none is absent.",
+                        "type": "object"
+                    },
+                    "limit": {
+                        "description": "Limit is what each may take.",
+                        "type": "integer"
+                    }
+                },
+                "required": [
+                    "bytes",
+                    "limit"
+                ],
+                "type": "object"
+            },
             "Error": {
                 "properties": {
                     "error": {
@@ -1560,6 +2077,9 @@
                         ],
                         "type": "string"
                     },
+                    "answered": {
+                        "type": "integer"
+                    },
                     "call": {
                         "description": "Call is each, an answer for each item, or together, one for all of them.",
                         "enum": [
@@ -1569,7 +2089,7 @@
                         "type": "string"
                     },
                     "heldBy": {
-                        "description": "HeldBy is the agent or token that has it, by its name, until heldUntil; absent while\nit waits for one to take it.",
+                        "description": "HeldBy is the agents or tokens that have it, or its parts, by their names, until\nheldUntil; absent while it waits for one to take it.",
                         "type": "string"
                     },
                     "heldUntil": {
@@ -1582,6 +2102,10 @@
                         },
                         "type": "array",
                         "uniqueItems": false
+                    },
+                    "parts": {
+                        "description": "Parts are how many parts it comes in, too big for an agent to take at once, each\nanswered on its own (D436), and Answered how many of them are; 1 for one that fits.",
+                        "type": "integer"
                     },
                     "prompt": {
                         "description": "Prompt is what it asks, together; each item has its own.",
@@ -1600,8 +2124,10 @@
                 },
                 "required": [
                     "answerAs",
+                    "answered",
                     "call",
                     "items",
+                    "parts",
                     "until"
                 ],
                 "type": "object"
@@ -1800,6 +2326,32 @@
                     "unrealized",
                     "updatedAt",
                     "value"
+                ],
+                "type": "object"
+            },
+            "Hook": {
+                "properties": {
+                    "createdAt": {
+                        "type": "string"
+                    },
+                    "enabled": {
+                        "description": "Enabled says an admin lets inbound webhooks take calls on this instance.",
+                        "type": "boolean"
+                    },
+                    "listening": {
+                        "description": "Listening says the workflow is on, taking calls.",
+                        "type": "boolean"
+                    },
+                    "url": {
+                        "description": "URL is the secret address a service calls with a POST: whoever has it can start\nthe workflow.",
+                        "type": "string"
+                    }
+                },
+                "required": [
+                    "createdAt",
+                    "enabled",
+                    "listening",
+                    "url"
                 ],
                 "type": "object"
             },
@@ -2586,6 +3138,346 @@
                 ],
                 "type": "object"
             },
+            "MLModel": {
+                "properties": {
+                    "createdAt": {
+                        "format": "date-time",
+                        "type": "string"
+                    },
+                    "credentialId": {
+                        "type": "string"
+                    },
+                    "kind": {
+                        "description": "Kind is worker, for a model whose workers take its requests, or url, for one called\nat a URL.",
+                        "enum": [
+                            "worker",
+                            "url"
+                        ],
+                        "type": "string"
+                    },
+                    "lastAnswerAt": {
+                        "format": "date-time",
+                        "type": "string"
+                    },
+                    "lastError": {
+                        "type": "string"
+                    },
+                    "lastErrorAt": {
+                        "format": "date-time",
+                        "type": "string"
+                    },
+                    "name": {
+                        "type": "string"
+                    },
+                    "updatedAt": {
+                        "format": "date-time",
+                        "type": "string"
+                    },
+                    "url": {
+                        "description": "URL and CredentialID are a URL model's: where it is called, and the http.header\ncredential sent with each call.",
+                        "type": "string"
+                    },
+                    "workers": {
+                        "description": "Workers are a worker model's workers connected now, by name.",
+                        "items": {
+                            "$ref": "#/components/schemas/ConnectedWorker"
+                        },
+                        "type": "array",
+                        "uniqueItems": false
+                    },
+                    "workflows": {
+                        "description": "Workflows are yours whose nodes ask it: deleting it switches those on off. Listing\nmodels, or getting one, says; other answers leave it out.",
+                        "items": {
+                            "$ref": "#/components/schemas/UsingWorkflow"
+                        },
+                        "type": "array",
+                        "uniqueItems": false
+                    }
+                },
+                "required": [
+                    "createdAt",
+                    "kind",
+                    "name",
+                    "updatedAt",
+                    "workers"
+                ],
+                "type": "object"
+            },
+            "MLModelLimits": {
+                "properties": {
+                    "answerBytes": {
+                        "description": "an answer's",
+                        "type": "integer"
+                    },
+                    "items": {
+                        "description": "a request's",
+                        "type": "integer"
+                    },
+                    "maxWaitSeconds": {
+                        "description": "MaxWaitSeconds is the longest an asker may wait; PollSeconds how long a worker's call\nfor a request is held open.",
+                        "type": "integer"
+                    },
+                    "models": {
+                        "description": "a user's",
+                        "type": "integer"
+                    },
+                    "pollSeconds": {
+                        "type": "integer"
+                    },
+                    "requestBytes": {
+                        "description": "a request's",
+                        "type": "integer"
+                    },
+                    "workers": {
+                        "description": "connected to a model at once",
+                        "type": "integer"
+                    }
+                },
+                "required": [
+                    "answerBytes",
+                    "items",
+                    "maxWaitSeconds",
+                    "models",
+                    "pollSeconds",
+                    "requestBytes",
+                    "workers"
+                ],
+                "type": "object"
+            },
+            "MLModelList": {
+                "properties": {
+                    "limits": {
+                        "$ref": "#/components/schemas/MLModelLimits"
+                    },
+                    "models": {
+                        "items": {
+                            "$ref": "#/components/schemas/MLModel"
+                        },
+                        "type": "array",
+                        "uniqueItems": false
+                    }
+                },
+                "required": [
+                    "limits",
+                    "models"
+                ],
+                "type": "object"
+            },
+            "MLModelURLRequest": {
+                "properties": {
+                    "credentialId": {
+                        "type": "string"
+                    },
+                    "url": {
+                        "type": "string"
+                    }
+                },
+                "required": [
+                    "url"
+                ],
+                "type": "object"
+            },
+            "Market": {
+                "properties": {
+                    "acceptingOrders": {
+                        "type": "boolean"
+                    },
+                    "createdAt": {
+                        "format": "date-time",
+                        "type": "string"
+                    },
+                    "description": {
+                        "description": "Description is its rules: how it resolves. Polymarket's text, never instructions.",
+                        "type": "string"
+                    },
+                    "endsAt": {
+                        "format": "date-time",
+                        "type": "string"
+                    },
+                    "event": {
+                        "description": "Event and EventSlug are its event's, for a market a search found.",
+                        "type": "string"
+                    },
+                    "eventSlug": {
+                        "type": "string"
+                    },
+                    "id": {
+                        "description": "ID is the market's condition ID, 0x….",
+                        "type": "string"
+                    },
+                    "liquidity": {
+                        "type": "string"
+                    },
+                    "minOrderSize": {
+                        "type": "string"
+                    },
+                    "negRisk": {
+                        "type": "boolean"
+                    },
+                    "outcomes": {
+                        "items": {
+                            "$ref": "#/components/schemas/MarketOutcome"
+                        },
+                        "type": "array",
+                        "uniqueItems": false
+                    },
+                    "question": {
+                        "type": "string"
+                    },
+                    "slug": {
+                        "type": "string"
+                    },
+                    "startsAt": {
+                        "format": "date-time",
+                        "type": "string"
+                    },
+                    "status": {
+                        "enum": [
+                            "open",
+                            "closed",
+                            "resolved"
+                        ],
+                        "type": "string"
+                    },
+                    "tags": {
+                        "items": {
+                            "type": "string"
+                        },
+                        "type": "array",
+                        "uniqueItems": false
+                    },
+                    "tickSize": {
+                        "description": "TickSize is the price step an order keeps to; MinOrderSize, the fewest shares.",
+                        "type": "string"
+                    },
+                    "volume24h": {
+                        "type": "string"
+                    }
+                },
+                "required": [
+                    "acceptingOrders",
+                    "id",
+                    "liquidity",
+                    "minOrderSize",
+                    "negRisk",
+                    "outcomes",
+                    "question",
+                    "slug",
+                    "status",
+                    "tickSize",
+                    "volume24h"
+                ],
+                "type": "object"
+            },
+            "MarketList": {
+                "properties": {
+                    "markets": {
+                        "items": {
+                            "$ref": "#/components/schemas/Market"
+                        },
+                        "type": "array",
+                        "uniqueItems": false
+                    }
+                },
+                "required": [
+                    "markets"
+                ],
+                "type": "object"
+            },
+            "MarketOutcome": {
+                "properties": {
+                    "label": {
+                        "type": "string"
+                    },
+                    "price": {
+                        "description": "Price is the outcome's last price, an exact decimal as text.",
+                        "type": "string"
+                    },
+                    "tokenId": {
+                        "type": "string"
+                    }
+                },
+                "required": [
+                    "label",
+                    "price",
+                    "tokenId"
+                ],
+                "type": "object"
+            },
+            "MarketTrade": {
+                "properties": {
+                    "at": {
+                        "format": "date-time",
+                        "type": "string"
+                    },
+                    "eventSlug": {
+                        "type": "string"
+                    },
+                    "marketId": {
+                        "type": "string"
+                    },
+                    "name": {
+                        "type": "string"
+                    },
+                    "outcome": {
+                        "type": "string"
+                    },
+                    "price": {
+                        "type": "string"
+                    },
+                    "side": {
+                        "enum": [
+                            "buy",
+                            "sell"
+                        ],
+                        "type": "string"
+                    },
+                    "size": {
+                        "type": "string"
+                    },
+                    "slug": {
+                        "type": "string"
+                    },
+                    "title": {
+                        "type": "string"
+                    },
+                    "tokenId": {
+                        "type": "string"
+                    },
+                    "txHash": {
+                        "type": "string"
+                    },
+                    "wallet": {
+                        "type": "string"
+                    }
+                },
+                "required": [
+                    "at",
+                    "marketId",
+                    "outcome",
+                    "price",
+                    "side",
+                    "size",
+                    "tokenId",
+                    "wallet"
+                ],
+                "type": "object"
+            },
+            "MarketTradeList": {
+                "properties": {
+                    "trades": {
+                        "items": {
+                            "$ref": "#/components/schemas/MarketTrade"
+                        },
+                        "type": "array",
+                        "uniqueItems": false
+                    }
+                },
+                "required": [
+                    "trades"
+                ],
+                "type": "object"
+            },
             "Meta": {
                 "properties": {
                     "repo": {
@@ -2619,6 +3511,34 @@
                 ],
                 "type": "object"
             },
+            "ModelAnswers": {
+                "properties": {
+                    "answers": {
+                        "description": "Answers are one per item, in their order.",
+                        "items": {},
+                        "type": "array",
+                        "uniqueItems": false
+                    },
+                    "refused": {
+                        "additionalProperties": {
+                            "type": "string"
+                        },
+                        "description": "Refused are the answers that do not keep to the schema, by index, saying why.",
+                        "type": "object"
+                    },
+                    "version": {
+                        "description": "Version is what the worker or the URL said it was; Worker the worker that answered.",
+                        "type": "string"
+                    },
+                    "worker": {
+                        "type": "string"
+                    }
+                },
+                "required": [
+                    "answers"
+                ],
+                "type": "object"
+            },
             "ModelList": {
                 "properties": {
                     "models": {
@@ -2631,6 +3551,22 @@
                 },
                 "required": [
                     "models"
+                ],
+                "type": "object"
+            },
+            "NewWorkerKey": {
+                "properties": {
+                    "key": {
+                        "$ref": "#/components/schemas/WorkerKey"
+                    },
+                    "secret": {
+                        "description": "Secret is the key itself, shown this once.",
+                        "type": "string"
+                    }
+                },
+                "required": [
+                    "key",
+                    "secret"
                 ],
                 "type": "object"
             },
@@ -2656,6 +3592,12 @@
                     "position": {
                         "$ref": "#/components/schemas/CanvasPosition",
                         "description": "Position is where the editor draws the node; it never affects execution."
+                    },
+                    "retry": {
+                        "description": "Retry is how many more times the node tries what failed, 0 to 5, waiting 1, 2, 4…\nseconds; left out for its type's default: 3 for one that only reads, else none.",
+                        "maximum": 5,
+                        "minimum": 0,
+                        "type": "integer"
                     },
                     "type": {
                         "type": "string"
@@ -2766,6 +3708,10 @@
                             "cancelled"
                         ],
                         "type": "string"
+                    },
+                    "tries": {
+                        "description": "Tries is how many times the node ran, its retries counted; absent for once.",
+                        "type": "integer"
                     }
                 },
                 "required": [
@@ -2801,6 +3747,9 @@
                     "name": {
                         "type": "string"
                     },
+                    "noRetry": {
+                        "type": "boolean"
+                    },
                     "outputs": {
                         "items": {
                             "type": "string"
@@ -2828,6 +3777,13 @@
                     },
                     "pluginName": {
                         "type": "string"
+                    },
+                    "reads": {
+                        "description": "Reads says it only reads, so a failure is tried again 3 more times unless its\nretry says otherwise; readsWhen, that it reads only with that param's value.\nNoRetry says it is never retried: a retry could do what it does twice.",
+                        "type": "boolean"
+                    },
+                    "readsWhen": {
+                        "$ref": "#/components/schemas/ParamChoice"
                     },
                     "remembers": {
                         "description": "Remembers says it keeps what it saw across runs; /workflows/{id}/nodes/{node}/memory\nsays how much, and forgets it.",
@@ -3121,6 +4077,7 @@
                             "read",
                             "build",
                             "tasks",
+                            "data",
                             "settings",
                             "paper",
                             "live",
@@ -3340,6 +4297,67 @@
                 ],
                 "type": "object"
             },
+            "OrderBook": {
+                "properties": {
+                    "asks": {
+                        "items": {
+                            "$ref": "#/components/schemas/BookLevel"
+                        },
+                        "type": "array",
+                        "uniqueItems": false
+                    },
+                    "at": {
+                        "format": "date-time",
+                        "type": "string"
+                    },
+                    "bestAsk": {
+                        "type": "string"
+                    },
+                    "bestBid": {
+                        "description": "BestBid, BestAsk, Mid and Spread are absent where a side is empty.",
+                        "type": "string"
+                    },
+                    "bids": {
+                        "items": {
+                            "$ref": "#/components/schemas/BookLevel"
+                        },
+                        "type": "array",
+                        "uniqueItems": false
+                    },
+                    "mid": {
+                        "type": "string"
+                    },
+                    "spread": {
+                        "type": "string"
+                    },
+                    "tokenId": {
+                        "type": "string"
+                    }
+                },
+                "required": [
+                    "asks",
+                    "at",
+                    "bids",
+                    "tokenId"
+                ],
+                "type": "object"
+            },
+            "OrderBookList": {
+                "properties": {
+                    "books": {
+                        "description": "Books are in the order the tokens were asked for, null for a token without one.",
+                        "items": {
+                            "$ref": "#/components/schemas/OrderBook"
+                        },
+                        "type": "array",
+                        "uniqueItems": false
+                    }
+                },
+                "required": [
+                    "books"
+                ],
+                "type": "object"
+            },
             "OrderFill": {
                 "properties": {
                     "dollars": {
@@ -3499,7 +4517,9 @@
                             "address",
                             "table",
                             "credential",
-                            "code"
+                            "code",
+                            "dataset",
+                            "model"
                         ],
                         "type": "string"
                     },
@@ -3978,6 +4998,59 @@
                 "required": [
                     "at",
                     "profit"
+                ],
+                "type": "object"
+            },
+            "PriceHistory": {
+                "properties": {
+                    "change": {
+                        "description": "Change is the last price less the first, ChangePct the same in percent; absent with\nfewer than two points.",
+                        "type": "string"
+                    },
+                    "changePct": {
+                        "type": "string"
+                    },
+                    "points": {
+                        "items": {
+                            "$ref": "#/components/schemas/PricePoint"
+                        },
+                        "type": "array",
+                        "uniqueItems": false
+                    },
+                    "tokenId": {
+                        "type": "string"
+                    },
+                    "window": {
+                        "enum": [
+                            "1h",
+                            "6h",
+                            "1d",
+                            "1w",
+                            "1m"
+                        ],
+                        "type": "string"
+                    }
+                },
+                "required": [
+                    "points",
+                    "tokenId",
+                    "window"
+                ],
+                "type": "object"
+            },
+            "PricePoint": {
+                "properties": {
+                    "at": {
+                        "format": "date-time",
+                        "type": "string"
+                    },
+                    "price": {
+                        "type": "string"
+                    }
+                },
+                "required": [
+                    "at",
+                    "price"
                 ],
                 "type": "object"
             },
@@ -5249,6 +6322,9 @@
                     "codeChosen": {
                         "type": "boolean"
                     },
+                    "dataChosen": {
+                        "type": "boolean"
+                    },
                     "disabled": {
                         "type": "boolean"
                     },
@@ -5441,6 +6517,10 @@
                         "$ref": "#/components/schemas/Dashboard",
                         "description": "Dashboard is how you set the workflows' dashboard (D429): yours, in /me only."
                     },
+                    "dataChosen": {
+                        "description": "DataChosen says an admin picked them to use datasets and models, which counts while\ndata access is \"chosen\"; MayUseData, whether they may now.",
+                        "type": "boolean"
+                    },
                     "disabled": {
                         "type": "boolean"
                     },
@@ -5473,6 +6553,9 @@
                         "format": "date-time",
                         "type": "string"
                     },
+                    "mayUseData": {
+                        "type": "boolean"
+                    },
                     "mayWriteCode": {
                         "description": "MayWriteCode says whether they may write code now, as code access and CodeChosen\nhave it.",
                         "type": "boolean"
@@ -5501,6 +6584,7 @@
                     "agentsSeePersonal",
                     "codeChosen",
                     "createdAt",
+                    "dataChosen",
                     "disabled",
                     "email",
                     "emailVerified",
@@ -5509,6 +6593,7 @@
                     "liveCaps",
                     "liveConfirm",
                     "liveStopped",
+                    "mayUseData",
                     "mayWriteCode",
                     "role"
                 ],
@@ -5602,6 +6687,25 @@
                     "role",
                     "week",
                     "workflows"
+                ],
+                "type": "object"
+            },
+            "UsingWorkflow": {
+                "properties": {
+                    "active": {
+                        "type": "boolean"
+                    },
+                    "id": {
+                        "type": "string"
+                    },
+                    "name": {
+                        "type": "string"
+                    }
+                },
+                "required": [
+                    "active",
+                    "id",
+                    "name"
                 ],
                 "type": "object"
             },
@@ -5710,6 +6814,149 @@
                 ],
                 "type": "object"
             },
+            "WorkerAnswer": {
+                "properties": {
+                    "answers": {
+                        "description": "Answers are one per item, in their order: any JSON.",
+                        "items": {},
+                        "type": "array",
+                        "uniqueItems": false
+                    },
+                    "version": {
+                        "type": "string"
+                    },
+                    "worker": {
+                        "type": "string"
+                    }
+                },
+                "required": [
+                    "answers",
+                    "worker"
+                ],
+                "type": "object"
+            },
+            "WorkerFail": {
+                "properties": {
+                    "reason": {
+                        "description": "Reason is why, up to 500 characters: each item fails with it.",
+                        "type": "string"
+                    },
+                    "version": {
+                        "type": "string"
+                    },
+                    "worker": {
+                        "type": "string"
+                    }
+                },
+                "required": [
+                    "reason",
+                    "worker"
+                ],
+                "type": "object"
+            },
+            "WorkerKey": {
+                "properties": {
+                    "createdAt": {
+                        "format": "date-time",
+                        "type": "string"
+                    },
+                    "id": {
+                        "type": "string"
+                    },
+                    "lastUsedAt": {
+                        "format": "date-time",
+                        "type": "string"
+                    },
+                    "name": {
+                        "type": "string"
+                    },
+                    "prefix": {
+                        "description": "Prefix is the key's start, to tell it apart.",
+                        "type": "string"
+                    }
+                },
+                "required": [
+                    "createdAt",
+                    "id",
+                    "name",
+                    "prefix"
+                ],
+                "type": "object"
+            },
+            "WorkerKeyList": {
+                "properties": {
+                    "keys": {
+                        "items": {
+                            "$ref": "#/components/schemas/WorkerKey"
+                        },
+                        "type": "array",
+                        "uniqueItems": false
+                    }
+                },
+                "required": [
+                    "keys"
+                ],
+                "type": "object"
+            },
+            "WorkerRequest": {
+                "properties": {
+                    "model": {
+                        "description": "Model is the model the key serves.",
+                        "type": "string"
+                    },
+                    "request": {
+                        "$ref": "#/components/schemas/WorkerTask"
+                    }
+                },
+                "required": [
+                    "model",
+                    "request"
+                ],
+                "type": "object"
+            },
+            "WorkerTake": {
+                "properties": {
+                    "version": {
+                        "description": "Version is the model's version it serves, which each answer carries.",
+                        "type": "string"
+                    },
+                    "worker": {
+                        "description": "Worker is this worker's name, unique among the model's, like gpu-box-1.",
+                        "type": "string"
+                    }
+                },
+                "required": [
+                    "worker"
+                ],
+                "type": "object"
+            },
+            "WorkerTask": {
+                "properties": {
+                    "deadline": {
+                        "description": "Deadline is when its asker stops waiting.",
+                        "format": "date-time",
+                        "type": "string"
+                    },
+                    "id": {
+                        "type": "string"
+                    },
+                    "items": {
+                        "description": "Items are the asker's, one answer each.",
+                        "items": {},
+                        "type": "array",
+                        "uniqueItems": false
+                    },
+                    "schema": {
+                        "description": "Schema is what each answer is to keep to, if any."
+                    }
+                },
+                "required": [
+                    "deadline",
+                    "id",
+                    "items"
+                ],
+                "type": "object"
+            },
             "Workflow": {
                 "properties": {
                     "actedBy": {
@@ -5733,6 +6980,10 @@
                     "description": {
                         "description": "Description is what it does, in your words; searched with its name.",
                         "type": "string"
+                    },
+                    "hold": {
+                        "$ref": "#/components/schemas/WorkflowHold",
+                        "description": "Hold is an admin's holding it off (D435): it is switched on again once they release\nit. Absent while none does."
                     },
                     "id": {
                         "type": "string"
@@ -5845,6 +7096,22 @@
                 ],
                 "type": "object"
             },
+            "WorkflowHold": {
+                "properties": {
+                    "at": {
+                        "format": "date-time",
+                        "type": "string"
+                    },
+                    "reason": {
+                        "type": "string"
+                    }
+                },
+                "required": [
+                    "at",
+                    "reason"
+                ],
+                "type": "object"
+            },
             "WorkflowPage": {
                 "properties": {
                     "nextCursor": {
@@ -5916,22 +7183,28 @@
             },
             "WorkflowSwitch": {
                 "properties": {
+                    "admin": {
+                        "description": "Admin says an admin did it, Reason saying why (D435).",
+                        "type": "boolean"
+                    },
                     "at": {
                         "format": "date-time",
                         "type": "string"
                     },
                     "by": {
                         "$ref": "#/components/schemas/Switcher",
-                        "description": "By is the agent or token that did it; absent when you did, or Polythought."
+                        "description": "By is the agent or token that did it; absent when you did, an admin or Polythought."
                     },
                     "id": {
                         "type": "string"
                     },
                     "kind": {
-                        "description": "Kind is what it did: on or off; paper, live or another wallet (wallet); reset, its\npaper account; kill_on or kill_off, your kill switch, as it traded live.",
+                        "description": "Kind is what it did: on or off; hold, an admin holding it off, or release, letting\nit be switched on again (D435); paper, live or another wallet (wallet); reset, its\npaper account; kill_on or kill_off, your kill switch, as it traded live.",
                         "enum": [
                             "on",
                             "off",
+                            "hold",
+                            "release",
                             "paper",
                             "live",
                             "wallet",
@@ -5955,6 +7228,7 @@
                     }
                 },
                 "required": [
+                    "admin",
                     "at",
                     "id",
                     "kind",
@@ -6095,6 +7369,11 @@
                 "in": "cookie",
                 "name": "polythought_session",
                 "type": "apiKey"
+            },
+            "WorkerKey": {
+                "description": "A model's worker key, for its workers alone: Authorization: Bearer pw_...",
+                "scheme": "bearer",
+                "type": "http"
             }
         }
     },
@@ -6152,6 +7431,55 @@
                     }
                 ],
                 "summary": "Where user code runs, and how its runners are",
+                "tags": [
+                    "admin"
+                ]
+            }
+        },
+        "/admin/datasets/usage": {
+            "get": {
+                "operationId": "datasetUsage",
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/DatasetUsage"
+                                }
+                            }
+                        },
+                        "description": "OK"
+                    },
+                    "401": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "unauthenticated"
+                    },
+                    "403": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "forbidden"
+                    }
+                },
+                "security": [
+                    {
+                        "SessionCookie": []
+                    },
+                    {
+                        "APIToken": []
+                    }
+                ],
+                "summary": "Datasets' storage, by user",
                 "tags": [
                     "admin"
                 ]
@@ -9020,6 +10348,496 @@
                 ]
             }
         },
+        "/admin/users/{id}/workflows/{wid}": {
+            "get": {
+                "operationId": "getAdminWorkflow",
+                "parameters": [
+                    {
+                        "description": "The owner's ID",
+                        "in": "path",
+                        "name": "id",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "description": "Workflow ID",
+                        "in": "path",
+                        "name": "wid",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Workflow"
+                                }
+                            }
+                        },
+                        "description": "OK"
+                    },
+                    "401": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "unauthenticated"
+                    },
+                    "403": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "not an admin"
+                    },
+                    "404": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "not_found"
+                    }
+                },
+                "security": [
+                    {
+                        "SessionCookie": []
+                    },
+                    {
+                        "APIToken": []
+                    }
+                ],
+                "summary": "A user's workflow",
+                "tags": [
+                    "admin"
+                ]
+            }
+        },
+        "/admin/users/{id}/workflows/{wid}/executions": {
+            "get": {
+                "operationId": "listAdminWorkflowExecutions",
+                "parameters": [
+                    {
+                        "description": "The owner's ID",
+                        "in": "path",
+                        "name": "id",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "description": "Workflow ID",
+                        "in": "path",
+                        "name": "wid",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "description": "Page size",
+                        "in": "query",
+                        "name": "limit",
+                        "schema": {
+                            "minimum": 1,
+                            "type": "integer"
+                        }
+                    },
+                    {
+                        "description": "nextCursor of the previous page",
+                        "in": "query",
+                        "name": "cursor",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ExecutionPage"
+                                }
+                            }
+                        },
+                        "description": "OK"
+                    },
+                    "401": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "unauthenticated"
+                    },
+                    "403": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "not an admin"
+                    },
+                    "404": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "not_found"
+                    }
+                },
+                "security": [
+                    {
+                        "SessionCookie": []
+                    },
+                    {
+                        "APIToken": []
+                    }
+                ],
+                "summary": "A user's workflow's runs",
+                "tags": [
+                    "admin"
+                ]
+            }
+        },
+        "/admin/users/{id}/workflows/{wid}/history": {
+            "get": {
+                "operationId": "getAdminWorkflowHistory",
+                "parameters": [
+                    {
+                        "description": "The owner's ID",
+                        "in": "path",
+                        "name": "id",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "description": "Workflow ID",
+                        "in": "path",
+                        "name": "wid",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "description": "Some kinds alone, comma-separated: on_off, trading, reset, kill_switch",
+                        "in": "query",
+                        "name": "kinds",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "description": "Page size",
+                        "in": "query",
+                        "name": "limit",
+                        "schema": {
+                            "minimum": 1,
+                            "type": "integer"
+                        }
+                    },
+                    {
+                        "description": "nextCursor of the previous page",
+                        "in": "query",
+                        "name": "cursor",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/WorkflowHistoryPage"
+                                }
+                            }
+                        },
+                        "description": "OK"
+                    },
+                    "400": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "invalid_input"
+                    },
+                    "401": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "unauthenticated"
+                    },
+                    "403": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "not an admin"
+                    },
+                    "404": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "not_found"
+                    }
+                },
+                "security": [
+                    {
+                        "SessionCookie": []
+                    },
+                    {
+                        "APIToken": []
+                    }
+                ],
+                "summary": "A user's workflow's history",
+                "tags": [
+                    "admin"
+                ]
+            }
+        },
+        "/admin/users/{id}/workflows/{wid}/release": {
+            "post": {
+                "operationId": "adminReleaseWorkflow",
+                "parameters": [
+                    {
+                        "description": "The owner's ID",
+                        "in": "path",
+                        "name": "id",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "description": "Workflow ID",
+                        "in": "path",
+                        "name": "wid",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Workflow"
+                                }
+                            }
+                        },
+                        "description": "OK"
+                    },
+                    "401": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "unauthenticated"
+                    },
+                    "403": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "not an admin"
+                    },
+                    "404": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "not_found"
+                    },
+                    "409": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "awaits_confirmation: an admin's token's work waits for the admin to confirm it (D410)"
+                    }
+                },
+                "security": [
+                    {
+                        "SessionCookie": []
+                    },
+                    {
+                        "APIToken": []
+                    }
+                ],
+                "summary": "Release a user's workflow",
+                "tags": [
+                    "admin"
+                ]
+            }
+        },
+        "/admin/users/{id}/workflows/{wid}/switch-off": {
+            "post": {
+                "operationId": "adminSwitchOffWorkflow",
+                "parameters": [
+                    {
+                        "description": "The owner's ID",
+                        "in": "path",
+                        "name": "id",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "description": "Workflow ID",
+                        "in": "path",
+                        "name": "wid",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/AdminSwitchOffRequest",
+                                "summary": "body",
+                                "description": "Why, and whether to hold it off"
+                            }
+                        }
+                    },
+                    "description": "Why, and whether to hold it off",
+                    "required": true
+                },
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Workflow"
+                                }
+                            }
+                        },
+                        "description": "OK"
+                    },
+                    "400": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "invalid_input"
+                    },
+                    "401": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "unauthenticated"
+                    },
+                    "403": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "not an admin"
+                    },
+                    "404": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "not_found"
+                    },
+                    "409": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "awaits_confirmation: an admin's token's work waits for the admin to confirm it (D410)"
+                    }
+                },
+                "security": [
+                    {
+                        "SessionCookie": []
+                    },
+                    {
+                        "APIToken": []
+                    }
+                ],
+                "summary": "Switch off a user's workflow",
+                "tags": [
+                    "admin"
+                ]
+            }
+        },
         "/admin/version": {
             "get": {
                 "operationId": "getServerVersion",
@@ -9064,6 +10882,55 @@
                     }
                 ],
                 "summary": "The server's version",
+                "tags": [
+                    "admin"
+                ]
+            }
+        },
+        "/admin/workflows": {
+            "get": {
+                "operationId": "listAdminWorkflows",
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/AdminWorkflows"
+                                }
+                            }
+                        },
+                        "description": "OK"
+                    },
+                    "401": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "unauthenticated"
+                    },
+                    "403": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "not an admin"
+                    }
+                },
+                "security": [
+                    {
+                        "SessionCookie": []
+                    },
+                    {
+                        "APIToken": []
+                    }
+                ],
+                "summary": "Every user's workflows",
                 "tags": [
                     "admin"
                 ]
@@ -10550,6 +12417,798 @@
                 ]
             }
         },
+        "/datasets": {
+            "get": {
+                "operationId": "listDatasets",
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/DatasetList"
+                                }
+                            }
+                        },
+                        "description": "OK"
+                    },
+                    "401": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "unauthenticated"
+                    },
+                    "403": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "data_off: an admin keeps datasets from you"
+                    }
+                },
+                "security": [
+                    {
+                        "SessionCookie": []
+                    },
+                    {
+                        "APIToken": []
+                    }
+                ],
+                "summary": "List datasets",
+                "tags": [
+                    "datasets"
+                ]
+            },
+            "post": {
+                "operationId": "createDataset",
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/CreateDatasetRequest",
+                                "summary": "body",
+                                "description": "The dataset"
+                            }
+                        }
+                    },
+                    "description": "The dataset",
+                    "required": true
+                },
+                "responses": {
+                    "201": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Dataset"
+                                }
+                            }
+                        },
+                        "description": "Created"
+                    },
+                    "400": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "invalid_input"
+                    },
+                    "409": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "dataset_exists; dataset_full: as many as you may have"
+                    }
+                },
+                "security": [
+                    {
+                        "SessionCookie": []
+                    },
+                    {
+                        "APIToken": []
+                    }
+                ],
+                "summary": "Make a dataset",
+                "tags": [
+                    "datasets"
+                ]
+            }
+        },
+        "/datasets/{name}": {
+            "delete": {
+                "operationId": "deleteDataset",
+                "parameters": [
+                    {
+                        "description": "Its name",
+                        "in": "path",
+                        "name": "name",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "No Content"
+                    },
+                    "404": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "not_found"
+                    }
+                },
+                "security": [
+                    {
+                        "SessionCookie": []
+                    },
+                    {
+                        "APIToken": []
+                    }
+                ],
+                "summary": "Delete a dataset",
+                "tags": [
+                    "datasets"
+                ]
+            },
+            "get": {
+                "operationId": "getDataset",
+                "parameters": [
+                    {
+                        "description": "Its name",
+                        "in": "path",
+                        "name": "name",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Dataset"
+                                }
+                            }
+                        },
+                        "description": "OK"
+                    },
+                    "404": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "not_found"
+                    }
+                },
+                "security": [
+                    {
+                        "SessionCookie": []
+                    },
+                    {
+                        "APIToken": []
+                    }
+                ],
+                "summary": "Get a dataset",
+                "tags": [
+                    "datasets"
+                ]
+            }
+        },
+        "/datasets/{name}/csv": {
+            "get": {
+                "operationId": "exportDataset",
+                "parameters": [
+                    {
+                        "description": "Its name",
+                        "in": "path",
+                        "name": "name",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "text/csv": {
+                                "schema": {
+                                    "type": "string"
+                                }
+                            }
+                        },
+                        "description": "CSV"
+                    },
+                    "404": {
+                        "content": {
+                            "text/csv": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "not_found"
+                    }
+                },
+                "security": [
+                    {
+                        "SessionCookie": []
+                    },
+                    {
+                        "APIToken": []
+                    }
+                ],
+                "summary": "A dataset as CSV",
+                "tags": [
+                    "datasets"
+                ]
+            }
+        },
+        "/datasets/{name}/keep": {
+            "put": {
+                "operationId": "setDatasetKeep",
+                "parameters": [
+                    {
+                        "description": "Its name",
+                        "in": "path",
+                        "name": "name",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/DatasetKeepRequest",
+                                "summary": "body",
+                                "description": "Days and rows: 0 for no limit"
+                            }
+                        }
+                    },
+                    "description": "Days and rows: 0 for no limit",
+                    "required": true
+                },
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Dataset"
+                                }
+                            }
+                        },
+                        "description": "OK"
+                    },
+                    "400": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "invalid_input"
+                    },
+                    "404": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "not_found"
+                    }
+                },
+                "security": [
+                    {
+                        "SessionCookie": []
+                    },
+                    {
+                        "APIToken": []
+                    }
+                ],
+                "summary": "Set what a dataset keeps",
+                "tags": [
+                    "datasets"
+                ]
+            }
+        },
+        "/datasets/{name}/replace": {
+            "post": {
+                "operationId": "startDatasetReplace",
+                "parameters": [
+                    {
+                        "description": "Its name",
+                        "in": "path",
+                        "name": "name",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/DatasetStage"
+                                }
+                            }
+                        },
+                        "description": "Created"
+                    },
+                    "404": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "not_found"
+                    }
+                },
+                "security": [
+                    {
+                        "SessionCookie": []
+                    },
+                    {
+                        "APIToken": []
+                    }
+                ],
+                "summary": "Start replacing a dataset's rows",
+                "tags": [
+                    "datasets"
+                ]
+            }
+        },
+        "/datasets/{name}/replace/{stage}": {
+            "delete": {
+                "operationId": "dropDatasetReplace",
+                "parameters": [
+                    {
+                        "description": "Its name",
+                        "in": "path",
+                        "name": "name",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "description": "The replace",
+                        "in": "path",
+                        "name": "stage",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "No Content"
+                    },
+                    "404": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "not_found"
+                    }
+                },
+                "security": [
+                    {
+                        "SessionCookie": []
+                    },
+                    {
+                        "APIToken": []
+                    }
+                ],
+                "summary": "Drop a replace",
+                "tags": [
+                    "datasets"
+                ]
+            }
+        },
+        "/datasets/{name}/replace/{stage}/finish": {
+            "post": {
+                "operationId": "finishDatasetReplace",
+                "parameters": [
+                    {
+                        "description": "Its name",
+                        "in": "path",
+                        "name": "name",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "description": "The replace",
+                        "in": "path",
+                        "name": "stage",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Dataset"
+                                }
+                            }
+                        },
+                        "description": "OK"
+                    },
+                    "404": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "not_found"
+                    }
+                },
+                "security": [
+                    {
+                        "SessionCookie": []
+                    },
+                    {
+                        "APIToken": []
+                    }
+                ],
+                "summary": "Finish a replace",
+                "tags": [
+                    "datasets"
+                ]
+            }
+        },
+        "/datasets/{name}/replace/{stage}/rows": {
+            "post": {
+                "operationId": "stageDatasetRows",
+                "parameters": [
+                    {
+                        "description": "Its name",
+                        "in": "path",
+                        "name": "name",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "description": "The replace",
+                        "in": "path",
+                        "name": "stage",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/DatasetRowsRequest",
+                                "summary": "body",
+                                "description": "The rows: within the request's 1 MiB"
+                            }
+                        }
+                    },
+                    "description": "The rows: within the request's 1 MiB",
+                    "required": true
+                },
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/DatasetStage"
+                                }
+                            }
+                        },
+                        "description": "OK"
+                    },
+                    "400": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "invalid_input"
+                    },
+                    "404": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "not_found"
+                    },
+                    "409": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "dataset_full"
+                    }
+                },
+                "security": [
+                    {
+                        "SessionCookie": []
+                    },
+                    {
+                        "APIToken": []
+                    }
+                ],
+                "summary": "Send rows to a replace",
+                "tags": [
+                    "datasets"
+                ]
+            }
+        },
+        "/datasets/{name}/rows": {
+            "get": {
+                "operationId": "listDatasetRows",
+                "parameters": [
+                    {
+                        "description": "Its name",
+                        "in": "path",
+                        "name": "name",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "description": "The seq to start after: the page before's next",
+                        "in": "query",
+                        "name": "after",
+                        "schema": {
+                            "type": "integer"
+                        }
+                    },
+                    {
+                        "description": "At most this many: 1,000 unless said, and at most",
+                        "in": "query",
+                        "name": "limit",
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/DatasetRows"
+                                }
+                            }
+                        },
+                        "description": "OK"
+                    },
+                    "404": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "not_found"
+                    }
+                },
+                "security": [
+                    {
+                        "SessionCookie": []
+                    },
+                    {
+                        "APIToken": []
+                    }
+                ],
+                "summary": "A dataset's rows",
+                "tags": [
+                    "datasets"
+                ]
+            },
+            "post": {
+                "operationId": "appendDatasetRows",
+                "parameters": [
+                    {
+                        "description": "Its name",
+                        "in": "path",
+                        "name": "name",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/DatasetRowsRequest",
+                                "summary": "body",
+                                "description": "The rows: within the request's 1 MiB"
+                            }
+                        }
+                    },
+                    "description": "The rows: within the request's 1 MiB",
+                    "required": true
+                },
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Dataset"
+                                }
+                            }
+                        },
+                        "description": "OK"
+                    },
+                    "400": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "invalid_input"
+                    },
+                    "404": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "not_found"
+                    },
+                    "409": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "dataset_full"
+                    }
+                },
+                "security": [
+                    {
+                        "SessionCookie": []
+                    },
+                    {
+                        "APIToken": []
+                    }
+                ],
+                "summary": "Add rows to a dataset",
+                "tags": [
+                    "datasets"
+                ]
+            }
+        },
+        "/datasets/{name}/rows/{key}": {
+            "get": {
+                "operationId": "getDatasetRow",
+                "parameters": [
+                    {
+                        "description": "Its name",
+                        "in": "path",
+                        "name": "name",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "description": "The key field's value",
+                        "in": "path",
+                        "name": "key",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/DatasetRow"
+                                }
+                            }
+                        },
+                        "description": "OK"
+                    },
+                    "400": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "invalid_input: it has no key field"
+                    },
+                    "404": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "not_found"
+                    }
+                },
+                "security": [
+                    {
+                        "SessionCookie": []
+                    },
+                    {
+                        "APIToken": []
+                    }
+                ],
+                "summary": "A dataset's row by its key",
+                "tags": [
+                    "datasets"
+                ]
+            }
+        },
         "/events": {
             "get": {
                 "description": "A text/event-stream. Every finished execution of the user's workflows arrives as an \"execution\" event, its data an ExecutionEvent without item samples. Comment lines keep the stream open. A user holds a few streams at most; opening another closes their oldest.",
@@ -10859,6 +13518,482 @@
                 "summary": "Start a workflow from a template",
                 "tags": [
                     "library"
+                ]
+            }
+        },
+        "/market-data/books": {
+            "get": {
+                "operationId": "getOrderBooks",
+                "parameters": [
+                    {
+                        "description": "Outcome token IDs, comma-separated: 50 at most",
+                        "in": "query",
+                        "name": "tokens",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "description": "Levels of each side: 10 unless said, 100 at most",
+                        "in": "query",
+                        "name": "depth",
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/OrderBookList"
+                                }
+                            }
+                        },
+                        "description": "OK"
+                    },
+                    "400": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "invalid_input"
+                    },
+                    "401": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "unauthenticated"
+                    },
+                    "503": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "upstream_unavailable"
+                    }
+                },
+                "security": [
+                    {
+                        "SessionCookie": []
+                    },
+                    {
+                        "APIToken": []
+                    }
+                ],
+                "summary": "Order books",
+                "tags": [
+                    "market-data"
+                ]
+            }
+        },
+        "/market-data/history/{token}": {
+            "get": {
+                "operationId": "getPriceHistory",
+                "parameters": [
+                    {
+                        "description": "The outcome's token ID",
+                        "in": "path",
+                        "name": "token",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "description": "How far back: 1h, 6h, 1d, 1w or 1m; 1d unless said",
+                        "in": "query",
+                        "name": "window",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "description": "At most this many points, evenly spaced: 50 unless said, 500 at most",
+                        "in": "query",
+                        "name": "limit",
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/PriceHistory"
+                                }
+                            }
+                        },
+                        "description": "OK"
+                    },
+                    "400": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "invalid_input"
+                    },
+                    "401": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "unauthenticated"
+                    },
+                    "503": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "upstream_unavailable"
+                    }
+                },
+                "security": [
+                    {
+                        "SessionCookie": []
+                    },
+                    {
+                        "APIToken": []
+                    }
+                ],
+                "summary": "Price history",
+                "tags": [
+                    "market-data"
+                ]
+            }
+        },
+        "/market-data/markets/{market}": {
+            "get": {
+                "operationId": "getMarketData",
+                "parameters": [
+                    {
+                        "description": "Its condition ID, 0x…, or its slug",
+                        "in": "path",
+                        "name": "market",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Market"
+                                }
+                            }
+                        },
+                        "description": "OK"
+                    },
+                    "401": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "unauthenticated"
+                    },
+                    "404": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "not_found"
+                    },
+                    "503": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "upstream_unavailable"
+                    }
+                },
+                "security": [
+                    {
+                        "SessionCookie": []
+                    },
+                    {
+                        "APIToken": []
+                    }
+                ],
+                "summary": "Get a market",
+                "tags": [
+                    "market-data"
+                ]
+            }
+        },
+        "/market-data/markets/{market}/trades": {
+            "get": {
+                "operationId": "getMarketTrades",
+                "parameters": [
+                    {
+                        "description": "Its condition ID, 0x…",
+                        "in": "path",
+                        "name": "market",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "description": "At most this many: 50 unless said, 500 at most",
+                        "in": "query",
+                        "name": "limit",
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/MarketTradeList"
+                                }
+                            }
+                        },
+                        "description": "OK"
+                    },
+                    "400": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "invalid_input"
+                    },
+                    "401": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "unauthenticated"
+                    },
+                    "503": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "upstream_unavailable"
+                    }
+                },
+                "security": [
+                    {
+                        "SessionCookie": []
+                    },
+                    {
+                        "APIToken": []
+                    }
+                ],
+                "summary": "A market's trades",
+                "tags": [
+                    "market-data"
+                ]
+            }
+        },
+        "/market-data/search": {
+            "get": {
+                "operationId": "searchMarkets",
+                "parameters": [
+                    {
+                        "description": "Words of the event's title, like bitcoin or election",
+                        "in": "query",
+                        "name": "query",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "description": "Closed markets instead of open ones",
+                        "in": "query",
+                        "name": "closed",
+                        "schema": {
+                            "type": "boolean"
+                        }
+                    },
+                    {
+                        "description": "At most this many: 50 unless said, 500 at most",
+                        "in": "query",
+                        "name": "limit",
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/MarketList"
+                                }
+                            }
+                        },
+                        "description": "OK"
+                    },
+                    "400": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "invalid_input"
+                    },
+                    "401": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "unauthenticated"
+                    },
+                    "503": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "upstream_unavailable"
+                    }
+                },
+                "security": [
+                    {
+                        "SessionCookie": []
+                    },
+                    {
+                        "APIToken": []
+                    }
+                ],
+                "summary": "Search markets",
+                "tags": [
+                    "market-data"
+                ]
+            }
+        },
+        "/market-data/traders/{address}/positions": {
+            "get": {
+                "operationId": "getAddressPositions",
+                "parameters": [
+                    {
+                        "description": "The wallet's address, 0x and 40 hex digits",
+                        "in": "path",
+                        "name": "address",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "description": "At most this many: 50 unless said, 500 at most",
+                        "in": "query",
+                        "name": "limit",
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/AddressPositionList"
+                                }
+                            }
+                        },
+                        "description": "OK"
+                    },
+                    "400": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "invalid_input"
+                    },
+                    "401": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "unauthenticated"
+                    },
+                    "503": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "upstream_unavailable"
+                    }
+                },
+                "security": [
+                    {
+                        "SessionCookie": []
+                    },
+                    {
+                        "APIToken": []
+                    }
+                ],
+                "summary": "An address's positions",
+                "tags": [
+                    "market-data"
                 ]
             }
         },
@@ -11737,6 +14872,520 @@
                 ]
             }
         },
+        "/models": {
+            "get": {
+                "operationId": "listMLModels",
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/MLModelList"
+                                }
+                            }
+                        },
+                        "description": "OK"
+                    },
+                    "403": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "data_off: an admin keeps models from you"
+                    }
+                },
+                "security": [
+                    {
+                        "SessionCookie": []
+                    },
+                    {
+                        "APIToken": []
+                    }
+                ],
+                "summary": "List models",
+                "tags": [
+                    "models"
+                ]
+            },
+            "post": {
+                "operationId": "createMLModel",
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/CreateMLModelRequest",
+                                "summary": "body",
+                                "description": "The model"
+                            }
+                        }
+                    },
+                    "description": "The model",
+                    "required": true
+                },
+                "responses": {
+                    "201": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/MLModel"
+                                }
+                            }
+                        },
+                        "description": "Created"
+                    },
+                    "400": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "invalid_input"
+                    },
+                    "409": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "model_exists; model_limit: as many as you may have"
+                    }
+                },
+                "security": [
+                    {
+                        "SessionCookie": []
+                    },
+                    {
+                        "APIToken": []
+                    }
+                ],
+                "summary": "Make a model",
+                "tags": [
+                    "models"
+                ]
+            }
+        },
+        "/models/{name}": {
+            "delete": {
+                "operationId": "deleteMLModel",
+                "parameters": [
+                    {
+                        "description": "Its name",
+                        "in": "path",
+                        "name": "name",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "No Content"
+                    },
+                    "404": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "not_found"
+                    }
+                },
+                "security": [
+                    {
+                        "SessionCookie": []
+                    },
+                    {
+                        "APIToken": []
+                    }
+                ],
+                "summary": "Delete a model",
+                "tags": [
+                    "models"
+                ]
+            },
+            "get": {
+                "operationId": "getMLModel",
+                "parameters": [
+                    {
+                        "description": "Its name",
+                        "in": "path",
+                        "name": "name",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/MLModel"
+                                }
+                            }
+                        },
+                        "description": "OK"
+                    },
+                    "404": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "not_found"
+                    }
+                },
+                "security": [
+                    {
+                        "SessionCookie": []
+                    },
+                    {
+                        "APIToken": []
+                    }
+                ],
+                "summary": "Get a model",
+                "tags": [
+                    "models"
+                ]
+            },
+            "put": {
+                "operationId": "setMLModelURL",
+                "parameters": [
+                    {
+                        "description": "Its name",
+                        "in": "path",
+                        "name": "name",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/MLModelURLRequest",
+                                "summary": "body",
+                                "description": "Its URL and credential"
+                            }
+                        }
+                    },
+                    "description": "Its URL and credential",
+                    "required": true
+                },
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/MLModel"
+                                }
+                            }
+                        },
+                        "description": "OK"
+                    },
+                    "400": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "invalid_input"
+                    },
+                    "404": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "not_found"
+                    }
+                },
+                "security": [
+                    {
+                        "SessionCookie": []
+                    },
+                    {
+                        "APIToken": []
+                    }
+                ],
+                "summary": "Set a URL model's address",
+                "tags": [
+                    "models"
+                ]
+            }
+        },
+        "/models/{name}/ask": {
+            "post": {
+                "operationId": "askMLModel",
+                "parameters": [
+                    {
+                        "description": "Its name",
+                        "in": "path",
+                        "name": "name",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/AskModelRequest",
+                                "summary": "body",
+                                "description": "The items"
+                            }
+                        }
+                    },
+                    "description": "The items",
+                    "required": true
+                },
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ModelAnswers"
+                                }
+                            }
+                        },
+                        "description": "OK"
+                    },
+                    "400": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "invalid_input"
+                    },
+                    "409": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "model_offline: no worker connected"
+                    },
+                    "504": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "model_timeout: no answer in time"
+                    }
+                },
+                "security": [
+                    {
+                        "SessionCookie": []
+                    },
+                    {
+                        "APIToken": []
+                    }
+                ],
+                "summary": "Ask a model",
+                "tags": [
+                    "models"
+                ]
+            }
+        },
+        "/models/{name}/keys": {
+            "get": {
+                "operationId": "listWorkerKeys",
+                "parameters": [
+                    {
+                        "description": "Its name",
+                        "in": "path",
+                        "name": "name",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/WorkerKeyList"
+                                }
+                            }
+                        },
+                        "description": "OK"
+                    },
+                    "404": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "not_found"
+                    }
+                },
+                "security": [
+                    {
+                        "SessionCookie": []
+                    },
+                    {
+                        "APIToken": []
+                    }
+                ],
+                "summary": "List a model's worker keys",
+                "tags": [
+                    "models"
+                ]
+            },
+            "post": {
+                "operationId": "createWorkerKey",
+                "parameters": [
+                    {
+                        "description": "Its model's name",
+                        "in": "path",
+                        "name": "name",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/CreateWorkerKeyRequest",
+                                "summary": "body",
+                                "description": "The key's name"
+                            }
+                        }
+                    },
+                    "description": "The key's name",
+                    "required": true
+                },
+                "responses": {
+                    "201": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/NewWorkerKey"
+                                }
+                            }
+                        },
+                        "description": "Created"
+                    },
+                    "400": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "invalid_input"
+                    },
+                    "403": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "forbidden: at a browser only"
+                    }
+                },
+                "security": [
+                    {
+                        "SessionCookie": []
+                    }
+                ],
+                "summary": "Make a worker key",
+                "tags": [
+                    "models"
+                ]
+            }
+        },
+        "/models/{name}/keys/{id}": {
+            "delete": {
+                "operationId": "deleteWorkerKey",
+                "parameters": [
+                    {
+                        "description": "Its model's name",
+                        "in": "path",
+                        "name": "name",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "description": "The key's ID",
+                        "in": "path",
+                        "name": "id",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "No Content"
+                    },
+                    "404": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "not_found"
+                    }
+                },
+                "security": [
+                    {
+                        "SessionCookie": []
+                    },
+                    {
+                        "APIToken": []
+                    }
+                ],
+                "summary": "Revoke a worker key",
+                "tags": [
+                    "models"
+                ]
+            }
+        },
         "/node-types": {
             "get": {
                 "operationId": "listNodeTypes",
@@ -12490,6 +16139,79 @@
                 "summary": "Download your live orders",
                 "tags": [
                     "trading"
+                ]
+            }
+        },
+        "/sdk/python/": {
+            "get": {
+                "operationId": "pythonSDKIndex",
+                "responses": {
+                    "200": {
+                        "content": {
+                            "text/html": {
+                                "schema": {
+                                    "type": "string"
+                                }
+                            }
+                        },
+                        "description": "a page linking the wheel"
+                    },
+                    "404": {
+                        "content": {
+                            "text/html": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "not_found: this server was built without it"
+                    }
+                },
+                "summary": "The Python SDK, for pip",
+                "tags": [
+                    "sdk"
+                ]
+            }
+        },
+        "/sdk/python/{file}": {
+            "get": {
+                "operationId": "pythonSDKWheel",
+                "parameters": [
+                    {
+                        "description": "The wheel's file name, as the index links it",
+                        "in": "path",
+                        "name": "file",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/octet-stream": {
+                                "schema": {
+                                    "type": "file"
+                                }
+                            }
+                        },
+                        "description": "the wheel"
+                    },
+                    "404": {
+                        "content": {
+                            "application/octet-stream": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "not_found"
+                    }
+                },
+                "summary": "The Python SDK's wheel",
+                "tags": [
+                    "sdk"
                 ]
             }
         },
@@ -14346,6 +18068,184 @@
                 ]
             }
         },
+        "/worker/next": {
+            "post": {
+                "operationId": "workerNext",
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/WorkerTake",
+                                "summary": "body",
+                                "description": "The worker"
+                            }
+                        }
+                    },
+                    "description": "The worker",
+                    "required": true
+                },
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/WorkerRequest"
+                                }
+                            }
+                        },
+                        "description": "OK"
+                    },
+                    "204": {
+                        "description": "none came: call again"
+                    },
+                    "401": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "unauthenticated: not a worker key"
+                    },
+                    "409": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "model_limit: as many workers connected as the model may have"
+                    }
+                },
+                "security": [
+                    {
+                        "WorkerKey": []
+                    }
+                ],
+                "summary": "Take the next request (a worker's)",
+                "tags": [
+                    "workers"
+                ]
+            }
+        },
+        "/worker/requests/{id}/answer": {
+            "post": {
+                "operationId": "workerAnswer",
+                "parameters": [
+                    {
+                        "description": "The request's ID",
+                        "in": "path",
+                        "name": "id",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/WorkerAnswer",
+                                "summary": "body",
+                                "description": "The answers"
+                            }
+                        }
+                    },
+                    "description": "The answers",
+                    "required": true
+                },
+                "responses": {
+                    "204": {
+                        "description": "No Content"
+                    },
+                    "400": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "invalid_input: not one answer an item"
+                    },
+                    "404": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "not_found: answered already, or its asker stopped waiting"
+                    }
+                },
+                "security": [
+                    {
+                        "WorkerKey": []
+                    }
+                ],
+                "summary": "Answer a request (a worker's)",
+                "tags": [
+                    "workers"
+                ]
+            }
+        },
+        "/worker/requests/{id}/fail": {
+            "post": {
+                "operationId": "workerFail",
+                "parameters": [
+                    {
+                        "description": "The request's ID",
+                        "in": "path",
+                        "name": "id",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/WorkerFail",
+                                "summary": "body",
+                                "description": "Why"
+                            }
+                        }
+                    },
+                    "description": "Why",
+                    "required": true
+                },
+                "responses": {
+                    "204": {
+                        "description": "No Content"
+                    },
+                    "404": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "not_found: answered already, or its asker stopped waiting"
+                    }
+                },
+                "security": [
+                    {
+                        "WorkerKey": []
+                    }
+                ],
+                "summary": "Fail a request (a worker's)",
+                "tags": [
+                    "workers"
+                ]
+            }
+        },
         "/workflows": {
             "get": {
                 "operationId": "listWorkflows",
@@ -15575,6 +19475,138 @@
                 "summary": "List holdings",
                 "tags": [
                     "trading"
+                ]
+            }
+        },
+        "/workflows/{id}/hooks/{node}": {
+            "get": {
+                "operationId": "getHook",
+                "parameters": [
+                    {
+                        "description": "Workflow ID",
+                        "in": "path",
+                        "name": "id",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "description": "Node ID of an Inbound webhook trigger, as saved",
+                        "in": "path",
+                        "name": "node",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Hook"
+                                }
+                            }
+                        },
+                        "description": "OK"
+                    },
+                    "401": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "unauthenticated"
+                    },
+                    "404": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "not_found"
+                    }
+                },
+                "security": [
+                    {
+                        "SessionCookie": []
+                    }
+                ],
+                "summary": "Inbound webhook address",
+                "tags": [
+                    "workflows"
+                ]
+            }
+        },
+        "/workflows/{id}/hooks/{node}/renew": {
+            "post": {
+                "operationId": "renewHook",
+                "parameters": [
+                    {
+                        "description": "Workflow ID",
+                        "in": "path",
+                        "name": "id",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "description": "Node ID of an Inbound webhook trigger, as saved",
+                        "in": "path",
+                        "name": "node",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Hook"
+                                }
+                            }
+                        },
+                        "description": "OK"
+                    },
+                    "401": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "unauthenticated"
+                    },
+                    "404": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "description": "not_found"
+                    }
+                },
+                "security": [
+                    {
+                        "SessionCookie": []
+                    }
+                ],
+                "summary": "Renew an inbound webhook address",
+                "tags": [
+                    "workflows"
                 ]
             }
         },

@@ -14,15 +14,17 @@ Each node has a page with its settings. In the editor, the node list on the left
 | [Manual](/docs/reference/nodes/triggers/manual/) | `trigger.manual` | Starts the workflow when you run it by hand. |
 | [Market activity](/docs/reference/nodes/triggers/market/) | `trigger.market` | Starts the workflow on live trades, book changes or resolutions of the chosen tokens, batched per window. |
 | [Order activity](/docs/reference/nodes/triggers/order-activity/) | `trigger.orderActivity` | Starts the workflow on what happens to its own orders after the runs that placed them: a resting order filling, what is left of it cancelled or expired, a live trade failing on chain. |
-| [Schedule](/docs/reference/nodes/triggers/schedule/) | `trigger.schedule` | Starts the workflow at a fixed interval. |
+| [Schedule](/docs/reference/nodes/triggers/schedule/) | `trigger.schedule` | Starts the workflow at a fixed interval, or at times of day in a time zone. |
 | [Telegram message](/docs/reference/nodes/triggers/telegram/) | `trigger.telegram` | Starts the workflow when you send the instance's bot a message, one item per message. |
 | [Wallet activity](/docs/reference/nodes/triggers/wallet-activity/) | `trigger.walletActivity` | Starts the workflow on the trades of the traders you follow as they happen, about two seconds after: a trade each item, its fills summed. |
+| [Inbound webhook](/docs/reference/nodes/triggers/webhook/) | `trigger.webhook` | Starts the workflow when a service calls its secret address with a POST, the call's body and query on the item. |
 
 ## Polymarket
 
 | Node | Type | What it does |
 |---|---|---|
 | [Balance](/docs/reference/nodes/polymarket/balance/) | `polymarket.balance` | Reads the USDC collateral balance of one of your wallets. |
+| [Event prices](/docs/reference/nodes/polymarket/event-prices/) | `polymarket.eventPrices` | Adds up the Yes prices of every outcome of an event that still takes orders: the best asks, what buying one of each costs, the best bids and the midpoints, from their order books now. |
 | [Markets](/docs/reference/nodes/polymarket/markets/) | `polymarket.markets` | Looks up markets, one item per market. |
 | [Order books](/docs/reference/nodes/polymarket/orderbook/) | `polymarket.orderbook` | Adds the current order book of each outcome to market items: best prices, spread and depth. |
 | [Open orders](/docs/reference/nodes/polymarket/orders/) | `polymarket.orders` | Lists the open orders of one of your wallets. |
@@ -30,6 +32,27 @@ Each node has a page with its settings. In the editor, the node list on the left
 | [Price change](/docs/reference/nodes/polymarket/price-change/) | `polymarket.priceChange` | Compares each outcome's price now with its price a while ago: the change in cents and in percent, for spotting markets on the move. |
 | [Search markets](/docs/reference/nodes/polymarket/search/) | `polymarket.search` | Finds markets by words in their title, e.g. bitcoin or election, one item per market. |
 | [Recent trades](/docs/reference/nodes/polymarket/trades/) | `polymarket.trades` | Lists the recent trades of each market, one item per trade, with its value in dollars: for spotting large buyers and sellers. |
+
+## HTTP
+
+| Node | Type | What it does |
+|---|---|---|
+| [HTTP request](/docs/reference/nodes/http/request/) | `http.request` | Asks any web API for data, or sends it some: a GET, POST, PUT, PATCH or DELETE, the answer put on each item, JSON read as such. |
+
+## Weather
+
+| Node | Type | What it does |
+|---|---|---|
+| [Airport reading](/docs/reference/nodes/weather/airport/) | `weather.airport` | Puts an airport's latest observation on each item, its METAR from aviationweather.gov, with the day's high and low so far as the temperature markets count them: routine reports only, in the local day. |
+| [Weather forecast](/docs/reference/nodes/weather/forecast/) | `weather.forecast` | Puts a forecast on each item: the daily highs and lows of several weather models side by side, from Open-Meteo, for a city Polymarket lists temperature markets for or any place. |
+
+## Data
+
+| Node | Type | What it does |
+|---|---|---|
+| [Ask a model](/docs/reference/nodes/data/ask/) | `data.ask` | Asks one of your models about the items it receives, all together, and puts each item's answer on it, with the model's name, its version and the worker. |
+| [Read dataset](/docs/reference/nodes/data/read/) | `data.read` | Reads one of your datasets: for each item, the row whose key is the item's, put on it, items with none going out of missing; or every row, the newest 1,000 at most, an item each. |
+| [Record](/docs/reference/nodes/data/record/) | `data.record` | Adds a row to one of your datasets for each item: the fields chosen, or the whole item, with when (_at), the workflow (_workflow), its run (_execution) and whether it trades on paper or live (_mode). |
 
 ## Logic
 

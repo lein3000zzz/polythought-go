@@ -16,7 +16,7 @@ Asks a language model, with your own key, for each item or once for all of them:
 | Inputs | `main` |
 | Outputs | `main` |
 
-Items that fail stop the execution, unless **Continue on failure** is on: then they leave on the `error` port instead.
+Items that fail stop the execution, unless **Continue on failure** is on: then they leave on the `error` port instead. What fails is tried again only when **Retry** asks.
 
 ## Settings
 
@@ -59,7 +59,7 @@ Each row of **Fields** has these cells. Only the whole table takes an [expressio
 
 ## Items
 
-The items it receives, passed on with these fields added, `answer` under the name **Answer field** (`field`) gives; with **Call** (`call`) `together`, one item instead, with only these. Decimals are text, so they stay exact; times are RFC 3339 text.
+The items it receives, passed on with these fields added, `answer` under the name **Answer field** (`field`) gives; with **Call** (`call`) `together`, items with only these instead. Decimals are text, so they stay exact; times are RFC 3339 text.
 
 | Field | Kind | Description |
 |---|---|---|

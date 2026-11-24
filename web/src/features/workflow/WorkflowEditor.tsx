@@ -639,7 +639,7 @@ function Editor({ workflow, types, onReload }: Props) {
 
   function changeNode(
     id: string,
-    patch: Partial<Pick<NodeSpec, 'name' | 'continueOnFail' | 'notes'>>,
+    patch: Partial<Pick<NodeSpec, 'name' | 'continueOnFail' | 'retry' | 'notes'>>,
   ) {
     record(`node:${id}:${Object.keys(patch).join(',')}`)
     updateSpec(id, (spec) => ({ ...spec, ...patch }))
@@ -1504,15 +1504,24 @@ function ActiveSwitch({ workflow, dirty }: { workflow: Workflow; dirty: boolean 
     )
   }
 
+  // An admin holds it off until they release it (D435).
+  const held = workflow.hold
+  const why = held
+    ? `An admin holds it off: ${held.reason}`
+    : dirty
+      ? 'Save your changes first'
+      : undefined
+
   return (
-    <div className="flex items-center gap-2" title={dirty ? 'Save your changes first' : undefined}>
+    <div className="flex items-center gap-2" title={why}>
+      {held && <Badge variant="destructive">Held by an admin</Badge>}
       <Label htmlFor="workflow-active" className="text-sm">
         Active
       </Label>
       <Switch
         id="workflow-active"
         checked={workflow.active}
-        disabled={dirty || setActive.isPending}
+        disabled={dirty || setActive.isPending || !!held}
         onCheckedChange={(on) => {
           // Switched off, its live orders keep resting unless its owner says (D217).
           if (!on && resting > 0) {

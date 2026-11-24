@@ -162,14 +162,21 @@ refused, saying why, and the task stays with it to answer again. If it cannot do
 again for 10 minutes loses the task to your other agents.
 
 While the run waits, its bar says which agent has the task and until when, or that it
-waits for one to take it. **Hand back** takes it from that agent, for another of yours to
+waits for one to take it, and, for one in parts, how many parts are answered. **Hand back** takes it from that agent, for another of yours to
 take at once, and **Answer it** lets you answer it yourself, held to the same shape.
 
 The node fails at once when none of your agents is waiting for tasks, or waited in the last
 minute, rather than wait for no one; and it fails at its **Timeout**, 10 minutes unless you
 set one. As with other nodes, failed items stop the run unless **Continue on failure** is
-on. A task is at most 24 KiB, what an agent takes in one call: send fewer items, or fewer
-fields of each, for more.
+on.
+
+An agent takes at most 24 KiB of a task in one call. A bigger task answered per item goes
+in parts, each handed to an agent on its own and answered alone, so several of your agents
+can share it; the run goes on once every part is answered, each item keeping its own
+answer. A bigger task answered together comes in pages: its agent reads them all, then
+answers once. Either way, one item over 24 KiB fails the run, naming it; so does a prompt
+over 24 KiB, as one holding `{{ items }}` can be, so leave them out of the prompt and turn
+on **Include the items**. A task is at most 1 MiB in all.
 
 Your agent may have a shell and your files. A task's text comes from the workflow: its
 prompt, perhaps from another user's library entry, and its items, which hold market

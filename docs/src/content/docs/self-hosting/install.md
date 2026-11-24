@@ -4,8 +4,8 @@ description: Run Polythought with Docker.
 ---
 
 Polythought is three containers: PostgreSQL, the API server, and a web server (Caddy) that
-serves the app and these docs and passes `/api`, `/mcp` and the OAuth metadata under
-`/.well-known` on to the API. Docker Compose runs them together.
+serves the app and these docs and passes `/api`, `/mcp`, inbound webhooks under `/hooks`
+and the OAuth metadata under `/.well-known` on to the API. Docker Compose runs them together.
 
 ## What you need
 
@@ -229,8 +229,8 @@ Under **Agents over MCP** on the Config page:
   tokens create accounts with a password they give. Off, they invite people, by mail where
   mail is set up, else with a link, and no password passes through an agent.
 
-A proxy of your own in front of the API must pass `/mcp` and `/.well-known/oauth-*` on as
-Caddy does, and must not buffer `/mcp`'s answers, which stream.
+A proxy of your own in front of the API must pass `/mcp`, `/hooks/*` and
+`/.well-known/oauth-*` on as Caddy does, and must not buffer `/mcp`'s answers, which stream.
 
 ## Where the server runs
 
@@ -328,13 +328,32 @@ printf '%s' "$PASSWORD" | docker compose -f deployments/docker-compose.yml --env
 
 ## How everyone is doing
 
-**Admin → Stats** shows every user's workflows together, on paper or live: the instance's
-totals and runs, and a row for each user with workflows, sorted by the column you click.
-A user's row opens their dashboard, read-only: their totals, workflows and traders, as
-they see them. Their workflows are not opened from there.
+**Admin → Stats** has two tabs.
 
-An admin's agent with the `admin` scope reads the same through `get_instance_stats`, with
-users by ID and never their email addresses.
+**Users** shows every user's workflows together, on paper or live: the instance's totals
+and runs, and a row for each user with workflows, sorted by the column you click. A user's
+row opens their dashboard, read-only: their totals, workflows and traders, as they see them.
+
+**Workflows** lists every user's workflows, the busiest in the last hour first, with their
+owners, their runs in the last hour, day and week, and their triggers. A workflow opens
+read-only: its canvas and settings, its runs and who switched it. Personal settings, such
+as webhook addresses, stay hidden, and so do the items its runs carried. You cannot edit
+or delete another user's workflow.
+
+**Switch off** stops one, saying why: its owner is told, and its history says an admin did
+it. With **Hold it off**, its owner cannot switch it on again until an admin presses
+**Release**. A workflow already off can be held off too.
+
+To stop runaway workflows without you, **Runs per workflow per hour** under Workflows on the
+Config page (1,000 unless you change it) switches off any workflow whose triggers start it
+more often, and tells its owner why. Runs started by hand do not count. **Fastest schedule**
+is 5 seconds unless you change it; a schedule saved shorter, before you raised it, runs at
+that minimum.
+
+An admin's agent with the `admin` scope reads the same through `get_instance_stats` and
+`list_instance_workflows`, with users by ID and never their email addresses. It switches a
+workflow off, holds it off or releases it with `switch_off_user_workflow` and
+`release_user_workflow`, which wait for you to confirm them, as its work on users does.
 
 ## Mail
 

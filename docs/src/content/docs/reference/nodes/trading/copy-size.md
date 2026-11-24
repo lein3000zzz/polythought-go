@@ -16,7 +16,7 @@ Works out a copy of each trade a followed trader made: how much to buy, or how m
 | Inputs | `main` |
 | Outputs | `main`, `skipped` |
 
-Items that fail stop the execution, unless **Continue on failure** is on: then they leave on the `error` port instead.
+Items that fail stop the execution, unless **Continue on failure** is on: then they leave on the `error` port instead. What fails is tried again only when **Retry** asks.
 
 ## Settings
 

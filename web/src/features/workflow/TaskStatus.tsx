@@ -53,8 +53,10 @@ export function TaskStatus({ workflowId, executionId }: Props) {
     <>
       <span className="text-muted-foreground">
         {t.heldBy
-          ? `${t.heldBy} has the task${t.heldUntil ? ` until ${formatTime(t.heldUntil)}` : ''}`
+          ? `${t.heldBy} ${t.parts > 1 ? 'have parts of' : 'has'} the task${t.heldUntil ? ` until ${formatTime(t.heldUntil)}` : ''}`
           : 'Waiting for one of your agents to take the task'}
+        {/* Too big to take at once, it goes in parts, each answered on its own (D436). */}
+        {t.parts > 1 && `; ${t.answered} of ${t.parts} parts answered`}
         {`; the run waits until ${formatDateTime(t.until)}`}
       </span>
       {t.heldBy && (

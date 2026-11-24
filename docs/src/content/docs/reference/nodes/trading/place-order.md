@@ -16,7 +16,7 @@ Places an order for each item, on paper or live as the workflow trades: the copy
 | Inputs | `main` |
 | Outputs | `main`, `resting`, `missed` |
 
-Items that fail stop the execution, unless **Continue on failure** is on: then they leave on the `error` port instead.
+Items that fail stop the execution, unless **Continue on failure** is on: then they leave on the `error` port instead. It is never tried again: a retry could do what it does twice.
 
 ## Settings
 

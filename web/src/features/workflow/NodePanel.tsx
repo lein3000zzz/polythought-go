@@ -3,6 +3,7 @@ import { useMemo, useState } from 'react'
 import { toast } from 'sonner'
 
 import { errorMessage, type ParamSpec, type Problem } from '@/api/client'
+import { useHook, useRenewHook } from '@/api/hooks'
 import { useForgetNodeMemory, useNodeMemory } from '@/api/memory'
 import { ConfirmDialog } from '@/components/ConfirmDialog'
 import { Alert, AlertDescription } from '@/components/ui/alert'
@@ -14,6 +15,7 @@ import { Textarea } from '@/components/ui/textarea'
 
 import type { FlowNode, NodeSpec } from './graph'
 import { ParamField } from './ParamField'
+import { maxRetry, retriesByDefault } from './retry'
 import { expressionProblem, takesExpressions } from './params'
 import { fieldMessage, useNodeProblems } from './problems'
 import { fieldChoices, fieldProblem, type Shape } from './shapes'
@@ -23,7 +25,7 @@ type Props = {
   workflowId?: string // once saved
   received?: Shape // what its main input's items look like, when known
   inputs?: ReadonlyMap<string, Shape> // what each input's look like
-  onChange: (patch: Partial<Pick<NodeSpec, 'name' | 'continueOnFail' | 'notes'>>) => void
+  onChange: (patch: Partial<Pick<NodeSpec, 'name' | 'continueOnFail' | 'retry' | 'notes'>>) => void
   onParam: (name: string, value: unknown) => void
   onDelete: () => void
 }
@@ -136,6 +138,10 @@ export function NodePanel({
 
       {type?.remembers && workflowId && <NodeMemory workflowId={workflowId} nodeId={spec.id} />}
 
+      {spec.type === webhookType && workflowId && (
+        <HookAddress workflowId={workflowId} nodeId={spec.id} />
+      )}
+
       {unknown.map((name) => (
         <div key={name} className="flex items-center justify-between gap-2 text-sm">
           <span>
@@ -168,6 +174,52 @@ export function NodePanel({
           </p>
         </div>
       )}
+
+      {type && !type.trigger && !type.noRetry && (
+        <RetrySetting
+          value={spec.retry}
+          fallback={retriesByDefault(type, params)}
+          onChange={(retry) => onChange({ retry })}
+        />
+      )}
+    </div>
+  )
+}
+
+/** The node's Retry setting, empty for its type's default. */
+function RetrySetting({
+  value,
+  fallback,
+  onChange,
+}: {
+  value?: number
+  fallback: number
+  onChange: (retry: number | undefined) => void
+}) {
+  return (
+    <div className="flex flex-col gap-1">
+      <div className="flex items-center justify-between gap-2">
+        <Label htmlFor="node-retry">Retry</Label>
+        <Input
+          id="node-retry"
+          type="number"
+          min={0}
+          max={maxRetry}
+          className="w-28"
+          value={value ?? ''}
+          placeholder={`${fallback} (default)`}
+          onChange={(e) => {
+            const n = e.target.valueAsNumber
+            onChange(Number.isNaN(n) ? undefined : Math.min(Math.max(Math.trunc(n), 0), maxRetry))
+          }}
+        />
+      </div>
+      <p className="text-xs text-muted-foreground">
+        More tries for what fails, up to {maxRetry}, waiting 1, 2, 4… seconds between them.
+        {fallback > 0
+          ? ' It only reads, so it tries again to begin with.'
+          : ' A node that acts tries again only when you say: a retry may do what it does twice.'}
+      </p>
     </div>
   )
 }
@@ -220,6 +272,79 @@ export function WorkflowPanel({ problems, description, onDescription }: Workflow
         Select a node to change its settings. Select a node or connection and press Delete to remove
         it.
       </p>
+    </div>
+  )
+}
+
+const webhookType = 'trigger.webhook'
+
+/**
+ * An Inbound webhook's secret address (D439), to copy into the service that calls it, and
+ * Renew for a new one should it leak.
+ */
+function HookAddress({ workflowId, nodeId }: { workflowId: string; nodeId: string }) {
+  const hook = useHook(workflowId, nodeId)
+  const renew = useRenewHook(workflowId, nodeId)
+  const [asking, setAsking] = useState(false)
+
+  if (hook.isPending) return <p className="text-sm text-muted-foreground">Address…</p>
+
+  if (hook.isError) {
+    return (
+      <p className="text-sm text-muted-foreground">
+        Save the workflow to get this trigger&apos;s address.
+      </p>
+    )
+  }
+
+  const { url, enabled, listening } = hook.data
+
+  return (
+    <div className="flex flex-col gap-2">
+      <Label htmlFor="hook-url">Address</Label>
+      <div className="flex gap-2">
+        <Input id="hook-url" readOnly value={url} className="font-mono text-xs" />
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() =>
+            void navigator.clipboard.writeText(url).then(() => toast.success('Copied'))
+          }
+        >
+          Copy
+        </Button>
+      </div>
+      <p className="text-xs text-muted-foreground">
+        {!enabled
+          ? 'Inbound webhooks are off on this instance: an admin turns them on under Config, Workflows.'
+          : listening
+            ? 'Taking calls: a POST to it, its body JSON or text, starts a run. Whoever has it can.'
+            : 'Switch the workflow on to take calls.'}
+      </p>
+      <Button
+        variant="ghost"
+        size="sm"
+        className="self-start"
+        disabled={renew.isPending}
+        onClick={() => setAsking(true)}
+      >
+        Renew the address
+      </Button>
+
+      <ConfirmDialog
+        open={asking}
+        title="Renew the address?"
+        description="The old one stops at once: services calling it get 404 until they have the new one."
+        confirm="Renew"
+        destructive
+        onCancel={() => setAsking(false)}
+        onConfirm={() =>
+          renew.mutate(undefined, {
+            onSuccess: () => toast.success('Renewed'),
+            onError: (error) => toast.error(errorMessage(error)),
+          })
+        }
+      />
     </div>
   )
 }

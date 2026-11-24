@@ -2,6 +2,7 @@ import { Navigate, type RouteObject } from 'react-router'
 
 import { AdminLayout } from '@/components/AdminLayout'
 import { AppShell, type RouteHandle } from '@/components/AppShell'
+import { DataLayout } from '@/components/DataLayout'
 import { RequireAuth } from '@/components/RequireAuth'
 import { Skeleton } from '@/components/ui/skeleton'
 import { AdminConfigPage } from '@/pages/AdminConfigPage'
@@ -10,15 +11,18 @@ import { AdminPluginsPage } from '@/pages/AdminPluginsPage'
 import { AdminPage } from '@/pages/AdminPage'
 import { AdminStatsPage } from '@/pages/AdminStatsPage'
 import { AdminUserStatsPage } from '@/pages/AdminUserStatsPage'
+import { AdminWorkflowPage } from '@/pages/AdminWorkflowPage'
 import { ConfirmationPage } from '@/pages/ConfirmationPage'
 import { CustomNodePage } from '@/pages/CustomNodePage'
 import { DashboardPage } from '@/pages/DashboardPage'
 import { ForgotPasswordPage } from '@/pages/ForgotPasswordPage'
 import { LibraryPage } from '@/pages/LibraryPage'
 import { LoginPage } from '@/pages/LoginPage'
+import { ModelsPage } from '@/pages/ModelsPage'
 import { NodesPage } from '@/pages/NodesPage'
 import { NotFoundPage } from '@/pages/NotFoundPage'
 import { OAuthAuthorizePage } from '@/pages/OAuthAuthorizePage'
+import { DatasetsPage } from '@/pages/DatasetsPage'
 import { OrdersPage } from '@/pages/OrdersPage'
 import { RegisterPage } from '@/pages/RegisterPage'
 import { RequestAccessPage } from '@/pages/RequestAccessPage'
@@ -73,6 +77,15 @@ export const routes: RouteObject[] = [
           { path: 'nodes/:id', element: <CustomNodePage /> },
           { path: 'wallets', element: <WalletsPage /> },
           { path: 'orders', element: <OrdersPage /> },
+          {
+            path: 'data',
+            element: <DataLayout />,
+            children: [
+              { index: true, element: <Navigate to="/data/datasets" replace /> },
+              { path: 'datasets', element: <DatasetsPage /> },
+              { path: 'models', element: <ModelsPage /> },
+            ],
+          },
           // Where an agent's window links, to confirm one of its live actions (D409).
           { path: 'confirmations/:id', element: <ConfirmationPage /> },
           // A page of Settings now (D392): old links still get there.
@@ -85,6 +98,7 @@ export const routes: RouteObject[] = [
               { index: true, element: <AdminPage /> },
               { path: 'stats', element: <AdminStatsPage /> },
               { path: 'stats/:id', element: <AdminUserStatsPage /> },
+              { path: 'users/:uid/workflows/:id', element: <AdminWorkflowPage /> },
               { path: 'invites', element: <AdminInvitesPage /> },
               { path: 'config/:page?', element: <AdminConfigPage /> },
               { path: 'plugins', element: <AdminPluginsPage /> },

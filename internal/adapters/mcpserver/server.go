@@ -122,6 +122,11 @@ type Deps struct {
 	Stats Stats
 	// Who switched each workflow and why (D433); without it, its tool is not offered.
 	History History
+	// An admin's work on users' workflows (D435); without it, its tools are not offered.
+	Oversight Oversight
+	// The user's datasets and models; without datasets, neither's tools are offered.
+	Datasets Datasets
+	Models   Models
 }
 
 type Server struct {
@@ -161,6 +166,9 @@ type Server struct {
 	trades       Trades
 	stats        Stats
 	history      History
+	oversight    Oversight
+	datasets     Datasets
+	models       Models
 
 	sessions ports.MCPSessionRepository
 	boot     string        // this run of the server, its sessions kept with it
@@ -194,7 +202,7 @@ func New(cfg Config, d Deps) (*Server, error) {
 		window: d.Window, windowWait: d.WindowWait, publicURL: strings.TrimRight(cfg.PublicURL, "/"),
 		admin: d.Admin, config: d.Settings, mail: d.Mail, geoblock: d.Geoblock, plugins: d.Plugins, tasks: d.Tasks,
 		markets: d.Markets.Sources, marketReader: d.Markets.Reader, wallets: d.Wallets, trades: d.Trades, stats: d.Stats,
-		history:  d.History,
+		history: d.History, oversight: d.Oversight, datasets: d.Datasets, models: d.Models,
 		scope:    tracing.Scope{Manager: d.Util.TracerManager, TracerName: tracerName},
 		sessions: d.Sessions, boot: newBoot(), idle: d.SessionIdle, tracked: map[string]*opened{},
 		limits: d.SessionLimits, opening: d.NewSessions,
@@ -284,6 +292,14 @@ func New(cfg Config, d Deps) (*Server, error) {
 
 	if s.history != nil {
 		s.addHistoryTools(srv)
+	}
+
+	if s.stats != nil && s.oversight != nil {
+		s.addOversightTools(srv)
+	}
+
+	if s.datasets != nil {
+		s.addDataTools(srv)
 	}
 
 	stream := mcp.NewStreamableHTTPHandler(func(*http.Request) *mcp.Server { return srv }, &mcp.StreamableHTTPOptions{

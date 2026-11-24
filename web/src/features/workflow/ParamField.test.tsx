@@ -358,3 +358,169 @@ describe('table field', () => {
     expect(screen.queryByRole('button', { name: 'Edit traders' })).not.toBeInTheDocument()
   })
 })
+
+describe('dataset field', () => {
+  const datasetSpec: ParamSpec = {
+    name: 'dataset',
+    label: 'Dataset',
+    kind: 'dataset',
+    required: true,
+  }
+  const limits = { datasets: 100, rows: 100_000, rowBytes: 16384, bytes: 104857600, keepDays: 90 }
+
+  function datasets(names: string[], made: unknown[] = []) {
+    server.use(
+      http.get('/api/v1/datasets', () =>
+        HttpResponse.json({
+          datasets: names.map((name) => ({
+            name,
+            keyField: name === 'forecasts' ? 'city' : undefined,
+            keepDays: 0,
+            keepRows: 0,
+            rows: 0,
+            bytes: 0,
+            createdAt: '2026-11-24T12:00:00Z',
+            updatedAt: '2026-11-24T12:00:00Z',
+          })),
+          limits,
+        }),
+      ),
+      http.post('/api/v1/datasets', async ({ request }) => {
+        const body = (await request.json()) as { name: string }
+        made.push(body)
+        return HttpResponse.json(
+          { ...body, keepDays: 90, keepRows: 0, rows: 0, bytes: 0 },
+          { status: 201 },
+        )
+      }),
+    )
+  }
+
+  it('offers yours, each with its key', async () => {
+    datasets(['forecasts', 'notes'])
+    const { user, onChange } = renderField(undefined, vi.fn(), datasetSpec)
+
+    const select = await screen.findByRole('combobox', { name: /Dataset/ })
+    await screen.findByRole('option', { name: 'forecasts (by city)' })
+    expect(screen.getByRole('option', { name: 'notes' })).toBeInTheDocument()
+
+    await user.selectOptions(select, 'notes')
+    expect(onChange).toHaveBeenLastCalledWith('notes')
+  })
+
+  it('makes one there and then, keeping the instance’s days and rolling past its rows', async () => {
+    const made: unknown[] = []
+    datasets([], made)
+    const { user, onChange } = renderField(undefined, vi.fn(), datasetSpec)
+
+    expect(await screen.findByText(/You have none yet/)).toBeInTheDocument()
+    await user.selectOptions(screen.getByRole('combobox', { name: /Dataset/ }), 'New dataset…')
+
+    const dialog = await screen.findByRole('dialog', { name: 'New dataset' })
+    expect(within(dialog).getByLabelText('Keep days')).toHaveValue(90)
+    expect(within(dialog).getByLabelText('Keep rows')).toHaveValue(100_000)
+
+    await user.type(within(dialog).getByLabelText('Name'), 'bets-seen')
+    await user.type(within(dialog).getByLabelText('Key field'), 'market')
+    await user.click(within(dialog).getByRole('button', { name: 'Make it' }))
+
+    await waitFor(() => expect(onChange).toHaveBeenLastCalledWith('bets-seen'))
+    expect(made).toEqual([
+      { name: 'bets-seen', keyField: 'market', keepDays: 90, keepRows: 100_000 },
+    ])
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+  })
+
+  it('shows one deleted as missing', async () => {
+    datasets(['forecasts'])
+    renderField('gone', vi.fn(), datasetSpec)
+    expect(
+      await screen.findByRole('option', { name: 'Missing dataset (gone)' }),
+    ).toBeInTheDocument()
+  })
+
+  it('says when an admin keeps datasets from you', async () => {
+    server.use(
+      http.get('/api/v1/datasets', () =>
+        HttpResponse.json(
+          { error: { code: 'data_off', message: 'datasets are off' } },
+          { status: 403 },
+        ),
+      ),
+    )
+    renderField(undefined, vi.fn(), datasetSpec)
+
+    expect(await screen.findByText(/Datasets are not open to you here/)).toBeInTheDocument()
+    expect(screen.getByRole('combobox', { name: /Dataset/ })).toBeDisabled()
+  })
+})
+
+describe('own model field', () => {
+  const modelSpec: ParamSpec = { name: 'model', label: 'Model', kind: 'model', required: true }
+
+  function models(list: { name: string; kind: 'worker' | 'url'; workers: number }[]) {
+    server.use(
+      http.get('/api/v1/models', () =>
+        HttpResponse.json({
+          models: list.map((m) => ({
+            name: m.name,
+            kind: m.kind,
+            workers: Array.from({ length: m.workers }, (_, i) => ({
+              name: `w-${i}`,
+              since: '2026-11-24T12:00:00Z',
+              seen: '2026-11-24T12:00:00Z',
+              holding: 0,
+            })),
+            createdAt: '2026-11-24T12:00:00Z',
+            updatedAt: '2026-11-24T12:00:00Z',
+          })),
+          limits: {
+            models: 20,
+            workers: 10,
+            items: 1000,
+            requestBytes: 1048576,
+            answerBytes: 1048576,
+            maxWaitSeconds: 300,
+            pollSeconds: 50,
+          },
+        }),
+      ),
+    )
+  }
+
+  it('offers yours, saying who serves each now', async () => {
+    models([
+      { name: 'temps', kind: 'worker', workers: 2 },
+      { name: 'idle', kind: 'worker', workers: 0 },
+      { name: 'hosted', kind: 'url', workers: 0 },
+    ])
+    const { user, onChange } = renderField(undefined, vi.fn(), modelSpec)
+
+    const select = await screen.findByRole('combobox', { name: /Model/ })
+    await screen.findByRole('option', { name: 'temps (2 workers)' })
+    expect(screen.getByRole('option', { name: 'idle (no worker connected)' })).toBeInTheDocument()
+    expect(screen.getByRole('option', { name: 'hosted (at a URL)' })).toBeInTheDocument()
+
+    await user.selectOptions(select, 'temps')
+    expect(onChange).toHaveBeenLastCalledWith('temps')
+  })
+
+  it('shows one deleted as missing, and says where to make one', async () => {
+    models([])
+    renderField('gone', vi.fn(), modelSpec)
+
+    expect(await screen.findByText(/make one on Data → Models/)).toBeInTheDocument()
+    expect(screen.getByRole('option', { name: 'Missing model (gone)' })).toBeInTheDocument()
+  })
+
+  it('says when an admin keeps models from you', async () => {
+    server.use(
+      http.get('/api/v1/models', () =>
+        HttpResponse.json({ error: { code: 'data_off', message: 'off' } }, { status: 403 }),
+      ),
+    )
+    renderField(undefined, vi.fn(), modelSpec)
+
+    expect(await screen.findByText(/Models are not open to you here/)).toBeInTheDocument()
+  })
+})

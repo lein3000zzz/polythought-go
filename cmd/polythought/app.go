@@ -29,6 +29,7 @@ import (
 	"github.com/lein3000zzz/polythought-go/internal/adapters/sandbox"
 	tgadapter "github.com/lein3000zzz/polythought-go/internal/adapters/telegram"
 	"github.com/lein3000zzz/polythought-go/internal/adapters/tscompiler"
+	weatheradapter "github.com/lein3000zzz/polythought-go/internal/adapters/weather"
 	"github.com/lein3000zzz/polythought-go/internal/adapters/webhook"
 	"github.com/lein3000zzz/polythought-go/internal/buildinfo"
 	"github.com/lein3000zzz/polythought-go/internal/config"
@@ -42,14 +43,17 @@ import (
 	"github.com/lein3000zzz/polythought-go/internal/core/services/confirmations"
 	"github.com/lein3000zzz/polythought-go/internal/core/services/credentials"
 	"github.com/lein3000zzz/polythought-go/internal/core/services/customnodes"
+	"github.com/lein3000zzz/polythought-go/internal/core/services/datasets"
 	"github.com/lein3000zzz/polythought-go/internal/core/services/events"
 	"github.com/lein3000zzz/polythought-go/internal/core/services/feed"
 	"github.com/lein3000zzz/polythought-go/internal/core/services/geoblock"
 	"github.com/lein3000zzz/polythought-go/internal/core/services/history"
+	"github.com/lein3000zzz/polythought-go/internal/core/services/hooks"
 	"github.com/lein3000zzz/polythought-go/internal/core/services/library"
 	"github.com/lein3000zzz/polythought-go/internal/core/services/mail"
 	"github.com/lein3000zzz/polythought-go/internal/core/services/memory"
 	"github.com/lein3000zzz/polythought-go/internal/core/services/meta"
+	"github.com/lein3000zzz/polythought-go/internal/core/services/mlmodels"
 	"github.com/lein3000zzz/polythought-go/internal/core/services/models"
 	"github.com/lein3000zzz/polythought-go/internal/core/services/notify"
 	"github.com/lein3000zzz/polythought-go/internal/core/services/oauth"
@@ -155,6 +159,9 @@ type app struct {
 	markets         *pmadapter.Reader
 	waits           *waits.Service
 	taskAgents      *tasks.Presence // which owners have an agent taking tasks (D386)
+	hooks           *hooks.Service  // inbound webhooks
+	datasets        *datasets.Service
+	mlModels        *mlmodels.Service
 	tasks           *tasks.Service
 	code            *code.Service
 	codeRunners     func() ports.CodeRunners
@@ -348,6 +355,11 @@ func (a *app) init(ctx context.Context) error {
 		ratelimit.NewMemory(30*time.Second, 10), // 10 attempts, then one every 30 s per key
 		a.util.Logger,
 		auth.WithWorkflowStopper(a.workflows),
+		// Kept from datasets and models, a user's workflows naming one go off.
+		auth.WithDataLeave(func(ctx context.Context) {
+			a.datasets.SwitchOffLost(ctx)
+			a.mlModels.SwitchOffLost(ctx)
+		}),
 		auth.WithLiveStopper(laterTrading{a}),
 		auth.WithAccountLimiter(ratelimit.NewMemory(6*time.Second, 50)), // per address, from every IP
 		auth.WithLiveConfig(func() auth.Config { return authConfig(a.settings.Current()) }),
@@ -431,6 +443,9 @@ func (a *app) newMCP() (*mcpserver.Server, error) {
 		Trades:      a.trading,
 		Stats:       a.stats,
 		History:     a.history,
+		Oversight:   a.workflows,
+		Datasets:    a.datasets,
+		Models:      a.mlModels,
 		Admin:       a.auth,
 		Settings:    a.settings,
 		Mail:        a.mail,
@@ -540,6 +555,25 @@ func oauthPolicy(s *settings.Snapshot) oauth.Policy {
 
 func codeAccess(s *settings.Snapshot) domain.CodeAccess {
 	return domain.CodeAccess(s.String(config.KeyCodeAccess))
+}
+
+func dataAccess(s *settings.Snapshot) domain.DataAccess {
+	return domain.DataAccess(s.String(config.KeyDataAccess))
+}
+
+func datasetLimits(s *settings.Snapshot) datasets.Limits {
+	return datasets.Limits{
+		Datasets: s.Int(config.KeyDataSets), Rows: s.Int(config.KeyDataRows), RowBytes: s.Int(config.KeyDataRowBytes),
+		Bytes: int64(s.Int(config.KeyDataMiB)) << 20, KeepDays: s.Int(config.KeyDataKeepDays),
+	}
+}
+
+func modelLimits(s *settings.Snapshot) mlmodels.Limits {
+	return mlmodels.Limits{
+		Models: s.Int(config.KeyModels), Workers: s.Int(config.KeyModelWorkers), Items: s.Int(config.KeyModelItems),
+		RequestBytes: s.Int(config.KeyModelRequestBytes), AnswerBytes: s.Int(config.KeyModelAnswerBytes),
+		MaxWait: s.Duration(config.KeyModelMaxWait), Poll: s.Duration(config.KeyModelPoll), Lease: s.Duration(config.KeyModelLease),
+	}
 }
 
 func customNodeLimits(s *settings.Snapshot) customnodes.Limits {
@@ -697,6 +731,23 @@ func (l laterWorkflows) Get(ctx context.Context, p auth.Principal, id domain.Wor
 // handleConfirmed carries out what users confirm of their tokens' and agents' live
 // actions, as each asked (D406).
 func (a *app) handleConfirmed() {
+	// An admin's agent's work on a user's workflow (D435), as it asked.
+	a.confirmations.Handle(domain.ConfirmAdminWorkflow, func(ctx context.Context, p auth.Principal, c domain.Confirmation) (string, error) {
+		var in workflows.AdminAsked
+		if err := json.Unmarshal(c.Payload, &in); err != nil {
+			return "", err
+		}
+
+		if in.Release {
+			_, err := a.workflows.AdminRelease(ctx, p, in.Owner, c.WorkflowID)
+			return "released", err
+		}
+
+		_, err := a.workflows.AdminSwitchOff(ctx, p, in.Owner, c.WorkflowID, in.Reason, in.Hold)
+
+		return "switched off", err
+	})
+
 	a.confirmations.Handle(domain.ConfirmRun, func(ctx context.Context, p auth.Principal, c domain.Confirmation) (string, error) {
 		var in workflows.RunAsked
 		if err := json.Unmarshal(c.Payload, &in); err != nil {
@@ -837,6 +888,39 @@ func paramsWhere(r *engine.Registry, match func(engine.ParamSpec) bool) func(nod
 
 		return out
 	}
+}
+
+// datasetWorkflows are the workflows the datasets and models services look through for
+// those naming one, and switch off.
+type datasetWorkflows struct {
+	repo    ports.WorkflowRepository
+	service *workflows.Service
+}
+
+func (d datasetWorkflows) Of(ctx context.Context, owner domain.UserID) ([]domain.Workflow, error) {
+	var (
+		out    []domain.Workflow
+		cursor string
+	)
+
+	for {
+		page, err := d.repo.List(ctx, owner, ports.WorkflowFilter{PageFilter: ports.PageFilter{Limit: 100, Cursor: cursor}})
+		if err != nil {
+			return nil, err
+		}
+
+		out = append(out, page.Items...)
+
+		if page.NextCursor == "" {
+			return out, nil
+		}
+
+		cursor = page.NextCursor
+	}
+}
+
+func (d datasetWorkflows) Pause(ctx context.Context, why func(w domain.Workflow) string) (int, error) {
+	return d.service.Pause(ctx, why)
 }
 
 // workflowCode runs workflow code for the Code tab's Apply (D74), for those who may write
@@ -1014,6 +1098,23 @@ func (a *app) initEngine(ctx context.Context, pmc polymarket) error {
 		return err
 	}
 
+	// Forecasts and airports' observations for the weather nodes (D441), kept a while,
+	// through the outbound proxy; Open-Meteo's customer API with an admin's key.
+	forecasts, err := weatheradapter.New(a.util, weatheradapter.Config{
+		Key:         func() string { return a.settings.Current().String(config.KeyOpenMeteoKey) },
+		ForecastFor: func() time.Duration { return a.settings.Current().Duration(config.KeyForecastFor) },
+		Proxy:       proxy,
+	})
+	if err != nil {
+		return err
+	}
+
+	// HTTP request nodes' requests (D438), guarded as webhooks are.
+	requests, err := webhook.NewRequester(a.util, webhook.Config{AllowPrivate: allowPrivate, Proxy: proxy})
+	if err != nil {
+		return err
+	}
+
 	// Language models, each call with its user's own key (D243); an OpenAI-compatible base
 	// URL keeps to public addresses as webhooks do.
 	llmClient, err := llm.New(a.util, llm.Config{AllowPrivate: allowPrivate, Proxy: proxy})
@@ -1066,20 +1167,64 @@ func (a *app) initEngine(ctx context.Context, pmc polymarket) error {
 	a.stats = stats.New(stats.Deps{
 		Workflows: postgres.NewWorkflows(a.db), Runs: postgres.NewExecutions(a.db), Trading: a.trading,
 		Extremes: postgres.NewPnLExtremes(a.db), Owners: ledger, Users: postgres.NewUsers(a.db), Logger: a.util.Logger,
+		IsTrigger: func(nodeType string) bool {
+			_, ok := a.registry.Trigger(nodeType)
+			return ok
+		},
 	})
 
 	a.taskAgents = tasks.NewPresence(func() time.Duration { return a.settings.Current().Duration(config.KeyMCPTaskSeen) }, time.Now)
 
+	// Inbound webhooks (D439): each trigger's secret address and the calls to it, while an
+	// admin lets them, so many a minute a hook; an address guessing wrong secrets, 10, then
+	// one every 30 s.
+	a.hooks = hooks.New(hooks.Deps{
+		Repo: postgres.NewHooks(a.db), Workflows: postgres.NewWorkflows(a.db), Box: a.box,
+		Enabled:   func() bool { return a.settings.Current().Bool(config.KeyHooksEnabled) },
+		PerHook:   ratelimit.NewPerMinute(func() int { return a.settings.Current().Int(config.KeyHookRate) }),
+		Misses:    ratelimit.NewMemory(30*time.Second, 10),
+		PublicURL: a.cfg.PublicURL,
+		Logger:    a.util.Logger,
+	})
+
+	// Users' datasets, as an admin lets them, within the admin's limits.
+	a.datasets = datasets.New(datasets.Deps{
+		Repo:   postgres.NewDatasets(a.db),
+		Gate:   auth.DataGate{Users: postgres.NewUsers(a.db), Mode: func() domain.DataAccess { return dataAccess(a.settings.Current()) }},
+		Limits: func() datasets.Limits { return datasetLimits(a.settings.Current()) },
+		Logger: a.util.Logger,
+	})
+
+	// Users' own models, reached by their workers or at a URL, as an admin lets them.
+	a.mlModels = mlmodels.New(mlmodels.Deps{
+		Repo:        postgres.NewModels(a.db),
+		Gate:        auth.DataGate{Users: postgres.NewUsers(a.db), Mode: func() domain.DataAccess { return dataAccess(a.settings.Current()) }},
+		Limits:      func() mlmodels.Limits { return modelLimits(a.settings.Current()) },
+		HTTP:        requests,
+		Credentials: a.credentials,
+		Misses:      ratelimit.NewMemory(30*time.Second, 10), // per address: 10 wrong keys, then one every 30 s
+		Logger:      a.util.Logger,
+	})
+
 	err = nodes.Register(a.registry, nodes.Deps{
-		Markets:       pmc.reader,
-		Events:        pmc.reader,
-		OrderBooks:    pmc.reader,
-		PriceHistory:  pmc.reader,
-		Trades:        pmc.reader,
-		Positions:     pmc.reader,
-		Account:       pmc.account,
-		Wallets:       a.wallets,
-		Webhooks:      webhooks,
+		Markets:      pmc.reader,
+		Events:       pmc.reader,
+		OrderBooks:   pmc.reader,
+		PriceHistory: pmc.reader,
+		Trades:       pmc.reader,
+		Positions:    pmc.reader,
+		Account:      pmc.account,
+		Wallets:      a.wallets,
+		Webhooks:     webhooks,
+		HTTP:         requests,
+		Hooks:        a.hooks,
+		Fires:        postgres.NewScheduleFires(a.db),
+		Weather:      forecasts,
+		Datasets:     a.datasets,
+		Models:       a.mlModels,
+		MaxHTTPRequests: func() int {
+			return a.settings.Current().Int(config.KeyMaxHTTPRequests)
+		},
 		Credentials:   a.credentials,
 		Messenger:     a.telegram,
 		TelegramInbox: a.telegram,
@@ -1145,7 +1290,8 @@ func (a *app) initEngine(ctx context.Context, pmc polymarket) error {
 		return tasks.Config{Wait: cur.Duration(config.KeyMCPTaskWait), Lease: cur.Duration(config.KeyMCPTaskLease)}
 	})
 
-	a.supervisor = engine.NewSupervisor(ctx, engine.NewRunner(a.util, a.customNodes, executor), a.util.Logger)
+	triggers := engine.NewRunner(a.util, a.customNodes, executor)
+	a.supervisor = engine.NewSupervisor(ctx, triggers, a.util.Logger)
 	a.util.OnShutdown(a.supervisor.Shutdown)
 
 	checks := workflowChecks{types: a.customNodes, compiler: compiler, gate: codeGate, plugins: a.plugins}
@@ -1173,7 +1319,16 @@ func (a *app) initEngine(ctx context.Context, pmc polymarket) error {
 		workflows.WithCredentials(paramsWhere(a.registry, func(p engine.ParamSpec) bool { return p.Kind == engine.ParamCredential })),
 		// A workflow that places orders needs its mode's scope too (D399).
 		workflows.WithTradeScope(tradeScope),
-		workflows.WithConfirmations(a.confirmations), workflows.WithHistory(a.history))
+		workflows.WithConfirmations(a.confirmations), workflows.WithHistory(a.history),
+		// A workflow whose triggers start it too often is paused (D435).
+		workflows.WithRunCap(func() int { return a.settings.Current().Int(config.KeyMaxRunsPerHour) }),
+		// One naming a dataset or model gone, or whose owner may not use them, stays off.
+		workflows.WithSwitchOnChecks(a.datasets.CheckWorkflow, a.mlModels.CheckWorkflow))
+	triggers.Gate(a.workflows.RunCap())
+	// A dataset or model deleted, or them lost, switches off the workflows naming it.
+	named := datasetWorkflows{repo: postgres.NewWorkflows(a.db), service: a.workflows}
+	a.datasets.UseWorkflows(named, paramsWhere(a.registry, func(p engine.ParamSpec) bool { return p.Kind == engine.ParamDataset }))
+	a.mlModels.UseWorkflows(named, paramsWhere(a.registry, func(p engine.ParamSpec) bool { return p.Kind == engine.ParamModel }))
 	// A change to a custom node a live workflow that is on uses waits like one to the
 	// workflow (A5).
 	a.customNodes.UseConfirmations(a.confirmations, func(ctx context.Context, w domain.Workflow) (bool, error) {

@@ -16,7 +16,7 @@ Tests each item and routes it to true or false: a number compared with a value, 
 | Inputs | `main` |
 | Outputs | `true`, `false` |
 
-Items that fail stop the execution, unless **Continue on failure** is on: then they leave on the `error` port instead.
+Items that fail stop the execution, unless **Continue on failure** is on: then they leave on the `error` port instead. What fails is tried again only when **Retry** asks.
 
 ## Settings
 

@@ -89,8 +89,10 @@ type Service struct {
 	tradeScope TradeScope          // optional: without it, a workflow's orders need no scope of their own
 	personal   Personal            // optional: without it, nothing is hidden from tokens and agents
 	creds      Credentials         // optional: without it, tokens and agents use credentials freely
+	switchOn   []SwitchOnCheck     // optional: without them, a workflow naming a dataset or model gone fails as it runs
 	confirm    Confirmer           // optional: without it, tokens' and agents' live actions go ahead at once
 	history    History             // optional: without it, no switch is kept
+	runCap     *RunCap             // optional: without it, triggers run as often as they fire
 	limits     func() Limits
 	log        logging.Logger
 	now        func() time.Time
@@ -182,7 +184,17 @@ func WithPersonal(f Personal) Option {
 // forCaller is the workflow as the caller may see it: a copy with its personal settings
 // hidden, for a token or an agent whose user has not let them see those.
 func (s *Service) forCaller(p auth.Principal, w domain.Workflow) domain.Workflow {
-	if s.personal == nil || p.SeesPersonal() {
+	if p.SeesPersonal() {
+		return w
+	}
+
+	return s.hidePersonal(w)
+}
+
+// hidePersonal is w with its personal settings hidden (D402): for tokens and agents that
+// may not see them, and for admins looking at another user's (D435).
+func (s *Service) hidePersonal(w domain.Workflow) domain.Workflow {
+	if s.personal == nil {
 		return w
 	}
 
@@ -278,6 +290,15 @@ type Credentials func(nodeType string) []string
 // workflow they build can send a credential wherever its nodes call.
 func WithCredentials(f Credentials) Option {
 	return func(s *Service) { s.creds = f }
+}
+
+// SwitchOnCheck refuses to switch on a workflow its owner may not have on: one whose nodes
+// name a dataset or a model they do not have, or use what an admin keeps from them.
+type SwitchOnCheck func(ctx context.Context, w domain.Workflow) error
+
+// WithSwitchOnChecks checks a workflow so as it is switched on, each in turn.
+func WithSwitchOnChecks(checks ...SwitchOnCheck) Option {
+	return func(s *Service) { s.switchOn = append(s.switchOn, checks...) }
 }
 
 // allowed is nil when the principal may save, switch on or run the workflow: its
@@ -637,6 +658,11 @@ func (s *Service) Activate(ctx context.Context, p auth.Principal, id domain.Work
 		return domain.Workflow{}, err
 	}
 
+	// An admin holds it off until they release it (D435).
+	if w.Hold != nil {
+		return domain.Workflow{}, fmt.Errorf("%w, saying %q: it is switched on again once an admin releases it", domain.ErrHeld, w.Hold.Reason)
+	}
+
 	if !w.Active {
 		_, active, err := s.repo.Count(ctx, p.User.ID)
 		if err != nil {
@@ -655,6 +681,13 @@ func (s *Service) Activate(ctx context.Context, p auth.Principal, id domain.Work
 
 	if err := s.allowed(ctx, p, w); err != nil {
 		return domain.Workflow{}, err
+	}
+
+	// A dataset or model it names may be gone since, or its owner kept from them.
+	for _, check := range s.switchOn {
+		if err := check(ctx, w); err != nil {
+			return domain.Workflow{}, err
+		}
 	}
 
 	if !w.Active {
@@ -682,6 +715,11 @@ func (s *Service) Activate(ctx context.Context, p auth.Principal, id domain.Work
 
 	if !w.Active {
 		s.switched(ctx, history.By(p, id, domain.SwitchOn))
+
+		// Its runs in the last hour counted before it was off count no more (D435).
+		if s.runCap != nil {
+			s.runCap.Forget(id)
+		}
 	}
 
 	w.Active = true
@@ -759,9 +797,12 @@ func (s *Service) StopAll(ctx context.Context, owner domain.UserID) error {
 	return nil
 }
 
-// Pauser tells a workflow's owner why it was paused (D319).
+// Pauser tells a workflow's owner why it was paused (D319), or held off by an admin, or
+// released (D435).
 type Pauser interface {
 	WorkflowPaused(owner domain.UserID, w domain.Workflow, why string)
+	WorkflowHeld(owner domain.UserID, w domain.Workflow, why string)
+	WorkflowReleased(owner domain.UserID, w domain.Workflow)
 }
 
 // WithPauser tells owners why their workflows were paused.
@@ -785,24 +826,9 @@ func (s *Service) Pause(ctx context.Context, why func(w domain.Workflow) string)
 			continue
 		}
 
-		if err := s.repo.SetActive(ctx, w.OwnerID, w.ID, false, s.now(), domain.Actor{}); err != nil {
+		if err := s.pause(ctx, w, reason); err != nil {
 			return paused, err
 		}
-
-		s.switched(ctx, history.Itself(w.ID, domain.SwitchOff, reason))
-		s.supervisor.Stop(w.ID)
-
-		if s.waits != nil {
-			if err := s.waits.CancelWorkflow(ctx, w.OwnerID, w.ID, "cancelled: the workflow was paused: "+reason); err != nil {
-				s.log.Warn(ctx, "Waiting executions not cancelled", "workflow_id", w.ID, "error", err.Error())
-			}
-		}
-
-		if s.pauser != nil {
-			s.pauser.WorkflowPaused(w.OwnerID, w, reason)
-		}
-
-		s.log.Info(ctx, "Workflow paused", "workflow_id", w.ID, "owner_id", w.OwnerID, "why", reason)
 
 		paused++
 	}
@@ -810,8 +836,33 @@ func (s *Service) Pause(ctx context.Context, why func(w domain.Workflow) string)
 	return paused, nil
 }
 
+// pause switches one workflow off for Polythought, its history and its owner told why.
+func (s *Service) pause(ctx context.Context, w domain.Workflow, reason string) error {
+	if err := s.repo.SetActive(ctx, w.OwnerID, w.ID, false, s.now(), domain.Actor{}); err != nil {
+		return err
+	}
+
+	s.switched(ctx, history.Itself(w.ID, domain.SwitchOff, reason))
+	s.supervisor.Stop(w.ID)
+
+	if s.waits != nil {
+		if err := s.waits.CancelWorkflow(ctx, w.OwnerID, w.ID, "cancelled: the workflow was paused: "+reason); err != nil {
+			s.log.Warn(ctx, "Waiting executions not cancelled", "workflow_id", w.ID, "error", err.Error())
+		}
+	}
+
+	if s.pauser != nil {
+		s.pauser.WorkflowPaused(w.OwnerID, w, reason)
+	}
+
+	s.log.Info(ctx, "Workflow paused", "workflow_id", w.ID, "owner_id", w.OwnerID, "why", reason)
+
+	return nil
+}
+
 // Run executes the workflow once, by hand, from the trigger named or else its only
-// manual trigger, or its only schedule, fired as if its time had come. Market activity
+// manual trigger, or its only schedule, fired as if its time had come, or its only inbound
+// webhook, as if called with nothing. Market activity
 // cannot be imitated, so those workflows run only when active. Run waits for the
 // execution to finish, which keeps samples of each node's output for inspection.
 func (s *Service) Run(ctx context.Context, p auth.Principal, id domain.WorkflowID, trigger domain.NodeID) (domain.Execution, error) {
@@ -836,6 +887,8 @@ func (s *Service) Run(ctx context.Context, p auth.Principal, id domain.WorkflowI
 		output = triggers.ManualOutput()
 	case triggers.ScheduleType:
 		output = triggers.ScheduleOutput(s.now())
+	case triggers.WebhookType:
+		output = triggers.WebhookOutput(ports.HookCall{At: s.now()}) // a call with no body nor query
 	default:
 		return domain.Execution{}, fmt.Errorf("%w: %q starts on market activity, which a run by hand cannot imitate; switch the workflow on instead", domain.ErrInvalidInput, trigger)
 	}
@@ -868,9 +921,9 @@ func (s *Service) Run(ctx context.Context, p auth.Principal, id domain.WorkflowI
 }
 
 // runnableTrigger picks the trigger a run by hand starts from: the only manual trigger,
-// or else the only schedule.
+// or else the only schedule, or else the only inbound webhook.
 func runnableTrigger(w domain.Workflow) (domain.NodeID, error) {
-	for _, typ := range []string{triggers.ManualType, triggers.ScheduleType} {
+	for _, typ := range []string{triggers.ManualType, triggers.ScheduleType, triggers.WebhookType} {
 		var found []domain.NodeID
 
 		for _, n := range w.Nodes {
@@ -889,7 +942,7 @@ func runnableTrigger(w domain.Workflow) (domain.NodeID, error) {
 		}
 	}
 
-	return "", fmt.Errorf("%w: the workflow has no manual or schedule trigger to run it by hand; switch it on instead", domain.ErrInvalidInput)
+	return "", fmt.Errorf("%w: the workflow has no manual, schedule or inbound webhook trigger to run it by hand; switch it on instead", domain.ErrInvalidInput)
 }
 
 func (s *Service) Executions(ctx context.Context, p auth.Principal, id domain.WorkflowID, f ports.PageFilter) (ports.Page[domain.Execution], error) {

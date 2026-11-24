@@ -30,6 +30,13 @@ export default defineConfig({
             'guides/workflow-code',
             'guides/library',
             'guides/credentials',
+            'guides/http-requests',
+            'guides/inbound-webhooks',
+            'guides/weather',
+            'guides/market-data',
+            'guides/datasets',
+            'guides/models',
+            'guides/notebooks',
             'guides/agents',
             'guides/agents-over-mcp',
             'guides/telegram',
@@ -56,7 +63,7 @@ export default defineConfig({
               items: [
                 { label: 'All nodes', slug: 'reference/nodes' },
                 // The groups of tools/docgen, which writes these pages.
-                ...['Triggers', 'Polymarket', 'Logic', 'Transform', 'Output', 'Telegram', 'Code', 'Trading', 'AI'].map((label) => ({
+                ...['Triggers', 'Polymarket', 'HTTP', 'Weather', 'Data', 'Logic', 'Transform', 'Output', 'Telegram', 'Code', 'Trading', 'AI'].map((label) => ({
                   label,
                   collapsed: true,
                   items: [{ autogenerate: { directory: `reference/nodes/${label.toLowerCase()}` } }],

@@ -50,6 +50,7 @@ function printNode(n: NodeSpec, name: string, type: NodeType | undefined): strin
     ...(n.name ? [['name', n.name] as Entry] : []),
     ...(n.notes ? [['notes', n.notes] as Entry] : []),
     ...(n.continueOnFail ? [['continueOnFail', true] as Entry] : []),
+    ...(n.retry !== undefined ? [['retry', n.retry] as Entry] : []),
   ]
 
   // Settings are there when options are, if only as {}.

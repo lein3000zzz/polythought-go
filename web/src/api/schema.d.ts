@@ -21,6 +21,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/admin/datasets/usage": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Datasets' storage, by user */
+        get: operations["datasetUsage"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/admin/geoblock": {
         parameters: {
             query?: never;
@@ -638,6 +655,91 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/admin/users/{id}/workflows/{wid}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** A user's workflow */
+        get: operations["getAdminWorkflow"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/users/{id}/workflows/{wid}/executions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** A user's workflow's runs */
+        get: operations["listAdminWorkflowExecutions"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/users/{id}/workflows/{wid}/history": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** A user's workflow's history */
+        get: operations["getAdminWorkflowHistory"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/users/{id}/workflows/{wid}/release": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Release a user's workflow */
+        post: operations["adminReleaseWorkflow"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/users/{id}/workflows/{wid}/switch-off": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Switch off a user's workflow */
+        post: operations["adminSwitchOffWorkflow"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/admin/version": {
         parameters: {
             query?: never;
@@ -647,6 +749,23 @@ export interface paths {
         };
         /** The server's version */
         get: operations["getServerVersion"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/workflows": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Every user's workflows */
+        get: operations["listAdminWorkflows"];
         put?: never;
         post?: never;
         delete?: never;
@@ -1000,6 +1119,179 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/datasets": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List datasets */
+        get: operations["listDatasets"];
+        put?: never;
+        /** Make a dataset */
+        post: operations["createDataset"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/datasets/{name}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get a dataset */
+        get: operations["getDataset"];
+        put?: never;
+        post?: never;
+        /** Delete a dataset */
+        delete: operations["deleteDataset"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/datasets/{name}/csv": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** A dataset as CSV */
+        get: operations["exportDataset"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/datasets/{name}/keep": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Set what a dataset keeps */
+        put: operations["setDatasetKeep"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/datasets/{name}/replace": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Start replacing a dataset's rows */
+        post: operations["startDatasetReplace"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/datasets/{name}/replace/{stage}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Drop a replace */
+        delete: operations["dropDatasetReplace"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/datasets/{name}/replace/{stage}/finish": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Finish a replace */
+        post: operations["finishDatasetReplace"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/datasets/{name}/replace/{stage}/rows": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Send rows to a replace */
+        post: operations["stageDatasetRows"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/datasets/{name}/rows": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** A dataset's rows */
+        get: operations["listDatasetRows"];
+        put?: never;
+        /** Add rows to a dataset */
+        post: operations["appendDatasetRows"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/datasets/{name}/rows/{key}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** A dataset's row by its key */
+        get: operations["getDatasetRow"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/events": {
         parameters: {
             query?: never;
@@ -1066,6 +1358,108 @@ export interface paths {
         put?: never;
         /** Start a workflow from a template */
         post: operations["useTemplate"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/market-data/books": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Order books */
+        get: operations["getOrderBooks"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/market-data/history/{token}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Price history */
+        get: operations["getPriceHistory"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/market-data/markets/{market}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get a market */
+        get: operations["getMarketData"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/market-data/markets/{market}/trades": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** A market's trades */
+        get: operations["getMarketTrades"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/market-data/search": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Search markets */
+        get: operations["searchMarkets"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/market-data/traders/{address}/positions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** An address's positions */
+        get: operations["getAddressPositions"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -1361,6 +1755,95 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/models": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List models */
+        get: operations["listMLModels"];
+        put?: never;
+        /** Make a model */
+        post: operations["createMLModel"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/models/{name}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get a model */
+        get: operations["getMLModel"];
+        /** Set a URL model's address */
+        put: operations["setMLModelURL"];
+        post?: never;
+        /** Delete a model */
+        delete: operations["deleteMLModel"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/models/{name}/ask": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Ask a model */
+        post: operations["askMLModel"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/models/{name}/keys": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List a model's worker keys */
+        get: operations["listWorkerKeys"];
+        put?: never;
+        /** Make a worker key */
+        post: operations["createWorkerKey"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/models/{name}/keys/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Revoke a worker key */
+        delete: operations["deleteWorkerKey"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/node-types": {
         parameters: {
             query?: never;
@@ -1557,6 +2040,40 @@ export interface paths {
         };
         /** Download your live orders */
         get: operations["exportLiveOrders"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/sdk/python/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The Python SDK, for pip */
+        get: operations["pythonSDKIndex"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/sdk/python/{file}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The Python SDK's wheel */
+        get: operations["pythonSDKWheel"];
         put?: never;
         post?: never;
         delete?: never;
@@ -1895,6 +2412,57 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/worker/next": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Take the next request (a worker's) */
+        post: operations["workerNext"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/worker/requests/{id}/answer": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Answer a request (a worker's) */
+        post: operations["workerAnswer"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/worker/requests/{id}/fail": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Fail a request (a worker's) */
+        post: operations["workerFail"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/workflows": {
         parameters: {
             query?: never;
@@ -2136,6 +2704,40 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/workflows/{id}/hooks/{node}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Inbound webhook address */
+        get: operations["getHook"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/workflows/{id}/hooks/{node}/renew": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Renew an inbound webhook address */
+        post: operations["renewHook"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/workflows/{id}/nodes/{node}/memory": {
         parameters: {
             query?: never;
@@ -2344,7 +2946,7 @@ export interface components {
              * @description Scopes are what it may do (D398); absent, for a token made before scopes, it has
              *     every scope its user's role allows.
              */
-            scopes?: ("read" | "build" | "tasks" | "settings" | "paper" | "live" | "admin")[];
+            scopes?: ("read" | "build" | "tasks" | "data" | "settings" | "paper" | "live" | "admin")[];
             /**
              * @description TakingTasks says the token waits for the tasks of your Local agent nodes now, or did
              *     a moment ago (D413).
@@ -2405,6 +3007,52 @@ export interface components {
         };
         ActorList: {
             actors: components["schemas"]["OrderActor"][];
+        };
+        AddressPosition: {
+            avgPrice: string;
+            currentPrice: string;
+            marketId: string;
+            outcome: string;
+            realizedPnl: string;
+            redeemable: boolean;
+            size: string;
+            title: string;
+            tokenId: string;
+            unrealizedPnl: string;
+            value: string;
+            wallet: string;
+        };
+        AddressPositionList: {
+            positions: components["schemas"]["AddressPosition"][];
+        };
+        AdminSwitchOffRequest: {
+            /** @description Hold keeps it off until an admin releases it. */
+            hold?: boolean;
+            /** @description Reason is why, for its owner, who is told. */
+            reason: string;
+        };
+        AdminWorkflow: {
+            active: boolean;
+            day: components["schemas"]["RunCounts"];
+            /** @description Hold is an admin's holding it off; absent while none does. */
+            hold?: components["schemas"]["WorkflowHold"];
+            /** @description Hour, Day and Week are its runs started in the last hour, day and week. */
+            hour: components["schemas"]["RunCounts"];
+            id: string;
+            /** @description Last is its latest run; absent when none is kept. */
+            last?: components["schemas"]["LastRun"];
+            name: string;
+            ownerEmail: string;
+            ownerId: string;
+            /** @description Triggers are its triggers' node types, each once. */
+            triggers: string[];
+            week: components["schemas"]["RunCounts"];
+        };
+        AdminWorkflows: {
+            /** Format: date-time */
+            at: string;
+            /** @description Workflows are every user's, the busiest first: by runs in the last hour, day, week. */
+            workflows: components["schemas"]["AdminWorkflow"][];
         };
         AgentAccessRequest: {
             /** @description Answer lets them answer the questions the user's workflows ask (D405). */
@@ -2566,6 +3214,21 @@ export interface components {
              */
             permissions: string[];
         };
+        AskModelRequest: {
+            /** @description Items are JSON objects, one per answer wanted. */
+            items: {
+                [key: string]: unknown;
+            }[];
+            /** @description Schema is a JSON Schema each answer is to keep to; the model is told it. */
+            schema?: {
+                [key: string]: unknown;
+            };
+            /**
+             * @description WaitSeconds is how long to wait for the answers: 30 unless said, up to the instance's
+             *     most.
+             */
+            waitSeconds?: number;
+        };
         AuthConfig: {
             /** @description MinPasswordLength is the fewest characters a new password may have. */
             minPasswordLength: number;
@@ -2575,6 +3238,10 @@ export interface components {
             registration: "open" | "invite" | "closed";
             /** @description Requests says people without an invite can ask for one (D394). */
             requests: boolean;
+        };
+        BookLevel: {
+            price: string;
+            size: string;
         };
         BrokenWorkflow: {
             id: string;
@@ -2651,7 +3318,7 @@ export interface components {
             expiresAt: string;
             id: string;
             /** @enum {string} */
-            kind: "go_live" | "switch_on" | "run" | "change" | "custom_node" | "kill_off" | "admin_role" | "admin_disable" | "admin_caps" | "admin_code" | "admin_config" | "admin_restart" | "admin_plugin_approve" | "admin_plugin";
+            kind: "go_live" | "switch_on" | "run" | "change" | "custom_node" | "kill_off" | "admin_role" | "admin_disable" | "admin_caps" | "admin_code" | "admin_workflow" | "admin_config" | "admin_restart" | "admin_plugin_approve" | "admin_plugin";
             /** @description Result is what came of it: an execution, or why it failed. */
             result?: string;
             /** @enum {string} */
@@ -2662,6 +3329,19 @@ export interface components {
         };
         ConfirmationList: {
             confirmations: components["schemas"]["Confirmation"][];
+        };
+        ConnectedWorker: {
+            /** @description Holding is how many requests it holds now. */
+            holding: number;
+            name: string;
+            /** Format: date-time */
+            seen: string;
+            /**
+             * Format: date-time
+             * @description Since is when it connected, this time; Seen when it last called for a request.
+             */
+            since: string;
+            version?: string;
         };
         Connection: {
             from: string;
@@ -2675,6 +3355,13 @@ export interface components {
             values: {
                 [key: string]: string;
             };
+        };
+        CreateDatasetRequest: {
+            keepDays?: number;
+            keepRows?: number;
+            keyField?: string;
+            /** @description Name is lower-case letters, digits, - and _, up to 64; unique among yours, and fixed. */
+            name: string;
         };
         CreateInviteRequest: {
             /** @description Code is typed (D393): 8 to 64 letters, digits, - and _, any case; made when empty. */
@@ -2693,6 +3380,15 @@ export interface components {
             /** @description MaxUses is how many sign-ups it admits, 1 to 1000; 1 when absent. */
             maxUses?: number;
         };
+        CreateMLModelRequest: {
+            credentialId?: string;
+            /** @enum {string} */
+            kind: "worker" | "url";
+            /** @description Name is lower-case letters, digits, - and _, up to 64; unique among yours, and fixed. */
+            name: string;
+            /** @description URL and CredentialID are a URL model's; a worker model has neither. */
+            url?: string;
+        };
         CreateTokenRequest: {
             /**
              * Format: date-time
@@ -2701,7 +3397,7 @@ export interface components {
             expiresAt?: string;
             name: string;
             /** @description Scopes are what it may do (D398): at least one; admin for an admin's token only. */
-            scopes: ("read" | "build" | "tasks" | "settings" | "paper" | "live" | "admin")[];
+            scopes: ("read" | "build" | "tasks" | "data" | "settings" | "paper" | "live" | "admin")[];
         };
         CreateUserRequest: {
             email: string;
@@ -2711,6 +3407,9 @@ export interface components {
              * @enum {string}
              */
             role: "admin" | "user";
+        };
+        CreateWorkerKeyRequest: {
+            name: string;
         };
         Credential: {
             /** Format: date-time */
@@ -2848,6 +3547,84 @@ export interface components {
              */
             hidden: string[];
         };
+        Dataset: {
+            bytes: number;
+            /** Format: date-time */
+            createdAt: string;
+            /**
+             * @description KeepDays drops rows older than so many days, 0 for none; KeepRows keeps no more than
+             *     so many, the oldest dropped first, 0 for the instance's most.
+             */
+            keepDays: number;
+            keepRows: number;
+            /** @description KeyField is the field rows are looked up by; absent for none. */
+            keyField?: string;
+            name: string;
+            rows: number;
+            /** Format: date-time */
+            updatedAt: string;
+            /**
+             * @description Workflows are yours whose nodes name it: deleting it switches those on off. Listing
+             *     datasets, or getting one, says; other answers leave it out.
+             */
+            workflows?: components["schemas"]["UsingWorkflow"][];
+        };
+        DatasetKeepRequest: {
+            keepDays: number;
+            keepRows: number;
+        };
+        DatasetLimits: {
+            /** @description a user's storage */
+            bytes: number;
+            /** @description a user's */
+            datasets: number;
+            /** @description KeepDays is what a dataset made for recording keeps, in days, to begin with. */
+            keepDays: number;
+            /** @description a row's JSON */
+            rowBytes: number;
+            /** @description a dataset's */
+            rows: number;
+        };
+        DatasetList: {
+            datasets: components["schemas"]["Dataset"][];
+            limits: components["schemas"]["DatasetLimits"];
+        };
+        DatasetRow: {
+            /** Format: date-time */
+            at: string;
+            key?: string;
+            /** @description Row is the row itself, a JSON object. */
+            row: {
+                [key: string]: unknown;
+            };
+            /** @description Seq is its place, ascending as rows were added: the cursor of the next page. */
+            seq: number;
+        };
+        DatasetRows: {
+            /** @description Next is the after of the next page; absent on the last. */
+            next?: number;
+            rows: components["schemas"]["DatasetRow"][];
+        };
+        DatasetRowsRequest: {
+            /** @description Rows are JSON objects, each at most the size a row may be. */
+            rows: {
+                [key: string]: unknown;
+            }[];
+        };
+        DatasetStage: {
+            /** @description Stage is the replace in progress: send rows to it, then finish it. */
+            stage: string;
+            /** @description Staged is how many rows it holds so far. */
+            staged: number;
+        };
+        DatasetUsage: {
+            /** @description Bytes is what each user's datasets take, by user ID; a user with none is absent. */
+            bytes: {
+                [key: string]: number;
+            };
+            /** @description Limit is what each may take. */
+            limit: number;
+        };
         Error: {
             error: components["schemas"]["ErrorDetail"];
         };
@@ -2905,19 +3682,25 @@ export interface components {
         ExecutionTask: {
             /** @enum {string} */
             answerAs: "text" | "fields" | "schema";
+            answered: number;
             /**
              * @description Call is each, an answer for each item, or together, one for all of them.
              * @enum {string}
              */
             call: "each" | "together";
             /**
-             * @description HeldBy is the agent or token that has it, by its name, until heldUntil; absent while
-             *     it waits for one to take it.
+             * @description HeldBy is the agents or tokens that have it, or its parts, by their names, until
+             *     heldUntil; absent while it waits for one to take it.
              */
             heldBy?: string;
             /** Format: date-time */
             heldUntil?: string;
             items: components["schemas"]["TaskItem"][];
+            /**
+             * @description Parts are how many parts it comes in, too big for an agent to take at once, each
+             *     answered on its own (D436), and Answered how many of them are; 1 for one that fits.
+             */
+            parts: number;
             /** @description Prompt is what it asks, together; each item has its own. */
             prompt?: string;
             /** @description Schema is the JSON schema an answer keeps to, answering in fields or to a schema. */
@@ -3005,6 +3788,18 @@ export interface components {
             /** Format: date-time */
             updatedAt: string;
             value: string;
+        };
+        Hook: {
+            createdAt: string;
+            /** @description Enabled says an admin lets inbound webhooks take calls on this instance. */
+            enabled: boolean;
+            /** @description Listening says the workflow is on, taking calls. */
+            listening: boolean;
+            /**
+             * @description URL is the secret address a service calls with a POST: whoever has it can start
+             *     the workflow.
+             */
+            url: string;
         };
         ImportKeyRequest: {
             /** @description PrivateKey is 64 hex digits, with 0x or without. */
@@ -3292,6 +4087,120 @@ export interface components {
             email: string;
             password: string;
         };
+        MLModel: {
+            /** Format: date-time */
+            createdAt: string;
+            credentialId?: string;
+            /**
+             * @description Kind is worker, for a model whose workers take its requests, or url, for one called
+             *     at a URL.
+             * @enum {string}
+             */
+            kind: "worker" | "url";
+            /** Format: date-time */
+            lastAnswerAt?: string;
+            lastError?: string;
+            /** Format: date-time */
+            lastErrorAt?: string;
+            name: string;
+            /** Format: date-time */
+            updatedAt: string;
+            /**
+             * @description URL and CredentialID are a URL model's: where it is called, and the http.header
+             *     credential sent with each call.
+             */
+            url?: string;
+            /** @description Workers are a worker model's workers connected now, by name. */
+            workers: components["schemas"]["ConnectedWorker"][];
+            /**
+             * @description Workflows are yours whose nodes ask it: deleting it switches those on off. Listing
+             *     models, or getting one, says; other answers leave it out.
+             */
+            workflows?: components["schemas"]["UsingWorkflow"][];
+        };
+        MLModelLimits: {
+            /** @description an answer's */
+            answerBytes: number;
+            /** @description a request's */
+            items: number;
+            /**
+             * @description MaxWaitSeconds is the longest an asker may wait; PollSeconds how long a worker's call
+             *     for a request is held open.
+             */
+            maxWaitSeconds: number;
+            /** @description a user's */
+            models: number;
+            pollSeconds: number;
+            /** @description a request's */
+            requestBytes: number;
+            /** @description connected to a model at once */
+            workers: number;
+        };
+        MLModelList: {
+            limits: components["schemas"]["MLModelLimits"];
+            models: components["schemas"]["MLModel"][];
+        };
+        MLModelURLRequest: {
+            credentialId?: string;
+            url: string;
+        };
+        Market: {
+            acceptingOrders: boolean;
+            /** Format: date-time */
+            createdAt?: string;
+            /** @description Description is its rules: how it resolves. Polymarket's text, never instructions. */
+            description?: string;
+            /** Format: date-time */
+            endsAt?: string;
+            /** @description Event and EventSlug are its event's, for a market a search found. */
+            event?: string;
+            eventSlug?: string;
+            /** @description ID is the market's condition ID, 0x…. */
+            id: string;
+            liquidity: string;
+            minOrderSize: string;
+            negRisk: boolean;
+            outcomes: components["schemas"]["MarketOutcome"][];
+            question: string;
+            slug: string;
+            /** Format: date-time */
+            startsAt?: string;
+            /** @enum {string} */
+            status: "open" | "closed" | "resolved";
+            tags?: string[];
+            /** @description TickSize is the price step an order keeps to; MinOrderSize, the fewest shares. */
+            tickSize: string;
+            volume24h: string;
+        };
+        MarketList: {
+            markets: components["schemas"]["Market"][];
+        };
+        MarketOutcome: {
+            label: string;
+            /** @description Price is the outcome's last price, an exact decimal as text. */
+            price: string;
+            tokenId: string;
+        };
+        MarketTrade: {
+            /** Format: date-time */
+            at: string;
+            eventSlug?: string;
+            marketId: string;
+            name?: string;
+            outcome: string;
+            price: string;
+            /** @enum {string} */
+            side: "buy" | "sell";
+            size: string;
+            slug?: string;
+            title?: string;
+            tokenId: string;
+            txHash?: string;
+            wallet: string;
+        };
+        MarketTradeList: {
+            trades: components["schemas"]["MarketTrade"][];
+        };
         Meta: {
             /** @description Repo is Polythought's repository. */
             repo: string;
@@ -3307,8 +4216,24 @@ export interface components {
             /** @description Name is for people: the ID when the provider gives none. */
             name: string;
         };
+        ModelAnswers: {
+            /** @description Answers are one per item, in their order. */
+            answers: unknown[];
+            /** @description Refused are the answers that do not keep to the schema, by index, saying why. */
+            refused?: {
+                [key: string]: string;
+            };
+            /** @description Version is what the worker or the URL said it was; Worker the worker that answered. */
+            version?: string;
+            worker?: string;
+        };
         ModelList: {
             models: components["schemas"]["Model"][];
+        };
+        NewWorkerKey: {
+            key: components["schemas"]["WorkerKey"];
+            /** @description Secret is the key itself, shown this once. */
+            secret: string;
         };
         Node: {
             continueOnFail?: boolean;
@@ -3321,6 +4246,11 @@ export interface components {
             };
             /** @description Position is where the editor draws the node; it never affects execution. */
             position?: components["schemas"]["CanvasPosition"];
+            /**
+             * @description Retry is how many more times the node tries what failed, 0 to 5, waiting 1, 2, 4…
+             *     seconds; left out for its type's default: 3 for one that only reads, else none.
+             */
+            retry?: number;
             type: string;
         };
         NodeItems: {
@@ -3364,6 +4294,8 @@ export interface components {
             startedAt: string;
             /** @enum {string} */
             status: "succeeded" | "failed" | "skipped" | "waiting" | "cancelled";
+            /** @description Tries is how many times the node ran, its retries counted; absent for once. */
+            tries?: number;
         };
         NodeType: {
             /**
@@ -3377,6 +4309,7 @@ export interface components {
             items?: components["schemas"]["NodeItems"];
             label?: string;
             name: string;
+            noRetry?: boolean;
             outputs: string[];
             outputsColumn?: string;
             /**
@@ -3391,6 +4324,13 @@ export interface components {
              */
             plugin?: string;
             pluginName?: string;
+            /**
+             * @description Reads says it only reads, so a failure is tried again 3 more times unless its
+             *     retry says otherwise; readsWhen, that it reads only with that param's value.
+             *     NoRetry says it is never retried: a retry could do what it does twice.
+             */
+            reads?: boolean;
+            readsWhen?: components["schemas"]["ParamChoice"];
             /**
              * @description Remembers says it keeps what it saw across runs; /workflows/{id}/nodes/{node}/memory
              *     says how much, and forgets it.
@@ -3505,7 +4445,7 @@ export interface components {
         };
         OAuthOffer: {
             /** @enum {string} */
-            scope: "read" | "build" | "tasks" | "settings" | "paper" | "live" | "admin";
+            scope: "read" | "build" | "tasks" | "data" | "settings" | "paper" | "live" | "admin";
             ticked: boolean;
         };
         OAuthProblem: {
@@ -3584,6 +4524,22 @@ export interface components {
             kind: "agent" | "token";
             name: string;
         };
+        OrderBook: {
+            asks: components["schemas"]["BookLevel"][];
+            /** Format: date-time */
+            at: string;
+            bestAsk?: string;
+            /** @description BestBid, BestAsk, Mid and Spread are absent where a side is empty. */
+            bestBid?: string;
+            bids: components["schemas"]["BookLevel"][];
+            mid?: string;
+            spread?: string;
+            tokenId: string;
+        };
+        OrderBookList: {
+            /** @description Books are in the order the tokens were asked for, null for a token without one. */
+            books: components["schemas"]["OrderBook"][];
+        };
         OrderFill: {
             dollars: string;
             /** @description in dollars, on top of a buy, out of a sell */
@@ -3646,7 +4602,7 @@ export interface components {
             /** @description Input, for a field, is the input port whose items it names; absent for main. */
             input?: string;
             /** @enum {string} */
-            kind: "string" | "number" | "decimal" | "bool" | "list" | "duration" | "wallet" | "tokens" | "address" | "table" | "credential" | "code";
+            kind: "string" | "number" | "decimal" | "bool" | "list" | "duration" | "wallet" | "tokens" | "address" | "table" | "credential" | "code" | "dataset" | "model";
             label?: string;
             /**
              * @description ModelsOf, on text, names the credential param whose key's models it suggests:
@@ -3804,6 +4760,23 @@ export interface components {
             at: string;
             /** @example 18.2 */
             profit: string;
+        };
+        PriceHistory: {
+            /**
+             * @description Change is the last price less the first, ChangePct the same in percent; absent with
+             *     fewer than two points.
+             */
+            change?: string;
+            changePct?: string;
+            points: components["schemas"]["PricePoint"][];
+            tokenId: string;
+            /** @enum {string} */
+            window: "1h" | "6h" | "1d" | "1w" | "1m";
+        };
+        PricePoint: {
+            /** Format: date-time */
+            at: string;
+            price: string;
         };
         Problem: {
             column?: number;
@@ -4287,6 +5260,7 @@ export interface components {
              */
             agentCaps?: components["schemas"]["AgentCaps"];
             codeChosen?: boolean;
+            dataChosen?: boolean;
             disabled?: boolean;
             /** @description EmailVerified true marks the address verified; it cannot be made false. */
             emailVerified?: boolean;
@@ -4378,6 +5352,11 @@ export interface components {
             createdAt: string;
             /** @description Dashboard is how you set the workflows' dashboard (D429): yours, in /me only. */
             dashboard?: components["schemas"]["Dashboard"];
+            /**
+             * @description DataChosen says an admin picked them to use datasets and models, which counts while
+             *     data access is "chosen"; MayUseData, whether they may now.
+             */
+            dataChosen: boolean;
             disabled: boolean;
             email: string;
             emailVerified: boolean;
@@ -4395,6 +5374,7 @@ export interface components {
             liveStopped: boolean;
             /** Format: date-time */
             liveStoppedAt?: string;
+            mayUseData: boolean;
             /**
              * @description MayWriteCode says whether they may write code now, as code access and CodeChosen
              *     have it.
@@ -4435,6 +5415,11 @@ export interface components {
             /** @description all they have */
             workflows: number;
         };
+        UsingWorkflow: {
+            active: boolean;
+            id: string;
+            name: string;
+        };
         Verified: {
             /** @description Email is the account's address, now verified, for the sign-in form. */
             email: string;
@@ -4474,6 +5459,54 @@ export interface components {
             takesSessionKeys: boolean;
             wallets: components["schemas"]["Wallet"][];
         };
+        WorkerAnswer: {
+            /** @description Answers are one per item, in their order: any JSON. */
+            answers: unknown[];
+            version?: string;
+            worker: string;
+        };
+        WorkerFail: {
+            /** @description Reason is why, up to 500 characters: each item fails with it. */
+            reason: string;
+            version?: string;
+            worker: string;
+        };
+        WorkerKey: {
+            /** Format: date-time */
+            createdAt: string;
+            id: string;
+            /** Format: date-time */
+            lastUsedAt?: string;
+            name: string;
+            /** @description Prefix is the key's start, to tell it apart. */
+            prefix: string;
+        };
+        WorkerKeyList: {
+            keys: components["schemas"]["WorkerKey"][];
+        };
+        WorkerRequest: {
+            /** @description Model is the model the key serves. */
+            model: string;
+            request: components["schemas"]["WorkerTask"];
+        };
+        WorkerTake: {
+            /** @description Version is the model's version it serves, which each answer carries. */
+            version?: string;
+            /** @description Worker is this worker's name, unique among the model's, like gpu-box-1. */
+            worker: string;
+        };
+        WorkerTask: {
+            /**
+             * Format: date-time
+             * @description Deadline is when its asker stops waiting.
+             */
+            deadline: string;
+            id: string;
+            /** @description Items are the asker's, one answer each. */
+            items: unknown[];
+            /** @description Schema is what each answer is to keep to, if any. */
+            schema?: unknown;
+        };
         Workflow: {
             /**
              * @description ActedBy is the agent or token that switched it on, or changed it while on, named on
@@ -4486,6 +5519,11 @@ export interface components {
             createdAt: string;
             /** @description Description is what it does, in your words; searched with its name. */
             description: string;
+            /**
+             * @description Hold is an admin's holding it off (D435): it is switched on again once they release
+             *     it. Absent while none does.
+             */
+            hold?: components["schemas"]["WorkflowHold"];
             id: string;
             name: string;
             nodes: components["schemas"]["Node"][];
@@ -4520,6 +5558,11 @@ export interface components {
             nextCursor?: string;
             switches: components["schemas"]["WorkflowSwitch"][];
         };
+        WorkflowHold: {
+            /** Format: date-time */
+            at: string;
+            reason: string;
+        };
         WorkflowPage: {
             /** @description NextCursor is absent on the last page. */
             nextCursor?: string;
@@ -4544,17 +5587,20 @@ export interface components {
             trading?: components["schemas"]["TradingResult"];
         };
         WorkflowSwitch: {
+            /** @description Admin says an admin did it, Reason saying why (D435). */
+            admin: boolean;
             /** Format: date-time */
             at: string;
-            /** @description By is the agent or token that did it; absent when you did, or Polythought. */
+            /** @description By is the agent or token that did it; absent when you did, an admin or Polythought. */
             by?: components["schemas"]["Switcher"];
             id: string;
             /**
-             * @description Kind is what it did: on or off; paper, live or another wallet (wallet); reset, its
+             * @description Kind is what it did: on or off; hold, an admin holding it off, or release, letting
+             *     it be switched on again (D435); paper, live or another wallet (wallet); reset, its
              *     paper account; kill_on or kill_off, your kill switch, as it traded live.
              * @enum {string}
              */
-            kind: "on" | "off" | "paper" | "live" | "wallet" | "reset" | "kill_on" | "kill_off";
+            kind: "on" | "off" | "hold" | "release" | "paper" | "live" | "wallet" | "reset" | "kill_on" | "kill_off";
             /** @description Polythought says Polythought did it itself, Reason saying why. */
             polythought: boolean;
             /**
@@ -4634,6 +5680,44 @@ export interface operations {
                 };
             };
             /** @description forbidden: not an admin */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    datasetUsage: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DatasetUsage"];
+                };
+            };
+            /** @description unauthenticated */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description forbidden */
             403: {
                 headers: {
                     [name: string]: unknown;
@@ -6767,6 +7851,319 @@ export interface operations {
             };
         };
     };
+    getAdminWorkflow: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The owner's ID */
+                id: string;
+                /** @description Workflow ID */
+                wid: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Workflow"];
+                };
+            };
+            /** @description unauthenticated */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description not an admin */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description not_found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    listAdminWorkflowExecutions: {
+        parameters: {
+            query?: {
+                /** @description Page size */
+                limit?: number;
+                /** @description nextCursor of the previous page */
+                cursor?: string;
+            };
+            header?: never;
+            path: {
+                /** @description The owner's ID */
+                id: string;
+                /** @description Workflow ID */
+                wid: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ExecutionPage"];
+                };
+            };
+            /** @description unauthenticated */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description not an admin */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description not_found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    getAdminWorkflowHistory: {
+        parameters: {
+            query?: {
+                /** @description Some kinds alone, comma-separated: on_off, trading, reset, kill_switch */
+                kinds?: string;
+                /** @description Page size */
+                limit?: number;
+                /** @description nextCursor of the previous page */
+                cursor?: string;
+            };
+            header?: never;
+            path: {
+                /** @description The owner's ID */
+                id: string;
+                /** @description Workflow ID */
+                wid: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WorkflowHistoryPage"];
+                };
+            };
+            /** @description invalid_input */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description unauthenticated */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description not an admin */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description not_found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    adminReleaseWorkflow: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The owner's ID */
+                id: string;
+                /** @description Workflow ID */
+                wid: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Workflow"];
+                };
+            };
+            /** @description unauthenticated */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description not an admin */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description not_found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description awaits_confirmation: an admin's token's work waits for the admin to confirm it (D410) */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    adminSwitchOffWorkflow: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The owner's ID */
+                id: string;
+                /** @description Workflow ID */
+                wid: string;
+            };
+            cookie?: never;
+        };
+        /** @description Why, and whether to hold it off */
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AdminSwitchOffRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Workflow"];
+                };
+            };
+            /** @description invalid_input */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description unauthenticated */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description not an admin */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description not_found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description awaits_confirmation: an admin's token's work waits for the admin to confirm it (D410) */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
     getServerVersion: {
         parameters: {
             query?: never;
@@ -6795,6 +8192,44 @@ export interface operations {
                 };
             };
             /** @description forbidden: not an admin */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    listAdminWorkflows: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminWorkflows"];
+                };
+            };
+            /** @description unauthenticated */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description not an admin */
             403: {
                 headers: {
                     [name: string]: unknown;
@@ -7945,6 +9380,517 @@ export interface operations {
             };
         };
     };
+    listDatasets: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DatasetList"];
+                };
+            };
+            /** @description unauthenticated */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description data_off: an admin keeps datasets from you */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    createDataset: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description The dataset */
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateDatasetRequest"];
+            };
+        };
+        responses: {
+            /** @description Created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Dataset"];
+                };
+            };
+            /** @description invalid_input */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description dataset_exists; dataset_full: as many as you may have */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    getDataset: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Its name */
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Dataset"];
+                };
+            };
+            /** @description not_found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    deleteDataset: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Its name */
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No Content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description not_found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    exportDataset: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Its name */
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description CSV */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "text/csv": string;
+                };
+            };
+            /** @description not_found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "text/csv": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    setDatasetKeep: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Its name */
+                name: string;
+            };
+            cookie?: never;
+        };
+        /** @description Days and rows: 0 for no limit */
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DatasetKeepRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Dataset"];
+                };
+            };
+            /** @description invalid_input */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description not_found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    startDatasetReplace: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Its name */
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DatasetStage"];
+                };
+            };
+            /** @description not_found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    dropDatasetReplace: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Its name */
+                name: string;
+                /** @description The replace */
+                stage: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No Content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description not_found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    finishDatasetReplace: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Its name */
+                name: string;
+                /** @description The replace */
+                stage: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Dataset"];
+                };
+            };
+            /** @description not_found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    stageDatasetRows: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Its name */
+                name: string;
+                /** @description The replace */
+                stage: string;
+            };
+            cookie?: never;
+        };
+        /** @description The rows: within the request's 1 MiB */
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DatasetRowsRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DatasetStage"];
+                };
+            };
+            /** @description invalid_input */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description not_found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description dataset_full */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    listDatasetRows: {
+        parameters: {
+            query?: {
+                /** @description The seq to start after: the page before's next */
+                after?: number;
+                /** @description At most this many: 1,000 unless said, and at most */
+                limit?: number;
+            };
+            header?: never;
+            path: {
+                /** @description Its name */
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DatasetRows"];
+                };
+            };
+            /** @description not_found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    appendDatasetRows: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Its name */
+                name: string;
+            };
+            cookie?: never;
+        };
+        /** @description The rows: within the request's 1 MiB */
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DatasetRowsRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Dataset"];
+                };
+            };
+            /** @description invalid_input */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description not_found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description dataset_full */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    getDatasetRow: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Its name */
+                name: string;
+                /** @description The key field's value */
+                key: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DatasetRow"];
+                };
+            };
+            /** @description invalid_input: it has no key field */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description not_found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
     streamEvents: {
         parameters: {
             query?: never;
@@ -8152,6 +10098,323 @@ export interface operations {
             };
             /** @description not_found */
             404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    getOrderBooks: {
+        parameters: {
+            query: {
+                /** @description Outcome token IDs, comma-separated: 50 at most */
+                tokens: string;
+                /** @description Levels of each side: 10 unless said, 100 at most */
+                depth?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OrderBookList"];
+                };
+            };
+            /** @description invalid_input */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description unauthenticated */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description upstream_unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    getPriceHistory: {
+        parameters: {
+            query?: {
+                /** @description How far back: 1h, 6h, 1d, 1w or 1m; 1d unless said */
+                window?: string;
+                /** @description At most this many points, evenly spaced: 50 unless said, 500 at most */
+                limit?: number;
+            };
+            header?: never;
+            path: {
+                /** @description The outcome's token ID */
+                token: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PriceHistory"];
+                };
+            };
+            /** @description invalid_input */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description unauthenticated */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description upstream_unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    getMarketData: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Its condition ID, 0x…, or its slug */
+                market: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Market"];
+                };
+            };
+            /** @description unauthenticated */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description not_found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description upstream_unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    getMarketTrades: {
+        parameters: {
+            query?: {
+                /** @description At most this many: 50 unless said, 500 at most */
+                limit?: number;
+            };
+            header?: never;
+            path: {
+                /** @description Its condition ID, 0x… */
+                market: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MarketTradeList"];
+                };
+            };
+            /** @description invalid_input */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description unauthenticated */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description upstream_unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    searchMarkets: {
+        parameters: {
+            query: {
+                /** @description Words of the event's title, like bitcoin or election */
+                query: string;
+                /** @description Closed markets instead of open ones */
+                closed?: boolean;
+                /** @description At most this many: 50 unless said, 500 at most */
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MarketList"];
+                };
+            };
+            /** @description invalid_input */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description unauthenticated */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description upstream_unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    getAddressPositions: {
+        parameters: {
+            query?: {
+                /** @description At most this many: 50 unless said, 500 at most */
+                limit?: number;
+            };
+            header?: never;
+            path: {
+                /** @description The wallet's address, 0x and 40 hex digits */
+                address: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AddressPositionList"];
+                };
+            };
+            /** @description invalid_input */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description unauthenticated */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description upstream_unavailable */
+            503: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -8815,6 +11078,351 @@ export interface operations {
             };
         };
     };
+    listMLModels: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MLModelList"];
+                };
+            };
+            /** @description data_off: an admin keeps models from you */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    createMLModel: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description The model */
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateMLModelRequest"];
+            };
+        };
+        responses: {
+            /** @description Created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MLModel"];
+                };
+            };
+            /** @description invalid_input */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description model_exists; model_limit: as many as you may have */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    getMLModel: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Its name */
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MLModel"];
+                };
+            };
+            /** @description not_found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    setMLModelURL: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Its name */
+                name: string;
+            };
+            cookie?: never;
+        };
+        /** @description Its URL and credential */
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MLModelURLRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MLModel"];
+                };
+            };
+            /** @description invalid_input */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description not_found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    deleteMLModel: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Its name */
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No Content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description not_found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    askMLModel: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Its name */
+                name: string;
+            };
+            cookie?: never;
+        };
+        /** @description The items */
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AskModelRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ModelAnswers"];
+                };
+            };
+            /** @description invalid_input */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description model_offline: no worker connected */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description model_timeout: no answer in time */
+            504: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    listWorkerKeys: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Its name */
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WorkerKeyList"];
+                };
+            };
+            /** @description not_found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    createWorkerKey: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Its model's name */
+                name: string;
+            };
+            cookie?: never;
+        };
+        /** @description The key's name */
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateWorkerKeyRequest"];
+            };
+        };
+        responses: {
+            /** @description Created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NewWorkerKey"];
+                };
+            };
+            /** @description invalid_input */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description forbidden: at a browser only */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    deleteWorkerKey: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Its model's name */
+                name: string;
+                /** @description The key's ID */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No Content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description not_found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
     listNodeTypes: {
         parameters: {
             query?: never;
@@ -9301,6 +11909,67 @@ export interface operations {
                 };
                 content: {
                     "text/csv": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    pythonSDKIndex: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description a page linking the wheel */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "text/html": string;
+                };
+            };
+            /** @description not_found: this server was built without it */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "text/html": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    pythonSDKWheel: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The wheel's file name, as the index links it */
+                file: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description the wheel */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/octet-stream": Record<string, never>;
+                };
+            };
+            /** @description not_found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/octet-stream": components["schemas"]["Error"];
                 };
             };
         };
@@ -10679,6 +13348,135 @@ export interface operations {
             };
         };
     };
+    workerNext: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description The worker */
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["WorkerTake"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WorkerRequest"];
+                };
+            };
+            /** @description none came: call again */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description unauthenticated: not a worker key */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description model_limit: as many workers connected as the model may have */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    workerAnswer: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The request's ID */
+                id: string;
+            };
+            cookie?: never;
+        };
+        /** @description The answers */
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["WorkerAnswer"];
+            };
+        };
+        responses: {
+            /** @description No Content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description invalid_input: not one answer an item */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description not_found: answered already, or its asker stopped waiting */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    workerFail: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The request's ID */
+                id: string;
+            };
+            cookie?: never;
+        };
+        /** @description Why */
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["WorkerFail"];
+            };
+        };
+        responses: {
+            /** @description No Content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description not_found: answered already, or its asker stopped waiting */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
     listWorkflows: {
         parameters: {
             query?: {
@@ -11476,6 +14274,92 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HoldingList"];
+                };
+            };
+            /** @description unauthenticated */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description not_found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    getHook: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Workflow ID */
+                id: string;
+                /** @description Node ID of an Inbound webhook trigger, as saved */
+                node: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Hook"];
+                };
+            };
+            /** @description unauthenticated */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description not_found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    renewHook: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Workflow ID */
+                id: string;
+                /** @description Node ID of an Inbound webhook trigger, as saved */
+                node: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Hook"];
                 };
             };
             /** @description unauthenticated */

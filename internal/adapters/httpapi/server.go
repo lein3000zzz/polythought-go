@@ -117,6 +117,12 @@ type WorkflowService interface {
 	Executions(ctx context.Context, p auth.Principal, id domain.WorkflowID, f ports.PageFilter) (ports.Page[domain.Execution], error)
 	Execution(ctx context.Context, p auth.Principal, id domain.WorkflowID, execID domain.ExecutionID) (domain.Execution, error)
 	CancelExecution(ctx context.Context, p auth.Principal, id domain.WorkflowID, execID domain.ExecutionID) (domain.Execution, error)
+
+	// An admin's oversight of a user's workflows (D435).
+	AdminGet(ctx context.Context, p auth.Principal, owner domain.UserID, id domain.WorkflowID) (domain.Workflow, error)
+	AdminExecutions(ctx context.Context, p auth.Principal, owner domain.UserID, id domain.WorkflowID, f ports.PageFilter) (ports.Page[domain.Execution], error)
+	AdminSwitchOff(ctx context.Context, p auth.Principal, owner domain.UserID, id domain.WorkflowID, reason string, hold bool) (domain.Workflow, error)
+	AdminRelease(ctx context.Context, p auth.Principal, owner domain.UserID, id domain.WorkflowID) (domain.Workflow, error)
 }
 
 // NodeTypes lists what the editor can place in a user's workflow: the built-in types and
@@ -144,10 +150,20 @@ type Services struct {
 	Telegram TelegramService
 	// TelegramWebhook takes updates in webhook mode; nil when there is no bot.
 	TelegramWebhook TelegramWebhook
-	Notifications   NotificationService
-	CustomNodes     CustomNodeService
-	Mail            MailService
-	Geoblock        GeoblockService
+	// Hooks is inbound webhooks (D439); nil for none.
+	Hooks HookService
+	// MarketData is Polymarket's data over REST; nil for none.
+	MarketData MarketDataService
+	// Datasets are users' datasets; nil for none. DataAccess is who may use them, read on
+	// every use; nil for everyone.
+	Datasets   DatasetService
+	DataAccess func() domain.DataAccess
+	// MLModels are users' own models, and their workers; nil for none.
+	MLModels      MLModelService
+	Notifications NotificationService
+	CustomNodes   CustomNodeService
+	Mail          MailService
+	Geoblock      GeoblockService
 	// Meta is what pages show about Polythought itself; nil: its repository alone.
 	Meta MetaService
 	// OAuth is the OAuth server agents sign in with (D397).
@@ -216,6 +232,11 @@ type Server struct {
 	models        ModelService
 	telegram      TelegramService
 	telegramHook  TelegramWebhook
+	hooks         HookService
+	marketData    MarketDataService
+	datasets      DatasetService
+	mlModels      MLModelService
+	dataAccess    func() domain.DataAccess
 	notifications NotificationService
 	mail          MailService
 	geoblock      GeoblockService
@@ -306,6 +327,11 @@ func New(cfg Config, util *observability.Utility, services Services) (*Server, e
 		models:        services.Models,
 		telegram:      services.Telegram,
 		telegramHook:  services.TelegramWebhook,
+		hooks:         services.Hooks,
+		marketData:    services.MarketData,
+		datasets:      services.Datasets,
+		mlModels:      services.MLModels,
+		dataAccess:    services.DataAccess,
 		notifications: services.Notifications,
 		mail:          services.Mail,
 		geoblock:      services.Geoblock,
@@ -376,9 +402,16 @@ func (s *Server) routes() {
 
 	h.GET("/healthz", s.health)
 
+	// Inbound webhooks (D439), outside the API: services call them, with the secret alone.
+	h.POST("/hooks/:secret", s.callHook)
+
 	v1 := h.Group("/api/v1")
 
 	v1.GET("/meta", s.getMeta)
+
+	// The Python SDK this server's version comes with, for pip: anyone may fetch it.
+	v1.GET("/sdk/python/", s.pythonIndex)
+	v1.GET("/sdk/python/:file", s.pythonWheel)
 
 	// The OAuth server agents sign in with (D397); its metadata at the root (RFC 8414).
 	h.GET("/.well-known/oauth-authorization-server", s.oauthMetadata)
@@ -487,6 +520,49 @@ func (s *Server) routes() {
 	v1.POST("/code/workflow", s.requireAuth, s.postWorkflowCode)
 	v1.GET("/events", s.requireAuth, s.streamEvents)
 
+	// Polymarket's data, as agents have it over MCP (D442): read scope, every user.
+	md := v1.Group("/market-data", s.requireAuth, s.hasMarketData)
+	md.GET("/search", s.searchMarketData)
+	md.GET("/markets/:market", s.getMarketData)
+	md.GET("/markets/:market/trades", s.getMarketTrades)
+	md.GET("/books", s.getOrderBooks)
+	md.GET("/history/:token", s.getPriceHistory)
+	md.GET("/traders/:address/positions", s.getAddressPositions)
+
+	// Users' datasets: read takes read, the rest the data scope.
+	ds := v1.Group("/datasets", s.requireAuth, s.hasDatasets)
+	ds.GET("", s.listDatasets)
+	ds.POST("", s.createDataset)
+	ds.GET("/:name", s.getDataset)
+	ds.DELETE("/:name", s.deleteDataset)
+	ds.PUT("/:name/keep", s.setDatasetKeep)
+	ds.GET("/:name/csv", s.exportDataset)
+	ds.GET("/:name/rows", s.listDatasetRows)
+	ds.POST("/:name/rows", s.appendDatasetRows)
+	ds.GET("/:name/rows/:key", s.getDatasetRow)
+	ds.POST("/:name/replace", s.startDatasetReplace)
+	ds.POST("/:name/replace/:stage/rows", s.stageDatasetRows)
+	ds.POST("/:name/replace/:stage/finish", s.finishDatasetReplace)
+	ds.DELETE("/:name/replace/:stage", s.dropDatasetReplace)
+
+	// Users' own models: read takes read, the rest the data scope, and keys a browser.
+	ml := v1.Group("/models", s.requireAuth, s.hasMLModels)
+	ml.GET("", s.listMLModels)
+	ml.POST("", s.createMLModel)
+	ml.GET("/:name", s.getMLModel)
+	ml.PUT("/:name", s.setMLModelURL)
+	ml.DELETE("/:name", s.deleteMLModel)
+	ml.POST("/:name/ask", s.askMLModel)
+	ml.GET("/:name/keys", s.listWorkerKeys)
+	ml.POST("/:name/keys", s.createWorkerKey)
+	ml.DELETE("/:name/keys/:id", s.deleteWorkerKey)
+
+	// Models' workers, with a worker key alone: they dial out and take their requests.
+	wk := v1.Group("/worker", s.hasMLModels, s.requireWorker)
+	wk.POST("/next", s.workerNext)
+	wk.POST("/requests/:id/answer", s.workerAnswer)
+	wk.POST("/requests/:id/fail", s.workerFail)
+
 	wf := v1.Group("/workflows", s.requireAuth)
 	wf.GET("", s.listWorkflows)
 	wf.GET("/stats", s.hasStats, s.workflowsStats)
@@ -517,6 +593,8 @@ func (s *Server) routes() {
 	wf.GET("/:id/holdings", s.listHoldings)
 	wf.GET("/:id/nodes/:node/memory", s.getNodeMemory)
 	wf.DELETE("/:id/nodes/:node/memory", s.forgetNodeMemory)
+	wf.GET("/:id/hooks/:node", s.hasHooks, s.getHook)
+	wf.POST("/:id/hooks/:node/renew", s.hasHooks, s.renewHook)
 	wf.GET("/:id/share", s.getSharedCopy)
 	wf.PUT("/:id/share", s.shareWorkflow)
 
@@ -532,7 +610,14 @@ func (s *Server) routes() {
 	admin.PATCH("/users/:id", s.updateUser)
 	admin.POST("/users/:id/verification", s.sendVerificationLink)
 	admin.GET("/users/:id/agent-spend", s.userAgentSpend)
+	admin.GET("/datasets/usage", s.hasDatasets, s.datasetUsage)
 	admin.GET("/stats", s.hasStats, s.instanceStats)
+	admin.GET("/workflows", s.hasStats, s.adminWorkflows)
+	admin.GET("/users/:id/workflows/:wid", s.adminWorkflow)
+	admin.GET("/users/:id/workflows/:wid/executions", s.adminWorkflowExecutions)
+	admin.GET("/users/:id/workflows/:wid/history", s.hasHistory, s.adminWorkflowHistory)
+	admin.POST("/users/:id/workflows/:wid/switch-off", s.adminSwitchOff)
+	admin.POST("/users/:id/workflows/:wid/release", s.adminRelease)
 	admin.GET("/stats/users/:id", s.hasStats, s.userStats)
 	admin.GET("/invites", s.listInvites)
 	admin.POST("/invites", s.createInvite)

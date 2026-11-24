@@ -195,3 +195,101 @@ func TestAgentTakesATask(t *testing.T) {
 	assert.Equal(t, map[string]any{"colour": "red"}, answer["json"])
 	assert.Equal(t, "you", answer["by"])
 }
+
+// A task too big for an agent to take at once (D436): in parts, each by its own ID, the
+// run carrying on once every part is answered, each item with its own answer.
+func TestAgentWorksATaskInParts(t *testing.T) {
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
+	defer cancel()
+
+	base := env("E2E_BASE_URL", "http://localhost:3100")
+	b := signIn(t, base)
+
+	var token struct{ ID, Token string }
+	b.call(http.MethodPost, "/api/v1/tokens", map[string]any{"name": "e2e parts", "scopes": []string{"read", "tasks"}}, http.StatusCreated, &token)
+
+	agent, err := mcp.NewClient(&mcp.Implementation{Name: "go-sdk-e2e-parts", Version: "1"}, nil).Connect(ctx, &mcp.StreamableClientTransport{
+		Endpoint: base + "/mcp", HTTPClient: &http.Client{Transport: bearer(token.Token)},
+	}, nil)
+	require.NoError(t, err)
+
+	defer func() { _ = agent.Close() }()
+
+	// 30 items of about 2 KiB: some 60 KiB, more than an agent takes at once.
+	var wf struct{ ID string }
+	b.call(http.MethodPost, "/api/v1/workflows", map[string]any{
+		"name": "Asks my agent a lot",
+		"nodes": []map[string]any{
+			{"id": "manual", "type": "trigger.manual", "position": map[string]any{"x": 0, "y": 0}},
+			{"id": "make", "type": "code.transform", "position": map[string]any{"x": 300, "y": 0}, "params": map[string]any{
+				"source": `export function run(): { n: number; text: string }[] {
+  return Array.from({ length: 30 }, (_, n) => ({ n, text: "x".repeat(2000) }))
+}`,
+			}},
+			{"id": "ask", "type": "ai.localAgent", "position": map[string]any{"x": 600, "y": 0}, "params": map[string]any{
+				"prompt": "Count the x's",
+			}},
+		},
+		"connections": []map[string]any{
+			{"from": "manual", "fromPort": "main", "to": "make", "toPort": "main"},
+			{"from": "make", "fromPort": "main", "to": "ask", "toPort": "main"},
+		},
+	}, http.StatusCreated, &wf)
+
+	// The agent waits first, so the run hands it the task rather than fail.
+	first := make(chan map[string]any, 1)
+
+	go func() {
+		defer close(first)
+
+		res, err := agent.CallTool(ctx, &mcp.CallToolParams{Name: "wait_for_task"})
+		if err == nil && !res.IsError {
+			if task, ok := res.StructuredContent.(map[string]any)["task"].(map[string]any); ok {
+				first <- task
+			}
+		}
+	}()
+
+	time.Sleep(2 * time.Second)
+
+	var e struct{ ID, Status, Error string }
+	b.call(http.MethodPost, "/api/v1/workflows/"+wf.ID+"/run", map[string]any{}, http.StatusOK, &e)
+	require.Equal(t, "waiting", e.Status, e.Error)
+
+	task := <-first
+	require.NotNil(t, task, "handed to the agent")
+
+	parts := 0
+
+	for task != nil {
+		id := task["id"].(string)
+		assert.Contains(t, id, e.ID+"/", "a part's ID")
+		assert.Regexp(t, `^\d+ of \d+$`, task["part"])
+
+		answers := make([]any, int(task["items"].(float64)))
+		for i := range answers {
+			answers[i] = "2000"
+		}
+
+		done := tool(ctx, t, agent, "answer_task", map[string]any{"id": id, "answers": answers})
+		parts++
+
+		if done["partsLeft"] == nil {
+			break
+		}
+
+		task = tool(ctx, t, agent, "wait_for_task", nil)["task"].(map[string]any)
+	}
+
+	assert.Greater(t, parts, 1, "more than one part")
+
+	var done struct {
+		Status, Error string
+	}
+
+	require.Eventually(t, func() bool {
+		b.call(http.MethodGet, "/api/v1/workflows/"+wf.ID+"/executions/"+e.ID, nil, http.StatusOK, &done)
+		return done.Status != "waiting"
+	}, 10*time.Second, 100*time.Millisecond)
+	assert.Equal(t, "succeeded", done.Status, done.Error)
+}

@@ -167,6 +167,8 @@ func (r *Registry) Validate(w domain.Workflow) error {
 
 		checkParams(&v, n, typ, trigger)
 		checkParamPorts(&v, n, typ)
+		checkTogether(&v, n, typ, trigger)
+		checkRetry(&v, n, typ, trigger)
 	}
 
 	if triggers == 0 {
@@ -257,4 +259,32 @@ func (r *Registry) Types() []TypeInfo {
 	slices.SortFunc(out, func(a, b TypeInfo) int { return strings.Compare(a.Name, b.Name) })
 
 	return out
+}
+
+// checkTogether asks a node type's Check of its settings, once each holds as its kind
+// has it; a node whose settings hold expressions is checked as it runs instead.
+func checkTogether(v *domain.ValidationError, n domain.NodeSpec, typ NodeType, trigger bool) {
+	if typ.Check == nil || slices.ContainsFunc(v.Problems, func(p domain.Problem) bool { return p.NodeID == n.ID }) {
+		return
+	}
+
+	p := Params{}
+
+	for _, spec := range typ.Params {
+		value := n.Params[spec.Name]
+		if !trigger && takesExpressions(typ, spec) && HasExpressions(value) {
+			return
+		}
+
+		switch {
+		case value != nil:
+			p[spec.Name] = value
+		case spec.Default != nil:
+			p[spec.Name] = spec.Default
+		}
+	}
+
+	if err := typ.Check(p); err != nil {
+		v.Add(domain.Problem{NodeID: n.ID, Message: fmt.Sprintf("node %q: %v", n.ID, err), Err: ErrInvalidParam})
+	}
 }

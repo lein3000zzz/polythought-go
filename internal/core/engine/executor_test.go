@@ -467,3 +467,22 @@ func TestRunContextBy(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, "deploy", res.Outputs["by"][engine.DefaultPort][0].JSON["by"])
 }
+
+// A trigger that told its caller the run's ID first, as an inbound webhook does (D439),
+// has the run take it.
+func TestExecuteTakesAGivenID(t *testing.T) {
+	w := domain.Workflow{
+		Nodes:       []domain.NodeSpec{trigger(), spec("a", "test.pass", nil)},
+		Connections: []domain.Connection{mainLink("trigger", "a")},
+	}
+
+	ex := newExecutor(t, observability.NoopUtility())
+
+	res, err := ex.Execute(engine.WithExecutionID(context.Background(), "ex-given"), w, "trigger", fired(item()))
+	require.NoError(t, err)
+	assert.Equal(t, domain.ExecutionID("ex-given"), res.Execution.ID)
+
+	res, err = ex.Execute(context.Background(), w, "trigger", fired(item()))
+	require.NoError(t, err)
+	assert.Equal(t, domain.ExecutionID("ex-1"), res.Execution.ID, "else its own")
+}

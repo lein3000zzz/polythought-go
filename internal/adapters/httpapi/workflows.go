@@ -28,6 +28,9 @@ type nodeDTO struct {
 	Name           string         `json:"name,omitempty" validate:"optional"`
 	Params         map[string]any `json:"params,omitempty" validate:"optional"`
 	ContinueOnFail bool           `json:"continueOnFail,omitempty" validate:"optional"`
+	// Retry is how many more times the node tries what failed, 0 to 5, waiting 1, 2, 4…
+	// seconds; left out for its type's default: 3 for one that only reads, else none.
+	Retry *int `json:"retry,omitempty" validate:"optional" minimum:"0" maximum:"5"`
 	// Position is where the editor draws the node; it never affects execution.
 	Position positionDTO `json:"position" validate:"optional"`
 	// Notes explain the node to whoever reads the workflow; they never affect execution.
@@ -36,14 +39,14 @@ type nodeDTO struct {
 
 func toNodeDTO(n domain.NodeSpec) nodeDTO {
 	return nodeDTO{
-		ID: string(n.ID), Type: n.Type, Name: n.Name, Params: n.Params, ContinueOnFail: n.ContinueOnFail,
+		ID: string(n.ID), Type: n.Type, Name: n.Name, Params: n.Params, ContinueOnFail: n.ContinueOnFail, Retry: n.Retry,
 		Position: positionDTO{X: n.Position.X, Y: n.Position.Y}, Notes: n.Notes,
 	}
 }
 
 func (n nodeDTO) spec() domain.NodeSpec {
 	return domain.NodeSpec{
-		ID: domain.NodeID(n.ID), Type: n.Type, Name: n.Name, Params: n.Params, ContinueOnFail: n.ContinueOnFail,
+		ID: domain.NodeID(n.ID), Type: n.Type, Name: n.Name, Params: n.Params, ContinueOnFail: n.ContinueOnFail, Retry: n.Retry,
 		Position: domain.CanvasPosition{X: n.Position.X, Y: n.Position.Y}, Notes: n.Notes,
 	}
 }
@@ -71,7 +74,15 @@ type workflowDTO struct {
 	// ActedBy is the agent or token that switched it on, or changed it while on, named on
 	// its runs until it is switched again (D407); absent for you.
 	ActedBy *actorDTO `json:"actedBy,omitempty" validate:"optional"`
+	// Hold is an admin's holding it off (D435): it is switched on again once they release
+	// it. Absent while none does.
+	Hold *holdDTO `json:"hold,omitempty" validate:"optional"`
 } // @name Workflow
+
+type holdDTO struct {
+	Reason string    `json:"reason"`
+	At     time.Time `json:"at" format:"date-time"`
+} // @name WorkflowHold
 
 // actorDTO is an agent or an API token that acted for you (D407), named as it was then.
 type actorDTO struct {
@@ -105,6 +116,10 @@ func toWorkflowDTO(w domain.Workflow) workflowDTO {
 		Nodes:       make([]nodeDTO, len(w.Nodes)),
 		Connections: make([]connectionDTO, len(w.Connections)),
 		CreatedAt:   w.CreatedAt, UpdatedAt: w.UpdatedAt, ActedBy: toActorDTO(w.ActedBy),
+	}
+
+	if h := w.Hold; h != nil {
+		out.Hold = &holdDTO{Reason: h.Reason, At: h.At}
 	}
 
 	for i, n := range w.Nodes {
@@ -172,6 +187,8 @@ type nodeRunDTO struct {
 	Input      map[string]int `json:"input,omitempty" validate:"optional"`                         // items per input port
 	Output     map[string]int `json:"output,omitempty" validate:"optional"`                        // items per output port
 	Error      string         `json:"error,omitempty" validate:"optional"`
+	// Tries is how many times the node ran, its retries counted; absent for once.
+	Tries int `json:"tries,omitempty" validate:"optional"`
 	// Samples are the first items of each output port. Only runs started by hand keep
 	// them, and execution lists leave them out.
 	Samples map[string][]itemSampleDTO `json:"samples,omitempty" validate:"optional"`
@@ -213,7 +230,7 @@ func toExecutionDTO(e domain.Execution, withSamples bool) executionDTO {
 	for i, r := range e.Runs {
 		out.Runs[i] = nodeRunDTO{
 			NodeID: string(r.NodeID), Status: string(r.Status), StartedAt: r.StartedAt, FinishedAt: optionalTime(r.FinishedAt),
-			Input: r.Input, Output: r.Output, Error: r.Error,
+			Input: r.Input, Output: r.Output, Error: r.Error, Tries: r.Tries,
 		}
 
 		if withSamples {
@@ -268,7 +285,7 @@ type paramDTO struct {
 	Name        string `json:"name"`
 	Label       string `json:"label,omitempty" validate:"optional"`
 	Description string `json:"description,omitempty" validate:"optional"`
-	Kind        string `json:"kind" enums:"string,number,decimal,bool,list,duration,wallet,tokens,address,table,credential,code"`
+	Kind        string `json:"kind" enums:"string,number,decimal,bool,list,duration,wallet,tokens,address,table,credential,code,dataset,model"`
 	Required    bool   `json:"required"`
 	Default     any    `json:"default,omitempty" validate:"optional"`
 	// Options are the allowed values of a string, or of each element of a list.
@@ -324,6 +341,12 @@ type nodeTypeDTO struct {
 	Plugin     string `json:"plugin,omitempty" validate:"optional"`
 	PluginName string `json:"pluginName,omitempty" validate:"optional"`
 	Trades     bool   `json:"trades,omitempty" validate:"optional"`
+	// Reads says it only reads, so a failure is tried again 3 more times unless its
+	// retry says otherwise; readsWhen, that it reads only with that param's value.
+	// NoRetry says it is never retried: a retry could do what it does twice.
+	Reads     bool       `json:"reads,omitempty" validate:"optional"`
+	ReadsWhen *choiceDTO `json:"readsWhen,omitempty" validate:"optional"`
+	NoRetry   bool       `json:"noRetry,omitempty" validate:"optional"`
 } // @name NodeType
 
 // itemsDTO describes the items a node emits on every output port: fields of its own, or
@@ -332,7 +355,7 @@ type nodeTypeDTO struct {
 // the param saying how a node combines its two inputs (both, either, onlyA, onlyOne or
 // join), joinedAs the one naming the field that holds the second's item in a join. Named
 // names the text param holding the name of its one field; alone is the value of a param
-// under which a node passing items sends one item of its fields alone. The error port
+// under which a node passing items sends items of its fields alone. The error port
 // carries the items received.
 type itemsDTO struct {
 	Fields   []fieldDTO `json:"fields"`
@@ -404,6 +427,7 @@ func toNodeTypeDTO(t engine.TypeInfo) nodeTypeDTO {
 		Params: make([]paramDTO, len(t.Params)), OutputsParam: t.OutputsParam, OutputsColumn: t.OutputsColumn,
 		Items: toItemsDTO(t.Items), Code: t.Code, Remembers: t.Remembers, SeesItems: t.SeesItems,
 		Plugin: t.Plugin, PluginName: t.PluginName, Trades: t.Trades,
+		Reads: t.Reads, ReadsWhen: toChoiceDTO(t.ReadsWhen), NoRetry: t.NoRetry || t.Trades,
 	}
 
 	for j, p := range t.Params {
@@ -918,4 +942,12 @@ func (s *Server) orderPins(ctx context.Context, c *app.RequestContext) {
 	}
 
 	c.Status(http.StatusNoContent)
+}
+
+func toChoiceDTO(c *engine.Choice) *choiceDTO {
+	if c == nil {
+		return nil
+	}
+
+	return &choiceDTO{Param: c.Param, Value: c.Value}
 }

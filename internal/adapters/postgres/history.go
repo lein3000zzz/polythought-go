@@ -42,7 +42,7 @@ func (r *WorkflowHistory) Record(ctx context.Context, s domain.Switch) error {
 	_, err = t.INSERT(t.AllColumns).MODEL(model.WorkflowSwitches{
 		ID: id, WorkflowID: wid, Kind: string(s.Kind),
 		ByGrant: string(s.By.GrantID), ByToken: string(s.By.TokenID), ByName: s.By.Name, ByConfirmed: s.By.Confirmed,
-		Polythought: s.Polythought, Reason: s.Reason, WalletID: string(s.WalletID), WalletAddress: string(s.WalletAddress),
+		Polythought: s.Polythought, ByAdmin: s.Admin, Reason: s.Reason, WalletID: string(s.WalletID), WalletAddress: string(s.WalletAddress),
 		At: s.At.UTC(),
 	}).ExecContext(ctx, r.db.conn(ctx))
 
@@ -112,7 +112,7 @@ func (r *WorkflowHistory) List(ctx context.Context, owner domain.UserID, workflo
 		page.Items[i] = domain.Switch{
 			ID: domain.SwitchID(m.ID.String()), WorkflowID: domain.WorkflowID(m.WorkflowID.String()), Kind: domain.SwitchKind(m.Kind),
 			By:          domain.Actor{GrantID: domain.GrantID(m.ByGrant), TokenID: domain.APITokenID(m.ByToken), Name: m.ByName, Confirmed: m.ByConfirmed},
-			Polythought: m.Polythought, Reason: m.Reason,
+			Polythought: m.Polythought, Admin: m.ByAdmin, Reason: m.Reason,
 			WalletID: domain.WalletID(m.WalletID), WalletAddress: domain.WalletAddress(m.WalletAddress), At: m.At.UTC(),
 		}
 	}

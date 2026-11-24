@@ -68,7 +68,7 @@ func exampleFile() (string, error) {
 }
 
 // typesDir is where the SDK's declarations are, from the repository's root.
-const typesDir = "internal/adapters/tscompiler/sdk/types"
+const typesDir = "sdk/typescript/types"
 
 // build generates the pages and the declarations from the node types and settings the
 // server registers.
@@ -77,11 +77,17 @@ func build() (Pages, map[string]string, error) {
 
 	// Only the types are read, so the nodes get no real dependencies; the market and
 	// wallet triggers register only with a feed, the Telegram nodes only with the bot, the
-	// providers' credential types only with an LLM, and the Local agent only with agents.
+	// providers' credential types only with an LLM, the Local agent only with agents, and
+	// the HTTP request node only with a requester, the Inbound webhook only with hooks, the weather nodes only with a
+	// weather reader, Record and Read dataset only with datasets, and Ask a model only with models.
 	err := nodes.Register(registry, nodes.Deps{
 		Feed: noFeed{}, Traders: noTraders{}, Messenger: noTelegram{}, TelegramInbox: noTelegram{}, Asker: noTelegram{}, Code: noCode{},
 		Orders: noOrders{}, Books: noBooks{}, Accounts: noAccounts{}, Memory: noMemory{},
 		Canceller: noOrders{}, OrderEvents: noOrders{}, Batches: noOrders{}, LLM: noLLM{}, TaskAgents: noAgents{},
+		HTTP:     noHTTP{},
+		Hooks:    noHooks{},
+		Weather:  noWeather{},
+		Datasets: noDatasets{}, Models: noModels{},
 		Logger: logging.Noop(),
 	})
 	if err != nil {
@@ -218,6 +224,35 @@ type noCode struct{}
 
 func (noCode) Call(context.Context, ports.CodeCall) (ports.CodeResult, error) {
 	return ports.CodeResult{}, nil
+}
+
+type noWeather struct{}
+
+func (noWeather) Forecast(context.Context, ports.ForecastQuery) (ports.Forecast, error) {
+	return ports.Forecast{}, nil
+}
+
+func (noWeather) Observations(context.Context, string, int) ([]ports.Observation, error) {
+	return nil, nil
+}
+
+// noDatasets and noModels stand in for the datasets and models: only the node types are
+// read.
+type (
+	noDatasets struct{ ports.DatasetStore }
+	noModels   struct{ ports.ModelAsker }
+)
+
+type noHooks struct{}
+
+func (noHooks) Listen(domain.WorkflowID, domain.NodeID) (<-chan ports.HookCall, func()) {
+	return nil, func() {}
+}
+
+type noHTTP struct{}
+
+func (noHTTP) Do(context.Context, ports.HTTPRequest) (ports.HTTPResponse, error) {
+	return ports.HTTPResponse{}, nil
 }
 
 type noAgents struct{}

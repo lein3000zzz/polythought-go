@@ -25,15 +25,23 @@ type Column =
   | 'failed'
   | 'last'
 
-// linked: each name opens its workflow; not for another user's, which an admin sees (D431).
-type Props = { mode: 'paper' | 'live'; workflows: WorkflowStats[]; linked?: boolean }
+// href is where each name opens: its owner's editor unless said; an admin opens another
+// user's read-only (D435).
+type Props = {
+  mode: 'paper' | 'live'
+  workflows: WorkflowStats[]
+  href?: (w: WorkflowStats, trading: boolean) => string
+}
+
+const editorOf = (w: WorkflowStats, trading: boolean) =>
+  trading ? `/workflows/${w.id}?view=trading` : `/workflows/${w.id}`
 
 /**
  * Every workflow, its results in the mode shown where it trades in it, its highest and
  * lowest among them (D430), and its runs this week (D429), sorted as its heads are clicked:
  * the most profitable first to start with.
  */
-export function WorkflowsTable({ mode, workflows, linked = true }: Props) {
+export function WorkflowsTable({ mode, workflows, href = editorOf }: Props) {
   const [sort, by] = useSort<Column>({ key: 'profit', dir: 'desc' }, ['name'])
 
   const value = (w: WorkflowStats, key: Column): SortValue => {
@@ -97,16 +105,9 @@ export function WorkflowsTable({ mode, workflows, linked = true }: Props) {
                 <TableRow key={w.id}>
                   <TableCell className="max-w-64">
                     <div className="flex items-center gap-2">
-                      {linked ? (
-                        <Link
-                          to={t ? `/workflows/${w.id}?view=trading` : `/workflows/${w.id}`}
-                          className="truncate font-medium hover:underline"
-                        >
-                          {w.name}
-                        </Link>
-                      ) : (
-                        <span className="truncate font-medium">{w.name}</span>
-                      )}
+                      <Link to={href(w, !!t)} className="truncate font-medium hover:underline">
+                        {w.name}
+                      </Link>
                       {w.active && <Badge variant="secondary">Active</Badge>}
                     </div>
                   </TableCell>

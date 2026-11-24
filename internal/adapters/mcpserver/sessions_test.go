@@ -19,6 +19,10 @@ import (
 	"github.com/lein3000zzz/polythought-go/internal/core/ports"
 )
 
+// settle is how long a session's close may take to reach the ledger. The SDK closes one in
+// the background, and on a busy runner under the race detector that has taken over a second.
+const settle = 5 * time.Second
+
 // ledger keeps sessions in memory, as the database does.
 type ledger struct {
 	mu         sync.Mutex
@@ -180,7 +184,7 @@ func TestSessionLimits(t *testing.T) {
 			sessions = append(sessions, s)
 		}
 
-		require.Eventually(t, func() bool { return l.count() == 2 }, time.Second, 5*time.Millisecond)
+		require.Eventually(t, func() bool { return l.count() == 2 }, settle, 5*time.Millisecond)
 
 		_, err := sessions[0].CallTool(ctx, &mcp.CallToolParams{Name: "whoami"})
 		require.Error(t, err, "the oldest is closed")
@@ -205,7 +209,7 @@ func TestSessionLimits(t *testing.T) {
 		_, err = second.CallTool(ctx, &mcp.CallToolParams{Name: "whoami"})
 		require.NoError(t, err)
 
-		require.Eventually(t, func() bool { return l.count() == 1 }, time.Second, 5*time.Millisecond)
+		require.Eventually(t, func() bool { return l.count() == 1 }, settle, 5*time.Millisecond)
 
 		_, err = first.CallTool(ctx, &mcp.CallToolParams{Name: "whoami"})
 		require.Error(t, err)
@@ -238,7 +242,7 @@ func TestSessionLimits(t *testing.T) {
 
 		_, err = s.CallTool(ctx, &mcp.CallToolParams{Name: "whoami"})
 		require.NoError(t, err)
-		require.Eventually(t, func() bool { return l.count() == 1 }, time.Second, 5*time.Millisecond)
+		require.Eventually(t, func() bool { return l.count() == 1 }, settle, 5*time.Millisecond)
 
 		srv.EndedToken("t-1") // another holder's: nothing closes
 
@@ -247,7 +251,7 @@ func TestSessionLimits(t *testing.T) {
 
 		srv.EndedGrant("g-1")
 
-		require.Eventually(t, func() bool { return l.count() == 0 }, time.Second, 5*time.Millisecond)
+		require.Eventually(t, func() bool { return l.count() == 0 }, settle, 5*time.Millisecond)
 
 		_, err = s.CallTool(ctx, &mcp.CallToolParams{Name: "whoami"})
 		require.Error(t, err)
@@ -265,7 +269,7 @@ func TestSessionLimits(t *testing.T) {
 
 		_, err = s.CallTool(ctx, &mcp.CallToolParams{Name: "whoami"})
 		require.NoError(t, err)
-		require.Eventually(t, func() bool { return l.count() == 1 }, time.Second, 5*time.Millisecond)
+		require.Eventually(t, func() bool { return l.count() == 1 }, settle, 5*time.Millisecond)
 
 		got, err := srv.Connected(ctx, alice.ID)
 		require.NoError(t, err)
@@ -288,7 +292,7 @@ func TestSessionsKept(t *testing.T) {
 		_, err := agent.CallTool(ctx, &mcp.CallToolParams{Name: "whoami"})
 		require.NoError(t, err)
 
-		require.Eventually(t, func() bool { return l.count() == 1 }, time.Second, 5*time.Millisecond)
+		require.Eventually(t, func() bool { return l.count() == 1 }, settle, 5*time.Millisecond)
 
 		got, err := srv.Connected(ctx, alice.ID)
 		require.NoError(t, err)
@@ -300,7 +304,7 @@ func TestSessionsKept(t *testing.T) {
 		assert.False(t, got[0].BeforeRestart)
 
 		require.NoError(t, agent.Close())
-		require.Eventually(t, func() bool { return l.count() == 0 }, time.Second, 5*time.Millisecond, "ended by its client")
+		require.Eventually(t, func() bool { return l.count() == 0 }, settle, 5*time.Millisecond, "ended by its client")
 	})
 
 	t.Run("one from before a restart, until its agent comes back", func(t *testing.T) {
@@ -321,7 +325,7 @@ func TestSessionsKept(t *testing.T) {
 		require.Eventually(t, func() bool {
 			got, _ := srv.Connected(ctx, alice.ID)
 			return len(got) == 1 && !got[0].BeforeRestart
-		}, time.Second, 5*time.Millisecond, "its new session replaces it")
+		}, settle, 5*time.Millisecond, "its new session replaces it")
 		assert.Equal(t, []string{"old"}, l.superseded)
 	})
 
@@ -332,7 +336,7 @@ func TestSessionsKept(t *testing.T) {
 
 		_, err := agent.CallTool(ctx, &mcp.CallToolParams{Name: "whoami"})
 		require.NoError(t, err)
-		require.Eventually(t, func() bool { return l.count() == 1 }, time.Second, 5*time.Millisecond)
+		require.Eventually(t, func() bool { return l.count() == 1 }, settle, 5*time.Millisecond)
 
 		require.NoError(t, srv.Shutdown(ctx))
 		require.NoError(t, agent.Close())

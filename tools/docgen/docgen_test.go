@@ -86,7 +86,7 @@ func TestEveryNodeHasAPage(t *testing.T) {
 	assert.Contains(t, pages, "nodes/polymarket/price-change.md")
 	assert.Contains(t, pages, "nodes.md")
 	assert.Contains(t, pages, "settings.md")
-	assert.Contains(t, pages["credential-types.md"], "Used by: [Webhook](/docs/reference/nodes/output/webhook/).")
+	assert.Contains(t, pages["credential-types.md"], "Used by: [HTTP request](/docs/reference/nodes/http/request/), [Webhook](/docs/reference/nodes/output/webhook/).")
 
 	assert.Contains(t, pages, "code-types.md")
 	assert.Contains(t, pages["code-types.md"], "export interface PolymarketMarketsItem {")
@@ -116,7 +116,7 @@ func TestTypeNamesAreUnique(t *testing.T) {
 	require.NoError(t, nodes.Register(registry, nodes.Deps{
 		Feed: noFeed{}, Traders: noTraders{}, Messenger: noTelegram{}, TelegramInbox: noTelegram{}, Asker: noTelegram{}, Code: noCode{},
 		Orders: noOrders{}, Books: noBooks{}, Accounts: noAccounts{}, Memory: noMemory{},
-		Canceller: noOrders{}, OrderEvents: noOrders{}, Batches: noOrders{}, LLM: noLLM{},
+		Canceller: noOrders{}, OrderEvents: noOrders{}, Batches: noOrders{}, LLM: noLLM{}, HTTP: noHTTP{}, Hooks: noHooks{}, Weather: noWeather{}, Datasets: noDatasets{}, Models: noModels{},
 		Logger: logging.Noop(),
 	}))
 

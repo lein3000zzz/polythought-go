@@ -225,7 +225,7 @@ var (
 func declaredFields(t *testing.T) map[string][]string {
 	t.Helper()
 
-	f, err := os.Open("sdk/types/sdk.d.ts")
+	f, err := os.Open("../../../sdk/typescript/types/sdk.d.ts")
 	require.NoError(t, err)
 	t.Cleanup(func() { _ = f.Close() })
 
@@ -490,4 +490,39 @@ func TestCustomNodeEndToEnd(t *testing.T) {
 		require.Len(t, out[engine.ErrorPort], 2)
 		assert.EqualError(t, out[engine.ErrorPort][0].Err, "what run returned item 1 does not match the node's fields: field count is missing")
 	})
+}
+
+// TestSDKZone reads times by a zone's clock, daylight saving followed (D440): one data
+// request a zone a run, however many times code asks.
+func TestSDKZone(t *testing.T) {
+	t.Parallel()
+
+	res, err := withSDK(t, `
+		import { zone } from "@polythought/sdk"
+		export function run() {
+			const year = new Date().getUTCFullYear()
+			// A January and a July of this year, or next, within a year of now.
+			const winter = zone("America/Chicago", Date.UTC(year + (new Date().getUTCMonth() > 0 ? 1 : 0), 0, 15, 12, 30))
+			const summer = zone("America/Chicago", Date.UTC(new Date().getUTCMonth() > 6 ? year + 1 : year, 6, 15, 12, 30))
+			const now = zone("Asia/Kolkata")
+			let bad = ""
+			try { zone("Mars/Olympus") } catch (e) { bad = (e as Error).message }
+			let far = ""
+			try { zone("America/Chicago", "1990-01-01T00:00:00Z") } catch (e) { far = (e as Error).message }
+			return {
+				winter: [winter.time, winter.offset, winter.offsetMinutes, winter.abbreviation, winter.dst, winter.iso.slice(10)],
+				summer: [summer.time, summer.offset, summer.abbreviation, summer.dst],
+				kolkata: [now.offset, now.zone, now.weekday.length, now.date.length],
+				bad, far,
+			}
+		}`, nil, code.Data{}, ports.CodeLimits{})
+	require.NoError(t, err)
+	assert.JSONEq(t, `{
+		"winter": ["06:30:00", "-06:00", -360, "CST", false, "T06:30:00-06:00"],
+		"summer": ["07:30:00", "-05:00", "CDT", true],
+		"kolkata": ["+05:30", "Asia/Kolkata", 3, 10],
+		"bad": "zone: \"Mars/Olympus\" is not a time zone: one like America/Chicago or Europe/London",
+		"far": "zone: give a time within a year of now"
+	}`, string(res.Output))
+	assert.Equal(t, 3, res.HostCalls, "Chicago once, Kolkata once, and the zone that is none")
 }

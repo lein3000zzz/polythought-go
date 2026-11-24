@@ -22,8 +22,31 @@ type WaitRecord struct {
 	State       json.RawMessage
 	CreatedAt   time.Time
 
-	// Lease is the agent a task is handed to, and until when, while it is (D412).
-	Lease *TaskLease
+	// Parts are its task's parts (D436), each handed to an agent on its own lease (D412) and
+	// answered alone; one for a task that fits. None for a wait that hands no task.
+	Parts []TaskPart
+}
+
+// TaskPart is a part of a task: which of its items, the agent it is handed to and until
+// when, while it is, and its answers once given.
+type TaskPart struct {
+	Index      int
+	First      int // the first of the task's items in it
+	Items      int // and how many
+	Lease      *TaskLease
+	Answers    []any // nil until answered: an answer per item, or the one answer together
+	AnsweredBy string
+}
+
+// Answered says every part of parts is answered.
+func Answered(parts []TaskPart) bool {
+	for _, p := range parts {
+		if p.Answers == nil {
+			return false
+		}
+	}
+
+	return len(parts) > 0
 }
 
 // WaitTask is the task a local agent node hands its owner's agents (D386): the prompt as
@@ -34,6 +57,9 @@ type WaitTask struct {
 	Schema   json.RawMessage `json:"schema,omitempty"` // what a JSON answer keeps to, answering in fields or to a schema
 	Prompt   string          `json:"prompt,omitempty"` // together: the one prompt
 	Items    []TaskItem      `json:"items,omitempty"`  // each: one per item; together: the items, where included
+	// Splits are where a task answered per item, too big to take at once, is split into
+	// parts (D436): the first item of each part after the first. None: one part.
+	Splits []int `json:"splits,omitempty"`
 }
 
 // TaskItem is one item of a task: its prompt, answering each, and the item itself.
@@ -75,16 +101,20 @@ type WaitRepository interface {
 	// TakeForWorkflow removes and returns every wait of a workflow; owner scopes it.
 	TakeForWorkflow(ctx context.Context, owner domain.UserID, id domain.WorkflowID) ([]WaitRecord, error)
 
-	// LeaseTask hands the owner's oldest task no agent holds, or whose lease ran out, to
-	// lease until its Until (D412); domain.ErrNotFound when there is none.
-	LeaseTask(ctx context.Context, owner domain.UserID, lease TaskLease, now time.Time) (WaitRecord, error)
-	// ReleaseTask takes a task from the agent that has it, for any to take (D413);
-	// domain.ErrNotFound for no task of the owner's.
+	// LeaseTask hands the part of the owner's oldest task that no agent holds, or whose
+	// lease ran out, and is not answered, to lease until its Until (D412, D436): the task,
+	// and which of its parts. domain.ErrNotFound when there is none.
+	LeaseTask(ctx context.Context, owner domain.UserID, lease TaskLease, now time.Time) (WaitRecord, int, error)
+	// ReleaseTask takes a task's parts not answered yet from the agents that have them, for
+	// any to take (D413); domain.ErrNotFound for no task of the owner's.
 	ReleaseTask(ctx context.Context, owner domain.UserID, id domain.ExecutionID) error
-	// RenewLeases holds the tasks holder has until until.
+	// RenewLeases holds the parts holder has until until.
 	RenewLeases(ctx context.Context, owner domain.UserID, holder string, until time.Time) error
-	// TakeTask is Take for a task holder has: domain.ErrNotFound for one another holds,
-	// none does, or that is no task.
+	// AnswerPart keeps the answers to a part holder has, not answered yet, and gives the
+	// task's parts as they are then; domain.ErrNotFound for one holder does not have.
+	AnswerPart(ctx context.Context, owner domain.UserID, id domain.ExecutionID, part int, holder string, answers []any, by string) ([]TaskPart, error)
+	// TakeTask is Take for a task holder has a part of: domain.ErrNotFound for one it has
+	// none of, or that is no task.
 	TakeTask(ctx context.Context, owner domain.UserID, id domain.ExecutionID, holder string) (WaitRecord, error)
 }
 

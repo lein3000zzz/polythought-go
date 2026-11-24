@@ -109,9 +109,33 @@ var routeScopes = map[string]access{
 	"POST /api/v1/workflows/:id/executions/:eid/task/hand-back": browserOnly,
 	"POST /api/v1/workflows/:id/executions/:eid/task/answer":    browserOnly,
 	"DELETE /api/v1/workflows/:id/nodes/:node/memory":           need(domain.ScopeBuild),
-	"PUT /api/v1/workflows/:id/share":                           need(domain.ScopeBuild),
-	"POST /api/v1/library/:id/use":                              need(domain.ScopeBuild),
-	"DELETE /api/v1/library/:id":                                need(domain.ScopeBuild),
+	// Datasets: written with the data scope.
+	"POST /api/v1/datasets":                             need(domain.ScopeData),
+	"DELETE /api/v1/datasets/:name":                     need(domain.ScopeData),
+	"PUT /api/v1/datasets/:name/keep":                   need(domain.ScopeData),
+	"POST /api/v1/datasets/:name/rows":                  need(domain.ScopeData),
+	"POST /api/v1/datasets/:name/replace":               need(domain.ScopeData),
+	"POST /api/v1/datasets/:name/replace/:stage/rows":   need(domain.ScopeData),
+	"POST /api/v1/datasets/:name/replace/:stage/finish": need(domain.ScopeData),
+	"DELETE /api/v1/datasets/:name/replace/:stage":      need(domain.ScopeData),
+	// Models: written and asked with the data scope.
+	"POST /api/v1/models":                  need(domain.ScopeData),
+	"PUT /api/v1/models/:name":             need(domain.ScopeData),
+	"DELETE /api/v1/models/:name":          need(domain.ScopeData),
+	"POST /api/v1/models/:name/ask":        need(domain.ScopeData),
+	"POST /api/v1/models/:name/keys":       browserOnly, // a worker key is made at a browser
+	"DELETE /api/v1/models/:name/keys/:id": need(domain.ScopeData),
+	// A model's workers sign in with its worker key, never a token.
+	"POST /api/v1/worker/next":                anyToken,
+	"POST /api/v1/worker/requests/:id/answer": anyToken,
+	"POST /api/v1/worker/requests/:id/fail":   anyToken,
+	// An inbound webhook's secret address starts the workflow for whoever has it:
+	// its owner's, at a browser, read and renewed.
+	"GET /api/v1/workflows/:id/hooks/:node":        browserOnly,
+	"POST /api/v1/workflows/:id/hooks/:node/renew": browserOnly,
+	"PUT /api/v1/workflows/:id/share":              need(domain.ScopeBuild),
+	"POST /api/v1/library/:id/use":                 need(domain.ScopeBuild),
+	"DELETE /api/v1/library/:id":                   need(domain.ScopeBuild),
 
 	// Trading: paper or live, which the trading service tells apart.
 	"POST /api/v1/workflows/:id/paper-account/reset":  need(domain.ScopePaper),

@@ -9,6 +9,7 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/lein3000zzz/polythought-go/internal/core/domain"
 	"github.com/lein3000zzz/polythought-go/internal/core/nodes/account"
@@ -94,6 +95,8 @@ func (s *Service) host(owner domain.UserID) ports.CodeHost {
 			answer, err = s.orderBooks(ctx, args)
 		case "positions.list":
 			answer, err = s.positions(ctx, owner, args)
+		case "zone":
+			answer, err = zoneOf(args, time.Now())
 		default:
 			return nil, fmt.Errorf("there is no data request %q", name)
 		}

@@ -87,6 +87,8 @@ first, then the list, so the canvas keeps some room.
 - **Notes** on a node are for you: they show on the canvas and never change what it does.
 - **Continue on failure** sends items the node fails on to its `error` port instead of
   failing the execution; see [When items fail](/docs/guides/concepts/#when-items-fail).
+- **Retry** is how many more times the node tries what fails, empty for its default; see
+  [Trying again](/docs/guides/concepts/#trying-again).
 
 ## Shortcuts
 
@@ -134,8 +136,8 @@ refused rather than overwriting the other change. Reload to get the latest versi
 
 ## Running
 
-**Run** starts the workflow now, from its Manual trigger, or from its Schedule if it has no
-Manual one. With unsaved changes the button reads **Save and run**.
+**Run** starts the workflow now, from its Manual trigger, or else from its Schedule, or else
+from its Inbound webhook, as if called with nothing. With unsaved changes the button reads **Save and run**.
 
 When the run finishes, each node shows how it went and how many items it sent. Select a
 node and open its **Output** tab to see the items it sent on each port: runs you start by
@@ -174,10 +176,14 @@ your yes.
 - its paper account reset;
 - your kill switch on or off, while it traded live.
 
-Each says who did it: you, an agent or API token by name, or Polythought itself. An agent or
-token may say why, shown in quotes as its own words. Polythought always says why, such as
-an admin disabling the account, a plugin the workflow uses being disabled, or its wallet
-being unlinked.
+Each says who did it: you, an agent or API token by name, an admin, or Polythought itself.
+An agent or token may say why, shown in quotes as its own words. Polythought always says
+why, such as an admin disabling the account, a plugin the workflow uses being disabled,
+its wallet being unlinked, or its triggers starting it more often in an hour than the
+instance allows. An admin says why too.
+
+An admin may hold a workflow off: **Held by an admin** shows beside **Active**, which stays
+off until an admin releases it. You are told when it is held off and when it is released.
 
 The buttons at the top pick which kinds show, and stay as you leave them. **Show older**
 loads more. Entries are kept 90 days unless an admin

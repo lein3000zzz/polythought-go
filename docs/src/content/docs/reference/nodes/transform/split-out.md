@@ -16,7 +16,7 @@ Makes an item of each entry of a list field, like a market's outcomes, with the 
 | Inputs | `main` |
 | Outputs | `main` |
 
-Items that fail stop the execution, unless **Continue on failure** is on: then they leave on the `error` port instead.
+Items that fail stop the execution, unless **Continue on failure** is on: then they leave on the `error` port instead. What fails is tried again only when **Retry** asks.
 
 ## Settings
 

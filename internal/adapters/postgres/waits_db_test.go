@@ -243,29 +243,31 @@ func TestWaitTasks(t *testing.T) {
 	plain := seedAsked(t, db, alice, at.Add(time.Hour), "k-plain")
 	seedTask(t, db, bob, task, at.Add(-time.Hour))
 
-	got, err := repo.LeaseTask(ctx, alice.ID, ports.TaskLease{Holder: "grant:g-1", Name: "grant:g-1", Until: at.Add(10 * time.Minute)}, at)
+	got, part, err := repo.LeaseTask(ctx, alice.ID, ports.TaskLease{Holder: "grant:g-1", Name: "grant:g-1", Until: at.Add(10 * time.Minute)}, at)
 	require.NoError(t, err)
 	assert.Equal(t, older.ExecutionID, got.ExecutionID, "the oldest first, the owner's own")
 	assert.JSONEq(t, string(task.Schema), string(got.Task.Schema))
 	got.Task.Schema = task.Schema
 	assert.Equal(t, task, got.Task, "kept as it was")
-	assert.Equal(t, &ports.TaskLease{Holder: "grant:g-1", Name: "grant:g-1", Until: at.Add(10 * time.Minute)}, got.Lease)
+	assert.Zero(t, part, "one part: it fits")
+	require.Len(t, got.Parts, 1)
+	assert.Equal(t, &ports.TaskLease{Holder: "grant:g-1", Name: "grant:g-1", Until: at.Add(10 * time.Minute)}, got.Parts[0].Lease)
 
-	got, err = repo.LeaseTask(ctx, alice.ID, ports.TaskLease{Holder: "grant:g-2", Name: "grant:g-2", Until: at.Add(10 * time.Minute)}, at)
+	got, _, err = repo.LeaseTask(ctx, alice.ID, ports.TaskLease{Holder: "grant:g-2", Name: "grant:g-2", Until: at.Add(10 * time.Minute)}, at)
 	require.NoError(t, err)
 	assert.Equal(t, newer.ExecutionID, got.ExecutionID, "one held is another's")
 
-	_, err = repo.LeaseTask(ctx, alice.ID, ports.TaskLease{Holder: "grant:g-3", Name: "grant:g-3", Until: at.Add(10 * time.Minute)}, at)
+	_, _, err = repo.LeaseTask(ctx, alice.ID, ports.TaskLease{Holder: "grant:g-3", Name: "grant:g-3", Until: at.Add(10 * time.Minute)}, at)
 	require.ErrorIs(t, err, domain.ErrNotFound, "every task held; a question is no task")
 
 	require.NoError(t, repo.RenewLeases(ctx, alice.ID, "grant:g-1", at.Add(20*time.Minute)))
 
-	_, err = repo.LeaseTask(ctx, alice.ID, ports.TaskLease{Holder: "grant:g-3", Name: "grant:g-3", Until: at.Add(25 * time.Minute)}, at.Add(15*time.Minute))
+	_, _, err = repo.LeaseTask(ctx, alice.ID, ports.TaskLease{Holder: "grant:g-3", Name: "grant:g-3", Until: at.Add(25 * time.Minute)}, at.Add(15*time.Minute))
 	require.NoError(t, err, "g-2's ran out")
 
 	held, err := repo.Get(ctx, alice.ID, older.ExecutionID)
 	require.NoError(t, err)
-	assert.Equal(t, at.Add(20*time.Minute), held.Lease.Until, "g-1's renewed")
+	assert.Equal(t, at.Add(20*time.Minute), held.Parts[0].Lease.Until, "g-1's renewed")
 
 	_, err = repo.TakeTask(ctx, alice.ID, newer.ExecutionID, "grant:g-2")
 	require.ErrorIs(t, err, domain.ErrNotFound, "g-3 has it now")
@@ -276,12 +278,12 @@ func TestWaitTasks(t *testing.T) {
 
 	free, err := repo.Get(ctx, alice.ID, newer.ExecutionID)
 	require.NoError(t, err)
-	assert.Nil(t, free.Lease)
+	assert.Nil(t, free.Parts[0].Lease)
 
-	got, err = repo.LeaseTask(ctx, alice.ID, ports.TaskLease{Holder: "token:t-1", Name: "the API token “laptop”", Until: at.Add(30 * time.Minute)}, at.Add(16*time.Minute))
+	got, _, err = repo.LeaseTask(ctx, alice.ID, ports.TaskLease{Holder: "token:t-1", Name: "the API token “laptop”", Until: at.Add(30 * time.Minute)}, at.Add(16*time.Minute))
 	require.NoError(t, err)
 	assert.Equal(t, newer.ExecutionID, got.ExecutionID, "for any to take")
-	assert.Equal(t, "the API token “laptop”", got.Lease.Name)
+	assert.Equal(t, "the API token “laptop”", got.Parts[0].Lease.Name)
 
 	_, err = repo.TakeTask(ctx, alice.ID, plain.ExecutionID, "grant:g-1")
 	require.ErrorIs(t, err, domain.ErrNotFound, "a question is no task")
@@ -295,4 +297,76 @@ func TestWaitTasks(t *testing.T) {
 
 	_, err = repo.Get(ctx, alice.ID, older.ExecutionID)
 	require.ErrorIs(t, err, domain.ErrNotFound, "taken once")
+}
+
+// A task too big to take at once, in parts (D436): each to its own agent, answered alone;
+// one answered goes to no one again, and the task is taken once every part is.
+func TestTaskParts(t *testing.T) {
+	ctx := context.Background()
+	db := fresh(t)
+	repo := postgres.NewWaits(db)
+	alice := seedUser(t, db, "alice@example.com", domain.RoleUser)
+
+	task := &ports.WaitTask{
+		Call: "each", AnswerAs: "text", Splits: []int{2},
+		Items: []ports.TaskItem{{Prompt: "a"}, {Prompt: "b"}, {Prompt: "c"}},
+	}
+	w := seedTask(t, db, alice, task, at)
+
+	lease := func(holder string) (int, error) {
+		_, part, err := repo.LeaseTask(ctx, alice.ID, ports.TaskLease{Holder: holder, Name: holder, Until: at.Add(10 * time.Minute)}, at)
+		return part, err
+	}
+
+	first, err := lease("grant:g-1")
+	require.NoError(t, err)
+	second, err := lease("grant:g-2")
+	require.NoError(t, err)
+	assert.Equal(t, []int{0, 1}, []int{first, second}, "both parts, to two agents at once")
+
+	_, err = lease("grant:g-3")
+	require.ErrorIs(t, err, domain.ErrNotFound)
+
+	rec, err := repo.Get(ctx, alice.ID, w.ExecutionID)
+	require.NoError(t, err)
+	require.Len(t, rec.Parts, 2)
+	assert.Equal(t, ports.TaskPart{Index: 1, First: 2, Items: 1, Lease: rec.Parts[1].Lease}, rec.Parts[1])
+
+	_, err = repo.AnswerPart(ctx, alice.ID, w.ExecutionID, 0, "grant:g-2", []any{"x", "y"}, "Codex")
+	require.ErrorIs(t, err, domain.ErrNotFound, "not g-2's part")
+
+	parts, err := repo.AnswerPart(ctx, alice.ID, w.ExecutionID, 0, "grant:g-1", []any{"A", "B"}, "Claude Code")
+	require.NoError(t, err)
+	assert.False(t, ports.Answered(parts))
+	assert.Equal(t, []any{"A", "B"}, parts[0].Answers)
+	assert.Equal(t, "Claude Code", parts[0].AnsweredBy)
+
+	_, err = repo.AnswerPart(ctx, alice.ID, w.ExecutionID, 0, "grant:g-1", []any{"A", "B"}, "Claude Code")
+	require.ErrorIs(t, err, domain.ErrNotFound, "answered once")
+
+	// Its lease runs out: the part answered stays answered, the other goes to another.
+	_, part, err := repo.LeaseTask(ctx, alice.ID, ports.TaskLease{Holder: "grant:g-3", Name: "grant:g-3", Until: at.Add(30 * time.Minute)}, at.Add(15*time.Minute))
+	require.NoError(t, err)
+	assert.Equal(t, 1, part)
+
+	require.NoError(t, repo.ReleaseTask(ctx, alice.ID, w.ExecutionID))
+	rec, err = repo.Get(ctx, alice.ID, w.ExecutionID)
+	require.NoError(t, err)
+	assert.NotNil(t, rec.Parts[0].Lease, "an answered part keeps who answered it")
+	assert.Nil(t, rec.Parts[1].Lease, "handed back")
+
+	_, part, err = repo.LeaseTask(ctx, alice.ID, ports.TaskLease{Holder: "grant:g-2", Name: "grant:g-2", Until: at.Add(30 * time.Minute)}, at.Add(16*time.Minute))
+	require.NoError(t, err)
+	assert.Equal(t, 1, part)
+
+	parts, err = repo.AnswerPart(ctx, alice.ID, w.ExecutionID, 1, "grant:g-2", []any{"C"}, "Codex")
+	require.NoError(t, err)
+	assert.True(t, ports.Answered(parts))
+
+	took, err := repo.TakeTask(ctx, alice.ID, w.ExecutionID, "grant:g-2")
+	require.NoError(t, err)
+	assert.Equal(t, w.ExecutionID, took.ExecutionID)
+
+	_, err = repo.Get(ctx, alice.ID, w.ExecutionID)
+	require.ErrorIs(t, err, domain.ErrNotFound, "its parts gone with it")
 }

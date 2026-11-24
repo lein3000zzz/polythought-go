@@ -119,6 +119,7 @@ type UserUpdate struct {
 	Role       *domain.Role
 	Disabled   *bool
 	CodeChosen *bool // picked to write code, for code access "chosen"
+	DataChosen *bool // picked to use datasets and models, for data access "chosen"
 	// EmailVerified true marks the address verified, an admin's word for it (D175); an
 	// address cannot be unverified.
 	EmailVerified *bool
@@ -203,6 +204,10 @@ func (s *Service) UpdateUser(ctx context.Context, actor Principal, id domain.Use
 			user.CodeChosen = *upd.CodeChosen
 		}
 
+		if upd.DataChosen != nil {
+			user.DataChosen = *upd.DataChosen
+		}
+
 		if upd.LiveCaps != nil {
 			user.LiveCaps = *upd.LiveCaps
 		}
@@ -253,7 +258,7 @@ func (s *Service) UpdateUser(ctx context.Context, actor Principal, id domain.Use
 	}
 
 	s.log.Info(ctx, "User updated", "actor_id", actor.User.ID, "user_id", id,
-		"role", updated.Role, "disabled", updated.Disabled(), "code_chosen", updated.CodeChosen,
+		"role", updated.Role, "disabled", updated.Disabled(), "code_chosen", updated.CodeChosen, "data_chosen", updated.DataChosen,
 		"max_live_order", capLog(updated.LiveCaps.PerOrder), "max_live_day", capLog(updated.LiveCaps.PerDay),
 		"max_agent_dollars", dollarsLog(updated.AgentCaps.Dollars), "max_agent_input", tokensLog(updated.AgentCaps.InputTokens),
 		"max_agent_output", tokensLog(updated.AgentCaps.OutputTokens), "max_agent_total", tokensLog(updated.AgentCaps.TotalTokens))
@@ -265,6 +270,12 @@ func (s *Service) UpdateUser(ctx context.Context, actor Principal, id domain.Use
 		if err := s.workflows.StopAll(ctx, id); err != nil {
 			return domain.User{}, fmt.Errorf("user disabled, but stopping their workflows failed: %w", err)
 		}
+	}
+
+	// Kept from datasets now, their workflows naming one go off, saying why: after the
+	// answer, for it looks through every workflow on.
+	if (upd.DataChosen != nil && !*upd.DataChosen || upd.Role != nil) && s.dataLeave != nil {
+		s.background(ctx, s.dataLeave)
 	}
 
 	// Their kill switch goes on, cancelling what rests on the book; enabled again, it

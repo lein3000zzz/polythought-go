@@ -24,6 +24,9 @@ const base = "/docs"
 var groups = []struct{ dir, label, prefix string }{
 	{"triggers", "Triggers", ""},
 	{"polymarket", "Polymarket", "polymarket"},
+	{"http", "HTTP", "http"},
+	{"weather", "Weather", "weather"},
+	{"data", "Data", "data"},
 	{"logic", "Logic", "logic"},
 	{"transform", "Transform", "transform"},
 	{"output", "Output", "output"},
@@ -213,7 +216,8 @@ func nodePage(t engine.TypeInfo, order int, credTypes []engine.CredentialType) s
 
 	if !t.Trigger {
 		b.WriteString("\nItems that fail stop the execution, unless **Continue on failure** is on: then " +
-			"they leave on the `error` port instead.\n")
+			"they leave on the `error` port instead.")
+		b.WriteString(" " + retrySentence(t.NodeType) + "\n")
 	}
 
 	if len(t.Params) == 0 {
@@ -283,7 +287,7 @@ func writeItems(b *strings.Builder, t engine.NodeType) {
 		}
 
 		if it.Alone.Param != "" {
-			fmt.Fprintf(b, "; with %s `%s`, one item instead, with only these", paramLabel(t, it.Alone.Param), it.Alone.Value)
+			fmt.Fprintf(b, "; with %s `%s`, items with only these instead", paramLabel(t, it.Alone.Param), it.Alone.Value)
 		}
 
 		b.WriteString(". Decimals are text, so they stay exact; times are RFC 3339 text.\n\n" +
@@ -709,4 +713,20 @@ func yesNo(b bool) string {
 
 func nonEmpty(items []string) []string {
 	return slices.DeleteFunc(items, func(s string) bool { return s == "" })
+}
+
+// retrySentence says how the node tries again what failed (D440).
+func retrySentence(t engine.NodeType) string {
+	switch {
+	case t.NoRetry || t.Trades:
+		return "It is never tried again: a retry could do what it does twice."
+	case t.Reads && t.ReadsWhen != nil:
+		return fmt.Sprintf("With %s `%s` it only reads, so what fails is tried again %d more times to begin with, "+
+			"as **Retry** says; otherwise only when Retry asks.", paramLabel(t, t.ReadsWhen.Param), t.ReadsWhen.Value, engine.DefaultRetries)
+	case t.Reads:
+		return fmt.Sprintf("It only reads, so what fails is tried again %d more times to begin with, as **Retry** says.",
+			engine.DefaultRetries)
+	default:
+		return "What fails is tried again only when **Retry** asks."
+	}
 }

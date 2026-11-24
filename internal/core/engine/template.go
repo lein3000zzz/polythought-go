@@ -167,14 +167,21 @@ func literalTemplate(s string) Template {
 
 // Render fills the template in for item, each value passed through escape.
 func (t Template) Render(item map[string]any, escape func(string) string) string {
+	return t.Fill(item, func(_ string, v any) string { return escape(Format(v)) })
+}
+
+// Fill fills the template in for item, each value written as fill says, told the text
+// so far: for text where a value's place decides how it is written, as JSON's, a
+// string's contents inside quotes and the value itself outside them.
+func (t Template) Fill(item map[string]any, fill func(sofar string, v any) string) string {
 	var b strings.Builder
 
 	for _, p := range t.parts {
 		switch {
 		case p.filled:
-			b.WriteString(escape(Format(p.value)))
+			b.WriteString(fill(b.String(), p.value))
 		case p.path != "":
-			b.WriteString(escape(Format(scope{item: item}.lookup(p.path))))
+			b.WriteString(fill(b.String(), scope{item: item}.lookup(p.path)))
 		default:
 			b.WriteString(p.text)
 		}

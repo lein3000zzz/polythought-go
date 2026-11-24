@@ -54,7 +54,20 @@ func TestWait(t *testing.T) {
 			Params: engine.LiteralParams(node.Type(), map[string]any{"mode": "until", "until": "noon"}),
 		}, engine.Ports{})
 		require.ErrorIs(t, err, engine.ErrInvalidParam)
-		assert.ErrorContains(t, err, `"noon" is not a time of day like 09:30`)
+		assert.ErrorContains(t, err, `"noon" is not a time of day`)
+	})
+
+	t.Run("a time of day by a zone's clock (D440)", func(t *testing.T) {
+		// 07:00 in Chicago, on daylight time.
+		w, err := wait(t, map[string]any{"mode": "until", "until": "09:30", "zone": "America/Chicago"})
+		require.NoError(t, err)
+		assert.True(t, now.Add(2*time.Hour+30*time.Minute).Equal(w.Until), "until %v", w.Until)
+
+		_, err = node.Run(context.Background(), engine.RunContext{
+			Params: engine.LiteralParams(node.Type(), map[string]any{"mode": "until", "until": "09:30", "zone": "Mars/Base"}),
+		}, engine.Ports{})
+		require.ErrorIs(t, err, engine.ErrInvalidParam)
+		assert.ErrorContains(t, err, `"Mars/Base" is not a time zone`)
 	})
 
 	t.Run("passes the items on when the wait ends", func(t *testing.T) {

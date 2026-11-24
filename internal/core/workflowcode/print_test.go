@@ -23,6 +23,7 @@ type fixture struct {
 			Name           string         `json:"name"`
 			Notes          string         `json:"notes"`
 			ContinueOnFail bool           `json:"continueOnFail"`
+			Retry          *int           `json:"retry"`
 			Params         map[string]any `json:"params"`
 		} `json:"nodes"`
 		Connections []struct {
@@ -58,7 +59,7 @@ func TestPrintAsTheApp(t *testing.T) {
 			for i, n := range f.Workflow.Nodes {
 				nodes[i] = domain.NodeSpec{
 					ID: domain.NodeID(n.ID), Type: n.Type, Name: n.Name, Notes: n.Notes,
-					ContinueOnFail: n.ContinueOnFail, Params: n.Params,
+					ContinueOnFail: n.ContinueOnFail, Retry: n.Retry, Params: n.Params,
 				}
 			}
 

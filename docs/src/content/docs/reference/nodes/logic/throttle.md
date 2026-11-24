@@ -16,7 +16,7 @@ Lets at most so many items through in a period, like 3 copies of a trader a day,
 | Inputs | `main` |
 | Outputs | `main`, `limited` |
 
-Items that fail stop the execution, unless **Continue on failure** is on: then they leave on the `error` port instead.
+Items that fail stop the execution, unless **Continue on failure** is on: then they leave on the `error` port instead. What fails is tried again only when **Retry** asks.
 
 ## Settings
 
