@@ -77,6 +77,7 @@ func serve(ctx context.Context) error {
 		Telegram: a.telegram, TelegramWebhook: a.telegramBot, Notifications: a.notify, Mail: a.mail,
 		Hooks:    a.hooks,
 		Datasets: a.datasets,
+		MLModels: a.mlModels,
 		DataAccess: func() domain.DataAccess {
 			return dataAccess(a.settings.Current())
 		},

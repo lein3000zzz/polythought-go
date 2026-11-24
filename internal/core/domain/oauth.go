@@ -47,8 +47,9 @@ const (
 	// ScopeTasks is taking the tasks the user's workflows hand their agents, and
 	// answering them (D386, D412).
 	ScopeTasks Scope = "tasks"
-	// ScopeData is writing the user's datasets: making, appending to, replacing and
-	// deleting them; reading them takes read.
+	// ScopeData is writing the user's datasets and models: making, appending to, replacing
+	// and deleting datasets, and making, asking and deleting models; reading them takes
+	// read.
 	ScopeData Scope = "data"
 	// ScopeSettings is the account's own settings: notifications, Telegram, connected
 	// agents (D399).

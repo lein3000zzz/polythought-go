@@ -34,9 +34,9 @@ export function DatasetsPage() {
   const datasets = list.data?.datasets ?? []
 
   return (
-    <div className="mx-auto flex max-w-5xl flex-col gap-4 p-6">
+    <div className="flex flex-col gap-4">
       <div>
-        <h1 className="font-heading text-xl font-semibold">Datasets</h1>
+        <h2 className="text-base font-semibold">Datasets</h2>
         <p className="text-sm text-muted-foreground">
           Tables of rows your notebooks publish and your workflows record, by name.{' '}
           <a className="underline" href="/docs/guides/datasets/" target="_blank" rel="noopener">

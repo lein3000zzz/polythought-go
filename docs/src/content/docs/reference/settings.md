@@ -1085,6 +1085,102 @@ What a dataset made in the Record node keeps to begin with: rows older than so m
 | Default | `90` |
 | Applies | at once |
 
+### Models per user
+
+The most models one user may have.
+
+| | |
+|---|---|
+| Key | `models.max_models` |
+| Environment variable | `POLYTHOUGHT_MODELS_MAX_MODELS` |
+| Kind | whole number |
+| Default | `20` |
+| Applies | at once |
+
+### Workers per model
+
+The most workers connected to one model at once. Another is refused until one goes.
+
+| | |
+|---|---|
+| Key | `models.max_workers` |
+| Environment variable | `POLYTHOUGHT_MODELS_MAX_WORKERS` |
+| Kind | whole number |
+| Default | `10` |
+| Applies | at once |
+
+### Items per request
+
+The most items a workflow asks a model about at once.
+
+| | |
+|---|---|
+| Key | `models.max_items` |
+| Environment variable | `POLYTHOUGHT_MODELS_MAX_ITEMS` |
+| Kind | whole number |
+| Default | `1000` |
+| Applies | at once |
+
+### Bytes per request
+
+The most a request to a model may take: its items' JSON, and its schema.
+
+| | |
+|---|---|
+| Key | `models.max_request_bytes` |
+| Environment variable | `POLYTHOUGHT_MODELS_MAX_REQUEST_BYTES` |
+| Kind | whole number |
+| Default | `1048576` |
+| Applies | at once |
+
+### Bytes per answer
+
+The most a model's answers to one request may take together.
+
+| | |
+|---|---|
+| Key | `models.max_answer_bytes` |
+| Environment variable | `POLYTHOUGHT_MODELS_MAX_ANSWER_BYTES` |
+| Kind | whole number |
+| Default | `1048576` |
+| Applies | at once |
+
+### Longest wait for a model
+
+The longest a workflow may wait for a model's answers. Each node waits 30 seconds unless its setting says otherwise.
+
+| | |
+|---|---|
+| Key | `models.max_wait` |
+| Environment variable | `POLYTHOUGHT_MODELS_MAX_WAIT` |
+| Kind | duration, e.g. `30s`, `5m`, `168h` |
+| Default | `5m` |
+| Applies | at once |
+
+### Workers wait for requests
+
+How long a worker's call for the next request is held open before it says none came, and the worker calls again. A worker counts as connected for this long after its last call, and 30 seconds more.
+
+| | |
+|---|---|
+| Key | `models.poll_wait` |
+| Environment variable | `POLYTHOUGHT_MODELS_POLL_WAIT` |
+| Kind | duration, e.g. `30s`, `5m`, `168h` |
+| Default | `50s` |
+| Applies | at once |
+
+### Workers hold a request
+
+How long a worker that took a request holds it: past that with no answer, another worker may take it, and the first answer counts.
+
+| | |
+|---|---|
+| Key | `models.lease` |
+| Environment variable | `POLYTHOUGHT_MODELS_LEASE` |
+| Kind | duration, e.g. `30s`, `5m`, `168h` |
+| Default | `1m` |
+| Applies | at once |
+
 ## Updates
 
 ### Check for updates

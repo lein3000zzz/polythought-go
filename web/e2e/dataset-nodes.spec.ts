@@ -65,12 +65,18 @@ test('a workflow records into a dataset and reads it, until the dataset is delet
   const confirm = page.getByRole('alertdialog')
   await expect(confirm).toContainText(`“${workflow}” (on) uses it: those on are switched off.`)
   await confirm.getByRole('button', { name: 'Delete' }).click()
+  // The dialog hides the table as it closes: wait for the delete itself.
+  await expect(page.getByText(`Deleted ${name}`)).toBeVisible()
   await expect(row).toHaveCount(0)
 
-  const after = (await (await page.request.get(`/api/v1/workflows/${id}`)).json()) as {
-    active: boolean
-  }
-  expect(after.active).toBe(false)
+  await expect
+    .poll(async () => {
+      const after = (await (await page.request.get(`/api/v1/workflows/${id}`)).json()) as {
+        active: boolean
+      }
+      return after.active
+    })
+    .toBe(false)
 
   const refused = await page.request.post(`/api/v1/workflows/${id}/activate`)
   expect(refused.status()).toBe(400)

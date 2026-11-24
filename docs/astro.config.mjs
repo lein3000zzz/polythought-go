@@ -35,6 +35,7 @@ export default defineConfig({
             'guides/weather',
             'guides/market-data',
             'guides/datasets',
+            'guides/models',
             'guides/agents',
             'guides/agents-over-mcp',
             'guides/telegram',

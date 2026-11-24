@@ -25,3 +25,6 @@ package httpapi
 
 //	@securitydefinitions.bearerauth	APIToken
 //	@description					Personal API token: Authorization: Bearer pt_...
+
+//	@securitydefinitions.bearerauth	WorkerKey
+//	@description					A model's worker key, for its workers alone: Authorization: Bearer pw_...

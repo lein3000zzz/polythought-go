@@ -156,8 +156,10 @@ type Services struct {
 	MarketData MarketDataService
 	// Datasets are users' datasets; nil for none. DataAccess is who may use them, read on
 	// every use; nil for everyone.
-	Datasets      DatasetService
-	DataAccess    func() domain.DataAccess
+	Datasets   DatasetService
+	DataAccess func() domain.DataAccess
+	// MLModels are users' own models, and their workers; nil for none.
+	MLModels      MLModelService
 	Notifications NotificationService
 	CustomNodes   CustomNodeService
 	Mail          MailService
@@ -233,6 +235,7 @@ type Server struct {
 	hooks         HookService
 	marketData    MarketDataService
 	datasets      DatasetService
+	mlModels      MLModelService
 	dataAccess    func() domain.DataAccess
 	notifications NotificationService
 	mail          MailService
@@ -327,6 +330,7 @@ func New(cfg Config, util *observability.Utility, services Services) (*Server, e
 		hooks:         services.Hooks,
 		marketData:    services.MarketData,
 		datasets:      services.Datasets,
+		mlModels:      services.MLModels,
 		dataAccess:    services.DataAccess,
 		notifications: services.Notifications,
 		mail:          services.Mail,
@@ -536,6 +540,24 @@ func (s *Server) routes() {
 	ds.POST("/:name/replace/:stage/rows", s.stageDatasetRows)
 	ds.POST("/:name/replace/:stage/finish", s.finishDatasetReplace)
 	ds.DELETE("/:name/replace/:stage", s.dropDatasetReplace)
+
+	// Users' own models: read takes read, the rest the data scope, and keys a browser.
+	ml := v1.Group("/models", s.requireAuth, s.hasMLModels)
+	ml.GET("", s.listMLModels)
+	ml.POST("", s.createMLModel)
+	ml.GET("/:name", s.getMLModel)
+	ml.PUT("/:name", s.setMLModelURL)
+	ml.DELETE("/:name", s.deleteMLModel)
+	ml.POST("/:name/ask", s.askMLModel)
+	ml.GET("/:name/keys", s.listWorkerKeys)
+	ml.POST("/:name/keys", s.createWorkerKey)
+	ml.DELETE("/:name/keys/:id", s.deleteWorkerKey)
+
+	// Models' workers, with a worker key alone: they dial out and take their requests.
+	wk := v1.Group("/worker", s.hasMLModels, s.requireWorker)
+	wk.POST("/next", s.workerNext)
+	wk.POST("/requests/:id/answer", s.workerAnswer)
+	wk.POST("/requests/:id/fail", s.workerFail)
 
 	wf := v1.Group("/workflows", s.requireAuth)
 	wf.GET("", s.listWorkflows)
