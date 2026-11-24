@@ -6,3 +6,10 @@ web
 docs
 coverage.out
 .env
+# The Python SDK's local tooling, and any wheel built by hand: the image builds its own.
+sdk/python/.venv
+sdk/python/**/__pycache__
+sdk/python/.mypy_cache
+sdk/python/.ruff_cache
+sdk/python/.pytest_cache
+sdk/python/dist/*.whl

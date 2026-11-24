@@ -5,6 +5,17 @@
 # The image's GOTOOLCHAIN is local, so go.mod's toolchain line does not reach it: the patch
 # release is pinned here too, to build with the same Go.
 # On the builder's own platform, Go cross-compiling for the image's (D373): no emulation.
+# The Python SDK's wheel (sdk/python), for the server to serve: built for its version, on
+# the builder's platform, as it is pure Python.
+FROM --platform=$BUILDPLATFORM python:3.12-slim AS python-sdk
+
+WORKDIR /sdk
+COPY sdk/python ./
+
+ARG VERSION=dev
+RUN --mount=type=cache,target=/root/.cache/pip \
+    python set_version.py "$VERSION" && pip wheel --no-deps -w dist .
+
 FROM --platform=$BUILDPLATFORM golang:1.27.4-alpine AS build
 
 ARG TARGETOS TARGETARCH
@@ -18,6 +29,7 @@ COPY cmd ./cmd
 COPY internal ./internal
 COPY pkg ./pkg
 COPY sdk ./sdk
+COPY --from=python-sdk /sdk/dist/ ./sdk/python/dist/
 
 # The version a release was tagged and the commit it was built from (D425); dev for a
 # build from the code.

@@ -1,0 +1,9 @@
+# The SDK's checks: make sdk-python-check installs these, the SDK with its pandas extra.
+# CI runs them on Python 3.10, the oldest the SDK takes, where pandas 3 is not.
+ruff==0.17.6
+mypy==2.4.1
+pytest==9.2.0
+pandas==3.1.1; python_version >= "3.11"
+pandas-stubs==3.1.0.261029; python_version >= "3.11"
+pandas==2.3.3; python_version < "3.11"
+pandas-stubs==2.3.3.260113; python_version < "3.11"

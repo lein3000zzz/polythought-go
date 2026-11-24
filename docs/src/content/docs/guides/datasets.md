@@ -31,6 +31,20 @@ curl -X POST -H 'Authorization: Bearer pt_…' -H 'Content-Type: application/jso
   the oldest dropped first. Both are 0 to begin with, which keeps everything.
   `PUT /api/v1/datasets/{name}/keep` changes them.
 
+From Python, the SDK does the same, and reads and writes pandas tables:
+
+```python
+from polythought import Client
+
+pt = Client("https://polythought.example.com", token="pt_…")
+pt.datasets.create("forecasts", key_field="city")
+pt.datasets.replace_frame("forecasts", predictions)
+seen = pt.datasets.frame("bets-seen")
+```
+
+Install it from your Polythought:
+`pip install "polythought[pandas]" --find-links https://polythought.example.com/api/v1/sdk/python/`.
+
 ## Rows
 
 Every call is under `/api/v1/datasets/{name}`.

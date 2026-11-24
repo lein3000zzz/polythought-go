@@ -409,6 +409,10 @@ func (s *Server) routes() {
 
 	v1.GET("/meta", s.getMeta)
 
+	// The Python SDK this server's version comes with, for pip: anyone may fetch it.
+	v1.GET("/sdk/python/", s.pythonIndex)
+	v1.GET("/sdk/python/:file", s.pythonWheel)
+
 	// The OAuth server agents sign in with (D397); its metadata at the root (RFC 8414).
 	h.GET("/.well-known/oauth-authorization-server", s.oauthMetadata)
 	v1.POST("/oauth/register", s.registerOAuthClient)
