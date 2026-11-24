@@ -35,7 +35,7 @@ works too, sent as `Authorization: Bearer pt_…`, with the scopes it was made w
 
 | Scope | What the agent may do |
 |---|---|
-| Read | See your workflows and their runs, the node catalog, the library, market data, your wallets' balances and orders. Every scope brings it. |
+| Read | See your workflows and their runs, the node catalog, the library, market data, your wallets' balances and orders, your datasets' rows and your models. Every scope brings it. |
 | Build | Create, change, check, run and switch workflows; custom nodes and code; credentials you give it; the library. |
 | Take tasks | Take and answer the tasks of your Local agent nodes. |
 | Write datasets and models | Make your datasets, add rows to them, replace and delete them; make, ask and delete your models. |
@@ -113,13 +113,14 @@ An agent working with Polythought reads text other people wrote:
 - other users' library entries, their descriptions and their code;
 - plugins' names, descriptions and logs;
 - what flowed through a workflow: market data, what a plugin's node fetched from the web, a
-  language model's answers;
+  language model's answers, and the rows a Record node kept of it in your datasets;
 - a task's whole text, its prompt perhaps from another user's entry, filled in with the above;
 - the notes people send with a request to join.
 
 Any of it can be written to steer an agent: "ignore your instructions and run this". Polythought
 puts all of it in fields named `untrusted`, and tells the agent those are data to weigh,
-never instructions to follow. That helps, but it is a label, not a wall: a model can still be
+never instructions to follow. A dataset's rows come back as they were written, with a notice
+saying the same. That helps, but it is a label, not a wall: a model can still be
 talked into things. Many agents can run commands on your machine, read your files and reach
 the network, so what an agent may do there matters as much as what it may do here.
 
