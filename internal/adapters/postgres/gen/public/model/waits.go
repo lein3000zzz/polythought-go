@@ -23,7 +23,4 @@ type Waits struct {
 	Key         string
 	Question    *string
 	Task        *string
-	LeaseHolder *string
-	LeaseUntil  *time.Time
-	LeaseName   *string
 }

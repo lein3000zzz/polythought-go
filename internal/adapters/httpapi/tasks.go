@@ -37,10 +37,14 @@ type executionTaskDTO struct {
 	Items  []taskItemDTO `json:"items"`
 	// Until is when the run stops waiting, and its items fail.
 	Until time.Time `json:"until" format:"date-time"`
-	// HeldBy is the agent or token that has it, by its name, until heldUntil; absent while
-	// it waits for one to take it.
+	// HeldBy is the agents or tokens that have it, or its parts, by their names, until
+	// heldUntil; absent while it waits for one to take it.
 	HeldBy    string     `json:"heldBy,omitempty" validate:"optional"`
 	HeldUntil *time.Time `json:"heldUntil,omitempty" validate:"optional" format:"date-time"`
+	// Parts are how many parts it comes in, too big for an agent to take at once, each
+	// answered on its own (D436), and Answered how many of them are; 1 for one that fits.
+	Parts    int `json:"parts"`
+	Answered int `json:"answered"`
 } // @name ExecutionTask
 
 type taskItemDTO struct {
@@ -61,7 +65,7 @@ func toExecutionTaskDTO(st tasks.Status) executionTaskDTO {
 
 	out := executionTaskDTO{
 		Call: t.Call, AnswerAs: t.AnswerAs, Prompt: t.Prompt, Items: make([]taskItemDTO, len(t.Items)), Until: st.Until,
-		HeldBy: st.HeldBy,
+		HeldBy: st.HeldBy, Parts: max(st.Parts, 1), Answered: st.Answered,
 	}
 
 	if st.HeldBy != "" {

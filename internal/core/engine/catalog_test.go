@@ -160,8 +160,12 @@ func TestRunnerTakesTheOwnersTriggers(t *testing.T) {
 }
 
 // No tasks here.
-func (*memWaits) LeaseTask(context.Context, domain.UserID, ports.TaskLease, time.Time) (ports.WaitRecord, error) {
-	return ports.WaitRecord{}, domain.ErrNotFound
+func (*memWaits) LeaseTask(context.Context, domain.UserID, ports.TaskLease, time.Time) (ports.WaitRecord, int, error) {
+	return ports.WaitRecord{}, 0, domain.ErrNotFound
+}
+
+func (*memWaits) AnswerPart(context.Context, domain.UserID, domain.ExecutionID, int, string, []any, string) ([]ports.TaskPart, error) {
+	return nil, domain.ErrNotFound
 }
 
 func (*memWaits) ReleaseTask(context.Context, domain.UserID, domain.ExecutionID) error {

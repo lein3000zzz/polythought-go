@@ -3036,19 +3036,25 @@ export interface components {
         ExecutionTask: {
             /** @enum {string} */
             answerAs: "text" | "fields" | "schema";
+            answered: number;
             /**
              * @description Call is each, an answer for each item, or together, one for all of them.
              * @enum {string}
              */
             call: "each" | "together";
             /**
-             * @description HeldBy is the agent or token that has it, by its name, until heldUntil; absent while
-             *     it waits for one to take it.
+             * @description HeldBy is the agents or tokens that have it, or its parts, by their names, until
+             *     heldUntil; absent while it waits for one to take it.
              */
             heldBy?: string;
             /** Format: date-time */
             heldUntil?: string;
             items: components["schemas"]["TaskItem"][];
+            /**
+             * @description Parts are how many parts it comes in, too big for an agent to take at once, each
+             *     answered on its own (D436), and Answered how many of them are; 1 for one that fits.
+             */
+            parts: number;
             /** @description Prompt is what it asks, together; each item has its own. */
             prompt?: string;
             /** @description Schema is the JSON schema an answer keeps to, answering in fields or to a schema. */

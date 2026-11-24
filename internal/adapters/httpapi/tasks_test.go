@@ -91,7 +91,8 @@ func TestTaskRoutes(t *testing.T) {
 		assert.JSONEq(t, `{
 			"call": "each", "answerAs": "fields", "schema": {"type": "object"},
 			"items": [{"prompt": "Look into Rain?", "item": {"question": "Rain?"}}],
-			"until": "2026-10-24T13:10:00Z", "heldBy": "Claude Code", "heldUntil": "2026-10-24T12:10:00Z"
+			"until": "2026-10-24T13:10:00Z", "heldBy": "Claude Code", "heldUntil": "2026-10-24T12:10:00Z",
+			"parts": 1, "answered": 0
 		}`, w.Body.String())
 
 		w = request{method: http.MethodGet, path: "/api/v1/workflows/wf-1/executions/ex-2/task", headers: bearer}.do(t, srv)

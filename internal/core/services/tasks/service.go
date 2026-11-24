@@ -9,6 +9,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"slices"
 	"strings"
 	"sync"
 	"time"
@@ -231,14 +232,22 @@ func New(repo ports.WaitRepository, answerer Answerer, presence *Presence, confi
 }
 
 // Task is a task handed to an agent: the run it is of, what it asks, and until when the
-// run waits for it and the agent has it.
+// run waits for it and the agent has it. A task too big to take at once is handed in
+// parts, each answered on its own, or, answered together, in pages (D436).
 type Task struct {
 	ID         domain.ExecutionID
 	WorkflowID domain.WorkflowID
 	NodeID     domain.NodeID
-	Task       ports.WaitTask
-	Until      time.Time // when the run stops waiting
-	LeaseUntil time.Time // when it goes back to the others, unless the agent waits again or answers
+	// Task is what it asks: its part's items, or a task taken together's first page.
+	Task  ports.WaitTask
+	Part  int       // which part, from 0
+	Parts int       // of how many
+	First int       // the first of the task's items in it, from 0
+	Pages int       // a task taken together: how many pages its items come in
+	Until time.Time // when the run stops waiting
+	// LeaseUntil is when the part goes back to the others, unless the agent waits again or
+	// answers.
+	LeaseUntil time.Time
 }
 
 // Wait hands the agent the owner's oldest task no other agent has, waiting for one as long
@@ -268,10 +277,10 @@ func (s *Service) Wait(ctx context.Context, p auth.Principal) (Task, bool, error
 		woken := s.presence.signal(owner)
 		now := s.now()
 
-		rec, err := s.repo.LeaseTask(ctx, owner, ports.TaskLease{Holder: holder, Name: nameOf(p), Until: now.Add(cfg.Lease)}, now)
+		rec, part, err := s.repo.LeaseTask(ctx, owner, ports.TaskLease{Holder: holder, Name: nameOf(p), Until: now.Add(cfg.Lease)}, now)
 		switch {
 		case err == nil:
-			return taskOf(rec), true, nil
+			return taskOf(rec, part), true, nil
 		case !errors.Is(err, domain.ErrNotFound):
 			return Task{}, false, err
 		}
@@ -287,42 +296,171 @@ func (s *Service) Wait(ctx context.Context, p auth.Principal) (Task, bool, error
 	}
 }
 
-func taskOf(rec ports.WaitRecord) Task {
-	t := Task{ID: rec.ExecutionID, WorkflowID: rec.WorkflowID, NodeID: rec.NodeID, Until: rec.Until}
+// taskOf is a task's part as an agent takes it: its items alone, or a task taken
+// together's first page of them.
+func taskOf(rec ports.WaitRecord, part int) Task {
+	t := Task{ID: rec.ExecutionID, WorkflowID: rec.WorkflowID, NodeID: rec.NodeID, Until: rec.Until, Part: part, Parts: len(rec.Parts)}
 
-	if rec.Task != nil {
-		t.Task = *rec.Task
+	if rec.Task == nil {
+		return t
 	}
 
-	if rec.Lease != nil {
-		t.LeaseUntil = rec.Lease.Until
+	t.Task = *rec.Task
+	t.Task.Splits = nil
+
+	if p, ok := partOf(rec, part); ok {
+		if p.Lease != nil {
+			t.LeaseUntil = p.Lease.Until
+		}
+
+		if t.Task.Call != ai.CallTogether {
+			t.First, t.Task.Items = p.First, rec.Task.Items[p.First:p.First+p.Items]
+			return t
+		}
 	}
+
+	pages := pagesOf(*rec.Task)
+	t.Pages, t.Task.Items = len(pages), pages[0]
 
 	return t
 }
 
-// Answer answers a task the agent has, held to its shape: for each item an answer, in
-// order, or one for all of them together. A wrong one is refused, saying why, and the
-// task stays the agent's to answer again.
-func (s *Service) Answer(ctx context.Context, p auth.Principal, id domain.ExecutionID, answer any, answers []any) error {
-	holder, err := holderOf(p)
-	if err != nil {
-		return err
+// partOf is one of a task's parts, by its index.
+func partOf(rec ports.WaitRecord, part int) (ports.TaskPart, bool) {
+	for _, p := range rec.Parts {
+		if p.Index == part {
+			return p, true
+		}
 	}
 
-	t, err := s.held(ctx, p, holder, id)
+	return ports.TaskPart{}, false
+}
+
+// pagesOf are a task's items, a page at a time, as an agent reads them before it answers
+// them together (D436): one page, empty, without items.
+func pagesOf(t ports.WaitTask) [][]ports.TaskItem {
+	splits, err := ai.Splits(t)
 	if err != nil {
-		return err
+		// The node split it so: every item fits a page.
+		splits = nil
+	}
+
+	starts := append([]int{0}, splits...)
+	pages := make([][]ports.TaskItem, len(starts))
+
+	for i, first := range starts {
+		end := len(t.Items)
+		if i+1 < len(starts) {
+			end = starts[i+1]
+		}
+
+		pages[i] = t.Items[first:end]
+	}
+
+	return pages
+}
+
+// Page is one page of the items of a task the agent has, taken together, from 1 (D436).
+func (s *Service) Page(ctx context.Context, p auth.Principal, id domain.ExecutionID, page int) ([]ports.TaskItem, int, error) {
+	holder, err := holderOf(p)
+	if err != nil {
+		return nil, 0, err
+	}
+
+	rec, _, err := s.held(ctx, p, holder, id, 0)
+	if err != nil {
+		return nil, 0, err
+	}
+
+	pages := pagesOf(*rec.Task)
+	if page < 1 || page > len(pages) {
+		return nil, 0, fmt.Errorf("%w: page: from 1 to %d", domain.ErrInvalidInput, len(pages))
+	}
+
+	s.presence.touch(p.User.ID, holder)
+
+	return pages[page-1], len(pages), nil
+}
+
+// Answer answers a part of a task the agent has, held to its shape: for each of its items
+// an answer, in order, or one for all of them together. A wrong one is refused, saying
+// why, and the part stays the agent's to answer again. Once every part is answered, the
+// run carries on; until then, left says how many are not.
+func (s *Service) Answer(ctx context.Context, p auth.Principal, id domain.ExecutionID, part int, answer any, answers []any) (left int, err error) {
+	holder, err := holderOf(p)
+	if err != nil {
+		return 0, err
+	}
+
+	rec, held, err := s.held(ctx, p, holder, id, part)
+	if err != nil {
+		return 0, err
+	}
+
+	t := *rec.Task
+	if t.Call != ai.CallTogether {
+		t.Items = t.Items[held.First : held.First+held.Items]
 	}
 
 	payload, err := checked(t, answer, answers)
 	if err != nil {
-		return err
+		return 0, err
 	}
 
-	payload[engine.AnsweredBy] = nameOf(p)
+	given := []any{payload[ai.TaskAnswer]}
+	if t.Call != ai.CallTogether {
+		given, _ = payload[ai.TaskAnswers].([]any)
+	}
 
-	return s.carryOn(ctx, p, holder, id, payload)
+	parts, err := s.repo.AnswerPart(ctx, p.User.ID, id, part, holder, given, nameOf(p))
+	if errors.Is(err, domain.ErrNotFound) {
+		return 0, ErrNoTask
+	} else if err != nil {
+		return 0, err
+	}
+
+	if !ports.Answered(parts) {
+		s.presence.touch(p.User.ID, holder)
+
+		for _, p := range parts {
+			if p.Answers == nil {
+				left++
+			}
+		}
+
+		return left, nil
+	}
+
+	return 0, s.carryOn(ctx, p, holder, id, whole(rec.Task.Call, parts))
+}
+
+// whole is every part's answers as the run takes them: an answer per item in order, or the
+// one answer, and who gave them.
+func whole(call string, parts []ports.TaskPart) map[string]any {
+	var (
+		answers []any
+		by      []string
+	)
+
+	for _, p := range parts {
+		answers = append(answers, p.Answers...)
+
+		if p.AnsweredBy != "" && !slices.Contains(by, p.AnsweredBy) {
+			by = append(by, p.AnsweredBy)
+		}
+	}
+
+	payload := map[string]any{engine.AnsweredBy: strings.Join(by, ", ")}
+
+	if call == ai.CallTogether {
+		if len(answers) > 0 {
+			payload[ai.TaskAnswer] = answers[0]
+		}
+	} else {
+		payload[ai.TaskAnswers] = answers
+	}
+
+	return payload
 }
 
 // checked is an answer held to its task's shape, as the node takes it.
@@ -357,8 +495,9 @@ func checked(t ports.WaitTask, answer any, answers []any) (map[string]any, error
 	return map[string]any{ai.TaskAnswers: got}, nil
 }
 
-// Fail says the agent cannot do a task it has, and why: its items fail with that.
-func (s *Service) Fail(ctx context.Context, p auth.Principal, id domain.ExecutionID, reason string) error {
+// Fail says the agent cannot do a part of a task it has, and why: the task's items fail
+// with that.
+func (s *Service) Fail(ctx context.Context, p auth.Principal, id domain.ExecutionID, part int, reason string) error {
 	holder, err := holderOf(p)
 	if err != nil {
 		return err
@@ -371,18 +510,20 @@ func (s *Service) Fail(ctx context.Context, p auth.Principal, id domain.Executio
 		return fmt.Errorf("%w: reason: %d characters at most", domain.ErrInvalidInput, maxReason)
 	}
 
-	if _, err := s.held(ctx, p, holder, id); err != nil {
+	if _, _, err := s.held(ctx, p, holder, id, part); err != nil {
 		return err
 	}
 
+	// A part it cannot do fails the whole task: the run takes its items together.
 	return s.carryOn(ctx, p, holder, id, map[string]any{engine.AnsweredBy: nameOf(p), ai.TaskFailed: reason})
 }
 
 // Status is a run's task as the app shows it (D413): what it asks, whether an agent has
-// it and until when, and when the run stops waiting.
+// it and until when, and when the run stops waiting; and, in parts, how many are answered.
 type Status struct {
 	Task
-	HeldBy string // the agent or token that has it, by its name; empty while none does
+	HeldBy   string // the agents or tokens that have its parts, by their names; empty while none does
+	Answered int    // of its parts
 }
 
 // Status is the task a run of the user's waits on; domain.ErrNotFound for a run waiting on
@@ -393,13 +534,28 @@ func (s *Service) Status(ctx context.Context, p auth.Principal, workflow domain.
 		return Status{}, err
 	}
 
-	st := Status{Task: taskOf(rec)}
+	st := Status{Task: taskOf(rec, 0)}
+	st.Task.Task = *rec.Task // the whole of it, for its user
+	st.Task.Task.Splits, st.First, st.LeaseUntil = nil, 0, time.Time{}
 
-	if rec.Lease != nil && rec.Lease.Until.After(s.now()) {
-		st.HeldBy = rec.Lease.Name
-	} else {
-		st.LeaseUntil = time.Time{} // ran out: any may take it
+	var names []string
+
+	for _, p := range rec.Parts {
+		switch {
+		case p.Answers != nil:
+			st.Answered++
+		case p.Lease != nil && p.Lease.Until.After(s.now()):
+			if !slices.Contains(names, p.Lease.Name) {
+				names = append(names, p.Lease.Name)
+			}
+
+			if p.Lease.Until.After(st.LeaseUntil) {
+				st.LeaseUntil = p.Lease.Until
+			}
+		}
 	}
+
+	st.HeldBy = strings.Join(names, ", ")
 
 	return st, nil
 }
@@ -469,20 +625,25 @@ func (s *Service) task(ctx context.Context, p auth.Principal, workflow domain.Wo
 	return rec, nil
 }
 
-// held is a task the agent has.
-func (s *Service) held(ctx context.Context, p auth.Principal, holder string, id domain.ExecutionID) (ports.WaitTask, error) {
+// held is a part of a task the agent has, not answered yet.
+func (s *Service) held(ctx context.Context, p auth.Principal, holder string, id domain.ExecutionID, part int) (ports.WaitRecord, ports.TaskPart, error) {
 	rec, err := s.repo.Get(ctx, p.User.ID, id)
 
 	switch {
 	case errors.Is(err, domain.ErrNotFound):
-		return ports.WaitTask{}, ErrNoTask
+		return ports.WaitRecord{}, ports.TaskPart{}, ErrNoTask
 	case err != nil:
-		return ports.WaitTask{}, err
-	case rec.Task == nil || rec.Lease == nil || rec.Lease.Holder != holder:
-		return ports.WaitTask{}, ErrNoTask
+		return ports.WaitRecord{}, ports.TaskPart{}, err
+	case rec.Task == nil:
+		return ports.WaitRecord{}, ports.TaskPart{}, ErrNoTask
 	}
 
-	return *rec.Task, nil
+	held, ok := partOf(rec, part)
+	if !ok || held.Lease == nil || held.Lease.Holder != holder || held.Answers != nil {
+		return ports.WaitRecord{}, ports.TaskPart{}, ErrNoTask
+	}
+
+	return rec, held, nil
 }
 
 func (s *Service) carryOn(ctx context.Context, p auth.Principal, holder string, id domain.ExecutionID, payload map[string]any) error {

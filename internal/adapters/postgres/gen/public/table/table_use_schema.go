@@ -46,6 +46,7 @@ func UseSchema(schema string) {
 	Sessions = Sessions.FromSchema(schema)
 	Settings = Settings.FromSchema(schema)
 	SettingsAudit = SettingsAudit.FromSchema(schema)
+	TaskParts = TaskParts.FromSchema(schema)
 	TelegramLinkCodes = TelegramLinkCodes.FromSchema(schema)
 	TelegramLinks = TelegramLinks.FromSchema(schema)
 	Templates = Templates.FromSchema(schema)
