@@ -114,7 +114,9 @@ var (
 	main      = engine.DefaultPort
 )
 
-func paper(context.Context, domain.WorkflowID) (domain.TradingMode, error) { return domain.ModePaper, nil }
+func paper(context.Context, domain.WorkflowID) (domain.TradingMode, error) {
+	return domain.ModePaper, nil
+}
 
 // execute runs record into forecasts, then read from it by each item's city, on items.
 func execute(t *testing.T, s *store, read map[string]any, items ...map[string]any) engine.Result {
