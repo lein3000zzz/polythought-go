@@ -551,8 +551,8 @@ data:
 
   # Datasets, and the nodes that record and read them, and models: everyone may
   # (everyone), admins and the users switched on for them on the Users page (chosen), or
-  # no one, admins included (off). A workflow using them whose owner may not fails at
-  # once. One of everyone, chosen, off.
+  # no one, admins included (off). The workflows using them of a user who may no longer
+  # are switched off, saying why. One of everyone, chosen, off.
   # Environment: POLYTHOUGHT_DATA_ACCESS.
   # access: "everyone"
 
@@ -572,6 +572,11 @@ data:
   # The most one user's datasets may take together, rows waiting for a replace counted.
   # Environment: POLYTHOUGHT_DATA_MAX_MIB.
   # max_mib: 100
+
+  # What a dataset made in the Record node keeps to begin with: rows older than so many
+  # days go. Its owner may choose otherwise as they make it, and change it after.
+  # Environment: POLYTHOUGHT_DATA_KEEP_DAYS.
+  # keep_days: 90
 
 updates:
 

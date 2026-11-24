@@ -353,6 +353,8 @@ func (a *app) init(ctx context.Context) error {
 		ratelimit.NewMemory(30*time.Second, 10), // 10 attempts, then one every 30 s per key
 		a.util.Logger,
 		auth.WithWorkflowStopper(a.workflows),
+		// Kept from datasets, a user's workflows naming one go off.
+		auth.WithDataLeave(a.datasets.SwitchOffLost),
 		auth.WithLiveStopper(laterTrading{a}),
 		auth.WithAccountLimiter(ratelimit.NewMemory(6*time.Second, 50)), // per address, from every IP
 		auth.WithLiveConfig(func() auth.Config { return authConfig(a.settings.Current()) }),
@@ -555,7 +557,7 @@ func dataAccess(s *settings.Snapshot) domain.DataAccess {
 func datasetLimits(s *settings.Snapshot) datasets.Limits {
 	return datasets.Limits{
 		Datasets: s.Int(config.KeyDataSets), Rows: s.Int(config.KeyDataRows), RowBytes: s.Int(config.KeyDataRowBytes),
-		Bytes: int64(s.Int(config.KeyDataMiB)) << 20,
+		Bytes: int64(s.Int(config.KeyDataMiB)) << 20, KeepDays: s.Int(config.KeyDataKeepDays),
 	}
 }
 
@@ -873,6 +875,39 @@ func paramsWhere(r *engine.Registry, match func(engine.ParamSpec) bool) func(nod
 	}
 }
 
+// datasetWorkflows are the workflows the datasets service looks through for those naming a
+// dataset, and switches off.
+type datasetWorkflows struct {
+	repo    ports.WorkflowRepository
+	service *workflows.Service
+}
+
+func (d datasetWorkflows) Of(ctx context.Context, owner domain.UserID) ([]domain.Workflow, error) {
+	var (
+		out    []domain.Workflow
+		cursor string
+	)
+
+	for {
+		page, err := d.repo.List(ctx, owner, ports.WorkflowFilter{PageFilter: ports.PageFilter{Limit: 100, Cursor: cursor}})
+		if err != nil {
+			return nil, err
+		}
+
+		out = append(out, page.Items...)
+
+		if page.NextCursor == "" {
+			return out, nil
+		}
+
+		cursor = page.NextCursor
+	}
+}
+
+func (d datasetWorkflows) Pause(ctx context.Context, why func(w domain.Workflow) string) (int, error) {
+	return d.service.Pause(ctx, why)
+}
+
 // workflowCode runs workflow code for the Code tab's Apply (D74), for those who may write
 // code (D75).
 type workflowCode struct {
@@ -1159,6 +1194,7 @@ func (a *app) initEngine(ctx context.Context, pmc polymarket) error {
 		Hooks:        a.hooks,
 		Fires:        postgres.NewScheduleFires(a.db),
 		Weather:      forecasts,
+		Datasets:     a.datasets,
 		MaxHTTPRequests: func() int {
 			return a.settings.Current().Int(config.KeyMaxHTTPRequests)
 		},
@@ -1258,8 +1294,13 @@ func (a *app) initEngine(ctx context.Context, pmc polymarket) error {
 		workflows.WithTradeScope(tradeScope),
 		workflows.WithConfirmations(a.confirmations), workflows.WithHistory(a.history),
 		// A workflow whose triggers start it too often is paused (D435).
-		workflows.WithRunCap(func() int { return a.settings.Current().Int(config.KeyMaxRunsPerHour) }))
+		workflows.WithRunCap(func() int { return a.settings.Current().Int(config.KeyMaxRunsPerHour) }),
+		// One naming a dataset gone, or whose owner may not use datasets, stays off.
+		workflows.WithDatasets(a.datasets.CheckWorkflow))
 	triggers.Gate(a.workflows.RunCap())
+	// A dataset deleted, or datasets lost, switches off the workflows naming them.
+	a.datasets.UseWorkflows(datasetWorkflows{repo: postgres.NewWorkflows(a.db), service: a.workflows},
+		paramsWhere(a.registry, func(p engine.ParamSpec) bool { return p.Kind == engine.ParamDataset }))
 	// A change to a custom node a live workflow that is on uses waits like one to the
 	// workflow (A5).
 	a.customNodes.UseConfirmations(a.confirmations, func(ctx context.Context, w domain.Workflow) (bool, error) {

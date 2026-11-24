@@ -35,6 +35,10 @@ type Limits struct {
 	Rows     int   // a dataset's rows
 	RowBytes int   // a row's JSON
 	Bytes    int64 // a user's storage, stages counted
+
+	// KeepDays is what a dataset made for recording keeps, in days, to begin with: what
+	// the editor offers.
+	KeepDays int
 }
 
 // Gate says whether a user may use datasets now.
@@ -53,6 +57,10 @@ type Deps struct {
 type Service struct {
 	deps Deps
 	log  logging.Logger
+
+	// Set by UseWorkflows.
+	workflows Workflows
+	params    Params
 }
 
 func New(deps Deps) *Service {
@@ -195,6 +203,7 @@ func (s *Service) SetKeep(ctx context.Context, owner domain.UserID, name string,
 	return s.Get(ctx, owner, name)
 }
 
+// Delete deletes a dataset and its rows, and switches off the owner's workflows naming it.
 func (s *Service) Delete(ctx context.Context, owner domain.UserID, name string) error {
 	d, err := s.Get(ctx, owner, name)
 	if err != nil {
@@ -206,6 +215,9 @@ func (s *Service) Delete(ctx context.Context, owner domain.UserID, name string) 
 	}
 
 	s.log.Info(ctx, "Dataset deleted", "owner_id", owner, "dataset", d.Name, "rows", d.Rows)
+
+	// Those naming it would fail as they run: off, saying why.
+	s.switchOffNaming(ctx, owner, d.Name)
 
 	return nil
 }
@@ -231,6 +243,12 @@ func (s *Service) Lookup(ctx context.Context, owner domain.UserID, name, key str
 		return domain.DatasetRow{}, err
 	}
 
+	return s.Latest(ctx, d, key)
+}
+
+// Latest is the row of a dataset read already last appended with the key, for a node that
+// has it.
+func (s *Service) Latest(ctx context.Context, d domain.Dataset, key string) (domain.DatasetRow, error) {
 	if d.KeyField == "" {
 		return domain.DatasetRow{}, invalid("dataset %q has no key field to look rows up by", d.Name)
 	}
@@ -243,50 +261,72 @@ func (s *Service) Lookup(ctx context.Context, owner domain.UserID, name, key str
 	return row, err
 }
 
-// rowsOf checks rows as d takes them: JSON objects, each at most the size a row may be,
-// with the key field where it has one.
+// Newest are the last n rows appended to a dataset read already, at most MaxPage, oldest
+// first, for a node that has it.
+func (s *Service) Newest(ctx context.Context, d domain.Dataset, n int) ([]domain.DatasetRow, error) {
+	if n <= 0 || n > MaxPage {
+		n = MaxPage
+	}
+
+	return s.deps.Repo.Newest(ctx, d.ID, n)
+}
+
+// rowsOf checks rows as d takes them, as rowOf does each.
 func (s *Service) rowsOf(d domain.Dataset, raw []json.RawMessage) ([]ports.NewRow, int64, error) {
 	if len(raw) == 0 {
 		return nil, 0, invalid("no rows")
 	}
 
-	limit := s.deps.Limits().RowBytes
 	now := s.deps.Now().UTC()
 	out := make([]ports.NewRow, len(raw))
 
 	var total int64
 
 	for i, r := range raw {
-		var buf bytes.Buffer
-		if err := json.Compact(&buf, r); err != nil {
-			return nil, 0, invalid("row %d is not JSON", i)
-		}
-
-		var obj map[string]any
-		if err := json.Unmarshal(buf.Bytes(), &obj); err != nil {
-			return nil, 0, invalid("row %d is not an object: a row is {\"field\": value, …}", i)
-		}
-
-		if buf.Len() > limit {
-			return nil, 0, invalid("row %d is %d bytes, more than the %d a row may be", i, buf.Len(), limit)
-		}
-
-		row := ports.NewRow{At: now, Row: buf.Bytes()}
-
-		if d.KeyField != "" {
-			v, ok := obj[d.KeyField]
-			if !ok || v == nil {
-				return nil, 0, invalid("row %d has no %s, the dataset's key field", i, d.KeyField)
-			}
-
-			row.Key = engine.Format(v)
+		row, why := s.rowOf(d, r, now)
+		if why != "" {
+			return nil, 0, invalid("row %d %s", i, why)
 		}
 
 		out[i] = row
-		total += int64(buf.Len())
+		total += int64(len(row.Row))
 	}
 
 	return out, total, nil
+}
+
+// rowOf is a row as d takes it, or why not: a JSON object, compacted, at most the size a
+// row may be, with the key field where it has one, its value as written the key.
+func (s *Service) rowOf(d domain.Dataset, raw json.RawMessage, now time.Time) (ports.NewRow, string) {
+	var buf bytes.Buffer
+	if err := json.Compact(&buf, raw); err != nil {
+		return ports.NewRow{}, "is not JSON"
+	}
+
+	dec := json.NewDecoder(bytes.NewReader(buf.Bytes()))
+	dec.UseNumber() // a key 51.25 is "51.25", every digit as written
+
+	var obj map[string]any
+	if err := dec.Decode(&obj); err != nil || obj == nil {
+		return ports.NewRow{}, `is not an object: a row is {"field": value, …}`
+	}
+
+	if limit := s.deps.Limits().RowBytes; buf.Len() > limit {
+		return ports.NewRow{}, fmt.Sprintf("is %d bytes, more than the %d a row may be", buf.Len(), limit)
+	}
+
+	row := ports.NewRow{At: now, Row: buf.Bytes()}
+
+	if d.KeyField != "" {
+		v, ok := obj[d.KeyField]
+		if !ok || v == nil {
+			return ports.NewRow{}, fmt.Sprintf("has no %s, the dataset's key field", d.KeyField)
+		}
+
+		row.Key = engine.Format(v)
+	}
+
+	return row, ""
 }
 
 // room refuses rows that would take the owner past their storage.
@@ -321,23 +361,57 @@ func (s *Service) AppendTo(ctx context.Context, d domain.Dataset, raw []json.Raw
 		return domain.Dataset{}, err
 	}
 
-	maxRows := s.deps.Limits().Rows
-
-	keep := d.KeepRows
-	if keep == 0 && d.Rows+len(rows) > maxRows {
-		return domain.Dataset{}, fmt.Errorf("%w: %q would have %d rows, more than the %d a dataset may: set Keep rows to drop the oldest",
-			domain.ErrDatasetFull, d.Name, d.Rows+len(rows), maxRows)
-	}
-
-	if err := s.room(ctx, d.OwnerID, total); err != nil {
-		return domain.Dataset{}, err
-	}
-
-	if err := s.deps.Repo.Append(ctx, d.ID, rows, keep, s.deps.Now()); err != nil {
+	if err := s.add(ctx, d, rows, total); err != nil {
 		return domain.Dataset{}, err
 	}
 
 	return s.deps.Repo.Get(ctx, d.OwnerID, d.Name)
+}
+
+// Record appends what a workflow records into d, each row checked alone: those d refuses
+// come back by their index, saying why, and the rest go in together. An error refuses
+// them all: d is full, or its owner's storage.
+func (s *Service) Record(ctx context.Context, d domain.Dataset, raw []json.RawMessage) (map[int]error, error) {
+	now := s.deps.Now().UTC()
+	refused := map[int]error{}
+	rows := make([]ports.NewRow, 0, len(raw))
+
+	var total int64
+
+	for i, r := range raw {
+		row, why := s.rowOf(d, r, now)
+		if why != "" {
+			refused[i] = invalid("the row %s", why)
+			continue
+		}
+
+		rows = append(rows, row)
+		total += int64(len(row.Row))
+	}
+
+	if len(rows) == 0 {
+		return refused, nil
+	}
+
+	return refused, s.add(ctx, d, rows, total)
+}
+
+// add appends rows checked already: the oldest go past d's Keep rows; without it, rows past
+// the instance's most are refused, as are rows past the owner's storage.
+func (s *Service) add(ctx context.Context, d domain.Dataset, rows []ports.NewRow, total int64) error {
+	maxRows := s.deps.Limits().Rows
+
+	keep := d.KeepRows
+	if keep == 0 && d.Rows+len(rows) > maxRows {
+		return fmt.Errorf("%w: %q would have %d rows, more than the %d a dataset may: set Keep rows to drop the oldest",
+			domain.ErrDatasetFull, d.Name, d.Rows+len(rows), maxRows)
+	}
+
+	if err := s.room(ctx, d.OwnerID, total); err != nil {
+		return err
+	}
+
+	return s.deps.Repo.Append(ctx, d.ID, rows, keep, s.deps.Now())
 }
 
 // StartReplace stages a replace: rows staged go in at once when it is finished.
@@ -416,8 +490,8 @@ func (s *Service) DropReplace(ctx context.Context, owner domain.UserID, name str
 	return stageErr(s.deps.Repo.Unstage(ctx, d.ID, stage))
 }
 
-// Limit is what each user's datasets may take.
-func (s *Service) Limit() int64 { return s.deps.Limits().Bytes }
+// Limits are the admin's, as they are now.
+func (s *Service) Limits() Limits { return s.deps.Limits() }
 
 // Usage is what each user's datasets take, for admins.
 func (s *Service) Usage(ctx context.Context) (map[domain.UserID]int64, error) {

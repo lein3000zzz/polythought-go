@@ -117,6 +117,9 @@ const (
 
 	// ParamCode is TypeScript, the code of a code node.
 	ParamCode ParamKind = "code"
+
+	// ParamDataset is the name of one of the owner's datasets.
+	ParamDataset ParamKind = "dataset"
 )
 
 // ParamSpec describes one parameter: how to read it, and how an editor should present it.
@@ -133,7 +136,7 @@ type ParamSpec struct {
 	Options []string
 
 	// Sensitive marks values that are personal, like a webhook URL: sharing a workflow
-	// leaves them out. Wallet and credential params are personal regardless.
+	// leaves them out. Wallet, credential and dataset params are personal regardless.
 	Sensitive bool
 
 	// CredentialTypes name the kinds of credential a credential param takes: any one of
@@ -184,7 +187,7 @@ const MaxRows = 500
 // Personal reports whether the value belongs to whoever configured it, so sharing must
 // leave it out.
 func (p ParamSpec) Personal() bool {
-	return p.Sensitive || p.Kind == ParamWallet || p.Kind == ParamCredential
+	return p.Sensitive || p.Kind == ParamWallet || p.Kind == ParamCredential || p.Kind == ParamDataset
 }
 
 // NodeType describes a kind of node for the registry, the editor and workflow validation.

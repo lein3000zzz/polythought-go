@@ -61,6 +61,12 @@ func TestDatasets(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, rest, 1, "after the page")
 
+	newest, err := store.Newest(ctx, d.ID, 2)
+	require.NoError(t, err)
+	require.Len(t, newest, 2)
+	assert.Equal(t, []string{"LDN", "NYC"}, []string{newest[0].Key, newest[1].Key}, "the last two, oldest first")
+	assert.JSONEq(t, `{"city":"NYC","high":52}`, string(newest[1].Row))
+
 	// Keeping two: the oldest goes.
 	require.NoError(t, store.Append(ctx, d.ID, []ports.NewRow{row("PAR", `{"city":"PAR"}`, at.Add(2*time.Hour))}, 2, at.Add(2*time.Hour)))
 
@@ -83,6 +89,10 @@ func TestDatasets(t *testing.T) {
 	got, err = store.Get(ctx, alice.ID, "forecasts")
 	require.NoError(t, err)
 	assert.Equal(t, 2, got.Rows, "staged rows are not the dataset's yet")
+
+	newest, err = store.Newest(ctx, d.ID, 10)
+	require.NoError(t, err)
+	assert.Len(t, newest, 2, "nor read")
 
 	used, err := store.Bytes(ctx, alice.ID)
 	require.NoError(t, err)

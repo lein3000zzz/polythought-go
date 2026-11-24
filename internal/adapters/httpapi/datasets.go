@@ -31,9 +31,11 @@ type DatasetService interface {
 	StageRows(ctx context.Context, owner domain.UserID, name string, stage ports.DatasetStageID, rows []json.RawMessage) (int, error)
 	FinishReplace(ctx context.Context, owner domain.UserID, name string, stage ports.DatasetStageID) (domain.Dataset, error)
 	DropReplace(ctx context.Context, owner domain.UserID, name string, stage ports.DatasetStageID) error
-	// Usage is what each user's datasets take, and Limit what each may, for admins.
+	// UsedBy are the owner's workflows naming each of their datasets, by its name.
+	UsedBy(ctx context.Context, owner domain.UserID) (map[string][]domain.Workflow, error)
+	// Usage is what each user's datasets take, for admins; Limits, the instance's.
 	Usage(ctx context.Context) (map[domain.UserID]int64, error)
-	Limit() int64
+	Limits() datasets.Limits
 }
 
 type datasetDTO struct {
@@ -48,11 +50,31 @@ type datasetDTO struct {
 	Bytes     int64     `json:"bytes"`
 	CreatedAt time.Time `json:"createdAt" format:"date-time"`
 	UpdatedAt time.Time `json:"updatedAt" format:"date-time"`
+	// Workflows are yours whose nodes name it: deleting it switches those on off. Listing
+	// datasets, or getting one, says; other answers leave it out.
+	Workflows []datasetWorkflowDTO `json:"workflows,omitempty" validate:"optional"`
 } // @name Dataset
 
+type datasetWorkflowDTO struct {
+	ID     string `json:"id"`
+	Name   string `json:"name"`
+	Active bool   `json:"active"`
+} // @name DatasetWorkflow
+
 type datasetListDTO struct {
-	Datasets []datasetDTO `json:"datasets"`
+	Datasets []datasetDTO     `json:"datasets"`
+	Limits   datasetLimitsDTO `json:"limits"`
 } // @name DatasetList
+
+// datasetLimitsDTO are the instance's limits, for a form to offer.
+type datasetLimitsDTO struct {
+	Datasets int   `json:"datasets"` // a user's
+	Rows     int   `json:"rows"`     // a dataset's
+	RowBytes int   `json:"rowBytes"` // a row's JSON
+	Bytes    int64 `json:"bytes"`    // a user's storage
+	// KeepDays is what a dataset made for recording keeps, in days, to begin with.
+	KeepDays int `json:"keepDays"`
+} // @name DatasetLimits
 
 type createDatasetRequest struct {
 	// Name is lower-case letters, digits, - and _, up to 64; unique among yours, and fixed.
@@ -107,6 +129,16 @@ func toDatasetDTO(d domain.Dataset) datasetDTO {
 	}
 }
 
+// withWorkflows is d with the workflows naming it.
+func withWorkflows(d datasetDTO, used []domain.Workflow) datasetDTO {
+	d.Workflows = make([]datasetWorkflowDTO, len(used))
+	for i, w := range used {
+		d.Workflows[i] = datasetWorkflowDTO{ID: string(w.ID), Name: w.Name, Active: w.Active}
+	}
+
+	return d
+}
+
 func toDatasetRowDTO(r domain.DatasetRow) datasetRowDTO {
 	var row map[string]any
 	_ = json.Unmarshal(r.Row, &row)
@@ -134,9 +166,20 @@ func (s *Server) listDatasets(ctx context.Context, c *app.RequestContext) {
 		return
 	}
 
-	out := datasetListDTO{Datasets: make([]datasetDTO, len(list))}
+	used, err := s.datasets.UsedBy(ctx, p.User.ID)
+	if err != nil {
+		s.fail(ctx, c, err)
+		return
+	}
+
+	l := s.datasets.Limits()
+	out := datasetListDTO{
+		Datasets: make([]datasetDTO, len(list)),
+		Limits:   datasetLimitsDTO{Datasets: l.Datasets, Rows: l.Rows, RowBytes: l.RowBytes, Bytes: l.Bytes, KeepDays: l.KeepDays},
+	}
+
 	for i, d := range list {
-		out.Datasets[i] = toDatasetDTO(d)
+		out.Datasets[i] = withWorkflows(toDatasetDTO(d), used[d.Name])
 	}
 
 	c.JSON(http.StatusOK, out)
@@ -192,7 +235,13 @@ func (s *Server) getDataset(ctx context.Context, c *app.RequestContext) {
 		return
 	}
 
-	c.JSON(http.StatusOK, toDatasetDTO(d))
+	used, err := s.datasets.UsedBy(ctx, p.User.ID)
+	if err != nil {
+		s.fail(ctx, c, err)
+		return
+	}
+
+	c.JSON(http.StatusOK, withWorkflows(toDatasetDTO(d), used[d.Name]))
 }
 
 // setDatasetKeep changes how long and how many rows a dataset keeps.
@@ -226,7 +275,7 @@ func (s *Server) setDatasetKeep(ctx context.Context, c *app.RequestContext) {
 	c.JSON(http.StatusOK, toDatasetDTO(d))
 }
 
-// deleteDataset deletes a dataset and its rows.
+// deleteDataset deletes a dataset and its rows, and switches off your workflows naming it.
 //
 //	@Summary	Delete a dataset
 //	@ID			deleteDataset
@@ -618,7 +667,7 @@ func (s *Server) datasetUsage(ctx context.Context, c *app.RequestContext) {
 		return
 	}
 
-	out := datasetUsageDTO{Bytes: make(map[string]int64, len(usage)), Limit: s.datasets.Limit()}
+	out := datasetUsageDTO{Bytes: make(map[string]int64, len(usage)), Limit: s.datasets.Limits().Bytes}
 	for id, n := range usage {
 		out.Bytes[string(id)] = n
 	}

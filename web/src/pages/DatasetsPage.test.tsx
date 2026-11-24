@@ -16,14 +16,20 @@ const forecasts: Schemas['Dataset'] = {
   bytes: 2048,
   createdAt: '2026-11-24T12:00:00Z',
   updatedAt: '2026-11-24T12:00:00Z',
+  workflows: [
+    { id: 'wf-1', name: 'Weather bets', active: true },
+    { id: 'wf-2', name: 'Log highs', active: false },
+  ],
 }
+
+const limits = { datasets: 100, rows: 100_000, rowBytes: 16384, bytes: 104857600, keepDays: 90 }
 
 function serve(list: Schemas['Dataset'][] = [forecasts]) {
   const deleted: string[] = []
 
   server.use(
     signedIn,
-    http.get('/api/v1/datasets', () => HttpResponse.json({ datasets: list })),
+    http.get('/api/v1/datasets', () => HttpResponse.json({ datasets: list, limits })),
     http.get('/api/v1/datasets/forecasts/rows', () =>
       HttpResponse.json({
         rows: [
@@ -69,7 +75,9 @@ describe('datasets', () => {
 
     await user.click(within(row).getByRole('button', { name: 'Delete forecasts' }))
     const dialog = await screen.findByRole('alertdialog')
-    expect(within(dialog).getByText(/1,234 rows go with it/)).toBeInTheDocument()
+    expect(dialog).toHaveTextContent(
+      'Its 1,234 rows go with it, for good. “Weather bets” (on) and “Log highs” use it: those on are switched off.',
+    )
     await user.click(within(dialog).getByRole('button', { name: 'Delete' }))
 
     await waitFor(() => expect(deleted).toEqual(['forecasts']))

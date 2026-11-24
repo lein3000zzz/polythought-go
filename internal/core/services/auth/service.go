@@ -98,6 +98,7 @@ type Service struct {
 	joins     JoinNotifier                                    // optional; without it, admins are told of no request to join
 	confirm   Confirmer                                       // optional; without it, an admin's agents' work on users goes ahead at once
 	revoked   func(ctx context.Context, id domain.APITokenID) // optional; told of each token revoked
+	dataLeave func(ctx context.Context)                       // optional; told when a user may have lost datasets
 
 	instanceCaps func() (domain.LiveCaps, domain.AgentCaps) // optional; without it, any cap left to the instance's is a raise
 
@@ -140,6 +141,12 @@ func WithAccountLimiter(l ports.RateLimiter) Option {
 // WithWorkflowStopper stops a user's workflows when an admin disables them.
 func WithWorkflowStopper(w WorkflowStopper) Option {
 	return func(s *Service) { s.workflows = w }
+}
+
+// WithDataLeave is told when an admin may have kept a user from datasets: switched them off
+// for datasets, or changed their role, an admin's leave coming with the role.
+func WithDataLeave(f func(ctx context.Context)) Option {
+	return func(s *Service) { s.dataLeave = f }
 }
 
 // LiveStopper turns a user's kill switch on, cancelling their resting live orders.

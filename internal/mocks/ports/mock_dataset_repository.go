@@ -578,6 +578,80 @@ func (_c *MockDatasetRepository_List_Call) RunAndReturn(run func(ctx context.Con
 	return _c
 }
 
+// Newest provides a mock function for the type MockDatasetRepository
+func (_mock *MockDatasetRepository) Newest(ctx context.Context, id domain.DatasetID, n int) ([]domain.DatasetRow, error) {
+	ret := _mock.Called(ctx, id, n)
+
+	if len(ret) == 0 {
+		panic("no return value specified for Newest")
+	}
+
+	var r0 []domain.DatasetRow
+	var r1 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context, domain.DatasetID, int) ([]domain.DatasetRow, error)); ok {
+		return returnFunc(ctx, id, n)
+	}
+	if returnFunc, ok := ret.Get(0).(func(context.Context, domain.DatasetID, int) []domain.DatasetRow); ok {
+		r0 = returnFunc(ctx, id, n)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).([]domain.DatasetRow)
+		}
+	}
+	if returnFunc, ok := ret.Get(1).(func(context.Context, domain.DatasetID, int) error); ok {
+		r1 = returnFunc(ctx, id, n)
+	} else {
+		r1 = ret.Error(1)
+	}
+	return r0, r1
+}
+
+// MockDatasetRepository_Newest_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'Newest'
+type MockDatasetRepository_Newest_Call struct {
+	*mock.Call
+}
+
+// Newest is a helper method to define mock.On call
+//   - ctx context.Context
+//   - id domain.DatasetID
+//   - n int
+func (_e *MockDatasetRepository_Expecter) Newest(ctx any, id any, n any) *MockDatasetRepository_Newest_Call {
+	return &MockDatasetRepository_Newest_Call{Call: _e.mock.On("Newest", ctx, id, n)}
+}
+
+func (_c *MockDatasetRepository_Newest_Call) Run(run func(ctx context.Context, id domain.DatasetID, n int)) *MockDatasetRepository_Newest_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		var arg1 domain.DatasetID
+		if args[1] != nil {
+			arg1 = args[1].(domain.DatasetID)
+		}
+		var arg2 int
+		if args[2] != nil {
+			arg2 = args[2].(int)
+		}
+		run(
+			arg0,
+			arg1,
+			arg2,
+		)
+	})
+	return _c
+}
+
+func (_c *MockDatasetRepository_Newest_Call) Return(datasetRows []domain.DatasetRow, err error) *MockDatasetRepository_Newest_Call {
+	_c.Call.Return(datasetRows, err)
+	return _c
+}
+
+func (_c *MockDatasetRepository_Newest_Call) RunAndReturn(run func(ctx context.Context, id domain.DatasetID, n int) ([]domain.DatasetRow, error)) *MockDatasetRepository_Newest_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // Rows provides a mock function for the type MockDatasetRepository
 func (_mock *MockDatasetRepository) Rows(ctx context.Context, id domain.DatasetID, after int64, limit int) ([]domain.DatasetRow, error) {
 	ret := _mock.Called(ctx, id, after, limit)

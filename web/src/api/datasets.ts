@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
-import { api, call } from './client'
+import { api, call, type Schemas } from './client'
 
 const datasetKeys = {
   all: ['datasets'] as const,
@@ -26,7 +26,17 @@ export function useDatasetRows(name: string, limit = 20, enabled = true) {
   })
 }
 
-/** Deletes a dataset and its rows. */
+/** Makes a dataset. */
+export function useCreateDataset() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: (body: Schemas['CreateDatasetRequest']) => call(api.POST('/datasets', { body })),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: datasetKeys.all }),
+  })
+}
+
+/** Deletes a dataset and its rows, and switches off the workflows naming it. */
 export function useDeleteDataset() {
   const queryClient = useQueryClient()
 

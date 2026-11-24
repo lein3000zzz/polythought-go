@@ -1641,6 +1641,14 @@
                     "updatedAt": {
                         "format": "date-time",
                         "type": "string"
+                    },
+                    "workflows": {
+                        "description": "Workflows are yours whose nodes name it: deleting it switches those on off. Listing\ndatasets, or getting one, says; other answers leave it out.",
+                        "items": {
+                            "$ref": "#/components/schemas/DatasetWorkflow"
+                        },
+                        "type": "array",
+                        "uniqueItems": false
                     }
                 },
                 "required": [
@@ -1671,6 +1679,38 @@
                 ],
                 "type": "object"
             },
+            "DatasetLimits": {
+                "properties": {
+                    "bytes": {
+                        "description": "a user's storage",
+                        "type": "integer"
+                    },
+                    "datasets": {
+                        "description": "a user's",
+                        "type": "integer"
+                    },
+                    "keepDays": {
+                        "description": "KeepDays is what a dataset made for recording keeps, in days, to begin with.",
+                        "type": "integer"
+                    },
+                    "rowBytes": {
+                        "description": "a row's JSON",
+                        "type": "integer"
+                    },
+                    "rows": {
+                        "description": "a dataset's",
+                        "type": "integer"
+                    }
+                },
+                "required": [
+                    "bytes",
+                    "datasets",
+                    "keepDays",
+                    "rowBytes",
+                    "rows"
+                ],
+                "type": "object"
+            },
             "DatasetList": {
                 "properties": {
                     "datasets": {
@@ -1679,10 +1719,14 @@
                         },
                         "type": "array",
                         "uniqueItems": false
+                    },
+                    "limits": {
+                        "$ref": "#/components/schemas/DatasetLimits"
                     }
                 },
                 "required": [
-                    "datasets"
+                    "datasets",
+                    "limits"
                 ],
                 "type": "object"
             },
@@ -1782,6 +1826,25 @@
                 "required": [
                     "bytes",
                     "limit"
+                ],
+                "type": "object"
+            },
+            "DatasetWorkflow": {
+                "properties": {
+                    "active": {
+                        "type": "boolean"
+                    },
+                    "id": {
+                        "type": "string"
+                    },
+                    "name": {
+                        "type": "string"
+                    }
+                },
+                "required": [
+                    "active",
+                    "id",
+                    "name"
                 ],
                 "type": "object"
             },
@@ -4195,7 +4258,8 @@
                             "address",
                             "table",
                             "credential",
-                            "code"
+                            "code",
+                            "dataset"
                         ],
                         "type": "string"
                     },

@@ -106,14 +106,22 @@ func TestDatasets(t *testing.T) {
 		assert.Contains(t, string(w.Header().Get("Content-Disposition")), `filename="forecasts.csv"`)
 	})
 
-	t.Run("a read token reads them but writes none", func(t *testing.T) {
+	t.Run("a read token reads them, with the workflows naming each and the limits, but writes none", func(t *testing.T) {
 		ds := httpapimocks.NewMockDatasetService(t)
 		ds.EXPECT().List(mock.Anything, alice.ID).Return([]domain.Dataset{forecasts}, nil).Once()
+		ds.EXPECT().UsedBy(mock.Anything, alice.ID).Return(map[string][]domain.Workflow{
+			"forecasts": {{ID: "wf-1", Name: "Weather bets", Active: true}},
+		}, nil).Once()
+		ds.EXPECT().Limits().Return(datasets.Limits{Datasets: 100, Rows: 100_000, RowBytes: 16 << 10, Bytes: 100 << 20, KeepDays: 90}).Once()
 
 		srv := server(t, withScopes(t, domain.ScopeRead, domain.ScopeBuild), ds)
 
 		w := request{method: "GET", path: "/api/v1/datasets", headers: bearer}.do(t, srv)
 		require.Equal(t, http.StatusOK, w.Code, w.Body.String())
+		assert.JSONEq(t, `{"datasets": [{"name": "forecasts", "keyField": "city", "keepDays": 0, "keepRows": 1000, "rows": 2,
+			"bytes": 48, "createdAt": "2026-11-24T12:00:00Z", "updatedAt": "2026-11-24T12:00:00Z",
+			"workflows": [{"id": "wf-1", "name": "Weather bets", "active": true}]}],
+			"limits": {"datasets": 100, "rows": 100000, "rowBytes": 16384, "bytes": 104857600, "keepDays": 90}}`, w.Body.String())
 
 		for _, r := range []request{
 			{method: "POST", path: "/api/v1/datasets", body: `{"name": "x"}`, headers: bearer},
@@ -155,7 +163,7 @@ func TestDatasets(t *testing.T) {
 
 		ds := httpapimocks.NewMockDatasetService(t)
 		ds.EXPECT().Usage(mock.Anything).Return(map[domain.UserID]int64{"u-1": 2048}, nil).Once()
-		ds.EXPECT().Limit().Return(100 << 20).Once()
+		ds.EXPECT().Limits().Return(datasets.Limits{Bytes: 100 << 20}).Once()
 
 		w := request{method: "GET", path: "/api/v1/admin/datasets/usage", headers: cookie}.do(t, server(t, authSvc, ds))
 		require.Equal(t, http.StatusOK, w.Code, w.Body.String())

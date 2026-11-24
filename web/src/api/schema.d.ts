@@ -3349,13 +3349,31 @@ export interface components {
             rows: number;
             /** Format: date-time */
             updatedAt: string;
+            /**
+             * @description Workflows are yours whose nodes name it: deleting it switches those on off. Listing
+             *     datasets, or getting one, says; other answers leave it out.
+             */
+            workflows?: components["schemas"]["DatasetWorkflow"][];
         };
         DatasetKeepRequest: {
             keepDays: number;
             keepRows: number;
         };
+        DatasetLimits: {
+            /** @description a user's storage */
+            bytes: number;
+            /** @description a user's */
+            datasets: number;
+            /** @description KeepDays is what a dataset made for recording keeps, in days, to begin with. */
+            keepDays: number;
+            /** @description a row's JSON */
+            rowBytes: number;
+            /** @description a dataset's */
+            rows: number;
+        };
         DatasetList: {
             datasets: components["schemas"]["Dataset"][];
+            limits: components["schemas"]["DatasetLimits"];
         };
         DatasetRow: {
             /** Format: date-time */
@@ -3392,6 +3410,11 @@ export interface components {
             };
             /** @description Limit is what each may take. */
             limit: number;
+        };
+        DatasetWorkflow: {
+            active: boolean;
+            id: string;
+            name: string;
         };
         Error: {
             error: components["schemas"]["ErrorDetail"];
@@ -4297,7 +4320,7 @@ export interface components {
             /** @description Input, for a field, is the input port whose items it names; absent for main. */
             input?: string;
             /** @enum {string} */
-            kind: "string" | "number" | "decimal" | "bool" | "list" | "duration" | "wallet" | "tokens" | "address" | "table" | "credential" | "code";
+            kind: "string" | "number" | "decimal" | "bool" | "list" | "duration" | "wallet" | "tokens" | "address" | "table" | "credential" | "code" | "dataset";
             label?: string;
             /**
              * @description ModelsOf, on text, names the credential param whose key's models it suggests:

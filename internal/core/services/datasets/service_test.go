@@ -3,6 +3,7 @@ package datasets_test
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"testing"
 	"time"
 
@@ -106,11 +107,11 @@ func TestAppend(t *testing.T) {
 		repo.EXPECT().Bytes(mock.Anything, alice).Return(30, nil).Once()
 		repo.EXPECT().Append(mock.Anything, domain.DatasetID("d-1"), []ports.NewRow{
 			{Key: "NYC", At: now, Row: []byte(`{"city":"NYC","high":51}`)},
-			{Key: "7", At: now, Row: []byte(`{"city":7}`)},
+			{Key: "12345678901234567890", At: now, Row: []byte(`{"city":12345678901234567890}`)},
 		}, 0, now).Return(nil).Once()
 		repo.EXPECT().Get(mock.Anything, alice, "forecasts").Return(forecasts, nil).Once()
 
-		_, err := svc.Append(ctx, alice, "forecasts", rows(`{ "city": "NYC", "high": 51 }`, `{"city": 7}`))
+		_, err := svc.Append(ctx, alice, "forecasts", rows(`{ "city": "NYC", "high": 51 }`, `{"city": 12345678901234567890}`))
 		require.NoError(t, err)
 	})
 
@@ -123,6 +124,7 @@ func TestAppend(t *testing.T) {
 			{name: "none", rows: nil, want: "no rows"},
 			{name: "not JSON", rows: rows(`{`), want: "row 0 is not JSON"},
 			{name: "not an object", rows: rows(`[1]`), want: "row 0 is not an object"},
+			{name: "null", rows: rows(`null`), want: "row 0 is not an object"},
 			{name: "without the key", rows: rows(`{"high": 51}`), want: "row 0 has no city"},
 			{name: "over the row size", rows: rows(`{"city": "NYC", "note": "` + "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" + `"}`), want: "more than the 64 a row may be"},
 		} {
@@ -244,4 +246,167 @@ func TestLookup(t *testing.T) {
 
 	_, err = svc.Get(ctx, alice, "nope")
 	assert.ErrorContains(t, err, `you have no dataset "nope"`)
+}
+
+func TestRecord(t *testing.T) {
+	ctx := context.Background()
+
+	t.Run("each row checked alone: those refused say why, the rest go in together", func(t *testing.T) {
+		svc, repo := service(t, true)
+		repo.EXPECT().Bytes(mock.Anything, alice).Return(30, nil).Once()
+		repo.EXPECT().Append(mock.Anything, domain.DatasetID("d-1"), []ports.NewRow{
+			{Key: "NYC", At: now, Row: []byte(`{"city":"NYC"}`)},
+		}, 0, now).Return(nil).Once()
+
+		refused, err := svc.Record(ctx, forecasts, rows(`{"city": "NYC"}`, `{"high": 51}`, `null`))
+		require.NoError(t, err)
+		require.Len(t, refused, 2)
+		assert.ErrorContains(t, refused[1], "the row has no city, the dataset's key field")
+		assert.ErrorContains(t, refused[2], "the row is not an object")
+	})
+
+	t.Run("all refused, nothing goes in", func(t *testing.T) {
+		svc, _ := service(t, true)
+
+		refused, err := svc.Record(ctx, forecasts, rows(`{"high": 51}`))
+		require.NoError(t, err)
+		assert.Len(t, refused, 1)
+	})
+
+	t.Run("full, all refused at once", func(t *testing.T) {
+		svc, _ := service(t, true)
+		full := forecasts
+		full.Rows = 3
+
+		_, err := svc.Record(ctx, full, rows(`{"city": "NYC"}`))
+		require.ErrorIs(t, err, domain.ErrDatasetFull)
+	})
+}
+
+func TestNewest(t *testing.T) {
+	ctx := context.Background()
+
+	svc, repo := service(t, true)
+	repo.EXPECT().Newest(mock.Anything, domain.DatasetID("d-1"), 2).Return(nil, nil).Once()
+	repo.EXPECT().Newest(mock.Anything, domain.DatasetID("d-1"), datasets.MaxPage).Return(nil, nil).Twice()
+
+	for _, n := range []int{2, 0, datasets.MaxPage + 1} {
+		_, err := svc.Newest(ctx, forecasts, n)
+		require.NoError(t, err)
+	}
+}
+
+// flows are users' workflows, those switched off kept with why.
+type flows struct {
+	all []domain.Workflow
+	off map[domain.WorkflowID]string
+}
+
+func (f *flows) Of(_ context.Context, owner domain.UserID) ([]domain.Workflow, error) {
+	var out []domain.Workflow
+
+	for _, w := range f.all {
+		if w.OwnerID == owner {
+			out = append(out, w)
+		}
+	}
+
+	return out, nil
+}
+
+func (f *flows) Pause(_ context.Context, why func(w domain.Workflow) string) (int, error) {
+	n := 0
+
+	for _, w := range f.all {
+		if reason := why(w); w.Active && reason != "" {
+			f.off[w.ID] = reason
+			n++
+		}
+	}
+
+	return n, nil
+}
+
+// datasetParams names Record's and Read dataset's dataset settings.
+func datasetParams(typ string) []string {
+	if typ == "data.record" || typ == "data.read" {
+		return []string{"dataset"}
+	}
+
+	return nil
+}
+
+func naming(id domain.WorkflowID, owner domain.UserID, active bool, names ...string) domain.Workflow {
+	w := domain.Workflow{ID: id, OwnerID: owner, Name: string(id), Active: active, Nodes: []domain.NodeSpec{{ID: "manual", Type: "trigger.manual"}}}
+	for i, name := range names {
+		w.Nodes = append(w.Nodes, domain.NodeSpec{ID: domain.NodeID(fmt.Sprintf("n%d", i)), Type: "data.record", Params: map[string]any{"dataset": name}})
+	}
+
+	return w
+}
+
+// perUser lets the users it names use datasets.
+type perUser map[domain.UserID]bool
+
+func (g perUser) DataAllowed(_ context.Context, u domain.UserID) (bool, error) { return g[u], nil }
+
+func TestWorkflowsNamingDatasets(t *testing.T) {
+	ctx := context.Background()
+	const bob = domain.UserID("u-2")
+
+	setup := func(t *testing.T, g datasets.Gate) (*datasets.Service, *portsmocks.MockDatasetRepository, *flows) {
+		t.Helper()
+
+		repo := portsmocks.NewMockDatasetRepository(t)
+		svc := datasets.New(datasets.Deps{Repo: repo, Gate: g, Limits: limits, Now: func() time.Time { return now }})
+		f := &flows{off: map[domain.WorkflowID]string{}, all: []domain.Workflow{
+			naming("bets", alice, true, "forecasts", "forecasts"),
+			naming("log", alice, false, "forecasts", "notes"),
+			naming("plain", alice, true),
+			naming("bobs", bob, true, "forecasts"),
+		}}
+		svc.UseWorkflows(f, datasetParams)
+
+		return svc, repo, f
+	}
+
+	t.Run("the owner's workflows naming each, once each", func(t *testing.T) {
+		svc, _, _ := setup(t, gate(true))
+
+		used, err := svc.UsedBy(ctx, alice)
+		require.NoError(t, err)
+		assert.Len(t, used["forecasts"], 2)
+		assert.Equal(t, domain.WorkflowID("log"), used["notes"][0].ID)
+	})
+
+	t.Run("switched on only while its datasets are there and its owner may use them", func(t *testing.T) {
+		svc, repo, f := setup(t, gate(true))
+		repo.EXPECT().List(mock.Anything, alice).Return([]domain.Dataset{forecasts}, nil).Twice()
+
+		require.NoError(t, svc.CheckWorkflow(ctx, f.all[0]))
+		require.NoError(t, svc.CheckWorkflow(ctx, f.all[2]), "naming none, nothing to look up")
+
+		err := svc.CheckWorkflow(ctx, f.all[1])
+		require.ErrorIs(t, err, domain.ErrInvalidInput)
+		assert.ErrorContains(t, err, `node "n1" names the dataset "notes", which you do not have`)
+
+		svc, _, f = setup(t, gate(false))
+		require.ErrorIs(t, svc.CheckWorkflow(ctx, f.all[0]), domain.ErrDataOff)
+	})
+
+	t.Run("deleting one switches off the owner's workflows on naming it, saying why", func(t *testing.T) {
+		svc, repo, f := setup(t, gate(true))
+		repo.EXPECT().Get(mock.Anything, alice, "forecasts").Return(forecasts, nil).Once()
+		repo.EXPECT().Delete(mock.Anything, domain.DatasetID("d-1")).Return(nil).Once()
+
+		require.NoError(t, svc.Delete(ctx, alice, "forecasts"))
+		assert.Equal(t, map[domain.WorkflowID]string{"bets": "the dataset forecasts is deleted"}, f.off, "not bob's, nor those off")
+	})
+
+	t.Run("a user kept from datasets has their workflows naming one switched off", func(t *testing.T) {
+		svc, _, f := setup(t, perUser{bob: true})
+
+		svc.SwitchOffLost(ctx)
+		assert.Equal(t, map[domain.WorkflowID]string{"bets": "you may no longer use datasets"}, f.off)
+	})
 }

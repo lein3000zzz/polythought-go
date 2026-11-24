@@ -419,3 +419,38 @@ func agentDollars(s string) *decimal.Decimal {
 }
 
 func tokens(n int64) *int64 { return &n }
+
+// An admin keeping a user from datasets, by their switch or their role, has the workflows
+// naming one looked at, after the answer; other changes leave them be.
+func TestUpdateUserDataLeave(t *testing.T) {
+	admin := user("admin", domain.RoleAdmin)
+	target := user("target", domain.RoleUser)
+
+	role := func(r domain.Role) *domain.Role { return &r }
+	flag := func(b bool) *bool { return &b }
+
+	for _, tc := range []struct {
+		name string
+		upd  auth.UserUpdate
+		want int
+	}{
+		{name: "switched off for datasets", upd: auth.UserUpdate{DataChosen: flag(false)}, want: 1},
+		{name: "a role changed", upd: auth.UserUpdate{Role: role(domain.RoleUser)}, want: 1},
+		{name: "switched on for datasets", upd: auth.UserUpdate{DataChosen: flag(true)}},
+		{name: "switched off for code", upd: auth.UserUpdate{CodeChosen: flag(false)}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			d := newDeps(t)
+			d.users.EXPECT().LockActiveAdmins(mock.Anything).Return(1, nil).Maybe()
+			d.users.EXPECT().ByID(mock.Anything, target.ID).Return(target, nil)
+			d.users.EXPECT().Update(mock.Anything, mock.Anything).Return(nil)
+
+			told := 0
+			svc := newService(t, d, config(domain.RegistrationOpen), auth.WithDataLeave(func(context.Context) { told++ }))
+
+			_, err := svc.UpdateUser(context.Background(), sessionPrincipal(admin), target.ID, tc.upd)
+			require.NoError(t, err)
+			assert.Equal(t, tc.want, told)
+		})
+	}
+}

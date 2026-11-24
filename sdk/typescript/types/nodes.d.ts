@@ -198,6 +198,37 @@ export interface CodeTransformSettings {
     source?: string;
 }
 
+/** The settings of Read dataset (data.read). */
+export interface DataReadSettings {
+    /** The dataset read: one of yours. The name of one of your datasets. */
+    dataset: string;
+    /**
+     * By key: for each item, the row last added with its key. Every row: the dataset's rows, an item each, oldest first.
+     * @default "by key"
+     */
+    read?: "by key" | "every row" | Expression;
+    /** By key: each item's key, like {{ city }}, as the dataset's key field has it. */
+    key?: string | number | Expression;
+    /**
+     * Every row: the newest so many, up to 1,000.
+     * @default 1000
+     */
+    limit?: number | Expression;
+    /**
+     * Where the row goes on the item.
+     * @default "row"
+     */
+    field?: string;
+}
+
+/** The settings of Record (data.record). */
+export interface DataRecordSettings {
+    /** The dataset the rows go to: one of yours, or a new one. The name of one of your datasets. */
+    dataset: string;
+    /** The fields recorded, like city or outcomes.0.price, each under its name as written; none for the whole item. A field of the items it receives. */
+    fields?: string[];
+}
+
 /** The settings of HTTP request (http.request). */
 export interface HttpRequestSettings {
     /**
@@ -1365,6 +1396,20 @@ export interface NodeTypes {
     "code.transform": {
         settings: CodeTransformSettings;
         items: Json;
+        trigger: false;
+        inputs: "main";
+        outputs: "main";
+    };
+    "data.read": {
+        settings: DataReadSettings;
+        items: "received";
+        trigger: false;
+        inputs: "main";
+        outputs: "main" | "missing";
+    };
+    "data.record": {
+        settings: DataRecordSettings;
+        items: "received";
         trigger: false;
         inputs: "main";
         outputs: "main";
