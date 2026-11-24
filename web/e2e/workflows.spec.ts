@@ -14,7 +14,7 @@ test('workflows show as cards, found by their descriptions, pinned and dragged i
     await page.goto(`/workflows/${alpha}`)
     await page.getByRole('textbox', { name: 'Description' }).fill(`Finds the ${tag} needle`)
     await page.getByRole('button', { name: 'Save', exact: true }).click()
-    await expect(page.getByText('Saved')).toBeVisible()
+    await expect(page.getByText('Saved', { exact: true })).toBeVisible()
 
     await page.goto('/workflows')
     const search = page.getByRole('searchbox', { name: 'Search workflows' })

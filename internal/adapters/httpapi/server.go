@@ -150,10 +150,12 @@ type Services struct {
 	Telegram TelegramService
 	// TelegramWebhook takes updates in webhook mode; nil when there is no bot.
 	TelegramWebhook TelegramWebhook
-	Notifications   NotificationService
-	CustomNodes     CustomNodeService
-	Mail            MailService
-	Geoblock        GeoblockService
+	// Hooks is inbound webhooks (D439); nil for none.
+	Hooks         HookService
+	Notifications NotificationService
+	CustomNodes   CustomNodeService
+	Mail          MailService
+	Geoblock      GeoblockService
 	// Meta is what pages show about Polythought itself; nil: its repository alone.
 	Meta MetaService
 	// OAuth is the OAuth server agents sign in with (D397).
@@ -222,6 +224,7 @@ type Server struct {
 	models        ModelService
 	telegram      TelegramService
 	telegramHook  TelegramWebhook
+	hooks         HookService
 	notifications NotificationService
 	mail          MailService
 	geoblock      GeoblockService
@@ -312,6 +315,7 @@ func New(cfg Config, util *observability.Utility, services Services) (*Server, e
 		models:        services.Models,
 		telegram:      services.Telegram,
 		telegramHook:  services.TelegramWebhook,
+		hooks:         services.Hooks,
 		notifications: services.Notifications,
 		mail:          services.Mail,
 		geoblock:      services.Geoblock,
@@ -381,6 +385,9 @@ func (s *Server) routes() {
 	h.NoRoute(func(ctx context.Context, c *app.RequestContext) { s.fail(ctx, c, domain.ErrNotFound) })
 
 	h.GET("/healthz", s.health)
+
+	// Inbound webhooks (D439), outside the API: services call them, with the secret alone.
+	h.POST("/hooks/:secret", s.callHook)
 
 	v1 := h.Group("/api/v1")
 
@@ -523,6 +530,8 @@ func (s *Server) routes() {
 	wf.GET("/:id/holdings", s.listHoldings)
 	wf.GET("/:id/nodes/:node/memory", s.getNodeMemory)
 	wf.DELETE("/:id/nodes/:node/memory", s.forgetNodeMemory)
+	wf.GET("/:id/hooks/:node", s.hasHooks, s.getHook)
+	wf.POST("/:id/hooks/:node/renew", s.hasHooks, s.renewHook)
 	wf.GET("/:id/share", s.getSharedCopy)
 	wf.PUT("/:id/share", s.shareWorkflow)
 

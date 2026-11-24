@@ -38,6 +38,8 @@ const (
 	KeyScheduleMinInterval = "workflows.schedule_min_interval"
 	KeyMaxRunsPerHour      = "workflows.max_runs_per_hour"
 	KeyMaxHTTPRequests     = "workflows.max_http_requests"
+	KeyHooksEnabled        = "workflows.inbound_webhooks"
+	KeyHookRate            = "workflows.inbound_webhook_rate"
 	KeyFeedMaxTokens       = "workflows.feed_max_tokens"
 	KeyPnLSampleEvery      = "workflows.pnl_sample_every"
 	KeyExecutionRetention  = "executions.retention"
@@ -263,6 +265,18 @@ func Settings() (*settings.Registry, error) {
 			Description: "The most requests an HTTP request node makes in a run, one an item. The items past it fail, " +
 				"saying why.",
 			Kind: settings.KindInt, Default: 100, Check: between(1, 10_000),
+		},
+		settings.Spec{
+			Key: KeyHooksEnabled, Group: groupWorkflows, Label: "Inbound webhooks",
+			Description: "Let workflows start from a call to their Inbound webhook's secret address, /hooks/…, by any " +
+				"service on the internet. Off, those addresses answer 503 and no workflow starts from one.",
+			Kind: settings.KindBool, Default: false,
+		},
+		settings.Spec{
+			Key: KeyHookRate, Group: groupWorkflows, Label: "Calls a minute per inbound webhook",
+			Description: "The most calls one Inbound webhook takes in a minute; past it, a call is answered 429. Their " +
+				"runs count toward Runs per workflow per hour too.",
+			Kind: settings.KindInt, Default: 60, Check: between(1, 6_000),
 		},
 		settings.Spec{
 			Key: KeyFeedMaxTokens, Group: groupWorkflows, Label: "Tokens per market trigger",

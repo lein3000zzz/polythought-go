@@ -100,4 +100,6 @@ export const keys = {
   orderActors: ['workflows', 'live-orders', 'actors'],
   memory: (workflowId: string) => ['workflows', 'memory', workflowId],
   nodeMemory: (workflowId: string, nodeId: string) => ['workflows', 'memory', workflowId, nodeId],
+  hooks: (workflowId: string) => ['workflows', 'hooks', workflowId],
+  hook: (workflowId: string, nodeId: string) => ['workflows', 'hooks', workflowId, nodeId],
 } as const

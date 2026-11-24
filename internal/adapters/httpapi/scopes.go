@@ -109,9 +109,13 @@ var routeScopes = map[string]access{
 	"POST /api/v1/workflows/:id/executions/:eid/task/hand-back": browserOnly,
 	"POST /api/v1/workflows/:id/executions/:eid/task/answer":    browserOnly,
 	"DELETE /api/v1/workflows/:id/nodes/:node/memory":           need(domain.ScopeBuild),
-	"PUT /api/v1/workflows/:id/share":                           need(domain.ScopeBuild),
-	"POST /api/v1/library/:id/use":                              need(domain.ScopeBuild),
-	"DELETE /api/v1/library/:id":                                need(domain.ScopeBuild),
+	// An inbound webhook's secret address starts the workflow for whoever has it (D439):
+	// its owner's, at a browser, read and renewed.
+	"GET /api/v1/workflows/:id/hooks/:node":        browserOnly,
+	"POST /api/v1/workflows/:id/hooks/:node/renew": browserOnly,
+	"PUT /api/v1/workflows/:id/share":              need(domain.ScopeBuild),
+	"POST /api/v1/library/:id/use":                 need(domain.ScopeBuild),
+	"DELETE /api/v1/library/:id":                   need(domain.ScopeBuild),
 
 	// Trading: paper or live, which the trading service tells apart.
 	"POST /api/v1/workflows/:id/paper-account/reset":  need(domain.ScopePaper),

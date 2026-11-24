@@ -165,7 +165,12 @@ func (e *Executor) Execute(
 		return Result{}, fmt.Errorf("%w: %q (%s)", ErrNotTrigger, trigger, spec.Type)
 	}
 
-	exec := domain.NewExecution(e.newExecID(), w.ID, trigger, e.now())
+	id, given := ctx.Value(executionIDKey{}).(domain.ExecutionID)
+	if !given || id == "" {
+		id = e.newExecID()
+	}
+
+	exec := domain.NewExecution(id, w.ID, trigger, e.now())
 	exec.WorkflowVersion = w.Version
 
 	exec.By = w.ActedBy

@@ -46,6 +46,7 @@ import (
 	"github.com/lein3000zzz/polythought-go/internal/core/services/feed"
 	"github.com/lein3000zzz/polythought-go/internal/core/services/geoblock"
 	"github.com/lein3000zzz/polythought-go/internal/core/services/history"
+	"github.com/lein3000zzz/polythought-go/internal/core/services/hooks"
 	"github.com/lein3000zzz/polythought-go/internal/core/services/library"
 	"github.com/lein3000zzz/polythought-go/internal/core/services/mail"
 	"github.com/lein3000zzz/polythought-go/internal/core/services/memory"
@@ -155,6 +156,7 @@ type app struct {
 	markets         *pmadapter.Reader
 	waits           *waits.Service
 	taskAgents      *tasks.Presence // which owners have an agent taking tasks (D386)
+	hooks           *hooks.Service  // inbound webhooks (D439)
 	tasks           *tasks.Service
 	code            *code.Service
 	codeRunners     func() ports.CodeRunners
@@ -1098,6 +1100,18 @@ func (a *app) initEngine(ctx context.Context, pmc polymarket) error {
 
 	a.taskAgents = tasks.NewPresence(func() time.Duration { return a.settings.Current().Duration(config.KeyMCPTaskSeen) }, time.Now)
 
+	// Inbound webhooks (D439): each trigger's secret address and the calls to it, while an
+	// admin lets them, so many a minute a hook; an address guessing wrong secrets, 10, then
+	// one every 30 s.
+	a.hooks = hooks.New(hooks.Deps{
+		Repo: postgres.NewHooks(a.db), Workflows: postgres.NewWorkflows(a.db), Box: a.box,
+		Enabled:   func() bool { return a.settings.Current().Bool(config.KeyHooksEnabled) },
+		PerHook:   ratelimit.NewPerMinute(func() int { return a.settings.Current().Int(config.KeyHookRate) }),
+		Misses:    ratelimit.NewMemory(30*time.Second, 10),
+		PublicURL: a.cfg.PublicURL,
+		Logger:    a.util.Logger,
+	})
+
 	err = nodes.Register(a.registry, nodes.Deps{
 		Markets:      pmc.reader,
 		Events:       pmc.reader,
@@ -1109,6 +1123,7 @@ func (a *app) initEngine(ctx context.Context, pmc polymarket) error {
 		Wallets:      a.wallets,
 		Webhooks:     webhooks,
 		HTTP:         requests,
+		Hooks:        a.hooks,
 		MaxHTTPRequests: func() int {
 			return a.settings.Current().Int(config.KeyMaxHTTPRequests)
 		},

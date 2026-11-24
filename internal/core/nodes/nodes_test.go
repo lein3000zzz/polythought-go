@@ -23,6 +23,7 @@ func TestRegister(t *testing.T) {
 		OrderBooks: portsmocks.NewMockOrderBookReader(t),
 		Memory:     memoryStub{},
 		HTTP:       httpStub{},
+		Hooks:      hooksStub{},
 		Logger:     logging.Noop(),
 	}
 
@@ -49,6 +50,7 @@ func TestRegister(t *testing.T) {
 		{name: "keep fields", typ: "transform.pick"},
 		{name: "webhook", typ: "output.webhook"},
 		{name: "http request", typ: "http.request"},
+		{name: "inbound webhook", typ: "trigger.webhook", wantTrigger: true},
 		{name: "wait", typ: "logic.wait"},
 	}
 
@@ -71,11 +73,11 @@ func TestRegister(t *testing.T) {
 			Orders: ordersStub{}, Books: booksStub{}, Accounts: accountsStub{},
 			Canceller: cancellerStub{}, OrderEvents: eventsStub{},
 			Messenger: telegramStub{}, TelegramInbox: telegramStub{}, Asker: telegramStub{}, Code: codeStub{},
-			Memory: memoryStub{}, HTTP: httpStub{},
+			Memory: memoryStub{}, HTTP: httpStub{}, Hooks: hooksStub{},
 		}))
 
 		types := all.Types()
-		assert.Len(t, types, 40)
+		assert.Len(t, types, 41)
 
 		for _, typ := range types {
 			if typ.Name == "code.transform" || typ.Name == "code.aggregate" {
@@ -107,6 +109,12 @@ func (telegramStub) AskUser(context.Context, domain.UserID, ports.Question) (int
 func (telegramStub) CloseQuestion(context.Context, domain.UserID, int, string) error { return nil }
 
 func (telegramStub) Subscribe(domain.UserID, func(string) bool) (<-chan ports.TelegramInboxMessage, func()) {
+	return nil, func() {}
+}
+
+type hooksStub struct{}
+
+func (hooksStub) Listen(domain.WorkflowID, domain.NodeID) (<-chan ports.HookCall, func()) {
 	return nil, func() {}
 }
 

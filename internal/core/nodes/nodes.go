@@ -41,6 +41,7 @@ type Deps struct {
 	Credentials     ports.CredentialReader // optional: without it, nodes cannot use credentials
 	Feed            ports.MarketFeed       // optional: without it, trigger.market is not available
 	Traders         ports.TraderFeed       // optional: without it, trigger.walletActivity is not available
+	Hooks           ports.HookInbox        // optional: without it, trigger.webhook is not available
 	Memory          ports.NodeMemory       // optional: without it, Only new, Throttle and Consensus are not available
 	Logger          logging.Logger
 
@@ -145,6 +146,11 @@ func Register(r *engine.Registry, d Deps) error {
 		wallet = r.RegisterTrigger(triggers.NewWalletActivity(d.Traders, d.Logger, time.Now, d.Memory))
 	}
 
+	var hook error
+	if d.Hooks != nil {
+		hook = r.RegisterTrigger(triggers.NewWebhook(d.Hooks))
+	}
+
 	var telegramSend, telegramTrigger, telegramAsk error
 	if d.Messenger != nil {
 		telegramSend = r.RegisterNode(telegram.NewSend(d.Messenger))
@@ -197,6 +203,7 @@ func Register(r *engine.Registry, d Deps) error {
 		errors.Join(trade...),
 		market,
 		wallet,
+		hook,
 		dedupe,
 		throttle,
 		consensus,

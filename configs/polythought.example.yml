@@ -138,6 +138,17 @@ workflows:
   # Environment: POLYTHOUGHT_WORKFLOWS_MAX_HTTP_REQUESTS.
   # max_http_requests: 100
 
+  # Let workflows start from a call to their Inbound webhook's secret address,
+  # /hooks/…, by any service on the internet. Off, those addresses answer 503 and no
+  # workflow starts from one.
+  # Environment: POLYTHOUGHT_WORKFLOWS_INBOUND_WEBHOOKS.
+  # inbound_webhooks: false
+
+  # The most calls one Inbound webhook takes in a minute; past it, a call is answered
+  # 429. Their runs count toward Runs per workflow per hour too.
+  # Environment: POLYTHOUGHT_WORKFLOWS_INBOUND_WEBHOOK_RATE.
+  # inbound_webhook_rate: 60
+
   # The most outcome tokens one market trigger may watch.
   # Environment: POLYTHOUGHT_WORKFLOWS_FEED_MAX_TOKENS.
   # feed_max_tokens: 100

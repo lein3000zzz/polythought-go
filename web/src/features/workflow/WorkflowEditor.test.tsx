@@ -1577,3 +1577,92 @@ describe('workflow editor shortcuts (D420)', () => {
     await waitFor(() => expect(onCanvas('log')).toBe(true))
   })
 })
+
+describe('an Inbound webhook (D439)', () => {
+  const hookType: Schemas['NodeType'] = {
+    name: 'trigger.webhook',
+    label: 'Inbound webhook',
+    trigger: true,
+    code: false,
+    inputs: [],
+    outputs: ['main'],
+    params: [],
+  }
+  const hooked = workflow({
+    nodes: [
+      { id: 'hook', type: 'trigger.webhook', position: { x: 0, y: 0 } },
+      { id: 'log', type: 'output.log', position: { x: 300, y: 0 } },
+    ],
+    connections: [{ from: 'hook', fromPort: 'main', to: 'log', toPort: 'main' }],
+  })
+  const address = (more: Partial<Schemas['Hook']> = {}): Schemas['Hook'] => ({
+    url: 'http://localhost:3000/hooks/s3cr3t',
+    createdAt: '2026-11-24T12:00:00Z',
+    enabled: true,
+    listening: false,
+    ...more,
+  })
+
+  function serve(hook: Schemas['Hook'] | null) {
+    editing(hooked)
+    server.use(
+      http.get('/api/v1/node-types', () =>
+        HttpResponse.json({ nodeTypes: [...nodeTypes, hookType] }),
+      ),
+      http.get('/api/v1/workflows/wf-1/hooks/hook', () =>
+        hook
+          ? HttpResponse.json(hook)
+          : apiError(
+              404,
+              'not_found',
+              'not found: the saved workflow has no Inbound webhook "hook": save it first',
+            ),
+      ),
+    )
+  }
+
+  it('shows its secret address to copy, and renews it', async () => {
+    let renewed = false
+    serve(address())
+    server.use(
+      http.post('/api/v1/workflows/wf-1/hooks/hook/renew', () => {
+        renewed = true
+        return HttpResponse.json(address({ url: 'http://localhost:3000/hooks/n3w' }))
+      }),
+    )
+    const { user } = renderApp('/workflows/wf-1')
+
+    await selectNode('hook')
+    const url = await settings().findByRole('textbox', { name: 'Address' })
+    expect(url).toHaveValue('http://localhost:3000/hooks/s3cr3t')
+    expect(settings().getByRole('button', { name: 'Copy' })).toBeInTheDocument()
+    expect(settings().getByText('Switch the workflow on to take calls.')).toBeInTheDocument()
+
+    await user.click(settings().getByRole('button', { name: 'Renew the address' }))
+    const dialog = await screen.findByRole('alertdialog')
+    expect(within(dialog).getByText(/services calling it get 404/)).toBeInTheDocument()
+    await user.click(within(dialog).getByRole('button', { name: 'Renew' }))
+
+    await waitFor(() => expect(url).toHaveValue('http://localhost:3000/hooks/n3w'))
+    expect(renewed).toBe(true)
+  })
+
+  it('says when an admin keeps them off, and when the trigger is not saved yet', async () => {
+    serve(address({ enabled: false }))
+    renderApp('/workflows/wf-1')
+
+    await selectNode('hook')
+    expect(
+      await settings().findByText(/Inbound webhooks are off on this instance/),
+    ).toBeInTheDocument()
+
+    cleanup()
+    serve(null)
+    renderApp('/workflows/wf-1')
+
+    await selectNode('hook')
+    expect(
+      await settings().findByText("Save the workflow to get this trigger's address."),
+    ).toBeInTheDocument()
+  })
+})

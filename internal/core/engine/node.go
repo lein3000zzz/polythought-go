@@ -233,6 +233,14 @@ type Node interface {
 // Emit starts one execution with the trigger's output.
 type Emit func(ctx context.Context, out Ports) error
 
+type executionIDKey struct{}
+
+// WithExecutionID has the execution an emit with ctx starts take id, for a trigger that
+// tells its caller the ID before the run starts, as an inbound webhook does (D439).
+func WithExecutionID(ctx context.Context, id domain.ExecutionID) context.Context {
+	return context.WithValue(ctx, executionIDKey{}, id)
+}
+
 // Trigger starts executions: schedules, market streams, webhooks. Start blocks until ctx is done.
 type Trigger interface {
 	Type() NodeType

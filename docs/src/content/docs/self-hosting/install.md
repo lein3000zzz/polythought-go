@@ -4,8 +4,8 @@ description: Run Polythought with Docker.
 ---
 
 Polythought is three containers: PostgreSQL, the API server, and a web server (Caddy) that
-serves the app and these docs and passes `/api`, `/mcp` and the OAuth metadata under
-`/.well-known` on to the API. Docker Compose runs them together.
+serves the app and these docs and passes `/api`, `/mcp`, inbound webhooks under `/hooks`
+and the OAuth metadata under `/.well-known` on to the API. Docker Compose runs them together.
 
 ## What you need
 
@@ -229,8 +229,8 @@ Under **Agents over MCP** on the Config page:
   tokens create accounts with a password they give. Off, they invite people, by mail where
   mail is set up, else with a link, and no password passes through an agent.
 
-A proxy of your own in front of the API must pass `/mcp` and `/.well-known/oauth-*` on as
-Caddy does, and must not buffer `/mcp`'s answers, which stream.
+A proxy of your own in front of the API must pass `/mcp`, `/hooks/*` and
+`/.well-known/oauth-*` on as Caddy does, and must not buffer `/mcp`'s answers, which stream.
 
 ## Where the server runs
 

@@ -25,7 +25,7 @@ test('the docs are served beside the app, searchable, under their own CSP', asyn
   await page.getByRole('link', { name: 'Concepts' }).first().click()
   await expect(page.getByRole('heading', { name: 'Concepts', level: 1 })).toBeVisible()
   await page.getByRole('link', { name: 'All nodes' }).click()
-  await page.getByRole('link', { name: 'Webhook' }).first().click()
+  await page.getByRole('link', { name: 'Webhook', exact: true }).first().click()
   await expect(page.getByText('output.webhook')).toBeVisible()
 
   // Search runs Pagefind's WebAssembly: the console fixture fails the test if the CSP

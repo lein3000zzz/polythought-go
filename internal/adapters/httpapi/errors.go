@@ -131,6 +131,8 @@ var errorMapping = []struct {
 	{domain.ErrConflict, http.StatusConflict, "conflict"},
 	{domain.ErrNotWaiting, http.StatusConflict, "not_waiting"},
 	{domain.ErrHeld, http.StatusConflict, "held"},
+	{domain.ErrHookIdle, http.StatusConflict, "hook_idle"},
+	{domain.ErrHooksOff, http.StatusServiceUnavailable, "hooks_off"},
 	// A token's live action waiting for its user to confirm it (D406): not done yet.
 	{domain.ErrAwaitsConfirmation, http.StatusConflict, "awaits_confirmation"},
 	{domain.ErrRateLimited, http.StatusTooManyRequests, "rate_limited"},

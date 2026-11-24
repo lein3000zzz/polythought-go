@@ -1215,6 +1215,19 @@ export interface TriggerWalletActivityItem {
     at: TimeText;
 }
 
+/** The settings of Inbound webhook (trigger.webhook). */
+export type TriggerWebhookSettings = Record<string, never>;
+
+/** An item Inbound webhook (trigger.webhook) sends on. */
+export interface TriggerWebhookItem {
+    /** The call's body: what its JSON holds, read, or else its text; null for none. */
+    body: Json;
+    /** The address's query, by name: ?city=nyc is query.city; a name given more than once, a list. */
+    query: Json;
+    /** When the call came. */
+    receivedAt: TimeText;
+}
+
 /**
  * Every node type by name: its settings, and the items it sends on. "received" means
  * the items it was given, as they are; "picked", those with only the fields its
@@ -1521,6 +1534,13 @@ export interface NodeTypes {
     "trigger.walletActivity": {
         settings: TriggerWalletActivitySettings;
         items: TriggerWalletActivityItem;
+        trigger: true;
+        inputs: never;
+        outputs: "main";
+    };
+    "trigger.webhook": {
+        settings: TriggerWebhookSettings;
+        items: TriggerWebhookItem;
         trigger: true;
         inputs: never;
         outputs: "main";
