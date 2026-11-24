@@ -23,6 +23,7 @@ Each node has a page with its settings. In the editor, the node list on the left
 | Node | Type | What it does |
 |---|---|---|
 | [Balance](/docs/reference/nodes/polymarket/balance/) | `polymarket.balance` | Reads the USDC collateral balance of one of your wallets. |
+| [Event prices](/docs/reference/nodes/polymarket/event-prices/) | `polymarket.eventPrices` | Adds up the Yes prices of every outcome of an event that still takes orders: the best asks, what buying one of each costs, the best bids and the midpoints, from their order books now. |
 | [Markets](/docs/reference/nodes/polymarket/markets/) | `polymarket.markets` | Looks up markets, one item per market. |
 | [Order books](/docs/reference/nodes/polymarket/orderbook/) | `polymarket.orderbook` | Adds the current order book of each outcome to market items: best prices, spread and depth. |
 | [Open orders](/docs/reference/nodes/polymarket/orders/) | `polymarket.orders` | Lists the open orders of one of your wallets. |

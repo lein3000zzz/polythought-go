@@ -438,6 +438,17 @@ export interface PolymarketBalanceItem {
     at: TimeText;
 }
 
+/** The settings of Event prices (polymarket.eventPrices). */
+export interface PolymarketEventPricesSettings {
+    /** Its link, like https://polymarket.com/event/…, its slug or its ID; from a market, {{ eventSlug }}. */
+    event: string;
+    /**
+     * Where the sums go on the item.
+     * @default "prices"
+     */
+    field?: string;
+}
+
 /** The settings of Markets (polymarket.markets). */
 export interface PolymarketMarketsSettings {
     /**
@@ -477,6 +488,10 @@ export interface PolymarketMarketsItem {
     volume24h: DecimalText;
     /** Dollars on its order books. */
     liquidity: DecimalText;
+    /** When Polymarket listed it. */
+    createdAt: TimeText;
+    /** When it opens, as Polymarket has it. */
+    startsAt: TimeText;
     /** When it is expected to settle. */
     endsAt: TimeText;
     /** What it can settle as, such as Yes and No. */
@@ -682,6 +697,10 @@ export interface PolymarketSearchItem {
     volume24h: DecimalText;
     /** Dollars on its order books. */
     liquidity: DecimalText;
+    /** When Polymarket listed it. */
+    createdAt: TimeText;
+    /** When it opens, as Polymarket has it. */
+    startsAt: TimeText;
     /** When it is expected to settle. */
     endsAt: TimeText;
     /** What it can settle as, such as Yes and No. */
@@ -1309,6 +1328,13 @@ export interface NodeTypes {
         inputs: "main";
         outputs: "main";
     };
+    "polymarket.eventPrices": {
+        settings: PolymarketEventPricesSettings;
+        items: "received";
+        trigger: false;
+        inputs: "main";
+        outputs: "main";
+    };
     "polymarket.markets": {
         settings: PolymarketMarketsSettings;
         items: PolymarketMarketsItem;
@@ -1569,6 +1595,10 @@ export interface Market {
     minOrderSize: string;
     volume24h: string;
     liquidity: string;
+    /** When Polymarket listed it, RFC 3339 text. */
+    createdAt: string;
+    /** When it opens, as Polymarket has it, RFC 3339 text. */
+    startsAt: string;
     /** RFC 3339 text. */
     endsAt: string;
     outcomes: Outcome[];

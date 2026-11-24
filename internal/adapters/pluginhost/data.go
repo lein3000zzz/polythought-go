@@ -74,6 +74,7 @@ func marketOf(f markets.Found) *pluginv1.Market {
 		Id: string(m.ID), Slug: m.Slug, Question: m.Question, Description: m.Description, Status: string(m.Status),
 		AcceptingOrders: m.AcceptingOrders, NegRisk: m.NegRisk, TickSize: text(m.TickSize), MinOrderSize: text(m.MinOrderSize),
 		Volume_24H: text(m.Volume24h), Liquidity: text(m.Liquidity), EndsAt: timeText(m.EndsAt), Tags: m.Tags,
+		CreatedAt: timeText(m.CreatedAt), StartsAt: timeText(m.StartsAt),
 		Event: f.Event.Title, EventSlug: f.Event.Slug,
 	}
 

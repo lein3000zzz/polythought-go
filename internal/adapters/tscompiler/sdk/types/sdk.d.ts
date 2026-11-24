@@ -89,6 +89,10 @@ export interface Market {
     minOrderSize: string;
     volume24h: string;
     liquidity: string;
+    /** When Polymarket listed it, RFC 3339 text. */
+    createdAt: string;
+    /** When it opens, as Polymarket has it, RFC 3339 text. */
+    startsAt: string;
     /** RFC 3339 text. */
     endsAt: string;
     outcomes: Outcome[];

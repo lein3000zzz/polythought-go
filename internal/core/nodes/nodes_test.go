@@ -73,7 +73,7 @@ func TestRegister(t *testing.T) {
 		}))
 
 		types := all.Types()
-		assert.Len(t, types, 38)
+		assert.Len(t, types, 39)
 
 		for _, typ := range types {
 			if typ.Name == "code.transform" || typ.Name == "code.aggregate" {

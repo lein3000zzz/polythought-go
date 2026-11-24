@@ -27,6 +27,8 @@ func toMarket(m pm.Market) domain.Market {
 		MinOrderSize:    m.OrderMinSize,
 		Volume24h:       m.Volume24hr,
 		Liquidity:       m.LiquidityNum,
+		CreatedAt:       parseTime(m.CreatedAt),
+		StartsAt:        parseTime(m.StartDate),
 		EndsAt:          parseTime(m.EndDate),
 		Tags:            tagLabels(m.Tags),
 	}
