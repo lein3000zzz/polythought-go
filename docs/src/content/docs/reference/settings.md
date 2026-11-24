@@ -985,6 +985,32 @@ Ask GitHub about once an hour how many stars Polythought's repository has, to sh
 | Default | `true` |
 | Applies | at once |
 
+## Weather
+
+### Open-Meteo key
+
+A key for Open-Meteo's customer API, which the Weather forecast node then calls. Its free API, used without one, is for non-commercial use only: an instance used commercially needs a subscription. Empty for the free API.
+
+| | |
+|---|---|
+| Key | `weather.open_meteo_key` |
+| Environment variable | `POLYTHOUGHT_OPEN_METEO_KEY` |
+| Kind | text, secret: stored encrypted and never shown |
+| Default | empty |
+| Applies | at once |
+
+### Forecasts kept for
+
+How long a forecast is kept before it is asked for again: every workflow asking for the same place and models within it shares one answer. Models update every few hours.
+
+| | |
+|---|---|
+| Key | `weather.forecast_for` |
+| Environment variable | `POLYTHOUGHT_WEATHER_FORECAST_FOR` |
+| Kind | duration, e.g. `30s`, `5m`, `168h` |
+| Default | `10m` |
+| Applies | at once |
+
 ## Updates
 
 ### Check for updates

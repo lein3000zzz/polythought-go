@@ -1123,6 +1123,8 @@ export interface TriggerScheduleSettings {
      * @default "UTC"
      */
     zone?: string;
+    /** With at: a city Polymarket lists temperature markets for, whose time zone it takes in place of Time zone (D441). */
+    city?: "Amsterdam" | "Ankara" | "Atlanta" | "Austin" | "Beijing" | "Buenos Aires" | "Busan" | "Cape Town" | "Chengdu" | "Chicago" | "Chongqing" | "Dallas" | "Denver" | "Guangzhou" | "Helsinki" | "Hong Kong" | "Houston" | "Istanbul" | "Jeddah" | "Jinan" | "Karachi" | "Kuala Lumpur" | "London" | "Los Angeles" | "Lucknow" | "Madrid" | "Manila" | "Mexico City" | "Miami" | "Milan" | "Moscow" | "Munich" | "NYC" | "Panama City" | "Paris" | "Qingdao" | "San Francisco" | "Sao Paulo" | "Seattle" | "Seoul (Incheon)" | "Shanghai" | "Shenzhen" | "Singapore" | "Taipei" | "Tel Aviv" | "Tokyo" | "Toronto" | "Warsaw" | "Wellington" | "Wuhan" | "Zhengzhou";
     /**
      * When Polythought was down as a run fell due, run once as it starts again, for the latest time missed; its item says missed: true. With every, only when Run on start is off.
      * @default false
@@ -1259,6 +1261,61 @@ export interface TriggerWebhookItem {
     query: Json;
     /** When the call came. */
     receivedAt: TimeText;
+}
+
+/** The settings of Airport reading (weather.airport). */
+export interface WeatherAirportSettings {
+    /** One of the cities Polymarket lists temperature markets for: the station its markets resolve by, its time zone and its unit. Or the place by hand, below. */
+    city?: "Amsterdam" | "Ankara" | "Atlanta" | "Austin" | "Beijing" | "Buenos Aires" | "Busan" | "Cape Town" | "Chengdu" | "Chicago" | "Chongqing" | "Dallas" | "Denver" | "Guangzhou" | "Helsinki" | "Hong Kong" | "Houston" | "Istanbul" | "Jeddah" | "Jinan" | "Karachi" | "Kuala Lumpur" | "London" | "Los Angeles" | "Lucknow" | "Madrid" | "Manila" | "Mexico City" | "Miami" | "Milan" | "Moscow" | "Munich" | "NYC" | "Panama City" | "Paris" | "Qingdao" | "San Francisco" | "Sao Paulo" | "Seattle" | "Seoul (Incheon)" | "Shanghai" | "Shenzhen" | "Singapore" | "Taipei" | "Tel Aviv" | "Tokyo" | "Toronto" | "Warsaw" | "Wellington" | "Wuhan" | "Zhengzhou" | Expression;
+    /** Without a city, or in place of its own: an airport's ICAO code, like KLGA or EGLC. */
+    station?: string;
+    /** Whose day is today, for a station by hand: like America/Chicago; empty for the city's, or UTC. */
+    zone?: string;
+    /**
+     * city: the unit its markets are in, °F in the US, °C elsewhere and by hand. F or C: that one.
+     * @default "city"
+     */
+    unit?: "city" | "F" | "C" | Expression;
+    /**
+     * Where the reading goes on the item.
+     * @default "airport"
+     */
+    field?: string;
+}
+
+/** The settings of Weather forecast (weather.forecast). */
+export interface WeatherForecastSettings {
+    /** One of the cities Polymarket lists temperature markets for: the station its markets resolve by, its time zone and its unit. Or the place by hand, below. */
+    city?: "Amsterdam" | "Ankara" | "Atlanta" | "Austin" | "Beijing" | "Buenos Aires" | "Busan" | "Cape Town" | "Chengdu" | "Chicago" | "Chongqing" | "Dallas" | "Denver" | "Guangzhou" | "Helsinki" | "Hong Kong" | "Houston" | "Istanbul" | "Jeddah" | "Jinan" | "Karachi" | "Kuala Lumpur" | "London" | "Los Angeles" | "Lucknow" | "Madrid" | "Manila" | "Mexico City" | "Miami" | "Milan" | "Moscow" | "Munich" | "NYC" | "Panama City" | "Paris" | "Qingdao" | "San Francisco" | "Sao Paulo" | "Seattle" | "Seoul (Incheon)" | "Shanghai" | "Shenzhen" | "Singapore" | "Taipei" | "Tel Aviv" | "Tokyo" | "Toronto" | "Warsaw" | "Wellington" | "Wuhan" | "Zhengzhou" | Expression;
+    /** Without a city: the place's, like 40.7794. */
+    latitude?: DecimalText | number | Expression;
+    /** Without a city: the place's, like -73.8803. */
+    longitude?: DecimalText | number | Expression;
+    /**
+     * The weather models, side by side: GFS, ECMWF, ICON and more; best is Open-Meteo's own blend. nbm and hrrr cover the US only.
+     * @default ["gfs","ecmwf","icon"]
+     */
+    models?: ("gfs" | "ecmwf" | "icon" | "ecmwf_hres" | "aifs" | "gem" | "jma" | "ukmo" | "meteofrance" | "metno" | "knmi" | "dmi" | "cma" | "nbm" | "hrrr" | "best")[] | Expression;
+    /**
+     * How many days, today first: 1 to 16.
+     * @default 3
+     */
+    days?: number | Expression;
+    /**
+     * Also each hour's temperatures.
+     * @default false
+     */
+    hourly?: boolean | Expression;
+    /**
+     * city: the unit its markets are in, °F in the US, °C elsewhere and by hand. F or C: that one.
+     * @default "city"
+     */
+    unit?: "city" | "F" | "C" | Expression;
+    /**
+     * Where the forecast goes on the item.
+     * @default "forecast"
+     */
+    field?: string;
 }
 
 /**
@@ -1576,6 +1633,20 @@ export interface NodeTypes {
         items: TriggerWebhookItem;
         trigger: true;
         inputs: never;
+        outputs: "main";
+    };
+    "weather.airport": {
+        settings: WeatherAirportSettings;
+        items: "received";
+        trigger: false;
+        inputs: "main";
+        outputs: "main";
+    };
+    "weather.forecast": {
+        settings: WeatherForecastSettings;
+        items: "received";
+        trigger: false;
+        inputs: "main";
         outputs: "main";
     };
 }

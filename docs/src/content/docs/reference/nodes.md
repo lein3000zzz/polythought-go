@@ -39,6 +39,13 @@ Each node has a page with its settings. In the editor, the node list on the left
 |---|---|---|
 | [HTTP request](/docs/reference/nodes/http/request/) | `http.request` | Asks any web API for data, or sends it some: a GET, POST, PUT, PATCH or DELETE, the answer put on each item, JSON read as such. |
 
+## Weather
+
+| Node | Type | What it does |
+|---|---|---|
+| [Airport reading](/docs/reference/nodes/weather/airport/) | `weather.airport` | Puts an airport's latest observation on each item, its METAR from aviationweather.gov, with the day's high and low so far as the temperature markets count them: routine reports only, in the local day. |
+| [Weather forecast](/docs/reference/nodes/weather/forecast/) | `weather.forecast` | Puts a forecast on each item: the daily highs and lows of several weather models side by side, from Open-Meteo, for a city Polymarket lists temperature markets for or any place. |
+
 ## Logic
 
 | Node | Type | What it does |

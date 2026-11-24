@@ -4,9 +4,11 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/lein3000zzz/polythought-go/internal/core/engine"
+	"github.com/lein3000zzz/polythought-go/internal/core/nodes/cities"
 	"github.com/lein3000zzz/polythought-go/internal/core/nodes/shape"
 	"github.com/lein3000zzz/polythought-go/internal/core/nodes/zones"
 	"github.com/lein3000zzz/polythought-go/internal/core/ports"
@@ -97,6 +99,11 @@ func (*Schedule) Type() engine.NodeType {
 				Name: "zone", Label: "Time zone", Kind: engine.ParamString, Default: "UTC", Check: zones.Check,
 				Description: "With at: whose clock the times are, as the IANA database names it, e.g. America/Chicago or " +
 					"Europe/London. Daylight saving is followed.",
+			},
+			{
+				Name: "city", Label: "City's time zone", Kind: engine.ParamString, Options: cities.Names(),
+				Description: "With at: a city Polymarket lists temperature markets for, whose time zone it takes in place " +
+					"of Time zone (D441).",
 			},
 			{
 				Name: "catchUp", Label: "Make up a missed run", Kind: engine.ParamBool, Default: false,
@@ -212,6 +219,19 @@ func (sp *schedulePlan) readTimes(p engine.Params) error {
 	if p["zone"] != nil {
 		if zone, err = p.String("zone"); err != nil {
 			return err
+		}
+	}
+
+	if p["city"] != nil {
+		name, err := p.String("city")
+		if err != nil {
+			return err
+		}
+
+		if c, ok := cities.Find(name); ok {
+			zone = c.Zone
+		} else if strings.TrimSpace(name) != "" {
+			return fmt.Errorf("%w %q: %q is not one of the cities", engine.ErrInvalidParam, "city", name)
 		}
 	}
 
